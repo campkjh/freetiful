@@ -1,0 +1,1013 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  general
+  pro
+  business
+  admin
+}
+
+enum AuthProvider {
+  kakao
+  google
+  apple
+  naver
+  email
+}
+
+enum ProStatus {
+  draft
+  pending
+  approved
+  rejected
+  suspended
+}
+
+enum BusinessStatus {
+  draft
+  pending
+  approved
+  rejected
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+  escrowed
+  settled
+}
+
+enum QuotationStatus {
+  pending
+  accepted
+  paid
+  cancelled
+  refunded
+  expired
+}
+
+enum MessageType {
+  text
+  image
+  file
+  location
+  link
+  sticker
+  system
+}
+
+enum MatchRequestType {
+  multi
+  single
+}
+
+enum MatchRequestStatus {
+  open
+  matched
+  cancelled
+  expired
+}
+
+enum PuddingTransactionType {
+  earn
+  reset
+  admin_grant
+  admin_deduct
+}
+
+enum PuddingReason {
+  quote_reply_single
+  quote_reply_multi
+  successful_match
+  perfect_review
+  info_registered
+  referral_joined
+}
+
+enum NotificationType {
+  chat
+  booking
+  payment
+  review
+  system
+  marketing
+}
+
+enum ScheduleStatus {
+  available
+  unavailable
+  booked
+  pending
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(uuid())
+  role            UserRole  @default(general)
+  name            String
+  phone           String?   @unique
+  email           String?   @unique
+  emailVerified   Boolean   @default(false)
+  profileImageUrl String?
+  isActive        Boolean   @default(true)
+  isBanned        Boolean   @default(false)
+  banReason       String?
+  referralCode    String    @unique
+  referredByUserId String?
+  pointBalance    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  referredBy      User?     @relation("Referrals", fields: [referredByUserId], references: [id])
+  referrals       User[]    @relation("Referrals")
+
+  authProviders      AuthProviderRecord[]
+  termsAgreements    TermsAgreement[]
+  sessions           Session[]
+  proProfile         ProProfile?
+  businessProfile    BusinessProfile?
+  sentMessages       Message[]
+  notifications      Notification[]
+  pushTokens         PushToken[]
+  notificationSettings NotificationSettings?
+  favorites          Favorite[]
+  pointTransactions  PointTransaction[]
+  userCoupons        UserCoupon[]
+  refundAccount      RefundAccount?
+  matchRequests      MatchRequest[]
+  reviews            Review[]
+  reports            Report[]             @relation("Reporter")
+  chatRoomMembers    ChatRoomMember[]
+  chatRooms          ChatRoom[]
+  scheduledMessages  ScheduledMessage[] @relation("ScheduledMessages")
+  frequentMessages   FrequentMessage[]
+
+  @@map("users")
+}
+
+model AuthProviderRecord {
+  id             String       @id @default(uuid())
+  userId         String
+  provider       AuthProvider
+  providerUserId String
+  providerEmail  String?
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  createdAt      DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("auth_providers")
+}
+
+model TermsAgreement {
+  id                    String   @id @default(uuid())
+  userId                String
+  privacyPolicy         Boolean
+  personalDataCollection Boolean
+  thirdPartySharing     Boolean
+  marketingConsent      Boolean  @default(false)
+  partnerTerms          Boolean
+  agreedAt              DateTime @default(now())
+  ipAddress             String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("terms_agreements")
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  userId           String
+  refreshTokenHash String   @unique
+  deviceInfo       Json?
+  ipAddress        String?
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ─── Reference Data ──────────────────────────────────────────────────────────
+
+model Category {
+  id           String   @id @default(uuid())
+  type         String   // 'pro' | 'business'
+  name         String
+  nameEn       String?
+  iconUrl      String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  parentId     String?
+  createdAt    DateTime @default(now())
+
+  parent          Category?       @relation("SubCategories", fields: [parentId], references: [id])
+  subCategories   Category[]      @relation("SubCategories")
+  eventCategories EventCategory[]
+  styleOptions    StyleOption[]
+  proCategories   ProCategory[]
+  businessCategories BusinessCategory[]
+  matchRequests   MatchRequest[]
+
+  @@map("categories")
+}
+
+model EventCategory {
+  id           String   @id @default(uuid())
+  categoryId   String
+  name         String
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  category           Category            @relation(fields: [categoryId], references: [id])
+  proEventCategories ProEventCategory[]
+  matchRequests      MatchRequest[]
+
+  @@map("event_categories")
+}
+
+model Region {
+  id           String   @id @default(uuid())
+  name         String
+  nameEn       String?
+  isNationwide Boolean  @default(false)
+  displayOrder Int      @default(0)
+
+  proRegions ProRegion[]
+
+  @@map("regions")
+}
+
+model StyleOption {
+  id           String   @id @default(uuid())
+  categoryId   String
+  name         String
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  category            Category             @relation(fields: [categoryId], references: [id])
+  matchRequestStyles  MatchRequestStyle[]
+
+  @@map("style_options")
+}
+
+model PersonalityOption {
+  id           String   @id @default(uuid())
+  name         String
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  matchRequestPersonalities MatchRequestPersonality[]
+
+  @@map("personality_options")
+}
+
+model Company {
+  id           String   @id @default(uuid())
+  name         String
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  proCompanyExperiences ProCompanyExperience[]
+
+  @@map("companies")
+}
+
+// ─── Pro Profiles ────────────────────────────────────────────────────────────
+
+model ProProfile {
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  status         ProStatus @default(draft)
+  gender         String?
+  shortIntro     String?
+  mainExperience String?
+  careerYears    Int?
+  awards         String?
+  detailHtml     String?
+  youtubeUrl     String?
+  isNationwide   Boolean   @default(false)
+  puddingCount   Int       @default(0)
+  puddingRank    Int?
+  profileViews   Int       @default(0)
+  responseRate   Decimal?  @db.Decimal(5, 2)
+  avgRating      Decimal   @default(0) @db.Decimal(3, 2)
+  reviewCount    Int       @default(0)
+  isFeatured     Boolean   @default(false)
+  showPartnersLogo Boolean  @default(false)
+  rejectionReason String?
+  approvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories            ProCategory[]
+  eventCategories       ProEventCategory[]
+  regions               ProRegion[]
+  images                ProProfileImage[]
+  languages             ProLanguage[]
+  companyExperiences    ProCompanyExperience[]
+  services              ProService[]
+  faqs                  ProFaq[]
+  schedules             ProSchedule[]
+  matchDeliveries       MatchDelivery[]
+  quotations            Quotation[]
+  reviews               Review[]
+  puddingTransactions   PuddingTransaction[]
+  puddingRankings       PuddingRanking[]
+  chatRooms             ChatRoom[]
+
+  @@map("pro_profiles")
+}
+
+model ProCategory {
+  proProfileId String
+  categoryId   String
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  category   Category   @relation(fields: [categoryId], references: [id])
+
+  @@id([proProfileId, categoryId])
+  @@map("pro_categories")
+}
+
+model ProEventCategory {
+  proProfileId    String
+  eventCategoryId String
+
+  proProfile    ProProfile    @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  eventCategory EventCategory @relation(fields: [eventCategoryId], references: [id])
+
+  @@id([proProfileId, eventCategoryId])
+  @@map("pro_event_categories")
+}
+
+model ProRegion {
+  proProfileId String
+  regionId     String
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  region     Region     @relation(fields: [regionId], references: [id])
+
+  @@id([proProfileId, regionId])
+  @@map("pro_regions")
+}
+
+model ProProfileImage {
+  id           String   @id @default(uuid())
+  proProfileId String
+  imageUrl     String
+  originalUrl  String?
+  displayOrder Int
+  hasFace      Boolean  @default(true)
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  @@map("pro_profile_images")
+}
+
+model ProLanguage {
+  proProfileId String
+  languageCode String
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  @@id([proProfileId, languageCode])
+  @@map("pro_languages")
+}
+
+model ProCompanyExperience {
+  proProfileId String
+  companyId    String
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  company    Company    @relation(fields: [companyId], references: [id])
+
+  @@id([proProfileId, companyId])
+  @@map("pro_company_experiences")
+}
+
+model ProService {
+  id           String   @id @default(uuid())
+  proProfileId String
+  title        String
+  description  String?
+  basePrice    Int?
+  priceUnit    String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  @@map("pro_services")
+}
+
+model ProFaq {
+  id           String @id @default(uuid())
+  proProfileId String
+  question     String
+  answer       String
+  displayOrder Int    @default(0)
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  @@map("pro_faqs")
+}
+
+model ProSchedule {
+  id           String         @id @default(uuid())
+  proProfileId String
+  date         DateTime       @db.Date
+  status       ScheduleStatus @default(available)
+  paymentId    String?
+  source       String         @default("manual")
+  note         String?
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  payment    Payment?   @relation(fields: [paymentId], references: [id])
+
+  @@unique([proProfileId, date])
+  @@map("pro_schedules")
+}
+
+// ─── Business Profiles ───────────────────────────────────────────────────────
+
+model BusinessProfile {
+  id                 String         @id @default(uuid())
+  userId             String         @unique
+  status             BusinessStatus @default(draft)
+  businessName       String
+  registrationNumber String?        @unique
+  businessType       String?
+  address            String?
+  addressDetail      String?
+  lat                Decimal?       @db.Decimal(10, 8)
+  lng                Decimal?       @db.Decimal(11, 8)
+  phone              String?
+  descriptionHtml    String?
+  instagramUrl       String?
+  websiteUrl         String?
+  videoUrl           String?
+  profileViews       Int            @default(0)
+  approvedAt         DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories BusinessCategory[]
+  images     BusinessImage[]
+
+  @@map("business_profiles")
+}
+
+model BusinessCategory {
+  businessProfileId String
+  categoryId        String
+
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  category        Category        @relation(fields: [categoryId], references: [id])
+
+  @@id([businessProfileId, categoryId])
+  @@map("business_categories")
+}
+
+model BusinessImage {
+  id                String   @id @default(uuid())
+  businessProfileId String
+  imageUrl          String
+  displayOrder      Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  businessProfile BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  @@map("business_images")
+}
+
+// ─── Match Requests ───────────────────────────────────────────────────────────
+
+model MatchRequest {
+  id                  String             @id @default(uuid())
+  userId              String
+  type                MatchRequestType
+  categoryId          String
+  eventCategoryId     String?
+  eventDate           DateTime?          @db.Date
+  eventTime           DateTime?          @db.Time
+  eventLocation       String?
+  budgetMin           Int?
+  budgetMax           Int?
+  aiGeneratedMessage  String?
+  rawUserInput        Json?
+  status              MatchRequestStatus @default(open)
+  expiresAt           DateTime?
+  createdAt           DateTime           @default(now())
+
+  user          User                      @relation(fields: [userId], references: [id])
+  category      Category                  @relation(fields: [categoryId], references: [id])
+  eventCategory EventCategory?            @relation(fields: [eventCategoryId], references: [id])
+  styles        MatchRequestStyle[]
+  personalities MatchRequestPersonality[]
+  deliveries    MatchDelivery[]
+  chatRooms     ChatRoom[]
+
+  @@map("match_requests")
+}
+
+model MatchRequestStyle {
+  matchRequestId String
+  styleOptionId  String
+
+  matchRequest MatchRequest @relation(fields: [matchRequestId], references: [id], onDelete: Cascade)
+  styleOption  StyleOption  @relation(fields: [styleOptionId], references: [id])
+
+  @@id([matchRequestId, styleOptionId])
+  @@map("match_request_styles")
+}
+
+model MatchRequestPersonality {
+  matchRequestId      String
+  personalityOptionId String
+
+  matchRequest      MatchRequest      @relation(fields: [matchRequestId], references: [id], onDelete: Cascade)
+  personalityOption PersonalityOption @relation(fields: [personalityOptionId], references: [id])
+
+  @@id([matchRequestId, personalityOptionId])
+  @@map("match_request_personalities")
+}
+
+model MatchDelivery {
+  id             String   @id @default(uuid())
+  matchRequestId String
+  proProfileId   String
+  status         String   @default("pending") // pending|viewed|replied|declined|expired
+  deliveredAt    DateTime @default(now())
+  viewedAt       DateTime?
+  repliedAt      DateTime?
+
+  matchRequest MatchRequest @relation(fields: [matchRequestId], references: [id], onDelete: Cascade)
+  proProfile   ProProfile   @relation(fields: [proProfileId], references: [id])
+
+  @@map("match_deliveries")
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+model ChatRoom {
+  id              String    @id @default(uuid())
+  userId          String
+  proProfileId    String
+  matchRequestId  String?
+  lastMessageId   String?
+  lastMessageAt   DateTime?
+  userDeletedAt   DateTime?
+  proDeletedAt    DateTime?
+  createdAt       DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  proProfile   ProProfile    @relation(fields: [proProfileId], references: [id])
+  matchRequest MatchRequest? @relation(fields: [matchRequestId], references: [id])
+  messages          Message[]
+  members           ChatRoomMember[]
+  quotations        Quotation[]
+  scheduledMessages ScheduledMessage[]
+
+  @@map("chat_rooms")
+}
+
+model ChatRoomMember {
+  roomId      String
+  userId      String
+  isFavorited Boolean  @default(false)
+  lastReadAt  DateTime?
+  unreadCount Int      @default(0)
+
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id])
+
+  @@id([roomId, userId])
+  @@map("chat_room_members")
+}
+
+model Message {
+  id            String      @id @default(uuid())
+  roomId        String
+  senderId      String
+  type          MessageType
+  content       String?
+  metadata      Json?
+  replyToId     String?
+  isEdited      Boolean     @default(false)
+  editedAt      DateTime?
+  isDeleted     Boolean     @default(false)
+  deletedAt     DateTime?
+  mediaExpiresAt DateTime?
+  createdAt     DateTime    @default(now())
+
+  room      ChatRoom          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender    User              @relation(fields: [senderId], references: [id])
+  replyTo   Message?          @relation("Replies", fields: [replyToId], references: [id])
+  replies   Message[]         @relation("Replies")
+  reads     MessageRead[]
+  reactions MessageReaction[]
+
+  @@index([roomId, createdAt])
+  @@map("messages")
+}
+
+model MessageRead {
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@map("message_reads")
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@map("message_reactions")
+}
+
+model ScheduledMessage {
+  id          String      @id @default(uuid())
+  roomId      String
+  senderId    String
+  type        MessageType @default(text)
+  content     String?
+  metadata    Json?
+  scheduledAt DateTime
+  isSent      Boolean     @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime    @default(now())
+
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User     @relation("ScheduledMessages", fields: [senderId], references: [id])
+
+  @@index([scheduledAt, isSent])
+  @@map("scheduled_messages")
+}
+
+model FrequentMessage {
+  id           String   @id @default(uuid())
+  userId       String
+  content      String
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("frequent_messages")
+}
+
+// ─── Quotation & Payment ─────────────────────────────────────────────────────
+
+model Quotation {
+  id             String          @id @default(uuid())
+  proProfileId   String
+  userId         String
+  chatRoomId     String?
+  matchDeliveryId String?
+  amount         Int
+  title          String?
+  description    String?
+  eventDate      DateTime?       @db.Date
+  eventTime      DateTime?       @db.Time
+  eventLocation  String?
+  validUntil     DateTime?
+  status         QuotationStatus @default(pending)
+  paymentId      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id])
+  chatRoom   ChatRoom?  @relation(fields: [chatRoomId], references: [id])
+  payment    Payment?   @relation(fields: [paymentId], references: [id])
+
+  @@map("quotations")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String
+  proProfileId    String
+  quotationId     String?
+  amount          Int
+  platformFee     Int?
+  platformFeeRate Decimal?      @db.Decimal(5, 2)
+  netAmount       Int?
+  currency        String        @default("KRW")
+  method          String?
+  pgProvider      String?
+  pgTransactionId String?       @unique
+  status          PaymentStatus @default(pending)
+  escrowReleasedAt DateTime?
+  settledAt       DateTime?
+  refundAmount    Int?
+  refundReason    String?
+  refundedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  quotations   Quotation[]
+  schedules    ProSchedule[]
+  review       Review?
+
+  @@map("payments")
+}
+
+model RefundAccount {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  bankCode      String
+  accountNumber String
+  accountHolder String
+  isVerified    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refund_accounts")
+}
+
+// ─── Reviews ─────────────────────────────────────────────────────────────────
+
+model Review {
+  id                  String   @id @default(uuid())
+  paymentId           String   @unique
+  reviewerId          String
+  proProfileId        String
+  ratingSatisfaction  Int
+  ratingComposition   Int
+  ratingExperience    Int
+  ratingAppearance    Int
+  ratingVoice         Int
+  ratingWit           Int
+  avgRating           Decimal  @db.Decimal(3, 2)
+  comment             String?
+  isAnonymous         Boolean  @default(false)
+  isVisible           Boolean  @default(true)
+  adminCreated        Boolean  @default(false)
+  proReply            String?
+  proRepliedAt        DateTime?
+  createdAt           DateTime @default(now())
+
+  payment    Payment    @relation(fields: [paymentId], references: [id])
+  reviewer   User       @relation(fields: [reviewerId], references: [id])
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id])
+  reports    ReviewReport[]
+
+  @@map("reviews")
+}
+
+model ReviewReport {
+  id          String   @id @default(uuid())
+  reviewId    String
+  reporterId  String
+  reason      String
+  description String?
+  status      String   @default("pending")
+  resolvedBy  String?
+  createdAt   DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_reports")
+}
+
+// ─── Pudding ──────────────────────────────────────────────────────────────────
+
+model PuddingTransaction {
+  id           String                 @id @default(uuid())
+  proProfileId String
+  type         PuddingTransactionType
+  amount       Int
+  reason       PuddingReason?
+  referenceId  String?
+  balanceAfter Int
+  note         String?
+  createdAt    DateTime               @default(now())
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  @@index([proProfileId, createdAt])
+  @@map("pudding_transactions")
+}
+
+model PuddingRanking {
+  id           String   @id @default(uuid())
+  proProfileId String
+  rankDate     DateTime @db.Date
+  rank         Int
+  puddingCount Int
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([proProfileId, rankDate])
+  @@map("pudding_rankings")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String?
+  body      String?
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  sentPush  Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model PushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String
+  platform  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@map("push_tokens")
+}
+
+model NotificationSettings {
+  userId         String  @id
+  chatPush       Boolean @default(true)
+  bookingPush    Boolean @default(true)
+  paymentPush    Boolean @default(true)
+  reviewPush     Boolean @default(true)
+  systemPush     Boolean @default(true)
+  marketingPush  Boolean @default(false)
+  marketingSms   Boolean @default(false)
+  marketingEmail Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+// ─── Favorites ───────────────────────────────────────────────────────────────
+
+model Favorite {
+  id         String   @id @default(uuid())
+  userId     String
+  targetType String   // 'pro' | 'business'
+  targetId   String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetId])
+  @@map("favorites")
+}
+
+// ─── Points & Coupons ────────────────────────────────────────────────────────
+
+model PointTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String
+  amount      Int
+  reason      String?
+  referenceId String?
+  balanceAfter Int
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("point_transactions")
+}
+
+model Coupon {
+  id               String    @id @default(uuid())
+  code             String    @unique
+  type             String    // 'percentage' | 'fixed'
+  value            Int
+  minOrderAmount   Int?
+  maxDiscountAmount Int?
+  validFrom        DateTime?
+  validUntil       DateTime?
+  totalQuantity    Int?
+  usedCount        Int       @default(0)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+
+  userCoupons UserCoupon[]
+
+  @@map("coupons")
+}
+
+model UserCoupon {
+  id        String    @id @default(uuid())
+  userId    String
+  couponId  String
+  isUsed    Boolean   @default(false)
+  usedAt    DateTime?
+  paymentId String?
+  createdAt DateTime  @default(now())
+
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coupon  Coupon @relation(fields: [couponId], references: [id])
+
+  @@map("user_coupons")
+}
+
+// ─── CMS ─────────────────────────────────────────────────────────────────────
+
+model Announcement {
+  id          String    @id @default(uuid())
+  title       String
+  content     String?
+  target      String    @default("all")
+  isPinned    Boolean   @default(false)
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+
+  @@map("announcements")
+}
+
+model Faq {
+  id           String   @id @default(uuid())
+  category     String?
+  question     String
+  answer       String
+  target       String   @default("all")
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  @@map("faqs")
+}
+
+model Report {
+  id             String   @id @default(uuid())
+  reporterId     String
+  targetType     String
+  targetId       String
+  reason         String
+  description    String?
+  status         String   @default("pending")
+  resolvedBy     String?
+  resolutionNote String?
+  createdAt      DateTime @default(now())
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id])
+
+  @@map("reports")
+}
+
+model AdminAuditLog {
+  id          String   @id @default(uuid())
+  adminId     String
+  action      String
+  targetType  String?
+  targetId    String?
+  beforeState Json?
+  afterState  Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@map("admin_audit_logs")
+}
