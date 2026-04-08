@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   ChevronRight, ChevronDown, ChevronLeft, Shield, BarChart3, Users, Building2,
   CheckCircle, Award, Download, MapPin, Phone, Mail,
@@ -184,16 +185,30 @@ const HISTORY = [
 
 /* ─── Page ─────────────────────────────────────────────────── */
 export default function BizPage() {
+  const router = useRouter();
   const [activeSection, setActiveSection] = useState('회사소개');
   const [inquiry, setInquiry] = useState({ company: '', name: '', phone: '', email: '', type: '', message: '' });
   const [sending, setSending] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [bizNavExpanding, setBizNavExpanding] = useState(false);
+  const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
 
   useEffect(() => {
     const h = () => setScrollY(window.scrollY);
     window.addEventListener('scroll', h, { passive: true });
     return () => window.removeEventListener('scroll', h);
+  }, []);
+
+  // 플랫폼에서 비즈로 왔을 때 펼쳐지는 애니메이션
+  useEffect(() => {
+    const from = sessionStorage.getItem('nav-transition');
+    if (from === 'from-platform') {
+      setBizNavExpanding(true);
+      sessionStorage.removeItem('nav-transition');
+      const t = setTimeout(() => setBizNavExpanding(false), 600);
+      return () => clearTimeout(t);
+    }
   }, []);
 
   function scrollTo(id: string) {
@@ -915,15 +930,19 @@ export default function BizPage() {
 
       {/* ═══ 모바일 바텀 네비게이션 ═══════════════════════════ */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe">
-        <div className="max-w-lg mx-auto bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_-4px_30px_rgba(0,0,0,0.08)] border border-gray-100/60 mb-2">
+        <div className={`max-w-lg mx-auto bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_-4px_30px_rgba(0,0,0,0.08)] border border-gray-100/60 mb-2 overflow-hidden ${bizNavExpanding ? 'animate-[bizNavExpand_0.5s_cubic-bezier(0.16,1,0.3,1)]' : ''} ${bizNavCollapsing ? 'animate-[bizNavCollapse_0.4s_cubic-bezier(0.7,0,0.3,1)_forwards]' : ''}`}>
           <div className="flex items-center h-[60px] px-2">
             {/* 홈 이동 버튼 */}
-            <Link
-              href="/home"
+            <button
+              onClick={() => {
+                sessionStorage.setItem('nav-transition', 'from-biz');
+                setBizNavCollapsing(true);
+                setTimeout(() => router.push('/home'), 350);
+              }}
               className="flex items-center justify-center w-[48px] h-[48px] -ml-1 rounded-full bg-gray-100 text-gray-400 transition-all active:scale-90 hover:bg-gray-200"
             >
               <ChevronLeft className="h-5 w-5" />
-            </Link>
+            </button>
 
             {/* 네비 아이템들 */}
             <div className="flex-1 flex items-center justify-around">
@@ -946,6 +965,19 @@ export default function BizPage() {
           </div>
         </div>
       </nav>
+
+      {/* Biz nav transition keyframes */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes bizNavExpand {
+          0% { transform: scaleX(0.12); transform-origin: left center; opacity: 0.3; }
+          60% { transform: scaleX(1.03); opacity: 1; }
+          100% { transform: scaleX(1); transform-origin: left center; opacity: 1; }
+        }
+        @keyframes bizNavCollapse {
+          0% { transform: scaleX(1); transform-origin: left center; opacity: 1; }
+          100% { transform: scaleX(0.12); transform-origin: left center; opacity: 0; }
+        }
+      `}} />
 
       {/* ═══ 개인정보처리방침 모달 ═══════════════════════════ */}
       {showPrivacy && (

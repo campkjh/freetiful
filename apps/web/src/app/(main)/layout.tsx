@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Home, MessageCircle, CalendarDays, Heart, User, Briefcase } from 'lucide-react';
 import Footer from '@/components/Footer';
 import FavoriteAnimation from '@/components/FavoriteAnimation';
@@ -30,9 +30,24 @@ const HIDE_NAV_PATTERNS = [
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
   const [navVisible, setNavVisible] = useState(true);
+  const [navExpanding, setNavExpanding] = useState(false);
+  const [bizCollapsing, setBizCollapsing] = useState(false);
   const lastScrollY = useRef(0);
+
+  // 비즈에서 돌아왔을 때 펼쳐지는 애니메이션
+  useEffect(() => {
+    if (hideNav) return;
+    const from = sessionStorage.getItem('nav-transition');
+    if (from === 'from-biz') {
+      setNavExpanding(true);
+      sessionStorage.removeItem('nav-transition');
+      const t = setTimeout(() => setNavExpanding(false), 600);
+      return () => clearTimeout(t);
+    }
+  }, [pathname, hideNav]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -103,20 +118,39 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             transition: 'bottom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         >
-          <div data-nav-pill className="max-w-lg mx-auto glass-strong rounded-full shadow-nav mb-1">
+          <div
+            data-nav-pill
+            className={`max-w-lg mx-auto glass-strong rounded-full shadow-nav mb-1 overflow-hidden ${navExpanding ? 'animate-[navExpandFromLeft_0.5s_cubic-bezier(0.16,1,0.3,1)]' : ''} ${bizCollapsing ? 'animate-[navCollapseToLeft_0.4s_cubic-bezier(0.7,0,0.3,1)_forwards]' : ''}`}
+          >
             <div className="flex items-center justify-around h-[60px]">
               {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
                 const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
                 const isBiz = href === '/biz';
-                return (
+                return isBiz ? (
+                  <button
+                    key={href}
+                    data-nav={label}
+                    className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl text-gray-900"
+                    style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      sessionStorage.setItem('nav-transition', 'from-platform');
+                      setBizCollapsing(true);
+                      setTimeout(() => {
+                        router.push('/biz');
+                      }, 350);
+                    }}
+                  >
+                    <Icon size={20} strokeWidth={2.4} />
+                    <span className="text-[9px] font-black">{label}</span>
+                  </button>
+                ) : (
                   <Link
                     key={href}
                     href={href}
                     data-nav={label}
                     className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
-                      isBiz
-                        ? 'text-gray-900'
-                        : active ? 'text-primary-500' : 'text-gray-400'
+                      active ? 'text-primary-500' : 'text-gray-400'
                     }`}
                     style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
                     onClick={() => {
@@ -128,13 +162,25 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       }
                     }}
                   >
-                    <Icon size={20} strokeWidth={isBiz ? 2.4 : active ? 2.2 : 1.6} />
-                    <span className={`text-[9px] ${isBiz ? 'font-black' : active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+                    <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                    <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
                   </Link>
                 );
               })}
             </div>
           </div>
+
+          {/* Nav transition keyframes */}
+          <style>{`
+            @keyframes navExpandFromLeft {
+              0% { transform: scaleX(0.15); transform-origin: left center; opacity: 0.5; border-radius: 9999px; }
+              100% { transform: scaleX(1); transform-origin: left center; opacity: 1; border-radius: 9999px; }
+            }
+            @keyframes navCollapseToLeft {
+              0% { transform: scaleX(1); transform-origin: left center; opacity: 1; }
+              100% { transform: scaleX(0.15); transform-origin: left center; opacity: 0; }
+            }
+          `}</style>
         </nav>
       )}
       <FavoriteAnimation />
