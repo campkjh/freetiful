@@ -37,6 +37,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [bizCollapsing, setBizCollapsing] = useState(false);
   const lastScrollY = useRef(0);
 
+  // pathname 변경 시 collapsing 리셋
+  useEffect(() => {
+    setBizCollapsing(false);
+  }, [pathname]);
+
   // 비즈에서 돌아왔을 때 펼쳐지는 애니메이션
   useEffect(() => {
     if (hideNav) return;
@@ -44,7 +49,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     if (from === 'from-biz') {
       setNavExpanding(true);
       sessionStorage.removeItem('nav-transition');
-      const t = setTimeout(() => setNavExpanding(false), 600);
+      const t = setTimeout(() => setNavExpanding(false), 700);
       return () => clearTimeout(t);
     }
   }, [pathname, hideNav]);
@@ -129,9 +134,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 width: bizCollapsing ? 60 : '100%',
                 height: 60,
                 borderRadius: 9999,
+                overflow: 'hidden',
                 transition: bizCollapsing
-                  ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease'
                   : 'none',
+                filter: bizCollapsing ? 'blur(2px)' : 'blur(0px)',
                 ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
               }}
             >
@@ -139,11 +146,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
                   const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
                   const isBiz = href === '/biz';
-                  const itemStyle = {
+                  const itemStyle: React.CSSProperties = {
                     opacity: bizCollapsing ? 0 : 1,
                     transform: bizCollapsing ? 'scale(0.5)' : 'scale(1)',
+                    filter: bizCollapsing ? 'blur(4px)' : 'blur(0px)',
                     transition: bizCollapsing
-                      ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s`
+                      ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s, filter 0.25s ease ${idx * 0.03}s`
                       : 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                     ...(navExpanding ? { animation: `platformIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.06}s both` } : {}),
                   };
@@ -193,14 +201,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           {/* Nav transition keyframes */}
           <style>{`
             @keyframes platformPillExpand {
-              0% { width: 60px; }
-              70% { width: 105%; }
-              100% { width: 100%; }
+              0% { width: 60px; filter: blur(3px); }
+              50% { filter: blur(1px); }
+              70% { width: 105%; filter: blur(0px); }
+              100% { width: 100%; filter: blur(0px); }
             }
             @keyframes platformIconAppear {
-              0% { opacity: 0; transform: scale(0.3) translateY(4px); }
-              60% { opacity: 1; transform: scale(1.1) translateY(-1px); }
-              100% { opacity: 1; transform: scale(1) translateY(0); }
+              0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
+              60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
             }
           `}</style>
         </nav>

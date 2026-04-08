@@ -944,9 +944,11 @@ export default function BizPage() {
               maxWidth: bizNavCollapsing ? 60 : 512,
               height: 60,
               borderRadius: 9999,
+              overflow: 'hidden',
               transition: bizNavCollapsing
-                ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), max-width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), max-width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease'
                 : 'none',
+              filter: bizNavCollapsing ? 'blur(2px)' : 'blur(0px)',
               ...(bizNavExpanding ? { animation: 'bizPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
             }}
           >
@@ -978,9 +980,10 @@ export default function BizPage() {
                     style={{
                       opacity: bizNavCollapsing ? 0 : 1,
                       transform: bizNavCollapsing ? 'scale(0.5)' : (bizNavExpanding ? undefined : 'scale(1)'),
+                      filter: bizNavCollapsing ? 'blur(4px)' : 'blur(0px)',
                       transition: bizNavCollapsing
-                        ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s`
-                        : 'opacity 0.3s ease, transform 0.3s ease',
+                        ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s, filter 0.25s ease ${idx * 0.03}s`
+                        : 'opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease',
                       ...(bizNavExpanding ? { animation: `bizIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.08}s both` } : {}),
                     }}
                   >
@@ -997,14 +1000,15 @@ export default function BizPage() {
       {/* Biz nav transition keyframes */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes bizPillExpand {
-          0% { width: 60px; max-width: 60px; }
-          70% { width: 105%; max-width: 530px; }
-          100% { width: 100%; max-width: 512px; }
+          0% { width: 60px; max-width: 60px; filter: blur(3px); }
+          50% { filter: blur(1px); }
+          70% { width: 105%; max-width: 530px; filter: blur(0px); }
+          100% { width: 100%; max-width: 512px; filter: blur(0px); }
         }
         @keyframes bizIconAppear {
-          0% { opacity: 0; transform: scale(0.3) translateY(4px); }
-          60% { opacity: 1; transform: scale(1.1) translateY(-1px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
+          0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
+          60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
         }
       `}} />
 
