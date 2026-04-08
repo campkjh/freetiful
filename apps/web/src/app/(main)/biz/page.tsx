@@ -92,12 +92,12 @@ const INTRO_IMAGES = [
 function AppScreenMarquee({ images, speed = 40 }: { images: string[]; speed?: number }) {
   const doubled = [...images, ...images, ...images];
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-clip py-6">
       {/* 좌우 그라데이션 페이드 */}
       <div className="absolute left-0 top-0 bottom-0 w-40 bg-gradient-to-r from-gray-50 to-transparent z-10 pointer-events-none" />
       <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-gray-50 to-transparent z-10 pointer-events-none" />
       <div
-        className="flex items-center gap-6"
+        className="flex items-center gap-6 px-4"
         style={{
           animation: `marquee-left ${speed}s linear infinite`,
           width: 'max-content',
@@ -106,16 +106,20 @@ function AppScreenMarquee({ images, speed = 40 }: { images: string[]; speed?: nu
         {doubled.map((src, i) => (
           <div
             key={`${src}-${i}`}
-            className="relative flex-shrink-0 rounded-[20px] overflow-hidden shadow-xl border border-gray-200/50 bg-white transition-transform duration-500 hover:scale-105 hover:shadow-2xl"
-            style={{ width: 200, height: 420 }}
+            className="relative flex-shrink-0"
           >
-            <Image
-              src={src}
-              alt="App Screen"
-              width={200}
-              height={420}
-              className="w-full h-full object-cover"
-            />
+            <div
+              className="rounded-[20px] overflow-hidden shadow-xl border border-gray-200/50 bg-white transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:z-20"
+              style={{ width: 200, height: 420 }}
+            >
+              <Image
+                src={src}
+                alt="App Screen"
+                width={200}
+                height={420}
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
         ))}
       </div>
