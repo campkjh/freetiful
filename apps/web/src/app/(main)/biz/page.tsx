@@ -114,18 +114,33 @@ export default function BizPage() {
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
 
-      {/* ─── Fixed Header ──────────────────────────────────────── */}
-      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrollY > 50 ? 'bg-white/80 backdrop-blur-2xl shadow-sm border-b border-gray-100' : 'bg-transparent'}`}>
-        <div className="mx-auto flex h-[60px] max-w-[1200px] items-center justify-between px-6">
-          <Link href="/home" className="text-[18px] font-black tracking-tight text-gray-900">
-            Prettyful <span className="text-[11px] font-normal text-gray-300">for Business</span>
+      {/* ─── Floating Header ─────────────────────────────────── */}
+      <header
+        className="fixed top-0 left-0 right-0 z-50 flex justify-center transition-all duration-700 ease-out"
+        style={{ padding: scrollY > 80 ? '12px 16px 0' : '0' }}
+      >
+        <div
+          className={`flex items-center justify-between transition-all duration-700 ease-out ${
+            scrollY > 80
+              ? 'max-w-[720px] w-full h-[52px] px-4 bg-white/80 backdrop-blur-2xl shadow-lg border border-gray-200/60 rounded-full'
+              : 'max-w-[1200px] w-full h-[60px] px-6 bg-transparent'
+          }`}
+        >
+          <Link
+            href="/home"
+            className={`font-black tracking-tight text-gray-900 transition-all duration-700 ${scrollY > 80 ? 'text-[15px]' : 'text-[18px]'}`}
+          >
+            Prettyful {scrollY <= 80 && <span className="text-[11px] font-normal text-gray-300">for Business</span>}
           </Link>
-          <nav className="hidden items-center gap-1 md:flex">
+
+          <nav className={`hidden items-center gap-0.5 md:flex transition-all duration-700 ${scrollY > 80 ? 'gap-0' : 'gap-1'}`}>
             {NAV_SECTIONS.map((n) => (
               <button
                 key={n}
                 onClick={() => scrollTo(n)}
-                className={`text-[13px] font-medium px-4 py-2 rounded-full transition-all ${
+                className={`font-medium rounded-full transition-all ${
+                  scrollY > 80 ? 'text-[11px] px-2.5 py-1.5' : 'text-[13px] px-4 py-2'
+                } ${
                   activeSection === n
                     ? 'bg-gray-900/5 text-gray-900'
                     : 'text-gray-400 hover:text-gray-700'
@@ -135,7 +150,13 @@ export default function BizPage() {
               </button>
             ))}
           </nav>
-          <button onClick={() => scrollTo('문의')} className="bg-gray-900 px-5 py-2 text-[13px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
+
+          <button
+            onClick={() => scrollTo('문의')}
+            className={`bg-gray-900 font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95 ${
+              scrollY > 80 ? 'text-[11px] px-4 py-1.5' : 'text-[13px] px-5 py-2'
+            }`}
+          >
             문의하기
           </button>
         </div>
