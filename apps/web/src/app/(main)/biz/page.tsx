@@ -79,7 +79,7 @@ function FreetifulSymbol({ visible }: { visible: boolean }) {
 const COMPANY_INFO = {
   name: '프리티풀',
   nameEn: 'Freetiful',
-  ceo: '김정훈',
+  ceo: '서나웅',
   established: '2024년',
   business: '프리랜서 진행자 매칭 플랫폼',
   experts: '1,000여 명',
