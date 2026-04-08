@@ -534,49 +534,26 @@ export default function BizPage() {
         </div>
 
         <div className="relative z-10 mx-auto max-w-[1100px] px-6 py-32">
-          {/* 상단: 아티클 SVG + 텍스트 */}
-          <div className="flex flex-col items-center md:flex-row md:items-start md:gap-16">
-            {/* 좌측: 아티클 프레스 */}
+          {/* 아티클 SVG + 워드마크 */}
+          <div className="flex flex-col items-center gap-10">
             <Reveal>
-              <div className="shrink-0 mb-10 md:mb-0">
-                <Image
-                  src="/images/Frame 1707488417.svg"
-                  alt="2025 Year-End Reception Article"
-                  width={272}
-                  height={161}
-                  className="w-[260px] md:w-[320px] opacity-90"
-                />
-              </div>
+              <Image
+                src="/images/Frame 1707488417.svg"
+                alt="2025 Year-End Reception"
+                width={272}
+                height={161}
+                className="w-[300px] md:w-[400px] brightness-0 invert opacity-90"
+              />
             </Reveal>
-
-            {/* 우측: 텍스트 + 로고 */}
-            <div className="flex-1 text-center md:text-left">
-              <Reveal delay={100}>
-                <p className="text-[11px] font-bold tracking-[0.5em] text-white/40 uppercase">Year-End Reception</p>
-              </Reveal>
-              <Reveal delay={200}>
-                <h2 className="mt-4 text-[36px] font-black tracking-tight leading-[1.15] md:text-[48px]">
-                  2025 프리티풀<br />송년회
-                </h2>
-              </Reveal>
-              <Reveal delay={300}>
-                <p className="mt-5 max-w-[420px] text-[14px] leading-[1.9] text-white/50 md:mx-0 mx-auto">
-                  프리티풀과 함께한 전문 진행자들이 한자리에 모여<br />
-                  한 해를 돌아보고 새해를 맞이하는 특별한 순간.
-                </p>
-              </Reveal>
-              <Reveal delay={400}>
-                <div className="mt-8">
-                  <Image
-                    src="/images/Group 1707482062.svg"
-                    alt="Freetiful"
-                    width={176}
-                    height={30}
-                    className="w-[140px] opacity-40 md:mx-0 mx-auto"
-                  />
-                </div>
-              </Reveal>
-            </div>
+            <Reveal delay={300}>
+              <Image
+                src="/images/Group 1707482062.svg"
+                alt="Freetiful"
+                width={176}
+                height={30}
+                className="w-[160px] md:w-[200px] brightness-0 invert opacity-50"
+              />
+            </Reveal>
           </div>
 
           {/* 영상 */}
