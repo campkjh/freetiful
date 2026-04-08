@@ -1,393 +1,418 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight, Shield, BarChart3, Users,
-  CheckCircle2, Star, ChevronRight, Award,
+  ArrowRight, Shield, BarChart3, Users, Building2,
+  CheckCircle2, Star, ChevronRight, Award, Download,
+  MapPin, Phone, Mail, Clock, Calendar, FileText,
+  Send, User, Briefcase, Globe, Target, Heart,
 } from 'lucide-react';
 
+// ─── Company Info ─────────────────────────────────────────────
+const COMPANY_INFO = {
+  name: '주식회사 프리티풀',
+  nameEn: 'Freetiful Inc.',
+  ceo: '김정훈',
+  established: '2024년 3월',
+  business: '행사 전문가 매칭 플랫폼',
+  employees: '15명',
+  address: '서울특별시 강남구 테헤란로 123, 프리티풀 빌딩 8층',
+  phone: '02-1234-5678',
+  email: 'contact@freetiful.co.kr',
+  website: 'www.freetiful.co.kr',
+};
+
+const HISTORY = [
+  { year: '2026', events: ['AI 매칭 시스템 v2.0 출시', '누적 매칭 10,000건 달성', '시리즈 A 투자 유치'] },
+  { year: '2025', events: ['모바일 앱 출시', '전문가 500명 등록', '부산/대구 지역 서비스 확대'] },
+  { year: '2024', events: ['프리티풀 서비스 정식 런칭', '웨딩 MC 매칭 서비스 시작', '법인 설립'] },
+];
+
+const VALUES = [
+  { icon: Target, title: '미션', desc: '모든 행사의 순간을 완벽하게 만드는 전문가 매칭 플랫폼' },
+  { icon: Heart, title: '비전', desc: '대한민국 No.1 행사 전문가 플랫폼으로 성장' },
+  { icon: Globe, title: '핵심가치', desc: '신뢰 · 전문성 · 혁신 · 고객중심' },
+];
+
 const FEATURES = [
-  {
-    icon: Users,
-    title: '검증된 전문가 네트워크',
-    desc: '엄격한 심사를 거친 MC, 가수, 쇼호스트가 대기하고 있습니다.',
-    color: 'from-blue-500 to-blue-600',
-  },
-  {
-    icon: Shield,
-    title: '안전한 에스크로 결제',
-    desc: '행사 완료까지 결제금이 안전하게 보호됩니다.',
-    color: 'from-emerald-500 to-emerald-600',
-  },
-  {
-    icon: BarChart3,
-    title: 'AI 맞춤 매칭',
-    desc: '고객의 취향과 조건을 분석해 가장 적합한 전문가를 추천합니다.',
-    color: 'from-violet-500 to-violet-600',
-  },
+  { icon: Users, title: '검증된 전문가 네트워크', desc: '엄격한 심사를 거친 MC, 가수, 쇼호스트', color: 'bg-primary-50 text-primary-500' },
+  { icon: Shield, title: '안전한 에스크로 결제', desc: '행사 완료까지 결제금 안전 보호', color: 'bg-emerald-50 text-emerald-500' },
+  { icon: BarChart3, title: 'AI 맞춤 매칭', desc: '조건 분석 기반 최적 전문가 추천', color: 'bg-violet-50 text-violet-500' },
+  { icon: Award, title: '품질 보증', desc: '만족도 기반 전문가 등급 시스템', color: 'bg-amber-50 text-amber-500' },
 ];
 
 const STATS = [
-  { number: '2,400+', label: '등록 전문가' },
-  { number: '98%', label: '고객 만족도' },
-  { number: '15,000+', label: '성사된 매칭' },
-  { number: '4.9', label: '평균 평점' },
+  { label: '누적 매칭', value: '10,000+', unit: '건' },
+  { label: '등록 전문가', value: '500+', unit: '명' },
+  { label: '고객 만족도', value: '4.9', unit: '/5.0' },
+  { label: '재이용률', value: '92', unit: '%' },
 ];
 
-const STEPS = [
-  { step: '01', title: '견적 요청', desc: '원하는 행사 정보를 입력하면 AI가 조건을 분석합니다.' },
-  { step: '02', title: '전문가 매칭', desc: '조건에 맞는 전문가 3~5명이 견적을 보내드립니다.' },
-  { step: '03', title: '비교 & 선택', desc: '프로필, 리뷰, 가격을 비교하고 마음에 드는 전문가를 선택하세요.' },
-  { step: '04', title: '안전한 결제', desc: '에스크로 결제로 행사 완료 확인 후 자동 정산됩니다.' },
+const RESOURCES = [
+  { title: '회사소개서', desc: '프리티풀 서비스 소개', icon: FileText, size: 'PDF · 5.2MB' },
+  { title: 'CI 가이드라인', desc: '로고 및 브랜드 자산', icon: Download, size: 'ZIP · 12.8MB' },
+  { title: '서비스 이용가이드', desc: '전문가 매칭 프로세스', icon: FileText, size: 'PDF · 3.1MB' },
+  { title: '파트너 제안서', desc: '업체 제휴 안내', icon: Briefcase, size: 'PDF · 4.7MB' },
 ];
 
-const REVIEWS = [
-  { name: '김서연', event: '결혼식', rating: 5, text: '김민준 MC님 덕분에 결혼식이 정말 특별했어요. 하객분들도 너무 좋아하셨습니다.', avatar: 'https://i.pravatar.cc/100?img=5' },
-  { name: '이준호', event: '기업행사', rating: 5, text: '행사 진행이 매끄럽고 프로페셔널했습니다. 다음 행사도 꼭 프리티풀로!', avatar: 'https://i.pravatar.cc/100?img=11' },
-  { name: '박지영', event: '돌잔치', rating: 5, text: '축가 가수분 목소리가 너무 좋아서 감동받았어요. 추천합니다!', avatar: 'https://i.pravatar.cc/100?img=9' },
-];
+export default function BizPage() {
+  const [activeTab, setActiveTab] = useState('company');
+  const [formData, setFormData] = useState({
+    company: '', name: '', phone: '', email: '', type: '', message: '',
+  });
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
-export default function BizLandingPage() {
+  const tabs = [
+    { id: 'company', label: '회사소개' },
+    { id: 'history', label: '연혁' },
+    { id: 'resources', label: '자료실' },
+    { id: 'contact', label: '오시는길' },
+    { id: 'inquiry', label: '기업문의' },
+  ];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormSubmitted(true);
+    setTimeout(() => setFormSubmitted(false), 3000);
+  };
+
   return (
-    <div className="bg-white min-h-screen -mx-[calc((100vw-100%)/2)] lg:mx-0">
-      {/* ═══════════════════════════════════════════════════════════════════
-         HERO — Dark navy, full viewport
-         ═══════════════════════════════════════════════════════════════════ */}
-      <section className="relative bg-[#0B1426] text-white overflow-hidden">
-        {/* Gradient orbs */}
-        <div className="absolute top-[-30%] right-[-10%] w-[600px] h-[600px] rounded-full bg-primary-500/10 blur-[120px]" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-blue-400/8 blur-[100px]" />
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+        <div className="px-4 py-4">
+          <h1 className="text-[22px] font-bold text-gray-900">Freetiful</h1>
+          <p className="text-[13px] text-gray-400 mt-0.5">행사 전문가 매칭 플랫폼</p>
+        </div>
+        {/* Tab Navigation */}
+        <div className="flex overflow-x-auto scrollbar-hide px-4 pb-0 gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`shrink-0 text-[13px] font-semibold px-4 py-2.5 border-b-2 transition-all ${
+                activeTab === tab.id
+                  ? 'border-primary-500 text-primary-500'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 pt-24 pb-20 lg:pt-40 lg:pb-32">
-          <div className="max-w-2xl">
-            <p className="text-[12px] lg:text-[13px] uppercase tracking-[0.2em] text-primary-300 font-bold mb-6">
-              Freetiful Biz
+      {/* ─── 회사소개 Tab ─────────────────────────────────────── */}
+      {activeTab === 'company' && (
+        <div className="px-4 py-6 space-y-8">
+          {/* Hero */}
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Building2 size={32} className="text-primary-500" />
+            </div>
+            <h2 className="text-[24px] font-bold text-gray-900 mb-2">프리티풀</h2>
+            <p className="text-[15px] text-gray-500 leading-relaxed">
+              모든 행사의 순간을<br />완벽하게 만드는 전문가 매칭 플랫폼
             </p>
-            <h1 className="text-[32px] md:text-[48px] lg:text-[64px] font-black leading-[1.1] tracking-tight mb-6">
-              당신의 행사를<br />
-              <span className="bg-gradient-to-r from-primary-400 to-blue-300 bg-clip-text text-transparent">
-                완벽하게
-              </span>{' '}
-              만들어줄<br />
-              전문가를 만나보세요
-            </h1>
-            <p className="text-[15px] lg:text-[18px] text-gray-400 leading-relaxed mb-10 max-w-lg">
-              웨딩 MC부터 축가 가수, 쇼호스트까지.<br />
-              AI가 추천하는 검증된 전문가와 안전하게 거래하세요.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/match"
-                className="inline-flex items-center justify-center gap-2 bg-primary-500 text-white text-[15px] font-bold px-8 py-4 rounded-2xl hover:bg-primary-400 active:scale-[0.98] hover:shadow-[0_0_40px_rgba(49,128,247,0.3)]"
-                style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-              >
-                무료로 견적 받기 <ArrowRight size={18} />
-              </Link>
-              <Link
-                href="/pros"
-                className="inline-flex items-center justify-center gap-2 bg-white/10 text-white text-[15px] font-semibold px-8 py-4 rounded-2xl border border-white/10 hover:bg-white/15 active:scale-[0.98]"
-                style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-              >
-                전문가 둘러보기
-              </Link>
-            </div>
           </div>
-        </div>
-      </section>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-         STATS BAR
-         ═══════════════════════════════════════════════════════════════════ */}
-      <section className="bg-surface-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-10 lg:py-14">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            {STATS.map((s, i) => (
-              <div
-                key={s.label}
-                className="text-center opacity-0 animate-fade-in"
-                style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'forwards' }}
-              >
-                <p className="text-[28px] lg:text-[36px] font-black text-gray-900 tracking-tight">{s.number}</p>
-                <p className="text-[13px] text-gray-500 mt-1">{s.label}</p>
+          {/* CEO 인사말 */}
+          <div className="bg-gray-50 rounded-2xl p-5">
+            <h3 className="text-[16px] font-bold text-gray-900 mb-3">CEO 인사말</h3>
+            <div className="flex gap-4">
+              <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                <User size={28} className="text-primary-500" />
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-         FEATURES — 3 cards
-         ═══════════════════════════════════════════════════════════════════ */}
-      <section className="bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 lg:py-32">
-          <div className="text-center mb-14">
-            <p className="eyebrow mb-3">WHY FREETIFUL</p>
-            <h2 className="text-[24px] lg:text-[36px] font-black text-gray-900 tracking-tight leading-tight">
-              프리티풀이<br className="lg:hidden" /> 특별한 이유
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
-            {FEATURES.map((f, i) => (
-              <div
-                key={f.title}
-                className="card-interactive p-7 lg:p-8 opacity-0 animate-fade-in"
-                style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'forwards' }}
-              >
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5`}>
-                  <f.icon size={22} className="text-white" />
-                </div>
-                <h3 className="text-[17px] font-bold text-gray-900 mb-2">{f.title}</h3>
-                <p className="text-[14px] text-gray-500 leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-         HOW IT WORKS — Steps
-         ═══════════════════════════════════════════════════════════════════ */}
-      <section className="bg-[#F6FAFF]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 lg:py-32">
-          <div className="text-center mb-14">
-            <p className="eyebrow mb-3">HOW IT WORKS</p>
-            <h2 className="text-[24px] lg:text-[36px] font-black text-gray-900 tracking-tight">
-              이렇게 진행돼요
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {STEPS.map((s, i) => (
-              <div
-                key={s.step}
-                className="relative opacity-0 animate-fade-in"
-                style={{ animationDelay: `${i * 120}ms`, animationFillMode: 'forwards' }}
-              >
-                {i < STEPS.length - 1 && (
-                  <div className="hidden lg:block absolute top-8 left-[calc(50%+40px)] w-[calc(100%-80px)] h-px bg-gray-200" />
-                )}
-                <div className="bg-white rounded-3xl p-6 lg:p-7 text-center shadow-card">
-                  <div className="w-14 h-14 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-[18px] font-black text-primary-500">{s.step}</span>
-                  </div>
-                  <h3 className="text-[16px] font-bold text-gray-900 mb-2">{s.title}</h3>
-                  <p className="text-[13px] text-gray-500 leading-relaxed">{s.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-         TRUST — Dark section with checkmarks
-         ═══════════════════════════════════════════════════════════════════ */}
-      <section className="bg-[#0B1426] text-white relative overflow-hidden">
-        <div className="absolute top-[20%] right-[-5%] w-[300px] h-[300px] rounded-full bg-primary-500/8 blur-[80px]" />
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 lg:py-32">
-          <div className="lg:flex items-center gap-16">
-            <div className="flex-1 mb-12 lg:mb-0">
-              <p className="text-[12px] uppercase tracking-[0.2em] text-primary-300 font-bold mb-4">SECURITY</p>
-              <h2 className="text-[24px] lg:text-[36px] font-black leading-tight tracking-tight mb-6">
-                안심하고 거래하세요
-              </h2>
-              <p className="text-[15px] text-gray-400 leading-relaxed mb-8 max-w-md">
-                프리티풀은 고객과 전문가 모두를 위한 안전한 거래 환경을 제공합니다.
-              </p>
-              <div className="space-y-4">
-                {[
-                  '에스크로 결제로 행사 완료 전까지 결제금 보호',
-                  '전문가 신원 확인 및 경력 검증 완료',
-                  '행사 7일 전까지 전액 환불 보장',
-                  '24시간 고객센터 운영',
-                  '개인정보 암호화 및 보안 관리',
-                ].map((item) => (
-                  <div key={item} className="flex items-start gap-3">
-                    <CheckCircle2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
-                    <span className="text-[14px] text-gray-300">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex-1 max-w-md mx-auto lg:mx-0">
-              <div className="bg-white/5 rounded-3xl border border-white/10 p-6 lg:p-8 backdrop-blur-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
-                    <Shield size={18} className="text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-[14px] font-bold">에스크로 결제</p>
-                    <p className="text-[12px] text-gray-500">결제금이 안전하게 보호됩니다</p>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="bg-white/5 rounded-2xl p-4 flex items-center justify-between">
-                    <span className="text-[13px] text-gray-400">결제 금액</span>
-                    <span className="text-[16px] font-bold">500,000원</span>
-                  </div>
-                  <div className="bg-emerald-500/10 rounded-2xl p-4 flex items-center justify-between border border-emerald-500/20">
-                    <span className="text-[13px] text-emerald-300 flex items-center gap-1.5"><Shield size={14} /> 보호 상태</span>
-                    <span className="text-[13px] font-bold text-emerald-400">안전하게 보관중</span>
-                  </div>
-                  <div className="bg-white/5 rounded-2xl p-4 flex items-center justify-between">
-                    <span className="text-[13px] text-gray-400">행사일</span>
-                    <span className="text-[14px] font-semibold">2026.04.05</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-         REVIEWS
-         ═══════════════════════════════════════════════════════════════════ */}
-      <section className="bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 lg:py-32">
-          <div className="text-center mb-14">
-            <p className="eyebrow mb-3">REVIEWS</p>
-            <h2 className="text-[24px] lg:text-[36px] font-black text-gray-900 tracking-tight">
-              고객님들의 실제 후기
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {REVIEWS.map((r, i) => (
-              <div
-                key={r.name}
-                className="card p-6 lg:p-7 opacity-0 animate-fade-in"
-                style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'forwards' }}
-              >
-                <div className="flex items-center gap-1 mb-4">
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <Star key={j} size={16} className="fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-[14px] text-gray-700 leading-relaxed mb-5">&ldquo;{r.text}&rdquo;</p>
-                <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                  <img src={r.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  <div>
-                    <p className="text-[13px] font-bold text-gray-900">{r.name}</p>
-                    <p className="text-[11px] text-gray-400">{r.event}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════
-         FOR PROFESSIONALS — CTA
-         ═══════════════════════════════════════════════════════════════════ */}
-      <section className="bg-surface-50">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 lg:py-28">
-          <div className="card-bezel max-w-3xl mx-auto">
-            <div className="card-bezel-inner bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 p-8 lg:p-12 text-white text-center relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-60 h-60 bg-primary-500/10 rounded-full -translate-y-20 translate-x-20 blur-[60px]" />
-              <div className="relative">
-                <div className="w-14 h-14 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Award size={24} className="text-primary-400" />
-                </div>
-                <h2 className="text-[22px] lg:text-[28px] font-black tracking-tight mb-3">
-                  전문가이신가요?
-                </h2>
-                <p className="text-[14px] lg:text-[16px] text-gray-400 leading-relaxed mb-8 max-w-md mx-auto">
-                  프리티풀에 등록하고 더 많은 고객을 만나보세요.<br />
-                  가입비 무료, 성사 수수료만 발생합니다.
+              <div>
+                <p className="text-[14px] text-gray-600 leading-relaxed mb-2">
+                  프리티풀은 모든 분의 특별한 순간을 더욱 빛나게 만들어 드리기 위해 탄생했습니다.
+                  검증된 전문가와 AI 기반 맞춤 매칭으로, 최고의 행사 경험을 약속드립니다.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Link
-                    href="/pro-register"
-                    className="inline-flex items-center justify-center gap-2 bg-primary-500 text-white text-[14px] font-bold px-8 py-3.5 rounded-2xl hover:bg-primary-400 active:scale-[0.98] hover:shadow-[0_0_30px_rgba(49,128,247,0.3)]"
-                    style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-                  >
-                    파트너 등록하기 <ArrowRight size={16} />
-                  </Link>
-                  <Link
-                    href="/my/faq"
-                    className="inline-flex items-center justify-center gap-1.5 text-gray-400 text-[14px] font-medium px-6 py-3.5 rounded-2xl hover:text-white hover:bg-white/10"
-                    style={{ transition: 'all 0.3s' }}
-                  >
-                    자주 묻는 질문 <ChevronRight size={16} />
-                  </Link>
-                </div>
+                <p className="text-[13px] font-semibold text-gray-900">대표이사 {COMPANY_INFO.ceo}</p>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-         FINAL CTA
-         ═══════════════════════════════════════════════════════════════════ */}
-      <section className="bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 lg:py-28 text-center">
-          <h2 className="text-[24px] lg:text-[40px] font-black text-gray-900 tracking-tight leading-tight mb-4">
-            지금 바로 시작하세요
-          </h2>
-          <p className="text-[15px] text-gray-500 mb-10 max-w-md mx-auto">
-            3분이면 견적 요청 완료. 최대 5명의 전문가가 맞춤 견적을 보내드립니다.
-          </p>
-          <Link
-            href="/match"
-            className="inline-flex items-center gap-2 bg-primary-500 text-white text-[16px] font-bold px-10 py-4.5 rounded-2xl hover:bg-primary-600 active:scale-[0.98] hover:shadow-float"
-            style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-          >
-            무료 견적 받기 <ArrowRight size={20} />
-          </Link>
-        </div>
-      </section>
+          {/* Mission / Vision / Values */}
+          <div className="space-y-3">
+            {VALUES.map((v) => (
+              <div key={v.title} className="flex items-start gap-3 p-4 bg-white border border-gray-100 rounded-2xl">
+                <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                  <v.icon size={20} className="text-primary-500" />
+                </div>
+                <div>
+                  <h4 className="text-[14px] font-bold text-gray-900">{v.title}</h4>
+                  <p className="text-[13px] text-gray-500 mt-0.5">{v.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-         FOOTER
-         ═══════════════════════════════════════════════════════════════════ */}
-      <footer className="bg-[#0B1426] text-gray-400">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-14 lg:py-20">
-          <div className="lg:flex justify-between gap-12 mb-12">
-            <div className="mb-8 lg:mb-0">
-              <p className="text-[20px] font-black text-white tracking-tight mb-3">Freetiful</p>
-              <p className="text-[13px] text-gray-500 leading-relaxed max-w-xs">
-                나의 특별한 행사를 완성하는 전문가 매칭 플랫폼
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-3">
+            {STATS.map((s) => (
+              <div key={s.label} className="bg-gray-50 rounded-2xl p-4 text-center">
+                <p className="text-[24px] font-bold text-primary-500">{s.value}<span className="text-[14px] text-gray-400">{s.unit}</span></p>
+                <p className="text-[12px] text-gray-500 mt-1">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Features */}
+          <div>
+            <h3 className="text-[16px] font-bold text-gray-900 mb-3">핵심 서비스</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {FEATURES.map((f) => (
+                <div key={f.title} className="p-4 bg-white border border-gray-100 rounded-2xl">
+                  <div className={`w-10 h-10 rounded-xl ${f.color} flex items-center justify-center mb-3`}>
+                    <f.icon size={20} />
+                  </div>
+                  <h4 className="text-[13px] font-bold text-gray-900">{f.title}</h4>
+                  <p className="text-[11px] text-gray-400 mt-1">{f.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Company Info Table */}
+          <div>
+            <h3 className="text-[16px] font-bold text-gray-900 mb-3">기업 정보</h3>
+            <div className="border border-gray-100 rounded-2xl overflow-hidden">
+              {[
+                ['회사명', COMPANY_INFO.name],
+                ['영문명', COMPANY_INFO.nameEn],
+                ['대표이사', COMPANY_INFO.ceo],
+                ['설립일', COMPANY_INFO.established],
+                ['사업분야', COMPANY_INFO.business],
+                ['임직원수', COMPANY_INFO.employees],
+                ['주소', COMPANY_INFO.address],
+                ['대표전화', COMPANY_INFO.phone],
+                ['이메일', COMPANY_INFO.email],
+              ].map(([label, value], i) => (
+                <div key={label} className={`flex px-4 py-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
+                  <span className="text-[13px] font-semibold text-gray-500 w-[80px] shrink-0">{label}</span>
+                  <span className="text-[13px] text-gray-900 flex-1">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 연혁 Tab ─────────────────────────────────────────── */}
+      {activeTab === 'history' && (
+        <div className="px-4 py-6">
+          <h2 className="text-[20px] font-bold text-gray-900 mb-6">연혁</h2>
+          <div className="relative">
+            {/* Timeline line */}
+            <div className="absolute left-[18px] top-2 bottom-2 w-[2px] bg-gray-100" />
+            <div className="space-y-8">
+              {HISTORY.map((h) => (
+                <div key={h.year} className="relative pl-12">
+                  {/* Dot */}
+                  <div className="absolute left-[12px] top-1 w-[14px] h-[14px] rounded-full bg-primary-500 border-[3px] border-white shadow-sm" />
+                  <h3 className="text-[18px] font-bold text-primary-500 mb-3">{h.year}</h3>
+                  <div className="space-y-2">
+                    {h.events.map((event, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                        <span className="text-[14px] text-gray-700">{event}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 자료실 Tab ───────────────────────────────────────── */}
+      {activeTab === 'resources' && (
+        <div className="px-4 py-6">
+          <h2 className="text-[20px] font-bold text-gray-900 mb-2">자료실</h2>
+          <p className="text-[13px] text-gray-400 mb-6">프리티풀의 공식 자료를 다운로드하세요</p>
+          <div className="space-y-3">
+            {RESOURCES.map((r) => (
+              <button
+                key={r.title}
+                className="w-full flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl text-left hover:bg-gray-50 active:scale-[0.98] transition-all"
+              >
+                <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                  <r.icon size={22} className="text-primary-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[14px] font-bold text-gray-900">{r.title}</h4>
+                  <p className="text-[12px] text-gray-400 mt-0.5">{r.desc}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <Download size={18} className="text-gray-400 mb-1" />
+                  <p className="text-[10px] text-gray-400">{r.size}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── 오시는길 Tab ─────────────────────────────────────── */}
+      {activeTab === 'contact' && (
+        <div className="px-4 py-6 space-y-6">
+          <h2 className="text-[20px] font-bold text-gray-900 mb-2">오시는길</h2>
+
+          {/* Map placeholder */}
+          <div className="w-full h-[200px] bg-gray-100 rounded-2xl flex items-center justify-center">
+            <div className="text-center">
+              <MapPin size={32} className="text-gray-300 mx-auto mb-2" />
+              <p className="text-[13px] text-gray-400">지도 영역</p>
+            </div>
+          </div>
+
+          {/* Address info */}
+          <div className="space-y-3">
+            {[
+              { icon: MapPin, label: '주소', value: COMPANY_INFO.address },
+              { icon: Phone, label: '대표전화', value: COMPANY_INFO.phone },
+              { icon: Mail, label: '이메일', value: COMPANY_INFO.email },
+              { icon: Clock, label: '업무시간', value: '평일 09:00 - 18:00 (주말/공휴일 휴무)' },
+            ].map((item) => (
+              <div key={item.label} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                <item.icon size={18} className="text-primary-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-[12px] font-semibold text-gray-500">{item.label}</p>
+                  <p className="text-[14px] text-gray-900 mt-0.5">{item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Directions */}
+          <div className="bg-gray-50 rounded-2xl p-4">
+            <h3 className="text-[14px] font-bold text-gray-900 mb-3">교통편 안내</h3>
+            <div className="space-y-2 text-[13px] text-gray-600">
+              <p><span className="font-semibold text-blue-500">🚇 지하철</span> 2호선 강남역 3번 출구 도보 5분</p>
+              <p><span className="font-semibold text-green-500">🚌 버스</span> 강남역 정류장 하차 (146, 341, 360)</p>
+              <p><span className="font-semibold text-gray-500">🅿️ 주차</span> 건물 지하 주차장 이용 (2시간 무료)</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 기업문의 Tab ─────────────────────────────────────── */}
+      {activeTab === 'inquiry' && (
+        <div className="px-4 py-6">
+          <h2 className="text-[20px] font-bold text-gray-900 mb-2">기업문의</h2>
+          <p className="text-[13px] text-gray-400 mb-6">제휴, 대량 의뢰, 기업 행사 등 문의해 주세요</p>
+
+          {formSubmitted ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={32} className="text-emerald-500" />
+              </div>
+              <h3 className="text-[18px] font-bold text-gray-900 mb-2">문의가 접수되었습니다</h3>
+              <p className="text-[14px] text-gray-500">영업일 기준 1~2일 내 담당자가 연락드리겠습니다</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* 회사명 */}
+              <div>
+                <label className="text-[13px] font-semibold text-gray-700 block mb-1.5">회사명 *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="회사명을 입력해 주세요"
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  className="w-full h-[44px] bg-gray-50 rounded-xl px-4 text-[14px] text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-primary-200 border border-gray-100"
+                />
+              </div>
+
+              {/* 담당자명 */}
+              <div>
+                <label className="text-[13px] font-semibold text-gray-700 block mb-1.5">담당자명 *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="담당자 성함을 입력해 주세요"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full h-[44px] bg-gray-50 rounded-xl px-4 text-[14px] text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-primary-200 border border-gray-100"
+                />
+              </div>
+
+              {/* 연락처 / 이메일 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[13px] font-semibold text-gray-700 block mb-1.5">연락처 *</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="010-0000-0000"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full h-[44px] bg-gray-50 rounded-xl px-4 text-[14px] text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-primary-200 border border-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="text-[13px] font-semibold text-gray-700 block mb-1.5">이메일 *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="email@company.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full h-[44px] bg-gray-50 rounded-xl px-4 text-[14px] text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-primary-200 border border-gray-100"
+                  />
+                </div>
+              </div>
+
+              {/* 문의유형 */}
+              <div>
+                <label className="text-[13px] font-semibold text-gray-700 block mb-1.5">문의유형</label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full h-[44px] bg-gray-50 rounded-xl px-4 text-[14px] text-gray-900 outline-none focus:ring-2 focus:ring-primary-200 border border-gray-100"
+                >
+                  <option value="">선택해 주세요</option>
+                  <option value="partnership">제휴 문의</option>
+                  <option value="enterprise">기업 행사 의뢰</option>
+                  <option value="bulk">대량 의뢰</option>
+                  <option value="advertisement">광고/마케팅</option>
+                  <option value="other">기타</option>
+                </select>
+              </div>
+
+              {/* 문의내용 */}
+              <div>
+                <label className="text-[13px] font-semibold text-gray-700 block mb-1.5">문의내용 *</label>
+                <textarea
+                  required
+                  rows={5}
+                  placeholder="문의 내용을 상세히 작성해 주세요"
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  className="w-full bg-gray-50 rounded-xl px-4 py-3 text-[14px] text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-primary-200 border border-gray-100 resize-none"
+                />
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                className="w-full h-[48px] bg-primary-500 text-white text-[15px] font-bold rounded-xl hover:bg-primary-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                <Send size={18} />
+                문의하기
+              </button>
+
+              <p className="text-[11px] text-gray-400 text-center">
+                문의 접수 후 영업일 기준 1~2일 내 담당자가 연락드립니다
               </p>
-            </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
-              <div>
-                <p className="text-[12px] font-bold text-gray-300 uppercase tracking-wider mb-4">서비스</p>
-                <div className="space-y-2.5">
-                  <Link href="/pros" className="block text-[13px] hover:text-white" style={{ transition: 'color 0.2s' }}>전문가 찾기</Link>
-                  <Link href="/match" className="block text-[13px] hover:text-white" style={{ transition: 'color 0.2s' }}>견적 요청</Link>
-                  <Link href="/businesses" className="block text-[13px] hover:text-white" style={{ transition: 'color 0.2s' }}>비즈니스</Link>
-                </div>
-              </div>
-              <div>
-                <p className="text-[12px] font-bold text-gray-300 uppercase tracking-wider mb-4">고객지원</p>
-                <div className="space-y-2.5">
-                  <Link href="/my/faq" className="block text-[13px] hover:text-white" style={{ transition: 'color 0.2s' }}>FAQ</Link>
-                  <Link href="/my/support" className="block text-[13px] hover:text-white" style={{ transition: 'color 0.2s' }}>고객센터</Link>
-                  <Link href="/my/announcements" className="block text-[13px] hover:text-white" style={{ transition: 'color 0.2s' }}>공지사항</Link>
-                </div>
-              </div>
-              <div>
-                <p className="text-[12px] font-bold text-gray-300 uppercase tracking-wider mb-4">정책</p>
-                <div className="space-y-2.5">
-                  <Link href="/terms/service" className="block text-[13px] hover:text-white" style={{ transition: 'color 0.2s' }}>이용약관</Link>
-                  <Link href="/terms/privacy" className="block text-[13px] hover:text-white" style={{ transition: 'color 0.2s' }}>개인정보처리방침</Link>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-white/10 pt-8">
-            <p className="text-[11px] text-gray-600 leading-relaxed">
-              프리티풀 | 대표: 홍길동 | 사업자등록번호: 123-45-67890<br />
-              서울특별시 강남구 테헤란로 123, 4층 | 고객센터: 1544-0000 | support@freetiful.co.kr<br />
-              &copy; 2026 Freetiful Inc. All rights reserved.
-            </p>
-          </div>
+            </form>
+          )}
         </div>
-      </footer>
+      )}
     </div>
   );
 }
