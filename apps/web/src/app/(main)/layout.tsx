@@ -102,7 +102,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             transition: 'bottom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         >
-          <div className="max-w-lg mx-auto glass-strong rounded-full shadow-nav mb-1">
+          <div data-nav-pill className="max-w-lg mx-auto glass-strong rounded-full shadow-nav mb-1">
             <div className="flex items-center justify-around h-[60px]">
               {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
                 const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
@@ -118,11 +118,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         : active ? 'text-primary-500' : 'text-gray-400'
                     }`}
                     style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-                    onClick={(e) => {
-                      const el = e.currentTarget;
-                      el.style.animation = 'none';
-                      void el.offsetHeight; // force reflow
-                      el.style.animation = 'liquidTap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    onClick={() => {
+                      const navPill = document.querySelector('[data-nav-pill]') as HTMLElement;
+                      if (navPill) {
+                        navPill.style.animation = 'none';
+                        void navPill.offsetHeight;
+                        navPill.style.animation = 'liquidTap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                      }
                     }}
                   >
                     <Icon size={20} strokeWidth={isBiz ? 2.4 : active ? 2.2 : 1.6} />
