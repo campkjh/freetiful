@@ -74,6 +74,53 @@ const COMPANY_INFO = {
 
 const NAV_SECTIONS = ['회사소개', '핵심서비스', '연혁', '자료실', '오시는길', '문의'];
 
+/* ─── Expert Marquee Images ──────────────────────────────── */
+const EXPERT_IMAGES_ROW1 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482282 + i}.png`);
+const EXPERT_IMAGES_ROW2 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482293 + i}.png`);
+
+function MarqueeRow({ images, direction = 'left', speed = 60 }: { images: string[]; direction?: 'left' | 'right'; speed?: number }) {
+  const doubled = [...images, ...images];
+  return (
+    <div className="relative overflow-hidden group">
+      {/* 양쪽 페이드 */}
+      <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+      <div
+        className="flex gap-5 group-hover:[animation-play-state:paused]"
+        style={{
+          animation: `marquee-${direction} ${speed}s linear infinite`,
+          width: 'max-content',
+        }}
+      >
+        {doubled.map((src, i) => {
+          const isOdd = i % 2 === 1;
+          return (
+            <div
+              key={`${src}-${i}`}
+              className="relative flex-shrink-0 transition-all duration-500 ease-out hover:scale-110 hover:z-20"
+              style={{
+                transform: `translateY(${isOdd ? '12px' : '-12px'}) rotate(${isOdd ? '3deg' : '-3deg'})`,
+              }}
+            >
+              <div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-500 bg-gray-100 border-2 border-white/80">
+                <Image
+                  src={src}
+                  alt="Expert"
+                  width={140}
+                  height={140}
+                  className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                />
+              </div>
+              {/* 글로우 */}
+              <div className="absolute inset-0 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-500 bg-blue-400/10 pointer-events-none" />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const HISTORY = [
   { year: '2026', events: ['AI 매칭 시스템 v2.0 출시', '누적 매칭 10,000건 달성', '시리즈 A 투자 유치'] },
   { year: '2025', events: ['모바일 앱 출시', '전문가 500명 등록', '부산/대구 지역 서비스 확대'] },
@@ -208,6 +255,38 @@ export default function BizPage() {
           <ChevronDown className="h-5 w-5 text-gray-300" />
         </div>
       </section>
+
+      {/* ═══ Expert Marquee Gallery ═════════════════════════════ */}
+      <section className="relative py-16 overflow-hidden">
+        {/* 배경 그라데이션 */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white pointer-events-none" />
+        <div className="relative z-10">
+          <Reveal>
+            <p className="text-center text-[11px] font-bold tracking-[0.4em] text-gray-300 mb-10">
+              TRUSTED BY TOP EXPERTS
+            </p>
+          </Reveal>
+          <Reveal delay={200}>
+            <div className="space-y-6">
+              <MarqueeRow images={EXPERT_IMAGES_ROW1} direction="left" speed={50} />
+              <MarqueeRow images={EXPERT_IMAGES_ROW2} direction="right" speed={65} />
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Marquee keyframes */}
+      {/* eslint-disable-next-line react/no-danger */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes marquee-left {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes marquee-right {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+      `}} />
 
       {/* ═══ 회사소개 ═══════════════════════════════════════════ */}
       <section id="회사소개" className="py-28">
