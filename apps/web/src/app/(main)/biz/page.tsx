@@ -946,9 +946,8 @@ export default function BizPage() {
               borderRadius: 9999,
               overflow: 'hidden',
               transition: bizNavCollapsing
-                ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), max-width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease'
+                ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), max-width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
                 : 'none',
-              filter: bizNavCollapsing ? 'blur(2px)' : 'blur(0px)',
               ...(bizNavExpanding ? { animation: 'bizPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
             }}
           >
@@ -960,7 +959,7 @@ export default function BizPage() {
                   setBizNavCollapsing(true);
                   setTimeout(() => router.push('/home'), 500);
                 }}
-                className="flex items-center justify-center w-[48px] h-[48px] shrink-0 -ml-1 rounded-full bg-gray-100 text-gray-400 transition-all active:scale-90 hover:bg-gray-200"
+                className={`flex items-center justify-center w-[48px] h-[48px] shrink-0 -ml-1 rounded-full transition-all duration-500 active:scale-90 ${bizNavCollapsing ? 'bg-transparent text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -1000,7 +999,8 @@ export default function BizPage() {
       {/* Biz nav transition keyframes */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes bizPillExpand {
-          0% { width: 60px; max-width: 60px; filter: blur(3px); }
+          0% { width: 60px; max-width: 60px; filter: blur(0px); }
+          15% { filter: blur(3px); }
           50% { filter: blur(1px); }
           70% { width: 105%; max-width: 530px; filter: blur(0px); }
           100% { width: 100%; max-width: 512px; filter: blur(0px); }

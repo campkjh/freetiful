@@ -136,9 +136,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 borderRadius: 9999,
                 overflow: 'hidden',
                 transition: bizCollapsing
-                  ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease'
+                  ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
                   : 'none',
-                filter: bizCollapsing ? 'blur(2px)' : 'blur(0px)',
                 ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
               }}
             >
@@ -201,7 +200,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           {/* Nav transition keyframes */}
           <style>{`
             @keyframes platformPillExpand {
-              0% { width: 60px; filter: blur(3px); }
+              0% { width: 60px; filter: blur(0px); }
+              15% { filter: blur(3px); }
               50% { filter: blur(1px); }
               70% { width: 105%; filter: blur(0px); }
               100% { width: 100%; filter: blur(0px); }
