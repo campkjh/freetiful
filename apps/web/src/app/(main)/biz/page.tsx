@@ -475,18 +475,17 @@ export default function BizPage() {
             return (
               <div ref={compare.ref} className={`mt-8 transition-all duration-700 ${compare.visible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
                 <div className="border border-gray-100 rounded-2xl overflow-hidden">
-                  {/* 헤더: 로고 포함 */}
-                  <div className="grid grid-cols-3 bg-gray-50 border-b border-gray-100">
-                    <div className="p-4" />
-                    <div className="p-4 flex flex-col items-center justify-center gap-2 border-x border-gray-100">
-                      {/* 경쟁사 로고 (블러 처리) */}
-                      <div className="relative w-[60px] h-[36px] flex items-center justify-center filter blur-[1.5px] opacity-60">
-                        <div className="absolute left-0 w-[30px] h-[30px] rounded-full bg-[#7C3AED]" />
-                        <div className="absolute right-0 w-[30px] h-[30px] rounded-full bg-[#FACC15]" />
+                  {/* 헤더: 로고 포함 (h-[48px]) */}
+                  <div className="grid grid-cols-3 bg-gray-50 border-b border-gray-100 h-[48px]">
+                    <div />
+                    <div className="flex items-center justify-center gap-2 border-x border-gray-100">
+                      {/* 경쟁사 로고 (은은한 블러) */}
+                      <div className="relative w-[48px] h-[28px] filter blur-[2px] opacity-50">
+                        <Image src="/images/Group 1707481883.png" alt="" width={48} height={28} className="w-full h-full object-contain" />
                       </div>
                       <span className="text-[12px] font-bold text-gray-400">일반 플랫폼</span>
                     </div>
-                    <div className="p-4 flex flex-col items-center justify-center gap-2">
+                    <div className="flex items-center justify-center gap-2">
                       {/* 프리티풀 심볼 (바운스) */}
                       <FreetifulSymbol visible={compare.visible} />
                       <span className="text-[12px] font-bold text-blue-500">프리티풀</span>
