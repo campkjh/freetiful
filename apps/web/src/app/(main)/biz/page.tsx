@@ -263,11 +263,11 @@ export default function BizPage() {
             transformOrigin: 'center center',
           }}
         >
-          <TiltedRow images={EXPERT_IMAGES_ROW1} direction="left" speed={30} />
-          <TiltedRow images={EXPERT_IMAGES_ROW2} direction="right" speed={38} />
-          <TiltedRow images={[...EXPERT_IMAGES_ROW1].reverse()} direction="left" speed={34} />
-          <TiltedRow images={[...EXPERT_IMAGES_ROW2].reverse()} direction="right" speed={42} />
-          <TiltedRow images={EXPERT_IMAGES_ROW1} direction="left" speed={36} />
+          <TiltedRow images={EXPERT_IMAGES_ROW1} direction="left" speed={80} />
+          <TiltedRow images={EXPERT_IMAGES_ROW2} direction="right" speed={90} />
+          <TiltedRow images={[...EXPERT_IMAGES_ROW1].reverse()} direction="left" speed={85} />
+          <TiltedRow images={[...EXPERT_IMAGES_ROW2].reverse()} direction="right" speed={95} />
+          <TiltedRow images={EXPERT_IMAGES_ROW1} direction="left" speed={88} />
         </div>
 
         {/* 화이트 오버레이 */}
@@ -476,7 +476,7 @@ export default function BizPage() {
           </Reveal>
         </div>
         <Reveal delay={200}>
-          <AppScreenMarquee images={INTRO_IMAGES} speed={45} />
+          <AppScreenMarquee images={INTRO_IMAGES} speed={90} />
         </Reveal>
       </section>
 
