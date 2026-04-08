@@ -343,6 +343,18 @@ export default function BizPage() {
           90% { transform: translateY(-3px); }
           100% { transform: translateY(0); opacity: 1; }
         }
+        @keyframes ripple1 {
+          0% { transform: scale(1); opacity: 0.6; }
+          100% { transform: scale(1.6); opacity: 0; }
+        }
+        @keyframes ripple2 {
+          0% { transform: scale(1); opacity: 0.4; }
+          100% { transform: scale(1.8); opacity: 0; }
+        }
+        @keyframes ripple3 {
+          0% { transform: scale(1); opacity: 0.3; }
+          100% { transform: scale(2.0); opacity: 0; }
+        }
       `}} />
 
       {/* ═══ 회사소개 ═══════════════════════════════════════════ */}
@@ -516,7 +528,7 @@ export default function BizPage() {
               <p className="mt-2 mb-12 text-[20px] font-bold text-gray-900">프리티풀을 영상으로 만나보세요</p>
             </Reveal>
 
-            {/* 영상 1 - 어플리케이션 홍보영상 (좌→우 페이드인) */}
+            {/* 영상 1 - 플랫폼 홍보영상 (좌→우 페이드인) */}
             <Reveal delay={200}>
               <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
                 <div className="w-full md:w-[55%] rounded-2xl overflow-hidden shadow-2xl border border-gray-100 bg-black"
@@ -537,17 +549,17 @@ export default function BizPage() {
                   })()}
                 </div>
                 <div className="flex-1 md:pl-2">
-                  <span className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-blue-500 bg-blue-50 rounded-full mb-4">APPLICATION</span>
-                  <h4 className="text-[22px] font-black text-gray-900 leading-snug">프리티풀<br />어플리케이션 소개</h4>
+                  <span className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-violet-500 bg-violet-50 rounded-full mb-4">PLATFORM</span>
+                  <h4 className="text-[22px] font-black text-gray-900 leading-snug">프리티풀<br />플랫폼 소개</h4>
                   <p className="mt-3 text-[13px] leading-[1.8] text-gray-400">
-                    검증된 사회자를 직관적으로 비교하고,<br />
-                    실시간 소통으로 간편하게 매칭하세요.
+                    KBS·SBS·MBC 방송사 출신 검증된 진행자,<br />
+                    전국 1,000여 명과 함께하는 매칭 플랫폼.
                   </p>
                 </div>
               </div>
             </Reveal>
 
-            {/* 영상 2 - 플랫폼 홍보영상 (우→좌 페이드인) */}
+            {/* 영상 2 - 어플리케이션 홍보영상 (우→좌 페이드인) */}
             <Reveal delay={200}>
               <div className="mt-16 flex flex-col md:flex-row-reverse items-center gap-8 md:gap-12">
                 <div className="w-full md:w-[55%] rounded-2xl overflow-hidden shadow-2xl border border-gray-100 bg-black">
@@ -566,11 +578,11 @@ export default function BizPage() {
                   })()}
                 </div>
                 <div className="flex-1 md:pr-2 md:text-right">
-                  <span className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-violet-500 bg-violet-50 rounded-full mb-4">PLATFORM</span>
-                  <h4 className="text-[22px] font-black text-gray-900 leading-snug">프리티풀<br />플랫폼 소개</h4>
+                  <span className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-blue-500 bg-blue-50 rounded-full mb-4">APPLICATION</span>
+                  <h4 className="text-[22px] font-black text-gray-900 leading-snug">프리티풀<br />어플리케이션 소개</h4>
                   <p className="mt-3 text-[13px] leading-[1.8] text-gray-400">
-                    KBS·SBS·MBC 방송사 출신 검증된 진행자,<br />
-                    전국 1,000여 명과 함께하는 매칭 플랫폼.
+                    검증된 사회자를 직관적으로 비교하고,<br />
+                    실시간 소통으로 간편하게 매칭하세요.
                   </p>
                 </div>
               </div>
@@ -768,12 +780,75 @@ export default function BizPage() {
         </div>
       </section>
 
-      {/* ═══ 기업문의 ═══════════════════════════════════════════ */}
-      <section id="문의" className="py-28 bg-gray-50/60">
-        <div className="mx-auto max-w-[600px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">CONTACT</p></Reveal>
+      {/* ═══ 기업문의 (CTA + 캐릭터) ══════════════════════════ */}
+      <section className="relative py-32 overflow-hidden bg-gradient-to-b from-white via-blue-50/30 to-white">
+        {/* 배경 글로우 */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-200/20 rounded-full blur-[120px]" />
+
+        <div className="relative z-10 mx-auto max-w-[900px] px-6">
+          <div className="flex flex-col items-center md:flex-row md:items-center md:gap-12">
+            {/* MC 캐릭터 */}
+            <Reveal>
+              <div className="shrink-0 mb-8 md:mb-0">
+                <Image
+                  src="/images/mc-characters.png"
+                  alt="MC Characters"
+                  width={400}
+                  height={300}
+                  className="w-[280px] md:w-[340px] drop-shadow-2xl"
+                />
+              </div>
+            </Reveal>
+
+            {/* CTA 영역 */}
+            <div className="flex-1 text-center md:text-left">
+              <Reveal delay={100}>
+                <p className="text-[11px] font-bold tracking-[0.4em] text-blue-400 mb-3">CONTACT US</p>
+                <h2 className="text-[32px] font-black tracking-tight leading-[1.2] md:text-[40px]">
+                  당신의 특별한 순간,<br />
+                  <span className="text-blue-500">프리티풀</span>과 함께하세요
+                </h2>
+                <p className="mt-4 text-[14px] leading-[1.8] text-gray-400">
+                  아나운서·MC 섭외부터 행사기획까지<br />
+                  검증된 전문가가 함께합니다.
+                </p>
+              </Reveal>
+
+              {/* 파동 버튼 */}
+              <Reveal delay={300}>
+                <div className="mt-8 flex justify-center md:justify-start">
+                  <button
+                    onClick={() => scrollTo('문의폼')}
+                    className="group relative px-10 py-4 text-[16px] font-bold text-white rounded-full overflow-hidden transition-all duration-300 active:scale-95"
+                    style={{ background: 'linear-gradient(135deg, #3B82F6, #2563EB, #1D4ED8)' }}
+                  >
+                    {/* 파동 링 1 */}
+                    <span className="absolute inset-0 rounded-full border-2 border-blue-400/40 animate-[ripple1_2.5s_ease-out_infinite]" />
+                    {/* 파동 링 2 */}
+                    <span className="absolute inset-0 rounded-full border-2 border-blue-300/30 animate-[ripple2_2.5s_ease-out_0.8s_infinite]" />
+                    {/* 파동 링 3 */}
+                    <span className="absolute inset-0 rounded-full border border-blue-200/20 animate-[ripple3_2.5s_ease-out_1.6s_infinite]" />
+                    {/* 쉬머 */}
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                    {/* 글로우 */}
+                    <span className="absolute -inset-1 rounded-full bg-blue-500/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <span className="relative z-10 flex items-center gap-2">
+                      <Send className="h-4 w-4" />
+                      지금 문의하기
+                    </span>
+                  </button>
+                </div>
+              </Reveal>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ 문의 폼 ═══════════════════════════════════════════ */}
+      <section id="문의폼" className="py-28 bg-gray-50/60">
+        <div id="문의" className="mx-auto max-w-[600px] px-6">
+          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">INQUIRY FORM</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">기업 문의</h2></Reveal>
-          <Reveal delay={150}><p className="mt-3 text-[14px] text-gray-400">아나운서·MC 섭외, 행사진행·행사기획 등 문의해 주세요</p></Reveal>
 
           <Reveal delay={200}>
             <form onSubmit={handleInquiry} className="mt-10 space-y-3">
@@ -799,8 +874,16 @@ export default function BizPage() {
                 <option value="other">기타</option>
               </select>
               <textarea className="h-32 w-full resize-none border border-gray-200 rounded-xl bg-white px-4 py-3 text-[14px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="문의 내용 *" value={inquiry.message} onChange={(e) => setInquiry({ ...inquiry, message: e.target.value })} required />
-              <button type="submit" disabled={sending} className="flex w-full items-center justify-center gap-2 bg-gray-900 py-3.5 text-[15px] font-bold text-white rounded-xl transition-all hover:bg-gray-800 active:scale-[0.98] disabled:opacity-50">
-                <Send className="h-4 w-4" /> {sending ? '전송 중...' : '문의하기'}
+              <button
+                type="submit"
+                disabled={sending}
+                className="group relative flex w-full items-center justify-center gap-2 py-4 text-[15px] font-bold text-white rounded-xl overflow-hidden transition-all active:scale-[0.98] disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #3B82F6, #2563EB, #1D4ED8)' }}
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                <span className="relative z-10 flex items-center gap-2">
+                  <Send className="h-4 w-4" /> {sending ? '전송 중...' : '문의하기'}
+                </span>
               </button>
               <p className="text-[11px] text-gray-300 text-center">문의 접수 후 영업일 기준 1~2일 내 담당자가 연락드립니다</p>
             </form>
