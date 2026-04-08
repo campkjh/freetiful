@@ -520,29 +520,85 @@ export default function BizPage() {
         </Reveal>
       </section>
 
-      {/* ═══ 송년회 영상 ═══════════════════════════════════════ */}
-      <section className="py-28">
-        <div className="mx-auto max-w-[900px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">HIGHLIGHT</p></Reveal>
-          <Reveal delay={100}>
-            <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
-              2025 프리티풀 송년회
-            </h2>
-            <p className="mt-3 text-[15px] text-gray-400">프리티풀과 함께한 전문 진행자들의 특별한 순간</p>
-          </Reveal>
-          <Reveal delay={200}>
-            <div className="mt-10 rounded-3xl overflow-hidden shadow-2xl border border-gray-100 bg-black">
+      {/* ═══ 2025 송년회 RECEPTION ═════════════════════════════ */}
+      <section className="relative overflow-hidden bg-[#0a0a0a] text-white">
+        {/* 배경 이미지 (옅게) */}
+        <div className="absolute inset-0">
+          <Image
+            src="/images/IMG_8838 1.png"
+            alt=""
+            fill
+            className="object-cover opacity-20"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
+        </div>
+
+        <div className="relative z-10 mx-auto max-w-[1100px] px-6 py-32">
+          {/* 상단: 아티클 SVG + 텍스트 */}
+          <div className="flex flex-col items-center md:flex-row md:items-start md:gap-16">
+            {/* 좌측: 아티클 프레스 */}
+            <Reveal>
+              <div className="shrink-0 mb-10 md:mb-0">
+                <Image
+                  src="/images/Frame 1707488417.svg"
+                  alt="2025 Year-End Reception Article"
+                  width={272}
+                  height={161}
+                  className="w-[260px] md:w-[320px] opacity-90"
+                />
+              </div>
+            </Reveal>
+
+            {/* 우측: 텍스트 + 로고 */}
+            <div className="flex-1 text-center md:text-left">
+              <Reveal delay={100}>
+                <p className="text-[11px] font-bold tracking-[0.5em] text-white/40 uppercase">Year-End Reception</p>
+              </Reveal>
+              <Reveal delay={200}>
+                <h2 className="mt-4 text-[36px] font-black tracking-tight leading-[1.15] md:text-[48px]">
+                  2025 프리티풀<br />송년회
+                </h2>
+              </Reveal>
+              <Reveal delay={300}>
+                <p className="mt-5 max-w-[420px] text-[14px] leading-[1.9] text-white/50 md:mx-0 mx-auto">
+                  프리티풀과 함께한 전문 진행자들이 한자리에 모여<br />
+                  한 해를 돌아보고 새해를 맞이하는 특별한 순간.
+                </p>
+              </Reveal>
+              <Reveal delay={400}>
+                <div className="mt-8">
+                  <Image
+                    src="/images/Group 1707482062.svg"
+                    alt="Freetiful"
+                    width={176}
+                    height={30}
+                    className="w-[140px] opacity-40 md:mx-0 mx-auto"
+                  />
+                </div>
+              </Reveal>
+            </div>
+          </div>
+
+          {/* 영상 */}
+          <Reveal delay={300}>
+            <div className="mt-16 rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10 bg-black">
               <video
                 className="w-full aspect-video"
                 controls
                 playsInline
                 preload="metadata"
-                poster=""
               >
                 <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
               </video>
             </div>
           </Reveal>
+
+          {/* 하단 장식선 */}
+          <div className="mt-16 flex items-center gap-4">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
+            <span className="text-[10px] tracking-[0.5em] text-white/20 font-medium">FREETIFUL 2025</span>
+            <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
+          </div>
         </div>
       </section>
 
