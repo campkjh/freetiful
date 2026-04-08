@@ -1,13 +1,15 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageCircle, Search, Heart, User, Briefcase } from 'lucide-react';
+import { Home, MessageCircle, CalendarDays, Heart, User, Briefcase } from 'lucide-react';
 import Footer from '@/components/Footer';
+import FavoriteAnimation from '@/components/FavoriteAnimation';
 
 const NAV_ITEMS = [
   { href: '/home',      icon: Home,          label: '홈' },
-  { href: '/match',     icon: Search,        label: '견적요청' },
+  { href: '/schedule',  icon: CalendarDays,  label: '스케줄' },
   { href: '/biz',       icon: Briefcase,     label: 'Biz' },
   { href: '/chat',      icon: MessageCircle, label: '채팅' },
   { href: '/favorites', icon: Heart,         label: '찜' },
@@ -22,11 +24,28 @@ const HIDE_NAV_PATTERNS = [
   /^\/notifications/,
   /^\/biz/,
   /^\/pro-register/,
+  /^\/pros$/,
 ];
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
+  const [navVisible, setNavVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY > lastScrollY.current && currentY > 80) {
+        setNavVisible(false);
+      } else {
+        setNavVisible(true);
+      }
+      lastScrollY.current = currentY;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <div className="min-h-screen bg-surface-50">
@@ -65,7 +84,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
       <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${hideNav ? '' : 'pb-24 lg:pb-12'}`}>
-        <div className="max-w-lg mx-auto lg:max-w-none">
+        <div className="lg:max-w-none">
           {children}
         </div>
       </main>
@@ -75,7 +94,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       {/* ─── Mobile Bottom Navigation (Glass Pill) ───────────────────── */}
       {!hideNav && (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe">
+        <nav
+          className="lg:hidden fixed left-0 right-0 z-50 px-4 pb-safe"
+          style={{
+            bottom: navVisible ? 0 : -80,
+            transform: navVisible ? 'scale(1)' : 'scale(0.95)',
+            transition: 'bottom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}
+        >
           <div className="max-w-lg mx-auto glass-strong rounded-full shadow-nav mb-1">
             <div className="flex items-center justify-around h-[60px]">
               {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
@@ -85,12 +111,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   <Link
                     key={href}
                     href={href}
+                    data-nav={label}
                     className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
                       isBiz
                         ? 'text-gray-900'
                         : active ? 'text-primary-500' : 'text-gray-400'
                     }`}
                     style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                    onClick={(e) => {
+                      const el = e.currentTarget;
+                      el.style.animation = 'none';
+                      void el.offsetHeight; // force reflow
+                      el.style.animation = 'liquidTap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    }}
                   >
                     <Icon size={20} strokeWidth={isBiz ? 2.4 : active ? 2.2 : 1.6} />
                     <span className={`text-[9px] ${isBiz ? 'font-black' : active ? 'font-bold' : 'font-medium'}`}>{label}</span>
@@ -101,6 +134,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </div>
         </nav>
       )}
+      <FavoriteAnimation />
     </div>
   );
 }

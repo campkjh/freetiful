@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"
         />
       </head>
-      <body className="font-sans bg-white text-gray-900 antialiased">
+      <body className="font-sans bg-white text-gray-900 antialiased overflow-x-hidden">
         <Providers>
           {children}
           <Toaster
