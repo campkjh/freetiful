@@ -59,6 +59,22 @@ function CountUp({ target, suffix = '' }: { target: number; suffix?: string }) {
   return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
 }
 
+/* ─── Freetiful Symbol (bounce on reveal) ────────────────── */
+function FreetifulSymbol({ visible }: { visible: boolean }) {
+  return (
+    <div className="flex items-center justify-center">
+      <svg width="30" height="60" viewBox="0 0 30 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[36px] h-[72px]">
+        <path d="M12.9337 43.4863C12.8426 43.6767 12.889 43.8822 12.889 44.0794C12.889 47.6437 12.889 51.208 12.889 54.7724C12.8932 55.6676 12.6726 56.5493 12.2478 57.3353C11.7305 58.2858 10.9282 59.0469 9.95574 59.5094C8.98329 59.972 7.89063 60.1124 6.83425 59.9104C5.77787 59.7084 4.81197 59.1745 4.0749 58.3851C3.33783 57.5957 2.8674 56.5913 2.73101 55.5159C2.7001 55.2586 2.68406 54.9997 2.68296 54.7406C2.68296 46.3683 2.65811 37.9961 2.69124 29.6238C2.7045 25.8579 4.10783 22.6483 6.80846 20.0386C8.34268 18.5566 10.1403 17.4856 12.097 16.6703C14.0601 15.8717 16.1118 15.3157 18.2074 15.0146C20.2102 14.7234 22.2313 14.5788 24.2548 14.5818C25.5738 14.5926 26.8372 15.1184 27.7797 16.0489C28.7223 16.9793 29.2705 18.2418 29.3094 19.5713C29.3482 20.9008 28.8745 22.1937 27.9879 23.1785C27.1013 24.1632 25.8707 24.7631 24.5547 24.8521C24.0047 24.8822 23.4529 24.8822 22.8979 24.9022C21.0211 24.9452 19.1564 25.2167 17.3442 25.7109C16.5807 25.9216 15.8415 26.2134 15.139 26.5813C14.7643 26.7801 14.4097 27.0151 14.0803 27.2831C13.3065 27.913 12.8642 28.7133 12.8708 29.7341C12.8664 30.0131 12.8797 30.2922 12.9105 30.5695C13.0119 31.3128 13.3912 31.9888 13.9709 32.4591C14.6571 33.0231 15.4447 33.4486 16.2905 33.7122C17.566 34.1408 18.9025 34.3564 20.247 34.3505C20.5038 34.3505 20.7606 34.312 21.0174 34.2953C23.2259 34.1416 24.9606 34.9803 26.0475 36.9335C26.4315 37.6247 26.6512 38.3963 26.6894 39.1877C26.7276 39.979 26.5833 40.7685 26.2678 41.4941C25.9522 42.2197 25.4741 42.8616 24.871 43.3693C24.2679 43.877 23.5562 44.2368 22.7919 44.4202C22.3078 44.5319 21.8137 44.594 21.3173 44.6057C20.1015 44.6671 18.8829 44.6335 17.6723 44.5054C16.2108 44.3385 14.7684 44.032 13.3645 43.5899C13.2292 43.5268 13.0827 43.4916 12.9337 43.4863Z" fill="#0C7BFF"/>
+        <path
+          d="M6.87733 14.0793C3.28202 14.1445 -0.00181093 11.1287 0.00315955 7.14728C-0.0247608 6.21861 0.132599 5.29373 0.4659 4.42755C0.799201 3.56137 1.30165 2.77154 1.94343 2.10492C2.58522 1.43829 3.35325 0.908469 4.20196 0.546887C5.05068 0.185304 5.96277 -0.000669829 6.88412 1.81273e-06C7.80546 0.000673454 8.71729 0.187975 9.56548 0.550795C10.4137 0.913615 11.181 1.44456 11.8218 2.11211C12.4626 2.77967 12.9639 3.57024 13.296 4.43691C13.628 5.30357 13.7841 6.22867 13.7548 7.15731C13.7532 11.1338 10.4975 14.1478 6.87733 14.0793Z"
+          fill="#66DEFF"
+          className={`origin-center transition-all duration-700 ${visible ? 'animate-[dotBounce_0.8s_ease-out]' : 'opacity-0'}`}
+        />
+      </svg>
+    </div>
+  );
+}
+
 /* ─── Constants ───────────────────────────────────────────── */
 const COMPANY_INFO = {
   name: '프리티풀',
@@ -319,6 +335,14 @@ export default function BizPage() {
           0% { transform: translateX(-50%); }
           100% { transform: translateX(0); }
         }
+        @keyframes dotBounce {
+          0% { transform: translateY(-40px); opacity: 0; }
+          40% { transform: translateY(4px); opacity: 1; }
+          60% { transform: translateY(-8px); }
+          75% { transform: translateY(2px); }
+          90% { transform: translateY(-3px); }
+          100% { transform: translateY(0); opacity: 1; }
+        }
       `}} />
 
       {/* ═══ 회사소개 ═══════════════════════════════════════════ */}
@@ -446,28 +470,45 @@ export default function BizPage() {
             <h3 className="mt-20 text-[11px] font-bold tracking-[0.4em] text-gray-300">WHY FREETIFUL</h3>
             <p className="mt-3 text-[20px] font-bold text-gray-900">왜 프리티풀이어야만 할까요?</p>
           </Reveal>
-          <Reveal delay={200}>
-            <div className="mt-8 border border-gray-100 rounded-2xl overflow-hidden">
-              <div className="grid grid-cols-3 bg-gray-50 border-b border-gray-100">
-                <div className="p-4 text-[12px] font-bold text-gray-400" />
-                <div className="p-4 text-[12px] font-bold text-gray-400 text-center border-x border-gray-100">일반 플랫폼</div>
-                <div className="p-4 text-[12px] font-bold text-blue-500 text-center">프리티풀</div>
-              </div>
-              {[
-                { label: '진행자 등록', general: '누구나 자유롭게 가능', freetiful: '직접 심사·검증을 통한 입점' },
-                { label: '경력 인증', general: '미비 또는 자율 기재', freetiful: '포트폴리오 및 실제 경력 검증 필수' },
-                { label: '품질 보증', general: '무관여 (후기 중심)', freetiful: '진행자 관리 및 사후 피드백 시스템' },
-                { label: '전문성', general: '아마추어/초보자 존재', freetiful: '방송·행사 경력 보유 전문가만 선발' },
-                { label: '위험요소', general: '후기 조작, 무경험자 섭외 가능', freetiful: '검증되지 않은 진행자는 등록 불가' },
-              ].map((row, i) => (
-                <div key={i} className={`grid grid-cols-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-                  <div className="p-4 text-[13px] font-semibold text-gray-600">{row.label}</div>
-                  <div className="p-4 text-[12px] text-gray-400 text-center border-x border-gray-50">{row.general}</div>
-                  <div className="p-4 text-[12px] text-blue-600 font-medium text-center">{row.freetiful}</div>
+          {(() => {
+            const compare = useReveal();
+            return (
+              <div ref={compare.ref} className={`mt-8 transition-all duration-700 ${compare.visible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+                <div className="border border-gray-100 rounded-2xl overflow-hidden">
+                  {/* 헤더: 로고 포함 */}
+                  <div className="grid grid-cols-3 bg-gray-50 border-b border-gray-100">
+                    <div className="p-4" />
+                    <div className="p-4 flex flex-col items-center justify-center gap-2 border-x border-gray-100">
+                      {/* 경쟁사 로고 (블러 처리) */}
+                      <div className="relative w-[60px] h-[36px] flex items-center justify-center filter blur-[1.5px] opacity-60">
+                        <div className="absolute left-0 w-[30px] h-[30px] rounded-full bg-[#7C3AED]" />
+                        <div className="absolute right-0 w-[30px] h-[30px] rounded-full bg-[#FACC15]" />
+                      </div>
+                      <span className="text-[12px] font-bold text-gray-400">일반 플랫폼</span>
+                    </div>
+                    <div className="p-4 flex flex-col items-center justify-center gap-2">
+                      {/* 프리티풀 심볼 (바운스) */}
+                      <FreetifulSymbol visible={compare.visible} />
+                      <span className="text-[12px] font-bold text-blue-500">프리티풀</span>
+                    </div>
+                  </div>
+                  {[
+                    { label: '진행자 등록', general: '누구나 자유롭게 가능', freetiful: '직접 심사·검증을 통한 입점' },
+                    { label: '경력 인증', general: '미비 또는 자율 기재', freetiful: '포트폴리오 및 실제 경력 검증 필수' },
+                    { label: '품질 보증', general: '무관여 (후기 중심)', freetiful: '진행자 관리 및 사후 피드백 시스템' },
+                    { label: '전문성', general: '아마추어/초보자 존재', freetiful: '방송·행사 경력 보유 전문가만 선발' },
+                    { label: '위험요소', general: '후기 조작, 무경험자 섭외 가능', freetiful: '검증되지 않은 진행자는 등록 불가' },
+                  ].map((row, i) => (
+                    <div key={i} className={`grid grid-cols-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
+                      <div className="p-4 text-[13px] font-semibold text-gray-600">{row.label}</div>
+                      <div className="p-4 text-[12px] text-gray-400 text-center border-x border-gray-50">{row.general}</div>
+                      <div className="p-4 text-[12px] text-blue-600 font-medium text-center">{row.freetiful}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </Reveal>
+              </div>
+            );
+          })()}
 
           {/* 서비스 소개 스크린 */}
           <Reveal delay={100}>
