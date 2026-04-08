@@ -78,6 +78,51 @@ const NAV_SECTIONS = ['회사소개', '핵심서비스', '연혁', '자료실', 
 const EXPERT_IMAGES_ROW1 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482282 + i}.png`);
 const EXPERT_IMAGES_ROW2 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482293 + i}.png`);
 
+const INTRO_IMAGES = [
+  '/images/소개이미지1.png',
+  '/images/소개ios2.png',
+  '/images/소개ios3.png',
+  '/images/소개ios5.png',
+  '/images/소개ios6.png',
+  '/images/소개ios7.png',
+  '/images/소개ios8.png',
+  '/images/소개ios9.png',
+];
+
+function AppScreenMarquee({ images, speed = 40 }: { images: string[]; speed?: number }) {
+  const doubled = [...images, ...images, ...images];
+  return (
+    <div className="relative overflow-hidden">
+      {/* 좌우 그라데이션 페이드 */}
+      <div className="absolute left-0 top-0 bottom-0 w-40 bg-gradient-to-r from-gray-50 to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-gray-50 to-transparent z-10 pointer-events-none" />
+      <div
+        className="flex items-center gap-6"
+        style={{
+          animation: `marquee-left ${speed}s linear infinite`,
+          width: 'max-content',
+        }}
+      >
+        {doubled.map((src, i) => (
+          <div
+            key={`${src}-${i}`}
+            className="relative flex-shrink-0 rounded-[20px] overflow-hidden shadow-xl border border-gray-200/50 bg-white transition-transform duration-500 hover:scale-105 hover:shadow-2xl"
+            style={{ width: 200, height: 420 }}
+          >
+            <Image
+              src={src}
+              alt="App Screen"
+              width={200}
+              height={420}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MarqueeRow({ images, direction = 'left', speed = 60 }: { images: string[]; direction?: 'left' | 'right'; speed?: number }) {
   const doubled = [...images, ...images];
   return (
@@ -437,7 +482,16 @@ export default function BizPage() {
               </Reveal>
             ))}
           </div>
+
+          {/* 서비스 소개 스크린 */}
+          <Reveal delay={100}>
+            <h3 className="mt-20 text-[11px] font-bold tracking-[0.4em] text-gray-300">APP SCREENS</h3>
+            <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900">직관적인 앱으로 간편하게</p>
+          </Reveal>
         </div>
+        <Reveal delay={200}>
+          <AppScreenMarquee images={INTRO_IMAGES} speed={45} />
+        </Reveal>
       </section>
 
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
