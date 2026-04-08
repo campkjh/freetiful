@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  ChevronRight, ChevronDown, Shield, BarChart3, Users, Building2,
+  ChevronRight, ChevronDown, ChevronLeft, Shield, BarChart3, Users, Building2,
   CheckCircle, Award, Download, MapPin, Phone, Mail,
   Clock, FileText, Send, User, Briefcase, Globe,
   Target, Heart, Star, Zap, X, ArrowRight,
@@ -892,7 +892,7 @@ export default function BizPage() {
       </section>
 
       {/* ═══ Footer ═══════════════════════════════════════════ */}
-      <footer className="border-t border-gray-100 py-12 bg-white">
+      <footer className="border-t border-gray-100 py-12 pb-28 md:pb-12 bg-white">
         <div className="mx-auto max-w-[1000px] px-6">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
@@ -912,6 +912,40 @@ export default function BizPage() {
           </div>
         </div>
       </footer>
+
+      {/* ═══ 모바일 바텀 네비게이션 ═══════════════════════════ */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe">
+        <div className="max-w-lg mx-auto bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_-4px_30px_rgba(0,0,0,0.08)] border border-gray-100/60 mb-2">
+          <div className="flex items-center h-[60px] px-2">
+            {/* 홈 이동 버튼 */}
+            <Link
+              href="/home"
+              className="flex items-center justify-center w-[48px] h-[48px] -ml-1 rounded-full bg-gray-100 text-gray-400 transition-all active:scale-90 hover:bg-gray-200"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+
+            {/* 네비 아이템들 */}
+            <div className="flex-1 flex items-center justify-around">
+              {[
+                { id: '회사소개', icon: <Building2 className="h-5 w-5" />, label: '회사소개' },
+                { id: '핵심서비스', icon: <Briefcase className="h-5 w-5" />, label: '서비스' },
+                { id: '자료실', icon: <FileText className="h-5 w-5" />, label: '자료실' },
+                { id: '문의', icon: <Send className="h-5 w-5" />, label: '문의' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => scrollTo(item.id === '문의' ? '문의폼' : item.id)}
+                  className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl text-gray-400 hover:text-gray-700 transition-colors active:scale-90"
+                >
+                  {item.icon}
+                  <span className="text-[9px] font-medium">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </nav>
 
       {/* ═══ 개인정보처리방침 모달 ═══════════════════════════ */}
       {showPrivacy && (
