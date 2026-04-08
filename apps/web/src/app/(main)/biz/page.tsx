@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ChevronRight, ChevronDown, Shield, BarChart3, Users, Building2,
   CheckCircle, Award, Download, MapPin, Phone, Mail,
@@ -126,11 +127,15 @@ export default function BizPage() {
               : 'max-w-[1200px] w-full h-[60px] px-6 bg-transparent'
           }`}
         >
-          <Link
-            href="/home"
-            className={`font-black tracking-tight text-gray-900 transition-all duration-700 ${scrollY > 80 ? 'text-[15px]' : 'text-[18px]'}`}
-          >
-            Prettyful {scrollY <= 80 && <span className="text-[11px] font-normal text-gray-300">for Business</span>}
+          <Link href="/home" className="transition-all duration-700">
+            <Image
+              src="/images/logo-prettyful.svg"
+              alt="Prettyful"
+              width={scrollY > 80 ? 100 : 120}
+              height={scrollY > 80 ? 30 : 35}
+              className="transition-all duration-700"
+              style={{ width: scrollY > 80 ? 100 : 120, height: 'auto' }}
+            />
           </Link>
 
           <nav className={`hidden items-center gap-0.5 md:flex transition-all duration-700 ${scrollY > 80 ? 'gap-0' : 'gap-1'}`}>

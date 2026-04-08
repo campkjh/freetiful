@@ -50,7 +50,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="min-h-screen bg-surface-50">
       {/* ─── Desktop Top Navigation (Glass) ──────────────────────────── */}
-      <header className="hidden lg:block sticky top-0 z-50 glass border-b border-gray-100/50">
+      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 glass border-b border-gray-100/50`}>
         <div className="max-w-7xl mx-auto px-8 h-[72px] flex items-center justify-between">
           <Link href="/home" className="text-[22px] font-black text-primary-500 tracking-tight">
             Prettyful
