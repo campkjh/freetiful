@@ -480,6 +480,32 @@ export default function BizPage() {
         </Reveal>
       </section>
 
+      {/* ═══ 송년회 영상 ═══════════════════════════════════════ */}
+      <section className="py-28">
+        <div className="mx-auto max-w-[900px] px-6">
+          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">HIGHLIGHT</p></Reveal>
+          <Reveal delay={100}>
+            <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
+              2025 프리티풀 송년회
+            </h2>
+            <p className="mt-3 text-[15px] text-gray-400">프리티풀과 함께한 전문 진행자들의 특별한 순간</p>
+          </Reveal>
+          <Reveal delay={200}>
+            <div className="mt-10 rounded-3xl overflow-hidden shadow-2xl border border-gray-100 bg-black">
+              <video
+                className="w-full aspect-video"
+                controls
+                playsInline
+                preload="metadata"
+                poster=""
+              >
+                <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
+              </video>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
       <section id="연혁" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
