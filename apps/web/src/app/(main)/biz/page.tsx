@@ -930,37 +930,65 @@ export default function BizPage() {
 
       {/* ═══ 모바일 바텀 네비게이션 ═══════════════════════════ */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe">
-        <div className={`max-w-lg mx-auto bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_-4px_30px_rgba(0,0,0,0.08)] border border-gray-100/60 mb-2 overflow-hidden ${bizNavExpanding ? 'animate-[bizNavExpand_0.5s_cubic-bezier(0.16,1,0.3,1)]' : ''} ${bizNavCollapsing ? 'animate-[bizNavCollapse_0.4s_cubic-bezier(0.7,0,0.3,1)_forwards]' : ''}`}>
-          <div className="flex items-center h-[60px] px-2">
-            {/* 홈 이동 버튼 */}
-            <button
-              onClick={() => {
-                sessionStorage.setItem('nav-transition', 'from-biz');
-                setBizNavCollapsing(true);
-                setTimeout(() => router.push('/home'), 350);
-              }}
-              className="flex items-center justify-center w-[48px] h-[48px] -ml-1 rounded-full bg-gray-100 text-gray-400 transition-all active:scale-90 hover:bg-gray-200"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
+        <div
+          className="max-w-lg mx-auto mb-2"
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-start',
+          }}
+        >
+          <div
+            className="bg-white/90 backdrop-blur-2xl shadow-[0_-4px_30px_rgba(0,0,0,0.08)] border border-gray-100/60 transition-all duration-500"
+            style={{
+              width: bizNavCollapsing ? 60 : '100%',
+              maxWidth: bizNavCollapsing ? 60 : 512,
+              height: 60,
+              borderRadius: 9999,
+              transition: bizNavCollapsing
+                ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), max-width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                : 'none',
+              ...(bizNavExpanding ? { animation: 'bizPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
+            }}
+          >
+            <div className="flex items-center h-full px-2">
+              {/* 홈 이동 버튼 */}
+              <button
+                onClick={() => {
+                  sessionStorage.setItem('nav-transition', 'from-biz');
+                  setBizNavCollapsing(true);
+                  setTimeout(() => router.push('/home'), 500);
+                }}
+                className="flex items-center justify-center w-[48px] h-[48px] shrink-0 -ml-1 rounded-full bg-gray-100 text-gray-400 transition-all active:scale-90 hover:bg-gray-200"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
 
-            {/* 네비 아이템들 */}
-            <div className="flex-1 flex items-center justify-around">
-              {[
-                { id: '회사소개', icon: <Building2 className="h-5 w-5" />, label: '회사소개' },
-                { id: '핵심서비스', icon: <Briefcase className="h-5 w-5" />, label: '서비스' },
-                { id: '자료실', icon: <FileText className="h-5 w-5" />, label: '자료실' },
-                { id: '문의', icon: <Send className="h-5 w-5" />, label: '문의' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => scrollTo(item.id === '문의' ? '문의폼' : item.id)}
-                  className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl text-gray-400 hover:text-gray-700 transition-colors active:scale-90"
-                >
-                  {item.icon}
-                  <span className="text-[9px] font-medium">{item.label}</span>
-                </button>
-              ))}
+              {/* 네비 아이템들 */}
+              <div className="flex-1 flex items-center justify-around overflow-hidden">
+                {[
+                  { id: '회사소개', icon: <Building2 className="h-5 w-5" />, label: '회사소개' },
+                  { id: '핵심서비스', icon: <Briefcase className="h-5 w-5" />, label: '서비스' },
+                  { id: '자료실', icon: <FileText className="h-5 w-5" />, label: '자료실' },
+                  { id: '문의', icon: <Send className="h-5 w-5" />, label: '문의' },
+                ].map((item, idx) => (
+                  <button
+                    key={item.id}
+                    onClick={() => scrollTo(item.id === '문의' ? '문의폼' : item.id)}
+                    className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl text-gray-400 hover:text-gray-700 transition-all active:scale-90"
+                    style={{
+                      opacity: bizNavCollapsing ? 0 : 1,
+                      transform: bizNavCollapsing ? 'scale(0.5)' : (bizNavExpanding ? undefined : 'scale(1)'),
+                      transition: bizNavCollapsing
+                        ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s`
+                        : 'opacity 0.3s ease, transform 0.3s ease',
+                      ...(bizNavExpanding ? { animation: `bizIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.08}s both` } : {}),
+                    }}
+                  >
+                    {item.icon}
+                    <span className="text-[9px] font-medium whitespace-nowrap">{item.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -968,14 +996,15 @@ export default function BizPage() {
 
       {/* Biz nav transition keyframes */}
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes bizNavExpand {
-          0% { transform: scaleX(0.12); transform-origin: left center; opacity: 0.3; }
-          60% { transform: scaleX(1.03); opacity: 1; }
-          100% { transform: scaleX(1); transform-origin: left center; opacity: 1; }
+        @keyframes bizPillExpand {
+          0% { width: 60px; max-width: 60px; }
+          70% { width: 105%; max-width: 530px; }
+          100% { width: 100%; max-width: 512px; }
         }
-        @keyframes bizNavCollapse {
-          0% { transform: scaleX(1); transform-origin: left center; opacity: 1; }
-          100% { transform: scaleX(0.12); transform-origin: left center; opacity: 0; }
+        @keyframes bizIconAppear {
+          0% { opacity: 0; transform: scale(0.3) translateY(4px); }
+          60% { opacity: 1; transform: scale(1.1) translateY(-1px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
         }
       `}} />
 

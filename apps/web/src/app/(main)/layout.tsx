@@ -119,66 +119,88 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           }}
         >
           <div
-            data-nav-pill
-            className={`max-w-lg mx-auto glass-strong rounded-full shadow-nav mb-1 overflow-hidden ${navExpanding ? 'animate-[navExpandFromLeft_0.5s_cubic-bezier(0.16,1,0.3,1)]' : ''} ${bizCollapsing ? 'animate-[navCollapseToLeft_0.4s_cubic-bezier(0.7,0,0.3,1)_forwards]' : ''}`}
+            className="mx-auto mb-1"
+            style={{ display: 'flex', justifyContent: 'flex-start', maxWidth: 512 }}
           >
-            <div className="flex items-center justify-around h-[60px]">
-              {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-                const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
-                const isBiz = href === '/biz';
-                return isBiz ? (
-                  <button
-                    key={href}
-                    data-nav={label}
-                    className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl text-gray-900"
-                    style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      sessionStorage.setItem('nav-transition', 'from-platform');
-                      setBizCollapsing(true);
-                      setTimeout(() => {
-                        router.push('/biz');
-                      }, 350);
-                    }}
-                  >
-                    <Icon size={20} strokeWidth={2.4} />
-                    <span className="text-[9px] font-black">{label}</span>
-                  </button>
-                ) : (
-                  <Link
-                    key={href}
-                    href={href}
-                    data-nav={label}
-                    className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
-                      active ? 'text-primary-500' : 'text-gray-400'
-                    }`}
-                    style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-                    onClick={() => {
-                      const navPill = document.querySelector('[data-nav-pill]') as HTMLElement;
-                      if (navPill) {
-                        navPill.style.animation = 'none';
-                        void navPill.offsetHeight;
-                        navPill.style.animation = 'liquidTap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
-                      }
-                    }}
-                  >
-                    <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
-                    <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
-                  </Link>
-                );
-              })}
+            <div
+              data-nav-pill
+              className="glass-strong shadow-nav"
+              style={{
+                width: bizCollapsing ? 60 : '100%',
+                height: 60,
+                borderRadius: 9999,
+                transition: bizCollapsing
+                  ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  : 'none',
+                ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
+              }}
+            >
+              <div className="flex items-center justify-around h-full overflow-hidden">
+                {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
+                  const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
+                  const isBiz = href === '/biz';
+                  const itemStyle = {
+                    opacity: bizCollapsing ? 0 : 1,
+                    transform: bizCollapsing ? 'scale(0.5)' : 'scale(1)',
+                    transition: bizCollapsing
+                      ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s`
+                      : 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                    ...(navExpanding ? { animation: `platformIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.06}s both` } : {}),
+                  };
+                  return isBiz ? (
+                    <button
+                      key={href}
+                      data-nav={label}
+                      className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl text-gray-900"
+                      style={itemStyle}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        sessionStorage.setItem('nav-transition', 'from-platform');
+                        setBizCollapsing(true);
+                        setTimeout(() => router.push('/biz'), 500);
+                      }}
+                    >
+                      <Icon size={20} strokeWidth={2.4} />
+                      <span className="text-[9px] font-black">{label}</span>
+                    </button>
+                  ) : (
+                    <Link
+                      key={href}
+                      href={href}
+                      data-nav={label}
+                      className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
+                        active ? 'text-primary-500' : 'text-gray-400'
+                      }`}
+                      style={itemStyle}
+                      onClick={() => {
+                        const navPill = document.querySelector('[data-nav-pill]') as HTMLElement;
+                        if (navPill) {
+                          navPill.style.animation = 'none';
+                          void navPill.offsetHeight;
+                          navPill.style.animation = 'liquidTap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                        }
+                      }}
+                    >
+                      <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                      <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
           {/* Nav transition keyframes */}
           <style>{`
-            @keyframes navExpandFromLeft {
-              0% { transform: scaleX(0.15); transform-origin: left center; opacity: 0.5; border-radius: 9999px; }
-              100% { transform: scaleX(1); transform-origin: left center; opacity: 1; border-radius: 9999px; }
+            @keyframes platformPillExpand {
+              0% { width: 60px; }
+              70% { width: 105%; }
+              100% { width: 100%; }
             }
-            @keyframes navCollapseToLeft {
-              0% { transform: scaleX(1); transform-origin: left center; opacity: 1; }
-              100% { transform: scaleX(0.15); transform-origin: left center; opacity: 0; }
+            @keyframes platformIconAppear {
+              0% { opacity: 0; transform: scale(0.3) translateY(4px); }
+              60% { opacity: 1; transform: scale(1.1) translateY(-1px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
             }
           `}</style>
         </nav>
