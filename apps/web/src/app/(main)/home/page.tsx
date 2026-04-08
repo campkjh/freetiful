@@ -594,56 +594,13 @@ export default function HomePage() {
 
       {/* ─── Mobile: CTA → Category Cards → Category Tabs → Icon Grid ─ */}
       <div className="lg:hidden">
-        {/* 1. Blue CTA Banner with MC image */}
-        <div
-          className="px-[10px] pt-6 pb-1 opacity-0"
-          style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
-        >
-          <Link
-            href="/match"
-            className="block w-full rounded-[16px] overflow-hidden active:scale-[0.97] transition-transform relative"
-            style={{
-              background: 'radial-gradient(ellipse at 30% 50%, #1180FF 0%, #6AB0FF 100%)',
-              border: '1px solid rgba(255,255,255,0.25)',
-              animation: 'breathe 3s ease-in-out infinite',
-            }}
-          >
-            {/* Shimmer light sweep */}
-            <span
-              className="absolute inset-0 pointer-events-none overflow-hidden rounded-[16px]"
-              style={{ zIndex: 2 }}
-            >
-              <span
-                className="absolute top-0 left-0 w-[40%] h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                style={{ animation: 'shimmer 3s ease-in-out 1.5s infinite' }}
-              />
-            </span>
-            {/* Ripple pulse from center */}
-            <span className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden rounded-[16px]">
-              <span className="absolute w-[50px] h-[50px] rounded-full bg-white/10" style={{ animation: 'ripplePulse 3s ease-out 0.8s infinite' }} />
-              <span className="absolute w-[50px] h-[50px] rounded-full bg-white/8" style={{ animation: 'ripplePulse 3s ease-out 1.8s infinite' }} />
-            </span>
-            <div className="flex items-center h-[64px] relative z-10">
-              <img
-                src="/images/mc-characters.png"
-                alt="전문가"
-                className="h-[64px] w-auto shrink-0 ml-1"
-              />
-              <div className="flex-1 flex items-center justify-center gap-1.5 pr-3">
-                <span className="text-white text-[18px] font-bold drop-shadow-sm">다수 전문가 매칭</span>
-                <ChevronRight size={20} className="text-white/80 shrink-0" />
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* 2. Two large category cards */}
-        <div className="px-[10px] py-1">
+        {/* Category cards (결혼식사회자 / 행사사회자) */}
+        <div className="px-[10px] pt-3 pb-1">
           <div className="grid grid-cols-2 gap-3">
             <Link
               href="/pros?category=결혼식사회자"
               className="rounded-2xl bg-white border border-gray-100 shadow-sm px-3 flex items-center gap-2.5 h-[64px] opacity-0"
-              style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
+              style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
               <img src="/images/cat-wedding-mc.png" alt="결혼식사회자" className="w-10 h-10 object-cover shrink-0" />
               <div className="leading-none">
@@ -654,7 +611,7 @@ export default function HomePage() {
             <Link
               href="/pros?category=행사사회자"
               className="rounded-2xl bg-white border border-gray-100 shadow-sm px-3 flex items-center gap-2.5 h-[64px] opacity-0"
-              style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
+              style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
               <img src="/images/cat-event-mc.png" alt="행사사회자" className="w-10 h-10 object-cover shrink-0" />
               <div className="leading-none">
@@ -668,7 +625,7 @@ export default function HomePage() {
         {/* 3. Category text tabs */}
         <div
           className="flex gap-2 overflow-x-auto scrollbar-hide px-[10px] py-2 opacity-0"
-          style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards' }}
+          style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
         >
           {['결혼식사회자', '행사 맞춤의뢰', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스'].map((tab) => (
             <button
