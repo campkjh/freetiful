@@ -127,50 +127,31 @@ function AppScreenMarquee({ images, speed = 40 }: { images: string[]; speed?: nu
   );
 }
 
-function MarqueeRow({ images, direction = 'left', speed = 60 }: { images: string[]; direction?: 'left' | 'right'; speed?: number }) {
-  const doubled = [...images, ...images];
+/* ─── Netflix-style tilted grid row ───────────────────────── */
+function TiltedRow({ images, direction = 'left', speed = 35 }: { images: string[]; direction?: 'left' | 'right'; speed?: number }) {
+  const tripled = [...images, ...images, ...images];
   return (
-    <div className="relative overflow-hidden group py-6">
-      {/* 양쪽 페이드 */}
-      <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
-      <div
-        className="flex gap-8 group-hover:[animation-play-state:paused]"
-        style={{
-          animation: `marquee-${direction} ${speed}s linear infinite`,
-          width: 'max-content',
-          perspective: '800px',
-        }}
-      >
-        {doubled.map((src, i) => {
-          const isOdd = i % 2 === 1;
-          return (
-            <div
-              key={`${src}-${i}`}
-              className="relative flex-shrink-0 transition-all duration-500 ease-out hover:z-20"
-              style={{
-                perspective: '600px',
-              }}
-            >
-              <div
-                className="w-[110px] h-[110px] md:w-[130px] md:h-[130px] rounded-full overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 bg-gray-100 border-[3px] border-white hover:scale-110"
-                style={{
-                  transform: `translateY(${isOdd ? '14px' : '-14px'}) rotateY(${isOdd ? '15deg' : '-15deg'}) rotateX(${isOdd ? '-5deg' : '5deg'})`,
-                  transformStyle: 'preserve-3d',
-                }}
-              >
-                <Image
-                  src={src}
-                  alt="Expert"
-                  width={130}
-                  height={130}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div
+      className="flex gap-4"
+      style={{
+        animation: `marquee-${direction} ${speed}s linear infinite`,
+        width: 'max-content',
+      }}
+    >
+      {tripled.map((src, i) => (
+        <div
+          key={`${src}-${i}`}
+          className="flex-shrink-0 w-[180px] h-[240px] md:w-[220px] md:h-[290px] rounded-xl overflow-hidden"
+        >
+          <Image
+            src={src}
+            alt="Expert"
+            width={220}
+            height={290}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -268,18 +249,31 @@ export default function BizPage() {
         </div>
       </header>
 
-      {/* ═══ Hero ═══════════════════════════════════════════════ */}
-      <section className="relative flex min-h-screen items-center justify-center pt-[60px]">
-        {/* 배경 */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-white to-violet-50/50" />
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-blue-100/30 rounded-full blur-[150px]" />
+      {/* ═══ Hero (Netflix-style tilted grid) ═══════════════════ */}
+      <section className="relative flex min-h-screen items-center justify-center pt-[60px] overflow-hidden">
+        {/* 기울어진 전문가 그리드 배경 */}
+        <div
+          className="absolute inset-0 flex flex-col gap-4 justify-center"
+          style={{
+            transform: 'rotate(-12deg) scale(1.4)',
+            transformOrigin: 'center center',
+          }}
+        >
+          <TiltedRow images={EXPERT_IMAGES_ROW1} direction="left" speed={30} />
+          <TiltedRow images={EXPERT_IMAGES_ROW2} direction="right" speed={38} />
+          <TiltedRow images={[...EXPERT_IMAGES_ROW1].reverse()} direction="left" speed={34} />
+          <TiltedRow images={[...EXPERT_IMAGES_ROW2].reverse()} direction="right" speed={42} />
+          <TiltedRow images={EXPERT_IMAGES_ROW1} direction="left" speed={36} />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white" />
 
+        {/* 화이트 오버레이 */}
+        <div className="absolute inset-0 bg-white/75" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-white/60 to-white" />
+
+        {/* 콘텐츠 */}
         <div className="relative z-10 text-center px-6">
           <Reveal>
-            <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-300">EVENT EXPERT MATCHING PLATFORM</p>
+            <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-400">EVENT EXPERT MATCHING PLATFORM</p>
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[40px] font-black leading-[1.1] tracking-tight md:text-[72px]">
@@ -288,7 +282,7 @@ export default function BizPage() {
             </h1>
           </Reveal>
           <Reveal delay={400}>
-            <p className="mx-auto mt-6 max-w-[480px] text-[15px] leading-relaxed text-gray-400">
+            <p className="mx-auto mt-6 max-w-[480px] text-[15px] leading-relaxed text-gray-500">
               검증된 MC · 가수 · 쇼호스트와 AI 기반 맞춤 매칭으로<br />
               기업 행사부터 웨딩까지, 최고의 경험을 만듭니다.
             </p>
@@ -298,34 +292,15 @@ export default function BizPage() {
               <button onClick={() => scrollTo('문의')} className="bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
                 기업 문의하기
               </button>
-              <button onClick={() => scrollTo('핵심서비스')} className="border border-gray-200 px-8 py-3.5 text-[14px] font-bold text-gray-500 rounded-full transition-all hover:border-gray-300 hover:text-gray-800 hover:bg-gray-50">
+              <button onClick={() => scrollTo('핵심서비스')} className="border border-gray-200 bg-white/80 backdrop-blur px-8 py-3.5 text-[14px] font-bold text-gray-500 rounded-full transition-all hover:border-gray-300 hover:text-gray-800 hover:bg-white">
                 서비스 알아보기
               </button>
             </div>
           </Reveal>
         </div>
 
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce">
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce z-10">
           <ChevronDown className="h-5 w-5 text-gray-300" />
-        </div>
-      </section>
-
-      {/* ═══ Expert Marquee Gallery ═════════════════════════════ */}
-      <section className="relative py-16 overflow-hidden">
-        {/* 배경 그라데이션 */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-gray-50/50 to-white pointer-events-none" />
-        <div className="relative z-10">
-          <Reveal>
-            <p className="text-center text-[11px] font-bold tracking-[0.4em] text-gray-300 mb-10">
-              TRUSTED BY TOP EXPERTS
-            </p>
-          </Reveal>
-          <Reveal delay={200}>
-            <div className="space-y-2">
-              <MarqueeRow images={EXPERT_IMAGES_ROW1} direction="left" speed={50} />
-              <MarqueeRow images={EXPERT_IMAGES_ROW2} direction="right" speed={65} />
-            </div>
-          </Reveal>
         </div>
       </section>
 
