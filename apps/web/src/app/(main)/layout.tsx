@@ -24,6 +24,7 @@ const HIDE_NAV_PATTERNS = [
   /^\/notifications/,
   /^\/pro-register/,
   /^\/pros$/,
+  /^\/biz$/,
 ];
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {

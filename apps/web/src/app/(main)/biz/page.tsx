@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import {
-  ChevronRight, Shield, BarChart3, Users, Building2,
+  ChevronRight, ChevronDown, Shield, BarChart3, Users, Building2,
   CheckCircle, Award, Download, MapPin, Phone, Mail,
   Clock, FileText, Send, User, Briefcase, Globe,
-  Target, Heart, Star, Zap, X,
+  Target, Heart, Star, Zap, X, ArrowRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-/* ─── Scroll-Reveal 훅 ─────────────────────────────────────── */
+/* ─── Scroll-Reveal ───────────────────────────────────────── */
 function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -39,7 +40,7 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
   );
 }
 
-/* ─── CountUp 애니메이션 ───────────────────────────────────── */
+/* ─── CountUp ─────────────────────────────────────────────── */
 function CountUp({ target, suffix = '' }: { target: number; suffix?: string }) {
   const [val, setVal] = useState(0);
   const { ref, visible } = useReveal();
@@ -57,9 +58,7 @@ function CountUp({ target, suffix = '' }: { target: number; suffix?: string }) {
   return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
 }
 
-/* ─── Constants ────────────────────────────────────────────── */
-const ACCENT = '#3180F7';
-
+/* ─── Constants ───────────────────────────────────────────── */
 const COMPANY_INFO = {
   name: '주식회사 프리티풀',
   nameEn: 'Freetiful Inc.',
@@ -113,82 +112,88 @@ export default function BizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden -mx-4 lg:-mx-8">
+    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
 
-      {/* ─── Sticky Section Nav ────────────────────────────────── */}
-      <div className={`sticky top-0 lg:top-[72px] z-40 transition-all duration-500 ${scrollY > 100 ? 'bg-black/70 backdrop-blur-2xl border-b border-white/5' : 'bg-transparent'}`}>
-        <div className="mx-auto max-w-[1100px] px-6">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-3">
+      {/* ─── Fixed Header ──────────────────────────────────────── */}
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrollY > 50 ? 'bg-white/80 backdrop-blur-2xl shadow-sm border-b border-gray-100' : 'bg-transparent'}`}>
+        <div className="mx-auto flex h-[60px] max-w-[1200px] items-center justify-between px-6">
+          <Link href="/home" className="text-[18px] font-black tracking-tight text-gray-900">
+            Prettyful <span className="text-[11px] font-normal text-gray-300">for Business</span>
+          </Link>
+          <nav className="hidden items-center gap-1 md:flex">
             {NAV_SECTIONS.map((n) => (
               <button
                 key={n}
                 onClick={() => scrollTo(n)}
-                className={`shrink-0 text-[12px] font-medium px-4 py-2 rounded-full transition-all ${
+                className={`text-[13px] font-medium px-4 py-2 rounded-full transition-all ${
                   activeSection === n
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/30 hover:text-white/60'
+                    ? 'bg-gray-900/5 text-gray-900'
+                    : 'text-gray-400 hover:text-gray-700'
                 }`}
               >
                 {n}
               </button>
             ))}
-          </div>
+          </nav>
+          <button onClick={() => scrollTo('문의')} className="bg-gray-900 px-5 py-2 text-[13px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
+            문의하기
+          </button>
         </div>
-      </div>
+      </header>
 
       {/* ═══ Hero ═══════════════════════════════════════════════ */}
-      <section className="relative flex min-h-[85vh] items-center justify-center">
-        {/* 그라데이션 배경 */}
+      <section className="relative flex min-h-screen items-center justify-center pt-[60px]">
+        {/* 배경 */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#3180F7]/8 via-transparent to-violet-500/5" />
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#3180F7]/5 rounded-full blur-[120px]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-white to-violet-50/50" />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-blue-100/30 rounded-full blur-[150px]" />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050505]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white" />
 
         <div className="relative z-10 text-center px-6">
           <Reveal>
-            <p className="mb-4 text-[11px] font-bold tracking-[0.4em] text-white/25">EVENT EXPERT MATCHING PLATFORM</p>
+            <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-300">EVENT EXPERT MATCHING PLATFORM</p>
           </Reveal>
           <Reveal delay={200}>
-            <h1 className="text-[40px] font-black leading-[1.1] tracking-tight md:text-[68px]">
-              <span className="bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">모든 행사의 순간을</span><br />
-              <span className="bg-gradient-to-r from-[#3180F7] to-[#82b1ff] bg-clip-text text-transparent">완벽하게</span>
+            <h1 className="text-[40px] font-black leading-[1.1] tracking-tight md:text-[72px]">
+              <span className="text-gray-900">모든 행사의 순간을</span><br />
+              <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">완벽하게</span>
             </h1>
           </Reveal>
           <Reveal delay={400}>
-            <p className="mx-auto mt-6 max-w-[480px] text-[15px] leading-relaxed text-white/30">
+            <p className="mx-auto mt-6 max-w-[480px] text-[15px] leading-relaxed text-gray-400">
               검증된 MC · 가수 · 쇼호스트와 AI 기반 맞춤 매칭으로<br />
               기업 행사부터 웨딩까지, 최고의 경험을 만듭니다.
             </p>
           </Reveal>
           <Reveal delay={600}>
             <div className="mt-10 flex justify-center gap-3">
-              <button onClick={() => scrollTo('문의')} className="bg-white px-8 py-3.5 text-[14px] font-bold text-black transition-all hover:bg-white/90 active:scale-95">
+              <button onClick={() => scrollTo('문의')} className="bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
                 기업 문의하기
               </button>
-              <button onClick={() => scrollTo('핵심서비스')} className="border border-white/15 px-8 py-3.5 text-[14px] font-bold text-white/50 transition-all hover:bg-white/5 hover:text-white">
+              <button onClick={() => scrollTo('핵심서비스')} className="border border-gray-200 px-8 py-3.5 text-[14px] font-bold text-gray-500 rounded-full transition-all hover:border-gray-300 hover:text-gray-800 hover:bg-gray-50">
                 서비스 알아보기
               </button>
             </div>
           </Reveal>
         </div>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <ChevronRight className="h-5 w-5 rotate-90 text-white/15" />
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce">
+          <ChevronDown className="h-5 w-5 text-gray-300" />
         </div>
       </section>
 
       {/* ═══ 회사소개 ═══════════════════════════════════════════ */}
-      <section id="회사소개" className="border-t border-white/5 py-28">
+      <section id="회사소개" className="py-28">
         <div className="mx-auto max-w-[1100px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-[#3180F7]">ABOUT US</p></Reveal>
+          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">ABOUT US</p></Reveal>
           <Reveal delay={100}>
-            <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[40px]">
+            <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
               행사 전문가와 고객을<br />한 번에 연결합니다
             </h2>
           </Reveal>
           <Reveal delay={200}>
-            <p className="mt-6 max-w-[600px] text-[15px] leading-[1.9] text-white/35">
+            <p className="mt-6 max-w-[600px] text-[15px] leading-[1.9] text-gray-400">
               프리티풀은 &ldquo;모든 행사의 순간을 완벽하게&rdquo;라는 철학 아래, 검증된 행사 전문가와
               고객을 AI 기반으로 매칭하는 플랫폼입니다. 웨딩 MC, 기업 행사, 쇼호스트까지 —
               모든 특별한 순간에 최적의 전문가를 연결합니다.
@@ -197,18 +202,18 @@ export default function BizPage() {
 
           {/* CEO 인사말 */}
           <Reveal delay={300}>
-            <div className="mt-16 border border-white/8 bg-white/[0.02] p-8 md:flex md:items-start md:gap-8">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-[#3180F7]/10 mb-6 md:mb-0">
-                <User className="h-10 w-10 text-[#3180F7]" />
+            <div className="mt-16 bg-gray-50 rounded-3xl p-8 md:flex md:items-start md:gap-8">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-blue-100 rounded-2xl mb-6 md:mb-0">
+                <User className="h-10 w-10 text-blue-500" />
               </div>
               <div>
-                <p className="text-[11px] font-bold tracking-[0.3em] text-white/20 mb-3">CEO MESSAGE</p>
-                <p className="text-[15px] leading-[1.9] text-white/40">
+                <p className="text-[11px] font-bold tracking-[0.3em] text-gray-300 mb-3">CEO MESSAGE</p>
+                <p className="text-[15px] leading-[1.9] text-gray-500">
                   프리티풀은 모든 분의 특별한 순간을 더욱 빛나게 만들어 드리기 위해 탄생했습니다.
                   검증된 전문가와 AI 기반 맞춤 매칭으로, 최고의 행사 경험을 약속드립니다.
                   앞으로도 신뢰와 혁신으로 대한민국 최고의 행사 전문가 플랫폼이 되겠습니다.
                 </p>
-                <p className="mt-4 text-[14px] font-bold">대표이사 {COMPANY_INFO.ceo}</p>
+                <p className="mt-4 text-[14px] font-bold text-gray-900">대표이사 {COMPANY_INFO.ceo}</p>
               </div>
             </div>
           </Reveal>
@@ -222,9 +227,9 @@ export default function BizPage() {
               { num: 92, suffix: '%', label: '재이용률', icon: <Zap className="h-4 w-4" /> },
             ].map((s, i) => (
               <Reveal key={i} delay={i * 100}>
-                <div className="border border-white/8 bg-white/[0.02] p-5 transition-all hover:border-white/15 hover:bg-white/[0.04]">
-                  <div className="flex items-center gap-2 text-white/20 mb-3">{s.icon}<span className="text-[10px] tracking-wider">{s.label}</span></div>
-                  <p className="text-[28px] font-black text-white">
+                <div className="border border-gray-100 rounded-2xl bg-white p-5 transition-all hover:border-gray-200 hover:shadow-sm">
+                  <div className="flex items-center gap-2 text-gray-300 mb-3">{s.icon}<span className="text-[10px] tracking-wider font-medium">{s.label}</span></div>
+                  <p className="text-[28px] font-black text-gray-900">
                     {s.num >= 100 ? <CountUp target={s.num} suffix={s.suffix} /> : <>{s.num}{s.suffix}</>}
                   </p>
                 </div>
@@ -235,15 +240,15 @@ export default function BizPage() {
           {/* 미션 / 비전 / 핵심가치 */}
           <div className="mt-16 grid gap-4 md:grid-cols-3">
             {[
-              { icon: <Target className="h-6 w-6" />, title: '미션', desc: '모든 행사의 순간을 완벽하게 만드는 전문가 매칭 플랫폼' },
-              { icon: <Globe className="h-6 w-6" />, title: '비전', desc: '대한민국 No.1 행사 전문가 플랫폼으로 성장' },
-              { icon: <Heart className="h-6 w-6" />, title: '핵심가치', desc: '신뢰 · 전문성 · 혁신 · 고객중심' },
+              { icon: <Target className="h-6 w-6" />, title: '미션', desc: '모든 행사의 순간을 완벽하게 만드는 전문가 매칭 플랫폼', color: 'bg-blue-50 text-blue-500' },
+              { icon: <Globe className="h-6 w-6" />, title: '비전', desc: '대한민국 No.1 행사 전문가 플랫폼으로 성장', color: 'bg-violet-50 text-violet-500' },
+              { icon: <Heart className="h-6 w-6" />, title: '핵심가치', desc: '신뢰 · 전문성 · 혁신 · 고객중심', color: 'bg-rose-50 text-rose-500' },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 100}>
-                <div className="group border border-white/8 p-6 transition-all duration-300 hover:border-[#3180F7]/30 hover:bg-[#3180F7]/[0.03]">
-                  <div className="flex h-12 w-12 items-center justify-center bg-[#3180F7]/10 text-[#3180F7] transition-transform duration-300 group-hover:scale-110">{item.icon}</div>
-                  <h3 className="mt-4 text-[17px] font-bold">{item.title}</h3>
-                  <p className="mt-2 text-[13px] leading-relaxed text-white/35">{item.desc}</p>
+                <div className="group border border-gray-100 rounded-2xl p-6 transition-all duration-300 hover:border-gray-200 hover:shadow-sm">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${item.color} transition-transform duration-300 group-hover:scale-110`}>{item.icon}</div>
+                  <h3 className="mt-4 text-[17px] font-bold text-gray-900">{item.title}</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-gray-400">{item.desc}</p>
                 </div>
               </Reveal>
             ))}
@@ -251,7 +256,7 @@ export default function BizPage() {
 
           {/* 기업 정보 테이블 */}
           <Reveal delay={100}>
-            <div className="mt-16 border border-white/8 overflow-hidden">
+            <div className="mt-16 border border-gray-100 rounded-2xl overflow-hidden">
               {[
                 ['회사명', COMPANY_INFO.name],
                 ['영문명', COMPANY_INFO.nameEn],
@@ -263,9 +268,9 @@ export default function BizPage() {
                 ['대표전화', COMPANY_INFO.phone],
                 ['이메일', COMPANY_INFO.email],
               ].map(([label, value], i) => (
-                <div key={label} className={`flex px-6 py-4 ${i > 0 ? 'border-t border-white/5' : ''}`}>
-                  <span className="text-[13px] font-bold text-white/25 w-[90px] shrink-0">{label}</span>
-                  <span className="text-[13px] text-white/60">{value}</span>
+                <div key={label} className={`flex px-6 py-4 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
+                  <span className="text-[13px] font-semibold text-gray-400 w-[90px] shrink-0">{label}</span>
+                  <span className="text-[13px] text-gray-700">{value}</span>
                 </div>
               ))}
             </div>
@@ -274,29 +279,29 @@ export default function BizPage() {
       </section>
 
       {/* ═══ 핵심서비스 ═══════════════════════════════════════ */}
-      <section id="핵심서비스" className="border-t border-white/5 py-28 bg-white/[0.01]">
+      <section id="핵심서비스" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[1100px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-[#3180F7]">CORE SERVICES</p></Reveal>
+          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">CORE SERVICES</p></Reveal>
           <Reveal delay={100}>
-            <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[40px]">
+            <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
               전문가 매칭의<br />모든 것을 한곳에서
             </h2>
           </Reveal>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2">
             {[
-              { icon: <Users className="h-6 w-6" />, title: '검증된 전문가 네트워크', desc: '엄격한 심사를 거친 MC, 가수, 쇼호스트가 등록되어 있습니다. 경력, 전문분야, 고객 후기를 기반으로 검증된 전문가만 활동합니다.', color: '#3180F7' },
-              { icon: <Shield className="h-6 w-6" />, title: '안전한 에스크로 결제', desc: '행사 완료까지 결제금을 안전하게 보호합니다. 고객과 전문가 모두가 안심할 수 있는 거래 환경을 제공합니다.', color: '#22c55e' },
-              { icon: <BarChart3 className="h-6 w-6" />, title: 'AI 맞춤 매칭', desc: '행사 유형, 규모, 예산, 스타일 등 조건을 분석하여 최적의 전문가를 자동 추천합니다.', color: '#a855f7' },
-              { icon: <Award className="h-6 w-6" />, title: '품질 보증 시스템', desc: '만족도 기반 전문가 등급 시스템으로 일관된 서비스 품질을 보장합니다. 불만족 시 재매칭을 지원합니다.', color: '#f59e0b' },
+              { icon: <Users className="h-6 w-6" />, title: '검증된 전문가 네트워크', desc: '엄격한 심사를 거친 MC, 가수, 쇼호스트가 등록되어 있습니다. 경력, 전문분야, 고객 후기를 기반으로 검증된 전문가만 활동합니다.', color: 'bg-blue-50 text-blue-500' },
+              { icon: <Shield className="h-6 w-6" />, title: '안전한 에스크로 결제', desc: '행사 완료까지 결제금을 안전하게 보호합니다. 고객과 전문가 모두가 안심할 수 있는 거래 환경을 제공합니다.', color: 'bg-emerald-50 text-emerald-500' },
+              { icon: <BarChart3 className="h-6 w-6" />, title: 'AI 맞춤 매칭', desc: '행사 유형, 규모, 예산, 스타일 등 조건을 분석하여 최적의 전문가를 자동 추천합니다.', color: 'bg-violet-50 text-violet-500' },
+              { icon: <Award className="h-6 w-6" />, title: '품질 보증 시스템', desc: '만족도 기반 전문가 등급 시스템으로 일관된 서비스 품질을 보장합니다. 불만족 시 재매칭을 지원합니다.', color: 'bg-amber-50 text-amber-500' },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 100}>
-                <div className="group border border-white/8 p-7 transition-all duration-300 hover:border-white/15 hover:bg-white/[0.02]">
-                  <div className="flex h-14 w-14 items-center justify-center transition-transform duration-300 group-hover:scale-110" style={{ background: `${item.color}15`, color: item.color }}>
+                <div className="group bg-white border border-gray-100 rounded-2xl p-7 transition-all duration-300 hover:border-gray-200 hover:shadow-md">
+                  <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${item.color} transition-transform duration-300 group-hover:scale-110`}>
                     {item.icon}
                   </div>
-                  <h3 className="mt-5 text-[18px] font-bold">{item.title}</h3>
-                  <p className="mt-2 text-[13px] leading-[1.8] text-white/35">{item.desc}</p>
+                  <h3 className="mt-5 text-[18px] font-bold text-gray-900">{item.title}</h3>
+                  <p className="mt-2 text-[13px] leading-[1.8] text-gray-400">{item.desc}</p>
                 </div>
               </Reveal>
             ))}
@@ -304,7 +309,7 @@ export default function BizPage() {
 
           {/* Before / After */}
           <Reveal delay={100}>
-            <h3 className="mt-20 text-[11px] font-bold tracking-[0.4em] text-white/20">PROBLEM → SOLUTION</h3>
+            <h3 className="mt-20 text-[11px] font-bold tracking-[0.4em] text-gray-300">PROBLEM → SOLUTION</h3>
           </Reveal>
           <div className="mt-6 grid gap-3 md:grid-cols-2">
             {[
@@ -314,14 +319,14 @@ export default function BizPage() {
               { before: '행사 후 불만족 시 대처 불가', after: '품질 보증 및 재매칭 지원' },
             ].map((p, i) => (
               <Reveal key={i} delay={i * 80}>
-                <div className="flex border border-white/8 overflow-hidden">
-                  <div className="flex-1 bg-red-500/5 p-4 border-r border-white/5">
-                    <p className="text-[10px] font-bold text-red-400/50 mb-1">BEFORE</p>
-                    <p className="text-[13px] text-white/35">{p.before}</p>
+                <div className="flex bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                  <div className="flex-1 bg-red-50/50 p-4 border-r border-gray-100">
+                    <p className="text-[10px] font-bold text-red-300 mb-1">BEFORE</p>
+                    <p className="text-[13px] text-gray-400">{p.before}</p>
                   </div>
-                  <div className="flex-1 bg-[#3180F7]/5 p-4">
-                    <p className="text-[10px] font-bold text-[#3180F7]/50 mb-1">AFTER</p>
-                    <p className="text-[13px] text-white/55">{p.after}</p>
+                  <div className="flex-1 bg-blue-50/50 p-4">
+                    <p className="text-[10px] font-bold text-blue-400 mb-1">AFTER</p>
+                    <p className="text-[13px] text-gray-600">{p.after}</p>
                   </div>
                 </div>
               </Reveal>
@@ -331,21 +336,21 @@ export default function BizPage() {
       </section>
 
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
-      <section id="연혁" className="border-t border-white/5 py-28">
+      <section id="연혁" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-[#3180F7]">MILESTONES</p></Reveal>
+          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">MILESTONES</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black tracking-tight">성장의 발자취</h2></Reveal>
 
           <div className="mt-14 space-y-6">
             {HISTORY.map((h, hi) => (
               <Reveal key={h.year} delay={hi * 120}>
-                <div className="flex items-start gap-8 border-l-2 border-[#3180F7] pl-8 py-3 transition-all hover:pl-10">
-                  <span className="text-[36px] font-black text-[#3180F7]/20 shrink-0 w-[80px]">{h.year}</span>
+                <div className="flex items-start gap-8 border-l-2 border-blue-500 pl-8 py-3 transition-all hover:pl-10">
+                  <span className="text-[36px] font-black text-blue-100 shrink-0 w-[80px]">{h.year}</span>
                   <div className="space-y-3 pt-2">
                     {h.events.map((event, i) => (
                       <div key={i} className="flex items-center gap-3">
-                        <CheckCircle className="h-4 w-4 shrink-0 text-[#3180F7]/40" />
-                        <span className="text-[14px] text-white/50">{event}</span>
+                        <CheckCircle className="h-4 w-4 shrink-0 text-blue-400" />
+                        <span className="text-[14px] text-gray-500">{event}</span>
                       </div>
                     ))}
                   </div>
@@ -356,7 +361,7 @@ export default function BizPage() {
 
           {/* Roadmap */}
           <Reveal delay={100}>
-            <h3 className="mt-20 text-[11px] font-bold tracking-[0.4em] text-white/20">ROADMAP</h3>
+            <h3 className="mt-20 text-[11px] font-bold tracking-[0.4em] text-gray-300">ROADMAP</h3>
           </Reveal>
           <div className="mt-6 space-y-4">
             {[
@@ -365,11 +370,11 @@ export default function BizPage() {
               { phase: '03', title: '종합 행사 솔루션', desc: '기획·공간·전문가·장비까지 원스톱 행사 플랫폼으로 진화' },
             ].map((p, i) => (
               <Reveal key={i} delay={i * 100}>
-                <div className="flex items-start gap-6 border border-white/8 p-6 transition-all hover:border-white/15 hover:bg-white/[0.02]">
-                  <span className="text-[32px] font-black text-[#3180F7]/15">{p.phase}</span>
+                <div className="flex items-start gap-6 border border-gray-100 rounded-2xl p-6 transition-all hover:border-gray-200 hover:shadow-sm">
+                  <span className="text-[32px] font-black text-blue-100">{p.phase}</span>
                   <div>
-                    <h3 className="text-[16px] font-bold">{p.title}</h3>
-                    <p className="mt-1 text-[13px] text-white/30">{p.desc}</p>
+                    <h3 className="text-[16px] font-bold text-gray-900">{p.title}</h3>
+                    <p className="mt-1 text-[13px] text-gray-400">{p.desc}</p>
                   </div>
                 </div>
               </Reveal>
@@ -379,9 +384,9 @@ export default function BizPage() {
       </section>
 
       {/* ═══ 자료실 ═══════════════════════════════════════════ */}
-      <section id="자료실" className="border-t border-white/5 py-28 bg-white/[0.01]">
+      <section id="자료실" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[1000px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-[#3180F7]">RESOURCES</p></Reveal>
+          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">RESOURCES</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">자료실</h2></Reveal>
 
           <div className="mt-12 grid gap-3 md:grid-cols-2">
@@ -393,11 +398,11 @@ export default function BizPage() {
               { icon: <Shield className="h-5 w-5" />, title: '개인정보처리방침', desc: '', action: () => setShowPrivacy(true) },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 80}>
-                <button onClick={item.action} className="group flex w-full items-center gap-4 border border-white/8 p-5 text-left transition-all hover:border-[#3180F7]/30 hover:bg-[#3180F7]/[0.02]">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-[#3180F7]/10 text-[#3180F7] transition-transform group-hover:scale-110">{item.icon}</div>
-                  <div className="flex-1"><p className="text-[15px] font-bold">{item.title}</p></div>
-                  {item.desc && <span className="text-[11px] text-white/15">{item.desc}</span>}
-                  <ChevronRight className="h-4 w-4 text-white/10 transition-transform group-hover:translate-x-1" />
+                <button onClick={item.action} className="group flex w-full items-center gap-4 bg-white border border-gray-100 rounded-2xl p-5 text-left transition-all hover:border-gray-200 hover:shadow-sm">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 transition-transform group-hover:scale-110">{item.icon}</div>
+                  <div className="flex-1"><p className="text-[15px] font-bold text-gray-900">{item.title}</p></div>
+                  {item.desc && <span className="text-[11px] text-gray-300">{item.desc}</span>}
+                  <ChevronRight className="h-4 w-4 text-gray-200 transition-transform group-hover:translate-x-1" />
                 </button>
               </Reveal>
             ))}
@@ -406,22 +411,20 @@ export default function BizPage() {
       </section>
 
       {/* ═══ 오시는길 ═══════════════════════════════════════════ */}
-      <section id="오시는길" className="border-t border-white/5 py-28">
+      <section id="오시는길" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-[#3180F7]">LOCATION</p></Reveal>
+          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">LOCATION</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">오시는길</h2></Reveal>
 
-          {/* 지도 영역 */}
           <Reveal delay={200}>
-            <div className="mt-12 w-full h-[280px] border border-white/8 bg-white/[0.02] flex items-center justify-center">
+            <div className="mt-12 w-full h-[280px] border border-gray-100 rounded-2xl bg-gray-50 flex items-center justify-center">
               <div className="text-center">
-                <MapPin className="h-8 w-8 text-white/10 mx-auto mb-2" />
-                <p className="text-[13px] text-white/15">지도 영역</p>
+                <MapPin className="h-8 w-8 text-gray-200 mx-auto mb-2" />
+                <p className="text-[13px] text-gray-300">지도 영역</p>
               </div>
             </div>
           </Reveal>
 
-          {/* 정보 카드 */}
           <div className="mt-8 grid gap-3 md:grid-cols-2">
             {[
               { icon: <MapPin className="h-5 w-5" />, label: '주소', value: COMPANY_INFO.address },
@@ -430,25 +433,24 @@ export default function BizPage() {
               { icon: <Clock className="h-5 w-5" />, label: '업무시간', value: '평일 09:00 - 18:00 (주말/공휴일 휴무)' },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 80}>
-                <div className="flex items-start gap-4 border border-white/8 p-5 transition-all hover:border-white/15">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#3180F7]/10 text-[#3180F7]">{item.icon}</div>
+                <div className="flex items-start gap-4 border border-gray-100 rounded-2xl p-5 transition-all hover:border-gray-200 hover:shadow-sm">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">{item.icon}</div>
                   <div>
-                    <p className="text-[11px] font-bold text-white/20">{item.label}</p>
-                    <p className="mt-1 text-[14px] text-white/60">{item.value}</p>
+                    <p className="text-[11px] font-bold text-gray-300">{item.label}</p>
+                    <p className="mt-1 text-[14px] text-gray-700">{item.value}</p>
                   </div>
                 </div>
               </Reveal>
             ))}
           </div>
 
-          {/* 교통편 */}
           <Reveal delay={200}>
-            <div className="mt-8 border border-white/8 p-6">
-              <p className="text-[11px] font-bold tracking-[0.3em] text-white/20 mb-4">교통편 안내</p>
-              <div className="space-y-3 text-[13px] text-white/40">
-                <p><span className="text-[#3180F7] font-bold">지하철</span> — 2호선 강남역 3번 출구 도보 5분</p>
-                <p><span className="text-emerald-400 font-bold">버스</span> — 강남역 정류장 하차 (146, 341, 360)</p>
-                <p><span className="text-white/50 font-bold">주차</span> — 건물 지하 주차장 이용 (2시간 무료)</p>
+            <div className="mt-8 bg-gray-50 rounded-2xl p-6">
+              <p className="text-[11px] font-bold tracking-[0.3em] text-gray-300 mb-4">교통편 안내</p>
+              <div className="space-y-3 text-[13px] text-gray-500">
+                <p><span className="text-blue-500 font-bold">지하철</span> — 2호선 강남역 3번 출구 도보 5분</p>
+                <p><span className="text-emerald-500 font-bold">버스</span> — 강남역 정류장 하차 (146, 341, 360)</p>
+                <p><span className="text-gray-600 font-bold">주차</span> — 건물 지하 주차장 이용 (2시간 무료)</p>
               </div>
             </div>
           </Reveal>
@@ -456,55 +458,56 @@ export default function BizPage() {
       </section>
 
       {/* ═══ 기업문의 ═══════════════════════════════════════════ */}
-      <section id="문의" className="border-t border-white/5 py-28 bg-white/[0.01]">
+      <section id="문의" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[600px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-[#3180F7]">CONTACT</p></Reveal>
+          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">CONTACT</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">기업 문의</h2></Reveal>
-          <Reveal delay={150}><p className="mt-3 text-[14px] text-white/30">제휴, 대량 의뢰, 기업 행사 등 문의해 주세요</p></Reveal>
+          <Reveal delay={150}><p className="mt-3 text-[14px] text-gray-400">제휴, 대량 의뢰, 기업 행사 등 문의해 주세요</p></Reveal>
 
           <Reveal delay={200}>
             <form onSubmit={handleInquiry} className="mt-10 space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <input className="h-12 w-full border border-white/8 bg-white/[0.03] px-4 text-[14px] text-white outline-none transition-all placeholder-white/15 focus:border-[#3180F7] focus:bg-[#3180F7]/[0.02]" placeholder="회사명" value={inquiry.company} onChange={(e) => setInquiry({ ...inquiry, company: e.target.value })} />
-                <input className="h-12 w-full border border-white/8 bg-white/[0.03] px-4 text-[14px] text-white outline-none transition-all placeholder-white/15 focus:border-[#3180F7] focus:bg-[#3180F7]/[0.02]" placeholder="담당자명 *" value={inquiry.name} onChange={(e) => setInquiry({ ...inquiry, name: e.target.value })} required />
+                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[14px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="회사명" value={inquiry.company} onChange={(e) => setInquiry({ ...inquiry, company: e.target.value })} />
+                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[14px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="담당자명 *" value={inquiry.name} onChange={(e) => setInquiry({ ...inquiry, name: e.target.value })} required />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input className="h-12 w-full border border-white/8 bg-white/[0.03] px-4 text-[14px] text-white outline-none transition-all placeholder-white/15 focus:border-[#3180F7] focus:bg-[#3180F7]/[0.02]" placeholder="연락처 *" value={inquiry.phone} onChange={(e) => setInquiry({ ...inquiry, phone: e.target.value })} required />
-                <input className="h-12 w-full border border-white/8 bg-white/[0.03] px-4 text-[14px] text-white outline-none transition-all placeholder-white/15 focus:border-[#3180F7] focus:bg-[#3180F7]/[0.02]" placeholder="이메일" value={inquiry.email} onChange={(e) => setInquiry({ ...inquiry, email: e.target.value })} />
+                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[14px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="연락처 *" value={inquiry.phone} onChange={(e) => setInquiry({ ...inquiry, phone: e.target.value })} required />
+                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[14px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="이메일" value={inquiry.email} onChange={(e) => setInquiry({ ...inquiry, email: e.target.value })} />
               </div>
               <select
                 value={inquiry.type}
                 onChange={(e) => setInquiry({ ...inquiry, type: e.target.value })}
-                className="h-12 w-full border border-white/8 bg-white/[0.03] px-4 text-[14px] text-white outline-none transition-all focus:border-[#3180F7] appearance-none"
+                className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[14px] text-gray-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-50"
               >
-                <option value="" className="bg-[#111]">문의유형 선택</option>
-                <option value="partnership" className="bg-[#111]">제휴 문의</option>
-                <option value="enterprise" className="bg-[#111]">기업 행사 의뢰</option>
-                <option value="bulk" className="bg-[#111]">대량 의뢰</option>
-                <option value="advertisement" className="bg-[#111]">광고/마케팅</option>
-                <option value="other" className="bg-[#111]">기타</option>
+                <option value="">문의유형 선택</option>
+                <option value="partnership">제휴 문의</option>
+                <option value="enterprise">기업 행사 의뢰</option>
+                <option value="bulk">대량 의뢰</option>
+                <option value="advertisement">광고/마케팅</option>
+                <option value="other">기타</option>
               </select>
-              <textarea className="h-32 w-full resize-none border border-white/8 bg-white/[0.03] px-4 py-3 text-[14px] text-white outline-none transition-all placeholder-white/15 focus:border-[#3180F7]" placeholder="문의 내용 *" value={inquiry.message} onChange={(e) => setInquiry({ ...inquiry, message: e.target.value })} required />
-              <button type="submit" disabled={sending} className="flex w-full items-center justify-center gap-2 bg-white py-3.5 text-[15px] font-bold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:opacity-50">
+              <textarea className="h-32 w-full resize-none border border-gray-200 rounded-xl bg-white px-4 py-3 text-[14px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="문의 내용 *" value={inquiry.message} onChange={(e) => setInquiry({ ...inquiry, message: e.target.value })} required />
+              <button type="submit" disabled={sending} className="flex w-full items-center justify-center gap-2 bg-gray-900 py-3.5 text-[15px] font-bold text-white rounded-xl transition-all hover:bg-gray-800 active:scale-[0.98] disabled:opacity-50">
                 <Send className="h-4 w-4" /> {sending ? '전송 중...' : '문의하기'}
               </button>
-              <p className="text-[11px] text-white/15 text-center">문의 접수 후 영업일 기준 1~2일 내 담당자가 연락드립니다</p>
+              <p className="text-[11px] text-gray-300 text-center">문의 접수 후 영업일 기준 1~2일 내 담당자가 연락드립니다</p>
             </form>
           </Reveal>
         </div>
       </section>
 
       {/* ═══ Footer ═══════════════════════════════════════════ */}
-      <footer className="border-t border-white/5 py-12">
+      <footer className="border-t border-gray-100 py-12 bg-white">
         <div className="mx-auto max-w-[1000px] px-6">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[16px] font-black">Prettyful <span className="text-white/20 font-normal text-[12px]">for Business</span></p>
-              <p className="mt-1 text-[11px] text-white/15">{COMPANY_INFO.name} | 대표 {COMPANY_INFO.ceo} | T {COMPANY_INFO.phone} | E {COMPANY_INFO.email}</p>
-              <p className="text-[10px] text-white/8">Copyright &copy; Freetiful Inc. All rights reserved.</p>
+              <p className="text-[16px] font-black text-gray-900">Prettyful <span className="text-gray-300 font-normal text-[12px]">for Business</span></p>
+              <p className="mt-1 text-[11px] text-gray-300">{COMPANY_INFO.name} | 대표 {COMPANY_INFO.ceo} | T {COMPANY_INFO.phone} | E {COMPANY_INFO.email}</p>
+              <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful Inc. All rights reserved.</p>
             </div>
-            <div className="flex gap-4 text-[12px] text-white/20">
-              <button onClick={() => setShowPrivacy(true)} className="transition-colors hover:text-white/40">개인정보처리방침</button>
+            <div className="flex gap-4 text-[12px] text-gray-300">
+              <button onClick={() => setShowPrivacy(true)} className="transition-colors hover:text-gray-500">개인정보처리방침</button>
+              <Link href="/home" className="transition-colors hover:text-gray-500">홈으로</Link>
             </div>
           </div>
         </div>
@@ -512,20 +515,20 @@ export default function BizPage() {
 
       {/* ═══ 개인정보처리방침 모달 ═══════════════════════════ */}
       {showPrivacy && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowPrivacy(false)}>
-          <div className="relative w-full max-w-[700px] max-h-[80vh] overflow-auto bg-[#111] border border-white/10 p-8 animate-[scaleIn_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowPrivacy(false)} className="absolute top-4 right-4 text-white/20 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
-            <h2 className="text-[22px] font-black mb-6">개인정보처리방침</h2>
-            <div className="space-y-4 text-[13px] leading-[1.8] text-white/45">
-              <p><strong className="text-white/80">제1조 (목적)</strong><br />주식회사 프리티풀(이하 &quot;회사&quot;)은 개인정보 보호법 제30조에 따라 정보주체의 개인정보를 보호하고 이와 관련한 고충을 신속하고 원활하게 처리할 수 있도록 하기 위하여 다음과 같이 개인정보 처리방침을 수립·공개합니다.</p>
-              <p><strong className="text-white/80">제2조 (수집하는 개인정보)</strong><br />필수항목: 이메일, 비밀번호 / 선택항목: 이름, 연락처, 프로필 사진 / 자동수집: 접속 IP, 접속 일시, 서비스 이용기록</p>
-              <p><strong className="text-white/80">제3조 (처리목적)</strong><br />회원 가입 및 관리, 서비스 제공, 고객 문의 처리, 서비스 개선</p>
-              <p><strong className="text-white/80">제4조 (보유·파기)</strong><br />개인정보 보유기간 경과 시 지체 없이 파기합니다.</p>
-              <p><strong className="text-white/80">제5조 (제3자 제공)</strong><br />동의 없이 제3자에게 제공하지 않습니다. 법령에 의한 경우 예외.</p>
-              <p><strong className="text-white/80">제6조 (안전성 확보)</strong><br />암호화, 접근 권한 관리, 접속기록 보관, 데이터 최소화 원칙 적용.</p>
-              <p><strong className="text-white/80">제7조 (정보주체 권리)</strong><br />열람·정정·삭제·처리정지를 요구할 수 있습니다.</p>
-              <p><strong className="text-white/80">제8조 (보호책임자)</strong><br />{COMPANY_INFO.ceo} / {COMPANY_INFO.phone} / {COMPANY_INFO.email}</p>
-              <p className="text-white/15">시행일자: 2024년 3월 1일</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowPrivacy(false)}>
+          <div className="relative w-full max-w-[700px] max-h-[80vh] overflow-auto bg-white rounded-2xl border border-gray-100 p-8 shadow-xl animate-[scaleIn_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowPrivacy(false)} className="absolute top-4 right-4 text-gray-300 hover:text-gray-600 transition-colors"><X className="h-5 w-5" /></button>
+            <h2 className="text-[22px] font-black text-gray-900 mb-6">개인정보처리방침</h2>
+            <div className="space-y-4 text-[13px] leading-[1.8] text-gray-500">
+              <p><strong className="text-gray-800">제1조 (목적)</strong><br />주식회사 프리티풀(이하 &quot;회사&quot;)은 개인정보 보호법 제30조에 따라 정보주체의 개인정보를 보호하고 이와 관련한 고충을 신속하고 원활하게 처리할 수 있도록 하기 위하여 다음과 같이 개인정보 처리방침을 수립·공개합니다.</p>
+              <p><strong className="text-gray-800">제2조 (수집하는 개인정보)</strong><br />필수항목: 이메일, 비밀번호 / 선택항목: 이름, 연락처, 프로필 사진 / 자동수집: 접속 IP, 접속 일시, 서비스 이용기록</p>
+              <p><strong className="text-gray-800">제3조 (처리목적)</strong><br />회원 가입 및 관리, 서비스 제공, 고객 문의 처리, 서비스 개선</p>
+              <p><strong className="text-gray-800">제4조 (보유·파기)</strong><br />개인정보 보유기간 경과 시 지체 없이 파기합니다.</p>
+              <p><strong className="text-gray-800">제5조 (제3자 제공)</strong><br />동의 없이 제3자에게 제공하지 않습니다. 법령에 의한 경우 예외.</p>
+              <p><strong className="text-gray-800">제6조 (안전성 확보)</strong><br />암호화, 접근 권한 관리, 접속기록 보관, 데이터 최소화 원칙 적용.</p>
+              <p><strong className="text-gray-800">제7조 (정보주체 권리)</strong><br />열람·정정·삭제·처리정지를 요구할 수 있습니다.</p>
+              <p><strong className="text-gray-800">제8조 (보호책임자)</strong><br />{COMPANY_INFO.ceo} / {COMPANY_INFO.phone} / {COMPANY_INFO.email}</p>
+              <p className="text-gray-300">시행일자: 2024년 3월 1일</p>
             </div>
           </div>
         </div>
