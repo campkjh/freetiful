@@ -273,14 +273,6 @@ export default function BizPage() {
             ))}
           </nav>
 
-          <button
-            onClick={() => scrollTo('문의')}
-            className={`bg-gray-900 font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95 ${
-              scrollY > 80 ? 'text-[11px] px-4 py-1.5' : 'text-[13px] px-5 py-2'
-            }`}
-          >
-            문의하기
-          </button>
         </div>
       </header>
 
