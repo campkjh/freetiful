@@ -755,6 +755,7 @@ export default function BizPage() {
               <a href={COMPANY_INFO.youtube} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">유튜브</a>
               <a href={COMPANY_INFO.tiktok} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">틱톡</a>
               <button onClick={() => setShowPrivacy(true)} className="transition-colors hover:text-gray-500">개인정보처리방침</button>
+              <Link href="/careers" className="transition-colors hover:text-gray-500">인재채용</Link>
               <Link href="/home" className="transition-colors hover:text-gray-500">홈으로</Link>
             </div>
           </div>
