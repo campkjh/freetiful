@@ -126,15 +126,16 @@ function AppScreenMarquee({ images, speed = 40 }: { images: string[]; speed?: nu
 function MarqueeRow({ images, direction = 'left', speed = 60 }: { images: string[]; direction?: 'left' | 'right'; speed?: number }) {
   const doubled = [...images, ...images];
   return (
-    <div className="relative overflow-hidden group">
+    <div className="relative overflow-hidden group py-6">
       {/* 양쪽 페이드 */}
       <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
       <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
       <div
-        className="flex gap-5 group-hover:[animation-play-state:paused]"
+        className="flex gap-8 group-hover:[animation-play-state:paused]"
         style={{
           animation: `marquee-${direction} ${speed}s linear infinite`,
           width: 'max-content',
+          perspective: '800px',
         }}
       >
         {doubled.map((src, i) => {
@@ -142,22 +143,26 @@ function MarqueeRow({ images, direction = 'left', speed = 60 }: { images: string
           return (
             <div
               key={`${src}-${i}`}
-              className="relative flex-shrink-0 transition-all duration-500 ease-out hover:scale-110 hover:z-20"
+              className="relative flex-shrink-0 transition-all duration-500 ease-out hover:z-20"
               style={{
-                transform: `translateY(${isOdd ? '12px' : '-12px'}) rotate(${isOdd ? '3deg' : '-3deg'})`,
+                perspective: '600px',
               }}
             >
-              <div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-500 bg-gray-100 border-2 border-white/80">
+              <div
+                className="w-[110px] h-[110px] md:w-[130px] md:h-[130px] rounded-full overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 bg-gray-100 border-[3px] border-white hover:scale-110"
+                style={{
+                  transform: `translateY(${isOdd ? '14px' : '-14px'}) rotateY(${isOdd ? '15deg' : '-15deg'}) rotateX(${isOdd ? '-5deg' : '5deg'})`,
+                  transformStyle: 'preserve-3d',
+                }}
+              >
                 <Image
                   src={src}
                   alt="Expert"
-                  width={140}
-                  height={140}
-                  className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                  width={130}
+                  height={130}
+                  className="w-full h-full object-cover"
                 />
               </div>
-              {/* 글로우 */}
-              <div className="absolute inset-0 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-500 bg-blue-400/10 pointer-events-none" />
             </div>
           );
         })}
@@ -312,7 +317,7 @@ export default function BizPage() {
             </p>
           </Reveal>
           <Reveal delay={200}>
-            <div className="space-y-6">
+            <div className="space-y-2">
               <MarqueeRow images={EXPERT_IMAGES_ROW1} direction="left" speed={50} />
               <MarqueeRow images={EXPERT_IMAGES_ROW2} direction="right" speed={65} />
             </div>
