@@ -1096,28 +1096,27 @@ export default function HomePage() {
               }}
               title="crystal ball"
             />
+            {/* Spline 하단 → 위로 그라데이션 블러 (Spline 영역 안에서만) */}
+            <div
+              className="absolute left-0 right-0 bottom-0 pointer-events-none"
+              style={{
+                height: '70%',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
+                maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
+              }}
+            />
           </div>
-          {/* 화이트 그라데이션 - 더 위로 올림 */}
+          {/* 화이트 그라데이션 - 하단으로 더 길게 */}
           <div
             className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-[5]"
             style={{
               top: '40px',
               width: '100vw',
               maxWidth: '900px',
-              height: '320px',
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 25%, rgba(255,255,255,0.85) 55%, rgba(255,255,255,1) 100%)',
-            }}
-            aria-hidden="true"
-          />
-          {/* 하단 → 위로 그라데이션 블러 */}
-          <div
-            className="pointer-events-none absolute left-0 right-0 bottom-0 z-[15]"
-            style={{
-              height: '180px',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
-              maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
+              height: '460px',
+              background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 20%, rgba(255,255,255,0.75) 45%, rgba(255,255,255,0.95) 75%, rgba(255,255,255,1) 100%)',
             }}
             aria-hidden="true"
           />
