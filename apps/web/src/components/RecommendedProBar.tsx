@@ -1,8 +1,85 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
+
+// 알약 부모의 사이즈를 측정해서 SVG로 라운드 사각형(알약) 윤곽선을 그리고
+// 그 path를 따라 짧은 흰색 stroke가 흘러가는 효과 (Web Animations API)
+function PillBorderTrain() {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    const el = svgRef.current?.parentElement;
+    if (!el) return;
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setSize({ w: rect.width, h: rect.height });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // 사이즈 변경 시마다 stroke-dashoffset 애니메이션 재시작
+  useEffect(() => {
+    const path = pathRef.current;
+    if (!path || size.w === 0) return;
+    const perimeter = path.getTotalLength();
+    const trainLen = perimeter * 0.12;
+    path.setAttribute('stroke-dasharray', `${trainLen} ${perimeter - trainLen}`);
+    path.setAttribute('stroke-dashoffset', '0');
+    const animation = path.animate(
+      [{ strokeDashoffset: 0 }, { strokeDashoffset: -perimeter }],
+      { duration: Math.max(2200, perimeter * 12), iterations: Infinity, easing: 'linear' }
+    );
+    return () => animation.cancel();
+  }, [size]);
+
+  if (size.w === 0) {
+    return <svg ref={svgRef} className="absolute inset-0 pointer-events-none" />;
+  }
+
+  const w = size.w;
+  const h = size.h;
+  const r = h / 2;
+
+  // 알약 path - 시계방향, 1.5px 안쪽 (stroke가 박스 안에 보이도록)
+  const inset = 1;
+  const left = inset;
+  const top = inset;
+  const right = w - inset;
+  const bottom = h - inset;
+  const radius = (h - inset * 2) / 2;
+
+  const path = `M ${left + radius},${top} L ${right - radius},${top} A ${radius},${radius} 0 0 1 ${right - radius},${bottom} L ${left + radius},${bottom} A ${radius},${radius} 0 0 1 ${left + radius},${top} Z`;
+
+  return (
+    <svg
+      ref={svgRef}
+      className="absolute inset-0 pointer-events-none"
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      fill="none"
+      style={{ overflow: 'visible' }}
+    >
+      <path
+        ref={pathRef}
+        d={path}
+        stroke="white"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        style={{
+          filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.85)) drop-shadow(0 0 6px rgba(255,255,255,0.5))',
+        }}
+      />
+    </svg>
+  );
+}
 
 const RECOMMENDED = {
   id: '4',
@@ -81,6 +158,9 @@ export default function RecommendedProBar() {
             transformOrigin: 'left center',
           }}
         >
+          {/* 보더 위를 도는 흰색 광선 - SVG 라운드 path stroke 따라 정확히 흐름 */}
+          {phase === 'expanded' && <PillBorderTrain />}
+
           {/* 좌측 - 원형 프로필 */}
           <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-700 shrink-0">
             <img
