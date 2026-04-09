@@ -447,7 +447,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
         </button>
       </div>
       <div className="mt-1.5">
-        <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[18px] mb-0.5" />
+        <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[22px] mb-0.5" />
         <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[16px]">{pro.role} {pro.name}</h4>
         <div className="flex items-center gap-2 mt-0.5 mb-1">
           <div className="flex items-center gap-0.5">
@@ -927,14 +927,19 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-6">
-            {eventPros.slice(0, 6).map((pro, i) => {
-              const review = RANK_REVIEWS[pro.id]?.[0];
+          <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory lg:mx-0 lg:px-0">
+            {eventPros.slice(0, 4).map((pro, i) => {
+              const reviews = [
+                '분위기를 정말 잘 살려주셔서 감동이었어요',
+                '섬세한 진행 덕분에 행사가 완벽했습니다',
+                '격식과 유머의 밸런스가 최고였어요',
+                '처음부터 끝까지 프로페셔널한 진행이었습니다',
+              ];
               return (
                 <Link
                   key={pro.id}
                   href={`/pros/${pro.id}`}
-                  className="flex gap-3 group opacity-0 animate-fade-in"
+                  className="flex gap-3 shrink-0 w-[85%] snap-start group opacity-0 animate-fade-in lg:w-[calc(50%-8px)]"
                   style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'forwards' }}
                 >
                   <div className="w-[72px] h-[72px] shrink-0 rounded-full overflow-hidden">
@@ -950,9 +955,7 @@ export default function HomePage() {
                         <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-500 flex items-center" style={{ height: 20 }}>{tag}</span>
                       ))}
                     </div>
-                    {review && (
-                      <p className="text-[12px] text-gray-400 mt-1.5 line-clamp-1">&ldquo;{review.text}&rdquo;</p>
-                    )}
+                    <p className="text-[12px] text-gray-400 mt-1.5 line-clamp-1">&ldquo;{reviews[i % reviews.length]}&rdquo;</p>
                   </div>
                 </Link>
               );
