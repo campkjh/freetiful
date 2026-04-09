@@ -195,7 +195,7 @@ export default function BizPage() {
   const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
   const [receptionFullscreen, setReceptionFullscreen] = useState(false);
   const [receptionExiting, setReceptionExiting] = useState(false);
-  const receptionRef = useRef<HTMLDivElement>(null);
+  const receptionRef = useRef<HTMLElement>(null);
   const receptionVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -230,13 +230,15 @@ export default function BizPage() {
     if (!el) return;
     const ob = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+        if (entry.isIntersecting) {
           setReceptionFullscreen(true);
           setReceptionExiting(false);
-          receptionVideoRef.current?.play().catch(() => {});
+          setTimeout(() => {
+            receptionVideoRef.current?.play().catch(() => {});
+          }, 300);
         }
       },
-      { threshold: 0.5 },
+      { threshold: 0.15 },
     );
     ob.observe(el);
     return () => ob.disconnect();
@@ -786,6 +788,7 @@ export default function BizPage() {
             ref={receptionVideoRef}
             className="w-full h-full object-contain"
             autoPlay
+            muted
             playsInline
             controls
           >
