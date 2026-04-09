@@ -1080,15 +1080,15 @@ export default function HomePage() {
             }}
             aria-hidden="true"
           />
-          {/* Spline crystal ball - viewport 가득 채워서 절대 짤림 없음 */}
+          {/* Spline crystal ball - iframe scale로 내부 컨텐츠 0.6 축소 */}
           <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-32 z-0"
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-20 z-0 overflow-hidden"
             style={{
               width: '100vw',
-              maxWidth: '1200px',
-              height: '100vw',
-              maxHeight: '1200px',
-              opacity: 0.55,
+              maxWidth: '720px',
+              height: '60vw',
+              maxHeight: '432px',
+              opacity: 0.6,
             }}
             aria-hidden="true"
           >
@@ -1098,8 +1098,15 @@ export default function HomePage() {
               loading="lazy"
               allow="autoplay"
               scrolling="no"
-              className="w-full h-full"
-              style={{ background: 'transparent', border: 'none', display: 'block' }}
+              className="absolute left-1/2 top-1/2 block"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                width: '167%',
+                height: '167%',
+                transform: 'translate(-50%, -50%) scale(0.6)',
+                transformOrigin: 'center center',
+              }}
               title="crystal ball"
             />
           </div>
