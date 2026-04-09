@@ -200,6 +200,26 @@ export default function BizPage() {
     return () => window.removeEventListener('scroll', h);
   }, []);
 
+  // 스크롤 위치에 따라 activeSection 자동 업데이트
+  useEffect(() => {
+    const sectionIds = ['회사소개', '핵심서비스', '연혁', '자료실', '오시는길', '문의폼'];
+    const ob = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id === '문의폼' ? '문의' : entry.target.id);
+          }
+        });
+      },
+      { threshold: 0.3 },
+    );
+    sectionIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) ob.observe(el);
+    });
+    return () => ob.disconnect();
+  }, []);
+
   // 플랫폼에서 비즈로 왔을 때 펼쳐지는 애니메이션
   useEffect(() => {
     const from = sessionStorage.getItem('nav-transition');
@@ -363,6 +383,33 @@ export default function BizPage() {
           100% { transform: scale(2.0); opacity: 0; }
         }
       `}} />
+
+      {/* ═══ 모바일 사이드 섹션 인디케이터 ═══════════════════════ */}
+      <div className="md:hidden fixed right-3 top-1/2 -translate-y-1/2 z-40 flex flex-col items-end gap-3">
+        {NAV_SECTIONS.map((name) => {
+          const isActive = activeSection === name;
+          return (
+            <button
+              key={name}
+              onClick={() => scrollTo(name === '문의' ? '문의폼' : name)}
+              className="flex items-center gap-2 transition-all duration-300"
+            >
+              {isActive && (
+                <span className="text-[10px] font-bold text-gray-700 bg-white/90 backdrop-blur-sm shadow-sm rounded-full px-2 py-0.5 border border-gray-100">
+                  {name}
+                </span>
+              )}
+              <span
+                className={`block rounded-full transition-all duration-300 ${
+                  isActive
+                    ? 'w-[6px] h-[18px] bg-gray-900'
+                    : 'w-[5px] h-[5px] bg-gray-300'
+                }`}
+              />
+            </button>
+          );
+        })}
+      </div>
 
       {/* ═══ 회사소개 ═══════════════════════════════════════════ */}
       <section id="회사소개" className="py-28">
