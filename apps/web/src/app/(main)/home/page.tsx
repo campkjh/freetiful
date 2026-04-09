@@ -723,22 +723,23 @@ export default function HomePage() {
                   style={{ animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
                 >
                   <div className="relative w-[52px] h-[52px] flex items-center justify-center overflow-visible">
-                    <img src={item.img} alt={item.name} className="w-full h-full object-contain" />
                     {isForeign && (
                       <div
-                        className="pointer-events-none absolute -inset-3 z-10 mix-blend-screen opacity-90"
-                        style={{ filter: 'saturate(1.1) contrast(1.05)' }}
+                        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
+                        style={{ width: 140, height: 140 }}
                       >
                         <iframe
                           src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
                           frameBorder="0"
                           loading="lazy"
+                          allow="autoplay; fullscreen"
                           className="w-full h-full"
-                          style={{ background: 'transparent' }}
+                          style={{ background: 'transparent', border: 'none' }}
                           title="crystal ball"
                         />
                       </div>
                     )}
+                    <img src={item.img} alt={item.name} className="relative z-10 w-full h-full object-contain" />
                   </div>
                   <span className="text-[12px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
                 </Link>
