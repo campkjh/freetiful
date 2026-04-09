@@ -186,18 +186,25 @@ export default function CeoPage() {
             {/* CEO Photo */}
             <Reveal>
               <div className="relative shrink-0">
-                <div className="w-[220px] h-[280px] md:w-[260px] md:h-[340px] rounded-2xl overflow-hidden shadow-lg">
-                  <Image
-                    src="/images/ceo.png"
-                    alt="서나웅 대표이사"
-                    width={260}
-                    height={340}
-                    className="w-full h-full object-cover object-top"
-                  />
-                </div>
-                <div className="absolute -bottom-3 -right-3 bg-white rounded-xl shadow-md px-4 py-2 border border-gray-100">
-                  <p className="text-[18px] font-black text-gray-900">서나웅</p>
-                  <p className="text-[11px] text-gray-400 font-medium">대표이사 / CEO</p>
+                <Image
+                  src="/images/ceo.png"
+                  alt="서나웅 대표이사"
+                  width={400}
+                  height={520}
+                  className="w-[280px] md:w-[320px] object-cover object-top"
+                />
+                <div
+                  className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl text-center"
+                  style={{
+                    background: 'rgba(255,255,255,0.25)',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(255,255,255,0.4)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+                  }}
+                >
+                  <p className="text-[20px] font-black text-gray-900">서나웅</p>
+                  <p className="text-[12px] text-gray-600 font-medium tracking-wide">대표이사 / CEO</p>
                 </div>
               </div>
             </Reveal>
