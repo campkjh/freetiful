@@ -168,17 +168,14 @@ export default function CeoPage() {
             {/* CEO Photo */}
             <Reveal>
               <div className="relative shrink-0">
-                <div className="w-[220px] h-[280px] md:w-[260px] md:h-[340px] rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden shadow-lg">
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-20 h-20 mx-auto rounded-full bg-gray-300/60 flex items-center justify-center">
-                        <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                        </svg>
-                      </div>
-                      <p className="mt-3 text-[12px] text-gray-400">CEO Photo</p>
-                    </div>
-                  </div>
+                <div className="w-[220px] h-[280px] md:w-[260px] md:h-[340px] rounded-2xl overflow-hidden shadow-lg">
+                  <Image
+                    src="/images/ceo.png"
+                    alt="서나웅 대표이사"
+                    width={260}
+                    height={340}
+                    className="w-full h-full object-cover object-top"
+                  />
                 </div>
                 <div className="absolute -bottom-3 -right-3 bg-white rounded-xl shadow-md px-4 py-2 border border-gray-100">
                   <p className="text-[18px] font-black text-gray-900">서나웅</p>
