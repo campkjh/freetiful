@@ -1109,6 +1109,18 @@ export default function HomePage() {
             }}
             aria-hidden="true"
           />
+          {/* 하단 → 위로 그라데이션 블러 */}
+          <div
+            className="pointer-events-none absolute left-0 right-0 bottom-0 z-[15]"
+            style={{
+              height: '180px',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
+              maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
+            }}
+            aria-hidden="true"
+          />
 
           <div className="mb-6 relative z-10">
             <div className="flex items-center justify-between">
