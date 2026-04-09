@@ -455,49 +455,34 @@ export default function ChatListPage() {
             onClick={() => setActionMenu(null)}
           />
           <div
-            className="fixed z-[60] bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/60 overflow-hidden min-w-[220px] animate-[chatActionPop_0.3s_cubic-bezier(0.34,1.56,0.64,1)]"
+            className="fixed z-[60] bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/60 overflow-hidden min-w-[220px]"
             style={{
               left: Math.min(Math.max(16, actionMenu.x - 110), typeof window !== 'undefined' ? window.innerWidth - 236 : 0),
               top: Math.min(actionMenu.y - 20, typeof window !== 'undefined' ? window.innerHeight - 320 : 0),
               transformOrigin: 'top center',
+              animation: 'chatActionPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => handleOpenPreview(actionMenu.room)}
-              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-gray-800 hover:bg-gray-50 active:bg-gray-100 w-full font-medium"
-            >
-              미리보기
-              <Eye size={18} className="text-gray-500" />
-            </button>
-            <button
-              onClick={() => handleTogglePinFromMenu(actionMenu.room.id)}
-              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-gray-800 hover:bg-gray-50 active:bg-gray-100 w-full border-t border-gray-100 font-medium"
-            >
-              {actionMenu.room.isPinned ? '고정 해제' : '상단 고정'}
-              {actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />}
-            </button>
-            <button
-              onClick={() => handleArchiveRoom(actionMenu.room.id)}
-              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-gray-800 hover:bg-gray-50 active:bg-gray-100 w-full border-t border-gray-100 font-medium"
-            >
-              {actionMenu.room.isArchived ? '보관 해제' : '채팅 보관'}
-              <Archive size={18} className="text-gray-500" />
-            </button>
-            <button
-              onClick={() => handleHideRoom(actionMenu.room.id)}
-              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-gray-800 hover:bg-gray-50 active:bg-gray-100 w-full border-t border-gray-100 font-medium"
-            >
-              채팅 숨기기
-              <EyeOff size={18} className="text-gray-500" />
-            </button>
-            <button
-              onClick={() => handleDeleteRoom(actionMenu.room.id)}
-              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-red-500 hover:bg-red-50 active:bg-red-100 w-full border-t border-gray-100 font-medium"
-            >
-              채팅 삭제
-              <Trash2 size={18} />
-            </button>
+            {[
+              { label: '미리보기', icon: <Eye size={18} className="text-gray-500" />, onClick: () => handleOpenPreview(actionMenu.room), className: 'text-gray-800' },
+              { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-gray-800' },
+              { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-gray-800' },
+              { label: '채팅 숨기기', icon: <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-gray-800' },
+              { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => handleDeleteRoom(actionMenu.room.id), className: 'text-red-500' },
+            ].map((item, idx) => (
+              <button
+                key={item.label}
+                onClick={item.onClick}
+                className={`flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] hover:bg-gray-50 active:bg-gray-100 w-full font-medium ${idx > 0 ? 'border-t border-gray-100' : ''} ${item.className} ${item.className === 'text-red-500' ? 'hover:bg-red-50 active:bg-red-100' : ''}`}
+                style={{
+                  animation: `chatActionItemFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${0.25 + idx * 0.04}s both`,
+                }}
+              >
+                {item.label}
+                {item.icon}
+              </button>
+            ))}
           </div>
         </>
       )}
@@ -564,9 +549,32 @@ export default function ChatListPage() {
           100% { opacity: 1; }
         }
         @keyframes chatActionPop {
-          0% { opacity: 0; transform: scale(0.85) translateY(-8px); }
-          60% { opacity: 1; transform: scale(1.03) translateY(0); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
+          0% {
+            opacity: 0;
+            transform: scale(0.4) translateY(-16px);
+            filter: blur(12px);
+          }
+          35% {
+            opacity: 1;
+            filter: blur(4px);
+          }
+          60% {
+            opacity: 1;
+            transform: scale(1.08) translateY(2px);
+            filter: blur(0);
+          }
+          80% {
+            transform: scale(0.97) translateY(0);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            filter: blur(0);
+          }
+        }
+        @keyframes chatActionItemFade {
+          0% { opacity: 0; transform: translateX(-6px); filter: blur(4px); }
+          100% { opacity: 1; transform: translateX(0); filter: blur(0); }
         }
         @keyframes previewPop {
           0% { opacity: 0; transform: scale(0.9); filter: blur(8px); }
