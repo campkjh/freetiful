@@ -1094,10 +1094,10 @@ export default function BizPage() {
               {/* 네비 아이템들 */}
               <div className="flex-1 flex items-center justify-around overflow-hidden">
                 {[
-                  { id: '회사소개', icon: <Building2 className="h-5 w-5" />, label: '회사소개' },
-                  { id: '핵심서비스', icon: <Briefcase className="h-5 w-5" />, label: '서비스' },
-                  { id: '자료실', icon: <FileText className="h-5 w-5" />, label: '자료실' },
-                  { id: '문의', icon: <Send className="h-5 w-5" />, label: '문의' },
+                  { id: '회사소개', iconSrc: '/images/회사소개.svg', label: '회사소개' },
+                  { id: '핵심서비스', iconSrc: '/images/서비스.svg', label: '서비스' },
+                  { id: '자료실', iconSrc: '/images/자료실.svg', label: '자료실' },
+                  { id: '문의', iconSrc: '/images/문의.svg', label: '문의' },
                 ].map((item, idx) => (
                   <button
                     key={item.id}
@@ -1113,7 +1113,7 @@ export default function BizPage() {
                       ...(bizNavExpanding ? { animation: `bizIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.08}s both` } : {}),
                     }}
                   >
-                    {item.icon}
+                    <Image src={item.iconSrc} alt={item.label} width={20} height={20} className="opacity-60" />
                     <span className="text-[9px] font-medium whitespace-nowrap">{item.label}</span>
                   </button>
                 ))}
