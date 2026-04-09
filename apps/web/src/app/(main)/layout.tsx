@@ -86,10 +86,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   key={href}
                   href={href}
                   className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full text-[14px] font-medium ${
-                    isBiz
-                      ? 'text-gray-900 bg-gray-900/5 hover:bg-gray-900/10 font-bold'
-                      : active
-                      ? 'text-primary-600 bg-primary-50/80'
+                    active
+                      ? 'text-gray-900 bg-gray-100/80 font-bold'
                       : 'text-gray-500 hover:text-gray-800 hover:bg-surface-100/80'
                   }`}
                   style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
@@ -158,7 +156,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     <button
                       key={href}
                       data-nav={label}
-                      className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl text-gray-900"
+                      className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl text-gray-400"
                       style={itemStyle}
                       onClick={(e) => {
                         e.preventDefault();
@@ -167,8 +165,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         setTimeout(() => router.push('/biz'), 500);
                       }}
                     >
-                      <Image src={iconSrc} alt={label} width={20} height={20} />
-                      <span className="text-[9px] font-black">{label}</span>
+                      <Image src={iconSrc} alt={label} width={20} height={20} className="opacity-60" />
+                      <span className="text-[9px] font-medium">{label}</span>
                     </button>
                   ) : (
                     <Link
@@ -176,7 +174,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       href={href}
                       data-nav={label}
                       className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
-                        active ? 'text-primary-500' : 'text-gray-400'
+                        active ? 'text-gray-900' : 'text-gray-400'
                       }`}
                       style={itemStyle}
                       onClick={() => {
