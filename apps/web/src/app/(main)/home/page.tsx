@@ -438,7 +438,6 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
         <button
           onClick={(e) => toggleFavorite(e, pro.id)}
           className="absolute top-2 right-2 transition-transform duration-200 active:scale-125"
-          style={{ padding: 8 }}
         >
           {favorites.has(pro.id) ? (
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
@@ -456,12 +455,12 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
           <span className="text-[13px] text-gray-400">({pro.reviews})</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          <span className="text-[10px] font-bold px-2.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
+          <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
           {pro.tags.map((tag) => (
-            <span key={tag} className="text-[10px] font-medium px-2.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
+            <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
           ))}
           {pro.available && (
-            <span className="text-[10px] font-medium px-2.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>즉시출근</span>
+            <span className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>즉시출근</span>
           )}
         </div>
       </div>
