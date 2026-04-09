@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Search, Bell, Star, Heart, ChevronRight, ChevronLeft, ArrowRight, MapPin, Gift } from 'lucide-react';
+import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin, Gift } from 'lucide-react';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 
@@ -437,13 +437,14 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
         </div>
         <button
           onClick={(e) => toggleFavorite(e, pro.id)}
-          className="absolute top-2.5 right-2.5 p-1.5 rounded-full transition-transform duration-200 active:scale-125"
+          className="absolute top-2 right-2 transition-transform duration-200 active:scale-125"
+          style={{ padding: 8 }}
         >
-          <Heart
-            size={22}
-            className={favorites.has(pro.id) ? 'fill-red-500 text-red-500 drop-shadow-sm' : 'fill-black/30 text-white drop-shadow-sm'}
-            strokeWidth={1.5}
-          />
+          {favorites.has(pro.id) ? (
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="rgba(0,0,0,0.3)"/></svg>
+          )}
         </button>
       </div>
       <div className="mt-3">
