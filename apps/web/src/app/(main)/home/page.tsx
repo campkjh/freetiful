@@ -1067,10 +1067,17 @@ export default function HomePage() {
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section className="relative" style={{ overflow: 'visible' }}>
-          {/* Spline crystal ball - 섹션 배경 (타이틀 위까지 튀어나옴) */}
+          {/* Spline crystal ball - 섹션 배경 (윗부분만 보이도록 그라데이션 마스크) */}
           <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 opacity-40"
-            style={{ top: '-160px', width: 480, height: 480 }}
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0"
+            style={{
+              top: '-60px',
+              width: 420,
+              height: 420,
+              opacity: 0.22,
+              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0) 80%)',
+              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0) 80%)',
+            }}
             aria-hidden="true"
           >
             <iframe
