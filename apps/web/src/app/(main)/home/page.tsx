@@ -410,11 +410,12 @@ const EVENT_PACKAGES = [
 ];
 
 
-function ProCard({ pro, favorites, toggleFavorite, index }: {
+function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
   pro: typeof MOCK_PROS[0];
   favorites: Set<string>;
   toggleFavorite: (e: React.MouseEvent, id: string) => void;
   index: number;
+  languages?: string[];
 }) {
   return (
     <Link
@@ -462,6 +463,9 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
         </div>
         <div className="flex flex-wrap gap-1">
           <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
+          {languages && languages.map((lang) => (
+            <span key={lang} className="text-[10px] font-bold px-1.5 rounded-[5px] bg-blue-50 text-blue-600 flex items-center" style={{ height: 22 }}>{lang}</span>
+          ))}
           {pro.tags.map((tag) => (
             <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
           ))}
@@ -1001,7 +1005,7 @@ export default function HomePage() {
           <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
             {languagePros.slice(0, 9).map((pro, i) => (
               <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
+                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} languages={PRO_LANGUAGES[pro.id]} />
               </div>
             ))}
           </div>
