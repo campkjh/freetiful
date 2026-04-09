@@ -1075,7 +1075,7 @@ export default function HomePage() {
               width: '100vw',
               maxWidth: '900px',
               height: '500px',
-              opacity: 0.6,
+              opacity: 0.4,
             }}
             aria-hidden="true"
           >
