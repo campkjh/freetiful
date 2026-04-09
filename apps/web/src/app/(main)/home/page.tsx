@@ -808,7 +808,7 @@ export default function HomePage() {
           {/* Mobile: Pill-shaped 3:4 photos with rank badges (top 3) */}
           <div className="lg:hidden flex items-end justify-center gap-5 py-4">
             {/* 2nd place — left */}
-            <Link href={`/pros/${MOCK_PROS[1].id}`} className="flex flex-col items-center">
+            <Link href={`/pros/${MOCK_PROS[1].id}`} className="flex flex-col items-center mt-6">
               <div className="relative">
                 <img
                   src={MOCK_PROS[1].image}
@@ -845,7 +845,7 @@ export default function HomePage() {
             </Link>
 
             {/* 3rd place — right */}
-            <Link href={`/pros/${MOCK_PROS[2].id}`} className="flex flex-col items-center">
+            <Link href={`/pros/${MOCK_PROS[2].id}`} className="flex flex-col items-center mt-6">
               <div className="relative">
                 <img
                   src={MOCK_PROS[2].image}
