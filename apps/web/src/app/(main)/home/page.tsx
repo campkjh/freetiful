@@ -930,7 +930,7 @@ export default function HomePage() {
           <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory lg:mx-0 lg:px-0">
             {/* 4개씩 묶어서 페이지 단위로 스와이프 */}
             {Array.from({ length: Math.ceil(eventPros.length / 4) }).map((_, pageIdx) => (
-              <div key={pageIdx} className="flex flex-col gap-3 shrink-0 w-full snap-start">
+              <div key={pageIdx} className="flex flex-col gap-3 shrink-0 w-[calc(100%-20px)] snap-start">
                 {eventPros.slice(pageIdx * 4, pageIdx * 4 + 4).map((pro, i) => {
                   const reviews = [
                     '분위기를 정말 잘 살려주셔서 감동이었어요',
@@ -945,12 +945,12 @@ export default function HomePage() {
                       className="flex gap-3 group opacity-0 animate-fade-in"
                       style={{ animationDelay: `${(pageIdx * 4 + i) * 60}ms`, animationFillMode: 'forwards' }}
                     >
-                      <div className="w-[64px] h-[64px] shrink-0 rounded-full overflow-hidden">
+                      <div className="w-[54px] h-[72px] shrink-0 rounded-lg overflow-hidden">
                         <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                       </div>
                       <div className="flex-1 min-w-0 border-b border-gray-100 pb-3">
                         <div className="flex items-center gap-1.5">
-                          <h4 className="text-[14px] font-semibold text-gray-900">{pro.role} {pro.name}</h4>
+                          <h4 className="text-[16px] font-semibold text-gray-900">{pro.role} {pro.name}</h4>
                           <span className="text-[11px] text-gray-400">경력 {pro.experience}년</span>
                         </div>
                         <p className="text-[12px] text-gray-400 mt-0.5 line-clamp-1">&ldquo;{reviews[i % reviews.length]}&rdquo;</p>
