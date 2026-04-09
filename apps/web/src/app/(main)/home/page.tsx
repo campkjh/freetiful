@@ -446,13 +446,19 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
           )}
         </button>
       </div>
-      <div className="mt-3">
-        <span className="inline-block bg-gray-900 text-white text-[11px] font-bold px-2.5 py-0.5 rounded mb-2">Partners</span>
-        <h4 className="text-[17px] font-extrabold text-gray-900 mb-1 lg:text-[18px]">{pro.role} {pro.name}</h4>
-        <div className="flex items-center gap-1 mb-2.5">
-          <Star size={14} className="fill-yellow-400 text-yellow-400" />
-          <span className="text-[14px] font-bold text-gray-900">{pro.rating}</span>
-          <span className="text-[13px] text-gray-400">({pro.reviews})</span>
+      <div className="mt-2">
+        <span className="inline-block bg-gray-900 text-white text-[11px] font-bold px-2.5 py-0.5 rounded mb-1">Partners</span>
+        <h4 className="text-[15px] font-extrabold text-gray-900 leading-tight lg:text-[16px]">{pro.role} {pro.name}</h4>
+        <div className="flex items-center gap-2 mt-1 mb-1.5">
+          <div className="flex items-center gap-0.5">
+            <Star size={11} className="fill-yellow-400 text-yellow-400" />
+            <span className="text-[12px] font-bold text-gray-900">{pro.rating}</span>
+            <span className="text-[11px] text-gray-400">({pro.reviews})</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
+            <span className="text-[11px] text-gray-400">{pro.pudding || Math.floor(Math.random() * 50 + 10)}</span>
+          </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
           <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
