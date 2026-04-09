@@ -1067,12 +1067,12 @@ export default function HomePage() {
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section className="relative" style={{ overflow: 'visible' }}>
-          {/* 부드러운 파란 그라데이션 돔 - 반응형 (가로 100%) */}
+          {/* 부드러운 파란 그라데이션 돔 - 반응형 */}
           <div
-            className="pointer-events-none absolute left-0 right-0 -top-20 z-0 mx-auto rounded-full"
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-20 z-0 rounded-full"
             style={{
-              width: '100%',
-              maxWidth: '640px',
+              width: '110%',
+              maxWidth: '720px',
               aspectRatio: '1 / 1',
               background: 'radial-gradient(circle at center, #DBEAFE 0%, #EFF6FF 35%, rgba(239, 246, 255, 0.4) 65%, rgba(239, 246, 255, 0) 80%)',
               WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 45%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 85%)',
@@ -1080,14 +1080,14 @@ export default function HomePage() {
             }}
             aria-hidden="true"
           />
-          {/* Spline crystal ball - 반응형, 마스킹 없이 그대로 펼쳐짐 */}
+          {/* Spline crystal ball - 가로형 viewport 비율(16/10) + 큰 사이즈 → 짤림 없음 */}
           <div
-            className="pointer-events-none absolute left-0 right-0 -top-10 z-0 mx-auto"
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-16 z-0"
             style={{
-              width: '90%',
-              maxWidth: '500px',
-              aspectRatio: '1 / 1',
-              opacity: 0.55,
+              width: '140%',
+              maxWidth: '720px',
+              aspectRatio: '16 / 10',
+              opacity: 0.6,
             }}
             aria-hidden="true"
           >
@@ -1096,8 +1096,9 @@ export default function HomePage() {
               frameBorder="0"
               loading="lazy"
               allow="autoplay"
-              className="w-full h-full"
-              style={{ background: 'transparent', border: 'none' }}
+              scrolling="no"
+              className="w-full h-full block"
+              style={{ background: 'transparent', border: 'none', display: 'block' }}
               title="crystal ball"
             />
           </div>
