@@ -927,7 +927,7 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory lg:mx-0 lg:px-0">
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory lg:mx-0 lg:px-0 lg:gap-4">
             {eventPros.slice(0, 4).map((pro, i) => {
               const reviews = [
                 '분위기를 정말 잘 살려주셔서 감동이었어요',
@@ -939,23 +939,16 @@ export default function HomePage() {
                 <Link
                   key={pro.id}
                   href={`/pros/${pro.id}`}
-                  className="flex gap-3 shrink-0 w-[85%] snap-start group opacity-0 animate-fade-in lg:w-[calc(50%-8px)]"
+                  className="flex flex-col shrink-0 w-[42%] snap-start group opacity-0 animate-fade-in lg:w-[calc(25%-12px)]"
                   style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'forwards' }}
                 >
-                  <div className="w-[72px] h-[72px] shrink-0 rounded-full overflow-hidden">
+                  <div className="w-full aspect-[3/4] rounded-lg overflow-hidden">
                     <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                   </div>
-                  <div className="flex-1 min-w-0 border-b border-gray-100 pb-4">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="text-[15px] font-bold text-gray-900">{pro.role} {pro.name}</h4>
-                      <span className="text-[11px] text-gray-400">경력 {pro.experience}년</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {pro.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-500 flex items-center" style={{ height: 20 }}>{tag}</span>
-                      ))}
-                    </div>
-                    <p className="text-[12px] text-gray-400 mt-1.5 line-clamp-1">&ldquo;{reviews[i % reviews.length]}&rdquo;</p>
+                  <div className="mt-2">
+                    <h4 className="text-[14px] font-semibold text-gray-900 truncate">{pro.role} {pro.name}</h4>
+                    <span className="text-[11px] text-gray-400">경력 {pro.experience}년</span>
+                    <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">&ldquo;{reviews[i % reviews.length]}&rdquo;</p>
                   </div>
                 </Link>
               );
