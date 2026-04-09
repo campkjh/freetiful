@@ -713,38 +713,19 @@ export default function HomePage() {
               { name: '헤메샵', img: '/images/cat-hair-makeup.png' },
               { name: '스냅·영상', img: '/images/cat-snap-video.png' },
               { name: '축가·연주', img: '/images/cat-singer.png' },
-            ].map((item, i) => {
-              const isForeign = item.name === '외국어사회자';
-              return (
-                <Link
-                  key={item.name}
-                  href={`/pros?category=${encodeURIComponent(item.name)}`}
-                  className="flex flex-col items-center gap-1.5 opacity-0"
-                  style={{ animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
-                >
-                  <div className="relative w-[52px] h-[52px] flex items-center justify-center overflow-visible">
-                    {isForeign && (
-                      <div
-                        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
-                        style={{ width: 140, height: 140 }}
-                      >
-                        <iframe
-                          src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
-                          frameBorder="0"
-                          loading="lazy"
-                          allow="autoplay; fullscreen"
-                          className="w-full h-full"
-                          style={{ background: 'transparent', border: 'none' }}
-                          title="crystal ball"
-                        />
-                      </div>
-                    )}
-                    <img src={item.img} alt={item.name} className="relative z-10 w-full h-full object-contain" />
-                  </div>
-                  <span className="text-[12px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
-                </Link>
-              );
-            })}
+            ].map((item, i) => (
+              <Link
+                key={item.name}
+                href={`/pros?category=${encodeURIComponent(item.name)}`}
+                className="flex flex-col items-center gap-1.5 opacity-0"
+                style={{ animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
+              >
+                <div className="w-[52px] h-[52px] flex items-center justify-center overflow-hidden">
+                  <img src={item.img} alt={item.name} className="w-full h-full object-contain" />
+                </div>
+                <span className="text-[12px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -1085,14 +1066,30 @@ export default function HomePage() {
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <section>
-          <div className="mb-6">
+        <section className="relative">
+          {/* Spline crystal ball - 헤더 우측 위에 떠있는 장식 */}
+          <div
+            className="pointer-events-none absolute right-0 top-0 -translate-y-6 z-10"
+            style={{ width: 180, height: 180 }}
+          >
+            <iframe
+              src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
+              frameBorder="0"
+              loading="lazy"
+              allow="autoplay"
+              className="w-full h-full"
+              style={{ background: 'transparent', border: 'none' }}
+              title="crystal ball"
+            />
+          </div>
+
+          <div className="mb-6 relative">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="section-title">외국어 전문가</h3>
                 <p className="section-subtitle mt-1">외국어 가능 전문가와 함께하세요</p>
               </div>
-              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600 relative z-20" style={{ transition: 'color 0.3s' }}>
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
