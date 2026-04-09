@@ -598,7 +598,7 @@ export default function HomePage() {
   const onlinePros = MOCK_PROS.filter((p) => p.id in PRO_ONLINE_STATUS).slice(0, 20);
 
   return (
-    <div className="bg-surface-50 min-h-screen w-full">
+    <div className="bg-white min-h-screen w-full">
       {/* ─── Mobile Header (Fixed, single row: logo + search + bell) ── */}
       <div
         ref={headerRef}
@@ -1067,11 +1067,11 @@ export default function HomePage() {
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section className="relative" style={{ overflow: 'visible' }}>
-          {/* Spline crystal ball - iframe scale 0.5 + 500px 높이 + 하단 화이트 그라데이션 */}
+          {/* Spline crystal ball - 100px 위로 이동 */}
           <div
             className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 overflow-hidden"
             style={{
-              top: '-20px',
+              top: '-120px',
               width: '100vw',
               maxWidth: '900px',
               height: '500px',
@@ -1096,15 +1096,19 @@ export default function HomePage() {
               }}
               title="crystal ball"
             />
-            {/* 하단 ~ 중단 화이트 그라데이션 오버레이 */}
-            <div
-              className="absolute left-0 right-0 bottom-0 pointer-events-none"
-              style={{
-                height: '50%',
-                background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.7) 40%, rgba(255,255,255,1) 100%)',
-              }}
-            />
           </div>
+          {/* 화이트 그라데이션 - 칩 영역 살짝 위(0)부터 Spline 하단(100%)까지 */}
+          <div
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-[5]"
+            style={{
+              top: '120px',
+              width: '100vw',
+              maxWidth: '900px',
+              height: '260px',
+              background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 30%, rgba(255,255,255,0.95) 70%, rgba(255,255,255,1) 100%)',
+            }}
+            aria-hidden="true"
+          />
 
           <div className="mb-6 relative z-10">
             <div className="flex items-center justify-between">
