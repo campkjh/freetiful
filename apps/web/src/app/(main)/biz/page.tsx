@@ -366,9 +366,9 @@ export default function BizPage() {
             ))}
           </nav>
 
-          {/* 모바일 햄버거 메뉴 버튼 */}
+          {/* 햄버거 메뉴 버튼 */}
           <button
-            className="md:hidden flex flex-col items-center justify-center gap-[5px] w-9 h-9"
+            className="flex flex-col items-center justify-center gap-[5px] w-9 h-9"
             onClick={() => setMobileMenuOpen(true)}
           >
             <span className={`block w-5 h-[2px] rounded-full transition-all duration-300 ${scrollY > 80 ? 'bg-gray-900' : 'bg-white'}`} />
@@ -381,7 +381,7 @@ export default function BizPage() {
 
       {/* ═══ 모바일 메뉴 패널 ═══════════════════════════════════ */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-[60]">
+        <div className="fixed inset-0 z-[60]">
           {/* 배경 오버레이 */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
