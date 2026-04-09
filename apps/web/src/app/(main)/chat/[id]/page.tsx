@@ -777,12 +777,12 @@ export default function ChatRoomPage() {
   const isMine = (msg: Message) => msg.senderId === MY_ID;
 
   const ATTACH_ITEMS = [
-    { icon: <Camera size={24} className="text-white" />, bg: 'bg-gradient-to-br from-gray-700 to-gray-900', label: '카메라', action: () => cameraInputRef.current?.click() },
-    { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-gradient-to-br from-green-400 to-teal-500', label: '사진', action: () => fileInputRef.current?.click() },
-    { icon: <Smile size={24} className="text-white" />, bg: 'bg-gradient-to-br from-blue-400 to-blue-600', label: '스티커', action: () => { setShowAttach(false); toast('스티커 기능 준비 중', { icon: '😊' }); } },
-    { icon: <FileText size={24} className="text-white" />, bg: 'bg-gradient-to-br from-purple-400 to-purple-600', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
-    { icon: <MapPin size={24} className="text-white" />, bg: 'bg-gradient-to-br from-red-400 to-red-600', label: '위치', action: handleLocationSend },
-    { icon: <Music size={24} className="text-white" />, bg: 'bg-gradient-to-br from-orange-400 to-red-500', label: '오디오', action: () => { setShowAttach(false); toast('오디오 기능 준비 중', { icon: '🎵' }); } },
+    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => cameraInputRef.current?.click() },
+    { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
+    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('이모티콘 기능 준비 중', { icon: '😊' }); } },
+    { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
+    { icon: <MapPin size={24} className="text-white" />, bg: 'bg-slate-700', label: '위치', action: handleLocationSend },
+    { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('오디오 기능 준비 중', { icon: '🎵' }); } },
   ];
 
   // 멘션 필터링된 리스트
@@ -1197,21 +1197,28 @@ export default function ChatRoomPage() {
         </div>
       )}
 
-      {/* ─── 첨부 메뉴 (iMessage 스타일) ─── */}
+      {/* ─── 첨부 메뉴 ─── */}
       {showAttach && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowAttach(false)} />
+          <div
+            className="fixed inset-0 z-40 bg-black/10 animate-[fadeIn_0.25s_ease]"
+            style={{ backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+            onClick={() => setShowAttach(false)}
+          />
           <div
             className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-2xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] pb-safe"
-            style={{ animation: 'sheetUp 0.3s ease-out' }}
+            style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
             <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3 mb-4" />
             <div className="px-4 pb-6 max-h-[50vh] overflow-y-auto">
-              {ATTACH_ITEMS.map((item) => (
+              {ATTACH_ITEMS.map((item, idx) => (
                 <button
                   key={item.label}
                   onClick={(e) => { e.stopPropagation(); item.action(); setShowAttach(false); }}
-                  className="flex items-center gap-4 w-full py-3.5 px-2 hover:bg-gray-100/60 rounded-xl transition-colors"
+                  className="flex items-center gap-4 w-full py-3.5 px-2 hover:bg-gray-100/60 active:scale-[0.98] rounded-xl transition-all"
+                  style={{
+                    animation: `attachItemUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.05}s both`,
+                  }}
                 >
                   <div className={`w-11 h-11 rounded-full ${item.bg} flex items-center justify-center shrink-0`}>
                     {item.icon}
@@ -1440,6 +1447,21 @@ export default function ChatRoomPage() {
         @keyframes voiceBar {
           0% { transform: scaleY(0.5); }
           100% { transform: scaleY(1); }
+        }
+        @keyframes attachItemUp {
+          0% {
+            opacity: 0;
+            transform: translateY(16px) scale(0.96);
+            filter: blur(8px);
+          }
+          60% {
+            filter: blur(0);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+          }
         }
       `}} />
     </div>
