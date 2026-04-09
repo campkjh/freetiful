@@ -247,6 +247,83 @@ export default function CeoPage() {
         </div>
       </section>
 
+      {/* ═══ 이사진 소개 ═══════════════════════════════════════ */}
+      <section className="py-24 bg-gray-50/60">
+        <div className="mx-auto max-w-[1100px] px-6">
+          <Reveal>
+            <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">LEADERSHIP</p>
+          </Reveal>
+          <Reveal delay={100}>
+            <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">이사진 소개</h2>
+          </Reveal>
+
+          <div className="mt-14 grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
+            {[
+              {
+                name: '서나웅', role: '대표이사', badge: 'CEO',
+                image: '/images/ceo.png',
+                career: ['(現) 프리티풀 CEO', '(前) NH농협 근무, F&B, 임대업, 의류업, 엔터테인먼트 비즈니스 운영'],
+              },
+              {
+                name: '신동혁', role: '최고운영책임자', badge: 'COO',
+                image: '/images/신동혁 이사.png',
+                career: ['40건 이상 사업·서비스 기획 및 운영, 행안부 공유누리 포털 등 컨설팅', '(前)(재)홍합밸리 센터장·사외이사, 구 지경부 IT멘토 위촉'],
+              },
+              {
+                name: '김명옥', role: '최고재무책임자', badge: 'CFO',
+                image: '/images/김명옥 이사.png',
+                career: ['(現)세무회계 재무전문 사무장', '재무관리 경력 35년'],
+              },
+              {
+                name: '김정훈', role: '최고기술책임자', badge: 'CTO',
+                image: '/images/김정훈 이사.png',
+                career: ['reddot award 수상2회, gooddesign 수상1회', '앱 개발 40건 이상, 전주창조경제혁신센터 앱개발 자문의원'],
+              },
+              {
+                name: '임하람', role: '최고마케팅책임자', badge: 'CMO',
+                image: '/images/임하람 이사.png',
+                career: ['SNS 총 팔로워 5만명', '바이럴 영상 총 조회수 1억회 이상'],
+              },
+              {
+                name: '김수연', role: '최고인재책임자', badge: 'CPO',
+                image: '/images/김수연 이사.png',
+                career: ['(前)인천국제공항 아나운서, 경력 11년차 아나운서', '(現)한국여성사회자협회장'],
+              },
+            ].map((person, i) => (
+              <Reveal key={person.name} delay={i * 80}>
+                <div className="group">
+                  {/* 사진 + 이름 오버레이 */}
+                  <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl overflow-hidden aspect-[3/4]">
+                    <Image
+                      src={person.image}
+                      alt={person.name}
+                      fill
+                      className="object-cover object-top"
+                    />
+                    {/* 하단 글래스 오버레이 */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 pt-12 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
+                      <p className="text-[22px] md:text-[26px] font-black text-white leading-tight">{person.name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-[13px] md:text-[14px] font-semibold text-white/80">{person.role}</p>
+                        <span className="text-[11px] font-bold text-white/60 bg-white/15 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/20">
+                          {person.badge}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 경력 */}
+                  <div className="mt-4 space-y-1">
+                    {person.career.map((line, j) => (
+                      <p key={j} className="text-[12px] md:text-[13px] leading-relaxed text-gray-500">{line}</p>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ═══ Philosophy / Vision ═══════════════════════════════ */}
       <section className="py-24 bg-gray-50/60">
         <div className="mx-auto max-w-[900px] px-6">
