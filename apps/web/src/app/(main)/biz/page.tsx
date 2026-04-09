@@ -193,6 +193,7 @@ export default function BizPage() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [bizNavExpanding, setBizNavExpanding] = useState(false);
   const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [receptionFullscreen, setReceptionFullscreen] = useState(false);
   const [receptionExiting, setReceptionExiting] = useState(false);
   const receptionRef = useRef<HTMLElement>(null);
@@ -354,8 +355,85 @@ export default function BizPage() {
             ))}
           </nav>
 
+          {/* 모바일 햄버거 메뉴 버튼 */}
+          <button
+            className="md:hidden flex flex-col items-center justify-center gap-[5px] w-9 h-9"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <span className={`block w-5 h-[2px] rounded-full transition-all duration-300 ${scrollY > 80 ? 'bg-gray-900' : 'bg-white'}`} />
+            <span className={`block w-5 h-[2px] rounded-full transition-all duration-300 ${scrollY > 80 ? 'bg-gray-900' : 'bg-white'}`} />
+            <span className={`block w-3.5 h-[2px] rounded-full transition-all duration-300 ${scrollY > 80 ? 'bg-gray-900' : 'bg-white'}`} />
+          </button>
+
         </div>
       </header>
+
+      {/* ═══ 모바일 메뉴 패널 ═══════════════════════════════════ */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-[60]">
+          {/* 배경 오버레이 */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{ animation: 'menuOverlayIn 0.3s ease-out' }}
+          />
+          {/* 슬라이드 패널 */}
+          <div
+            className="absolute top-0 right-0 w-[280px] h-full bg-white shadow-2xl flex flex-col"
+            style={{ animation: 'menuSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
+          >
+            {/* 닫기 버튼 */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-4">
+              <span className="text-[14px] font-bold text-gray-900">메뉴</span>
+              <button onClick={() => setMobileMenuOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="h-px bg-gray-100 mx-6" />
+            {/* 메뉴 항목 */}
+            <div className="flex-1 px-6 py-4 flex flex-col gap-1">
+              {[
+                { label: 'CEO 인사말', action: () => { scrollTo('회사소개'); setMobileMenuOpen(false); } },
+                { label: '연혁', action: () => { scrollTo('연혁'); setMobileMenuOpen(false); } },
+                { label: '인재채용', href: '/careers' },
+                { label: '주요소식', action: () => { scrollTo('자료실'); setMobileMenuOpen(false); } },
+                { label: '자주묻는질문', action: () => { scrollTo('문의폼'); setMobileMenuOpen(false); } },
+                { label: '고객사', action: () => { scrollTo('핵심서비스'); setMobileMenuOpen(false); } },
+              ].map((item) =>
+                item.href ? (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="flex items-center justify-between py-3.5 px-2 rounded-xl text-[15px] font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {item.label}
+                    <ChevronRight className="w-4 h-4 text-gray-300" />
+                  </Link>
+                ) : (
+                  <button
+                    key={item.label}
+                    onClick={item.action}
+                    className="flex items-center justify-between py-3.5 px-2 rounded-xl text-[15px] font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                  >
+                    {item.label}
+                    <ChevronRight className="w-4 h-4 text-gray-300" />
+                  </button>
+                )
+              )}
+            </div>
+            {/* 하단 문의 버튼 */}
+            <div className="px-6 pb-8">
+              <button
+                onClick={() => { scrollTo('문의폼'); setMobileMenuOpen(false); }}
+                className="w-full py-3 bg-gray-900 text-white text-[14px] font-bold rounded-full active:scale-95 transition-transform"
+              >
+                문의하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══ Hero (Netflix-style tilted grid) ═══════════════════ */}
       <section className="relative flex min-h-screen items-center justify-center pt-[60px] overflow-hidden">
@@ -1136,6 +1214,14 @@ export default function BizPage() {
           0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
           60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
           100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+        }
+        @keyframes menuSlideIn {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(0); }
+        }
+        @keyframes menuOverlayIn {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
         }
         @keyframes receptionFadeIn {
           0% { opacity: 0; transform: scale(1.05); }
