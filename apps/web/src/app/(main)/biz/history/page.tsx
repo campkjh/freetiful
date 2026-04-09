@@ -48,21 +48,20 @@ const MENU_ITEMS = [
 /* ─── History Data (from biz/page.tsx) ───────────────────── */
 const HISTORY = [
   {
-    year: '2025',
+    year: '2026',
     events: [
-      { month: '03', title: '모바일 앱 출시', desc: 'App Store / Play Store 동시 런칭' },
-      { month: '02', title: '전국 1,000여 명 전문 진행자 등록', desc: '방송사 출신 아나운서, MC, 쇼호스트 네트워크 구축 완료' },
-      { month: '02', title: 'AI 매칭 시스템 고도화', desc: '고객 맞춤 추천 알고리즘 업데이트' },
-      { month: '01', title: 'SNS 채널 확대', desc: '인스타그램 10,000+ 팔로워 달성' },
+      { month: '03', title: '프리티풀 정식 서비스 운영 개시', desc: '전문 행사인력 매칭 서비스 본격 운영' },
+      { month: '03', title: '벤처기업 인증 획득', desc: '기술 혁신형 벤처기업 공식 인증' },
+      { month: '02', title: '제휴업체 300여 곳과 전략적 파트너십 체결', desc: '전국 단위 행사 인프라 네트워크 구축' },
+      { month: '02', title: 'Seed 투자 유치', desc: '전문투자기관으로부터 시드 라운드 투자 유치' },
+      { month: '01', title: '전문 행사인력 매칭 플랫폼 출시', desc: 'MC, 아나운서, 쇼호스트 등 전문 인력 매칭 서비스 런칭' },
+      { month: '01', title: '프리티풀 브랜드 공식 론칭', desc: 'Prettyful 브랜드 아이덴티티 공개' },
     ],
   },
   {
-    year: '2024',
+    year: '2025',
     events: [
-      { month: '12', title: '프리티풀 서비스 정식 런칭', desc: '프리랜서 진행자 매칭 플랫폼 오픈' },
-      { month: '10', title: '결혼식 사회자 매칭 서비스 시작', desc: '웨딩 MC 전문 매칭 카테고리 신설' },
-      { month: '07', title: '법인 설립', desc: '주식회사 프리티풀 법인 등기 완료' },
-      { month: '04', title: '아나운서 교육기관 파트너십 체결', desc: '주요 아나운서 교육기관 및 협회와 업무 협약' },
+      { month: '12', title: '주식회사 커넥트풀 설립', desc: '법인 설립 및 사업 개시' },
     ],
   },
 ];
