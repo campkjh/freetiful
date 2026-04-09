@@ -371,9 +371,9 @@ export default function BizPage() {
             className="flex flex-col items-center justify-center gap-[5px] w-9 h-9"
             onClick={() => setMobileMenuOpen(true)}
           >
-            <span className={`block w-5 h-[2px] rounded-full transition-all duration-300 ${scrollY > 80 ? 'bg-gray-900' : 'bg-white'}`} />
-            <span className={`block w-5 h-[2px] rounded-full transition-all duration-300 ${scrollY > 80 ? 'bg-gray-900' : 'bg-white'}`} />
-            <span className={`block w-3.5 h-[2px] rounded-full transition-all duration-300 ${scrollY > 80 ? 'bg-gray-900' : 'bg-white'}`} />
+            <span className="block w-5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
+            <span className="block w-5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
+            <span className="block w-3.5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
           </button>
 
         </div>
