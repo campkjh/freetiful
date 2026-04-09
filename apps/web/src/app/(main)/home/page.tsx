@@ -713,19 +713,37 @@ export default function HomePage() {
               { name: '헤메샵', img: '/images/cat-hair-makeup.png' },
               { name: '스냅·영상', img: '/images/cat-snap-video.png' },
               { name: '축가·연주', img: '/images/cat-singer.png' },
-            ].map((item, i) => (
-              <Link
-                key={item.name}
-                href={`/pros?category=${encodeURIComponent(item.name)}`}
-                className="flex flex-col items-center gap-1.5 opacity-0"
-                style={{ animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
-              >
-                <div className="w-[52px] h-[52px] flex items-center justify-center overflow-hidden">
-                  <img src={item.img} alt={item.name} className="w-full h-full object-contain" />
-                </div>
-                <span className="text-[12px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
-              </Link>
-            ))}
+            ].map((item, i) => {
+              const isForeign = item.name === '외국어사회자';
+              return (
+                <Link
+                  key={item.name}
+                  href={`/pros?category=${encodeURIComponent(item.name)}`}
+                  className="flex flex-col items-center gap-1.5 opacity-0"
+                  style={{ animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
+                >
+                  <div className="relative w-[52px] h-[52px] flex items-center justify-center overflow-visible">
+                    <img src={item.img} alt={item.name} className="w-full h-full object-contain" />
+                    {isForeign && (
+                      <div
+                        className="pointer-events-none absolute -inset-3 z-10 mix-blend-screen opacity-90"
+                        style={{ filter: 'saturate(1.1) contrast(1.05)' }}
+                      >
+                        <iframe
+                          src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
+                          frameBorder="0"
+                          loading="lazy"
+                          className="w-full h-full"
+                          style={{ background: 'transparent' }}
+                          title="crystal ball"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[12px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
 
