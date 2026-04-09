@@ -193,6 +193,10 @@ export default function BizPage() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [bizNavExpanding, setBizNavExpanding] = useState(false);
   const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
+  const [receptionFullscreen, setReceptionFullscreen] = useState(false);
+  const [receptionExiting, setReceptionExiting] = useState(false);
+  const receptionRef = useRef<HTMLDivElement>(null);
+  const receptionVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const h = () => setScrollY(window.scrollY);
@@ -219,6 +223,61 @@ export default function BizPage() {
     });
     return () => ob.disconnect();
   }, []);
+
+  // 송년회 섹션 진입 감지 → 풀스크린 + 영상 자동재생
+  useEffect(() => {
+    const el = receptionRef.current;
+    if (!el) return;
+    const ob = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+          setReceptionFullscreen(true);
+          setReceptionExiting(false);
+          receptionVideoRef.current?.play().catch(() => {});
+        }
+      },
+      { threshold: 0.5 },
+    );
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, []);
+
+  // 풀스크린 상태에서 스크롤 → 해제
+  useEffect(() => {
+    if (!receptionFullscreen || receptionExiting) return;
+    let touchStartY = 0;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY > 30) {
+        setReceptionExiting(true);
+        setTimeout(() => setReceptionFullscreen(false), 500);
+      }
+    };
+    const onTouchStart = (e: TouchEvent) => { touchStartY = e.touches[0].clientY; };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (touchStartY - e.changedTouches[0].clientY > 50) {
+        setReceptionExiting(true);
+        setTimeout(() => setReceptionFullscreen(false), 500);
+      }
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [receptionFullscreen, receptionExiting]);
+
+  // 풀스크린 시 body 스크롤 잠금
+  useEffect(() => {
+    if (receptionFullscreen && !receptionExiting) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [receptionFullscreen, receptionExiting]);
 
   // 플랫폼에서 비즈로 왔을 때 펼쳐지는 애니메이션
   useEffect(() => {
@@ -655,7 +714,7 @@ export default function BizPage() {
       </section>
 
       {/* ═══ 2025 송년회 RECEPTION ═════════════════════════════ */}
-      <section className="relative overflow-hidden bg-[#0a0a0a] text-white">
+      <section ref={receptionRef} className="relative overflow-hidden bg-[#0a0a0a] text-white">
         {/* 배경 이미지 (옅게) */}
         <div className="absolute inset-0">
           <Image
@@ -712,6 +771,31 @@ export default function BizPage() {
           </div>
         </div>
       </section>
+
+      {/* ═══ 모바일 송년회 풀스크린 오버레이 ═══════════════════ */}
+      {receptionFullscreen && (
+        <div
+          className="md:hidden fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center"
+          style={{
+            animation: receptionExiting
+              ? 'receptionFadeOut 0.5s ease-out forwards'
+              : 'receptionFadeIn 0.5s ease-out forwards',
+          }}
+        >
+          <video
+            ref={receptionVideoRef}
+            className="w-full h-full object-contain"
+            autoPlay
+            playsInline
+            controls
+          >
+            <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute bottom-8 left-0 right-0 flex justify-center animate-bounce">
+            <span className="text-white/40 text-[11px] font-medium">아래로 스와이프하여 닫기</span>
+          </div>
+        </div>
+      )}
 
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
       <section id="연혁" className="py-28">
@@ -1048,6 +1132,14 @@ export default function BizPage() {
           0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
           60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
           100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+        }
+        @keyframes receptionFadeIn {
+          0% { opacity: 0; transform: scale(1.05); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes receptionFadeOut {
+          0% { opacity: 1; transform: scale(1); }
+          100% { opacity: 0; transform: scale(0.95); }
         }
       `}} />
 
