@@ -1067,29 +1067,31 @@ export default function HomePage() {
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section className="relative" style={{ overflow: 'visible' }}>
-          {/* Spline crystal ball - 섹션 배경 (윗부분만 보이도록 그라데이션 마스크) */}
+          {/* 외국어 전문가 - 부드러운 파란 그라데이션 돔 배경 */}
           <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0"
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 rounded-full"
             style={{
-              top: '-60px',
-              width: 420,
-              height: 420,
-              opacity: 0.22,
-              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0) 80%)',
-              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0) 80%)',
+              top: '-80px',
+              width: 480,
+              height: 480,
+              background: 'radial-gradient(circle at center, #DBEAFE 0%, #EFF6FF 35%, rgba(239, 246, 255, 0.4) 65%, rgba(239, 246, 255, 0) 80%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 45%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 85%)',
+              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 45%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 85%)',
             }}
             aria-hidden="true"
-          >
-            <iframe
-              src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
-              frameBorder="0"
-              loading="lazy"
-              allow="autoplay"
-              className="w-full h-full"
-              style={{ background: 'transparent', border: 'none' }}
-              title="crystal ball"
-            />
-          </div>
+          />
+          {/* 추가 글로우 - 더 진한 코어 */}
+          <div
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 rounded-full"
+            style={{
+              top: '-40px',
+              width: 320,
+              height: 320,
+              background: 'radial-gradient(circle at center, rgba(147, 197, 253, 0.35) 0%, rgba(191, 219, 254, 0.2) 40%, rgba(219, 234, 254, 0) 70%)',
+              filter: 'blur(20px)',
+            }}
+            aria-hidden="true"
+          />
 
           <div className="mb-6 relative z-10">
             <div className="flex items-center justify-between">
