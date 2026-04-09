@@ -455,12 +455,12 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
           <span className="text-[13px] text-gray-400">({pro.reviews})</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          <span className="text-[10px] font-bold px-2.5 py-1 rounded-[5px] bg-primary-50 text-primary-600">경력{pro.experience}년</span>
+          <span className="text-[10px] font-bold px-2.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
           {pro.tags.map((tag) => (
-            <span key={tag} className="text-[10px] font-medium px-2.5 py-1 rounded-[5px] bg-gray-100 text-gray-600">{tag}</span>
+            <span key={tag} className="text-[10px] font-medium px-2.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
           ))}
           {pro.available && (
-            <span className="text-[10px] font-medium px-2.5 py-1 rounded-[5px] bg-gray-100 text-gray-600">즉시출근</span>
+            <span className="text-[10px] font-medium px-2.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>즉시출근</span>
           )}
         </div>
       </div>
