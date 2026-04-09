@@ -945,7 +945,7 @@ export default function HomePage() {
                       className="flex gap-3 group opacity-0 animate-fade-in"
                       style={{ animationDelay: `${(pageIdx * 4 + i) * 60}ms`, animationFillMode: 'forwards' }}
                     >
-                      <div className="w-[54px] h-[72px] shrink-0 rounded-lg overflow-hidden">
+                      <div className="w-[66px] h-[88px] shrink-0 rounded-lg overflow-hidden">
                         <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                       </div>
                       <div className="flex-1 min-w-0 border-b border-gray-100 pb-3">
