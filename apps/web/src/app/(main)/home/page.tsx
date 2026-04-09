@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin, Gift } from 'lucide-react';
+import toast from 'react-hot-toast';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 
@@ -539,6 +540,8 @@ export default function HomePage() {
   const [selectedLang, setSelectedLang] = useState<string | null>(null);
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [myRegion, setMyRegion] = useState<string | null>(null);
+  const [myRegionLoading, setMyRegionLoading] = useState(false);
   const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
   const [logoVisible, setLogoVisible] = useState(true);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -1046,6 +1049,46 @@ export default function HomePage() {
             </div>
           </Reveal>
           <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+            <button
+              onClick={() => {
+                if (myRegion) {
+                  setSelectedRegion(selectedRegion === myRegion ? null : myRegion);
+                  return;
+                }
+                if (myRegionLoading) return;
+                if (!('geolocation' in navigator)) {
+                  toast.error('위치 기능을 지원하지 않습니다');
+                  return;
+                }
+                setMyRegionLoading(true);
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    // 간단한 위도/경도 → 권역 매핑
+                    let region = '서울/경기';
+                    if (latitude >= 37.0 && latitude <= 38.5 && longitude >= 126.5 && longitude <= 127.7) region = '서울/경기';
+                    else if (latitude >= 36.0 && latitude < 37.0) region = '충청';
+                    else if (latitude >= 35.0 && latitude < 36.5 && longitude >= 128.0) region = '경상';
+                    else if (latitude >= 34.5 && latitude < 36.5 && longitude < 128.0) region = '전라';
+                    else if (latitude >= 37.0 && longitude >= 127.7) region = '강원';
+                    else if (latitude < 34.0) region = '제주';
+                    setMyRegion(region);
+                    setSelectedRegion(region);
+                    setMyRegionLoading(false);
+                    toast.success(`내 지역: ${region}`);
+                  },
+                  () => {
+                    setMyRegionLoading(false);
+                    toast.error('위치 정보를 가져올 수 없습니다');
+                  },
+                  { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+                );
+              }}
+              className={`${myRegion && selectedRegion === myRegion ? 'chip-active' : 'chip-inactive'} flex items-center gap-1.5 shrink-0`}
+            >
+              <MapPin size={14} />
+              {myRegionLoading ? '위치 확인 중…' : myRegion ? `내 지역 (${myRegion})` : '내 지역'}
+            </button>
             {['서울/경기', '충청', '경상', '전라', '강원', '제주'].map((region) => (
               <button
                 key={region}
@@ -1139,7 +1182,7 @@ export default function HomePage() {
             <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
               <button
                 onClick={() => setSelectedLang(null)}
-                className={selectedLang === null ? 'chip-active' : 'chip-inactive'}
+                className={selectedLang === null ? 'chip-active' : 'chip-glass'}
               >
                 전체
               </button>
@@ -1150,7 +1193,7 @@ export default function HomePage() {
                   <button
                     key={lang}
                     onClick={() => setSelectedLang(active ? null : lang)}
-                    className={`${active ? 'chip-active' : 'chip-inactive'} flex items-center gap-1.5`}
+                    className={`${active ? 'chip-active' : 'chip-glass'} flex items-center gap-1.5`}
                   >
                     {flag && (
                       <img
