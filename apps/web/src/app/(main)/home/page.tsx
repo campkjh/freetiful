@@ -1066,8 +1066,25 @@ export default function HomePage() {
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <section className="relative">
-          <div className="mb-6">
+        <section className="relative" style={{ overflow: 'visible' }}>
+          {/* Spline crystal ball - 섹션 배경 (타이틀 위까지 튀어나옴) */}
+          <div
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 opacity-40"
+            style={{ top: '-160px', width: 480, height: 480 }}
+            aria-hidden="true"
+          >
+            <iframe
+              src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
+              frameBorder="0"
+              loading="lazy"
+              allow="autoplay"
+              className="w-full h-full"
+              style={{ background: 'transparent', border: 'none' }}
+              title="crystal ball"
+            />
+          </div>
+
+          <div className="mb-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="section-title">외국어 전문가</h3>
@@ -1095,29 +1112,12 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          {/* Spline crystal ball - 카드 그리드 뒤에 은은하게 깔리는 배경 */}
-          <div className="relative">
-            <div
-              className="pointer-events-none absolute inset-0 flex items-center justify-center z-0 opacity-40"
-              aria-hidden="true"
-            >
-              <iframe
-                src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
-                frameBorder="0"
-                loading="lazy"
-                allow="autoplay"
-                className="w-[320px] h-[320px] lg:w-[420px] lg:h-[420px]"
-                style={{ background: 'transparent', border: 'none' }}
-                title="crystal ball"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8 relative z-10">
-              {languagePros.slice(0, 9).map((pro, i) => (
-                <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                  <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} languages={PRO_LANGUAGES[pro.id]} />
-                </div>
-              ))}
-            </div>
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8 relative z-10">
+            {languagePros.slice(0, 9).map((pro, i) => (
+              <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
+                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} languages={PRO_LANGUAGES[pro.id]} />
+              </div>
+            ))}
           </div>
           {languagePros.length === 0 && (
             <p className="text-center text-gray-400 text-[14px] py-10">해당 언어의 전문가가 없습니다</p>
