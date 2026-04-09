@@ -89,6 +89,42 @@
   100% { transform: scale(1); }
 }
 
+/* ─── Toast (top center glass pill) ─── */
+@keyframes toastBounceIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -80px, 0) scale(0.85);
+    filter: blur(8px);
+  }
+  60% {
+    opacity: 1;
+    transform: translate3d(0, 8px, 0) scale(1.04);
+    filter: blur(0);
+  }
+  80% {
+    transform: translate3d(0, -2px, 0) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes toastBounceOut {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -60px, 0) scale(0.92);
+    filter: blur(6px);
+  }
+}
+
+
 /* ═══════════════════════════════════════════════════════════════════════════
    FREETIFUL DESIGN SYSTEM — Supanova-inspired Clean Structural
    ═══════════════════════════════════════════════════════════════════════════ */
