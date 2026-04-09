@@ -194,7 +194,8 @@ export default function BizPage() {
   const [bizNavExpanding, setBizNavExpanding] = useState(false);
   const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [receptionInView, setReceptionInView] = useState(false);
+  const [receptionFullscreen, setReceptionFullscreen] = useState(false);
+  const [receptionExiting, setReceptionExiting] = useState(false);
   const receptionRef = useRef<HTMLElement>(null);
   const receptionVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -224,25 +225,62 @@ export default function BizPage() {
     return () => ob.disconnect();
   }, []);
 
-  // 송년회 섹션 진입/이탈 감지
+  // 송년회 섹션 진입 감지 → 풀스크린 + 영상 자동재생
   useEffect(() => {
     const el = receptionRef.current;
     if (!el) return;
     const ob = new IntersectionObserver(
       ([entry]) => {
-        const inView = entry.isIntersecting;
-        setReceptionInView(inView);
-        if (inView) {
-          receptionVideoRef.current?.play().catch(() => {});
-        } else {
-          receptionVideoRef.current?.pause();
+        if (entry.isIntersecting) {
+          setReceptionFullscreen(true);
+          setReceptionExiting(false);
+          setTimeout(() => {
+            receptionVideoRef.current?.play().catch(() => {});
+          }, 300);
         }
       },
-      { threshold: 0.3 },
+      { threshold: 0.15 },
     );
     ob.observe(el);
     return () => ob.disconnect();
   }, []);
+
+  // 풀스크린 상태에서 스크롤 → 해제
+  useEffect(() => {
+    if (!receptionFullscreen || receptionExiting) return;
+    let touchStartY = 0;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY > 30) {
+        setReceptionExiting(true);
+        setTimeout(() => setReceptionFullscreen(false), 500);
+      }
+    };
+    const onTouchStart = (e: TouchEvent) => { touchStartY = e.touches[0].clientY; };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (touchStartY - e.changedTouches[0].clientY > 50) {
+        setReceptionExiting(true);
+        setTimeout(() => setReceptionFullscreen(false), 500);
+      }
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [receptionFullscreen, receptionExiting]);
+
+  // 풀스크린 시 body 스크롤 잠금
+  useEffect(() => {
+    if (receptionFullscreen && !receptionExiting) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [receptionFullscreen, receptionExiting]);
 
   // 플랫폼에서 비즈로 왔을 때 펼쳐지는 애니메이션
   useEffect(() => {
@@ -281,8 +319,8 @@ export default function BizPage() {
         className="fixed top-0 left-0 right-0 z-50 flex justify-center transition-all duration-700 ease-out"
         style={{
           padding: scrollY > 80 ? '12px 16px 0' : '0',
-          transform: receptionInView ? 'translateY(-100%)' : 'translateY(0)',
-          opacity: receptionInView ? 0 : 1,
+          transform: receptionFullscreen ? 'translateY(-100%)' : 'translateY(0)',
+          opacity: receptionFullscreen ? 0 : 1,
         }}
       >
         <div
@@ -492,7 +530,7 @@ export default function BizPage() {
       {/* ═══ 모바일 사이드 섹션 인디케이터 ═══════════════════════ */}
       <div
         className="md:hidden fixed right-3 top-1/2 -translate-y-1/2 z-40 flex flex-col items-end gap-3 transition-opacity duration-700"
-        style={{ opacity: receptionInView ? 0 : 1, pointerEvents: receptionInView ? 'none' : 'auto' }}
+        style={{ opacity: receptionFullscreen ? 0 : 1, pointerEvents: receptionFullscreen ? 'none' : 'auto' }}
       >
         {NAV_SECTIONS.map((name) => {
           const isActive = activeSection === name;
@@ -762,38 +800,71 @@ export default function BizPage() {
         </Reveal>
       </section>
 
-      {/* ═══ 2025 송년회 RECEPTION (sticky fullscreen on mobile) ═ */}
-      <section ref={receptionRef} className="relative md:overflow-hidden bg-[#0a0a0a] text-white md:py-0">
-        {/* 모바일: sticky wrapper로 100vh 전체화면 고정 */}
-        <div className="md:hidden sticky top-0 h-screen overflow-hidden">
-          {/* 배경 이미지 */}
+      {/* ═══ 2025 송년회 RECEPTION ═════════════════════════════ */}
+      <section ref={receptionRef} className="relative overflow-hidden bg-[#0a0a0a] text-white">
+        {/* 배경 이미지 (옅게) */}
+        <div className="absolute inset-0">
+          <Image src="/images/IMG_8838 1.png" alt="" fill className="object-cover opacity-20" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
+        </div>
+
+        <div className="relative z-10 mx-auto max-w-[1100px] px-6 py-32">
+          <div className="flex flex-col items-center gap-10">
+            <Reveal>
+              <Image src="/images/Frame 1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[300px] md:w-[400px] brightness-0 invert opacity-90" />
+            </Reveal>
+            <Reveal delay={300}>
+              <Image src="/images/Group 1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[160px] md:w-[200px] brightness-0 invert opacity-50" />
+            </Reveal>
+          </div>
+          <Reveal delay={300}>
+            <div className="mt-16 rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10 bg-black">
+              <video className="w-full aspect-video" controls playsInline preload="metadata">
+                <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
+              </video>
+            </div>
+          </Reveal>
+          <div className="mt-16 flex items-center gap-4">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
+            <span className="text-[10px] tracking-[0.5em] text-white/20 font-medium">FREETIFUL 2025</span>
+            <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
+          </div>
+        </div>
+
+        {/* 파도 애니메이션 */}
+        <div className="absolute bottom-0 left-0 right-0 h-[120px] z-20 overflow-hidden">
+          <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 8s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <path d="M0,60 C120,100 240,20 360,60 C480,100 600,20 720,60 C840,100 960,20 1080,60 C1200,100 1320,20 1440,60 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.03)" />
+            <path d="M0,80 C120,110 240,50 360,80 C480,110 600,50 720,80 C840,110 960,50 1080,80 C1200,110 1320,50 1440,80 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.02)" />
+          </svg>
+          <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 12s linear infinite reverse' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <path d="M0,70 C160,110 320,30 480,70 C640,110 800,30 960,70 C1120,110 1280,30 1440,70 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.04)" />
+          </svg>
+          <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 6s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <path d="M0,90 C180,105 360,75 540,90 C720,105 900,75 1080,90 C1260,105 1440,75 1440,90 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.015)" />
+          </svg>
+        </div>
+      </section>
+
+      {/* ═══ 모바일 송년회 풀스크린 오버레이 ═══════════════════ */}
+      {receptionFullscreen && (
+        <div
+          className="md:hidden fixed inset-0 z-[100] bg-[#0a0a0a] overflow-hidden"
+          style={{
+            animation: receptionExiting
+              ? 'receptionFadeOut 0.5s ease-out forwards'
+              : 'receptionFadeIn 0.5s ease-out forwards',
+          }}
+        >
           <div className="absolute inset-0">
             <Image src="/images/IMG_8838 1.png" alt="" fill className="object-cover opacity-20" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
           </div>
-          <div className="relative z-10 flex flex-col items-center justify-center h-full px-6">
-            <Image
-              src="/images/Frame 1707488417.svg"
-              alt="2025 Year-End Reception"
-              width={272}
-              height={161}
-              className="w-[280px] brightness-0 invert opacity-90"
-            />
-            <Image
-              src="/images/Group 1707482062.svg"
-              alt="Freetiful"
-              width={176}
-              height={30}
-              className="w-[150px] brightness-0 invert opacity-50 mt-8"
-            />
+          <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-10">
+            <Image src="/images/Frame 1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[280px] brightness-0 invert opacity-90" />
+            <Image src="/images/Group 1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[150px] brightness-0 invert opacity-50 mt-8" />
             <div className="mt-10 w-full rounded-xl overflow-hidden bg-black">
-              <video
-                ref={receptionVideoRef}
-                className="w-full aspect-video"
-                muted
-                playsInline
-                controls
-              >
+              <video ref={receptionVideoRef} className="w-full aspect-video" autoPlay muted playsInline controls>
                 <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
               </video>
             </div>
@@ -811,65 +882,11 @@ export default function BizPage() {
               <path d="M0,90 C180,105 360,75 540,90 C720,105 900,75 1080,90 C1260,105 1440,75 1440,90 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.015)" />
             </svg>
           </div>
-        </div>
-        {/* 모바일: 섹션 높이를 늘려서 스크롤 여유 확보 (sticky가 걸리는 구간) */}
-        <div className="md:hidden h-[50vh]" />
-
-        {/* 데스크탑: 기존 레이아웃 */}
-        <div className="hidden md:block relative overflow-hidden">
-          <div className="absolute inset-0">
-            <Image src="/images/IMG_8838 1.png" alt="" fill className="object-cover opacity-20" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
-          </div>
-          <div className="relative z-10 mx-auto max-w-[1100px] px-6 py-32">
-            <div className="flex flex-col items-center gap-10">
-              <Reveal>
-                <Image
-                  src="/images/Frame 1707488417.svg"
-                  alt="2025 Year-End Reception"
-                  width={272}
-                  height={161}
-                  className="w-[400px] brightness-0 invert opacity-90"
-                />
-              </Reveal>
-              <Reveal delay={300}>
-                <Image
-                  src="/images/Group 1707482062.svg"
-                  alt="Freetiful"
-                  width={176}
-                  height={30}
-                  className="w-[200px] brightness-0 invert opacity-50"
-                />
-              </Reveal>
-            </div>
-            <Reveal delay={300}>
-              <div className="mt-16 rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10 bg-black">
-                <video className="w-full aspect-video" controls playsInline preload="metadata">
-                  <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
-                </video>
-              </div>
-            </Reveal>
-            <div className="mt-16 flex items-center gap-4">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
-              <span className="text-[10px] tracking-[0.5em] text-white/20 font-medium">FREETIFUL 2025</span>
-              <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
-            </div>
-          </div>
-          {/* 파도 애니메이션 */}
-          <div className="absolute bottom-0 left-0 right-0 h-[120px] z-20 overflow-hidden">
-            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 8s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-              <path d="M0,60 C120,100 240,20 360,60 C480,100 600,20 720,60 C840,100 960,20 1080,60 C1200,100 1320,20 1440,60 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.03)" />
-              <path d="M0,80 C120,110 240,50 360,80 C480,110 600,50 720,80 C840,110 960,50 1080,80 C1200,110 1320,50 1440,80 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.02)" />
-            </svg>
-            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 12s linear infinite reverse' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-              <path d="M0,70 C160,110 320,30 480,70 C640,110 800,30 960,70 C1120,110 1280,30 1440,70 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.04)" />
-            </svg>
-            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 6s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-              <path d="M0,90 C180,105 360,75 540,90 C720,105 900,75 1080,90 C1260,105 1440,75 1440,90 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.015)" />
-            </svg>
+          <div className="absolute bottom-8 left-0 right-0 flex justify-center animate-bounce z-30">
+            <span className="text-white/40 text-[11px] font-medium">아래로 스와이프하여 닫기</span>
           </div>
         </div>
-      </section>
+      )}
 
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
       <section id="연혁" className="py-28">
@@ -1129,8 +1146,8 @@ export default function BizPage() {
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe transition-all duration-700"
         style={{
-          transform: receptionInView ? 'translateY(100%)' : 'translateY(0)',
-          opacity: receptionInView ? 0 : 1,
+          transform: receptionFullscreen ? 'translateY(100%)' : 'translateY(0)',
+          opacity: receptionFullscreen ? 0 : 1,
         }}
       >
         <div
@@ -1216,6 +1233,14 @@ export default function BizPage() {
         @keyframes waveFlow {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
+        }
+        @keyframes receptionFadeIn {
+          0% { opacity: 0; transform: scale(1.05); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes receptionFadeOut {
+          0% { opacity: 1; transform: scale(1); }
+          100% { opacity: 0; transform: scale(0.95); }
         }
         @keyframes menuSlideIn {
           0% { transform: translateX(100%); }
