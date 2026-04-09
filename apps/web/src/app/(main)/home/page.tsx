@@ -816,9 +816,7 @@ export default function HomePage() {
                   className="w-[78px] h-[104px] object-cover shadow-md"
                   style={{ borderRadius: '9999px', border: '1.4px solid #D1D5DB' }}
                 />
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[28px] h-[28px] rounded-full bg-[#A0AEC0] flex items-center justify-center shadow-md">
-                  <span className="text-[13px] font-extrabold text-white">2</span>
-                </div>
+                <img src="/images/Group 1707482188.svg" alt="2" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
               </div>
               <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[1].name}</p>
               <p className="text-[14px] text-gray-400">{MOCK_PROS[1].role}</p>
@@ -833,12 +831,7 @@ export default function HomePage() {
                   className="w-[78px] h-[104px] object-cover shadow-md"
                   style={{ borderRadius: '9999px', border: '1.4px solid #FBBF24' }}
                 />
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="text-[20px]">👑</span>
-                </div>
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[28px] h-[28px] rounded-full bg-[#FBBF24] flex items-center justify-center shadow-md">
-                  <span className="text-[13px] font-extrabold text-white">1</span>
-                </div>
+                <img src="/images/Group 1707482189.svg" alt="1" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
               </div>
               <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[0].name}</p>
               <p className="text-[14px] text-gray-400">{MOCK_PROS[0].role}</p>
@@ -853,9 +846,7 @@ export default function HomePage() {
                   className="w-[78px] h-[104px] object-cover shadow-md"
                   style={{ borderRadius: '9999px', border: '1.4px solid #CD7F32' }}
                 />
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[28px] h-[28px] rounded-full bg-[#CD7F32] flex items-center justify-center shadow-md">
-                  <span className="text-[13px] font-extrabold text-white">3</span>
-                </div>
+                <img src="/images/Group 1707482190.svg" alt="3" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
               </div>
               <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[2].name}</p>
               <p className="text-[14px] text-gray-400">{MOCK_PROS[2].role}</p>
