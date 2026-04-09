@@ -446,10 +446,10 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
           )}
         </button>
       </div>
-      <div className="mt-2">
-        <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[20px] mb-1" />
+      <div className="mt-1.5">
+        <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[18px] mb-0.5" />
         <h4 className="text-[15px] font-extrabold text-gray-900 leading-tight lg:text-[16px]">{pro.role} {pro.name}</h4>
-        <div className="flex items-center gap-2 mt-1 mb-1.5">
+        <div className="flex items-center gap-2 mt-0.5 mb-1">
           <div className="flex items-center gap-0.5">
             <Star size={11} className="fill-yellow-400 text-yellow-400" />
             <span className="text-[12px] font-bold text-gray-900">{pro.rating}</span>
@@ -460,7 +460,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
             <span className="text-[11px] text-gray-400">{pro.pudding || Math.floor(Math.random() * 50 + 10)}</span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1">
           <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
           {pro.tags.map((tag) => (
             <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
@@ -886,7 +886,7 @@ export default function HomePage() {
             </Link>
           </div>
           {/* Mobile: 3×3 grid, Desktop: 5×2 grid */}
-          <div className="grid grid-cols-3 gap-x-3 gap-y-6 lg:grid-cols-5 lg:gap-x-5 lg:gap-y-10">
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
             {MOCK_PROS.slice(0, 10).map((pro, i) => (
               <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
                 <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
