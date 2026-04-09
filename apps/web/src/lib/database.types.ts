@@ -23,7 +23,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['chat_rooms']['Row'], 'created_at' | 'updated_at'>;
+        Insert: Partial<Omit<Database['public']['Tables']['chat_rooms']['Row'], 'created_at' | 'updated_at'>>;
         Update: Partial<Database['public']['Tables']['chat_rooms']['Insert']>;
       };
       chat_participants: {
@@ -65,6 +65,24 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['message_reactions']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['message_reactions']['Insert']>;
+      };
+    };
+    Functions: {
+      get_chat_rooms: {
+        Args: { p_user_id: string };
+        Returns: {
+          id: string;
+          other_user: Json;
+          last_message: string | null;
+          last_message_at: string | null;
+          unread_count: number;
+          is_pinned: boolean;
+          is_archived: boolean;
+        }[];
+      };
+      find_dm_room: {
+        Args: { p_user1: string; p_user2: string };
+        Returns: { id: string }[];
       };
     };
   };

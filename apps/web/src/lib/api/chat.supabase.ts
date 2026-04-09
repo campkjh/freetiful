@@ -39,7 +39,7 @@ export interface ChatMessage {
 /** 내 채팅방 목록 조회 */
 export async function getChatRooms(userId: string) {
   const { data, error } = await supabase
-    .rpc('get_chat_rooms', { p_user_id: userId });
+    .rpc('get_chat_rooms' as never, { p_user_id: userId } as never);
 
   if (error) throw error;
   return (data || []) as ChatRoom[];
@@ -49,9 +49,10 @@ export async function getChatRooms(userId: string) {
 export async function createChatRoom(myId: string, otherUserId: string) {
   // 기존 1:1 방 체크
   const { data: existing } = await supabase
-    .rpc('find_dm_room', { p_user1: myId, p_user2: otherUserId });
+    .rpc('find_dm_room' as never, { p_user1: myId, p_user2: otherUserId } as never);
 
-  if (existing?.length) return existing[0].id as string;
+  const rows = existing as { id: string }[] | null;
+  if (rows?.length) return rows[0].id;
 
   // 새 방 생성
   const { data: room, error: roomErr } = await supabase
