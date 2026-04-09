@@ -35,6 +35,24 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
   );
 }
 
+/* ─── Highlight (형광펜 애니메이션) ────────────────────────── */
+function Highlight({ children, color = '#FDE68A', delay = 0 }: { children: React.ReactNode; color?: string; delay?: number }) {
+  const { ref, visible } = useReveal();
+  return (
+    <span ref={ref} className="relative inline">
+      <span className="relative z-10">{children}</span>
+      <span
+        className="absolute left-0 bottom-[2px] h-[40%] rounded-sm z-0"
+        style={{
+          backgroundColor: color,
+          width: visible ? '100%' : '0%',
+          transition: `width 0.8s cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms`,
+        }}
+      />
+    </span>
+  );
+}
+
 /* ─── Menu items ─────────────────────────────────────────── */
 const MENU_ITEMS = [
   { label: 'CEO 인사말', href: '/biz/ceo' },
@@ -189,7 +207,7 @@ export default function CeoPage() {
               <Reveal delay={200}>
                 <h2 className="text-[28px] font-black tracking-tight md:text-[34px] leading-[1.3]">
                   <span className="text-gray-900">&ldquo;소중한 순간을</span><br />
-                  <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">가장 아름답게 만드는 연결&rdquo;</span>
+                  <Highlight color="#BFDBFE" delay={400}>가장 아름답게 만드는 연결</Highlight>&rdquo;
                 </h2>
               </Reveal>
               <Reveal delay={300}>
@@ -204,18 +222,18 @@ export default function CeoPage() {
                   </p>
                   <p>
                     저는 이 사업을 시작하면서 한 가지 원칙을 세웠습니다.
-                    <strong className="text-gray-800"> &ldquo;검증되지 않은 것은 연결하지 않는다.&rdquo;</strong>
+                    <Highlight color="#FDE68A" delay={200}><strong className="text-gray-800"> &ldquo;검증되지 않은 것은 연결하지 않는다.&rdquo;</strong></Highlight>
                     KBS, SBS, MBC 등 방송사 출신의 검증된 아나운서, MC, 쇼호스트만을 엄선하여
                     전국 1,000여 명의 전문 진행자 네트워크를 구축했습니다.
                   </p>
                   <p>
-                    프리티풀은 단순한 매칭 서비스를 넘어, 고객의 소중한 순간을 함께 설계하는
-                    파트너가 되고자 합니다. AI 기반 맞춤 매칭 시스템과 체계적인 품질 관리를 통해
+                    프리티풀은 단순한 매칭 서비스를 넘어, <Highlight color="#D1FAE5" delay={300}>고객의 소중한 순간을 함께 설계하는
+                    파트너</Highlight>가 되고자 합니다. AI 기반 맞춤 매칭 시스템과 체계적인 품질 관리를 통해
                     모든 행사가 성공적으로 진행될 수 있도록 최선을 다하겠습니다.
                   </p>
                   <p>
                     앞으로도 프리랜서 진행자가 안정적으로 성장할 수 있는 생태계를 만들고,
-                    고객에게는 신뢰할 수 있는 최고의 서비스를 제공하는 프리티풀이 되겠습니다.
+                    고객에게는 <Highlight color="#FDE68A" delay={400}>신뢰할 수 있는 최고의 서비스를 제공하는 프리티풀</Highlight>이 되겠습니다.
                   </p>
                   <p className="text-gray-400">감사합니다.</p>
                 </div>
