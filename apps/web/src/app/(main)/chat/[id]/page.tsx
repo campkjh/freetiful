@@ -621,55 +621,78 @@ export default function ChatRoomPage() {
 
   return (
     <div className="relative flex flex-col h-screen bg-[#F2F2F7]">
-      {/* ─── Header ─── */}
-      <div className="shrink-0 bg-white/90 backdrop-blur-2xl border-b border-gray-200/60 sticky top-0 z-20">
-        <div className="flex items-center justify-between px-2 py-2.5">
-          {/* 좌측: 뒤로가기 */}
-          <button onClick={() => router.back()} className="flex items-center justify-center w-10 h-10 text-[#007AFF] active:scale-90 transition-transform">
-            <ChevronLeft size={28} strokeWidth={2.5} />
+      {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
+      <div
+        className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
+          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%)',
+        }}
+      />
+
+      {/* ─── Header (Floating Pill) z-30 ─── */}
+      <div className="absolute left-0 right-0 top-0 z-30 px-3 pt-3 pb-2 pt-safe pointer-events-none">
+        <div className="flex items-center gap-2 max-w-[680px] mx-auto pointer-events-auto">
+          {/* 뒤로가기 (별개의 동그라미) */}
+          <button
+            onClick={() => router.back()}
+            className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
+          >
+            <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
           </button>
 
-          {/* 중앙: 프로필 + 이름 + 상태 */}
-          <Link href={`/pros/${pro.id}`} className="flex flex-col items-center flex-1 min-w-0 active:scale-95 transition-transform">
-            <div className="relative">
+          {/* 중앙 프로필 알약 */}
+          <Link
+            href={`/pros/${pro.id}`}
+            className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
+          >
+            <div className="relative shrink-0">
               <img src={pro.profileImageUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
               {pro.isActive && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#34C759] border-2 border-white rounded-full" />}
             </div>
-            <p className="text-[13px] font-bold text-gray-900 mt-1 truncate max-w-[200px]">{pro.name}</p>
-            <p className="text-[10px] text-gray-400 leading-tight">
-              {pro.isActive ? '온라인' : pro.lastSeen ? `${pro.lastSeen} 활동` : '오프라인'}
-            </p>
+            <div className="flex-1 min-w-0 leading-tight">
+              <p className="text-[14px] font-bold text-gray-900 truncate">{pro.name}</p>
+              <p className="text-[10px] text-gray-400">
+                {pro.isActive ? '온라인' : pro.lastSeen ? `${pro.lastSeen} 활동` : '오프라인'}
+              </p>
+            </div>
           </Link>
 
-          {/* 우측: 메뉴 */}
-          <div className="flex items-center pr-1">
-            <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} className="w-10 h-10 rounded-full flex items-center justify-center text-[#007AFF] active:scale-90 transition-transform">
-              <MoreVertical size={22} />
+          {/* 메뉴 (별개의 동그라미) */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+              className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center active:scale-[0.88] transition-all hover:bg-white"
+            >
+              <MoreVertical size={20} className="text-gray-600" />
             </button>
+
+            {/* 헤더 드롭다운 메뉴 */}
+            {showHeaderMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
+                <div className="absolute right-0 top-[56px] z-50 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 overflow-hidden min-w-[180px] animate-[scaleIn_0.2s_ease-out]">
+                  <button onClick={() => { toast('대화 검색 준비 중', { icon: '🔍' }); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full">
+                    <Search size={16} className="text-gray-500" /> 대화 내용 검색
+                  </button>
+                  <button onClick={() => { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
+                    {muted ? <Bell size={16} className="text-gray-500" /> : <BellOff size={16} className="text-gray-500" />}
+                    {muted ? '알림 켜기' : '알림 끄기'}
+                  </button>
+                  <Link href={`/pros/${pro.id}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
+                    <Smile size={16} className="text-gray-500" /> 프로필 보기
+                  </Link>
+                  <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-red-500 hover:bg-red-50 w-full border-t border-gray-100">
+                    <Trash2 size={16} /> 대화 삭제
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-
-        {/* 헤더 드롭다운 메뉴 */}
-        {showHeaderMenu && (
-          <>
-            <div className="fixed inset-0 z-30" onClick={() => setShowHeaderMenu(false)} />
-            <div className="absolute right-2 top-[60px] z-40 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 overflow-hidden min-w-[180px] animate-[scaleIn_0.2s_ease-out]">
-              <button onClick={() => { toast('대화 검색 준비 중', { icon: '🔍' }); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full">
-                <Search size={16} className="text-gray-500" /> 대화 내용 검색
-              </button>
-              <button onClick={() => { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
-                {muted ? <Bell size={16} className="text-gray-500" /> : <BellOff size={16} className="text-gray-500" />}
-                {muted ? '알림 켜기' : '알림 끄기'}
-              </button>
-              <Link href={`/pros/${pro.id}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
-                <Smile size={16} className="text-gray-500" /> 프로필 보기
-              </Link>
-              <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-red-500 hover:bg-red-50 w-full border-t border-gray-100">
-                <Trash2 size={16} /> 대화 삭제
-              </button>
-            </div>
-          </>
-        )}
       </div>
 
       {/* ─── 공지 바 ─── */}
@@ -696,7 +719,7 @@ export default function ChatRoomPage() {
 
       {/* ─── Messages ─── */}
       <div
-        className="flex-1 overflow-y-auto px-3 pt-3 pb-[88px]"
+        className="flex-1 overflow-y-auto px-3 pt-[80px] pb-[88px]"
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="max-w-[680px] mx-auto">
