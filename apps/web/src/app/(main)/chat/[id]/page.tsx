@@ -1027,7 +1027,19 @@ export default function ChatRoomPage() {
         </>
       )}
 
-      {/* ─── Input Bar (Floating Pill) ─── */}
+      {/* ─── 입력바 하단 그라데이션 블러 (z-20) ─── */}
+      <div
+        className="absolute left-0 right-0 bottom-0 h-[120px] z-20 pointer-events-none"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
+          maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          background: 'linear-gradient(to top, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%)',
+        }}
+      />
+
+      {/* ─── Input Bar (Floating Pill) z-30 ─── */}
       <div className="absolute left-0 right-0 bottom-0 z-30 px-3 pb-3 pt-2 pb-safe pointer-events-none">
         <div className="flex items-end gap-2 max-w-[680px] mx-auto pointer-events-auto">
           {isRecording ? (
