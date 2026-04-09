@@ -496,19 +496,17 @@ export default function ChatListPage() {
                   <button
                     key={tab}
                     onClick={() => { setActiveTab(tab); setEditMode(false); setSelectedIds(new Set()); }}
-                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${active ? 'text-white' : 'text-gray-500'}`}
+                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate transition-colors active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
                   >
                     {active && (
                       <motion.span
                         layoutId="mobile-tab-indicator"
-                        className="absolute inset-0 bg-gray-900 rounded-full -z-0"
+                        className="absolute inset-0 bg-gray-900 rounded-full"
+                        style={{ zIndex: -1 }}
                         transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                       />
                     )}
-                    {!active && (
-                      <span className="absolute inset-0 bg-gray-100 rounded-full -z-0" />
-                    )}
-                    <span className="relative z-10">{tab}</span>
+                    <span className="relative">{tab}</span>
                   </button>
                 );
               })}

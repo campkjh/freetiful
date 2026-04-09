@@ -8,6 +8,8 @@ import {
   X, Copy, Reply, Trash2, MoreVertical,
   MapPin, FileText, Music, Smile, Plus, Search, Bell, BellOff,
   Flag, Pin, TextSelect, PinOff,
+  FileSignature, CreditCard, CheckCircle2, CalendarCheck,
+  AlarmClock, Sparkles, Star, RefreshCw, XCircle, Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -22,6 +24,34 @@ const PROS: Record<string, { id: string; name: string; username: string; profile
 };
 
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
+
+type SystemKind =
+  | 'session_start'      // 견적 요청으로 대화가 시작되었습니다
+  | 'quote'              // 견적서 발송 (금액, 항목, 행사일)
+  | 'payment_request'    // 예약금 결제 요청
+  | 'payment_paid'       // 결제 완료 (예약금/잔금)
+  | 'booking_confirmed'  // 예약 확정 + 스케줄 추가
+  | 'reminder'           // D-7, D-3, D-1 등
+  | 'event_today'        // 본식 당일
+  | 'event_done'         // 행사 종료 + 잔금 안내
+  | 'review_request'     // 후기 요청
+  | 'refund'             // 환불
+  | 'cancel';            // 취소
+
+interface SystemPayload {
+  kind: SystemKind;
+  title?: string;
+  amount?: number;             // 원화 정수
+  items?: string[];             // 견적 항목
+  eventName?: string;           // ex) 결혼식 사회
+  eventDate?: string;           // YYYY-MM-DD
+  eventTime?: string;           // ex) 오후 2:00
+  venue?: string;               // ex) 더시에나호텔 강남
+  daysLeft?: number;            // 본식까지 D-N
+  paymentType?: 'deposit' | 'balance'; // 예약금/잔금
+  reviewUrl?: string;
+  rating?: number;
+}
 
 interface Message {
   id: string;
@@ -38,7 +68,15 @@ interface Message {
   replyTo?: { id: string; name: string; content: string } | null;
   reaction?: string | null;
   isNew?: boolean;
+  system?: SystemPayload;
 }
+
+const formatKRW = (n: number) => n.toLocaleString('ko-KR') + '원';
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+};
 
 declare global {
   interface Window {
@@ -320,16 +358,105 @@ function NaverMapPreview({ lat, lng, mine }: { lat: number; lng: number; mine: b
 
 function makeMockMessages(proId: string, proName: string): Message[] {
   const now = Date.now();
-  const yesterday = now - 24 * 3600000;
+  const D = 24 * 3600000;
+  // 시점 기준: 최초 문의 ~ 9일 전, 본식은 오늘로부터 5일 후
+  const t = (offsetDay: number, hour: number = 0) =>
+    new Date(now - offsetDay * D + hour * 3600000).toISOString();
+  const eventDate = new Date(now + 5 * D).toISOString().slice(0, 10);
+  const eventName = '결혼식 사회';
+  const venue = '더시에나 호텔 강남 그랜드볼룸';
+  const eventTime = '오후 2:00';
+
   return [
-    { id: 's1', senderId: 'system', content: '견적 요청으로 대화가 시작되었습니다', type: 'system', createdAt: new Date(yesterday).toISOString(), isRead: true },
-    { id: 'm1', senderId: MY_ID, content: '안녕하세요! 4월 5일 결혼식 MC 문의 드립니다.', type: 'text', createdAt: new Date(yesterday + 600000).toISOString(), isRead: true },
-    { id: 'm2', senderId: proId, content: '안녕하세요! 문의 감사합니다 😊\n4월 5일 토요일 맞으신가요?', type: 'text', createdAt: new Date(yesterday + 1200000).toISOString(), isRead: true },
-    { id: 'm3', senderId: MY_ID, content: '네 맞습니다! 서울 강남 더시에나호텔에서 오후 2시에 시작이에요.', type: 'text', createdAt: new Date(yesterday + 1800000).toISOString(), isRead: true },
-    { id: 'm4', senderId: proId, content: '좋습니다, 해당 날짜 가능합니다.\n견적서 보내드릴게요!', type: 'text', createdAt: new Date(yesterday + 2400000).toISOString(), isRead: true },
-    { id: 'm5', senderId: proId, content: '웨딩 MC 패키지 견적: 50만원\n\n포함 사항:\n• 리허설 진행\n• 본식 MC\n• 피로연 진행\n\n행사일: 2026-04-05 (토)\n\n궁금하신 점 있으시면 편하게 말씀해주세요!', type: 'text', createdAt: new Date(now - 3 * 3600000).toISOString(), isRead: true },
-    { id: 'm6', senderId: MY_ID, content: '감사합니다! 확인 후 결제하겠습니다.', type: 'text', createdAt: new Date(now - 2 * 3600000).toISOString(), isRead: true, replyTo: { id: 'm5', name: proName, content: '웨딩 MC 패키지 견적: 50만원' } },
-    { id: 'm7', senderId: proId, content: '네, 편하게 말씀해주세요. 궁금한 점 있으시면 언제든 연락 주세요! 😊', type: 'text', createdAt: new Date(now - 1 * 3600000).toISOString(), isRead: true, reaction: '❤️' },
+    // ─── D-9: 견적 요청 ───
+    {
+      id: 's1', senderId: 'system', content: '견적 요청으로 대화가 시작되었습니다',
+      type: 'system', createdAt: t(9, 9), isRead: true,
+      system: { kind: 'session_start' },
+    },
+    { id: 'm1', senderId: MY_ID, content: '안녕하세요! 4월 5일 결혼식 MC 문의드려요', type: 'text', createdAt: t(9, 9.2), isRead: true },
+    { id: 'm2', senderId: proId, content: '안녕하세요 😊 문의 감사드려요!\n해당 날짜 가능합니다. 장소가 어디일까요?', type: 'text', createdAt: t(9, 9.5), isRead: true },
+    { id: 'm3', senderId: MY_ID, content: '강남 더시에나호텔 그랜드볼룸이에요. 오후 2시 본식이고 리허설은 1시부터 시작합니다.', type: 'text', createdAt: t(9, 10), isRead: true },
+    { id: 'm4', senderId: proId, content: '확인했습니다 👌\n웨딩 MC 패키지 견적서 보내드릴게요!', type: 'text', createdAt: t(9, 10.3), isRead: true },
+
+    // ─── D-9: 견적서 발송 ───
+    {
+      id: 's-quote', senderId: 'system', content: '견적서 발송',
+      type: 'system', createdAt: t(9, 11), isRead: true,
+      system: {
+        kind: 'quote',
+        eventName,
+        amount: 500000,
+        eventDate,
+        eventTime,
+        items: [
+          '본식 사회 (60분)',
+          '리허설 진행 (30분)',
+          '피로연 사회 (60분)',
+          '맞춤 멘트 작성',
+          '음향 큐시트 협의',
+        ],
+      },
+    },
+    { id: 'm5', senderId: MY_ID, content: '좋아요! 진행하겠습니다 🙏', type: 'text', createdAt: t(9, 14), isRead: true },
+
+    // ─── D-8: 결제 요청 ───
+    {
+      id: 's-pay-req', senderId: 'system', content: '예약금 결제 요청',
+      type: 'system', createdAt: t(8, 10), isRead: true,
+      system: { kind: 'payment_request', paymentType: 'deposit', amount: 50000 },
+    },
+
+    // ─── D-8: 결제 완료 ───
+    {
+      id: 's-pay-ok', senderId: 'system', content: '예약금 결제 완료',
+      type: 'system', createdAt: t(8, 10.5), isRead: true,
+      system: { kind: 'payment_paid', paymentType: 'deposit', amount: 50000 },
+    },
+    {
+      id: 's-confirm', senderId: 'system', content: '예약이 확정되었습니다',
+      type: 'system', createdAt: t(8, 10.6), isRead: true,
+      system: {
+        kind: 'booking_confirmed',
+        eventName,
+        eventDate,
+        eventTime,
+        venue,
+      },
+    },
+    { id: 'm6', senderId: proId, content: '예약 확인 감사드립니다 ❤️\n본식 전에 신랑님 신부님 성함, 양가 부모님 성함, 그리고 특별히 강조하고 싶은 사연 있으시면 미리 알려주세요!', type: 'text', createdAt: t(8, 11), isRead: true },
+    { id: 'm7', senderId: MY_ID, content: '네! 정리해서 내일 보내드릴게요 😊', type: 'text', createdAt: t(8, 11.5), isRead: true },
+
+    // ─── D-7: 일주일 전 알림 ───
+    {
+      id: 's-d7', senderId: 'system', content: 'D-7',
+      type: 'system', createdAt: t(7, 9), isRead: true,
+      system: { kind: 'reminder', daysLeft: 7, eventName, eventDate, eventTime },
+    },
+    { id: 'm8', senderId: MY_ID, content: '신랑: 박지훈\n신부: 김서연\n시아버지: 박정호 / 시어머니: 이혜진\n친정아버지: 김민수 / 친정어머니: 정수영\n\n특별 사연: 신랑이 신부에게 깜짝 영상편지를 준비했어요. 본식 중반쯤 틀어주세요!', type: 'text', createdAt: t(7, 14), isRead: true },
+    { id: 'm9', senderId: proId, content: '와 너무 멋진 이벤트네요! 😍\n영상 큐 시점은 신부님 부케 받으신 직후에 어떨까요?', type: 'text', createdAt: t(7, 14.3), isRead: true, replyTo: { id: 'm8', name: '나', content: '신랑이 신부에게 깜짝 영상편지를 준비했어요' } },
+    { id: 'm10', senderId: MY_ID, content: '좋아요 그 타이밍이 딱이에요!', type: 'text', createdAt: t(7, 14.5), isRead: true },
+
+    // ─── D-3 ───
+    {
+      id: 's-d3', senderId: 'system', content: 'D-3',
+      type: 'system', createdAt: t(3, 9), isRead: true,
+      system: { kind: 'reminder', daysLeft: 3, eventName, eventDate, eventTime },
+    },
+    { id: 'm11', senderId: proId, content: '곧 본식이네요! 🎊\n행사 당일 1시간 30분 전에 도착해서 음향팀과 큐 맞춰볼게요. 신랑신부 대기실 위치만 다시 한 번 알려주실 수 있을까요?', type: 'text', createdAt: t(3, 11), isRead: true },
+    { id: 'm12', senderId: MY_ID, content: '본식홀 1층 입장구 우측에 신부 대기실 있어요. 도착하시면 웨딩 플래너 한지원 매니저님 찾으시면 안내해드릴 거예요!', type: 'text', createdAt: t(3, 11.3), isRead: true },
+
+    // ─── D-1 ───
+    {
+      id: 's-d1', senderId: 'system', content: 'D-1',
+      type: 'system', createdAt: t(1, 8), isRead: false,
+      system: { kind: 'reminder', daysLeft: 1, eventName, eventDate, eventTime },
+    },
+    { id: 'm13', senderId: proId, content: '내일이네요! 컨디션 잘 챙기시고, 푹 주무세요 😊\n내일 봬요!', type: 'text', createdAt: t(1, 20), isRead: false },
+    { id: 'm14', senderId: MY_ID, content: '감사합니다 ☺️ 내일 잘 부탁드려요!', type: 'text', createdAt: t(1, 20.3), isRead: true, reaction: '❤️' },
+
+    // 견적 답장 메시지 (오래 전 - 호환성 유지)
+    { id: 'm15', senderId: proId, content: '편하게 연락주세요. 본식 당일 1시간 30분 전에 미리 도착할게요!', type: 'text', createdAt: t(0, -2), isRead: false },
   ];
 }
 
@@ -350,6 +477,303 @@ function shouldShowDateDivider(messages: Message[], index: number) {
   const prev = new Date(messages[index - 1].createdAt);
   const curr = new Date(messages[index].createdAt);
   return curr.getTime() - prev.getTime() > 30 * 60 * 1000;
+}
+
+// ─── 시스템 메시지 카드 ─────────────────────────────────────
+function SystemMessageCard({ msg }: { msg: Message }) {
+  const sys = msg.system;
+  if (!sys) return null;
+
+  // 단순 텍스트형 (session_start 등)
+  if (sys.kind === 'session_start' || !['quote', 'payment_request', 'payment_paid', 'booking_confirmed', 'reminder', 'event_today', 'event_done', 'review_request', 'refund', 'cancel'].includes(sys.kind)) {
+    return (
+      <div className="text-center py-3">
+        <span className="inline-block text-[12px] text-gray-500 bg-gray-100 px-3.5 py-1.5 rounded-full">
+          {msg.content}
+        </span>
+      </div>
+    );
+  }
+
+  const wrapperClass = 'mx-auto max-w-[320px] my-3 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
+
+  // 견적서
+  if (sys.kind === 'quote') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-3xl border border-gray-200/80 shadow-[0_8px_32px_rgba(0,0,0,0.06)] overflow-hidden">
+          <div className="bg-gradient-to-br from-[#007AFF] to-[#0051D5] px-5 py-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <FileSignature size={16} className="text-white" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold tracking-wider text-white/70 uppercase">QUOTE</p>
+                <p className="text-[14px] font-bold text-white leading-tight">견적서가 발송되었습니다</p>
+              </div>
+            </div>
+          </div>
+          <div className="px-5 py-4">
+            {sys.eventName && (
+              <p className="text-[11px] font-semibold text-gray-400 mb-1">{sys.eventName}</p>
+            )}
+            <p className="text-[24px] font-black text-gray-900 tabular-nums leading-none">
+              {formatKRW(sys.amount || 0)}
+            </p>
+            {sys.items && sys.items.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+                {sys.items.map((it, i) => (
+                  <p key={i} className="text-[12px] text-gray-600 flex items-start gap-1.5">
+                    <span className="text-[#007AFF] mt-0.5">•</span>
+                    <span>{it}</span>
+                  </p>
+                ))}
+              </div>
+            )}
+            {sys.eventDate && (
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
+                <CalendarCheck size={14} className="text-gray-400" />
+                <p className="text-[12px] text-gray-600">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 결제 요청
+  if (sys.kind === 'payment_request') {
+    const isDeposit = sys.paymentType === 'deposit';
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-3xl border border-amber-200/60 shadow-[0_8px_32px_rgba(245,158,11,0.12)] overflow-hidden">
+          <div className="px-5 py-4 bg-amber-50/60 border-b border-amber-100/80 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+              <CreditCard size={16} className="text-amber-600" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold tracking-wider text-amber-600 uppercase">PAYMENT</p>
+              <p className="text-[14px] font-bold text-amber-900 leading-tight">{isDeposit ? '예약금 결제 요청' : '잔금 결제 요청'}</p>
+            </div>
+          </div>
+          <div className="px-5 py-4">
+            <p className="text-[11px] font-semibold text-gray-400 mb-1">{isDeposit ? '예약 확정을 위한 선급금' : '행사 종료 후 잔금'}</p>
+            <p className="text-[24px] font-black text-gray-900 tabular-nums leading-none">
+              {formatKRW(sys.amount || 0)}
+            </p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); }}
+              className="mt-4 w-full h-11 bg-gray-900 hover:bg-black active:scale-[0.98] text-white text-[13px] font-bold rounded-2xl transition-all flex items-center justify-center gap-2"
+            >
+              <CreditCard size={14} />
+              지금 결제하기
+            </button>
+            <p className="mt-2 text-[10px] text-gray-400 text-center">결제 후 자동으로 예약이 확정됩니다</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 결제 완료
+  if (sys.kind === 'payment_paid') {
+    const isDeposit = sys.paymentType === 'deposit';
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-emerald-50/80 backdrop-blur-sm rounded-3xl border border-emerald-200/60 px-5 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+            <CheckCircle2 size={20} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold tracking-wider text-emerald-600 uppercase">PAID</p>
+            <p className="text-[14px] font-bold text-emerald-900 leading-tight">
+              {isDeposit ? '예약금' : '잔금'} 결제 완료
+            </p>
+            <p className="text-[12px] text-emerald-700 mt-0.5 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 예약 확정
+  if (sys.kind === 'booking_confirmed') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl shadow-[0_12px_40px_rgba(16,185,129,0.25)] overflow-hidden">
+          <div className="px-5 py-5 text-white">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles size={16} />
+              <p className="text-[11px] font-bold tracking-wider uppercase">BOOKING CONFIRMED</p>
+            </div>
+            <p className="text-[18px] font-black leading-tight">예약이 확정되었습니다</p>
+            <p className="text-[12px] text-white/80 mt-1">내 스케줄에 자동으로 추가되었습니다</p>
+            {(sys.eventDate || sys.venue) && (
+              <div className="mt-4 pt-4 border-t border-white/20 space-y-1.5">
+                {sys.eventDate && (
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <CalendarCheck size={12} className="text-white/70" />
+                    <span>{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</span>
+                  </div>
+                )}
+                {sys.venue && (
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <MapPin size={12} className="text-white/70" />
+                    <span>{sys.venue}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // D-day 리마인더
+  if (sys.kind === 'reminder') {
+    const d = sys.daysLeft ?? 0;
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-3xl border border-blue-200/60 px-4 py-3.5 flex items-center gap-3 shadow-sm">
+          <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#007AFF] to-[#0051D5] flex flex-col items-center justify-center shrink-0">
+            <span className="text-[8px] font-bold text-white/80 leading-none">D-</span>
+            <span className="text-[16px] font-black text-white leading-tight tabular-nums">{d}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold tracking-wider text-[#007AFF] uppercase">REMINDER</p>
+            <p className="text-[13px] font-bold text-gray-900 leading-tight">
+              {sys.eventName || '본식'}까지 {d}일 남았습니다
+            </p>
+            {sys.eventDate && (
+              <p className="text-[11px] text-gray-500 mt-0.5">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
+            )}
+          </div>
+          <AlarmClock size={16} className="text-gray-300" />
+        </div>
+      </div>
+    );
+  }
+
+  // 행사 당일
+  if (sys.kind === 'event_today') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-gradient-to-br from-rose-400 to-pink-500 rounded-3xl shadow-[0_12px_40px_rgba(244,63,94,0.3)] overflow-hidden">
+          <div className="px-5 py-5 text-white">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[20px]">🎉</span>
+              <p className="text-[11px] font-bold tracking-wider uppercase">D-DAY</p>
+            </div>
+            <p className="text-[20px] font-black leading-tight">오늘은 {sys.eventName || '본식'} 당일입니다</p>
+            <p className="text-[12px] text-white/85 mt-1">사회자님과 함께 멋진 순간을 만들어보세요</p>
+            {(sys.eventTime || sys.venue) && (
+              <div className="mt-4 pt-4 border-t border-white/25 space-y-1.5">
+                {sys.eventTime && (
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <Clock size={12} className="text-white/80" />
+                    <span>{sys.eventTime}</span>
+                  </div>
+                )}
+                {sys.venue && (
+                  <div className="flex items-center gap-2 text-[12px]">
+                    <MapPin size={12} className="text-white/80" />
+                    <span>{sys.venue}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 행사 종료
+  if (sys.kind === 'event_done') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-3xl border border-gray-200/80 px-5 py-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 size={14} className="text-emerald-500" />
+            <p className="text-[10px] font-bold tracking-wider text-gray-500 uppercase">EVENT COMPLETED</p>
+          </div>
+          <p className="text-[14px] font-bold text-gray-900">행사가 무사히 종료되었습니다</p>
+          <p className="text-[12px] text-gray-500 mt-1">사회자님과 함께한 시간 어떠셨나요?</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 후기 요청
+  if (sys.kind === 'review_request') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-3xl border border-amber-200/60 overflow-hidden">
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Star size={14} className="text-amber-400 fill-amber-400" />
+              <p className="text-[10px] font-bold tracking-wider text-amber-600 uppercase">REVIEW</p>
+            </div>
+            <p className="text-[14px] font-bold text-gray-900">후기를 남겨주세요</p>
+            <p className="text-[12px] text-gray-500 mt-1">소중한 후기는 다른 고객에게 큰 도움이 됩니다</p>
+            <div className="mt-3 flex items-center justify-center gap-1">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star key={s} size={28} className="text-gray-200 hover:text-amber-400 hover:fill-amber-400 cursor-pointer transition-colors" />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              className="mt-3 w-full h-11 bg-amber-400 hover:bg-amber-500 active:scale-[0.98] text-white text-[13px] font-bold rounded-2xl transition-all"
+            >
+              후기 작성하기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 환불
+  if (sys.kind === 'refund') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-3xl border border-gray-200/80 px-5 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+            <RefreshCw size={18} className="text-gray-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold tracking-wider text-gray-500 uppercase">REFUND</p>
+            <p className="text-[14px] font-bold text-gray-900 leading-tight">환불이 완료되었습니다</p>
+            <p className="text-[12px] text-gray-500 mt-0.5 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 취소
+  if (sys.kind === 'cancel') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-3xl border border-red-200/60 px-5 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+            <XCircle size={18} className="text-red-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold tracking-wider text-red-500 uppercase">CANCELLED</p>
+            <p className="text-[14px] font-bold text-gray-900 leading-tight">예약이 취소되었습니다</p>
+            <p className="text-[12px] text-gray-500 mt-0.5">{msg.content}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // Highlight @mentions in text
@@ -902,8 +1326,13 @@ export default function ChatRoomPage() {
 
             if (msg.type === 'system') {
               return (
-                <div key={msg.id} className="text-center py-3">
-                  <span className="text-[12px] text-gray-400 bg-gray-200/60 px-3 py-1 rounded-full">{msg.content}</span>
+                <div key={msg.id}>
+                  {showDate && (
+                    <div className="text-center py-3">
+                      <span className="text-[11px] text-gray-400">{formatDateDivider(msg.createdAt)}</span>
+                    </div>
+                  )}
+                  <SystemMessageCard msg={msg} />
                 </div>
               );
             }
