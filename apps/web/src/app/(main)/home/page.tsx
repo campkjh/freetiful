@@ -1067,29 +1067,13 @@ export default function HomePage() {
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section className="relative">
-          {/* Spline crystal ball - 헤더 우측 위에 떠있는 장식 */}
-          <div
-            className="pointer-events-none absolute right-0 top-0 -translate-y-6 z-10"
-            style={{ width: 180, height: 180 }}
-          >
-            <iframe
-              src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
-              frameBorder="0"
-              loading="lazy"
-              allow="autoplay"
-              className="w-full h-full"
-              style={{ background: 'transparent', border: 'none' }}
-              title="crystal ball"
-            />
-          </div>
-
-          <div className="mb-6 relative">
+          <div className="mb-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="section-title">외국어 전문가</h3>
                 <p className="section-subtitle mt-1">외국어 가능 전문가와 함께하세요</p>
               </div>
-              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600 relative z-20" style={{ transition: 'color 0.3s' }}>
+              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
@@ -1111,12 +1095,29 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
-            {languagePros.slice(0, 9).map((pro, i) => (
-              <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} languages={PRO_LANGUAGES[pro.id]} />
-              </div>
-            ))}
+          {/* Spline crystal ball - 카드 그리드 뒤에 은은하게 깔리는 배경 */}
+          <div className="relative">
+            <div
+              className="pointer-events-none absolute inset-0 flex items-center justify-center z-0 opacity-40"
+              aria-hidden="true"
+            >
+              <iframe
+                src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
+                frameBorder="0"
+                loading="lazy"
+                allow="autoplay"
+                className="w-[320px] h-[320px] lg:w-[420px] lg:h-[420px]"
+                style={{ background: 'transparent', border: 'none' }}
+                title="crystal ball"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8 relative z-10">
+              {languagePros.slice(0, 9).map((pro, i) => (
+                <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
+                  <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} languages={PRO_LANGUAGES[pro.id]} />
+                </div>
+              ))}
+            </div>
           </div>
           {languagePros.length === 0 && (
             <p className="text-center text-gray-400 text-[14px] py-10">해당 언어의 전문가가 없습니다</p>
