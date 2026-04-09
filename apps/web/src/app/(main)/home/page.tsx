@@ -927,32 +927,39 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory lg:mx-0 lg:px-0 lg:gap-4">
-            {eventPros.slice(0, 4).map((pro, i) => {
-              const reviews = [
-                '분위기를 정말 잘 살려주셔서 감동이었어요',
-                '섬세한 진행 덕분에 행사가 완벽했습니다',
-                '격식과 유머의 밸런스가 최고였어요',
-                '처음부터 끝까지 프로페셔널한 진행이었습니다',
-              ];
-              return (
-                <Link
-                  key={pro.id}
-                  href={`/pros/${pro.id}`}
-                  className="flex flex-col shrink-0 w-[42%] snap-start group opacity-0 animate-fade-in lg:w-[calc(25%-12px)]"
-                  style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'forwards' }}
-                >
-                  <div className="w-full aspect-[3/4] rounded-lg overflow-hidden">
-                    <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
-                  </div>
-                  <div className="mt-2">
-                    <h4 className="text-[14px] font-semibold text-gray-900 truncate">{pro.role} {pro.name}</h4>
-                    <span className="text-[11px] text-gray-400">경력 {pro.experience}년</span>
-                    <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">&ldquo;{reviews[i % reviews.length]}&rdquo;</p>
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory lg:mx-0 lg:px-0">
+            {/* 4개씩 묶어서 페이지 단위로 스와이프 */}
+            {Array.from({ length: Math.ceil(eventPros.length / 4) }).map((_, pageIdx) => (
+              <div key={pageIdx} className="flex flex-col gap-3 shrink-0 w-full snap-start">
+                {eventPros.slice(pageIdx * 4, pageIdx * 4 + 4).map((pro, i) => {
+                  const reviews = [
+                    '분위기를 정말 잘 살려주셔서 감동이었어요',
+                    '섬세한 진행 덕분에 행사가 완벽했습니다',
+                    '격식과 유머의 밸런스가 최고였어요',
+                    '처음부터 끝까지 프로페셔널한 진행이었습니다',
+                  ];
+                  return (
+                    <Link
+                      key={pro.id}
+                      href={`/pros/${pro.id}`}
+                      className="flex gap-3 group opacity-0 animate-fade-in"
+                      style={{ animationDelay: `${(pageIdx * 4 + i) * 60}ms`, animationFillMode: 'forwards' }}
+                    >
+                      <div className="w-[64px] h-[64px] shrink-0 rounded-full overflow-hidden">
+                        <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                      </div>
+                      <div className="flex-1 min-w-0 border-b border-gray-100 pb-3">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-[14px] font-semibold text-gray-900">{pro.role} {pro.name}</h4>
+                          <span className="text-[11px] text-gray-400">경력 {pro.experience}년</span>
+                        </div>
+                        <p className="text-[12px] text-gray-400 mt-0.5 line-clamp-1">&ldquo;{reviews[i % reviews.length]}&rdquo;</p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </div>
           {eventPros.length === 0 && (
             <p className="text-center text-gray-400 text-[14px] py-10">해당 행사 유형의 전문가가 없습니다</p>
