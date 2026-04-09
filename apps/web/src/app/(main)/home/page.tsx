@@ -927,10 +927,10 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory lg:mx-0 lg:px-0">
+          <div className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
             {/* 4개씩 묶어서 페이지 단위로 스와이프 */}
             {Array.from({ length: Math.ceil(eventPros.length / 4) }).map((_, pageIdx) => (
-              <div key={pageIdx} className="flex flex-col gap-3 shrink-0 w-[calc(100%-20px)] snap-start">
+              <div key={pageIdx} className="flex flex-col gap-3 shrink-0 w-[calc(100%-40px)] snap-start px-1">
                 {eventPros.slice(pageIdx * 4, pageIdx * 4 + 4).map((pro, i) => {
                   const reviews = [
                     '분위기를 정말 잘 살려주셔서 감동이었어요',
