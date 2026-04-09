@@ -193,19 +193,6 @@ export default function CeoPage() {
                   height={520}
                   className="w-[280px] md:w-[320px] object-cover object-top"
                 />
-                <div
-                  className="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl text-center"
-                  style={{
-                    background: 'rgba(255,255,255,0.25)',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
-                    border: '1px solid rgba(255,255,255,0.4)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-                  }}
-                >
-                  <p className="text-[20px] font-black text-gray-900">서나웅</p>
-                  <p className="text-[12px] text-gray-600 font-medium tracking-wide">대표이사 / CEO</p>
-                </div>
               </div>
             </Reveal>
 
