@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 
 // ─── 더미 데이터 ────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ function makePreviewMessages(room: ChatRoom) {
   ];
 }
 
-type FilterTab = '전체' | '읽음' | '안 읽음' | '보관';
+type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 
 export default function ChatListPage() {
   const [rooms, setRooms] = useState<ChatRoom[]>(MOCK_ROOMS);
@@ -93,7 +94,12 @@ export default function ChatListPage() {
   const longPressTriggered = useRef(false);
 
   const filtered = rooms.filter((r) => {
-    if (r.isHidden) return false; // 숨겨진 채팅 제외
+    // 숨김 탭에서는 숨겨진 채팅만, 다른 탭에서는 숨겨진 채팅 제외
+    if (activeTab === '숨김') {
+      if (!r.isHidden) return false;
+    } else {
+      if (r.isHidden) return false;
+    }
     if (search) {
       const q = search.toLowerCase();
       if (!r.otherUser.name.toLowerCase().includes(q) && !r.lastMessage.toLowerCase().includes(q)) return false;
@@ -102,6 +108,7 @@ export default function ChatListPage() {
       case '읽음': return r.unreadCount === 0 && !r.isArchived;
       case '안 읽음': return r.unreadCount > 0 && !r.isArchived;
       case '보관': return r.isArchived;
+      case '숨김': return true;
       default: return !r.isArchived;
     }
   });
@@ -146,7 +153,7 @@ export default function ChatListPage() {
   };
 
   const handleHideRoom = (id: string) => {
-    setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isHidden: true } : r));
+    setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isHidden: !r.isHidden } : r));
     setActionMenu(null);
   };
 
@@ -200,96 +207,126 @@ export default function ChatListPage() {
   const [pcSelectedRoom, setPcSelectedRoom] = useState<string | null>(null);
   const [pcInput, setPcInput] = useState('');
 
-  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관'];
+  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관', '숨김'];
 
   const pcSelectedData = pcSelectedRoom ? rooms.find((r) => r.id === pcSelectedRoom) : null;
 
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
-    <div className="divide-y divide-gray-100">
-      {sorted.map((room) => {
-        const hasUnread = room.unreadCount > 0;
-        return (
-          <div key={room.id} className="relative">
-            <div
-              className={`flex items-center gap-3 px-5 py-4 cursor-pointer transition-colors ${
-                hasUnread ? 'bg-blue-50/60' : ''
-              } ${
-                isPC && pcSelectedRoom === room.id ? 'bg-gray-50' : !hasUnread ? 'hover:bg-gray-50' : 'hover:bg-blue-100/40'
-              }`}
-              style={{
-                WebkitTouchCallout: 'none',
-                WebkitUserSelect: 'none',
-                userSelect: 'none',
-              }}
-              onClick={() => isPC && setPcSelectedRoom(room.id)}
-              onPointerDown={(e) => !isPC && handleLongPressStart(e, room)}
-              onPointerUp={handleLongPressEnd}
-              onPointerLeave={handleLongPressEnd}
-              onPointerCancel={handleLongPressEnd}
-              onContextMenu={(e) => e.preventDefault()}
-            >
-              {editMode && !isPC && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleSelect(room.id); }}
-                  className={`shrink-0 w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center ${
-                    selectedIds.has(room.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
+    <LayoutGroup id={`chat-list-${isPC ? 'pc' : 'mobile'}`}>
+      <ul className="divide-y divide-gray-100">
+        <AnimatePresence initial={false} mode="popLayout">
+          {sorted.map((room) => {
+            const hasUnread = room.unreadCount > 0;
+            return (
+              <motion.li
+                key={room.id}
+                layout
+                initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, x: -24, filter: 'blur(6px)' }}
+                transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 0.6 }}
+                className="relative"
+              >
+                <div
+                  className={`flex items-center gap-3 px-5 py-4 cursor-pointer transition-colors ${
+                    hasUnread ? 'bg-blue-50/60' : ''
+                  } ${
+                    isPC && pcSelectedRoom === room.id ? 'bg-gray-50' : !hasUnread ? 'hover:bg-gray-50' : 'hover:bg-blue-100/40'
                   }`}
+                  style={{
+                    WebkitTouchCallout: 'none',
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none',
+                  }}
+                  onClick={() => isPC && setPcSelectedRoom(room.id)}
+                  onPointerDown={(e) => !isPC && handleLongPressStart(e, room)}
+                  onPointerUp={handleLongPressEnd}
+                  onPointerLeave={handleLongPressEnd}
+                  onPointerCancel={handleLongPressEnd}
+                  onContextMenu={(e) => e.preventDefault()}
                 >
-                  {selectedIds.has(room.id) && (
-                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <AnimatePresence>
+                    {editMode && !isPC && (
+                      <motion.button
+                        key="checkbox"
+                        initial={{ opacity: 0, width: 0, marginRight: 0 }}
+                        animate={{ opacity: 1, width: 20, marginRight: 0 }}
+                        exit={{ opacity: 0, width: 0, marginRight: -12 }}
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(room.id); }}
+                        className={`shrink-0 h-5 rounded-full border-2 flex items-center justify-center overflow-hidden ${
+                          selectedIds.has(room.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
+                        }`}
+                      >
+                        {selectedIds.has(room.id) && (
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        )}
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                  {isPC ? (
+                    <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
+                  ) : (
+                    <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
+                      <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-full object-cover" />
+                    </Link>
                   )}
-                </button>
-              )}
-              {isPC ? (
-                <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
-              ) : (
-                <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
-                  <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-full object-cover" />
-                </Link>
-              )}
-              {isPC ? (
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className={`text-[14px] ${hasUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
-                      {room.otherUser.role} {room.otherUser.name}님
-                    </p>
-                    <span className="text-[11px] text-gray-400">{room.lastMessageAt}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className={`text-[12px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">{room.unreadCount}</span>}
-                      {room.isPinned && <Pin size={12} className="text-gray-400 fill-gray-400" />}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className={`text-[15px] ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{room.otherUser.role} {room.otherUser.name}님</p>
-                      <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className={`text-[13px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{room.unreadCount}</span>}
+                  {isPC ? (
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className={`text-[14px] ${hasUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
+                          {room.otherUser.role} {room.otherUser.name}님
+                        </p>
+                        <span className="text-[11px] text-gray-400">{room.lastMessageAt}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className={`text-[12px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">{room.unreadCount}</span>}
+                          {room.isPinned && <Pin size={12} className="text-gray-400 fill-gray-400" />}
+                        </div>
                       </div>
                     </div>
-                  </Link>
-                  {!editMode && (
-                    <button onClick={(e) => { e.stopPropagation(); togglePin(room.id); }} className="shrink-0 p-1">
-                      {room.isPinned ? <Pin size={16} className="text-gray-900 fill-gray-900" /> : <PinOff size={16} className="text-gray-300" />}
-                    </button>
+                  ) : (
+                    <>
+                      <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className={`text-[15px] ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{room.otherUser.role} {room.otherUser.name}님</p>
+                          <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className={`text-[13px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{room.unreadCount}</span>}
+                          </div>
+                        </div>
+                      </Link>
+                      <AnimatePresence>
+                        {!editMode && room.isPinned && (
+                          <motion.button
+                            key="pin"
+                            initial={{ opacity: 0, scale: 0.5, width: 0 }}
+                            animate={{ opacity: 1, scale: 1, width: 'auto' }}
+                            exit={{ opacity: 0, scale: 0.5, width: 0 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                            onClick={(e) => { e.stopPropagation(); togglePin(room.id); }}
+                            className="shrink-0 p-1 overflow-hidden"
+                            aria-label="고정 해제"
+                          >
+                            <Pin size={16} className="text-gray-900 fill-gray-900" />
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+                    </>
                   )}
-                </>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+                </div>
+              </motion.li>
+            );
+          })}
+        </AnimatePresence>
+      </ul>
+    </LayoutGroup>
   );
 
   return (
@@ -406,37 +443,108 @@ export default function ChatListPage() {
             <h1 className="text-[22px] font-extrabold text-gray-900">채팅</h1>
             <button
               onClick={() => setShowSearch(!showSearch)}
-              className={`p-2 rounded-full transition-colors ${showSearch ? 'bg-gray-100' : ''}`}
+              className={`p-2 rounded-full transition-colors active:scale-90 ${showSearch ? 'bg-gray-100' : ''}`}
             >
-              {showSearch ? <X size={20} className="text-gray-500" /> : <Search size={20} className="text-gray-500" />}
+              <AnimatePresence mode="wait" initial={false}>
+                {showSearch ? (
+                  <motion.span
+                    key="x"
+                    initial={{ rotate: -45, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    exit={{ rotate: 45, opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="block"
+                  >
+                    <X size={20} className="text-gray-500" />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="search"
+                    initial={{ rotate: 45, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    exit={{ rotate: -45, opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="block"
+                  >
+                    <Search size={20} className="text-gray-500" />
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </button>
           </div>
-          {showSearch && (
-            <div className="relative mb-3">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 대화 내용 검색" className="w-full bg-gray-100 rounded-full pl-9 pr-9 py-2.5 text-[14px] focus:outline-none focus:ring-2 focus:ring-gray-300" autoFocus />
-              {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-gray-400" /></button>}
+          <AnimatePresence>
+            {showSearch && (
+              <motion.div
+                key="search-input"
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                className="relative overflow-hidden"
+              >
+                <Search size={16} className="absolute left-3 top-[18px] text-gray-400" />
+                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 대화 내용 검색" className="w-full bg-gray-100 rounded-full pl-9 pr-9 py-2.5 text-[14px] focus:outline-none focus:ring-2 focus:ring-gray-300" autoFocus />
+                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-[18px]"><X size={14} className="text-gray-400" /></button>}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <LayoutGroup id="mobile-tabs">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+              {TABS.map((tab) => {
+                const active = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => { setActiveTab(tab); setEditMode(false); setSelectedIds(new Set()); }}
+                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${active ? 'text-white' : 'text-gray-500'}`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="mobile-tab-indicator"
+                        className="absolute inset-0 bg-gray-900 rounded-full -z-0"
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    {!active && (
+                      <span className="absolute inset-0 bg-gray-100 rounded-full -z-0" />
+                    )}
+                    <span className="relative z-10">{tab}</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
-          <div className="flex gap-2">
-            {TABS.map((tab) => (
-              <button key={tab} onClick={() => { setActiveTab(tab); setEditMode(false); setSelectedIds(new Set()); }} className={`px-4 py-2 rounded-full text-[14px] font-medium transition-all ${activeTab === tab ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}>{tab}</button>
-            ))}
-          </div>
+          </LayoutGroup>
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <p className="text-[13px] text-gray-400">{activeTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span></p>
-          <button onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-gray-500">{editMode ? '완료' : '편집'}</button>
+          <motion.p
+            key={activeTab}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="text-[13px] text-gray-400"
+          >
+            {activeTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span>
+          </motion.p>
+          <button onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-gray-500 active:scale-90 transition-transform">{editMode ? '완료' : '편집'}</button>
         </div>
-        {editMode && selectedIds.size > 0 && (
-          <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-2.5 bg-gray-50 border-b border-gray-100">
-            <span className="text-[13px] text-gray-500">{selectedIds.size}개 선택됨</span>
-            <div className="flex gap-3">
-              <button onClick={archiveSelected} className="flex items-center gap-1 text-[13px] text-gray-600 font-medium"><Archive size={14} /> 보관</button>
-              <button onClick={deleteSelected} className="flex items-center gap-1 text-[13px] text-red-500 font-medium"><Trash2 size={14} /> 삭제</button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {editMode && selectedIds.size > 0 && (
+            <motion.div
+              key="bulk-bar"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              className="sticky top-0 z-10 flex items-center justify-between px-5 py-2.5 bg-gray-50 border-b border-gray-100 overflow-hidden"
+            >
+              <span className="text-[13px] text-gray-500">{selectedIds.size}개 선택됨</span>
+              <div className="flex gap-3">
+                <button onClick={archiveSelected} className="flex items-center gap-1 text-[13px] text-gray-600 font-medium active:scale-90 transition-transform"><Archive size={14} /> 보관</button>
+                <button onClick={deleteSelected} className="flex items-center gap-1 text-[13px] text-red-500 font-medium active:scale-90 transition-transform"><Trash2 size={14} /> 삭제</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {sorted.length === 0 ? (
           <div className="text-center py-20">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-3xl">💬</span></div>
@@ -468,7 +576,7 @@ export default function ChatListPage() {
               { label: '미리보기', icon: <Eye size={18} className="text-gray-500" />, onClick: () => handleOpenPreview(actionMenu.room), className: 'text-gray-800' },
               { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-gray-800' },
               { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-gray-800' },
-              { label: '채팅 숨기기', icon: <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-gray-800' },
+              { label: actionMenu.room.isHidden ? '숨김 해제' : '채팅 숨기기', icon: actionMenu.room.isHidden ? <Eye size={18} className="text-gray-500" /> : <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-gray-800' },
               { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => handleDeleteRoom(actionMenu.room.id), className: 'text-red-500' },
             ].map((item, idx) => (
               <button
