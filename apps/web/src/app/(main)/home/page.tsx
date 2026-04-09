@@ -814,7 +814,7 @@ export default function HomePage() {
                   src={MOCK_PROS[1].image}
                   alt={MOCK_PROS[1].name}
                   className="w-[78px] h-[104px] object-cover shadow-md"
-                  style={{ borderRadius: '9999px', border: '3px solid #D1D5DB' }}
+                  style={{ borderRadius: '9999px', border: '1.4px solid #D1D5DB' }}
                 />
                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[28px] h-[28px] rounded-full bg-[#A0AEC0] flex items-center justify-center shadow-md">
                   <span className="text-[13px] font-extrabold text-white">2</span>
@@ -824,20 +824,20 @@ export default function HomePage() {
               <p className="text-[14px] text-gray-400">{MOCK_PROS[1].role}</p>
             </Link>
 
-            {/* 1st place — center, larger */}
-            <Link href={`/pros/${MOCK_PROS[0].id}`} className="flex flex-col items-center -mt-4">
+            {/* 1st place — center */}
+            <Link href={`/pros/${MOCK_PROS[0].id}`} className="flex flex-col items-center">
               <div className="relative">
                 <img
                   src={MOCK_PROS[0].image}
                   alt={MOCK_PROS[0].name}
-                  className="w-[96px] h-[128px] object-cover shadow-lg"
-                  style={{ borderRadius: '9999px', border: '3px solid #FBBF24' }}
+                  className="w-[78px] h-[104px] object-cover shadow-md"
+                  style={{ borderRadius: '9999px', border: '1.4px solid #FBBF24' }}
                 />
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="text-[20px]">👑</span>
                 </div>
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[32px] h-[32px] rounded-full bg-[#FBBF24] flex items-center justify-center shadow-md">
-                  <span className="text-[15px] font-extrabold text-white">1</span>
+                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[28px] h-[28px] rounded-full bg-[#FBBF24] flex items-center justify-center shadow-md">
+                  <span className="text-[13px] font-extrabold text-white">1</span>
                 </div>
               </div>
               <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[0].name}</p>
@@ -851,7 +851,7 @@ export default function HomePage() {
                   src={MOCK_PROS[2].image}
                   alt={MOCK_PROS[2].name}
                   className="w-[78px] h-[104px] object-cover shadow-md"
-                  style={{ borderRadius: '9999px', border: '3px solid #CD7F32' }}
+                  style={{ borderRadius: '9999px', border: '1.4px solid #CD7F32' }}
                 />
                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[28px] h-[28px] rounded-full bg-[#CD7F32] flex items-center justify-center shadow-md">
                   <span className="text-[13px] font-extrabold text-white">3</span>
