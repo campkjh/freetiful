@@ -397,12 +397,12 @@ export default function BizPage() {
             {/* 메뉴 항목 */}
             <div className="flex-1 px-6 py-4 flex flex-col gap-1">
               {[
-                { label: 'CEO 인사말', action: () => { scrollTo('회사소개'); setMobileMenuOpen(false); } },
-                { label: '연혁', action: () => { scrollTo('연혁'); setMobileMenuOpen(false); } },
+                { label: 'CEO 인사말', href: '/biz/ceo' },
+                { label: '연혁', href: '/biz/history' },
                 { label: '인재채용', href: '/careers' },
                 { label: '주요소식', action: () => { scrollTo('자료실'); setMobileMenuOpen(false); } },
-                { label: '자주묻는질문', action: () => { scrollTo('문의폼'); setMobileMenuOpen(false); } },
-                { label: '고객사', action: () => { scrollTo('핵심서비스'); setMobileMenuOpen(false); } },
+                { label: '자주묻는질문', href: '/biz/faq' },
+                { label: '고객사', href: '/biz/clients' },
               ].map((item) =>
                 item.href ? (
                   <Link
@@ -831,19 +831,6 @@ export default function BizPage() {
           </div>
         </div>
 
-        {/* 파도 애니메이션 */}
-        <div className="absolute bottom-0 left-0 right-0 h-[120px] z-20 overflow-hidden">
-          <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 8s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-            <path d="M0,60 C120,100 240,20 360,60 C480,100 600,20 720,60 C840,100 960,20 1080,60 C1200,100 1320,20 1440,60 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.03)" />
-            <path d="M0,80 C120,110 240,50 360,80 C480,110 600,50 720,80 C840,110 960,50 1080,80 C1200,110 1320,50 1440,80 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.02)" />
-          </svg>
-          <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 12s linear infinite reverse' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-            <path d="M0,70 C160,110 320,30 480,70 C640,110 800,30 960,70 C1120,110 1280,30 1440,70 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.04)" />
-          </svg>
-          <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 6s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-            <path d="M0,90 C180,105 360,75 540,90 C720,105 900,75 1080,90 C1260,105 1440,75 1440,90 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.015)" />
-          </svg>
-        </div>
       </section>
 
       {/* ═══ 모바일 송년회 풀스크린 오버레이 ═══════════════════ */}
@@ -868,19 +855,6 @@ export default function BizPage() {
                 <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
               </video>
             </div>
-          </div>
-          {/* 파도 애니메이션 */}
-          <div className="absolute bottom-0 left-0 right-0 h-[120px] z-20 overflow-hidden">
-            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 8s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-              <path d="M0,60 C120,100 240,20 360,60 C480,100 600,20 720,60 C840,100 960,20 1080,60 C1200,100 1320,20 1440,60 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.03)" />
-              <path d="M0,80 C120,110 240,50 360,80 C480,110 600,50 720,80 C840,110 960,50 1080,80 C1200,110 1320,50 1440,80 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.02)" />
-            </svg>
-            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 12s linear infinite reverse' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-              <path d="M0,70 C160,110 320,30 480,70 C640,110 800,30 960,70 C1120,110 1280,30 1440,70 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.04)" />
-            </svg>
-            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 6s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-              <path d="M0,90 C180,105 360,75 540,90 C720,105 900,75 1080,90 C1260,105 1440,75 1440,90 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.015)" />
-            </svg>
           </div>
           <div className="absolute bottom-8 left-0 right-0 flex justify-center animate-bounce z-30">
             <span className="text-white/40 text-[11px] font-medium">아래로 스와이프하여 닫기</span>
@@ -1229,10 +1203,6 @@ export default function BizPage() {
           0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
           60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
           100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
-        }
-        @keyframes waveFlow {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
         }
         @keyframes receptionFadeIn {
           0% { opacity: 0; transform: scale(1.05); }
