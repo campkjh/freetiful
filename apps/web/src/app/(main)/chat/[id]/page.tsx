@@ -31,9 +31,122 @@ interface Message {
   isRead: boolean;
   fileName?: string;
   duration?: number;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
   replyTo?: { id: string; name: string; content: string } | null;
   reaction?: string | null;
   isNew?: boolean;
+}
+
+declare global {
+  interface Window {
+    naver?: any;
+  }
+}
+
+// 네이버 지도 SDK 동적 로드
+let naverMapsLoadingPromise: Promise<void> | null = null;
+function loadNaverMaps(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.reject('SSR');
+  if (window.naver?.maps) return Promise.resolve();
+  if (naverMapsLoadingPromise) return naverMapsLoadingPromise;
+
+  const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
+  if (!clientId) return Promise.reject('NO_KEY');
+
+  naverMapsLoadingPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject('LOAD_ERROR');
+    document.head.appendChild(script);
+  });
+  return naverMapsLoadingPromise;
+}
+
+// 네이버 지도 미리보기 컴포넌트
+function NaverMapPreview({ lat, lng, mine }: { lat: number; lng: number; mine: boolean }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [hasNaverKey, setHasNaverKey] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadNaverMaps()
+      .then(() => {
+        if (cancelled || !mapRef.current || !window.naver?.maps) return;
+        setHasNaverKey(true);
+        const naver = window.naver;
+        const center = new naver.maps.LatLng(lat, lng);
+        const map = new naver.maps.Map(mapRef.current, {
+          center,
+          zoom: 16,
+          draggable: false,
+          pinchZoom: false,
+          scrollWheel: false,
+          keyboardShortcuts: false,
+          disableDoubleTapZoom: true,
+          disableDoubleClickZoom: true,
+          disableTwoFingerTapZoom: true,
+          zoomControl: false,
+          mapTypeControl: false,
+          logoControl: false,
+          mapDataControl: false,
+          scaleControl: false,
+        });
+        new naver.maps.Marker({ position: center, map });
+      })
+      .catch(() => {
+        if (!cancelled) setHasNaverKey(false);
+      });
+    return () => { cancelled = true; };
+  }, [lat, lng]);
+
+  const naverMapUrl = `https://map.naver.com/p/?c=${lng},${lat},16,0,0,0,0`;
+
+  return (
+    <a
+      href={naverMapUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block w-[260px] rounded-2xl overflow-hidden bg-gray-100 active:scale-[0.98] transition-transform"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* 지도 영역 */}
+      <div className="relative w-full h-[160px] bg-gray-200">
+        {hasNaverKey !== false && (
+          <div ref={mapRef} className="absolute inset-0" />
+        )}
+        {hasNaverKey === false && (
+          // Fallback: OpenStreetMap iframe
+          <iframe
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.004}%2C${lat - 0.003}%2C${lng + 0.004}%2C${lat + 0.003}&layer=mapnik&marker=${lat}%2C${lng}`}
+            className="absolute inset-0 w-full h-full border-0 pointer-events-none"
+            loading="lazy"
+          />
+        )}
+        {/* 마커 (네이버 SDK가 안 그릴 때 대비) */}
+        {hasNaverKey === null && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <MapPin size={32} className="text-[#007AFF]" />
+          </div>
+        )}
+      </div>
+      {/* 정보 영역 */}
+      <div className={`px-3 py-2.5 ${mine ? 'bg-[#0066D9]' : 'bg-white'}`}>
+        <div className="flex items-center gap-2">
+          <MapPin size={14} className={mine ? 'text-white' : 'text-[#007AFF]'} />
+          <p className={`text-[13px] font-bold ${mine ? 'text-white' : 'text-gray-900'}`}>
+            내 위치
+          </p>
+        </div>
+        <p className={`text-[11px] mt-0.5 truncate ${mine ? 'text-white/70' : 'text-gray-500'}`}>
+          {lat.toFixed(5)}, {lng.toFixed(5)} · 네이버 지도에서 열기
+        </p>
+      </div>
+    </a>
+  );
 }
 
 function makeMockMessages(proId: string, proName: string): Message[] {
@@ -310,17 +423,43 @@ export default function ChatRoomPage() {
   };
 
   const handleLocationSend = () => {
-    setMessages((prev) => [...prev, {
-      id: Date.now().toString(),
-      senderId: MY_ID,
-      content: '내 위치를 공유했습니다',
-      type: 'location',
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isNew: true,
-    }]);
     setShowAttach(false);
-    toast.success('위치 전송 완료');
+    if (!('geolocation' in navigator)) {
+      toast.error('이 브라우저는 위치 공유를 지원하지 않습니다');
+      return;
+    }
+    const loadingToast = toast.loading('위치 가져오는 중...');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        toast.dismiss(loadingToast);
+        const { latitude, longitude } = pos.coords;
+        setMessages((prev) => [...prev, {
+          id: Date.now().toString(),
+          senderId: MY_ID,
+          content: '내 위치를 공유했습니다',
+          type: 'location',
+          createdAt: new Date().toISOString(),
+          isRead: false,
+          isNew: true,
+          latitude,
+          longitude,
+        }]);
+        toast.success('위치 전송 완료');
+      },
+      (err) => {
+        toast.dismiss(loadingToast);
+        if (err.code === err.PERMISSION_DENIED) {
+          toast.error('위치 권한이 거부되었습니다');
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          toast.error('위치를 확인할 수 없습니다');
+        } else if (err.code === err.TIMEOUT) {
+          toast.error('위치 요청 시간이 초과되었습니다');
+        } else {
+          toast.error('위치를 가져올 수 없습니다');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
   };
 
   const handleCopy = (content: string) => {
@@ -513,13 +652,20 @@ export default function ChatRoomPage() {
                       </div>
                     ) : msg.type === 'location' ? (
                       <div
-                        className={`flex items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ transformOrigin: mine ? 'right bottom' : 'left bottom' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
                       >
-                        <MapPin size={18} />
-                        <span className="text-[15px]">{msg.content}</span>
+                        {msg.latitude !== undefined && msg.longitude !== undefined ? (
+                          <NaverMapPreview lat={msg.latitude} lng={msg.longitude} mine={mine} />
+                        ) : (
+                          <div className={`flex items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
+                            <MapPin size={18} />
+                            <span className="text-[15px]">{msg.content}</span>
+                          </div>
+                        )}
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
@@ -574,16 +720,16 @@ export default function ChatRoomPage() {
                         onPointerLeave={handleLongPressCancel}
                         onContextMenu={(e) => e.preventDefault()}
                       >
-                        {/* 답장 - 말풍선 안에 통합 */}
+                        {/* 답장 - 말풍선 안에 통합 (1px 하단 구분선) */}
                         {msg.replyTo && (
                           <button
                             onClick={(e) => { e.stopPropagation(); scrollToMessage(msg.replyTo!.id); }}
-                            className={`block w-full text-left px-3 pt-2 pb-1.5 ${mine ? 'bg-white/15' : 'bg-gray-100'} border-l-[3px] ${mine ? 'border-white/60' : 'border-[#007AFF]'}`}
+                            className={`block w-full text-left px-4 pt-2.5 pb-2 border-b ${mine ? 'border-white/25' : 'border-gray-200'}`}
                           >
-                            <p className={`text-[11px] font-bold ${mine ? 'text-white/90' : 'text-[#007AFF]'}`}>
+                            <p className={`text-[11px] font-bold ${mine ? 'text-white' : 'text-gray-900'}`}>
                               {msg.replyTo.name}
                             </p>
-                            <p className={`text-[12px] truncate ${mine ? 'text-white/75' : 'text-gray-500'}`}>
+                            <p className={`text-[12px] truncate ${mine ? 'text-white/85' : 'text-gray-600'}`}>
                               {msg.replyTo.content}
                             </p>
                           </button>
