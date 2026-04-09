@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ChevronLeft, Phone, Video, Camera, Mic, Image as ImageIcon,
-  Send, X, Copy, Reply, Trash2, MoreVertical,
+  ChevronLeft, Camera, Mic, Image as ImageIcon,
+  X, Copy, Reply, Trash2, MoreVertical,
   MapPin, FileText, Music, Smile, Plus, Search, Bell, BellOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -26,10 +26,11 @@ interface Message {
   id: string;
   senderId: string;
   content: string;
-  type: 'text' | 'image' | 'file' | 'location' | 'system';
+  type: 'text' | 'image' | 'file' | 'location' | 'system' | 'voice';
   createdAt: string;
   isRead: boolean;
   fileName?: string;
+  duration?: number;
   replyTo?: { id: string; name: string; content: string } | null;
   reaction?: string | null;
   isNew?: boolean;
@@ -98,12 +99,21 @@ export default function ChatRoomPage() {
     { id: pro.id, name: pro.name, username: pro.username },
     ...Object.values(PROS).filter((p) => p.id !== pro.id).slice(0, 4),
   ]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const [voicePlayProgress, setVoicePlayProgress] = useState<Record<string, number>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingStartRef = useRef<number>(0);
+  const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -163,6 +173,111 @@ export default function ChatRoomPage() {
       const newCursor = newTextBefore.length;
       inputRef.current?.setSelectionRange(newCursor, newCursor);
     }, 0);
+  };
+
+  // ─── 음성 녹음 ─────────────────────────────────────
+  const startRecording = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        toast.error('이 브라우저는 녹음을 지원하지 않습니다');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
+        setMessages((prev) => [...prev, {
+          id: Date.now().toString(),
+          senderId: MY_ID,
+          content: url,
+          type: 'voice',
+          createdAt: new Date().toISOString(),
+          isRead: false,
+          duration: Math.max(1, duration),
+          isNew: true,
+        }]);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      recordingStartRef.current = Date.now();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(Math.floor((Date.now() - recordingStartRef.current) / 1000));
+      }, 100);
+    } catch (err) {
+      toast.error('마이크 권한이 필요합니다');
+      console.error(err);
+    }
+  };
+
+  const stopRecording = (cancel: boolean = false) => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      if (cancel) {
+        mediaRecorderRef.current.ondataavailable = null;
+        mediaRecorderRef.current.onstop = () => {
+          mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+        };
+      }
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingTime(0);
+  };
+
+  const togglePlayVoice = (msgId: string, url: string) => {
+    // 다른 음성 재생 중이면 멈춤
+    if (playingVoice && playingVoice !== msgId) {
+      const prevAudio = audioRefs.current[playingVoice];
+      if (prevAudio) {
+        prevAudio.pause();
+        prevAudio.currentTime = 0;
+      }
+    }
+
+    let audio = audioRefs.current[msgId];
+    if (!audio) {
+      audio = new Audio(url);
+      audioRefs.current[msgId] = audio;
+      audio.ontimeupdate = () => {
+        if (audio.duration && isFinite(audio.duration)) {
+          setVoicePlayProgress((p) => ({ ...p, [msgId]: audio.currentTime / audio.duration }));
+        }
+      };
+      audio.onended = () => {
+        setPlayingVoice(null);
+        setVoicePlayProgress((p) => ({ ...p, [msgId]: 0 }));
+        audio.currentTime = 0;
+      };
+    }
+
+    if (playingVoice === msgId) {
+      audio.pause();
+      setPlayingVoice(null);
+    } else {
+      audio.play().catch((e) => {
+        toast.error('재생할 수 없습니다');
+        console.error(e);
+      });
+      setPlayingVoice(msgId);
+    }
+  };
+
+  const formatVoiceDuration = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const handleImageSend = (file: File) => {
@@ -310,16 +425,10 @@ export default function ChatRoomPage() {
             </p>
           </Link>
 
-          {/* 우측: 통화/메뉴 */}
-          <div className="flex items-center gap-0.5 pr-1">
-            <button onClick={() => toast(`${pro.name}님에게 통화 요청`, { icon: '📞' })} className="w-9 h-9 rounded-full flex items-center justify-center text-[#007AFF] active:scale-90 transition-transform">
-              <Phone size={20} />
-            </button>
-            <button onClick={() => toast(`${pro.name}님에게 영상통화 요청`, { icon: '📹' })} className="w-9 h-9 rounded-full flex items-center justify-center text-[#007AFF] active:scale-90 transition-transform">
-              <Video size={20} />
-            </button>
-            <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} className="w-9 h-9 rounded-full flex items-center justify-center text-[#007AFF] active:scale-90 transition-transform">
-              <MoreVertical size={20} />
+          {/* 우측: 메뉴 */}
+          <div className="flex items-center pr-1">
+            <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} className="w-10 h-10 rounded-full flex items-center justify-center text-[#007AFF] active:scale-90 transition-transform">
+              <MoreVertical size={22} />
             </button>
           </div>
         </div>
@@ -411,6 +520,46 @@ export default function ChatRoomPage() {
                       >
                         <MapPin size={18} />
                         <span className="text-[15px]">{msg.content}</span>
+                      </div>
+                    ) : msg.type === 'voice' ? (
+                      <div
+                        className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-[20px] min-w-[180px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        onPointerDown={(e) => handleLongPressStart(e, msg)}
+                        onPointerUp={handleLongPressCancel}
+                        onPointerLeave={handleLongPressCancel}
+                      >
+                        <button
+                          onClick={(e) => { e.stopPropagation(); togglePlayVoice(msg.id, msg.content); }}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform ${mine ? 'bg-white/20 hover:bg-white/30' : 'bg-[#007AFF] hover:bg-[#0066d9]'}`}
+                        >
+                          {playingVoice === msg.id ? (
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="3" y="2" width="3" height="10" rx="0.5" fill={mine ? 'white' : 'white'} /><rect x="8" y="2" width="3" height="10" rx="0.5" fill={mine ? 'white' : 'white'} /></svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 2L11 7L3 12V2Z" fill={mine ? 'white' : 'white'} /></svg>
+                          )}
+                        </button>
+                        <div className="flex-1 flex items-center gap-0.5 h-7 min-w-[80px]">
+                          {Array.from({ length: 22 }).map((_, i) => {
+                            const progress = voicePlayProgress[msg.id] || 0;
+                            const filled = i / 22 < progress;
+                            const heights = [40, 65, 50, 80, 55, 70, 45, 90, 60, 75, 50, 85, 65, 55, 70, 45, 80, 60, 50, 75, 55, 65];
+                            return (
+                              <div
+                                key={i}
+                                className="flex-1 rounded-full transition-colors"
+                                style={{
+                                  height: `${heights[i]}%`,
+                                  backgroundColor: mine
+                                    ? (filled ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.4)')
+                                    : (filled ? '#007AFF' : '#C7C7CC'),
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className={`text-[12px] tabular-nums shrink-0 ${mine ? 'text-white/80' : 'text-gray-500'}`}>
+                          {formatVoiceDuration(msg.duration || 0)}
+                        </span>
                       </div>
                     ) : (
                       <div
@@ -591,36 +740,81 @@ export default function ChatRoomPage() {
       {/* ─── Input Bar ─── */}
       <div className="shrink-0 bg-[#F8F8FA] border-t border-gray-200/60 px-3 py-2 pb-safe">
         <div className="flex items-end gap-2 max-w-[680px] mx-auto">
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
-            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform"
-          >
-            <Plus size={26} className="text-[#007AFF]" />
-          </button>
-
-          <div className="flex-1 flex items-end bg-white rounded-[20px] border border-gray-300/60 px-3 py-1.5 min-h-[36px]">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder="메시지 (@ 으로 멘션)"
-              className="flex-1 bg-transparent text-[16px] focus:outline-none placeholder:text-gray-400 leading-[1.3] py-0.5"
-            />
-          </div>
-
-          {input.trim() ? (
-            <button onClick={handleSend} className="w-9 h-9 rounded-full bg-[#007AFF] flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform hover:bg-[#0066d9]">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
-            </button>
+          {isRecording ? (
+            // 녹음 중 UI
+            <>
+              <button
+                onClick={() => stopRecording(true)}
+                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform bg-gray-200"
+                title="취소"
+              >
+                <X size={20} className="text-gray-600" />
+              </button>
+              <div className="flex-1 flex items-center gap-3 bg-white rounded-[20px] border border-red-200 px-4 py-2 min-h-[36px] animate-[slideUp_0.2s_ease]">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                </span>
+                <span className="text-[14px] font-bold text-red-500 tabular-nums">
+                  {formatVoiceDuration(recordingTime)}
+                </span>
+                <div className="flex-1 flex items-center gap-0.5 h-6">
+                  {Array.from({ length: 24 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 bg-red-300 rounded-full"
+                      style={{
+                        height: `${30 + Math.abs(Math.sin((recordingTime + i) * 0.6)) * 70}%`,
+                        animation: `voiceBar 0.6s ease-in-out ${i * 0.04}s infinite alternate`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => stopRecording(false)}
+                className="w-9 h-9 rounded-full bg-[#007AFF] flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform hover:bg-[#0066d9]"
+                title="전송"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+              </button>
+            </>
           ) : (
-            <button
-              onClick={() => toast('음성 메시지 준비 중', { icon: '🎙️' })}
-              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mb-0.5"
-            >
-              <Mic size={22} className="text-[#007AFF]" />
-            </button>
+            // 일반 입력 UI
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
+                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform"
+              >
+                <Plus size={26} className="text-[#007AFF]" />
+              </button>
+
+              <div className="flex-1 flex items-end bg-white rounded-[20px] border border-gray-300/60 px-3 py-1.5 min-h-[36px]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  placeholder="메시지 (@ 으로 멘션)"
+                  className="flex-1 bg-transparent text-[16px] focus:outline-none placeholder:text-gray-400 leading-[1.3] py-0.5"
+                />
+              </div>
+
+              {input.trim() ? (
+                <button onClick={handleSend} className="w-9 h-9 rounded-full bg-[#007AFF] flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform hover:bg-[#0066d9]">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                </button>
+              ) : (
+                <button
+                  onClick={startRecording}
+                  className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform"
+                  title="음성 메시지 녹음"
+                >
+                  <Mic size={22} className="text-[#007AFF]" />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -678,6 +872,10 @@ export default function ChatRoomPage() {
         @keyframes replyHighlight {
           0%, 100% { background-color: transparent; }
           30% { background-color: rgba(0, 122, 255, 0.12); }
+        }
+        @keyframes voiceBar {
+          0% { transform: scaleY(0.5); }
+          100% { transform: scaleY(1); }
         }
       `}} />
     </div>
