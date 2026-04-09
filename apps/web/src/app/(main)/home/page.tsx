@@ -241,10 +241,10 @@ const ALL_LANGUAGES = [...new Set(Object.values(PRO_LANGUAGES).flat())];
 
 // 언어별 국기 매핑
 const LANGUAGE_FLAGS: Record<string, string> = {
-  '영어': '/images/🇬🇧 깃발_ 영국.svg',
-  '일본어': '/images/🇯🇵 깃발_ 일본.svg',
-  '중국어': '/images/🇨🇳 깃발_ 중국.svg',
-  '베트남어': '/images/🇻🇳 깃발_ 베트남.svg',
+  '영어': '/images/flag-uk.svg',
+  '일본어': '/images/flag-jp.svg',
+  '중국어': '/images/flag-cn.svg',
+  '베트남어': '/images/flag-vn.svg',
 };
 
 // Event-specialist pros (by id)
@@ -286,21 +286,21 @@ function OnlineProCard({ pro }: { pro: typeof MOCK_PROS[0] }) {
         <img
           src={pro.images[2]}
           alt=""
-          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[3px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[64px] group-hover:translate-y-[-12px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
+          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[64px] group-hover:translate-y-[-12px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
         />
         <img
           src={pro.images[1]}
           alt=""
-          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[3px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[34px] group-hover:translate-y-[-18px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
+          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[34px] group-hover:translate-y-[-18px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
         />
         {/* Main photo — stays in place */}
         <img
           src={pro.images[0]}
           alt={pro.name}
-          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[3px] border-white shadow-lg z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-lg z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
         />
         {/* Online indicator */}
-        <span className={`absolute bottom-1 right-1 z-[4] w-4 h-4 rounded-full border-[3px] border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
+        <span className={`absolute bottom-1 right-1 z-[4] w-4 h-4 rounded-full border-[1.4px] border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
       </div>
 
       {/* Info */}
@@ -815,7 +815,7 @@ export default function HomePage() {
         {/* 1. 지금 접속중인 전문가                                      */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section>
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-1">
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="section-title">지금 접속중인 전문가</h3>
@@ -841,16 +841,13 @@ export default function HomePage() {
         {/* ══════════════════════════════════════════════��════════════ */}
         <section>
           {/* Mobile header */}
-          <div className="lg:hidden flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <span className="text-[20px]">🏆</span>
-              <div>
-                <h3 className="text-[16px] font-extrabold text-gray-900">BEST 결혼식사회자</h3>
-                <p className="text-[12px] text-gray-400 mt-0.5">가장 많이 찾았던 전문가를 한눈에</p>
-              </div>
+          <div className="lg:hidden flex items-end justify-between mb-1">
+            <div>
+              <h3 className="section-title">BEST 결혼식 사회자</h3>
+              <p className="section-subtitle mt-1">가장 많이 찾았던 전문가를 한눈에</p>
             </div>
-            <Link href="/pros" className="p-1">
-              <ChevronRight size={20} className="text-gray-400" />
+            <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600 pb-0.5" style={{ transition: 'color 0.3s' }}>
+              전체보기 <ChevronRight size={16} />
             </Link>
           </div>
 
@@ -947,7 +944,7 @@ export default function HomePage() {
                 <h3 className="section-title">인기 전문가</h3>
                 <p className="section-subtitle mt-1">고객 만족도가 높은 전문가를 만나보세요</p>
               </div>
-              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+              <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
@@ -972,7 +969,7 @@ export default function HomePage() {
                 <h3 className="section-title">행사 전문가</h3>
                 <p className="section-subtitle mt-1">행사 유형별 전문 사회자를 만나보세요</p>
               </div>
-              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+              <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
@@ -1012,7 +1009,7 @@ export default function HomePage() {
                       className="flex gap-3 group opacity-0 animate-fade-in"
                       style={{ animationDelay: `${(pageIdx * 4 + i) * 60}ms`, animationFillMode: 'forwards' }}
                     >
-                      <div className="w-[66px] h-[88px] shrink-0 rounded-lg overflow-hidden">
+                      <div className="w-[88px] h-[112px] shrink-0 rounded-xl overflow-hidden">
                         <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                       </div>
                       <div className="flex-1 min-w-0 border-b border-gray-100 pb-3">
@@ -1043,7 +1040,7 @@ export default function HomePage() {
                 <h3 className="section-title">지역별 사회자</h3>
                 <p className="section-subtitle mt-1">내 지역에서 바로 활동하는 전문가</p>
               </div>
-              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+              <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
@@ -1135,7 +1132,7 @@ export default function HomePage() {
                 <h3 className="section-title">외국어 전문가</h3>
                 <p className="section-subtitle mt-1">외국어 가능 전문가와 함께하세요</p>
               </div>
-              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+              <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
@@ -1193,7 +1190,7 @@ export default function HomePage() {
                 <h3 className="section-title">웨딩 파트너</h3>
                 <p className="section-subtitle mt-1">프리티풀이 엄선한 웨딩 업체를 만나보세요</p>
               </div>
-              <Link href="/businesses" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+              <Link href="/businesses" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>

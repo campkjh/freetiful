@@ -282,11 +282,11 @@ body::after {
   /* ─── Typography ──────────────────────────────────────────────────────── */
 
   .section-title {
-    @apply text-[20px] lg:text-[24px] font-bold text-gray-900 tracking-tight leading-tight;
+    @apply text-[18px] lg:text-[20px] font-semibold text-gray-900 tracking-tight leading-tight;
   }
 
   .section-subtitle {
-    @apply text-[14px] text-gray-500 font-normal leading-relaxed;
+    @apply text-[14px] text-gray-400 font-normal leading-relaxed;
   }
 
   .headline {
