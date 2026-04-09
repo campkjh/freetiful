@@ -54,7 +54,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-white flex flex-col">
       <div className="flex-1 flex flex-col justify-center px-6 py-12 max-w-md mx-auto w-full">
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-black text-primary-500 tracking-tight">Prettyful</h1>
+          <h1 className="text-3xl font-black text-primary-500 tracking-tight">Freetiful</h1>
           <p className="mt-2 text-gray-500 text-sm">나의 특별한 행사를 완성하는 전문가</p>
         </div>
 

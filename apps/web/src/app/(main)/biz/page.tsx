@@ -340,7 +340,7 @@ export default function BizPage() {
           <Link href="/home" className="transition-all duration-700">
             <Image
               src="/images/logo-prettyful.svg"
-              alt="Prettyful"
+              alt="Freetiful"
               width={scrollY > 80 ? 100 : 120}
               height={scrollY > 80 ? 30 : 35}
               className="transition-all duration-700"
@@ -1106,7 +1106,7 @@ export default function BizPage() {
         <div className="mx-auto max-w-[1000px] px-6">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[16px] font-black text-gray-900">Prettyful <span className="text-gray-300 font-normal text-[12px]">for Business</span></p>
+              <p className="text-[16px] font-black text-gray-900">Freetiful <span className="text-gray-300 font-normal text-[12px]">for Business</span></p>
               <p className="mt-1 text-[11px] text-gray-300">{COMPANY_INFO.name} | 대표 {COMPANY_INFO.ceo} | T {COMPANY_INFO.phone} | E {COMPANY_INFO.email}</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful Inc. All rights reserved.</p>
             </div>

@@ -46,7 +46,7 @@ export default function PrivacyPolicyPage() {
 
         <h2 className="font-bold text-base text-gray-900">7. 개인정보 보호책임자</h2>
         <p>성명: 김프리티 / 직위: 개인정보보호팀장</p>
-        <p>이메일: privacy@prettyful.co.kr</p>
+        <p>이메일: privacy@freetiful.co.kr</p>
 
         <p className="text-gray-400 text-xs pt-6">시행일: 2026년 1월 1일</p>
       </div>

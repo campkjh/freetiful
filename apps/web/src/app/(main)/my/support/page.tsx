@@ -37,13 +37,13 @@ export default function SupportPage() {
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </a>
-          <a href="mailto:support@prettyful.co.kr" className="flex items-center gap-3 px-4 py-4 border-b border-gray-50">
+          <a href="mailto:support@freetiful.co.kr" className="flex items-center gap-3 px-4 py-4 border-b border-gray-50">
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
               <Mail size={18} className="text-blue-600" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-900">이메일 문의</p>
-              <p className="text-xs text-gray-400">support@prettyful.co.kr</p>
+              <p className="text-xs text-gray-400">support@freetiful.co.kr</p>
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </a>

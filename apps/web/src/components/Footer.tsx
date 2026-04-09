@@ -21,7 +21,7 @@ const FOOTER_LINKS = {
   ],
   '고객센터': [
     { label: '전화: 1599-0000 (평일 10-18시)', href: '#' },
-    { label: '이메일: support@prettyful.kr', href: 'mailto:support@prettyful.kr' },
+    { label: '이메일: support@freetiful.kr', href: 'mailto:support@freetiful.kr' },
   ],
 };
 
@@ -98,7 +98,7 @@ export default function Footer() {
                 </a>
               ))}
             </div>
-            <p className="text-[11px] text-gray-400">&copy; {new Date().getFullYear()} Prettyful. All rights reserved.</p>
+            <p className="text-[11px] text-gray-400">&copy; {new Date().getFullYear()} Freetiful. All rights reserved.</p>
           </div>
         </div>
       </div>

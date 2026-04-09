@@ -36,7 +36,7 @@ const COMPANIES = [
   'GS칼텍스', '포스코', '네이버', '카카오', '쿠팡', '배달의민족',
 ];
 
-const DRAFT_KEY = 'prettyful_pro_register_draft';
+const DRAFT_KEY = 'freetiful_pro_register_draft';
 
 // ─── Component ──────────────────────────────────────────────────────────────
 

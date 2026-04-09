@@ -42,7 +42,7 @@ export default function SignupPage() {
 
       <div className="flex-1 px-6 py-4 max-w-md mx-auto w-full">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">회원가입</h1>
-        <p className="text-sm text-gray-500 mb-8">Prettyful에 오신 것을 환영합니다</p>
+        <p className="text-sm text-gray-500 mb-8">Freetiful에 오신 것을 환영합니다</p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email */}

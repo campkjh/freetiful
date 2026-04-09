@@ -37,7 +37,7 @@ export default function OnboardingPage() {
       <div className="flex-1 flex flex-col justify-center px-6 py-12 max-w-lg mx-auto w-full">
         {/* Logo */}
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-black text-primary-500 tracking-tight">Prettyful</h1>
+          <h1 className="text-3xl font-black text-primary-500 tracking-tight">Freetiful</h1>
           <div className="mt-6">
             <div className="w-16 h-16 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <span className="text-3xl">🎉</span>

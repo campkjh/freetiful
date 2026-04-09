@@ -43,7 +43,7 @@ export default function TermsListPage() {
         <p className="text-[11px] text-gray-400 text-center leading-relaxed">
           프리티풀 | 대표: 홍길동 | 사업자등록번호: 123-45-67890<br />
           서울특별시 강남구 테헤란로 123, 4층<br />
-          고객센터: 1544-0000 | support@prettyful.co.kr
+          고객센터: 1544-0000 | support@freetiful.co.kr
         </p>
       </div>
     </div>

@@ -55,7 +55,7 @@ const HISTORY = [
       { month: '02', title: '제휴업체 300여 곳과 전략적 파트너십 체결', desc: '전국 단위 행사 인프라 네트워크 구축' },
       { month: '02', title: 'Seed 투자 유치', desc: '전문투자기관으로부터 시드 라운드 투자 유치' },
       { month: '01', title: '전문 행사인력 매칭 플랫폼 출시', desc: 'MC, 아나운서, 쇼호스트 등 전문 인력 매칭 서비스 런칭' },
-      { month: '01', title: '프리티풀 브랜드 공식 론칭', desc: 'Prettyful 브랜드 아이덴티티 공개' },
+      { month: '01', title: '프리티풀 브랜드 공식 론칭', desc: 'Freetiful 브랜드 아이덴티티 공개' },
     ],
   },
   {
@@ -95,7 +95,7 @@ export default function HistoryPage() {
           <Link href="/home" className="transition-all duration-700">
             <Image
               src="/images/logo-prettyful.svg"
-              alt="Prettyful"
+              alt="Freetiful"
               width={scrollY > 80 ? 100 : 120}
               height={scrollY > 80 ? 30 : 35}
               className="transition-all duration-700"
@@ -241,7 +241,7 @@ export default function HistoryPage() {
         <div className="mx-auto max-w-[1000px] px-6">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[16px] font-black text-gray-900">Prettyful</p>
+              <p className="text-[16px] font-black text-gray-900">Freetiful</p>
               <p className="mt-1 text-[11px] text-gray-300">프리티풀 | 서울특별시 종로구 율곡로 294, 2층(종로6가)</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful. All rights reserved.</p>
             </div>
