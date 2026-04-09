@@ -270,36 +270,36 @@ function OnlineProCard({ pro }: { pro: typeof MOCK_PROS[0] }) {
   return (
     <Link
       href={`/pros/${pro.id}`}
-      className="flex items-center gap-3 group p-[10px] rounded-[12px] active:bg-black/5 active:scale-[0.97] transition-all duration-200"
+      className="flex items-center gap-4 group p-[10px] rounded-[14px] active:bg-black/5 active:scale-[0.97] transition-all duration-200"
     >
       {/* Circle avatar with fan-out on hover */}
-      <div className="relative w-[56px] h-[56px] shrink-0 my-3 z-10">
+      <div className="relative w-[100px] h-[100px] shrink-0 my-3 z-10">
         {/* Stacked photos behind — fan out on hover */}
         <img
           src={pro.images[2]}
           alt=""
-          className="absolute w-[56px] h-[56px] rounded-full object-cover border-2 border-white shadow-sm transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[38px] group-hover:translate-y-[-8px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
+          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[3px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[64px] group-hover:translate-y-[-12px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
         />
         <img
           src={pro.images[1]}
           alt=""
-          className="absolute w-[56px] h-[56px] rounded-full object-cover border-2 border-white shadow-sm transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[20px] group-hover:translate-y-[-12px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
+          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[3px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[34px] group-hover:translate-y-[-18px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
         />
         {/* Main photo — stays in place */}
         <img
           src={pro.images[0]}
           alt={pro.name}
-          className="absolute w-[56px] h-[56px] rounded-full object-cover border-2 border-white shadow-md z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[3px] border-white shadow-lg z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
         />
         {/* Online indicator */}
-        <span className={`absolute bottom-0 right-0 z-[4] w-3.5 h-3.5 rounded-full border-2 border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
+        <span className={`absolute bottom-1 right-1 z-[4] w-4 h-4 rounded-full border-[3px] border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
       </div>
 
       {/* Info */}
       <div className="min-w-0">
-        <span className="text-[11px] font-medium text-gray-400">{pro.category}</span>
-        <p className="text-[14px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
-        <p className="text-[11px] mt-0.5">
+        <span className="text-[12px] font-medium text-gray-400">{pro.category}</span>
+        <p className="text-[16px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
+        <p className="text-[12px] mt-1">
           {isNow ? (
             <span className="text-green-600 font-semibold">현재 접속중</span>
           ) : (
@@ -1067,31 +1067,42 @@ export default function HomePage() {
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section className="relative" style={{ overflow: 'visible' }}>
-          {/* 외국어 전문가 - 부드러운 파란 그라데이션 돔 배경 */}
+          {/* 부드러운 파란 그라데이션 돔 (Spline 뒤 배경) */}
           <div
             className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 rounded-full"
             style={{
               top: '-80px',
-              width: 480,
-              height: 480,
+              width: 520,
+              height: 520,
               background: 'radial-gradient(circle at center, #DBEAFE 0%, #EFF6FF 35%, rgba(239, 246, 255, 0.4) 65%, rgba(239, 246, 255, 0) 80%)',
               WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 45%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 85%)',
               maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 45%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 85%)',
             }}
             aria-hidden="true"
           />
-          {/* 추가 글로우 - 더 진한 코어 */}
+          {/* Spline crystal ball - 윗부분만 보이도록 마스크 */}
           <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 rounded-full"
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0"
             style={{
               top: '-40px',
-              width: 320,
-              height: 320,
-              background: 'radial-gradient(circle at center, rgba(147, 197, 253, 0.35) 0%, rgba(191, 219, 254, 0.2) 40%, rgba(219, 234, 254, 0) 70%)',
-              filter: 'blur(20px)',
+              width: 360,
+              height: 360,
+              opacity: 0.55,
+              WebkitMaskImage: 'radial-gradient(circle at 50% 40%, rgba(0,0,0,1) 30%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0) 75%)',
+              maskImage: 'radial-gradient(circle at 50% 40%, rgba(0,0,0,1) 30%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0) 75%)',
             }}
             aria-hidden="true"
-          />
+          >
+            <iframe
+              src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
+              frameBorder="0"
+              loading="lazy"
+              allow="autoplay"
+              className="w-full h-full"
+              style={{ background: 'transparent', border: 'none' }}
+              title="crystal ball"
+            />
+          </div>
 
           <div className="mb-6 relative z-10">
             <div className="flex items-center justify-between">
