@@ -2,205 +2,208 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, X, Heart, Trash2, Calendar, SlidersHorizontal } from 'lucide-react';
+import { Pin, PinOff, Trash2, Archive, Search, X } from 'lucide-react';
 
-// ─── 더미 데이터 (API 연동 전 테스트용) ───────────────────────────────────────
+// ─── 더미 데이터 ────────────────────────────────────────────────
 
 const MOCK_ROOMS = [
   {
     id: '1',
-    otherUser: { id: 'pro-1', name: '김민준 MC', profileImageUrl: 'https://i.pravatar.cc/150?img=1', isActive: true },
-    lastMessage: { id: 'm1', type: 'text', content: '네, 4월 5일 결혼식 MC 가능합니다. 세부 사항 안내 드리겠습니다.', createdAt: new Date().toISOString() },
-    lastMessageAt: new Date().toISOString(),
-    unreadCount: 3,
-    isFavorited: true,
+    otherUser: { id: 'pro-1', name: '이우영', role: '사회자', profileImageUrl: 'https://i.pravatar.cc/150?img=1' },
+    lastMessage: '견적 정보를 보냈습니다.',
+    lastMessageAt: '2026-03-26',
+    unreadCount: 0,
+    isPinned: true,
+    isArchived: false,
   },
   {
     id: '2',
-    otherUser: { id: 'pro-2', name: '이서연 MC', profileImageUrl: 'https://i.pravatar.cc/150?img=5', isActive: false },
-    lastMessage: { id: 'm2', type: 'text', content: '견적서를 보내드렸습니다. 확인 부탁드립니다 😊', createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
-    lastMessageAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    unreadCount: 1,
-    isFavorited: false,
+    otherUser: { id: 'pro-2', name: '이승진', role: '사회자', profileImageUrl: 'https://i.pravatar.cc/150?img=5' },
+    lastMessage: '견적 정보를 보냈습니다.',
+    lastMessageAt: '2026-03-26',
+    unreadCount: 0,
+    isPinned: true,
+    isArchived: false,
   },
   {
     id: '3',
-    otherUser: { id: 'pro-3', name: '박준혁 가수', profileImageUrl: 'https://i.pravatar.cc/150?img=3', isActive: true },
-    lastMessage: { id: 'm3', type: 'text', content: '축가 3곡 기본이고, 추가 곡은 곡당 5만원입니다.', createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
-    lastMessageAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    unreadCount: 0,
-    isFavorited: false,
+    otherUser: { id: 'pro-3', name: '김민준', role: 'MC', profileImageUrl: 'https://i.pravatar.cc/150?img=3' },
+    lastMessage: '네, 4월 5일 결혼식 MC 가능합니다.',
+    lastMessageAt: '2026-03-25',
+    unreadCount: 3,
+    isPinned: false,
+    isArchived: false,
   },
   {
     id: '4',
-    otherUser: { id: 'pro-4', name: '최지은 쇼호스트', profileImageUrl: 'https://i.pravatar.cc/150?img=9', isActive: false },
-    lastMessage: { id: 'm4', type: 'text', content: '감사합니다! 좋은 하루 되세요.', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-    lastMessageAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    unreadCount: 0,
-    isFavorited: false,
+    otherUser: { id: 'pro-4', name: '박서연', role: '사회자', profileImageUrl: 'https://i.pravatar.cc/150?img=9' },
+    lastMessage: '견적서를 보내드렸습니다. 확인 부탁드립니다 😊',
+    lastMessageAt: '2026-03-24',
+    unreadCount: 1,
+    isPinned: false,
+    isArchived: false,
   },
   {
     id: '5',
-    otherUser: { id: 'pro-5', name: '정하린 플로리스트', profileImageUrl: 'https://i.pravatar.cc/150?img=12', isActive: true },
-    lastMessage: { id: 'm5', type: 'image', content: '부케 시안 보내드립니다 💐', createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-    lastMessageAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    unreadCount: 5,
-    isFavorited: true,
+    otherUser: { id: 'pro-5', name: '정하린', role: '가수', profileImageUrl: 'https://i.pravatar.cc/150?img=12' },
+    lastMessage: '축가 3곡 기본이고, 추가 곡은 곡당 5만원입니다.',
+    lastMessageAt: '2026-03-20',
+    unreadCount: 0,
+    isPinned: false,
+    isArchived: true,
   },
 ];
 
-function formatTime(dateStr: string | null) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  }
-  if (diffDays === 1) return '어제';
-  if (diffDays < 7) return `${diffDays}일 전`;
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
-}
+type FilterTab = '전체' | '읽음' | '안 읽음' | '보관';
 
 export default function ChatListPage() {
   const [rooms, setRooms] = useState(MOCK_ROOMS);
-  const [search, setSearch] = useState('');
-  const [swipedId, setSwipedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<FilterTab>('전체');
+  const [editMode, setEditMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showSearch, setShowSearch] = useState(false);
-  const [searchType, setSearchType] = useState<'text' | 'date'>('text');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [search, setSearch] = useState('');
 
-  // 검색 필터링
   const filtered = rooms.filter((r) => {
-    if (searchType === 'text' && search) {
-      return (
-        r.otherUser.name.includes(search) ||
-        (r.lastMessage?.content || '').includes(search)
-      );
+    // 검색 필터
+    if (search) {
+      const q = search.toLowerCase();
+      if (!r.otherUser.name.toLowerCase().includes(q) && !r.lastMessage.toLowerCase().includes(q)) return false;
     }
-    if (searchType === 'date' && dateFrom) {
-      const msgDate = r.lastMessageAt || '';
-      if (dateFrom && msgDate < new Date(dateFrom).toISOString()) return false;
-      if (dateTo && msgDate > new Date(dateTo + 'T23:59:59').toISOString()) return false;
+    // 탭 필터
+    switch (activeTab) {
+      case '읽음': return r.unreadCount === 0 && !r.isArchived;
+      case '안 읽음': return r.unreadCount > 0 && !r.isArchived;
+      case '보관': return r.isArchived;
+      default: return !r.isArchived;
     }
-    return true;
   });
 
-  const toggleFavorite = (id: string) => {
-    setRooms((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isFavorited: !r.isFavorited } : r))
-    );
-    setSwipedId(null);
+  // 핀 고정된 것 먼저
+  const sorted = [...filtered].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return 0;
+  });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  const deleteRoom = (id: string) => {
-    setRooms((prev) => prev.filter((r) => r.id !== id));
-    setSwipedId(null);
+  const togglePin = (id: string) => {
+    setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isPinned: !r.isPinned } : r));
   };
 
-  const totalUnread = rooms.reduce((acc, r) => acc + r.unreadCount, 0);
+  const archiveSelected = () => {
+    setRooms((prev) => prev.map((r) => selectedIds.has(r.id) ? { ...r, isArchived: true } : r));
+    setSelectedIds(new Set());
+    setEditMode(false);
+  };
+
+  const deleteSelected = () => {
+    setRooms((prev) => prev.filter((r) => !selectedIds.has(r.id)));
+    setSelectedIds(new Set());
+    setEditMode(false);
+  };
+
+  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관'];
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white min-h-screen pb-24">
       {/* Header */}
-      <div className="px-4 pt-12 pb-3 sticky top-0 z-10 bg-white border-b border-gray-100">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">채팅</h1>
-            {totalUnread > 0 && (
-              <span className="bg-primary-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                {totalUnread}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className={`p-2 rounded-lg transition-colors ${showSearch ? 'bg-primary-50 text-primary-500' : 'text-gray-600'}`}
-            >
-              <Search size={20} />
-            </button>
-          </div>
+      <div className="px-5 pt-14 pb-2">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-[22px] font-extrabold text-gray-900">채팅</h1>
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className={`p-2 rounded-full transition-colors ${showSearch ? 'bg-gray-100' : ''}`}
+          >
+            {showSearch ? <X size={20} className="text-gray-500" /> : <Search size={20} className="text-gray-500" />}
+          </button>
         </div>
 
-        {/* Search Panel */}
+        {/* 검색 */}
         {showSearch && (
-          <div className="space-y-2 pb-2">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSearchType('text')}
-                className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  searchType === 'text' ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-gray-600 border-gray-200'
-                }`}
-              >
-                <SlidersHorizontal size={10} /> 텍스트 검색
+          <div className="relative mb-3">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="이름 또는 대화 내용 검색"
+              className="w-full bg-gray-100 rounded-full pl-9 pr-9 py-2.5 text-[14px] focus:outline-none focus:ring-2 focus:ring-gray-300"
+              autoFocus
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <X size={14} className="text-gray-400" />
               </button>
-              <button
-                onClick={() => setSearchType('date')}
-                className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                  searchType === 'date' ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-gray-600 border-gray-200'
-                }`}
-              >
-                <Calendar size={10} /> 날짜 검색
-              </button>
-            </div>
-
-            {searchType === 'text' ? (
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="이름 또는 대화 내용 검색"
-                  className="w-full bg-gray-100 rounded-xl pl-9 pr-9 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
-                  autoFocus
-                />
-                {search && (
-                  <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <X size={14} className="text-gray-400" />
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex gap-2 items-center">
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="flex-1 bg-gray-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
-                />
-                <span className="text-xs text-gray-400">~</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="flex-1 bg-gray-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"
-                />
-                {(dateFrom || dateTo) && (
-                  <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1">
-                    <X size={16} className="text-gray-400" />
-                  </button>
-                )}
-              </div>
             )}
           </div>
         )}
+
+        {/* Filter Tabs */}
+        <div className="flex gap-2">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => { setActiveTab(tab); setEditMode(false); setSelectedIds(new Set()); }}
+              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-all ${
+                activeTab === tab
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Sub header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <p className="text-[13px] text-gray-400">
+          {activeTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span>
+        </p>
+        <button
+          onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()); }}
+          className="text-[13px] font-medium text-gray-500"
+        >
+          {editMode ? '완료' : '편집'}
+        </button>
+      </div>
+
+      {/* 편집 모드 액션 바 */}
+      {editMode && selectedIds.size > 0 && (
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-2.5 bg-gray-50 border-b border-gray-100">
+          <span className="text-[13px] text-gray-500">{selectedIds.size}개 선택됨</span>
+          <div className="flex gap-3">
+            <button onClick={archiveSelected} className="flex items-center gap-1 text-[13px] text-gray-600 font-medium">
+              <Archive size={14} /> 보관
+            </button>
+            <button onClick={deleteSelected} className="flex items-center gap-1 text-[13px] text-red-500 font-medium">
+              <Trash2 size={14} /> 삭제
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Empty */}
-      {filtered.length === 0 && (
+      {sorted.length === 0 && (
         <div className="text-center py-20">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">💬</span>
           </div>
-          <p className="text-gray-500 text-sm">
-            {search || dateFrom ? '검색 결과가 없습니다' : '아직 대화가 없습니다'}
+          <p className="text-gray-400 text-[14px]">
+            {search ? '검색 결과가 없습니다' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}
           </p>
-          {!search && !dateFrom && (
-            <Link href="/pros" className="text-primary-500 text-sm font-semibold mt-2 inline-block">
+          {!search && activeTab === '전체' && (
+            <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">
               전문가 찾아보기
             </Link>
           )}
@@ -208,89 +211,74 @@ export default function ChatListPage() {
       )}
 
       {/* Chat List */}
-      {filtered.length > 0 && (
-        <div className="divide-y divide-gray-50">
-          {filtered.map((room) => (
-            <div key={room.id} className="relative overflow-hidden">
-              {/* Swipe Actions */}
-              <div className="absolute right-0 top-0 bottom-0 flex">
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleFavorite(room.id); }}
-                  className="w-20 bg-yellow-400 flex flex-col items-center justify-center gap-0.5"
-                >
-                  <Heart size={18} className={room.isFavorited ? 'fill-white text-white' : 'text-white'} />
-                  <span className="text-[10px] text-white font-medium">{room.isFavorited ? '해제' : '즐겨찾기'}</span>
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteRoom(room.id); }}
-                  className="w-20 bg-red-500 flex flex-col items-center justify-center gap-0.5"
-                >
-                  <Trash2 size={18} className="text-white" />
-                  <span className="text-[10px] text-white font-medium">삭제</span>
-                </button>
-              </div>
+      {sorted.length > 0 && (
+        <div className="divide-y divide-gray-100">
+          {sorted.map((room) => (
+            <div key={room.id} className="relative">
+              <div className="flex items-center gap-3 px-5 py-4">
+                {/* 편집 모드 체크박스 */}
+                {editMode && (
+                  <button
+                    onClick={() => toggleSelect(room.id)}
+                    className={`shrink-0 w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center ${
+                      selectedIds.has(room.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
+                    }`}
+                  >
+                    {selectedIds.has(room.id) && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    )}
+                  </button>
+                )}
 
-              {/* Chat Item */}
-              <Link
-                href={`/chat/${room.id}`}
-                className={`relative flex items-center gap-3 px-4 py-3.5 bg-white transition-transform duration-200 ${
-                  swipedId === room.id ? '-translate-x-40' : 'translate-x-0'
-                }`}
-                onTouchStart={(e) => {
-                  const startX = e.touches[0].clientX;
-                  const handleMove = (ev: TouchEvent) => {
-                    const diff = startX - ev.touches[0].clientX;
-                    if (diff > 50) setSwipedId(room.id);
-                    else if (diff < -30) setSwipedId(null);
-                  };
-                  const handleEnd = () => {
-                    document.removeEventListener('touchmove', handleMove);
-                    document.removeEventListener('touchend', handleEnd);
-                  };
-                  document.addEventListener('touchmove', handleMove);
-                  document.addEventListener('touchend', handleEnd);
-                }}
-                onClick={(e) => { if (swipedId === room.id) { e.preventDefault(); setSwipedId(null); } }}
-              >
                 {/* Avatar */}
-                <div className="relative shrink-0">
+                <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => editMode && e.preventDefault()}>
                   <img
                     src={room.otherUser.profileImageUrl}
                     alt={room.otherUser.name}
-                    className="w-[52px] h-[52px] rounded-full object-cover"
+                    className="w-[48px] h-[48px] rounded-full object-cover"
                   />
-                  {room.otherUser.isActive && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full" />
-                  )}
-                  {room.isFavorited && (
-                    <span className="absolute -top-1 -right-1 text-xs">⭐</span>
-                  )}
-                </div>
+                </Link>
 
                 {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <p className={`text-sm ${room.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                      {room.otherUser.name}
+                <Link
+                  href={editMode ? '#' : `/chat/${room.id}`}
+                  className="flex-1 min-w-0"
+                  onClick={(e) => editMode && e.preventDefault()}
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className={`text-[15px] ${room.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>
+                      {room.otherUser.role} {room.otherUser.name}님
                     </p>
-                    <span className="text-[10px] text-gray-400 shrink-0">
-                      {formatTime(room.lastMessageAt)}
-                    </span>
+                    <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className={`text-xs truncate pr-2 ${room.unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
-                      {room.lastMessage?.content || '대화를 시작하세요'}
+                    <p className={`text-[13px] truncate pr-2 ${room.unreadCount > 0 ? 'text-gray-700' : 'text-gray-400'}`}>
+                      {room.lastMessage}
                     </p>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       {room.unreadCount > 0 && (
-                        <span className="bg-primary-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                           {room.unreadCount}
                         </span>
                       )}
                     </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+
+                {/* Pin */}
+                {!editMode && (
+                  <button
+                    onClick={() => togglePin(room.id)}
+                    className="shrink-0 p-1"
+                  >
+                    {room.isPinned ? (
+                      <Pin size={16} className="text-gray-900 fill-gray-900" />
+                    ) : (
+                      <PinOff size={16} className="text-gray-300" />
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
