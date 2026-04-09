@@ -798,6 +798,19 @@ export default function BizPage() {
               </video>
             </div>
           </div>
+          {/* 파도 애니메이션 */}
+          <div className="absolute bottom-0 left-0 right-0 h-[120px] z-20 overflow-hidden">
+            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 8s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+              <path d="M0,60 C120,100 240,20 360,60 C480,100 600,20 720,60 C840,100 960,20 1080,60 C1200,100 1320,20 1440,60 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.03)" />
+              <path d="M0,80 C120,110 240,50 360,80 C480,110 600,50 720,80 C840,110 960,50 1080,80 C1200,110 1320,50 1440,80 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.02)" />
+            </svg>
+            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 12s linear infinite reverse' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+              <path d="M0,70 C160,110 320,30 480,70 C640,110 800,30 960,70 C1120,110 1280,30 1440,70 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.04)" />
+            </svg>
+            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 6s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+              <path d="M0,90 C180,105 360,75 540,90 C720,105 900,75 1080,90 C1260,105 1440,75 1440,90 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.015)" />
+            </svg>
+          </div>
         </div>
         {/* 모바일: 섹션 높이를 늘려서 스크롤 여유 확보 (sticky가 걸리는 구간) */}
         <div className="md:hidden h-[50vh]" />
@@ -841,6 +854,19 @@ export default function BizPage() {
               <span className="text-[10px] tracking-[0.5em] text-white/20 font-medium">FREETIFUL 2025</span>
               <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
             </div>
+          </div>
+          {/* 파도 애니메이션 */}
+          <div className="absolute bottom-0 left-0 right-0 h-[120px] z-20 overflow-hidden">
+            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 8s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+              <path d="M0,60 C120,100 240,20 360,60 C480,100 600,20 720,60 C840,100 960,20 1080,60 C1200,100 1320,20 1440,60 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.03)" />
+              <path d="M0,80 C120,110 240,50 360,80 C480,110 600,50 720,80 C840,110 960,50 1080,80 C1200,110 1320,50 1440,80 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.02)" />
+            </svg>
+            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 12s linear infinite reverse' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+              <path d="M0,70 C160,110 320,30 480,70 C640,110 800,30 960,70 C1120,110 1280,30 1440,70 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.04)" />
+            </svg>
+            <svg className="absolute bottom-0 w-[200%]" style={{ animation: 'waveFlow 6s linear infinite' }} viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+              <path d="M0,90 C180,105 360,75 540,90 C720,105 900,75 1080,90 C1260,105 1440,75 1440,90 L1440,120 L0,120 Z" fill="rgba(255,255,255,0.015)" />
+            </svg>
           </div>
         </div>
       </section>
@@ -1186,6 +1212,10 @@ export default function BizPage() {
           0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
           60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
           100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+        }
+        @keyframes waveFlow {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
         }
         @keyframes menuSlideIn {
           0% { transform: translateX(100%); }
