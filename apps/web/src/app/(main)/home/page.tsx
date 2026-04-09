@@ -1080,15 +1080,15 @@ export default function HomePage() {
             }}
             aria-hidden="true"
           />
-          {/* Spline crystal ball - iframe scale로 내부 컨텐츠 0.6 축소 */}
+          {/* Spline crystal ball - iframe scale 0.5 + 500px 높이 + 하단 화이트 그라데이션 */}
           <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-20 z-0 overflow-hidden"
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 overflow-hidden"
             style={{
+              top: '60px',
               width: '100vw',
-              maxWidth: '720px',
-              height: '60vw',
-              maxHeight: '432px',
-              opacity: 0.6,
+              maxWidth: '900px',
+              height: '500px',
+              opacity: 0.7,
             }}
             aria-hidden="true"
           >
@@ -1102,12 +1102,20 @@ export default function HomePage() {
               style={{
                 background: 'transparent',
                 border: 'none',
-                width: '167%',
-                height: '167%',
-                transform: 'translate(-50%, -50%) scale(0.6)',
+                width: '200%',
+                height: '200%',
+                transform: 'translate(-50%, -50%) scale(0.5)',
                 transformOrigin: 'center center',
               }}
               title="crystal ball"
+            />
+            {/* 하단 ~ 중단 화이트 그라데이션 오버레이 */}
+            <div
+              className="absolute left-0 right-0 bottom-0 pointer-events-none"
+              style={{
+                height: '50%',
+                background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.7) 40%, rgba(255,255,255,1) 100%)',
+              }}
             />
           </div>
 
