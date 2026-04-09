@@ -716,7 +716,23 @@ export default function BizPage() {
       </section>
 
       {/* ═══ 2025 송년회 RECEPTION ═════════════════════════════ */}
-      <section ref={receptionRef} className="relative overflow-hidden bg-[#0a0a0a] text-white">
+      <section
+        ref={receptionRef}
+        className={`relative overflow-hidden bg-[#0a0a0a] text-white transition-all duration-500 ${
+          receptionFullscreen && !receptionExiting
+            ? 'md:relative fixed inset-0 z-[100] min-h-screen'
+            : ''
+        }`}
+        style={
+          receptionFullscreen
+            ? {
+                animation: receptionExiting
+                  ? 'receptionFadeOut 0.5s ease-out forwards'
+                  : 'receptionFadeIn 0.5s ease-out forwards',
+              }
+            : undefined
+        }
+      >
         {/* 배경 이미지 (옅게) */}
         <div className="absolute inset-0">
           <Image
@@ -728,7 +744,7 @@ export default function BizPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-[1100px] px-6 py-32">
+        <div className={`relative z-10 mx-auto max-w-[1100px] px-6 ${receptionFullscreen && !receptionExiting ? 'flex flex-col items-center justify-center min-h-screen py-10' : 'py-32'}`}>
           {/* 아티클 SVG + 워드마크 */}
           <div className="flex flex-col items-center gap-10">
             <Reveal>
@@ -753,11 +769,13 @@ export default function BizPage() {
 
           {/* 영상 */}
           <Reveal delay={300}>
-            <div className="mt-16 rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10 bg-black">
+            <div className={`mt-10 overflow-hidden bg-black ${receptionFullscreen && !receptionExiting ? 'rounded-xl w-full' : 'mt-16 rounded-2xl shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10'}`}>
               <video
+                ref={receptionVideoRef}
                 className="w-full aspect-video"
                 controls
                 playsInline
+                muted
                 preload="metadata"
               >
                 <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
@@ -766,39 +784,22 @@ export default function BizPage() {
           </Reveal>
 
           {/* 하단 장식선 */}
-          <div className="mt-16 flex items-center gap-4">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
-            <span className="text-[10px] tracking-[0.5em] text-white/20 font-medium">FREETIFUL 2025</span>
-            <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
-          </div>
+          {!receptionFullscreen && (
+            <div className="mt-16 flex items-center gap-4">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
+              <span className="text-[10px] tracking-[0.5em] text-white/20 font-medium">FREETIFUL 2025</span>
+              <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
+            </div>
+          )}
+
+          {/* 풀스크린 시 스와이프 안내 */}
+          {receptionFullscreen && !receptionExiting && (
+            <div className="md:hidden absolute bottom-6 left-0 right-0 flex justify-center animate-bounce">
+              <span className="text-white/40 text-[11px] font-medium">아래로 스와이프하여 닫기</span>
+            </div>
+          )}
         </div>
       </section>
-
-      {/* ═══ 모바일 송년회 풀스크린 오버레이 ═══════════════════ */}
-      {receptionFullscreen && (
-        <div
-          className="md:hidden fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center"
-          style={{
-            animation: receptionExiting
-              ? 'receptionFadeOut 0.5s ease-out forwards'
-              : 'receptionFadeIn 0.5s ease-out forwards',
-          }}
-        >
-          <video
-            ref={receptionVideoRef}
-            className="w-full h-full object-contain"
-            autoPlay
-            muted
-            playsInline
-            controls
-          >
-            <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
-          </video>
-          <div className="absolute bottom-8 left-0 right-0 flex justify-center animate-bounce">
-            <span className="text-white/40 text-[11px] font-medium">아래로 스와이프하여 닫기</span>
-          </div>
-        </div>
-      )}
 
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
       <section id="연혁" className="py-28">
