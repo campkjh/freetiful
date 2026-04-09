@@ -806,51 +806,26 @@ export default function HomePage() {
           </div>
 
           {/* Mobile: Pill-shaped 3:4 photos with rank badges (top 3) */}
-          <div className="lg:hidden flex items-end justify-center gap-5 py-4">
-            {/* 2nd place — left */}
-            <Link href={`/pros/${MOCK_PROS[1].id}`} className="flex flex-col items-center mt-6">
-              <div className="relative">
-                <img
-                  src={MOCK_PROS[1].image}
-                  alt={MOCK_PROS[1].name}
-                  className="w-[78px] h-[104px] object-cover shadow-md"
-                  style={{ borderRadius: '9999px', border: '1.4px solid #D1D5DB' }}
-                />
-                <img src="/images/Group 1707482188.svg" alt="2" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
-              </div>
-              <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[1].name}</p>
-              <p className="text-[14px] text-gray-400">{MOCK_PROS[1].role}</p>
-            </Link>
-
-            {/* 1st place — center */}
-            <Link href={`/pros/${MOCK_PROS[0].id}`} className="flex flex-col items-center">
-              <div className="relative">
-                <img
-                  src={MOCK_PROS[0].image}
-                  alt={MOCK_PROS[0].name}
-                  className="w-[78px] h-[104px] object-cover shadow-md"
-                  style={{ borderRadius: '9999px', border: '1.4px solid #FBBF24' }}
-                />
-                <img src="/images/Group 1707482189.svg" alt="1" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
-              </div>
-              <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[0].name}</p>
-              <p className="text-[14px] text-gray-400">{MOCK_PROS[0].role}</p>
-            </Link>
-
-            {/* 3rd place — right */}
-            <Link href={`/pros/${MOCK_PROS[2].id}`} className="flex flex-col items-center mt-6">
-              <div className="relative">
-                <img
-                  src={MOCK_PROS[2].image}
-                  alt={MOCK_PROS[2].name}
-                  className="w-[78px] h-[104px] object-cover shadow-md"
-                  style={{ borderRadius: '9999px', border: '1.4px solid #CD7F32' }}
-                />
-                <img src="/images/Group 1707482190.svg" alt="3" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
-              </div>
-              <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[2].name}</p>
-              <p className="text-[14px] text-gray-400">{MOCK_PROS[2].role}</p>
-            </Link>
+          <div className="lg:hidden grid grid-cols-3 gap-x-3 py-4">
+            {[
+              { pro: MOCK_PROS[1], border: '#D1D5DB', trophy: '/images/Group 1707482188.svg', offset: true },
+              { pro: MOCK_PROS[0], border: '#FBBF24', trophy: '/images/Group 1707482189.svg', offset: false },
+              { pro: MOCK_PROS[2], border: '#CD7F32', trophy: '/images/Group 1707482190.svg', offset: true },
+            ].map(({ pro, border, trophy, offset }) => (
+              <Link key={pro.id} href={`/pros/${pro.id}`} className={`flex flex-col items-center ${offset ? 'mt-5' : ''}`}>
+                <div className="relative w-full aspect-[3/4]">
+                  <img
+                    src={pro.image}
+                    alt={pro.name}
+                    className="w-full h-full object-cover shadow-md"
+                    style={{ borderRadius: '9999px', border: `1.4px solid ${border}` }}
+                  />
+                  <img src={trophy} alt="" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
+                </div>
+                <p className="text-[14px] font-bold text-gray-900 mt-4">{pro.name}</p>
+                <p className="text-[12px] text-gray-400">{pro.role}</p>
+              </Link>
+            ))}
           </div>
 
           {/* Desktop: horizontal scroll rank cards */}
