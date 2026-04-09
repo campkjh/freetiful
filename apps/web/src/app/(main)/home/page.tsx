@@ -1080,14 +1080,15 @@ export default function HomePage() {
             }}
             aria-hidden="true"
           />
-          {/* Spline crystal ball - 가로형 viewport 비율(16/10) + 큰 사이즈 → 짤림 없음 */}
+          {/* Spline crystal ball - viewport 가득 채워서 절대 짤림 없음 */}
           <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-16 z-0"
+            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-32 z-0"
             style={{
-              width: '140%',
-              maxWidth: '720px',
-              aspectRatio: '16 / 10',
-              opacity: 0.6,
+              width: '100vw',
+              maxWidth: '1200px',
+              height: '100vw',
+              maxHeight: '1200px',
+              opacity: 0.55,
             }}
             aria-hidden="true"
           >
@@ -1097,7 +1098,7 @@ export default function HomePage() {
               loading="lazy"
               allow="autoplay"
               scrolling="no"
-              className="w-full h-full block"
+              className="w-full h-full"
               style={{ background: 'transparent', border: 'none', display: 'block' }}
               title="crystal ball"
             />
