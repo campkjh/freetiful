@@ -998,8 +998,8 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-5 lg:gap-x-5 lg:gap-y-10">
-            {languagePros.slice(0, 10).map((pro, i) => (
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
+            {languagePros.slice(0, 9).map((pro, i) => (
               <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
                 <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
               </div>
