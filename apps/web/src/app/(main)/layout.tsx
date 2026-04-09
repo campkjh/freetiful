@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Footer from '@/components/Footer';
 import FavoriteAnimation from '@/components/FavoriteAnimation';
+import RecommendedProBar from '@/components/RecommendedProBar';
 
 const NAV_ITEMS = [
   { href: '/home',      iconSrc: '/images/홈 아이콘.svg',     label: '홈' },
@@ -110,6 +111,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       {/* ─── Footer ────────────────────────────────────────────────── */}
       {!hideNav && <Footer />}
+
+      {/* ─── 추천 전문가 플로팅 (모바일 네비 위) ───────────────────── */}
+      {!hideNav && <RecommendedProBar />}
 
       {/* ─── Mobile Bottom Navigation (Glass Pill) ───────────────────── */}
       {!hideNav && (
