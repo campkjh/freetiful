@@ -24,7 +24,7 @@ const HIDE_NAV_PATTERNS = [
   /^\/notifications/,
   /^\/pro-register/,
   /^\/pros$/,
-  /^\/biz$/,
+  /^\/biz/,
   /^\/careers$/,
 ];
 
