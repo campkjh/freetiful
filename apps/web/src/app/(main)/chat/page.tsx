@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { Pin, PinOff, Trash2, Archive, Search, X } from 'lucide-react';
+import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
 
 // ─── 더미 데이터 ────────────────────────────────────────────────
 
-const MOCK_ROOMS = [
+interface ChatRoom {
+  id: string;
+  otherUser: { id: string; name: string; role: string; profileImageUrl: string };
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  isPinned: boolean;
+  isArchived: boolean;
+  isHidden?: boolean;
+}
+
+const MOCK_ROOMS: ChatRoom[] = [
   {
     id: '1',
     otherUser: { id: 'pro-1', name: '이우영', role: '사회자', profileImageUrl: 'https://i.pravatar.cc/150?img=1' },
@@ -54,23 +65,39 @@ const MOCK_ROOMS = [
   },
 ];
 
+// 미리보기용 더미 메시지
+function makePreviewMessages(room: ChatRoom) {
+  return [
+    { id: 'p1', mine: false, text: `안녕하세요! ${room.otherUser.role} ${room.otherUser.name}입니다.`, time: '오후 2:15' },
+    { id: 'p2', mine: true, text: '안녕하세요, 문의드릴 게 있어서요!', time: '오후 2:18' },
+    { id: 'p3', mine: false, text: '네 편하게 말씀해주세요 😊', time: '오후 2:19' },
+    { id: 'p4', mine: false, text: room.lastMessage, time: '오후 2:30' },
+  ];
+}
+
 type FilterTab = '전체' | '읽음' | '안 읽음' | '보관';
 
 export default function ChatListPage() {
-  const [rooms, setRooms] = useState(MOCK_ROOMS);
+  const [rooms, setRooms] = useState<ChatRoom[]>(MOCK_ROOMS);
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showSearch, setShowSearch] = useState(false);
   const [search, setSearch] = useState('');
 
+  // 롱프레스 액션 메뉴
+  const [actionMenu, setActionMenu] = useState<{ room: ChatRoom; x: number; y: number } | null>(null);
+  // 미리보기 모달
+  const [previewRoom, setPreviewRoom] = useState<ChatRoom | null>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressTriggered = useRef(false);
+
   const filtered = rooms.filter((r) => {
-    // 검색 필터
+    if (r.isHidden) return false; // 숨겨진 채팅 제외
     if (search) {
       const q = search.toLowerCase();
       if (!r.otherUser.name.toLowerCase().includes(q) && !r.lastMessage.toLowerCase().includes(q)) return false;
     }
-    // 탭 필터
     switch (activeTab) {
       case '읽음': return r.unreadCount === 0 && !r.isArchived;
       case '안 읽음': return r.unreadCount > 0 && !r.isArchived;
@@ -79,7 +106,6 @@ export default function ChatListPage() {
     }
   });
 
-  // 핀 고정된 것 먼저
   const sorted = [...filtered].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
@@ -111,6 +137,66 @@ export default function ChatListPage() {
     setEditMode(false);
   };
 
+  // 단일 액션
+  const handleDeleteRoom = (id: string) => {
+    if (confirm('이 채팅방을 삭제하시겠습니까?')) {
+      setRooms((prev) => prev.filter((r) => r.id !== id));
+    }
+    setActionMenu(null);
+  };
+
+  const handleHideRoom = (id: string) => {
+    setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isHidden: true } : r));
+    setActionMenu(null);
+  };
+
+  const handleArchiveRoom = (id: string) => {
+    setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isArchived: !r.isArchived } : r));
+    setActionMenu(null);
+  };
+
+  const handleTogglePinFromMenu = (id: string) => {
+    togglePin(id);
+    setActionMenu(null);
+  };
+
+  const handleOpenPreview = (room: ChatRoom) => {
+    setPreviewRoom(room);
+    setActionMenu(null);
+  };
+
+  // 롱프레스 핸들러
+  const handleLongPressStart = (e: React.PointerEvent, room: ChatRoom) => {
+    if (editMode) return;
+    longPressTriggered.current = false;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate(20); } catch {}
+      }
+      setActionMenu({
+        room,
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+    }, 450);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleLinkClick = (e: React.MouseEvent) => {
+    if (longPressTriggered.current) {
+      e.preventDefault();
+      longPressTriggered.current = false;
+    }
+  };
+
   const [pcSelectedRoom, setPcSelectedRoom] = useState<string | null>(null);
   const [pcInput, setPcInput] = useState('');
 
@@ -121,79 +207,94 @@ export default function ChatListPage() {
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
     <div className="divide-y divide-gray-100">
-      {sorted.map((room) => (
-        <div key={room.id} className="relative">
-          <div
-            className={`flex items-center gap-3 px-5 py-4 cursor-pointer transition-colors ${
-              isPC && pcSelectedRoom === room.id ? 'bg-gray-50' : 'hover:bg-gray-50'
-            }`}
-            onClick={() => isPC && setPcSelectedRoom(room.id)}
-          >
-            {editMode && !isPC && (
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleSelect(room.id); }}
-                className={`shrink-0 w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center ${
-                  selectedIds.has(room.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
-                }`}
-              >
-                {selectedIds.has(room.id) && (
-                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                )}
-              </button>
-            )}
-            {isPC ? (
-              <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
-            ) : (
-              <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => editMode && e.preventDefault()}>
-                <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover" />
-              </Link>
-            )}
-            {isPC ? (
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className={`text-[14px] ${room.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
-                    {room.otherUser.role} {room.otherUser.name}님
-                  </p>
-                  <span className="text-[11px] text-gray-400">{room.lastMessageAt}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className={`text-[12px] truncate pr-2 ${room.unreadCount > 0 ? 'text-gray-600' : 'text-gray-400'}`}>{room.lastMessage}</p>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {room.unreadCount > 0 && <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">{room.unreadCount}</span>}
-                    {room.isPinned && <Pin size={12} className="text-gray-400 fill-gray-400" />}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => editMode && e.preventDefault()}>
+      {sorted.map((room) => {
+        const hasUnread = room.unreadCount > 0;
+        return (
+          <div key={room.id} className="relative">
+            <div
+              className={`flex items-center gap-3 px-5 py-4 cursor-pointer transition-colors ${
+                hasUnread ? 'bg-blue-50/60' : ''
+              } ${
+                isPC && pcSelectedRoom === room.id ? 'bg-gray-50' : !hasUnread ? 'hover:bg-gray-50' : 'hover:bg-blue-100/40'
+              }`}
+              style={{
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+              }}
+              onClick={() => isPC && setPcSelectedRoom(room.id)}
+              onPointerDown={(e) => !isPC && handleLongPressStart(e, room)}
+              onPointerUp={handleLongPressEnd}
+              onPointerLeave={handleLongPressEnd}
+              onPointerCancel={handleLongPressEnd}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              {editMode && !isPC && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleSelect(room.id); }}
+                  className={`shrink-0 w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center ${
+                    selectedIds.has(room.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
+                  }`}
+                >
+                  {selectedIds.has(room.id) && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  )}
+                </button>
+              )}
+              {isPC ? (
+                <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
+              ) : (
+                <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
+                  <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-full object-cover" />
+                </Link>
+              )}
+              {isPC ? (
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <p className={`text-[15px] ${room.unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{room.otherUser.role} {room.otherUser.name}님</p>
-                    <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
+                    <p className={`text-[14px] ${hasUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
+                      {room.otherUser.role} {room.otherUser.name}님
+                    </p>
+                    <span className="text-[11px] text-gray-400">{room.lastMessageAt}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className={`text-[13px] truncate pr-2 ${room.unreadCount > 0 ? 'text-gray-700' : 'text-gray-400'}`}>{room.lastMessage}</p>
+                    <p className={`text-[12px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
                     <div className="flex items-center gap-2 shrink-0">
-                      {room.unreadCount > 0 && <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{room.unreadCount}</span>}
+                      {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">{room.unreadCount}</span>}
+                      {room.isPinned && <Pin size={12} className="text-gray-400 fill-gray-400" />}
                     </div>
                   </div>
-                </Link>
-                {!editMode && (
-                  <button onClick={() => togglePin(room.id)} className="shrink-0 p-1">
-                    {room.isPinned ? <Pin size={16} className="text-gray-900 fill-gray-900" /> : <PinOff size={16} className="text-gray-300" />}
-                  </button>
-                )}
-              </>
-            )}
+                </div>
+              ) : (
+                <>
+                  <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className={`text-[15px] ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{room.otherUser.role} {room.otherUser.name}님</p>
+                      <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-[13px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{room.unreadCount}</span>}
+                      </div>
+                    </div>
+                  </Link>
+                  {!editMode && (
+                    <button onClick={(e) => { e.stopPropagation(); togglePin(room.id); }} className="shrink-0 p-1">
+                      {room.isPinned ? <Pin size={16} className="text-gray-900 fill-gray-900" /> : <PinOff size={16} className="text-gray-300" />}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 
   return (
     <>
-      {/* ═══ PC: 2-Panel Layout (카카오톡/디스코드 스타일) ═══ */}
+      {/* ═══ PC: 2-Panel Layout ═══ */}
       <div className="hidden lg:flex h-screen bg-gray-100">
         {/* 좌측: 채팅 목록 */}
         <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
@@ -237,7 +338,6 @@ export default function ChatListPage() {
         <div className="flex-1 flex flex-col bg-white">
           {pcSelectedData ? (
             <>
-              {/* 대화 상대 헤더 */}
               <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
                 <img src={pcSelectedData.otherUser.profileImageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
                 <div>
@@ -246,21 +346,17 @@ export default function ChatListPage() {
                 </div>
               </div>
 
-              {/* 메시지 영역 */}
               <div className="flex-1 overflow-y-auto px-6 py-6 bg-gray-50">
                 <div className="max-w-[700px] mx-auto space-y-4">
-                  {/* 시스템 메시지 */}
                   <div className="flex justify-center">
                     <span className="bg-gray-200 text-gray-500 text-[11px] px-3 py-1 rounded-full">견적 요청으로 대화가 시작되었습니다</span>
                   </div>
-                  {/* 내 메시지 */}
                   <div className="flex justify-end">
                     <div className="bg-gray-900 text-white px-4 py-2.5 rounded-2xl rounded-br-md max-w-[400px]">
                       <p className="text-[14px]">안녕하세요! 문의 드립니다.</p>
                       <p className="text-[10px] text-gray-400 mt-1 text-right">읽음</p>
                     </div>
                   </div>
-                  {/* 상대 메시지 */}
                   <div className="flex gap-2.5">
                     <img src={pcSelectedData.otherUser.profileImageUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" />
                     <div>
@@ -273,7 +369,6 @@ export default function ChatListPage() {
                 </div>
               </div>
 
-              {/* 입력 영역 */}
               <div className="px-6 py-4 border-t border-gray-200 bg-white">
                 <div className="flex items-center gap-3 max-w-[700px] mx-auto">
                   <input
@@ -304,7 +399,7 @@ export default function ChatListPage() {
         </div>
       </div>
 
-      {/* ═══ Mobile: 기존 디자인 ═══ */}
+      {/* ═══ Mobile ═══ */}
       <div className="lg:hidden bg-white min-h-screen pb-24">
         <div className="px-5 pt-14 pb-2">
           <div className="flex items-center justify-between mb-4">
@@ -350,6 +445,135 @@ export default function ChatListPage() {
           </div>
         ) : renderChatList(false)}
       </div>
+
+      {/* ─── 롱프레스 액션 메뉴 ─── */}
+      {actionMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-[55] bg-black/30 animate-[chatActionFade_0.2s_ease]"
+            style={{ backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }}
+            onClick={() => setActionMenu(null)}
+          />
+          <div
+            className="fixed z-[60] bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/60 overflow-hidden min-w-[220px] animate-[chatActionPop_0.3s_cubic-bezier(0.34,1.56,0.64,1)]"
+            style={{
+              left: Math.min(Math.max(16, actionMenu.x - 110), typeof window !== 'undefined' ? window.innerWidth - 236 : 0),
+              top: Math.min(actionMenu.y - 20, typeof window !== 'undefined' ? window.innerHeight - 320 : 0),
+              transformOrigin: 'top center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => handleOpenPreview(actionMenu.room)}
+              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-gray-800 hover:bg-gray-50 active:bg-gray-100 w-full font-medium"
+            >
+              미리보기
+              <Eye size={18} className="text-gray-500" />
+            </button>
+            <button
+              onClick={() => handleTogglePinFromMenu(actionMenu.room.id)}
+              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-gray-800 hover:bg-gray-50 active:bg-gray-100 w-full border-t border-gray-100 font-medium"
+            >
+              {actionMenu.room.isPinned ? '고정 해제' : '상단 고정'}
+              {actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />}
+            </button>
+            <button
+              onClick={() => handleArchiveRoom(actionMenu.room.id)}
+              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-gray-800 hover:bg-gray-50 active:bg-gray-100 w-full border-t border-gray-100 font-medium"
+            >
+              {actionMenu.room.isArchived ? '보관 해제' : '채팅 보관'}
+              <Archive size={18} className="text-gray-500" />
+            </button>
+            <button
+              onClick={() => handleHideRoom(actionMenu.room.id)}
+              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-gray-800 hover:bg-gray-50 active:bg-gray-100 w-full border-t border-gray-100 font-medium"
+            >
+              채팅 숨기기
+              <EyeOff size={18} className="text-gray-500" />
+            </button>
+            <button
+              onClick={() => handleDeleteRoom(actionMenu.room.id)}
+              className="flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] text-red-500 hover:bg-red-50 active:bg-red-100 w-full border-t border-gray-100 font-medium"
+            >
+              채팅 삭제
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ─── 미리보기 모달 (몰래 보기) ─── */}
+      {previewRoom && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-[chatActionFade_0.25s_ease]"
+          onClick={() => setPreviewRoom(null)}
+        >
+          <div
+            className="w-full max-w-[420px] max-h-[80vh] bg-[#F2F2F7] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-[previewPop_0.4s_cubic-bezier(0.34,1.56,0.64,1)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 미리보기 헤더 */}
+            <div className="px-5 pt-5 pb-3 bg-white border-b border-gray-100 flex items-center gap-3 shrink-0">
+              <img src={previewRoom.otherUser.profileImageUrl} alt="" draggable={false} className="w-10 h-10 rounded-full object-cover" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-bold text-gray-900 truncate">{previewRoom.otherUser.role} {previewRoom.otherUser.name}님</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                    <EyeOff size={10} />
+                    몰래 보기 · 읽음 표시 안 됨
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setPreviewRoom(null)} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+
+            {/* 미리보기 메시지 */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+              {makePreviewMessages(previewRoom).map((m) => (
+                <div key={m.id} className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] px-4 py-2 rounded-[18px] ${
+                    m.mine
+                      ? 'bg-[#007AFF] text-white rounded-br-[6px]'
+                      : 'bg-white text-gray-900 rounded-bl-[6px] shadow-sm'
+                  }`}>
+                    <p className="text-[14px] whitespace-pre-wrap">{m.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 푸터 안내 */}
+            <div className="px-5 py-4 bg-white border-t border-gray-100 shrink-0">
+              <p className="text-[11px] text-gray-400 text-center mb-3">읽음 표시 없이 메시지를 확인할 수 있습니다</p>
+              <button
+                onClick={() => setPreviewRoom(null)}
+                className="w-full h-11 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[14px] font-bold rounded-2xl active:scale-[0.98] transition-transform"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes chatActionFade {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        @keyframes chatActionPop {
+          0% { opacity: 0; transform: scale(0.85) translateY(-8px); }
+          60% { opacity: 1; transform: scale(1.03) translateY(0); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes previewPop {
+          0% { opacity: 0; transform: scale(0.9); filter: blur(8px); }
+          60% { transform: scale(1.02); filter: blur(0); }
+          100% { opacity: 1; transform: scale(1); filter: blur(0); }
+        }
+      `}} />
     </>
   );
 }
