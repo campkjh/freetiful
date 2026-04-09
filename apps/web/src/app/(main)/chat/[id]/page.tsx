@@ -67,6 +67,174 @@ function loadNaverMaps(): Promise<void> {
   return naverMapsLoadingPromise;
 }
 
+// 네이버 지도 위치 피커 - 사용자가 직접 위치 선택
+function NaverMapPicker({ onSelect, onClose }: { onSelect: (lat: number, lng: number) => void; onClose: () => void }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [selected, setSelected] = useState<{ lat: number; lng: number } | null>(null);
+  const [hasNaverKey, setHasNaverKey] = useState<boolean | null>(null);
+  const naverMapInstanceRef = useRef<any>(null);
+  const naverMarkerRef = useRef<any>(null);
+
+  // 검색 입력
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    loadNaverMaps()
+      .then(() => {
+        if (cancelled || !mapRef.current || !window.naver?.maps) return;
+        setHasNaverKey(true);
+        const naver = window.naver;
+        const seoul = new naver.maps.LatLng(37.5665, 126.978);
+        const map = new naver.maps.Map(mapRef.current, {
+          center: seoul,
+          zoom: 14,
+          zoomControl: true,
+          zoomControlOptions: { position: naver.maps.Position.TOP_RIGHT },
+          mapTypeControl: false,
+          logoControl: false,
+          mapDataControl: false,
+          scaleControl: false,
+        });
+        naverMapInstanceRef.current = map;
+
+        // 클릭 시 마커 이동
+        naver.maps.Event.addListener(map, 'click', (e: any) => {
+          const lat = e.coord.lat();
+          const lng = e.coord.lng();
+          setSelected({ lat, lng });
+          if (naverMarkerRef.current) {
+            naverMarkerRef.current.setPosition(e.coord);
+          } else {
+            naverMarkerRef.current = new naver.maps.Marker({ position: e.coord, map });
+          }
+        });
+
+        // 처음에 중심점 마커
+        naverMarkerRef.current = new naver.maps.Marker({ position: seoul, map });
+        setSelected({ lat: 37.5665, lng: 126.978 });
+      })
+      .catch(() => {
+        if (!cancelled) setHasNaverKey(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSearch = () => {
+    if (!searchQuery.trim() || !window.naver?.maps?.Service) {
+      toast.error('네이버 지오코딩 서비스를 사용할 수 없습니다');
+      return;
+    }
+    window.naver.maps.Service.geocode({ query: searchQuery }, (status: any, response: any) => {
+      if (status !== window.naver.maps.Service.Status.OK) {
+        toast.error('검색 실패');
+        return;
+      }
+      const result = response.v2.addresses[0];
+      if (!result) {
+        toast.error('검색 결과가 없습니다');
+        return;
+      }
+      const lat = parseFloat(result.y);
+      const lng = parseFloat(result.x);
+      const point = new window.naver.maps.LatLng(lat, lng);
+      naverMapInstanceRef.current?.setCenter(point);
+      naverMapInstanceRef.current?.setZoom(16);
+      if (naverMarkerRef.current) {
+        naverMarkerRef.current.setPosition(point);
+      }
+      setSelected({ lat, lng });
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-[fadeIn_0.2s_ease]" onClick={onClose}>
+      <div
+        className="w-full max-w-[520px] h-[80vh] sm:h-[600px] sm:max-h-[80vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-[menuPop_0.3s_cubic-bezier(0.34,1.56,0.64,1)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between shrink-0">
+          <div>
+            <p className="text-[11px] font-bold tracking-wider text-gray-400">LOCATION</p>
+            <h3 className="text-[18px] font-black text-gray-900 mt-0.5">위치 선택</h3>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* 검색 */}
+        <div className="px-5 pb-3 shrink-0">
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center bg-gray-100 rounded-full pl-4 pr-2 h-11">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
+                placeholder="장소나 주소 검색"
+                className="flex-1 bg-transparent text-[15px] focus:outline-none placeholder:text-gray-400"
+              />
+              <button onClick={handleSearch} className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-900 flex items-center justify-center active:scale-90 transition-transform">
+                <Search size={16} className="text-white" />
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-2 px-1">지도를 탭하거나 검색하여 위치를 선택하세요</p>
+        </div>
+
+        {/* 지도 */}
+        <div className="flex-1 relative bg-gray-100 mx-5 rounded-2xl overflow-hidden">
+          {hasNaverKey !== false && <div ref={mapRef} className="absolute inset-0" />}
+          {hasNaverKey === false && (
+            <div className="absolute inset-0 flex items-center justify-center text-center p-6">
+              <div>
+                <MapPin size={36} className="text-gray-300 mx-auto mb-2" />
+                <p className="text-[13px] text-gray-500">네이버 지도 SDK 로드 실패</p>
+                <p className="text-[11px] text-gray-400 mt-1">NEXT_PUBLIC_NAVER_MAP_CLIENT_ID 환경변수를 확인해주세요</p>
+              </div>
+            </div>
+          )}
+          {hasNaverKey === null && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-[13px] text-gray-400">지도 로딩 중...</p>
+            </div>
+          )}
+        </div>
+
+        {/* 선택 정보 + 전송 */}
+        <div className="px-5 pt-3 pb-5 shrink-0">
+          {selected && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2.5 bg-blue-50 rounded-xl">
+              <MapPin size={16} className="text-[#007AFF] shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-bold text-gray-900">선택한 위치</p>
+                <p className="text-[11px] text-gray-500 truncate tabular-nums">{selected.lat.toFixed(5)}, {selected.lng.toFixed(5)}</p>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => {
+              if (!selected) {
+                toast.error('지도에서 위치를 선택해주세요');
+                return;
+              }
+              onSelect(selected.lat, selected.lng);
+              onClose();
+            }}
+            disabled={!selected}
+            className="w-full h-12 bg-[#007AFF] hover:bg-[#0066d9] disabled:bg-gray-300 text-white text-[15px] font-bold rounded-2xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+          >
+            <MapPin size={16} />
+            이 위치 전송하기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 네이버 지도 미리보기 컴포넌트
 function NaverMapPreview({ lat, lng, mine }: { lat: number; lng: number; mine: boolean }) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -219,6 +387,7 @@ export default function ChatRoomPage() {
   const [voicePlayProgress, setVoicePlayProgress] = useState<Record<string, number>>({});
   const [pinnedMessage, setPinnedMessage] = useState<{ id: string; name: string; content: string } | null>(null);
   const [partialCopyMsg, setPartialCopyMsg] = useState<Message | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -467,10 +636,26 @@ export default function ChatRoomPage() {
     toast.success(`${file.name} 전송 완료`);
   };
 
+  const sendLocationMessage = (lat: number, lng: number) => {
+    setMessages((prev) => [...prev, {
+      id: Date.now().toString(),
+      senderId: MY_ID,
+      content: '내 위치를 공유했습니다',
+      type: 'location',
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      isNew: true,
+      latitude: lat,
+      longitude: lng,
+    }]);
+    toast.success('위치 전송 완료');
+  };
+
   const handleLocationSend = () => {
     setShowAttach(false);
     if (!('geolocation' in navigator)) {
-      toast.error('이 브라우저는 위치 공유를 지원하지 않습니다');
+      // 바로 지도 피커 열기
+      setShowLocationPicker(true);
       return;
     }
     const loadingToast = toast.loading('위치 가져오는 중...');
@@ -478,32 +663,21 @@ export default function ChatRoomPage() {
       (pos) => {
         toast.dismiss(loadingToast);
         const { latitude, longitude } = pos.coords;
-        setMessages((prev) => [...prev, {
-          id: Date.now().toString(),
-          senderId: MY_ID,
-          content: '내 위치를 공유했습니다',
-          type: 'location',
-          createdAt: new Date().toISOString(),
-          isRead: false,
-          isNew: true,
-          latitude,
-          longitude,
-        }]);
-        toast.success('위치 전송 완료');
+        sendLocationMessage(latitude, longitude);
       },
       (err) => {
         toast.dismiss(loadingToast);
+        // 권한 거부/실패 시 지도 피커로 fallback
         if (err.code === err.PERMISSION_DENIED) {
-          toast.error('위치 권한이 거부되었습니다');
+          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
         } else if (err.code === err.POSITION_UNAVAILABLE) {
-          toast.error('위치를 확인할 수 없습니다');
+          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
         } else if (err.code === err.TIMEOUT) {
-          toast.error('위치 요청 시간이 초과되었습니다');
-        } else {
-          toast.error('위치를 가져올 수 없습니다');
+          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
         }
+        setShowLocationPicker(true);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     );
   };
 
@@ -1158,6 +1332,14 @@ export default function ChatRoomPage() {
           <button onClick={() => setImagePreview(null)} className="absolute top-4 right-4 text-white"><X size={28} /></button>
           <img src={imagePreview} alt="" className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
         </div>
+      )}
+
+      {/* 위치 선택 모달 */}
+      {showLocationPicker && (
+        <NaverMapPicker
+          onSelect={(lat, lng) => sendLocationMessage(lat, lng)}
+          onClose={() => setShowLocationPicker(false)}
+        />
       )}
 
       {/* 부분복사 모달 */}
