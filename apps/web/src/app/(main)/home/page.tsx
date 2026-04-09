@@ -352,7 +352,7 @@ function BusinessCard({ biz }: { biz: BusinessPartner }) {
         {/* Tags */}
         <div className="flex flex-wrap gap-1 mt-2">
           {biz.tags.map((tag) => (
-            <span key={tag} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+            <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>
               {tag}
             </span>
           ))}
