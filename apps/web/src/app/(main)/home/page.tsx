@@ -927,33 +927,36 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
-            {eventPros.slice(0, 6).map((pro, i) => (
-              <Link
-                key={pro.id}
-                href={`/pros/${pro.id}`}
-                className="flex gap-3 bg-white rounded-xl border border-gray-100 overflow-hidden group opacity-0 animate-fade-in"
-                style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'forwards' }}
-              >
-                <div className="w-[100px] h-[100px] lg:w-[120px] lg:h-[120px] shrink-0 overflow-hidden">
-                  <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
-                </div>
-                <div className="flex-1 py-2.5 pr-3 flex flex-col justify-center min-w-0">
-                  <h4 className="text-[15px] font-bold text-gray-900 truncate">{pro.role} {pro.name}</h4>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star size={12} className="fill-yellow-400 text-yellow-400" />
-                    <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
-                    <span className="text-[12px] text-gray-400">({pro.reviews})</span>
+          <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-6">
+            {eventPros.slice(0, 6).map((pro, i) => {
+              const review = RANK_REVIEWS[pro.id]?.[0];
+              return (
+                <Link
+                  key={pro.id}
+                  href={`/pros/${pro.id}`}
+                  className="flex gap-3 group opacity-0 animate-fade-in"
+                  style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'forwards' }}
+                >
+                  <div className="w-[72px] h-[72px] shrink-0 rounded-full overflow-hidden">
+                    <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 20 }}>경력{pro.experience}년</span>
-                    {pro.tags.slice(0, 2).map((tag) => (
-                      <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 20 }}>{tag}</span>
-                    ))}
+                  <div className="flex-1 min-w-0 border-b border-gray-100 pb-4">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-[15px] font-bold text-gray-900">{pro.role} {pro.name}</h4>
+                      <span className="text-[11px] text-gray-400">경력 {pro.experience}년</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {pro.tags.slice(0, 3).map((tag) => (
+                        <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-500 flex items-center" style={{ height: 20 }}>{tag}</span>
+                      ))}
+                    </div>
+                    {review && (
+                      <p className="text-[12px] text-gray-400 mt-1.5 line-clamp-1">&ldquo;{review.text}&rdquo;</p>
+                    )}
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
           {eventPros.length === 0 && (
             <p className="text-center text-gray-400 text-[14px] py-10">해당 행사 유형의 전문가가 없습니다</p>
