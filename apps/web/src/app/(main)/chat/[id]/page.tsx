@@ -7,6 +7,7 @@ import {
   ChevronLeft, Camera, Mic, Image as ImageIcon,
   X, Copy, Reply, Trash2, MoreVertical,
   MapPin, FileText, Music, Smile, Plus, Search, Bell, BellOff,
+  Flag, Pin, TextSelect, PinOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -216,6 +217,8 @@ export default function ChatRoomPage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [voicePlayProgress, setVoicePlayProgress] = useState<Record<string, number>>({});
+  const [pinnedMessage, setPinnedMessage] = useState<{ id: string; name: string; content: string } | null>(null);
+  const [partialCopyMsg, setPartialCopyMsg] = useState<Message | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -288,21 +291,50 @@ export default function ChatRoomPage() {
     }, 0);
   };
 
+  // 지원하는 audio mime type 자동 감지 (iOS Safari는 webm 미지원, mp4 사용)
+  const getSupportedMimeType = (): string => {
+    if (typeof MediaRecorder === 'undefined') return '';
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4;codecs=mp4a.40.2',
+      'audio/mp4',
+      'audio/aac',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+    ];
+    for (const type of candidates) {
+      if (MediaRecorder.isTypeSupported(type)) return type;
+    }
+    return '';
+  };
+
   // ─── 음성 녹음 ─────────────────────────────────────
   const startRecording = async () => {
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
+      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         toast.error('이 브라우저는 녹음을 지원하지 않습니다');
         return;
       }
+      if (typeof MediaRecorder === 'undefined') {
+        toast.error('이 브라우저는 녹음 기능을 지원하지 않습니다');
+        return;
+      }
+      // HTTPS 또는 localhost가 아니면 getUserMedia 차단됨
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        toast.error('보안 연결(HTTPS)에서만 녹음할 수 있습니다');
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      const mimeType = getSupportedMimeType();
+      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       audioChunksRef.current = [];
       mr.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
       mr.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
         const url = URL.createObjectURL(blob);
         const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
         setMessages((prev) => [...prev, {
@@ -317,6 +349,11 @@ export default function ChatRoomPage() {
         }]);
         stream.getTracks().forEach((t) => t.stop());
       };
+      mr.onerror = (e) => {
+        console.error('MediaRecorder error', e);
+        toast.error('녹음 중 오류가 발생했습니다');
+        stream.getTracks().forEach((t) => t.stop());
+      };
       mediaRecorderRef.current = mr;
       mr.start();
       recordingStartRef.current = Date.now();
@@ -325,9 +362,17 @@ export default function ChatRoomPage() {
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(Math.floor((Date.now() - recordingStartRef.current) / 1000));
       }, 100);
-    } catch (err) {
-      toast.error('마이크 권한이 필요합니다');
-      console.error(err);
+    } catch (err: any) {
+      console.error('startRecording error', err);
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        toast.error('마이크 권한이 거부되었습니다');
+      } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+        toast.error('마이크를 찾을 수 없습니다');
+      } else if (err?.name === 'NotReadableError') {
+        toast.error('마이크가 다른 앱에서 사용 중입니다');
+      } else {
+        toast.error(`녹음 시작 실패: ${err?.message || '알 수 없는 오류'}`);
+      }
     }
   };
 
@@ -479,6 +524,38 @@ export default function ChatRoomPage() {
     setActionMenu(null);
   };
 
+  const handleReport = (msg: Message) => {
+    setActionMenu(null);
+    if (confirm('이 메시지를 신고하시겠습니까?')) {
+      toast.success('신고가 접수되었습니다');
+    }
+  };
+
+  const handlePin = (msg: Message) => {
+    if (msg.type !== 'text') {
+      toast.error('텍스트 메시지만 공지로 등록할 수 있습니다');
+      setActionMenu(null);
+      return;
+    }
+    setPinnedMessage({
+      id: msg.id,
+      name: msg.senderId === MY_ID ? '나' : pro.name,
+      content: msg.content,
+    });
+    setActionMenu(null);
+    toast.success('공지로 등록되었습니다');
+  };
+
+  const handlePartialCopy = (msg: Message) => {
+    if (msg.type !== 'text') {
+      toast.error('텍스트 메시지만 부분복사할 수 있습니다');
+      setActionMenu(null);
+      return;
+    }
+    setPartialCopyMsg(msg);
+    setActionMenu(null);
+  };
+
   const handleReaction = (msgId: string, emoji: string) => {
     setMessages((prev) => prev.map((m) =>
       m.id === msgId ? { ...m, reaction: m.reaction === emoji ? null : emoji } : m
@@ -595,6 +672,28 @@ export default function ChatRoomPage() {
         )}
       </div>
 
+      {/* ─── 공지 바 ─── */}
+      {pinnedMessage && (
+        <button
+          onClick={() => scrollToMessage(pinnedMessage.id)}
+          className="shrink-0 flex items-center gap-3 px-4 py-2.5 bg-amber-50/90 backdrop-blur border-b border-amber-100 active:bg-amber-100 transition-colors animate-[slideUp_0.3s_ease]"
+        >
+          <Pin size={16} className="text-amber-600 shrink-0 rotate-45" />
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-[11px] font-bold text-amber-700">공지 · {pinnedMessage.name}</p>
+            <p className="text-[12px] text-amber-900/80 truncate">{pinnedMessage.content}</p>
+          </div>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); setPinnedMessage(null); toast('공지 해제됨', { icon: '📌' }); }}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-amber-100 cursor-pointer"
+          >
+            <PinOff size={14} className="text-amber-600" />
+          </span>
+        </button>
+      )}
+
       {/* ─── Messages ─── */}
       <div
         className="flex-1 overflow-y-auto px-3 py-3"
@@ -623,40 +722,51 @@ export default function ChatRoomPage() {
                   </div>
                 )}
 
-                <div className={`flex ${mine ? 'justify-end' : 'justify-start'} mb-[6px] relative`}>
+                <div
+                  className={`flex ${mine ? 'justify-end' : 'justify-start'} mb-[6px] relative select-none`}
+                  style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+                  onContextMenu={(e) => e.preventDefault()}
+                >
                   <div className="max-w-[78%] relative">
                     {/* 메시지 버블 */}
                     {msg.type === 'image' ? (
                       <div
-                        className={msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}
+                        className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
+                        onContextMenu={(e) => e.preventDefault()}
                       >
                         <img
                           src={msg.content}
                           alt=""
-                          className="rounded-2xl max-w-[260px] max-h-[340px] object-cover cursor-pointer"
+                          draggable={false}
+                          className="rounded-2xl max-w-[260px] max-h-[340px] object-cover cursor-pointer select-none"
+                          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
                           onClick={(e) => { e.stopPropagation(); setImagePreview(msg.content); }}
                         />
                       </div>
                     ) : msg.type === 'file' ? (
                       <div
-                        className={`flex items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
+                        onContextMenu={(e) => e.preventDefault()}
                       >
                         <FileText size={18} />
                         <span className="text-[15px]">{msg.fileName || msg.content}</span>
                       </div>
                     ) : msg.type === 'location' ? (
                       <div
-                        className={`${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
-                        style={{ transformOrigin: mine ? 'right bottom' : 'left bottom' }}
+                        className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ transformOrigin: mine ? 'right bottom' : 'left bottom', WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
+                        onContextMenu={(e) => e.preventDefault()}
                       >
                         {msg.latitude !== undefined && msg.longitude !== undefined ? (
                           <NaverMapPreview lat={msg.latitude} lng={msg.longitude} mine={mine} />
@@ -669,10 +779,12 @@ export default function ChatRoomPage() {
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
-                        className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-[20px] min-w-[180px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-[20px] min-w-[180px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
+                        onContextMenu={(e) => e.preventDefault()}
                       >
                         <button
                           onClick={(e) => { e.stopPropagation(); togglePlayVoice(msg.id, msg.content); }}
@@ -709,12 +821,17 @@ export default function ChatRoomPage() {
                       </div>
                     ) : (
                       <div
-                        className={`whitespace-pre-wrap text-[16px] leading-[1.4] cursor-pointer select-text overflow-hidden ${
+                        className={`whitespace-pre-wrap text-[16px] leading-[1.4] cursor-pointer select-none overflow-hidden ${
                           mine
                             ? 'bg-[#007AFF] text-white rounded-[20px] rounded-br-[6px]'
                             : 'bg-white text-gray-900 rounded-[20px] rounded-bl-[6px] shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'
                         } ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''} ${actionMenu?.id === msg.id ? 'ring-2 ring-[#007AFF]/40' : ''}`}
-                        style={{ transformOrigin: mine ? 'right bottom' : 'left bottom' }}
+                        style={{
+                          transformOrigin: mine ? 'right bottom' : 'left bottom',
+                          WebkitTouchCallout: 'none',
+                          WebkitUserSelect: 'none',
+                          userSelect: 'none',
+                        }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
@@ -784,7 +901,7 @@ export default function ChatRoomPage() {
             </div>
 
             {/* 액션 메뉴 */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 overflow-hidden min-w-[180px]">
+            <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 overflow-hidden min-w-[200px]">
               <button
                 onClick={() => {
                   const msg = messages.find((m) => m.id === actionMenu.id);
@@ -802,6 +919,33 @@ export default function ChatRoomPage() {
                 className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
               >
                 복사 <Copy size={18} className="text-gray-500" />
+              </button>
+              <button
+                onClick={() => {
+                  const msg = messages.find((m) => m.id === actionMenu.id);
+                  if (msg) handlePartialCopy(msg);
+                }}
+                className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
+              >
+                부분복사 <TextSelect size={18} className="text-gray-500" />
+              </button>
+              <button
+                onClick={() => {
+                  const msg = messages.find((m) => m.id === actionMenu.id);
+                  if (msg) handlePin(msg);
+                }}
+                className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
+              >
+                공지로 등록 <Pin size={18} className="text-gray-500" />
+              </button>
+              <button
+                onClick={() => {
+                  const msg = messages.find((m) => m.id === actionMenu.id);
+                  if (msg) handleReport(msg);
+                }}
+                className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-orange-500 hover:bg-orange-50 w-full border-t border-gray-100"
+              >
+                신고하기 <Flag size={18} />
               </button>
               {actionMenu.mine && (
                 <button
@@ -883,20 +1027,20 @@ export default function ChatRoomPage() {
         </>
       )}
 
-      {/* ─── Input Bar ─── */}
-      <div className="shrink-0 bg-[#F8F8FA] border-t border-gray-200/60 px-3 py-2 pb-safe">
+      {/* ─── Input Bar (Floating Pill) ─── */}
+      <div className="shrink-0 px-3 pb-3 pt-2 pb-safe">
         <div className="flex items-end gap-2 max-w-[680px] mx-auto">
           {isRecording ? (
             // 녹음 중 UI
             <>
               <button
                 onClick={() => stopRecording(true)}
-                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform bg-gray-200"
+                className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
                 title="취소"
               >
-                <X size={20} className="text-gray-600" />
+                <X size={22} className="text-gray-500" />
               </button>
-              <div className="flex-1 flex items-center gap-3 bg-white rounded-[20px] border border-red-200 px-4 py-2 min-h-[36px] animate-[slideUp_0.2s_ease]">
+              <div className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-red-200/80 px-5 h-12 animate-[slideUp_0.2s_ease]">
                 <span className="relative flex h-2.5 w-2.5 shrink-0">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping" />
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
@@ -905,7 +1049,7 @@ export default function ChatRoomPage() {
                   {formatVoiceDuration(recordingTime)}
                 </span>
                 <div className="flex-1 flex items-center gap-0.5 h-6">
-                  {Array.from({ length: 24 }).map((_, i) => (
+                  {Array.from({ length: 22 }).map((_, i) => (
                     <div
                       key={i}
                       className="flex-1 bg-red-300 rounded-full"
@@ -916,26 +1060,28 @@ export default function ChatRoomPage() {
                     />
                   ))}
                 </div>
+                <button
+                  onClick={() => stopRecording(false)}
+                  className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-800 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
+                  title="전송"
+                >
+                  <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                </button>
               </div>
-              <button
-                onClick={() => stopRecording(false)}
-                className="w-9 h-9 rounded-full bg-[#007AFF] flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform hover:bg-[#0066d9]"
-                title="전송"
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
-              </button>
             </>
           ) : (
-            // 일반 입력 UI
+            // 일반 입력 UI - 플로팅 알약
             <>
+              {/* + 버튼 (별개의 동그라미) */}
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
-                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform"
+                className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
               >
-                <Plus size={26} className="text-[#007AFF]" />
+                <Plus size={24} className="text-gray-600" />
               </button>
 
-              <div className="flex-1 flex items-end bg-white rounded-[20px] border border-gray-300/60 px-3 py-1.5 min-h-[36px]">
+              {/* 입력 알약 (음성 포함) */}
+              <div className="flex-1 flex items-center bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-5 pr-1.5 h-12">
                 <input
                   ref={inputRef}
                   type="text"
@@ -943,23 +1089,25 @@ export default function ChatRoomPage() {
                   onChange={handleInputChange}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                   placeholder="메시지 (@ 으로 멘션)"
-                  className="flex-1 bg-transparent text-[16px] focus:outline-none placeholder:text-gray-400 leading-[1.3] py-0.5"
+                  className="flex-1 min-w-0 bg-transparent text-[15px] focus:outline-none placeholder:text-gray-400 leading-[1.3]"
                 />
+                {input.trim() ? (
+                  <button
+                    onClick={handleSend}
+                    className="w-9 h-9 rounded-full bg-gray-800 hover:bg-gray-900 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform ml-1"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={startRecording}
+                    className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all ml-1"
+                    title="음성 메시지 녹음"
+                  >
+                    <Mic size={20} className="text-gray-600" />
+                  </button>
+                )}
               </div>
-
-              {input.trim() ? (
-                <button onClick={handleSend} className="w-9 h-9 rounded-full bg-[#007AFF] flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform hover:bg-[#0066d9]">
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
-                </button>
-              ) : (
-                <button
-                  onClick={startRecording}
-                  className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mb-0.5 active:scale-90 transition-transform"
-                  title="음성 메시지 녹음"
-                >
-                  <Mic size={22} className="text-[#007AFF]" />
-                </button>
-              )}
             </>
           )}
         </div>
@@ -974,6 +1122,59 @@ export default function ChatRoomPage() {
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setImagePreview(null)}>
           <button onClick={() => setImagePreview(null)} className="absolute top-4 right-4 text-white"><X size={28} /></button>
           <img src={imagePreview} alt="" className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
+        </div>
+      )}
+
+      {/* 부분복사 모달 */}
+      {partialCopyMsg && (
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-[fadeIn_0.2s_ease]" onClick={() => setPartialCopyMsg(null)}>
+          <div
+            className="w-full max-w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden animate-[menuPop_0.3s_cubic-bezier(0.34,1.56,0.64,1)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold tracking-wider text-gray-400">PARTIAL COPY</p>
+                <h3 className="text-[18px] font-black text-gray-900 mt-0.5">부분복사</h3>
+              </div>
+              <button onClick={() => setPartialCopyMsg(null)} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+            <p className="px-5 text-[12px] text-gray-400 mb-2">텍스트를 드래그하여 복사할 부분을 선택하세요</p>
+            <div className="px-5 pb-3">
+              <p
+                className="text-[15px] leading-[1.7] text-gray-900 whitespace-pre-wrap bg-gray-50 rounded-2xl p-4 max-h-[40vh] overflow-y-auto select-text border border-gray-100"
+                style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
+              >
+                {partialCopyMsg.content}
+              </p>
+            </div>
+            <div className="px-5 pb-5 flex gap-2">
+              <button
+                onClick={() => {
+                  const sel = window.getSelection?.()?.toString() || '';
+                  if (!sel.trim()) {
+                    toast.error('선택된 텍스트가 없습니다');
+                    return;
+                  }
+                  navigator.clipboard.writeText(sel);
+                  toast.success(`${sel.length}자 복사됨`);
+                  setPartialCopyMsg(null);
+                }}
+                className="flex-1 h-12 bg-[#007AFF] hover:bg-[#0066d9] text-white text-[15px] font-bold rounded-2xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+              >
+                <Copy size={16} />
+                선택한 부분 복사
+              </button>
+              <button
+                onClick={() => setPartialCopyMsg(null)}
+                className="px-5 h-12 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[15px] font-medium rounded-2xl active:scale-[0.98] transition-transform"
+              >
+                취소
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
