@@ -447,7 +447,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
         </button>
       </div>
       <div className="mt-2">
-        <span className="inline-block bg-gray-900 text-white text-[11px] font-bold px-2.5 py-0.5 rounded mb-1">Partners</span>
+        <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[20px] mb-1" />
         <h4 className="text-[15px] font-extrabold text-gray-900 leading-tight lg:text-[16px]">{pro.role} {pro.name}</h4>
         <div className="flex items-center gap-2 mt-1 mb-1.5">
           <div className="flex items-center gap-0.5">
