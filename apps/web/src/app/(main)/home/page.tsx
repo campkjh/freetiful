@@ -1314,6 +1314,48 @@ export default function HomePage() {
           </div>
         </section>
       </div>
+
+      {/* ─── 푸터 위 추천 전문가 알약 ─── */}
+      {(() => {
+        const recommended = MOCK_PROS[3]; // 정다은
+        return (
+          <div className="w-full px-4 lg:px-8 mb-[10px]">
+            <Link
+              href={`/pros/${recommended.id}`}
+              className="relative block max-w-[680px] mx-auto bg-[#1f2937] hover:bg-[#111827] rounded-full pl-2 pr-5 py-2 active:scale-[0.98] transition-all shadow-[0_8px_24px_rgba(0,0,0,0.12)] group"
+            >
+              {/* 우측 상단 - 사회자 이름 라벨 */}
+              <span className="absolute -top-2 right-4 bg-white border border-gray-200/80 rounded-full px-2.5 py-0.5 text-[10px] font-semibold text-gray-700 flex items-center gap-0.5 shadow-sm">
+                사회자 {recommended.name}
+                <ChevronRight size={10} className="text-gray-400" />
+              </span>
+
+              <div className="flex items-center gap-3">
+                {/* 좌측 - 원형 프로필 */}
+                <div className="relative shrink-0">
+                  <img
+                    src={recommended.image}
+                    alt={recommended.name}
+                    draggable={false}
+                    className="w-12 h-12 rounded-full object-cover border-2 border-white/15"
+                  />
+                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-amber-400 border-2 border-[#1f2937]" />
+                </div>
+
+                {/* 우측 - 텍스트 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold tracking-[0.15em] text-amber-300 uppercase">TODAY&apos;S PICK</p>
+                  <p className="text-[14px] font-bold text-white truncate">오늘의 추천 전문가</p>
+                  <p className="text-[11px] text-white/60 truncate mt-0.5">{recommended.intro}</p>
+                </div>
+
+                {/* 우측 끝 - chevron */}
+                <ChevronRight size={18} className="text-white/40 group-hover:text-white/70 transition-colors shrink-0" />
+              </div>
+            </Link>
+          </div>
+        );
+      })()}
     </div>
   );
 }
