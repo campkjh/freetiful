@@ -239,6 +239,14 @@ const PRO_LANGUAGES: Record<string, string[]> = {
 const LANGUAGE_PROS_IDS = Object.keys(PRO_LANGUAGES);
 const ALL_LANGUAGES = [...new Set(Object.values(PRO_LANGUAGES).flat())];
 
+// 언어별 국기 매핑
+const LANGUAGE_FLAGS: Record<string, string> = {
+  '영어': '/images/🇬🇧 깃발_ 영국.svg',
+  '일본어': '/images/🇯🇵 깃발_ 일본.svg',
+  '중국어': '/images/🇨🇳 깃발_ 중국.svg',
+  '베트남어': '/images/🇻🇳 깃발_ 베트남.svg',
+};
+
 // Event-specialist pros (by id)
 const EVENT_SPECIALIST: Record<string, string> = {
   '14': '돌잔치', '59': '돌잔치',
@@ -1138,15 +1146,29 @@ export default function HomePage() {
               >
                 전체
               </button>
-              {ALL_LANGUAGES.map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => setSelectedLang(selectedLang === lang ? null : lang)}
-                  className={selectedLang === lang ? 'chip-active' : 'chip-inactive'}
-                >
-                  {lang}
-                </button>
-              ))}
+              {ALL_LANGUAGES.map((lang) => {
+                const flag = LANGUAGE_FLAGS[lang];
+                const active = selectedLang === lang;
+                return (
+                  <button
+                    key={lang}
+                    onClick={() => setSelectedLang(active ? null : lang)}
+                    className={`${active ? 'chip-active' : 'chip-inactive'} flex items-center gap-1.5`}
+                  >
+                    {flag && (
+                      <img
+                        src={flag}
+                        alt=""
+                        width={18}
+                        height={18}
+                        className="w-[18px] h-[18px] rounded-full object-cover shrink-0"
+                        draggable={false}
+                      />
+                    )}
+                    {lang}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8 relative z-10">
