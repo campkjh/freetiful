@@ -921,11 +921,32 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-5 lg:gap-x-5 lg:gap-y-10">
-            {eventPros.slice(0, 10).map((pro, i) => (
-              <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
-              </div>
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
+            {eventPros.slice(0, 6).map((pro, i) => (
+              <Link
+                key={pro.id}
+                href={`/pros/${pro.id}`}
+                className="flex gap-3 bg-white rounded-xl border border-gray-100 overflow-hidden group opacity-0 animate-fade-in"
+                style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'forwards' }}
+              >
+                <div className="w-[100px] h-[100px] lg:w-[120px] lg:h-[120px] shrink-0 overflow-hidden">
+                  <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                </div>
+                <div className="flex-1 py-2.5 pr-3 flex flex-col justify-center min-w-0">
+                  <h4 className="text-[15px] font-bold text-gray-900 truncate">{pro.role} {pro.name}</h4>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Star size={12} className="fill-yellow-400 text-yellow-400" />
+                    <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
+                    <span className="text-[12px] text-gray-400">({pro.reviews})</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 20 }}>경력{pro.experience}년</span>
+                    {pro.tags.slice(0, 2).map((tag) => (
+                      <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 20 }}>{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
           {eventPros.length === 0 && (
