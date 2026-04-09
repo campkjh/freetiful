@@ -238,6 +238,7 @@ export default function CeoPage() {
                   <div className="text-right">
                     <p className="text-[16px] font-bold text-gray-900">주식회사 프리티풀</p>
                     <p className="text-[14px] text-gray-500">대표이사 <strong className="text-gray-800">서나웅</strong></p>
+                    <Image src="/images/ceo-signature.svg" alt="서명" width={160} height={60} className="ml-auto mt-3 opacity-80" />
                   </div>
                 </div>
               </Reveal>
