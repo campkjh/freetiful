@@ -805,20 +805,23 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Mobile: Circular photos with rank badges (top 3) */}
-          <div className="lg:hidden flex items-end justify-center gap-4 py-4">
+          {/* Mobile: Pill-shaped 3:4 photos with rank badges (top 3) */}
+          <div className="lg:hidden flex items-end justify-center gap-5 py-4">
             {/* 2nd place — left */}
             <Link href={`/pros/${MOCK_PROS[1].id}`} className="flex flex-col items-center">
               <div className="relative">
                 <img
                   src={MOCK_PROS[1].image}
                   alt={MOCK_PROS[1].name}
-                  className="w-[72px] h-[72px] rounded-full object-cover border-[3px] border-gray-300 shadow-md"
+                  className="w-[78px] h-[104px] object-cover shadow-md"
+                  style={{ borderRadius: '9999px', border: '3px solid #D1D5DB' }}
                 />
-                <img src="/icons/rank-2.svg" alt="2" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
+                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[28px] h-[28px] rounded-full bg-[#A0AEC0] flex items-center justify-center shadow-md">
+                  <span className="text-[13px] font-extrabold text-white">2</span>
+                </div>
               </div>
-              <p className="text-[13px] font-bold text-gray-900 mt-3">{MOCK_PROS[1].name}</p>
-              <p className="text-[11px] text-gray-400">{MOCK_PROS[1].role}</p>
+              <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[1].name}</p>
+              <p className="text-[14px] text-gray-400">{MOCK_PROS[1].role}</p>
             </Link>
 
             {/* 1st place — center, larger */}
@@ -827,12 +830,18 @@ export default function HomePage() {
                 <img
                   src={MOCK_PROS[0].image}
                   alt={MOCK_PROS[0].name}
-                  className="w-[92px] h-[92px] rounded-full object-cover border-[3px] border-yellow-400 shadow-lg"
+                  className="w-[96px] h-[128px] object-cover shadow-lg"
+                  style={{ borderRadius: '9999px', border: '3px solid #FBBF24' }}
                 />
-                <img src="/icons/rank-1.svg" alt="1" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[35px] h-[22px]" />
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="text-[20px]">👑</span>
+                </div>
+                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[32px] h-[32px] rounded-full bg-[#FBBF24] flex items-center justify-center shadow-md">
+                  <span className="text-[15px] font-extrabold text-white">1</span>
+                </div>
               </div>
-              <p className="text-[14px] font-bold text-gray-900 mt-3">{MOCK_PROS[0].name}</p>
-              <p className="text-[11px] text-gray-400">{MOCK_PROS[0].role}</p>
+              <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[0].name}</p>
+              <p className="text-[14px] text-gray-400">{MOCK_PROS[0].role}</p>
             </Link>
 
             {/* 3rd place — right */}
@@ -841,12 +850,15 @@ export default function HomePage() {
                 <img
                   src={MOCK_PROS[2].image}
                   alt={MOCK_PROS[2].name}
-                  className="w-[72px] h-[72px] rounded-full object-cover border-[3px] border-amber-700 shadow-md"
+                  className="w-[78px] h-[104px] object-cover shadow-md"
+                  style={{ borderRadius: '9999px', border: '3px solid #CD7F32' }}
                 />
-                <img src="/icons/rank-3.svg" alt="3" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
+                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-[28px] h-[28px] rounded-full bg-[#CD7F32] flex items-center justify-center shadow-md">
+                  <span className="text-[13px] font-extrabold text-white">3</span>
+                </div>
               </div>
-              <p className="text-[13px] font-bold text-gray-900 mt-3">{MOCK_PROS[2].name}</p>
-              <p className="text-[11px] text-gray-400">{MOCK_PROS[2].role}</p>
+              <p className="text-[16px] font-bold text-gray-900 mt-4">{MOCK_PROS[2].name}</p>
+              <p className="text-[14px] text-gray-400">{MOCK_PROS[2].role}</p>
             </Link>
           </div>
 

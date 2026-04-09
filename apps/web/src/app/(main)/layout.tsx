@@ -3,17 +3,17 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, MessageCircle, CalendarDays, Heart, User, Briefcase } from 'lucide-react';
+import Image from 'next/image';
 import Footer from '@/components/Footer';
 import FavoriteAnimation from '@/components/FavoriteAnimation';
 
 const NAV_ITEMS = [
-  { href: '/home',      icon: Home,          label: '홈' },
-  { href: '/schedule',  icon: CalendarDays,  label: '스케줄' },
-  { href: '/biz',       icon: Briefcase,     label: 'Biz' },
-  { href: '/chat',      icon: MessageCircle, label: '채팅' },
-  { href: '/favorites', icon: Heart,         label: '찜' },
-  { href: '/my',        icon: User,          label: '마이' },
+  { href: '/home',      iconSrc: '/images/홈 아이콘.svg',     label: '홈' },
+  { href: '/schedule',  iconSrc: '/images/스케줄 아이콘.svg', label: '스케줄' },
+  { href: '/biz',       iconSrc: '/images/비즈 아이콘.svg',   label: 'Biz' },
+  { href: '/chat',      iconSrc: '/images/채팅 아이콘.svg',   label: '채팅' },
+  { href: '/favorites', iconSrc: '/images/찜 아이콘.svg',     label: '찜' },
+  { href: '/my',        iconSrc: '/images/마이 아이콘.svg',   label: '마이' },
 ];
 
 const HIDE_NAV_PATTERNS = [
@@ -78,7 +78,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </Link>
 
           <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+            {NAV_ITEMS.map(({ href, iconSrc, label }) => {
               const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
               const isBiz = href === '/biz';
               return (
@@ -94,7 +94,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   }`}
                   style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
                 >
-                  <Icon size={18} strokeWidth={isBiz ? 2.4 : active ? 2.2 : 1.8} />
+                  <Image src={iconSrc} alt={label} width={18} height={18} className={active ? 'opacity-100' : 'opacity-60'} />
                   {label}
                 </Link>
               );
@@ -142,7 +142,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               }}
             >
               <div className="flex items-center justify-around h-full overflow-hidden">
-                {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
+                {NAV_ITEMS.map(({ href, iconSrc, label }, idx) => {
                   const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
                   const isBiz = href === '/biz';
                   const itemStyle: React.CSSProperties = {
@@ -167,7 +167,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         setTimeout(() => router.push('/biz'), 500);
                       }}
                     >
-                      <Icon size={20} strokeWidth={2.4} />
+                      <Image src={iconSrc} alt={label} width={20} height={20} />
                       <span className="text-[9px] font-black">{label}</span>
                     </button>
                   ) : (
@@ -188,7 +188,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         }
                       }}
                     >
-                      <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
+                      <Image src={iconSrc} alt={label} width={20} height={20} className={active ? 'opacity-100' : 'opacity-60'} />
                       <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
                     </Link>
                   );
