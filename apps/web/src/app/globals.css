@@ -23,6 +23,25 @@
   100% { transform: translateX(200%) skewX(-15deg); }
 }
 
+/* Section reveal on scroll */
+.section-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.section-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Card press effect */
+.card-press {
+  transition: transform 0.15s ease;
+}
+.card-press:active {
+  transform: scale(0.97);
+}
+
 @keyframes breathe {
   0%, 100% { box-shadow: 0 4px 20px rgba(17, 128, 255, 0.3); }
   50% { box-shadow: 0 4px 30px rgba(17, 128, 255, 0.55); }

@@ -1,10 +1,57 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin, Gift } from 'lucide-react';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
+
+/* ─── Scroll Reveal Hook ──────────────────────────────────── */
+function useReveal(threshold = 0.15) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVisible(true); }, { threshold });
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [threshold]);
+  return { ref, visible };
+}
+
+/* ─── Reveal Wrapper ─────────────────────────────────────── */
+function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const { ref, visible } = useReveal();
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out ${visible ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-6 opacity-0 blur-[3px]'} ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ─── Count-Up Animation ─────────────────────────────────── */
+function CountUpText({ value, suffix = '' }: { value: number; suffix?: string }) {
+  const { ref, visible } = useReveal(0.3);
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!visible) return;
+    const duration = 1200;
+    const start = Date.now();
+    const tick = () => {
+      const progress = Math.min(1, (Date.now() - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(value * eased));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    tick();
+  }, [visible, value]);
+  return <span ref={ref}>{count}{suffix}</span>;
+}
 
 function Logo({ className }: { className?: string }) {
   return (
@@ -420,13 +467,13 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
   return (
     <Link
       href={`/pros/${pro.id}`}
-      className="block opacity-0 animate-fade-in group"
+      className="block opacity-0 animate-fade-in group card-press"
       style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
     >
       <div className="relative rounded-lg overflow-hidden">
         {/* Mobile: single 3:4 image */}
         <div className="lg:hidden" style={{ aspectRatio: '3 / 4' }}>
-          <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover" />
+          <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
         </div>
         {/* Desktop: 1+2 grid layout */}
         <div className="hidden lg:grid grid-cols-[1fr_0.5fr] gap-[2px] h-[220px]">
@@ -462,7 +509,7 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
           </div>
         </div>
         <div className="flex flex-wrap gap-1">
-          <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
+          <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력<CountUpText value={pro.experience} suffix="년" /></span>
           {languages && languages.map((lang) => (
             <span key={lang} className="text-[10px] font-bold px-1.5 rounded-[5px] bg-blue-50 text-blue-600 flex items-center" style={{ height: 22 }}>{lang}</span>
           ))}
@@ -483,6 +530,7 @@ export default function HomePage() {
   const rankScrollRef = useRef<HTMLDivElement>(null);
   const [selectedLang, setSelectedLang] = useState<string | null>(null);
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
   const [logoVisible, setLogoVisible] = useState(true);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -540,6 +588,11 @@ export default function HomePage() {
     if (!EVENT_SPECIALIST_IDS.includes(p.id)) return false;
     if (!selectedEventType) return true;
     return EVENT_SPECIALIST[p.id] === selectedEventType;
+  });
+
+  const regionPros = MOCK_PROS.filter((p) => {
+    if (!selectedRegion) return true;
+    return p.region === selectedRegion || p.region === '전국';
   });
 
   const onlinePros = MOCK_PROS.filter((p) => p.id in PRO_ONLINE_STATUS).slice(0, 20);
@@ -880,15 +933,17 @@ export default function HomePage() {
         {/* 3. 인기 전문가 — PC 5×2, Mobile 2×3                        */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="section-title">인기 전문가</h3>
-              <p className="section-subtitle mt-1">고객 만족도가 높은 전문가를 만나보세요</p>
+          <Reveal>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="section-title">인기 전문가</h3>
+                <p className="section-subtitle mt-1">고객 만족도가 높은 전문가를 만나보세요</p>
+              </div>
+              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+                전체보기 <ChevronRight size={16} />
+              </Link>
             </div>
-            <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
-              전체보기 <ChevronRight size={16} />
-            </Link>
-          </div>
+          </Reveal>
           {/* Mobile: 3×3 grid, Desktop: 5×2 grid */}
           <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
             {MOCK_PROS.slice(0, 10).map((pro, i) => (
@@ -967,6 +1022,44 @@ export default function HomePage() {
           </div>
           {eventPros.length === 0 && (
             <p className="text-center text-gray-400 text-[14px] py-10">해당 행사 유형의 전문가가 없습니다</p>
+          )}
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 4.5 지역별 사회자                                           */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <section>
+          <Reveal>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="section-title">지역별 사회자</h3>
+                <p className="section-subtitle mt-1">내 지역에서 바로 활동하는 전문가</p>
+              </div>
+              <Link href="/pros" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+                전체보기 <ChevronRight size={16} />
+              </Link>
+            </div>
+          </Reveal>
+          <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+            {['서울/경기', '충청', '경상', '전라', '강원', '제주'].map((region) => (
+              <button
+                key={region}
+                onClick={() => setSelectedRegion(selectedRegion === region ? null : region)}
+                className={selectedRegion === region ? 'chip-active' : 'chip-inactive'}
+              >
+                {region}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
+            {regionPros.slice(0, 9).map((pro, i) => (
+              <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
+                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
+              </div>
+            ))}
+          </div>
+          {regionPros.length === 0 && (
+            <p className="text-center text-gray-400 text-[14px] py-10">해당 지역의 전문가가 없습니다</p>
           )}
         </section>
 
