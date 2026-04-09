@@ -1067,24 +1067,11 @@ export default function HomePage() {
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section className="relative" style={{ overflow: 'visible' }}>
-          {/* 부드러운 파란 그라데이션 돔 - 반응형 */}
-          <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-20 z-0 rounded-full"
-            style={{
-              width: '110%',
-              maxWidth: '720px',
-              aspectRatio: '1 / 1',
-              background: 'radial-gradient(circle at center, #DBEAFE 0%, #EFF6FF 35%, rgba(239, 246, 255, 0.4) 65%, rgba(239, 246, 255, 0) 80%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 45%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 85%)',
-              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 45%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0) 85%)',
-            }}
-            aria-hidden="true"
-          />
           {/* Spline crystal ball - iframe scale 0.5 + 500px 높이 + 하단 화이트 그라데이션 */}
           <div
             className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 overflow-hidden"
             style={{
-              top: '60px',
+              top: '-20px',
               width: '100vw',
               maxWidth: '900px',
               height: '500px',
