@@ -81,6 +81,20 @@
   100% { transform: scale(1); }
 }
 
+/* 안 읽은 채팅 - 숨쉬는 그라데이션 */
+@keyframes unreadBreath {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* 안 읽은 채팅 - 셔머 (좌→우 흘러가는 빛) */
+@keyframes unreadShimmer {
+  0% { background-position: 200% 0; opacity: 0; }
+  20% { opacity: 0.8; }
+  60% { opacity: 0.8; }
+  100% { background-position: -100% 0; opacity: 0; }
+}
+
 /* Apple Liquid Glass tap interaction — subtle & premium */
 @keyframes liquidTap {
   0% { transform: scale(1); }
