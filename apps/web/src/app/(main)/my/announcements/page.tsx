@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronDown, Pin, Megaphone } from 'lucide-react';
+import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const MOCK_ANNOUNCEMENTS = [
@@ -44,12 +44,8 @@ export default function AnnouncementsPage() {
             <div
               key={a.id}
               className={`rounded-2xl border transition-all duration-300 ${
-                isOpen
-                  ? 'border-gray-200 shadow-sm bg-white'
-                  : a.isPinned
-                  ? 'border-blue-100 bg-blue-50/30'
-                  : 'border-gray-100 bg-white'
-              }`}
+                isOpen ? 'border-gray-200 shadow-sm' : 'border-gray-100'
+              } bg-white`}
             >
               <button
                 onClick={() => setOpenId(isOpen ? null : a.id)}
@@ -57,14 +53,13 @@ export default function AnnouncementsPage() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    {a.isPinned && <Pin size={12} className="text-blue-500 fill-blue-500 shrink-0" />}
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TAG_COLORS[a.tag] || 'bg-gray-100 text-gray-500'}`}>
                       {a.tag}
                     </span>
                     <span className="text-[11px] text-gray-400">{a.date}</span>
                   </div>
                   <p className={`text-[14px] leading-snug ${
-                    isOpen ? 'font-bold text-gray-900' : a.isPinned ? 'font-bold text-gray-900' : 'font-medium text-gray-700'
+                    isOpen ? 'font-bold text-gray-900' : 'font-medium text-gray-700'
                   }`}>
                     {a.title}
                   </p>
