@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight } from 'lucide-react';
+import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -196,6 +197,12 @@ export default function ProDetailPage() {
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
+  const [favoriteItems, setFavoriteItems] = useState<Set<string>>(new Set());
+  const [imageModal, setImageModal] = useState<string | null>(null);
+  const [shareModal, setShareModal] = useState(false);
+  const [purchaseModal, setPurchaseModal] = useState(false);
+  const [reviewsModal, setReviewsModal] = useState(false);
+  const [phoneModal, setPhoneModal] = useState(false);
 
   const descRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
@@ -212,6 +219,86 @@ export default function ProDetailPage() {
     return () => clearTimeout(t);
   }, [activePlan]);
 
+  // Active section auto-tracking on scroll
+  useEffect(() => {
+    const sections: Array<{ id: 'desc' | 'info' | 'reviews'; ref: React.RefObject<HTMLDivElement> }> = [
+      { id: 'desc', ref: descRef },
+      { id: 'info', ref: infoRef },
+      { id: 'reviews', ref: reviewsRef },
+    ];
+    const onScroll = () => {
+      const scrollY = window.scrollY + 120;
+      let current: 'desc' | 'info' | 'reviews' = 'desc';
+      sections.forEach(({ id, ref }) => {
+        if (ref.current && ref.current.offsetTop <= scrollY) current = id;
+      });
+      setActiveSection(current);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Body scroll lock when modals open
+  useEffect(() => {
+    const anyModal = imageModal || shareModal || purchaseModal || reviewsModal || phoneModal;
+    if (anyModal) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [imageModal, shareModal, purchaseModal, reviewsModal, phoneModal]);
+
+  // Toggle carousel favorite
+  const toggleCarouselFav = (id: string) => {
+    setFavoriteItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        toast('찜 해제', { icon: '💙' });
+      } else {
+        next.add(id);
+        toast('찜 목록에 추가됨', { icon: '❤️' });
+      }
+      return next;
+    });
+  };
+
+  // Handlers
+  const handleShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: pro.title, url: window.location.href });
+      } catch {
+        setShareModal(true);
+      }
+    } else {
+      setShareModal(true);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (typeof navigator !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('링크가 복사되었습니다');
+      setShareModal(false);
+    }
+  };
+
+  const handleToggleFavorite = () => {
+    setIsFavorited((v) => {
+      toast(v ? '찜 해제' : '찜 목록에 추가됨', { icon: v ? '💙' : '❤️' });
+      return !v;
+    });
+  };
+
+  const handlePurchase = () => {
+    setPurchaseModal(true);
+  };
+
+  const confirmPurchase = () => {
+    setPurchaseModal(false);
+    toast.success('결제 페이지로 이동합니다');
+    setTimeout(() => router.push(`/chat/${pro.id}`), 500);
+  };
+
   const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
     setActiveSection(section);
     const target = section === 'desc' ? descRef.current : section === 'info' ? infoRef.current : reviewsRef.current;
@@ -225,16 +312,22 @@ export default function ProDetailPage() {
     <div className="bg-white min-h-screen pb-24">
       {/* ─── Top Header (Floating) ─── */}
       <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 pt-3 pb-3">
-        <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm">
+        <button
+          onClick={() => router.back()}
+          className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+        >
           <ChevronLeft size={22} className="text-gray-900" />
         </button>
         <div className="flex items-center gap-2">
-          <button className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm">
+          <button
+            onClick={() => setPhoneModal(true)}
+            className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+          >
             <Phone size={18} className="text-gray-900" />
           </button>
           <button
-            onClick={() => navigator.share?.({ url: typeof window !== 'undefined' ? window.location.href : '' })}
-            className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm"
+            onClick={handleShare}
+            className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-90 transition-transform"
           >
             <Share2 size={18} className="text-gray-900" />
           </button>
@@ -261,9 +354,13 @@ export default function ProDetailPage() {
           }}
         >
           {pro.images.map((src, i) => (
-            <div key={i} className="relative w-full h-full shrink-0">
+            <button
+              key={i}
+              onClick={() => setImageModal(src)}
+              className="relative w-full h-full shrink-0 block"
+            >
               <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} />
-            </div>
+            </button>
           ))}
         </div>
 
@@ -504,14 +601,26 @@ export default function ProDetailPage() {
 
       {/* ─── 다른 회원들이 함께 보고 있어요 ─── */}
       <div className="px-5 pt-10">
-        <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">다른 회원들이<br />함께 보고 있어요</h3>
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
+        <Reveal>
+          <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">다른 회원들이<br />함께 보고 있어요</h3>
+        </Reveal>
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5 snap-x">
           {pro.alsoViewed.map((item) => (
-            <div key={item.id} className="shrink-0 w-[150px]">
+            <Link
+              key={item.id}
+              href={`/pros/${item.id}`}
+              className="shrink-0 w-[150px] snap-start group"
+            >
               <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gray-100">
-                <Image src={item.image} alt="" fill className="object-cover" />
-                <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
-                  <Heart size={14} className="text-gray-400" />
+                <Image src={item.image} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                <button
+                  onClick={(e) => { e.preventDefault(); toggleCarouselFav(item.id); }}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <Heart
+                    size={14}
+                    className={favoriteItems.has(item.id) ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'}
+                  />
                 </button>
               </div>
               <p className="text-[12px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
@@ -523,7 +632,7 @@ export default function ProDetailPage() {
                 </div>
               )}
               <p className="text-[11px] text-gray-400 mt-0.5">{item.author}</p>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -549,7 +658,10 @@ export default function ProDetailPage() {
           </div>
         </div>
 
-        <button className="w-full py-3.5 border border-gray-200 rounded-lg text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors mb-5">
+        <button
+          onClick={() => router.push(`/chat/${pro.id}`)}
+          className="w-full py-3.5 border-2 border-[#3180F7]/20 rounded-lg text-[14px] font-semibold text-[#3180F7] hover:bg-[#EAF3FF]/40 active:scale-[0.98] transition-all mb-5"
+        >
           문의하기
         </button>
 
@@ -577,11 +689,14 @@ export default function ProDetailPage() {
         <h3 className="text-[17px] font-bold text-gray-900 leading-tight mt-10 mb-4">이 전문가의<br />다른 서비스예요</h3>
         <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
           {pro.otherServices.map((item) => (
-            <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[180px]">
-              <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gradient-to-br from-pink-100 to-rose-100">
-                <Image src={item.image} alt="" fill className="object-cover" />
-                <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
-                  <Heart size={14} className="text-gray-400" />
+            <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[180px] group">
+              <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gradient-to-br from-blue-50 to-cyan-50">
+                <Image src={item.image} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                <button
+                  onClick={(e) => { e.preventDefault(); toggleCarouselFav(item.id); }}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <Heart size={14} className={favoriteItems.has(item.id) ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'} />
                 </button>
               </div>
               <p className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
@@ -652,28 +767,45 @@ export default function ProDetailPage() {
           ))}
         </div>
 
-        <button className="w-full py-3.5 border border-gray-200 rounded-lg text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors mt-5">
+        <button
+          onClick={() => setReviewsModal(true)}
+          className="w-full py-3.5 border border-gray-200 rounded-lg text-[14px] font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all mt-5"
+        >
           리뷰 전체보기
         </button>
       </div>
 
       {/* ─── Expandable panels ─── */}
-      <div className="px-5 pt-8 space-y-1">
+      <div className="px-5 pt-8">
         {[
-          { id: 'info', label: '서비스 정보' },
-          { id: 'revision', label: '수정 및 재진행' },
-          { id: 'cancel', label: '취소 및 환불 규정' },
-          { id: 'notice', label: '상품정보고시' },
-        ].map((panel) => (
-          <button
-            key={panel.id}
-            onClick={() => setExpandedPanel(expandedPanel === panel.id ? null : panel.id)}
-            className="w-full flex items-center justify-between py-4 text-left"
-          >
-            <span className="text-[15px] font-medium text-gray-900">{panel.label}</span>
-            <ChevronDown size={20} className={`text-gray-400 transition-transform ${expandedPanel === panel.id ? 'rotate-180' : ''}`} />
-          </button>
-        ))}
+          { id: 'info', label: '서비스 정보', content: `• 카테고리: MC / 아나운서\n• 평균 작업 기간: 20일 이내\n• 커뮤니케이션: 1시간 이내 응답\n• 수정 횟수: 1회 포함\n• 취소·환불 정책: 환불 규정 참고` },
+          { id: 'revision', label: '수정 및 재진행', content: `• 상품 구매 후 수정 횟수는 1회입니다.\n• 수정 요청은 작업 완료 전 요청 가능합니다.\n• 추가 수정이 필요한 경우 별도 협의가 필요합니다.` },
+          { id: 'cancel', label: '취소 및 환불 규정', content: `• 작업 시작 전: 100% 환불\n• 작업 진행 중: 진행률에 따른 일부 환불\n• 작업 완료 후: 환불 불가\n※ 상세 규정은 프리티풀 이용약관을 따릅니다.` },
+          { id: 'notice', label: '상품정보고시', content: `• 제공자: ${pro.name}\n• 서비스 제공방식: 온/오프라인\n• 결제 후 계약 내용 변경은 상호 협의에 의해서만 가능합니다.` },
+        ].map((panel) => {
+          const isOpen = expandedPanel === panel.id;
+          return (
+            <div key={panel.id} className="border-b border-gray-100 last:border-0">
+              <button
+                onClick={() => setExpandedPanel(isOpen ? null : panel.id)}
+                className="w-full flex items-center justify-between py-4 text-left"
+              >
+                <span className="text-[15px] font-medium text-gray-900">{panel.label}</span>
+                <ChevronDown size={20} className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#3180F7]' : ''}`} />
+              </button>
+              <div
+                className="overflow-hidden transition-all duration-500"
+                style={{
+                  maxHeight: isOpen ? 400 : 0,
+                  opacity: isOpen ? 1 : 0,
+                  transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+              >
+                <div className="pb-4 text-[13px] text-gray-500 leading-[1.8] whitespace-pre-line">{panel.content}</div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ─── Divider ─── */}
@@ -684,11 +816,14 @@ export default function ProDetailPage() {
         <h2 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">MC<br />인기 서비스 어때요?</h2>
         <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
           {pro.popularServices.map((item) => (
-            <div key={item.id} className="shrink-0 w-[180px]">
+            <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[180px] group">
               <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gray-100">
-                <Image src={item.image} alt="" fill className="object-cover" />
-                <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
-                  <Heart size={14} className="text-gray-400" />
+                <Image src={item.image} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                <button
+                  onClick={(e) => { e.preventDefault(); toggleCarouselFav(item.id); }}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <Heart size={14} className={favoriteItems.has(item.id) ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'} />
                 </button>
                 {item.isPrime && (
                   <div className="absolute bottom-2 left-2 bg-black text-white text-[10px] font-black italic px-1.5 py-0.5 rounded">prime</div>
@@ -696,7 +831,7 @@ export default function ProDetailPage() {
               </div>
               <p className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
               <p className="text-[15px] font-bold text-gray-900">{item.price.toLocaleString()}원~</p>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -706,7 +841,7 @@ export default function ProDetailPage() {
         <div className="flex items-stretch gap-2 max-w-[680px] mx-auto">
           {/* Heart */}
           <button
-            onClick={() => setIsFavorited(!isFavorited)}
+            onClick={handleToggleFavorite}
             className="relative w-12 border border-gray-200 rounded-lg flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
           >
             <Heart
@@ -739,6 +874,7 @@ export default function ProDetailPage() {
 
           {/* 구매하기 */}
           <button
+            onClick={handlePurchase}
             className="relative flex-1 h-12 rounded-lg text-[14px] font-bold text-white active:scale-95 transition-transform overflow-hidden"
             style={{
               background: 'linear-gradient(135deg, #3180F7 0%, #1A68E0 100%)',
@@ -757,8 +893,189 @@ export default function ProDetailPage() {
         </div>
       </div>
 
+      {/* ─── Image Modal (확대) ─── */}
+      {imageModal && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center"
+          onClick={() => setImageModal(null)}
+          style={{ animation: 'modalFade 0.3s ease-out' }}
+        >
+          <button
+            onClick={() => setImageModal(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white"
+          >
+            <X size={24} />
+          </button>
+          <Image src={imageModal} alt="" width={1200} height={1200} className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg" />
+        </div>
+      )}
+
+      {/* ─── Share Modal ─── */}
+      {shareModal && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
+          onClick={() => setShareModal(false)}
+          style={{ animation: 'modalFade 0.3s ease-out' }}
+        >
+          <div
+            className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-safe"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
+          >
+            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4 sm:hidden" />
+            <h3 className="text-[18px] font-bold text-gray-900 mb-5">공유하기</h3>
+            <button
+              onClick={handleCopyLink}
+              className="w-full flex items-center gap-3 py-4 px-4 hover:bg-gray-50 rounded-xl transition-colors"
+            >
+              <div className="w-11 h-11 rounded-full bg-[#EAF3FF] flex items-center justify-center">
+                <Link2 size={20} className="text-[#3180F7]" />
+              </div>
+              <span className="text-[15px] font-medium text-gray-900">링크 복사</span>
+            </button>
+            <button
+              onClick={() => setShareModal(false)}
+              className="w-full mt-2 py-3.5 bg-gray-100 rounded-xl text-[14px] font-semibold text-gray-700"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Phone Modal ─── */}
+      {phoneModal && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
+          onClick={() => setPhoneModal(false)}
+          style={{ animation: 'modalFade 0.3s ease-out' }}
+        >
+          <div
+            className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-safe"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
+          >
+            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4 sm:hidden" />
+            <div className="text-center py-4">
+              <div className="w-16 h-16 rounded-full bg-[#EAF3FF] flex items-center justify-center mx-auto mb-4">
+                <Phone size={28} className="text-[#3180F7]" />
+              </div>
+              <h3 className="text-[18px] font-bold text-gray-900 mb-2">전화 상담</h3>
+              <p className="text-[14px] text-gray-500 mb-6">
+                채팅으로 먼저 문의하시면<br />더 빠른 답변을 받을 수 있어요
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPhoneModal(false)}
+                  className="flex-1 py-3.5 bg-gray-100 rounded-xl text-[14px] font-semibold text-gray-700"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={() => { setPhoneModal(false); router.push(`/chat/${pro.id}`); }}
+                  className="flex-1 py-3.5 rounded-xl text-[14px] font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, #3180F7, #1A68E0)' }}
+                >
+                  채팅 문의
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Purchase Modal ─── */}
+      {purchaseModal && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
+          onClick={() => setPurchaseModal(false)}
+          style={{ animation: 'modalFade 0.3s ease-out' }}
+        >
+          <div
+            className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-safe"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
+          >
+            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4 sm:hidden" />
+            <h3 className="text-[18px] font-bold text-gray-900 mb-4">구매 확인</h3>
+            <div className="bg-gray-50 rounded-xl p-4 mb-5">
+              <p className="text-[12px] text-gray-400 mb-1">{plan.label}</p>
+              <p className="text-[15px] font-bold text-gray-900 mb-2">{plan.title}</p>
+              <div className="flex items-end justify-between pt-3 border-t border-gray-200">
+                <span className="text-[13px] text-gray-500">결제 금액</span>
+                <span className="text-[22px] font-black text-[#3180F7]">{plan.price.toLocaleString()}원</span>
+              </div>
+            </div>
+            <p className="text-[12px] text-gray-400 mb-5 text-center">결제 시 수수료 4.5%(VAT포함)가 추가돼요</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPurchaseModal(false)}
+                className="flex-1 py-3.5 bg-gray-100 rounded-xl text-[14px] font-semibold text-gray-700"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmPurchase}
+                className="flex-1 py-3.5 rounded-xl text-[14px] font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #3180F7, #1A68E0)' }}
+              >
+                결제하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Reviews Full Modal ─── */}
+      {reviewsModal && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end justify-center"
+          onClick={() => setReviewsModal(false)}
+          style={{ animation: 'modalFade 0.3s ease-out' }}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto pb-safe"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between z-10">
+              <h3 className="text-[17px] font-bold text-gray-900">전체 리뷰 ({pro.reviewCount})</h3>
+              <button onClick={() => setReviewsModal(false)}>
+                <X size={22} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-6">
+              {pro.reviews.map((review) => (
+                <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>
+                    <span className="text-[14px] text-gray-600">{review.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <StarRating value={review.rating} size={14} />
+                    <span className="text-[13px] font-bold text-gray-900">{review.rating}</span>
+                    <span className="text-[12px] text-gray-300">|</span>
+                    <span className="text-[12px] text-gray-400">{review.date}</span>
+                  </div>
+                  <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
+                  <p className="text-[12px] text-gray-400">작업일 : {review.workDays}일 | 주문 금액 : {review.orderRange}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Premium animations */}
       <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes modalFade {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        @keyframes sheetUp {
+          0% { transform: translateY(100%); }
+          100% { transform: translateY(0); }
+        }
         @keyframes tooltipBounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-3px); }
