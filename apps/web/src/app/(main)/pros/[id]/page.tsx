@@ -64,7 +64,7 @@ function CountUp({ value, suffix = '' }: { value: number; suffix?: string }) {
 
 const MOCK_PRO = {
   id: '1',
-  name: '아나운서전해별',
+  name: '전해별',
   level: 'Level 1',
   profileImage: 'https://i.pravatar.cc/150?img=45',
   mainImage: 'https://i.pravatar.cc/800?img=45',
@@ -73,14 +73,20 @@ const MOCK_PRO = {
     'https://i.pravatar.cc/800?img=47',
     'https://i.pravatar.cc/800?img=48',
   ],
-  title: '탄탄한 발성의 아나운서가 귀사에 품격을 더해 드립니다',
+  title: '사회자 전해별',
   isPrime: true,
+  youtubeId: 'dQw4w9WgXcQ',
+  youtubeVideos: [
+    { id: 'dQw4w9WgXcQ', title: '2026 봄 웨딩 MC 현장 영상' },
+    { id: 'jNQXAC9IVRw', title: '기업 행사 진행 하이라이트' },
+    { id: 'kJQP7kiw5Fk', title: '돌잔치 MC 진행 영상' },
+  ],
   rating: 4.9,
   reviewCount: 79,
   plans: [
-    { id: 'standard', label: 'STANDARD', price: 450000, duration: '1시간', title: '행사, 영상 1시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 1시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
-    { id: 'deluxe', label: 'DELUXE', price: 800000, duration: '2시간', title: '행사, 영상 2시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 2시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
-    { id: 'premium', label: 'PREMIUM', price: 1700000, duration: '6시간', title: '6시간 행사 및 촬영 (풀타임)', desc: ['행사 및 영상 진행 6시간 이상 진행', '행사 규모에 따라 조정될 수 있습니다.\n 문의 부탁드립니다'], workDays: 20, revisions: 1 },
+    { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사, 영상 1시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 1시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
+    { id: 'superior', label: 'Superior', price: 800000, duration: '2시간', title: '행사, 영상 2시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 2시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
+    { id: 'enterprise', label: 'Enterprise', price: 1700000, duration: '6시간', title: '6시간 행사 및 촬영 (풀타임)', desc: ['행사 및 영상 진행 6시간 이상 진행', '행사 규모에 따라 조정될 수 있습니다.\n 문의 부탁드립니다'], workDays: 20, revisions: 1 },
   ],
   description: `안녕하세요.
 
@@ -95,7 +101,7 @@ const MOCK_PRO = {
     totalDeals: 89,
     satisfaction: 100,
     memberType: '기업',
-    taxInvoice: '크몽 발행',
+    taxInvoice: '프리티풀 발행',
     responseTime: '1시간 이내',
     contactTime: '언제나 가능',
   },
@@ -108,6 +114,7 @@ const MOCK_PRO = {
       name: '나른********',
       rating: 5.0,
       date: '26.02.09 13:18',
+      scores: { 경력: 5.0, 만족도: 5.0, 구성력: 5.0, 위트: 4.5, 발성: 5.0, 이미지: 5.0 },
       content: '상담과정부터 행사 진행, 마무리까지 모두 빠르고 친절하게 응대해 주셨어요! 진행도 상황에 맞게 톤 바꿔가시면서 잘 진행해 주셨습니다! 추운데 고생 많으셨습니다. 감사합니다!',
       workDays: 13,
       orderRange: '100만원 ~ 200만원',
@@ -122,16 +129,17 @@ const MOCK_PRO = {
       name: '스트********',
       rating: 5.0,
       date: '25.06.10 12:00',
+      scores: { 경력: 4.5, 만족도: 5.0, 구성력: 5.0, 위트: 5.0, 발성: 4.5, 이미지: 5.0 },
       content: '꼼꼼하고 안정적으로 촬영 잘 마쳤습니다~',
       workDays: 3,
       orderRange: '80만원 ~ 90만원',
       badge: 'Biz·기업',
     },
   ],
-  popularServices: [
-    { id: 'p1', title: '풍부한 경력을 갖춘 전문 아나운서의 고급스러운...', price: 400000, image: 'https://i.pravatar.cc/300?img=25' },
-    { id: 'p2', title: '성우MC 남기희 현직 성우의 품격있는 고급스...', price: 350000, image: 'https://i.pravatar.cc/300?img=33' },
-    { id: 'p3', title: '아나운서 MC 리포터 홍보영상의 품격을 높이...', price: 300000, image: 'https://i.pravatar.cc/300?img=47', isPrime: true },
+  recommendedPros: [
+    { id: 'p1', name: '장우주', role: '사회자', rating: 4.9, reviews: 67, experience: 12, image: 'https://i.pravatar.cc/300?img=25', tags: ['전국가능', '격식있는'], isPartner: true },
+    { id: 'p2', name: '남기희', role: '사회자', rating: 5.0, reviews: 45, experience: 8, image: 'https://i.pravatar.cc/300?img=33', tags: ['서울/경기', '유머러스한'], isPartner: true },
+    { id: 'p3', name: '김수연', role: '사회자', rating: 4.8, reviews: 89, experience: 15, image: 'https://i.pravatar.cc/300?img=47', tags: ['전국가능', '감동적인'], isPartner: true },
   ],
   alsoViewed: [
     { id: 'av1', title: '아리랑 국제방송-통역사 출신 영어 아나운서 I 한영...', price: 400000, author: '오유진', image: 'https://i.pravatar.cc/300?img=20' },
@@ -142,31 +150,146 @@ const MOCK_PRO = {
 
 // ─── Components ─────────────────────────────────────────────
 
+function RadarChart({ scores }: { scores: { label: string; value: number }[] }) {
+  const { ref, visible } = useReveal(0.3);
+  const cx = 130;
+  const cy = 130;
+  const r = 95;
+  const n = scores.length;
+  const total = scores.reduce((sum, s) => sum + s.value * (100 / 5), 0);
+  const maxValue = Math.max(...scores.map((s) => s.value));
+  const bestIndices = scores.map((s, i) => s.value === maxValue ? i : -1).filter((i) => i >= 0);
+
+  const getPoint = (i: number, scale: number) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    return { x: cx + Math.cos(angle) * r * scale, y: cy + Math.sin(angle) * r * scale };
+  };
+
+  const bgPath = scores.map((_, i) => { const p = getPoint(i, 1); return `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`; }).join(' ') + ' Z';
+  const dataPath = scores.map((s, i) => { const p = getPoint(i, visible ? s.value / 5 : 0); return `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`; }).join(' ') + ' Z';
+
+  return (
+    <div ref={ref} className="bg-gray-50 rounded-2xl p-5 mb-3">
+      <div className="flex items-center gap-3">
+        {/* Left: total + tags */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-gray-500">총 포텐셜점수</p>
+          <p className="text-[28px] font-bold text-[#3180F7] leading-tight">{Math.round(total)}점</p>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {scores.map((s) => (
+              <span key={s.label} className="px-2 h-[26px] rounded-full bg-white text-[10px] font-medium text-gray-600 flex items-center gap-1 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                {s.label} <span className="font-bold text-[#3180F7]">{s.value.toFixed(1)}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: radar chart SVG */}
+        <div className="shrink-0">
+          <svg width={160} height={160} viewBox="0 0 260 260" style={{ overflow: 'visible' }}>
+            {/* Grid lines */}
+            {[0.2, 0.4, 0.6, 0.8, 1].map((scale) => {
+              const path = scores.map((_, i) => { const p = getPoint(i, scale); return `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`; }).join(' ') + ' Z';
+              return <path key={scale} d={path} fill="none" stroke="#E5E7EB" strokeWidth="0.8" />;
+            })}
+
+            {/* Axis lines */}
+            {scores.map((_, i) => {
+              const p = getPoint(i, 1);
+              return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#E5E7EB" strokeWidth="0.8" />;
+            })}
+
+            {/* Data fill */}
+            <path
+              d={dataPath}
+              fill="rgba(49,128,247,0.2)"
+              stroke="#3180F7"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              style={{ transition: 'all 1.2s cubic-bezier(0.22, 1, 0.36, 1)' }}
+            />
+
+            {/* Data dots */}
+            {scores.map((s, i) => {
+              const p = getPoint(i, visible ? s.value / 5 : 0);
+              return (
+                <circle
+                  key={i}
+                  cx={p.x}
+                  cy={p.y}
+                  r={3}
+                  fill="#3180F7"
+                  style={{ transition: `all 1.2s cubic-bezier(0.22, 1, 0.36, 1) ${i * 80}ms` }}
+                />
+              );
+            })}
+
+            {/* Labels + BEST badge */}
+            {scores.map((s, i) => {
+              const p = getPoint(i, 1.22);
+              const isBest = bestIndices.includes(i);
+              return (
+                <g key={i}>
+                  <text
+                    x={p.x}
+                    y={p.y}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="text-[13px] font-semibold"
+                    fill={isBest ? '#1a1a1a' : '#6B7280'}
+                  >
+                    {s.label}
+                  </text>
+                  {isBest && visible && (
+                    <g style={{ animation: `bestBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.8 + i * 0.1}s both` }}>
+                      <g style={{ animation: 'bestFloat 2s ease-in-out infinite', transformOrigin: `${p.x}px ${p.y - 22}px` }}>
+                        <rect x={p.x - 24} y={p.y - 32} width={48} height={22} rx={11} fill="#1a1a1a" />
+                        <polygon points={`${p.x - 5},${p.y - 10} ${p.x + 5},${p.y - 10} ${p.x},${p.y - 5}`} fill="#1a1a1a" />
+                        <text x={p.x} y={p.y - 21} textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="700" letterSpacing="0.5">BEST</text>
+                      </g>
+                    </g>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 function ScoreBars() {
   const { ref, visible } = useReveal(0.3);
   const items = [
-    { label: '결과물 만족도', value: 4.9 },
-    { label: '친절한 상담', value: 4.9 },
-    { label: '신속한 대응', value: 4.9 },
+    { label: '경력', value: 5.0 },
+    { label: '만족도', value: 4.9 },
+    { label: '구성력', value: 5.0 },
+    { label: '위트', value: 4.8 },
+    { label: '발성', value: 5.0 },
+    { label: '이미지', value: 4.9 },
   ];
   return (
-    <div ref={ref} className="bg-gradient-to-br from-[#EAF3FF]/30 to-gray-50 rounded-xl px-5 py-5 space-y-3 mb-6 border border-gray-100">
-      {items.map((item, i) => (
-        <div key={item.label} className="flex items-center gap-3">
-          <span className="text-[13px] text-gray-600 w-20 shrink-0">{item.label}</span>
-          <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: visible ? `${(item.value / 5) * 100}%` : '0%',
-                background: 'linear-gradient(90deg, #3180F7, #6BA5FA)',
-                transition: `width 1.2s cubic-bezier(0.22, 1, 0.36, 1) ${i * 150}ms`,
-              }}
-            />
+    <div ref={ref} className="mb-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        {items.map((item, i) => (
+          <div key={item.label} className="flex items-center gap-2">
+            <span className="text-[12px] text-gray-500 w-14 shrink-0">{item.label}</span>
+            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: visible ? `${(item.value / 5) * 100}%` : '0%',
+                  background: 'linear-gradient(90deg, #3180F7, #6BA5FA)',
+                  transition: `width 1.2s cubic-bezier(0.22, 1, 0.36, 1) ${i * 150}ms`,
+                }}
+              />
+            </div>
+            <span className="text-[12px] font-bold text-gray-900 tabular-nums">{item.value}</span>
           </div>
-          <span className="text-[13px] font-bold text-gray-900 tabular-nums">{item.value}</span>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -193,6 +316,8 @@ export default function ProDetailPage() {
   const [activeImage, setActiveImage] = useState(0);
   const [activePlan, setActivePlan] = useState(1); // default deluxe
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
+  const [headerSolid, setHeaderSolid] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
   const [isFavorited, setIsFavorited] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
@@ -203,23 +328,17 @@ export default function ProDetailPage() {
   const [purchaseModal, setPurchaseModal] = useState(false);
   const [reviewsModal, setReviewsModal] = useState(false);
   const [phoneModal, setPhoneModal] = useState(false);
+  const [reviewMenu, setReviewMenu] = useState<string | null>(null);
 
   const descRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
   const reviewsRef = useRef<HTMLDivElement>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
-  const [priceFlash, setPriceFlash] = useState(false);
 
   const plan = pro.plans[activePlan];
 
-  // Price flash animation on plan switch
-  useEffect(() => {
-    setPriceFlash(true);
-    const t = setTimeout(() => setPriceFlash(false), 400);
-    return () => clearTimeout(t);
-  }, [activePlan]);
-
-  // Active section auto-tracking on scroll
+  // Active section auto-tracking on scroll + header solid bg
   useEffect(() => {
     const sections: Array<{ id: 'desc' | 'info' | 'reviews'; ref: React.RefObject<HTMLDivElement> }> = [
       { id: 'desc', ref: descRef },
@@ -233,6 +352,12 @@ export default function ProDetailPage() {
         if (ref.current && ref.current.offsetTop <= scrollY) current = id;
       });
       setActiveSection(current);
+      setScrollY(window.scrollY);
+      // Solid header when gallery's bottom passes the top of viewport
+      if (galleryRef.current) {
+        const galleryBottom = galleryRef.current.offsetTop + galleryRef.current.offsetHeight;
+        setHeaderSolid(window.scrollY > galleryBottom - 60);
+      }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
@@ -290,13 +415,12 @@ export default function ProDetailPage() {
   };
 
   const handlePurchase = () => {
-    setPurchaseModal(true);
+    router.push(`/pros/${pro.id}/booking`);
   };
 
   const confirmPurchase = () => {
     setPurchaseModal(false);
-    toast.success('결제 페이지로 이동합니다');
-    setTimeout(() => router.push(`/chat/${pro.id}`), 500);
+    router.push(`/pros/${pro.id}/booking`);
   };
 
   const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
@@ -309,25 +433,57 @@ export default function ProDetailPage() {
   };
 
   return (
-    <div className="bg-white min-h-screen pb-24">
-      {/* ─── Top Header (Floating) ─── */}
-      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 pt-3 pb-3">
+    <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
+      {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
+          headerSolid ? 'bg-white border-b border-gray-100 h-[60px] py-0' : 'justify-between pt-3 pb-3 px-4'
+        }`}
+      >
         <button
           onClick={() => router.back()}
-          className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+          className={`flex items-center justify-center shrink-0 active:scale-90 transition-all ${
+            headerSolid
+              ? 'w-9 h-9 text-gray-900'
+              : 'w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-sm'
+          }`}
         >
           <ChevronLeft size={22} className="text-gray-900" />
         </button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPhoneModal(true)}
-            className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-90 transition-transform"
-          >
-            <Phone size={18} className="text-gray-900" />
-          </button>
+
+        {/* Scrolled state: Thumbnail + Title + Price */}
+        <div
+          className={`flex-1 min-w-0 flex items-center gap-2.5 transition-all duration-300 ${
+            headerSolid ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          style={{
+            transform: headerSolid ? 'translateY(0)' : 'translateY(6px)',
+          }}
+        >
+          <img
+            src={pro.images[0]}
+            alt=""
+            className="w-10 h-10 rounded-xl object-cover shrink-0"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-bold text-gray-900 truncate leading-tight">
+              <span className="text-[#3180F7]">{pro.plans[activePlan].label}</span> {pro.title}
+            </p>
+            <p className="text-[12px] leading-tight mt-0.5">
+              <span className="font-bold text-gray-900">{pro.plans[activePlan].price.toLocaleString()}원</span>
+              <span className="text-gray-400 ml-1">(VAT 포함)</span>
+            </p>
+          </div>
+        </div>
+
+        <div className={`flex items-center gap-2 shrink-0 ${headerSolid ? '' : 'ml-auto'}`}>
           <button
             onClick={handleShare}
-            className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+            className={`flex items-center justify-center active:scale-90 transition-all ${
+              headerSolid
+                ? 'w-9 h-9 text-gray-900'
+                : 'w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-sm'
+            }`}
           >
             <Share2 size={18} className="text-gray-900" />
           </button>
@@ -336,6 +492,7 @@ export default function ProDetailPage() {
 
       {/* ─── Image Gallery with swipe ─── */}
       <div
+        ref={galleryRef}
         className="relative w-full aspect-square bg-gray-100 overflow-hidden"
         onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
         onTouchEnd={(e) => {
@@ -346,22 +503,32 @@ export default function ProDetailPage() {
           touchStartX.current = null;
         }}
       >
+        {/* Parallax wrapper: shrinks + moves up on scroll */}
         <div
-          className="flex h-full transition-transform duration-[600ms] will-change-transform"
+          className="absolute inset-0 will-change-transform"
           style={{
-            transform: `translateX(-${activeImage * 100}%)`,
-            transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            transform: `translateY(${scrollY * 0.35}px) scale(${Math.max(0.88, 1 - scrollY / 1600)})`,
+            transformOrigin: 'center center',
+            opacity: Math.max(0, 1 - scrollY / 600),
           }}
         >
-          {pro.images.map((src, i) => (
-            <button
-              key={i}
-              onClick={() => setImageModal(src)}
-              className="relative w-full h-full shrink-0 block"
-            >
-              <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} />
-            </button>
-          ))}
+          <div
+            className="flex h-full transition-transform duration-[600ms] will-change-transform"
+            style={{
+              transform: `translateX(-${activeImage * 100}%)`,
+              transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            {pro.images.map((src, i) => (
+              <button
+                key={i}
+                onClick={() => setImageModal(src)}
+                className="relative w-full h-full shrink-0 block"
+              >
+                <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} />
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Play button with pulse */}
@@ -394,49 +561,40 @@ export default function ProDetailPage() {
             />
           ))}
         </div>
+
+        {/* YouTube 영상 썸네일 (우측 하단) */}
+        {pro.youtubeId && (
+          <div
+            className="absolute bottom-4 right-4 w-[130px] aspect-[5/3] rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)] border-2 border-white/90 bg-black z-10"
+          >
+            <iframe
+              className="w-full h-full pointer-events-none"
+              src={`https://www.youtube.com/embed/${pro.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${pro.youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
+              title="YouTube preview"
+              allow="autoplay; encrypted-media"
+            />
+          </div>
+        )}
       </div>
 
       {/* ─── Main Content ─── */}
-      <div className="px-5 pt-5">
+      <div className="px-2.5 pt-4">
         {/* Pro row + prime */}
         <Reveal>
-          <div className="flex items-center justify-between mb-3">
-            <Link href={`/pros/${pro.id}`} className="flex items-center gap-2.5 group">
-              <div className="relative">
-                <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                <div className="absolute inset-0 rounded-full ring-2 ring-transparent group-hover:ring-[#3180F7]/30 transition-all duration-500" />
-              </div>
-              <div>
-                <span className="inline-block text-[10px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-0.5 rounded mb-0.5">{pro.level}</span>
-                <p className="text-[13px] font-medium text-gray-700 leading-tight">{pro.name}</p>
-              </div>
-            </Link>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2.5">
+              <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-xl object-cover" />
+              <p className="text-[18px] font-bold text-gray-900">사회자 {pro.name}</p>
+            </div>
             {pro.isPrime && (
-              <div
-                className="bg-black text-white text-[11px] font-black italic px-2 py-1 rounded relative overflow-hidden"
-                style={{ animation: 'primeShine 3s ease-in-out infinite' }}
-              >
-                <span className="relative z-10">prime</span>
-                <span
-                  className="absolute top-0 left-0 h-full w-1/3 pointer-events-none"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
-                    animation: 'primeShineMove 3s ease-in-out infinite',
-                  }}
-                />
-              </div>
+              <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[24px]" />
             )}
           </div>
         </Reveal>
 
-        {/* Title */}
-        <Reveal delay={100}>
-          <h1 className="text-[20px] font-bold text-gray-900 leading-tight mb-3">{pro.title}</h1>
-        </Reveal>
-
         {/* Rating */}
-        <Reveal delay={200}>
-          <div className="flex items-center gap-2 mb-6">
+        <Reveal delay={100}>
+          <div className="flex items-center gap-2 mb-4">
             <StarRating value={pro.rating} size={16} />
             <span className="text-[16px] font-bold text-gray-900">{pro.rating}</span>
             <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
@@ -444,7 +602,7 @@ export default function ProDetailPage() {
         </Reveal>
 
         {/* ─── Plan Tabs ─── */}
-        <div className="flex border-b border-gray-200 -mx-5 relative">
+        <div className="flex border-b border-gray-200 -mx-2.5 relative">
           {pro.plans.map((p, i) => (
             <button
               key={p.id}
@@ -470,49 +628,34 @@ export default function ProDetailPage() {
         {/* ─── Plan Content ─── */}
         <div className="py-5">
           {/* Price */}
-          <div
-            key={activePlan}
-            className="flex items-baseline gap-1.5"
-            style={{ animation: priceFlash ? 'priceFadeUp 0.5s ease-out' : undefined }}
-          >
-            <span className="text-[28px] font-black text-gray-900 tabular-nums">
-              <CountUp key={`${activePlan}-${plan.price}`} value={plan.price} />원
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[28px] font-bold text-gray-900 tabular-nums">
+              {plan.price.toLocaleString()}원
             </span>
             <span className="text-[14px] text-gray-400">(VAT 포함)</span>
           </div>
-          <p className="text-[12px] text-gray-400 mt-1">결제 시 수수료 4.5%(VAT포함)가 추가돼요.</p>
+          <p className="text-[12px] text-gray-400 mt-1">결제 시 수수료 10%(VAT포함)가 추가돼요.</p>
 
           {/* Service title */}
-          <div key={`title-${activePlan}`} className="mt-6 mb-3" style={{ animation: 'priceFadeUp 0.5s ease-out' }}>
+          <div className="mt-6 mb-3">
             <h3 className="text-[17px] font-bold text-gray-900">{plan.title}</h3>
           </div>
 
           {/* Description */}
-          <ul key={`desc-${activePlan}`} className="space-y-1 text-[14px] text-gray-700 leading-relaxed" style={{ animation: 'priceFadeUp 0.6s ease-out' }}>
+          <ul className="space-y-1 text-[14px] text-gray-700 leading-relaxed">
             {plan.desc.map((line, i) => (
               <li key={i} className="whitespace-pre-line">{i === 0 ? '- ' : '* '}{line}</li>
             ))}
           </ul>
 
-          {/* Info box */}
-          <div className="mt-6 bg-[#EAF3FF]/50 rounded-xl px-5 py-4 flex items-start justify-between border border-[#3180F7]/10">
-            <div className="space-y-1.5">
-              <p className="text-[13px] text-gray-500">작업일</p>
-              <p className="text-[13px] text-gray-500">수정 횟수</p>
-            </div>
-            <div className="space-y-1.5 text-right">
-              <p className="text-[13px] font-semibold text-gray-900">{plan.workDays}일</p>
-              <p className="text-[13px] font-semibold text-gray-900">{plan.revisions}회</p>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* ─── Divider ─── */}
       <div className="h-2 bg-gray-50" />
 
-      {/* ─── Section Tabs (Sticky) ─── */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200">
+      {/* ─── Section Tabs (Sticky below header) ─── */}
+      <div className="sticky top-[60px] z-30 bg-white border-b border-gray-200">
         <div className="flex relative">
           {[
             { id: 'desc', label: '서비스 설명' },
@@ -545,7 +688,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── 서비스 설명 Section ─── */}
-      <div ref={descRef} className="px-5 pt-8">
+      <div ref={descRef} className="px-2.5 pt-8">
         <Reveal>
           <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
         </Reveal>
@@ -555,7 +698,7 @@ export default function ProDetailPage() {
             <div className="relative overflow-hidden rounded-xl p-5 mb-6 border border-[#3180F7]/15 bg-gradient-to-br from-[#EAF3FF]/40 via-white to-white">
               {/* Glow accent */}
               <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#3180F7]/10 blur-3xl pointer-events-none" />
-              <div className="inline-block bg-black text-white text-[13px] font-black italic px-2 py-0.5 rounded mb-3 relative">prime</div>
+              <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[26px] mb-3 relative" />
               <p className="text-[15px] font-bold text-gray-900 mb-3">
                 이 서비스는 프리티풀 엄선 <span className="text-[#3180F7]">상위 2% 전문가</span>가 제공해요
               </p>
@@ -586,52 +729,77 @@ export default function ProDetailPage() {
         {!descExpanded && (
           <button
             onClick={() => setDescExpanded(true)}
-            className="mt-4 w-full py-3.5 border border-gray-200 rounded-lg text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="mt-4 w-full py-3.5 border border-gray-200 rounded-xl text-[18px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
             더보기
           </button>
         )}
 
         {/* Image expand notice */}
-        <div className="mt-8 bg-gray-50 rounded-lg py-3 flex items-center justify-center gap-2 text-[13px] text-gray-400">
+        <div className="mt-8 bg-gray-50 rounded-xl py-3 flex items-center justify-center gap-2 text-[13px] text-gray-400">
           이미지를 클릭해서 확대 할 수 있어요
           <ArrowUpRight size={14} />
         </div>
+
+        {/* YouTube 영상 리스트 */}
+        {pro.youtubeVideos && pro.youtubeVideos.length > 0 && (
+          <Reveal delay={200}>
+            <div className="mt-8">
+              <h3 className="text-[16px] font-bold text-gray-900 mb-3">영상</h3>
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x ml-[-2.5px] pl-[2.5px] pr-4">
+                {pro.youtubeVideos.map((video) => (
+                  <div key={video.id} className="shrink-0 w-[260px] snap-start">
+                    <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
+                      <iframe
+                        className="w-full h-full"
+                        src={`https://www.youtube.com/embed/${video.id}?modestbranding=1&rel=0&playsinline=1`}
+                        title={video.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                    <p className="mt-2 text-[13px] font-medium text-gray-700 leading-tight line-clamp-1">{video.title}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        )}
       </div>
 
-      {/* ─── 다른 회원들이 함께 보고 있어요 ─── */}
-      <div className="px-5 pt-10">
+      {/* ─── 프리티풀의 다른 검증된 전문가 ─── */}
+      <div className="px-4 pt-10">
         <Reveal>
-          <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">다른 회원들이<br />함께 보고 있어요</h3>
+          <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4"><span className="text-[#3180F7]">프리티풀</span>의 다른<br />검증된 전문가를 살펴보세요</h3>
         </Reveal>
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5 snap-x">
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x pr-4">
           {pro.alsoViewed.map((item) => (
             <Link
               key={item.id}
               href={`/pros/${item.id}`}
-              className="shrink-0 w-[150px] snap-start group"
+              className="shrink-0 w-[130px] snap-start group"
             >
-              <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gray-100">
+              <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3/4' }}>
                 <Image src={item.image} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
                 <button
                   onClick={(e) => { e.preventDefault(); toggleCarouselFav(item.id); }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
+                  className="absolute top-1.5 right-1.5 active:scale-90 transition-transform"
                 >
-                  <Heart
-                    size={14}
-                    className={favoriteItems.has(item.id) ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'}
-                  />
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill={favoriteItems.has(item.id) ? '#FF4D4D' : 'rgba(0,0,0,0.3)'}/></svg>
                 </button>
               </div>
-              <p className="text-[12px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
-              <p className="text-[14px] font-bold text-gray-900">{item.price.toLocaleString()}원~</p>
-              {item.rating && (
-                <div className="flex items-center gap-1 mt-1">
-                  <StarRating value={item.rating} size={10} />
-                  <span className="text-[11px] text-gray-500 font-semibold">{item.rating} ({item.reviewCount})</span>
-                </div>
-              )}
-              <p className="text-[11px] text-gray-400 mt-0.5">{item.author}</p>
+              <div className="mt-1.5">
+                <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[18px] mb-0.5" />
+                <p className="text-[13px] font-semibold text-gray-900 leading-tight">사회자 {item.author}</p>
+                {item.rating && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <StarRating value={item.rating} size={10} />
+                    <span className="text-[11px] font-bold text-gray-900">{item.rating}</span>
+                    <span className="text-[10px] text-gray-400">({item.reviewCount})</span>
+                  </div>
+                )}
+                <p className="text-[13px] font-bold text-gray-900 mt-0.5">{item.price.toLocaleString()}원~</p>
+              </div>
             </Link>
           ))}
         </div>
@@ -641,13 +809,12 @@ export default function ProDetailPage() {
       <div className="h-2 bg-gray-50 mt-8" />
 
       {/* ─── 전문가 정보 Section ─── */}
-      <div ref={infoRef} className="px-5 pt-8">
+      <div ref={infoRef} className="px-2.5 pt-8">
         <h2 className="text-[20px] font-bold text-gray-900 mb-5">전문가 정보</h2>
 
         <div className="flex items-center gap-4 mb-5">
-          <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-full object-cover" />
+          <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-xl object-cover" />
           <div className="flex-1">
-            <span className="inline-block text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mb-1">{pro.level}</span>
             <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
               <StarRating value={pro.rating} size={12} />
@@ -658,71 +825,66 @@ export default function ProDetailPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => router.push(`/chat/${pro.id}`)}
-          className="w-full py-3.5 border-2 border-[#3180F7]/20 rounded-lg text-[14px] font-semibold text-[#3180F7] hover:bg-[#EAF3FF]/40 active:scale-[0.98] transition-all mb-5"
-        >
-          문의하기
-        </button>
-
         {/* Stats grid */}
-        <div className="bg-gray-50 rounded-xl px-5 py-5 grid grid-cols-4 gap-3">
-          <div className="text-center">
-            <p className="text-[11px] text-gray-400 mb-1">총 거래 건수</p>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {/* 총 거래 건수 */}
+          <div className="bg-gray-50 rounded-xl px-3 py-3">
+            <p className="text-[11px] text-gray-400 mb-2">총 거래 건수</p>
+            <div className="flex items-end gap-1 h-[32px] mb-1.5">
+              {[35, 52, 68, 75, 82, 89].map((v, i) => (
+                <div key={i} className="flex-1 rounded-sm" style={{ height: `${(v / 89) * 100}%`, background: i === 5 ? '#3180F7' : '#E5E7EB' }} />
+              ))}
+            </div>
             <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.totalDeals}건</p>
           </div>
-          <div className="text-center">
-            <p className="text-[11px] text-gray-400 mb-1">만족도</p>
+          {/* 만족도 */}
+          <div className="bg-gray-50 rounded-xl px-3 py-3">
+            <p className="text-[11px] text-gray-400 mb-2">만족도</p>
+            <div className="relative w-full h-[32px] flex items-center justify-center mb-1.5">
+              <svg width="48" height="32" viewBox="0 0 48 32">
+                <circle cx="24" cy="24" r="20" fill="none" stroke="#E5E7EB" strokeWidth="5" strokeDasharray="94.2 125.7" transform="rotate(-210 24 24)" />
+                <circle cx="24" cy="24" r="20" fill="none" stroke="#3180F7" strokeWidth="5" strokeDasharray={`${94.2 * (pro.expertStats.satisfaction / 100)} 125.7`} strokeLinecap="round" transform="rotate(-210 24 24)" />
+              </svg>
+            </div>
             <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.satisfaction}%</p>
           </div>
-          <div className="text-center">
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-gray-50 rounded-xl px-3 py-3">
             <p className="text-[11px] text-gray-400 mb-1">회원구분</p>
             <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.memberType}</p>
           </div>
-          <div className="text-center">
+          <div className="bg-gray-50 rounded-xl px-3 py-3">
             <p className="text-[11px] text-gray-400 mb-1">세금계산서</p>
             <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.taxInvoice}</p>
           </div>
         </div>
 
-        {/* Other services */}
-        <h3 className="text-[17px] font-bold text-gray-900 leading-tight mt-10 mb-4">이 전문가의<br />다른 서비스예요</h3>
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
-          {pro.otherServices.map((item) => (
-            <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[180px] group">
-              <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gradient-to-br from-blue-50 to-cyan-50">
-                <Image src={item.image} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
-                <button
-                  onClick={(e) => { e.preventDefault(); toggleCarouselFav(item.id); }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
-                >
-                  <Heart size={14} className={favoriteItems.has(item.id) ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'} />
-                </button>
-              </div>
-              <p className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
-              <p className="text-[15px] font-bold text-gray-900">{item.price.toLocaleString()}원</p>
-              <div className="flex items-center gap-1 mt-1">
-                <StarRating value={item.rating} size={10} />
-                <span className="text-[11px] text-gray-500 font-semibold">{item.rating} ({item.reviewCount})</span>
-              </div>
-              <p className="text-[11px] text-gray-400 mt-0.5">{pro.name}</p>
-            </Link>
-          ))}
-        </div>
       </div>
 
       {/* ─── Divider ─── */}
       <div className="h-2 bg-gray-50 mt-10" />
 
       {/* ─── 리뷰 Section ─── */}
-      <div ref={reviewsRef} className="px-5 pt-8">
-        <h2 className="text-[20px] font-bold text-gray-900 mb-5">리뷰</h2>
+      <div ref={reviewsRef} className="px-2.5 pt-6">
+        <h2 className="text-[20px] font-bold text-gray-900 mb-2">리뷰</h2>
 
-        <div className="flex items-center gap-2 mb-5">
+        <div className="flex items-center gap-2 mb-2">
           <StarRating value={pro.rating} size={20} />
-          <span className="text-[24px] font-black text-gray-900">{pro.rating}</span>
+          <span className="text-[24px] font-bold text-gray-900">{pro.rating}</span>
           <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
         </div>
+
+        {/* Radar Chart */}
+        <RadarChart scores={[
+          { label: '경력', value: 5.0 },
+          { label: '만족도', value: 4.9 },
+          { label: '위트', value: 4.8 },
+          { label: '발성', value: 5.0 },
+          { label: '이미지', value: 4.9 },
+          { label: '구성력', value: 5.0 },
+        ]} />
 
         {/* Score bars */}
         <ScoreBars />
@@ -736,20 +898,46 @@ export default function ProDetailPage() {
 
         <div className="space-y-6">
           {pro.reviews.map((review) => (
-            <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>
-                <span className="text-[14px] text-gray-600">{review.name}</span>
+            <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0 relative">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>
+                  <span className="text-[14px] text-gray-600">{review.name}</span>
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => setReviewMenu(reviewMenu === review.id ? null : review.id)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    <span className="text-[16px] text-gray-400 leading-none">⋯</span>
+                  </button>
+                  {reviewMenu === review.id && (
+                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-20 min-w-[120px]">
+                      <button onClick={() => { toast('리뷰를 신고했습니다', { icon: '🚨' }); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">신고하기</button>
+                      <button onClick={() => { toast('리뷰를 차단했습니다', { icon: '🚫' }); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">차단하기</button>
+                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">복사하기</button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 mb-3">
+              <div className="flex items-center gap-1.5 mb-2">
                 <StarRating value={review.rating} size={14} />
                 <span className="text-[13px] font-bold text-gray-900">{review.rating}</span>
                 <span className="text-[12px] text-gray-300">|</span>
                 <span className="text-[12px] text-gray-400">{review.date}</span>
               </div>
+              {(review as typeof review & { scores?: Record<string, number> }).scores && (
+                <div className="flex flex-wrap gap-1 mb-2.5">
+                  {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).map(([key, val]) => (
+                    <span key={key} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>
+                      {key} <span className="font-bold text-[#3180F7] ml-1">{val}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
               <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
               <p className="text-[12px] text-gray-400 mb-2">
-                작업일 : {review.workDays}일 | 주문 금액 : {review.orderRange}
+                행사일 : {review.workDays}일 | 주문 금액 : <span className="font-bold text-gray-600">{review.orderRange}</span>
               </p>
               {review.badge && (
                 <span className="inline-block text-[11px] text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{review.badge}</span>
@@ -768,15 +956,15 @@ export default function ProDetailPage() {
         </div>
 
         <button
-          onClick={() => setReviewsModal(true)}
-          className="w-full py-3.5 border border-gray-200 rounded-lg text-[14px] font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all mt-5"
+          onClick={() => router.push(`/pros/${pro.id}/reviews`)}
+          className="w-full py-3.5 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all mt-5"
         >
           리뷰 전체보기
         </button>
       </div>
 
       {/* ─── Expandable panels ─── */}
-      <div className="px-5 pt-8">
+      <div className="px-2.5 pt-8">
         {[
           { id: 'info', label: '서비스 정보', content: `• 카테고리: MC / 아나운서\n• 평균 작업 기간: 20일 이내\n• 커뮤니케이션: 1시간 이내 응답\n• 수정 횟수: 1회 포함\n• 취소·환불 정책: 환불 규정 참고` },
           { id: 'revision', label: '수정 및 재진행', content: `• 상품 구매 후 수정 횟수는 1회입니다.\n• 수정 요청은 작업 완료 전 요청 가능합니다.\n• 추가 수정이 필요한 경우 별도 협의가 필요합니다.` },
@@ -811,38 +999,63 @@ export default function ProDetailPage() {
       {/* ─── Divider ─── */}
       <div className="h-2 bg-gray-50 mt-2" />
 
-      {/* ─── MC 인기 서비스 ─── */}
-      <div className="px-5 pt-8 pb-10">
-        <h2 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">MC<br />인기 서비스 어때요?</h2>
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
-          {pro.popularServices.map((item) => (
-            <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[180px] group">
-              <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gray-100">
-                <Image src={item.image} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
+      {/* ─── 추천 사회자 ─── */}
+      <div className="px-2.5 pt-8 pb-10">
+        <h2 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">사회자<br />인기 전문가 어때요?</h2>
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-2.5 px-2.5">
+          {pro.recommendedPros.map((item) => (
+            <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[130px] group">
+              <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3/4' }}>
+                <Image src={item.image} alt={item.name} fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
                 <button
                   onClick={(e) => { e.preventDefault(); toggleCarouselFav(item.id); }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
+                  className="absolute top-1.5 right-1.5 active:scale-90 transition-transform"
                 >
-                  <Heart size={14} className={favoriteItems.has(item.id) ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'} />
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill={favoriteItems.has(item.id) ? '#FF4D4D' : 'rgba(0,0,0,0.3)'}/></svg>
                 </button>
-                {item.isPrime && (
-                  <div className="absolute bottom-2 left-2 bg-black text-white text-[10px] font-black italic px-1.5 py-0.5 rounded">prime</div>
-                )}
               </div>
-              <p className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
-              <p className="text-[15px] font-bold text-gray-900">{item.price.toLocaleString()}원~</p>
+              <div className="mt-1.5">
+                {item.isPartner && <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[18px] mb-0.5" />}
+                <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.role} {item.name}</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <StarRating value={item.rating} size={10} />
+                  <span className="text-[11px] font-bold text-gray-900">{item.rating}</span>
+                  <span className="text-[10px] text-gray-400">({item.reviews})</span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  <span className="text-[9px] font-bold px-1.5 rounded-[4px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 18 }}>경력{item.experience}년</span>
+                  {item.tags.slice(0, 1).map((tag) => (
+                    <span key={tag} className="text-[9px] font-medium px-1.5 rounded-[4px] bg-gray-100 text-gray-500 flex items-center" style={{ height: 18 }}>{tag}</span>
+                  ))}
+                </div>
+              </div>
             </Link>
           ))}
         </div>
       </div>
 
       {/* ─── Bottom Fixed Bar ─── */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 py-3 pb-safe">
-        <div className="flex items-stretch gap-2 max-w-[680px] mx-auto">
-          {/* Heart */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none"
+        style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 12 }}
+      >
+        {/* 블러 배경 (별도 레이어로 분리) */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to top, white 30%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0.5) 70%, rgba(255,255,255,0) 100%)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            maskImage: 'linear-gradient(to top, black 55%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to top, black 55%, transparent 100%)',
+          }}
+        />
+      <div className="relative pointer-events-auto pt-10">
+        <div className="flex items-center gap-3 max-w-[680px] mx-auto">
+          {/* Heart (원형) */}
           <button
             onClick={handleToggleFavorite}
-            className="relative w-12 border border-gray-200 rounded-lg flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
+            className="w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center active:scale-90 transition-transform shrink-0 shadow-sm"
           >
             <Heart
               size={20}
@@ -851,11 +1064,12 @@ export default function ProDetailPage() {
             />
           </button>
 
-          {/* 문의하기 with tooltip */}
+          {/* 문의하기 + 구매하기 묶음 (알약) */}
           <div className="relative flex-1">
+            {/* 말풍선 — overflow-hidden 바깥 */}
             {showTooltip && (
               <div
-                className="absolute -top-11 left-0 right-0 flex justify-center"
+                className="absolute -top-8 left-[25%] -translate-x-1/2 z-10"
                 style={{ animation: 'tooltipBounce 2s ease-in-out infinite' }}
               >
                 <div className="bg-[#3180F7] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap relative shadow-[0_4px_16px_rgba(49,128,247,0.4)]">
@@ -864,33 +1078,23 @@ export default function ProDetailPage() {
                 </div>
               </div>
             )}
-            <button
-              onClick={() => { setShowTooltip(false); router.push(`/chat/${pro.id}`); }}
-              className="w-full h-12 border-2 border-[#3180F7]/20 rounded-lg text-[14px] font-semibold text-[#3180F7] active:scale-95 transition-all hover:border-[#3180F7]/40 hover:bg-[#EAF3FF]/30"
-            >
-              문의하기
-            </button>
+            <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
+              <button
+                onClick={() => { setShowTooltip(false); router.push(`/chat/${pro.id}`); }}
+                className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
+              >
+                문의하기
+              </button>
+              <button
+                onClick={handlePurchase}
+                className="flex-1 bg-[#3180F7] rounded-r-full text-[14px] font-bold text-white active:scale-[0.98] transition-transform"
+              >
+                구매하기
+              </button>
+            </div>
           </div>
-
-          {/* 구매하기 */}
-          <button
-            onClick={handlePurchase}
-            className="relative flex-1 h-12 rounded-lg text-[14px] font-bold text-white active:scale-95 transition-transform overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, #3180F7 0%, #1A68E0 100%)',
-              boxShadow: '0 4px 14px rgba(49,128,247,0.35)',
-            }}
-          >
-            <span className="relative z-10">구매하기</span>
-            <span
-              className="absolute top-0 left-0 h-full w-1/3 pointer-events-none"
-              style={{
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-                animation: 'buttonShine 3s ease-in-out infinite',
-              }}
-            />
-          </button>
         </div>
+      </div>
       </div>
 
       {/* ─── Image Modal (확대) ─── */}
@@ -906,7 +1110,7 @@ export default function ProDetailPage() {
           >
             <X size={24} />
           </button>
-          <Image src={imageModal} alt="" width={1200} height={1200} className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg" />
+          <Image src={imageModal} alt="" width={1200} height={1200} className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl" />
         </div>
       )}
 
@@ -973,8 +1177,7 @@ export default function ProDetailPage() {
                 </button>
                 <button
                   onClick={() => { setPhoneModal(false); router.push(`/chat/${pro.id}`); }}
-                  className="flex-1 py-3.5 rounded-xl text-[14px] font-bold text-white"
-                  style={{ background: 'linear-gradient(135deg, #3180F7, #1A68E0)' }}
+                  className="flex-1 py-3.5 rounded-xl text-[14px] font-bold text-white bg-[#3180F7]"
                 >
                   채팅 문의
                 </button>
@@ -1003,10 +1206,10 @@ export default function ProDetailPage() {
               <p className="text-[15px] font-bold text-gray-900 mb-2">{plan.title}</p>
               <div className="flex items-end justify-between pt-3 border-t border-gray-200">
                 <span className="text-[13px] text-gray-500">결제 금액</span>
-                <span className="text-[22px] font-black text-[#3180F7]">{plan.price.toLocaleString()}원</span>
+                <span className="text-[22px] font-bold text-[#3180F7]">{plan.price.toLocaleString()}원</span>
               </div>
             </div>
-            <p className="text-[12px] text-gray-400 mb-5 text-center">결제 시 수수료 4.5%(VAT포함)가 추가돼요</p>
+            <p className="text-[12px] text-gray-400 mb-5 text-center">결제 시 수수료 10%(VAT포함)가 추가돼요</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setPurchaseModal(false)}
@@ -1016,8 +1219,7 @@ export default function ProDetailPage() {
               </button>
               <button
                 onClick={confirmPurchase}
-                className="flex-1 py-3.5 rounded-xl text-[14px] font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #3180F7, #1A68E0)' }}
+                className="flex-1 py-3.5 rounded-xl text-[14px] font-bold text-white bg-[#3180F7]"
               >
                 결제하기
               </button>
@@ -1058,7 +1260,7 @@ export default function ProDetailPage() {
                     <span className="text-[12px] text-gray-400">{review.date}</span>
                   </div>
                   <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
-                  <p className="text-[12px] text-gray-400">작업일 : {review.workDays}일 | 주문 금액 : {review.orderRange}</p>
+                  <p className="text-[12px] text-gray-400">행사일 : {review.workDays}일 | 주문 금액 : {review.orderRange}</p>
                 </div>
               ))}
             </div>
@@ -1099,6 +1301,14 @@ export default function ProDetailPage() {
         @keyframes playPulse {
           0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.5); }
           100% { box-shadow: 0 0 0 18px rgba(255,255,255,0); }
+        }
+        @keyframes bestBounce {
+          0% { opacity: 0; transform: translateY(8px) scale(0.5); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes bestFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
         }
         @keyframes heartPop {
           0% { transform: scale(1); }
