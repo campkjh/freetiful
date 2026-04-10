@@ -598,7 +598,7 @@ export default function ProDetailPage() {
               <p className="text-[18px] font-bold text-gray-900">사회자 {pro.name}</p>
             </div>
             {pro.isPrime && (
-              <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[24px]" />
+              <img src="/images/partners-badge.svg" alt="Partners" className="h-[24px]" />
             )}
           </div>
         </Reveal>
@@ -709,7 +709,7 @@ export default function ProDetailPage() {
             <div className="relative overflow-hidden rounded-xl p-5 mb-6 border border-[#3180F7]/15 bg-gradient-to-br from-[#EAF3FF]/40 via-white to-white">
               {/* Glow accent */}
               <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#3180F7]/10 blur-3xl pointer-events-none" />
-              <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[26px] mb-3 relative" />
+              <img src="/images/partners-badge.svg" alt="Partners" className="h-[26px] mb-3 relative" />
               <p className="text-[15px] font-bold text-gray-900 mb-3">
                 이 서비스는 프리티풀 엄선 <span className="text-[#3180F7]">상위 2% 전문가</span>가 제공해요
               </p>
@@ -800,7 +800,7 @@ export default function ProDetailPage() {
                 </button>
               </div>
               <div className="mt-1.5">
-                <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[18px] mb-0.5" />
+                <img src="/images/partners-badge.svg" alt="Partners" className="h-[18px] mb-0.5" />
                 <p className="text-[13px] font-semibold text-gray-900 leading-tight">사회자 {item.author}</p>
                 {item.rating && (
                   <div className="flex items-center gap-1 mt-0.5">
@@ -1026,7 +1026,7 @@ export default function ProDetailPage() {
                 </button>
               </div>
               <div className="mt-1.5">
-                {item.isPartner && <img src="/images/파트너스 뱃지.svg" alt="Partners" className="h-[18px] mb-0.5" />}
+                {item.isPartner && <img src="/images/partners-badge.svg" alt="Partners" className="h-[18px] mb-0.5" />}
                 <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.role} {item.name}</p>
                 <div className="flex items-center gap-1 mt-0.5">
                   <StarRating value={item.rating} size={10} />
