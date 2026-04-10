@@ -246,28 +246,15 @@ export default function ChatListPage() {
                   onPointerCancel={handleLongPressEnd}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  {/* 안 읽은 메시지 - 숨쉬는 그라데이션 + 셔머 */}
+                  {/* 안 읽은 메시지 - 은은한 파란 배경 */}
                   {hasUnread && (
-                    <>
-                      <div
-                        className="pointer-events-none absolute inset-0"
-                        style={{
-                          background: 'radial-gradient(ellipse at left center, rgba(59, 130, 246, 0.16) 0%, rgba(59, 130, 246, 0.06) 40%, rgba(59, 130, 246, 0) 70%)',
-                          animation: 'unreadBreath 3.2s ease-in-out infinite',
-                        }}
-                        aria-hidden="true"
-                      />
-                      <div
-                        className="pointer-events-none absolute inset-0"
-                        style={{
-                          background: 'linear-gradient(110deg, transparent 30%, rgba(59, 130, 246, 0.12) 50%, transparent 70%)',
-                          backgroundSize: '200% 100%',
-                          animation: 'unreadShimmer 4s ease-in-out infinite',
-                          filter: 'blur(6px)',
-                        }}
-                        aria-hidden="true"
-                      />
-                    </>
+                    <div
+                      className="pointer-events-none absolute inset-0"
+                      style={{
+                        background: 'linear-gradient(90deg, rgba(59,130,246,0.08) 0%, rgba(59,130,246,0.03) 100%)',
+                      }}
+                      aria-hidden="true"
+                    />
                   )}
                   <AnimatePresence>
                     {editMode && !isPC && (

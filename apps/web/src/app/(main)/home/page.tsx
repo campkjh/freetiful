@@ -164,23 +164,11 @@ function RoundedRectBorderTrain({ color = '#2B313D' }: { color?: string }) {
     const perimeter = p1.getTotalLength();
     const trainLen = perimeter * 0.2;
     const gapLen = perimeter - trainLen;
-    // 정방향
     p1.setAttribute('stroke-dasharray', `${trainLen} ${gapLen}`);
-    p1.setAttribute('stroke-dashoffset', '0');
-    p1.setAttribute('opacity', '1');
-    const anim1 = p1.animate(
-      [{ strokeDashoffset: 0 }, { strokeDashoffset: -perimeter }],
-      { duration: 6000, iterations: Infinity, easing: 'linear' }
-    );
-    // 같은 방향, 반 둘레 오프셋
+    p1.style.animation = `pillDash 6s linear infinite`;
     p2.setAttribute('stroke-dasharray', `${trainLen} ${gapLen}`);
     p2.setAttribute('stroke-dashoffset', `${-perimeter * 0.5}`);
-    p2.setAttribute('opacity', '1');
-    const anim2 = p2.animate(
-      [{ strokeDashoffset: -perimeter * 0.5 }, { strokeDashoffset: -perimeter * 1.5 }],
-      { duration: 6000, iterations: Infinity, easing: 'linear' }
-    );
-    return () => { anim1.cancel(); anim2.cancel(); };
+    p2.style.animation = `pillDash 6s linear infinite`;
   }, [size]);
 
   if (size.w === 0) {
@@ -610,15 +598,20 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
             <img src={pro.images[2]} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
           </div>
         </div>
-        {/* YouTube 영상 썸네일 (우측 하단) */}
+        {/* YouTube 썸네일 이미지 (iframe 대신 — 성능 최적화) */}
         {(pro as typeof MOCK_PROS[0] & { youtubeId?: string }).youtubeId && (
-          <div className="absolute bottom-2 right-2 w-[50%] aspect-[5/3] rounded-lg overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/90 bg-black z-10">
-            <iframe
-              className="w-full h-full pointer-events-none"
-              src={`https://www.youtube.com/embed/${(pro as typeof MOCK_PROS[0] & { youtubeId?: string }).youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${(pro as typeof MOCK_PROS[0] & { youtubeId?: string }).youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
-              title="YouTube preview"
-              allow="autoplay; encrypted-media"
+          <div className="absolute bottom-2 right-2 w-[40%] aspect-video rounded-lg overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/90 bg-black z-10 flex items-center justify-center">
+            <img
+              src={`https://img.youtube.com/vi/${(pro as typeof MOCK_PROS[0] & { youtubeId?: string }).youtubeId}/mqdefault.jpg`}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
             />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center">
+                <svg width="8" height="10" viewBox="0 0 8 10" fill="none"><path d="M0 0L8 5L0 10V0Z" fill="#333"/></svg>
+              </div>
+            </div>
           </div>
         )}
         <button
@@ -824,7 +817,7 @@ export default function HomePage() {
                 muted
                 loop
                 playsInline
-                preload="auto"
+                preload="none"
                 className="w-full h-full object-cover bg-gray-800"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
@@ -849,7 +842,7 @@ export default function HomePage() {
                 muted
                 loop
                 playsInline
-                preload="auto"
+                preload="none"
                 className="w-20 h-20 object-cover shrink-0 rounded-xl bg-gray-100"
                 style={{ transition: 'opacity 0.2s ease' }}
                 onTimeUpdate={(e) => {

@@ -31,12 +31,7 @@ function PillBorderTrain() {
     const perimeter = path.getTotalLength();
     const trainLen = perimeter * 0.12;
     path.setAttribute('stroke-dasharray', `${trainLen} ${perimeter - trainLen}`);
-    path.setAttribute('stroke-dashoffset', '0');
-    const animation = path.animate(
-      [{ strokeDashoffset: 0 }, { strokeDashoffset: -perimeter }],
-      { duration: Math.max(2200, perimeter * 12), iterations: Infinity, easing: 'linear' }
-    );
-    return () => animation.cancel();
+    path.style.animation = `pillDash ${Math.max(2.5, perimeter / 80)}s linear infinite`;
   }, [size]);
 
   if (size.w === 0) {

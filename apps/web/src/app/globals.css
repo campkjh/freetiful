@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Pill border dash animation (CSS instead of Web Animations API) */
+@keyframes pillDash {
+  to { stroke-dashoffset: -500; }
+}
+
 /* Custom animations */
 @keyframes fadeSlideUp {
   from { opacity: 0; transform: translateY(24px) scale(0.97); filter: blur(4px); }
