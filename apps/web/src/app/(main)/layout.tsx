@@ -11,6 +11,7 @@ import RecommendedProBar from '@/components/RecommendedProBar';
 const NAV_ITEMS = [
   { href: '/home',      iconSrc: '/images/홈 아이콘.svg',     label: '홈' },
   { href: '/schedule',  iconSrc: '/images/스케줄 아이콘.svg', label: '스케줄' },
+  { href: '/requests',  iconSrc: '/images/의뢰 아이콘.svg',   label: '의뢰' },
   { href: '/biz',       iconSrc: '/images/비즈 아이콘.svg',   label: 'Biz' },
   { href: '/chat',      iconSrc: '/images/채팅 아이콘.svg',   label: '채팅' },
   { href: '/favorites', iconSrc: '/images/찜 아이콘.svg',     label: '찜' },
@@ -36,12 +37,24 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [navVisible, setNavVisible] = useState(true);
   const [navExpanding, setNavExpanding] = useState(false);
   const [bizCollapsing, setBizCollapsing] = useState(false);
+  const [userRole, setUserRole] = useState<'general' | 'pro'>('general');
   const lastScrollY = useRef(0);
+
+  // 유저 role 로드
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') as 'general' | 'pro' | null;
+    if (role) setUserRole(role);
+  }, []);
 
   // pathname 변경 시 collapsing 리셋
   useEffect(() => {
     setBizCollapsing(false);
   }, [pathname]);
+
+  // 유저 role에 따라 네비게이션 항목 필터링
+  const filteredNavItems = userRole === 'pro'
+    ? NAV_ITEMS.filter(item => item.href !== '/favorites' && item.href !== '/biz')
+    : NAV_ITEMS.filter(item => item.href !== '/requests');
 
   // 비즈에서 돌아왔을 때 펼쳐지는 애니메이션
   useEffect(() => {
@@ -79,7 +92,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </Link>
 
           <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map(({ href, iconSrc, label }) => {
+            {filteredNavItems.map(({ href, iconSrc, label }) => {
               const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
               const isBiz = href === '/biz';
               return (
@@ -144,7 +157,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               }}
             >
               <div className="flex items-center justify-around h-full overflow-hidden">
-                {NAV_ITEMS.map(({ href, iconSrc, label }, idx) => {
+                {filteredNavItems.map(({ href, iconSrc, label }, idx) => {
                   const active = pathname === href || (href !== '/home' && pathname.startsWith(href));
                   const isBiz = href === '/biz';
                   const itemStyle: React.CSSProperties = {

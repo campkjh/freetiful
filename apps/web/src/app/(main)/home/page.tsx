@@ -534,7 +534,140 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
   );
 }
 
+/* ─── Pro Home Page ──────────────────────────────────────── */
+function ProHomePage() {
+  const today = new Date();
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-indexed
+
+  const prevMonth = () => {
+    if (currentMonth === 0) { setCurrentYear(y => y - 1); setCurrentMonth(11); }
+    else setCurrentMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (currentMonth === 11) { setCurrentYear(y => y + 1); setCurrentMonth(0); }
+    else setCurrentMonth(m => m + 1);
+  };
+
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfWeek = (year: number, month: number) => {
+    // 0=Sun,1=Mon... convert to Mon-based (0=Mon)
+    const day = new Date(year, month, 1).getDay();
+    return day === 0 ? 6 : day - 1;
+  };
+
+  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+  const firstDayOfWeek = getFirstDayOfWeek(currentYear, currentMonth);
+  const daysInPrevMonth = getDaysInMonth(currentYear, currentMonth - 1 < 0 ? 11 : currentMonth - 1);
+
+  const calendarCells: { day: number; type: 'prev' | 'current' | 'next' }[] = [];
+  for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+    calendarCells.push({ day: daysInPrevMonth - i, type: 'prev' });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    calendarCells.push({ day: d, type: 'current' });
+  }
+  const remaining = 7 - (calendarCells.length % 7);
+  if (remaining < 7) {
+    for (let d = 1; d <= remaining; d++) {
+      calendarCells.push({ day: d, type: 'next' });
+    }
+  }
+  const weeks: typeof calendarCells[] = [];
+  for (let i = 0; i < calendarCells.length; i += 7) {
+    weeks.push(calendarCells.slice(i, i + 7));
+  }
+
+  const isToday = (cell: { day: number; type: string }) =>
+    cell.type === 'current' &&
+    cell.day === today.getDate() &&
+    currentMonth === today.getMonth() &&
+    currentYear === today.getFullYear();
+
+  return (
+    <div className="min-h-screen bg-gray-100 pb-28">
+      {/* Header */}
+      <div className="px-4 pt-14 pb-3">
+        <h1 className="text-2xl font-bold text-gray-900">홈</h1>
+      </div>
+
+      <div className="px-4 space-y-3">
+        {/* 활동랭킹 배너 */}
+        <div className="bg-white rounded-2xl px-5 py-4">
+          <p className="text-sm text-gray-700">
+            테스터님의 금일 활동랭킹은 <span className="text-[#3180F7] font-bold">0위</span> 입니다.
+          </p>
+        </div>
+
+        {/* 캐릭터 출석체크 카드 */}
+        <div className="bg-white rounded-2xl px-5 py-4 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-blue-50 flex items-center justify-center">
+            <img src="/images/pudding.png" alt="푸딩" className="w-full h-full object-cover" />
+          </div>
+          <p className="flex-1 text-xl font-bold text-gray-900">푸딩</p>
+          <button className="bg-[#3180F7] text-white font-bold text-sm px-5 py-3 rounded-2xl shrink-0">
+            출석체크!
+          </button>
+        </div>
+
+        {/* 견적 현황 카드 */}
+        <div className="flex gap-3">
+          <div className="flex-1 bg-white rounded-2xl px-5 py-4">
+            <p className="text-xs text-gray-500 mb-1">새로운 다수견적</p>
+            <p className="text-lg font-bold text-gray-300">없어요!</p>
+          </div>
+          <div className="flex-1 bg-white rounded-2xl px-5 py-4">
+            <p className="text-xs text-gray-500 mb-1">새로운 단일견적</p>
+            <p className="text-lg font-bold text-gray-300">없어요!</p>
+          </div>
+        </div>
+
+        {/* 캘린더 */}
+        <div className="bg-white rounded-2xl px-5 py-5">
+          {/* 월 네비게이션 */}
+          <div className="flex items-center justify-center gap-4 mb-5">
+            <button onClick={prevMonth} className="text-gray-500 text-lg">◀</button>
+            <p className="text-lg font-bold text-gray-900">
+              {String(currentMonth + 1).padStart(2, '0')}월
+            </p>
+            <button onClick={nextMonth} className="text-gray-500 text-lg">▶</button>
+          </div>
+
+          {/* 요일 헤더 */}
+          <div className="grid grid-cols-7 mb-2">
+            {['월', '화', '수', '목', '금', '토', '일'].map(day => (
+              <div key={day} className="text-center text-xs text-gray-400 py-1">{day}</div>
+            ))}
+          </div>
+
+          {/* 날짜 그리드 */}
+          <div className="space-y-1">
+            {weeks.map((week, wi) => (
+              <div key={wi} className="grid grid-cols-7">
+                {week.map((cell, ci) => (
+                  <div key={ci} className="flex items-center justify-center py-3">
+                    <span className={`text-sm w-9 h-9 flex items-center justify-center rounded-full font-medium ${
+                      isToday(cell)
+                        ? 'bg-[#3180F7] text-white font-bold'
+                        : cell.type === 'current'
+                        ? 'text-gray-700'
+                        : 'text-gray-300'
+                    }`}>
+                      {cell.day}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
+  const [userRole, setUserRole] = useState<string>('general');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const rankScrollRef = useRef<HTMLDivElement>(null);
   const [selectedLang, setSelectedLang] = useState<string | null>(null);
@@ -546,6 +679,10 @@ export default function HomePage() {
   const [logoVisible, setLogoVisible] = useState(true);
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerH, setHeaderH] = useState(56);
+
+  useEffect(() => {
+    setUserRole(localStorage.getItem('userRole') || 'general');
+  }, []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -607,6 +744,8 @@ export default function HomePage() {
   });
 
   const onlinePros = MOCK_PROS.filter((p) => p.id in PRO_ONLINE_STATUS).slice(0, 20);
+
+  if (userRole === 'pro') return <ProHomePage />;
 
   return (
     <div className="bg-white min-h-screen w-full">

@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ChevronRight, Settings, CreditCard, Ticket, HeadphonesIcon,
   Users, FileText, Bell, LogOut, Star, Megaphone,
-  Wallet, History, HelpCircle, Briefcase
+  Wallet, History, HelpCircle, Briefcase, UserCircle
 } from 'lucide-react';
 
 const MOCK_USER = {
@@ -48,12 +49,33 @@ const MENU_SECTIONS = [
       { href: '/my/invite', icon: Users, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: FileText, label: '약관 및 정책', badge: '' },
       { href: '/pro-dashboard', icon: Briefcase, label: '파트너 신청', badge: '' },
+      { href: '/general-mode', icon: UserCircle, label: '일반회원 전환', badge: '' },
     ],
   },
 ];
 
 export default function MyPage() {
   const user = MOCK_USER;
+  const router = useRouter();
+
+  const handlePartnerApply = () => {
+    const alreadyRegistered = localStorage.getItem('proRegistrationComplete') === 'true';
+    if (alreadyRegistered) {
+      localStorage.setItem('userRole', 'pro');
+      window.location.reload();
+    } else {
+      router.push('/pro-register/terms');
+    }
+  };
+
+  const handleGeneralMode = () => {
+    // 일반 유저로 변경
+    localStorage.setItem('userRole', 'general');
+    // 홈으로 이동
+    router.push('/home');
+    // 페이지 새로고침하여 네비게이션 업데이트
+    window.location.reload();
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -110,20 +132,58 @@ export default function MyPage() {
         {MENU_SECTIONS.map((section) => (
           <div key={section.title} className="bg-white mb-2">
             <p className="px-4 pt-4 pb-2 text-xs font-bold text-gray-400 uppercase">{section.title}</p>
-            {section.items.map(({ href, icon: Icon, label, badge }) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors"
-              >
-                <Icon size={18} className="text-gray-500 shrink-0" />
-                <span className="flex-1 text-sm text-gray-900">{label}</span>
-                {badge && (
-                  <span className="text-xs text-primary-500 font-bold">{badge}</span>
-                )}
-                <ChevronRight size={16} className="text-gray-300 shrink-0" />
-              </Link>
-            ))}
+            {section.items.map(({ href, icon: Icon, label, badge }) => {
+              // 파트너 신청은 버튼으로 처리
+              if (label === '파트너 신청') {
+                return (
+                  <button
+                    key={href}
+                    onClick={handlePartnerApply}
+                    className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors w-full text-left"
+                  >
+                    <Icon size={18} className="text-gray-500 shrink-0" />
+                    <span className="flex-1 text-sm text-gray-900">{label}</span>
+                    {badge && (
+                      <span className="text-xs text-primary-500 font-bold">{badge}</span>
+                    )}
+                    <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                  </button>
+                );
+              }
+
+              // 일반회원 전환은 버튼으로 처리
+              if (label === '일반회원 전환') {
+                return (
+                  <button
+                    key={href}
+                    onClick={handleGeneralMode}
+                    className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors w-full text-left"
+                  >
+                    <Icon size={18} className="text-gray-500 shrink-0" />
+                    <span className="flex-1 text-sm text-gray-900">{label}</span>
+                    {badge && (
+                      <span className="text-xs text-primary-500 font-bold">{badge}</span>
+                    )}
+                    <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                  </button>
+                );
+              }
+
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors"
+                >
+                  <Icon size={18} className="text-gray-500 shrink-0" />
+                  <span className="flex-1 text-sm text-gray-900">{label}</span>
+                  {badge && (
+                    <span className="text-xs text-primary-500 font-bold">{badge}</span>
+                  )}
+                  <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                </Link>
+              );
+            })}
           </div>
         ))}
       </div>
