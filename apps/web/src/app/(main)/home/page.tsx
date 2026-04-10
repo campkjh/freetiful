@@ -869,7 +869,7 @@ export default function HomePage() {
                 playsInline
                 className="w-20 h-20 object-cover shrink-0 rounded-xl"
               />
-              <div className="leading-none">
+              <div className="leading-none relative z-10">
                 <span className="text-[16px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문행사</span>
                 <span className="text-[16px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>사회자 찾기</span>
               </div>
