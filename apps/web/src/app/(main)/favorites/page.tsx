@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Heart, Star, MapPin, Building2, Trash2 } from 'lucide-react';
+import { motion, LayoutGroup } from 'framer-motion';
 
 type Tab = 'service' | 'portfolio' | 'recent';
 type ProCategory = '전체' | '사회자' | '쇼호스트' | '축가';
@@ -112,28 +113,34 @@ export default function FavoritesPage() {
               transition: 'margin-left 0.3s ease',
             }}
           >
-            {tabs.map((t) => {
-              const isActive = activeTab === t.key;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveTab(t.key)}
-                  className="shrink-0 font-semibold whitespace-nowrap"
-                  style={{
-                    fontSize: scrolled ? 12 : 14,
-                    padding: scrolled ? '4px 10px' : '4px 8px',
-                    backgroundColor: scrolled && isActive ? '#2B313D' : 'transparent',
-                    color: scrolled && isActive ? '#fff' : isActive ? '#111827' : '#9CA3AF',
-                    borderRadius: scrolled ? 16 : 0,
-                    border: scrolled && !isActive ? '1px solid #E5E7EB' : '1px solid transparent',
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  {t.label}
-                  {t.badge && <span className="ml-0.5 text-[9px] font-bold text-red-500">{t.badge}</span>}
-                </button>
-              );
-            })}
+            <LayoutGroup id="fav-tabs">
+              {tabs.map((t) => {
+                const isActive = activeTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveTab(t.key)}
+                    className={`relative shrink-0 font-semibold whitespace-nowrap active:scale-95 transition-colors ${isActive ? 'text-white' : 'text-gray-400'}`}
+                    style={{
+                      fontSize: scrolled ? 12 : 14,
+                      padding: scrolled ? '6px 14px' : '6px 10px',
+                      borderRadius: 9999,
+                    }}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="fav-tab-bg"
+                        className="absolute inset-0 bg-gray-900 rounded-full"
+                        style={{ zIndex: -1 }}
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative">{t.label}</span>
+                    {t.badge && <span className="ml-0.5 text-[9px] font-bold text-red-400">{t.badge}</span>}
+                  </button>
+                );
+              })}
+            </LayoutGroup>
           </div>
         </div>
 
