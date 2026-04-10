@@ -1,10 +1,63 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight } from 'lucide-react';
+
+// ─── Brand Color ────────────────────────────────────────────
+const BRAND = '#3180F7';
+const BRAND_LIGHT = '#EAF3FF';
+
+// ─── Reveal Hook ────────────────────────────────────────────
+function useReveal(threshold = 0.15) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ob = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setVisible(true); },
+      { threshold },
+    );
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [threshold]);
+  return { ref, visible };
+}
+
+function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const { ref, visible } = useReveal();
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out ${visible ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-8 opacity-0 blur-[4px]'} ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── CountUp ────────────────────────────────────────────────
+function CountUp({ value, suffix = '' }: { value: number; suffix?: string }) {
+  const { ref, visible } = useReveal(0.3);
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!visible) return;
+    const dur = 1200;
+    const start = Date.now();
+    const tick = () => {
+      const p = Math.min(1, (Date.now() - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setN(Math.round(value * eased));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    tick();
+  }, [visible, value]);
+  return <span ref={ref}>{n.toLocaleString()}{suffix}</span>;
+}
 
 // ─── Mock Data ──────────────────────────────────────────────
 
@@ -88,11 +141,40 @@ const MOCK_PRO = {
 
 // ─── Components ─────────────────────────────────────────────
 
+function ScoreBars() {
+  const { ref, visible } = useReveal(0.3);
+  const items = [
+    { label: '결과물 만족도', value: 4.9 },
+    { label: '친절한 상담', value: 4.9 },
+    { label: '신속한 대응', value: 4.9 },
+  ];
+  return (
+    <div ref={ref} className="bg-gradient-to-br from-[#EAF3FF]/30 to-gray-50 rounded-xl px-5 py-5 space-y-3 mb-6 border border-gray-100">
+      {items.map((item, i) => (
+        <div key={item.label} className="flex items-center gap-3">
+          <span className="text-[13px] text-gray-600 w-20 shrink-0">{item.label}</span>
+          <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: visible ? `${(item.value / 5) * 100}%` : '0%',
+                background: 'linear-gradient(90deg, #3180F7, #6BA5FA)',
+                transition: `width 1.2s cubic-bezier(0.22, 1, 0.36, 1) ${i * 150}ms`,
+              }}
+            />
+          </div>
+          <span className="text-[13px] font-bold text-gray-900 tabular-nums">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   return (
     <div className="flex items-center gap-0" style={{ fontSize: size }}>
       {[0, 1, 2, 3, 4].map((i) => (
-        <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i < Math.floor(value) ? '#1EC800' : '#E5E7EB'}>
+        <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i < Math.floor(value) ? BRAND : '#E5E7EB'}>
           <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
         </svg>
       ))}
@@ -118,8 +200,17 @@ export default function ProDetailPage() {
   const descRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
   const reviewsRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+  const [priceFlash, setPriceFlash] = useState(false);
 
   const plan = pro.plans[activePlan];
+
+  // Price flash animation on plan switch
+  useEffect(() => {
+    setPriceFlash(true);
+    const t = setTimeout(() => setPriceFlash(false), 400);
+    return () => clearTimeout(t);
+  }, [activePlan]);
 
   const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
     setActiveSection(section);
@@ -150,30 +241,59 @@ export default function ProDetailPage() {
         </div>
       </div>
 
-      {/* ─── Image Gallery ─── */}
-      <div className="relative w-full aspect-square bg-gray-100">
-        <Image
-          src={pro.images[activeImage]}
-          alt={pro.name}
-          fill
-          className="object-cover"
-          priority
-        />
-        {/* Play button overlay */}
-        <button className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/60 flex items-center justify-center">
-          <Play size={20} className="text-white fill-white ml-0.5" />
+      {/* ─── Image Gallery with swipe ─── */}
+      <div
+        className="relative w-full aspect-square bg-gray-100 overflow-hidden"
+        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          if (touchStartX.current === null) return;
+          const dx = e.changedTouches[0].clientX - touchStartX.current;
+          if (dx > 50) setActiveImage((i) => Math.max(0, i - 1));
+          if (dx < -50) setActiveImage((i) => Math.min(pro.images.length - 1, i + 1));
+          touchStartX.current = null;
+        }}
+      >
+        <div
+          className="flex h-full transition-transform duration-[600ms] will-change-transform"
+          style={{
+            transform: `translateX(-${activeImage * 100}%)`,
+            transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          {pro.images.map((src, i) => (
+            <div key={i} className="relative w-full h-full shrink-0">
+              <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} />
+            </div>
+          ))}
+        </div>
+
+        {/* Play button with pulse */}
+        <button
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+        >
+          <span className="absolute inset-0 rounded-full" style={{ animation: 'playPulse 2.4s ease-out infinite' }} />
+          <Play size={20} className="text-white fill-white ml-0.5 relative z-10" />
         </button>
+
         {/* Page indicator */}
-        <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[12px] font-medium px-2.5 py-1 rounded-full">
+        <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[12px] font-medium px-2.5 py-1 rounded-full backdrop-blur-sm">
           {activeImage + 1} / {pro.images.length}
         </div>
+
         {/* Dot navigation */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
           {pro.images.map((_, i) => (
             <button
               key={i}
               onClick={() => setActiveImage(i)}
-              className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeImage ? 'bg-white w-5' : 'bg-white/50'}`}
+              className="rounded-full transition-all duration-500"
+              style={{
+                width: i === activeImage ? 22 : 6,
+                height: 6,
+                backgroundColor: i === activeImage ? 'white' : 'rgba(255,255,255,0.5)',
+                transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+              }}
             />
           ))}
         </div>
@@ -182,68 +302,103 @@ export default function ProDetailPage() {
       {/* ─── Main Content ─── */}
       <div className="px-5 pt-5">
         {/* Pro row + prime */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-full object-cover" />
-            <div>
-              <span className="inline-block text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mb-0.5">{pro.level}</span>
-              <p className="text-[13px] font-medium text-gray-700 leading-tight">{pro.name}</p>
-            </div>
+        <Reveal>
+          <div className="flex items-center justify-between mb-3">
+            <Link href={`/pros/${pro.id}`} className="flex items-center gap-2.5 group">
+              <div className="relative">
+                <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0 rounded-full ring-2 ring-transparent group-hover:ring-[#3180F7]/30 transition-all duration-500" />
+              </div>
+              <div>
+                <span className="inline-block text-[10px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-0.5 rounded mb-0.5">{pro.level}</span>
+                <p className="text-[13px] font-medium text-gray-700 leading-tight">{pro.name}</p>
+              </div>
+            </Link>
+            {pro.isPrime && (
+              <div
+                className="bg-black text-white text-[11px] font-black italic px-2 py-1 rounded relative overflow-hidden"
+                style={{ animation: 'primeShine 3s ease-in-out infinite' }}
+              >
+                <span className="relative z-10">prime</span>
+                <span
+                  className="absolute top-0 left-0 h-full w-1/3 pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+                    animation: 'primeShineMove 3s ease-in-out infinite',
+                  }}
+                />
+              </div>
+            )}
           </div>
-          {pro.isPrime && (
-            <div className="bg-black text-white text-[11px] font-black italic px-2 py-1 rounded">prime</div>
-          )}
-        </div>
+        </Reveal>
 
         {/* Title */}
-        <h1 className="text-[20px] font-bold text-gray-900 leading-tight mb-3">{pro.title}</h1>
+        <Reveal delay={100}>
+          <h1 className="text-[20px] font-bold text-gray-900 leading-tight mb-3">{pro.title}</h1>
+        </Reveal>
 
         {/* Rating */}
-        <div className="flex items-center gap-2 mb-6">
-          <StarRating value={pro.rating} size={16} />
-          <span className="text-[16px] font-bold text-gray-900">{pro.rating}</span>
-          <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
-        </div>
+        <Reveal delay={200}>
+          <div className="flex items-center gap-2 mb-6">
+            <StarRating value={pro.rating} size={16} />
+            <span className="text-[16px] font-bold text-gray-900">{pro.rating}</span>
+            <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
+          </div>
+        </Reveal>
 
         {/* ─── Plan Tabs ─── */}
-        <div className="flex border-b border-gray-200 -mx-5">
+        <div className="flex border-b border-gray-200 -mx-5 relative">
           {pro.plans.map((p, i) => (
             <button
               key={p.id}
               onClick={() => setActivePlan(i)}
-              className={`flex-1 py-3 text-[14px] font-bold relative transition-colors ${
-                activePlan === i ? 'text-gray-900' : 'text-gray-300'
+              className={`flex-1 py-3 text-[14px] font-bold relative transition-colors duration-300 ${
+                activePlan === i ? 'text-[#3180F7]' : 'text-gray-300 hover:text-gray-500'
               }`}
             >
               {p.label}
-              {activePlan === i && <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-gray-900" />}
             </button>
           ))}
+          {/* Animated indicator */}
+          <span
+            className="absolute bottom-[-1px] h-[2px] bg-[#3180F7] transition-all duration-500"
+            style={{
+              left: `${(activePlan * 100) / pro.plans.length}%`,
+              width: `${100 / pro.plans.length}%`,
+              transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            }}
+          />
         </div>
 
         {/* ─── Plan Content ─── */}
         <div className="py-5">
           {/* Price */}
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-[28px] font-black text-gray-900">{plan.price.toLocaleString()}원</span>
+          <div
+            key={activePlan}
+            className="flex items-baseline gap-1.5"
+            style={{ animation: priceFlash ? 'priceFadeUp 0.5s ease-out' : undefined }}
+          >
+            <span className="text-[28px] font-black text-gray-900 tabular-nums">
+              <CountUp key={`${activePlan}-${plan.price}`} value={plan.price} />원
+            </span>
             <span className="text-[14px] text-gray-400">(VAT 포함)</span>
           </div>
           <p className="text-[12px] text-gray-400 mt-1">결제 시 수수료 4.5%(VAT포함)가 추가돼요.</p>
 
           {/* Service title */}
-          <div className="mt-6 mb-3">
+          <div key={`title-${activePlan}`} className="mt-6 mb-3" style={{ animation: 'priceFadeUp 0.5s ease-out' }}>
             <h3 className="text-[17px] font-bold text-gray-900">{plan.title}</h3>
           </div>
 
           {/* Description */}
-          <ul className="space-y-1 text-[14px] text-gray-700 leading-relaxed">
+          <ul key={`desc-${activePlan}`} className="space-y-1 text-[14px] text-gray-700 leading-relaxed" style={{ animation: 'priceFadeUp 0.6s ease-out' }}>
             {plan.desc.map((line, i) => (
               <li key={i} className="whitespace-pre-line">{i === 0 ? '- ' : '* '}{line}</li>
             ))}
           </ul>
 
           {/* Info box */}
-          <div className="mt-6 bg-gray-50 rounded-xl px-5 py-4 flex items-start justify-between">
+          <div className="mt-6 bg-[#EAF3FF]/50 rounded-xl px-5 py-4 flex items-start justify-between border border-[#3180F7]/10">
             <div className="space-y-1.5">
               <p className="text-[13px] text-gray-500">작업일</p>
               <p className="text-[13px] text-gray-500">수정 횟수</p>
@@ -260,46 +415,67 @@ export default function ProDetailPage() {
       <div className="h-2 bg-gray-50" />
 
       {/* ─── Section Tabs (Sticky) ─── */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
-        <div className="flex">
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200">
+        <div className="flex relative">
           {[
             { id: 'desc', label: '서비스 설명' },
             { id: 'info', label: '전문가 정보' },
             { id: 'reviews', label: `리뷰 (${pro.reviewCount})` },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => scrollToSection(tab.id as 'desc' | 'info' | 'reviews')}
-              className={`flex-1 py-4 text-[15px] font-semibold relative transition-colors ${
-                activeSection === tab.id ? 'text-gray-900' : 'text-gray-400'
-              }`}
-            >
-              {tab.label}
-              {activeSection === tab.id && <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-gray-900" />}
-            </button>
-          ))}
+          ].map((tab) => {
+            const tabs = ['desc', 'info', 'reviews'];
+            const idx = tabs.indexOf(activeSection);
+            return (
+              <button
+                key={tab.id}
+                onClick={() => scrollToSection(tab.id as 'desc' | 'info' | 'reviews')}
+                className={`flex-1 py-4 text-[15px] font-semibold relative transition-colors duration-300 ${
+                  activeSection === tab.id ? 'text-[#3180F7]' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+          <span
+            className="absolute bottom-[-1px] h-[2px] bg-[#3180F7] transition-all duration-500"
+            style={{
+              left: `${(['desc', 'info', 'reviews'].indexOf(activeSection) * 100) / 3}%`,
+              width: `${100 / 3}%`,
+              transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            }}
+          />
         </div>
       </div>
 
       {/* ─── 서비스 설명 Section ─── */}
       <div ref={descRef} className="px-5 pt-8">
-        <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
+        <Reveal>
+          <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
+        </Reveal>
 
         {pro.isPrime && (
-          <div className="border border-gray-200 rounded-xl p-5 mb-6">
-            <div className="inline-block bg-black text-white text-[13px] font-black italic px-2 py-0.5 rounded mb-3">prime</div>
-            <p className="text-[15px] font-bold text-gray-900 mb-3">
-              이 서비스는 크몽 엄선 <span className="text-orange-500">상위 2% 전문가</span>가 제공해요
-            </p>
-            <ul className="space-y-1.5">
-              {['포트폴리오와 고객 후기로 검증된 퀄리티', '경력·이력 인증 심사를 통과한 서비스', '다양한 고객의 요청에 맞춘 전문성'].map((item) => (
-                <li key={item} className="flex items-center gap-2 text-[13px] text-gray-700">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Reveal delay={100}>
+            <div className="relative overflow-hidden rounded-xl p-5 mb-6 border border-[#3180F7]/15 bg-gradient-to-br from-[#EAF3FF]/40 via-white to-white">
+              {/* Glow accent */}
+              <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#3180F7]/10 blur-3xl pointer-events-none" />
+              <div className="inline-block bg-black text-white text-[13px] font-black italic px-2 py-0.5 rounded mb-3 relative">prime</div>
+              <p className="text-[15px] font-bold text-gray-900 mb-3">
+                이 서비스는 프리티풀 엄선 <span className="text-[#3180F7]">상위 2% 전문가</span>가 제공해요
+              </p>
+              <ul className="space-y-1.5">
+                {['포트폴리오와 고객 후기로 검증된 퀄리티', '경력·이력 인증 심사를 통과한 서비스', '다양한 고객의 요청에 맞춘 전문성'].map((item, i) => (
+                  <li
+                    key={item}
+                    className="flex items-center gap-2 text-[13px] text-gray-700 opacity-0"
+                    style={{ animation: `slideInLeft 0.6s ease-out ${300 + i * 100}ms forwards` }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3180F7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
         )}
 
         {/* Description text */}
@@ -434,21 +610,8 @@ export default function ProDetailPage() {
         </div>
 
         {/* Score bars */}
-        <div className="bg-gray-50 rounded-xl px-5 py-5 space-y-3 mb-6">
-          {[
-            { label: '결과물 만족도', value: 4.9 },
-            { label: '친절한 상담', value: 4.9 },
-            { label: '신속한 대응', value: 4.9 },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-3">
-              <span className="text-[13px] text-gray-600 w-20 shrink-0">{item.label}</span>
-              <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-gray-900 rounded-full" style={{ width: `${(item.value / 5) * 100}%` }} />
-              </div>
-              <span className="text-[13px] font-bold text-gray-900">{item.value}</span>
-            </div>
-          ))}
-        </div>
+        <ScoreBars />
+
 
         {/* Reviews list */}
         <div className="flex items-center justify-between mb-4">
@@ -539,14 +702,18 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── Bottom Fixed Bar ─── */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-4 py-3 pb-safe">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 py-3 pb-safe">
         <div className="flex items-stretch gap-2 max-w-[680px] mx-auto">
           {/* Heart */}
           <button
             onClick={() => setIsFavorited(!isFavorited)}
-            className="w-12 border border-gray-200 rounded-lg flex items-center justify-center active:scale-95 transition-transform"
+            className="relative w-12 border border-gray-200 rounded-lg flex items-center justify-center active:scale-90 transition-transform overflow-hidden"
           >
-            <Heart size={20} className={isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-400'} />
+            <Heart
+              size={20}
+              className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'}
+              style={{ animation: isFavorited ? 'heartPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined }}
+            />
           </button>
 
           {/* 문의하기 with tooltip */}
@@ -556,32 +723,74 @@ export default function ProDetailPage() {
                 className="absolute -top-11 left-0 right-0 flex justify-center"
                 style={{ animation: 'tooltipBounce 2s ease-in-out infinite' }}
               >
-                <div className="bg-[#B4F163] text-gray-900 text-[11px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap relative">
+                <div className="bg-[#3180F7] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap relative shadow-[0_4px_16px_rgba(49,128,247,0.4)]">
                   평균 응답 1시간 이내
-                  <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-[#B4F163] rotate-45" />
+                  <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-[#3180F7] rotate-45" />
                 </div>
               </div>
             )}
             <button
               onClick={() => { setShowTooltip(false); router.push(`/chat/${pro.id}`); }}
-              className="w-full h-12 border border-gray-200 rounded-lg text-[14px] font-semibold text-gray-900 active:scale-95 transition-transform"
+              className="w-full h-12 border-2 border-[#3180F7]/20 rounded-lg text-[14px] font-semibold text-[#3180F7] active:scale-95 transition-all hover:border-[#3180F7]/40 hover:bg-[#EAF3FF]/30"
             >
               문의하기
             </button>
           </div>
 
           {/* 구매하기 */}
-          <button className="flex-1 h-12 bg-gray-900 rounded-lg text-[14px] font-bold text-white active:scale-95 transition-transform">
-            구매하기
+          <button
+            className="relative flex-1 h-12 rounded-lg text-[14px] font-bold text-white active:scale-95 transition-transform overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, #3180F7 0%, #1A68E0 100%)',
+              boxShadow: '0 4px 14px rgba(49,128,247,0.35)',
+            }}
+          >
+            <span className="relative z-10">구매하기</span>
+            <span
+              className="absolute top-0 left-0 h-full w-1/3 pointer-events-none"
+              style={{
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                animation: 'buttonShine 3s ease-in-out infinite',
+              }}
+            />
           </button>
         </div>
       </div>
 
-      {/* Tooltip animation */}
+      {/* Premium animations */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes tooltipBounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-3px); }
+        }
+        @keyframes priceFadeUp {
+          0% { opacity: 0; transform: translateY(8px); filter: blur(3px); }
+          100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        @keyframes slideInLeft {
+          0% { opacity: 0; transform: translateX(-12px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes primeShine {
+          0%, 100% { box-shadow: 0 0 0 rgba(49,128,247,0); }
+          50% { box-shadow: 0 0 16px rgba(49,128,247,0.4); }
+        }
+        @keyframes primeShineMove {
+          0% { transform: translateX(-100%); }
+          50%, 100% { transform: translateX(400%); }
+        }
+        @keyframes playPulse {
+          0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.5); }
+          100% { box-shadow: 0 0 0 18px rgba(255,255,255,0); }
+        }
+        @keyframes heartPop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.4); }
+          100% { transform: scale(1); }
+        }
+        @keyframes buttonShine {
+          0% { transform: translateX(-100%) skewX(-15deg); }
+          50%, 100% { transform: translateX(450%) skewX(-15deg); }
         }
       `}} />
     </div>
