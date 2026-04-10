@@ -35,11 +35,10 @@ const IconTicket = () => (
 );
 const IconSettings = () => (
   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M3 7.5C3 5.01 5.01 3 7.5 3h9C18.99 3 21 5.01 21 7.5v9c0 2.49-2.01 4.5-4.5 4.5h-9A4.5 4.5 0 013 16.5v-9z" fill="#6B7280"/>
-    <circle cx="12" cy="12" r="3.5" fill="white"/>
-    <circle cx="12" cy="12" r="1.8" fill="#6B7280"/>
-    <rect x="8.5" y="3.5" width="7" height="2.5" rx="1.25" fill="#6B7280"/>
-    <rect x="10" y="2" width="4" height="2" rx="1" fill="#6B7280"/>
+    <path d="M2 7.5A4.5 4.5 0 016.5 3h11A4.5 4.5 0 0122 7.5v9a4.5 4.5 0 01-4.5 4.5h-11A4.5 4.5 0 012 16.5v-9z" fill="#4B5563"/>
+    <circle cx="12" cy="12.5" r="4" stroke="white" strokeWidth="2" fill="none"/>
+    <circle cx="12" cy="12.5" r="1.5" fill="white"/>
+    <path d="M9 3h6v1.5a1.5 1.5 0 01-1.5 1.5h-3A1.5 1.5 0 019 4.5V3z" fill="#4B5563"/>
   </svg>
 );
 const IconBell = () => (
@@ -94,11 +93,10 @@ const IconBriefcase = () => (
 );
 const IconUser = () => (
   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M17.65 6.35a7.95 7.95 0 01.15 9.8" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M18.5 5l-.85 1.35L16.5 5" fill="#4B8DF8"/>
-    <polygon points="18.5,4.2 17.2,6.8 15.8,4.6" fill="#4B8DF8"/>
-    <path d="M6.35 17.65a7.95 7.95 0 01-.15-9.8" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
-    <polygon points="5.5,19.8 6.8,17.2 8.2,19.4" fill="#4B8DF8"/>
+    <path d="M7.5 4A7.5 7.5 0 0119.3 8" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M19.3 8l1.2-3.2M19.3 8l-3.3-.8" stroke="#4B8DF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M16.5 20A7.5 7.5 0 014.7 16" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M4.7 16l-1.2 3.2M4.7 16l3.3.8" stroke="#4B8DF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
