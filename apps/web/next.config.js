@@ -2,7 +2,7 @@
 const nextConfig = {
   transpilePackages: ['@prettyful/types'],
   images: {
-    domains: ['localhost', 'cdn.prettyful.co.kr', 'k.kakaocdn.net', 'lh3.googleusercontent.com'],
+    domains: ['localhost', 'cdn.prettyful.co.kr', 'cdn.freetiful.co.kr', 'k.kakaocdn.net', 'lh3.googleusercontent.com', 'i.pravatar.cc', 'images.unsplash.com', 'picsum.photos'],
     formats: ['image/webp'],
   },
   async rewrites() {
