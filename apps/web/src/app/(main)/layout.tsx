@@ -9,12 +9,12 @@ import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
 
 const NAV_ITEMS = [
-  { href: '/home',      iconSrc: '/images/홈 아이콘.svg',     label: '홈' },
-  { href: '/schedule',  iconSrc: '/images/스케줄 아이콘.svg', label: '스케줄' },
-  { href: '/biz',       iconSrc: '/images/비즈 아이콘.svg',   label: 'Biz' },
-  { href: '/chat',      iconSrc: '/images/채팅 아이콘.svg',   label: '채팅' },
-  { href: '/favorites', iconSrc: '/images/찜 아이콘.svg',     label: '찜' },
-  { href: '/my',        iconSrc: '/images/마이 아이콘.svg',   label: '마이' },
+  { href: '/home',      iconSrc: '/images/icon-home.svg',      label: '홈' },
+  { href: '/schedule',  iconSrc: '/images/icon-schedule.svg',  label: '스케줄' },
+  { href: '/biz',       iconSrc: '/images/icon-biz.svg',       label: 'Biz' },
+  { href: '/chat',      iconSrc: '/images/icon-chat.svg',      label: '채팅' },
+  { href: '/favorites', iconSrc: '/images/icon-favorites.svg', label: '찜' },
+  { href: '/my',        iconSrc: '/images/icon-my.svg',        label: '마이' },
 ];
 
 const HIDE_NAV_PATTERNS = [
