@@ -35,25 +35,23 @@ const IconTicket = () => (
 );
 const IconSettings = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <circle cx="12" cy="12" r="4" fill="#6B7280"/>
-    <circle cx="12" cy="12" r="9" stroke="#6B7280" strokeWidth="2" strokeDasharray="3 3"/>
-    <circle cx="12" cy="3" r="1.5" fill="#6B7280"/>
-    <circle cx="12" cy="21" r="1.5" fill="#6B7280"/>
-    <circle cx="3" cy="12" r="1.5" fill="#6B7280"/>
-    <circle cx="21" cy="12" r="1.5" fill="#6B7280"/>
+    <path d="M12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z" fill="#9CA3AF"/>
+    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" fill="#D1D5DB"/>
   </svg>
 );
 const IconBell = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M12 3a6 6 0 00-6 6v4l-2 3h16l-2-3V9a6 6 0 00-6-6z" fill="#FBBF24"/>
-    <circle cx="12" cy="20" r="2" fill="#F59E0B"/>
+    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" fill="#FBBF24"/>
+    <path d="M13.73 21a2 2 0 01-3.46 0" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
+    <circle cx="18" cy="4" r="3" fill="#EF4444"/>
   </svg>
 );
 const IconHeadphones = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M3 12a9 9 0 0118 0" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round"/>
-    <rect x="3" y="14" width="4" height="6" rx="2" fill="#3B82F6"/>
-    <rect x="17" y="14" width="4" height="6" rx="2" fill="#3B82F6"/>
+    <path d="M3 18v-6a9 9 0 0118 0v6" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round"/>
+    <rect x="3" y="15" width="3" height="5" rx="1.5" fill="#3B82F6"/>
+    <rect x="18" y="15" width="3" height="5" rx="1.5" fill="#3B82F6"/>
+    <circle cx="12" cy="12" r="2" fill="#93C5FD"/>
   </svg>
 );
 const IconHelp = () => (
@@ -64,16 +62,17 @@ const IconHelp = () => (
 );
 const IconMegaphone = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M19 4L10 8H5a2 2 0 00-2 2v2a2 2 0 002 2h1l2 6h2l-2-6h2l9 4V4z" fill="#EF4444"/>
-    <circle cx="19" cy="12" r="2" fill="#DC2626"/>
+    <path d="M21 5v14l-8-3.5V8.5L21 5z" fill="#EF4444"/>
+    <rect x="3" y="9" width="10" height="6" rx="2" fill="#FCA5A5"/>
+    <rect x="5" y="15" width="3" height="4" rx="1" fill="#F87171"/>
   </svg>
 );
 const IconUsers = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <circle cx="9" cy="8" r="3.5" fill="#93C5FD"/>
-    <path d="M2 19c0-2.5 3-4.5 7-4.5s7 2 7 4.5" fill="#93C5FD"/>
-    <circle cx="17" cy="9" r="2.5" fill="#60A5FA"/>
-    <path d="M15 19c0-1.5 1-3 3.5-3.5C21 15 22 17 22 19" fill="#60A5FA"/>
+    <circle cx="8.5" cy="7.5" r="3" fill="#818CF8"/>
+    <ellipse cx="8.5" cy="17" rx="5.5" ry="3.5" fill="#818CF8"/>
+    <circle cx="16.5" cy="8.5" r="2.5" fill="#C4B5FD"/>
+    <ellipse cx="16.5" cy="17" rx="4" ry="3" fill="#C4B5FD"/>
   </svg>
 );
 const IconFile = () => (
