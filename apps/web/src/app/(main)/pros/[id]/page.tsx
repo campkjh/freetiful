@@ -371,7 +371,7 @@ export default function ProDetailPage() {
     mainImage: proData.images[0] || proData.image,
     images: proData.images,
     title: `사회자 ${proData.name}`,
-    rating: 4.8 + (parseInt(id || '1') % 3) * 0.1,
+    rating: parseFloat((4.8 + (parseInt(id || '1') % 3) * 0.1).toFixed(1)),
     reviewCount: 15 + (parseInt(id || '1') * 7) % 200,
     youtubeId: proData.youtubeId || MOCK_PRO.youtubeId,
     youtubeVideos: proData.youtubeId ? [{ id: proData.youtubeId, title: `${proData.name} 사회자 진행 영상` }] : MOCK_PRO.youtubeVideos,
@@ -673,8 +673,8 @@ export default function ProDetailPage() {
         {/* Rating */}
         <Reveal delay={100}>
           <div className="flex items-center gap-2 mb-4">
-            <StarRating value={pro.rating} size={16} />
-            <span className="text-[16px] font-bold text-gray-900">{pro.rating}</span>
+            <StarRating value={pro.rating.toFixed(1)} size={16} />
+            <span className="text-[16px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
             <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
           </div>
         </Reveal>
@@ -871,8 +871,8 @@ export default function ProDetailPage() {
                 <p className="text-[13px] font-semibold text-gray-900 leading-tight">사회자 {item.author}</p>
                 {item.rating && (
                   <div className="flex items-center gap-1 mt-0.5">
-                    <StarRating value={item.rating} size={10} />
-                    <span className="text-[11px] font-bold text-gray-900">{item.rating}</span>
+                    <StarRating value={item.rating.toFixed(1)} size={10} />
+                    <span className="text-[11px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
                     <span className="text-[10px] text-gray-400">({item.reviewCount})</span>
                   </div>
                 )}
@@ -895,8 +895,8 @@ export default function ProDetailPage() {
           <div className="flex-1">
             <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
-              <StarRating value={pro.rating} size={12} />
-              <span className="text-[12px] font-semibold text-gray-900">{pro.rating} ({pro.reviewCount + 3})</span>
+              <StarRating value={pro.rating.toFixed(1)} size={12} />
+              <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({pro.reviewCount + 3})</span>
             </div>
             <p className="text-[11px] text-gray-400 mt-1">연락 가능 시간: {pro.expertStats.contactTime}</p>
             <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
@@ -949,8 +949,8 @@ export default function ProDetailPage() {
         <h2 className="text-[20px] font-bold text-gray-900 mb-2">리뷰</h2>
 
         <div className="flex items-center gap-2 mb-2">
-          <StarRating value={pro.rating} size={20} />
-          <span className="text-[24px] font-bold text-gray-900">{pro.rating}</span>
+          <StarRating value={pro.rating.toFixed(1)} size={20} />
+          <span className="text-[24px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
           <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
         </div>
 
@@ -999,8 +999,8 @@ export default function ProDetailPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 mb-2">
-                <StarRating value={review.rating} size={14} />
-                <span className="text-[13px] font-bold text-gray-900">{review.rating}</span>
+                <StarRating value={review.rating.toFixed(1)} size={14} />
+                <span className="text-[13px] font-bold text-gray-900">{review.rating.toFixed(1)}</span>
                 <span className="text-[12px] text-gray-300">|</span>
                 <span className="text-[12px] text-gray-400">{review.date}</span>
               </div>
@@ -1096,8 +1096,8 @@ export default function ProDetailPage() {
                 {item.isPartner && <img src="/images/partners-badge.svg" alt="Partners" className="h-[18px] mb-0.5" />}
                 <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.role} {item.name}</p>
                 <div className="flex items-center gap-1 mt-0.5">
-                  <StarRating value={item.rating} size={10} />
-                  <span className="text-[11px] font-bold text-gray-900">{item.rating}</span>
+                  <StarRating value={item.rating.toFixed(1)} size={10} />
+                  <span className="text-[11px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
                   <span className="text-[10px] text-gray-400">({item.reviews})</span>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-1">
@@ -1332,8 +1332,8 @@ export default function ProDetailPage() {
                     <span className="text-[14px] text-gray-600">{review.name}</span>
                   </div>
                   <div className="flex items-center gap-1.5 mb-3">
-                    <StarRating value={review.rating} size={14} />
-                    <span className="text-[13px] font-bold text-gray-900">{review.rating}</span>
+                    <StarRating value={review.rating.toFixed(1)} size={14} />
+                    <span className="text-[13px] font-bold text-gray-900">{review.rating.toFixed(1)}</span>
                     <span className="text-[12px] text-gray-300">|</span>
                     <span className="text-[12px] text-gray-400">{review.date}</span>
                   </div>
