@@ -35,23 +35,24 @@ const IconTicket = () => (
 );
 const IconSettings = () => (
   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="3" y="3" width="18" height="18" rx="5" fill="#E5E7EB"/>
-    <circle cx="12" cy="12" r="3.5" fill="#6B7280"/>
-    <rect x="10.5" y="1" width="3" height="4" rx="1.5" fill="#9CA3AF"/>
-    <rect x="10.5" y="19" width="3" height="4" rx="1.5" fill="#9CA3AF"/>
-    <rect x="1" y="10.5" width="4" height="3" rx="1.5" fill="#9CA3AF"/>
-    <rect x="19" y="10.5" width="4" height="3" rx="1.5" fill="#9CA3AF"/>
+    <path d="M3 7.5C3 5.01 5.01 3 7.5 3h9C18.99 3 21 5.01 21 7.5v9c0 2.49-2.01 4.5-4.5 4.5h-9A4.5 4.5 0 013 16.5v-9z" fill="#6B7280"/>
+    <circle cx="12" cy="12" r="3.5" fill="white"/>
+    <circle cx="12" cy="12" r="1.8" fill="#6B7280"/>
+    <rect x="8.5" y="3.5" width="7" height="2.5" rx="1.25" fill="#6B7280"/>
+    <rect x="10" y="2" width="4" height="2" rx="1" fill="#6B7280"/>
   </svg>
 );
 const IconBell = () => (
-  <svg width={22} height={22} viewBox="0 0 48 48" fill="none" className="shrink-0">
-    <path d="M24 4c-1.1 0-2 .9-2 2v1.17C16.36 8.2 12 12.73 12 18v8l-4 4v2h32v-2l-4-4v-8c0-5.27-4.36-9.8-10-10.83V6c0-1.1-.9-2-2-2z" fill="#FBBF24"/>
-    <circle cx="24" cy="40" r="4" fill="#F59E0B"/>
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M12 2.5c-4 0-7 3.2-7 7v4.5L3 16.5V18h18v-1.5L19 14V9.5c0-3.8-3-7-7-7z" fill="#F6C754"/>
+    <circle cx="12" cy="19.5" r="2.5" fill="#E8A23E"/>
   </svg>
 );
 const IconHeadphones = () => (
-  <svg width={22} height={22} viewBox="0 0 48 48" fill="none" className="shrink-0">
-    <path d="M24 6C13.5 6 5 14.5 5 25v11a4 4 0 004 4h3a3 3 0 003-3v-8a3 3 0 00-3-3H9v-1c0-8.28 6.72-15 15-15s15 6.72 15 15v1h-3a3 3 0 00-3 3v8a3 3 0 003 3h3a4 4 0 004-4V25C43 14.5 34.5 6 24 6z" fill="#3B82F6"/>
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M4 13v-1a8 8 0 0116 0v1" stroke="#6B7280" strokeWidth="2.5" strokeLinecap="round"/>
+    <rect x="2" y="13" width="5" height="7" rx="2.5" fill="#4B8DF8"/>
+    <rect x="17" y="13" width="5" height="7" rx="2.5" fill="#4B8DF8"/>
   </svg>
 );
 const IconHelp = () => (
