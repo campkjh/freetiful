@@ -63,23 +63,25 @@ function CountUp({ value, suffix = '' }: { value: number; suffix?: string }) {
 // ─── Mock Data ──────────────────────────────────────────────
 
 const MOCK_PRO = {
-  id: '1',
+  id: '31',
   name: '전해별',
   level: 'Level 1',
-  profileImage: 'https://i.pravatar.cc/150?img=45',
-  mainImage: 'https://i.pravatar.cc/800?img=45',
+  profileImage: '/images/전해별/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif',
+  mainImage: '/images/전해별/IMG_73341772850094485.avif',
   images: [
-    'https://i.pravatar.cc/800?img=45',
-    'https://i.pravatar.cc/800?img=47',
-    'https://i.pravatar.cc/800?img=48',
+    '/images/전해별/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif',
+    '/images/전해별/IMG_73341772850094485.avif',
+    '/images/전해별/IMG_73391772850088429.avif',
+    '/images/전해별/IMG_92281772850158117.avif',
   ],
   title: '사회자 전해별',
   isPrime: true,
-  youtubeId: 'dQw4w9WgXcQ',
+  youtubeId: 'Aooj1e0Wu2I',
   youtubeVideos: [
-    { id: 'dQw4w9WgXcQ', title: '2026 봄 웨딩 MC 현장 영상' },
-    { id: 'jNQXAC9IVRw', title: '기업 행사 진행 하이라이트' },
-    { id: 'kJQP7kiw5Fk', title: '돌잔치 MC 진행 영상' },
+    { id: 'Aooj1e0Wu2I', title: '전해별 아나운서 웨딩 MC 진행 영상' },
+    { id: 'yjF1Im350yE', title: '기업 행사 진행 하이라이트' },
+    { id: 'h9ckGqJHJJM', title: '공식 행사 MC 진행 영상' },
+    { id: 'aGt6EZQmmOk', title: '이벤트 진행 영상' },
   ],
   rating: 4.9,
   reviewCount: 79,
@@ -88,15 +90,19 @@ const MOCK_PRO = {
     { id: 'superior', label: 'Superior', price: 800000, duration: '2시간', title: '행사, 영상 2시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 2시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
     { id: 'enterprise', label: 'Enterprise', price: 1700000, duration: '6시간', title: '6시간 행사 및 촬영 (풀타임)', desc: ['행사 및 영상 진행 6시간 이상 진행', '행사 규모에 따라 조정될 수 있습니다.\n 문의 부탁드립니다'], workDays: 20, revisions: 1 },
   ],
-  description: `안녕하세요.
+  description: `안녕하세요. 아나운서 전해별입니다.
 
-신뢰감 있는 목소리, 탄탄한 발성, 센스 있는 진행
-첫 문장부터 시선을 이끄는
+탄탄한 발성의 아나운서가 여러분을 빛내 드리겠습니다.
 
-아나운서 전해별입니다.
+신뢰감 있는 목소리, 탄탄한 발성, 센스 있는 진행으로
+첫 문장부터 시선을 이끌겠습니다.
 
-저는,
-(사) 한국장애인공연예술단 홍보대사,`,
+주요 경력:
+• 인천공항 아나운서
+• 부평구청 아나운서
+• <청중을 이끄는 스피치> 집필
+• 크몽 Prime 전문가
+• 영어 MC 가능`,
   expertStats: {
     totalDeals: 89,
     satisfaction: 100,
@@ -106,7 +112,7 @@ const MOCK_PRO = {
     contactTime: '언제나 가능',
   },
   otherServices: [
-    { id: 'os1', title: '전문 아나운서가 특별한 날을 품격있게 꾸며드리...', price: 400000, rating: 5.0, reviewCount: 3, image: 'https://i.pravatar.cc/200?img=44' },
+    { id: 'os1', title: '전문 아나운서가 특별한 날을 품격있게 꾸며드리...', price: 400000, rating: 5.0, reviewCount: 3, image: '/images/전해별/IMG_92281772850158117.avif' },
   ],
   reviews: [
     {
@@ -137,14 +143,14 @@ const MOCK_PRO = {
     },
   ],
   recommendedPros: [
-    { id: 'p1', name: '장우주', role: '사회자', rating: 4.9, reviews: 67, experience: 12, image: 'https://i.pravatar.cc/300?img=25', tags: ['전국가능', '격식있는'], isPartner: true },
-    { id: 'p2', name: '남기희', role: '사회자', rating: 5.0, reviews: 45, experience: 8, image: 'https://i.pravatar.cc/300?img=33', tags: ['서울/경기', '유머러스한'], isPartner: true },
-    { id: 'p3', name: '김수연', role: '사회자', rating: 4.8, reviews: 89, experience: 15, image: 'https://i.pravatar.cc/300?img=47', tags: ['전국가능', '감동적인'], isPartner: true },
+    { id: '15', name: '박인애', role: '사회자', rating: 4.7, reviews: 134, experience: 13, image: '/images/박인애/IMG_0196.avif', tags: ['전국가능', '격식있는'], isPartner: true },
+    { id: '23', name: '이승진', role: '사회자', rating: 4.8, reviews: 211, experience: 4, image: '/images/이승진/IMG_46511771924269213.avif', tags: ['서울/경기', '유머러스한'], isPartner: true },
+    { id: '12', name: '문정은', role: '사회자', rating: 4.6, reviews: 216, experience: 10, image: '/images/문정은/IMG_27221772621229571.avif', tags: ['전국가능', '감동적인'], isPartner: true },
   ],
   alsoViewed: [
-    { id: 'av1', title: '아리랑 국제방송-통역사 출신 영어 아나운서 I 한영...', price: 400000, author: '오유진', image: 'https://i.pravatar.cc/300?img=20' },
-    { id: 'av2', title: '김혜연 아나운서/행사진행, MC, 쇼호스트, 결혼식사회', price: 300000, rating: 5.0, reviewCount: 1, author: '김anna', image: 'https://i.pravatar.cc/300?img=26' },
-    { id: 'av3', title: '비타민 가득 에너지보이 김다솜 아나운서입니다', price: 200000, rating: 5.0, reviewCount: 1, author: '김다솜아나운서', image: 'https://i.pravatar.cc/300?img=48' },
+    { id: '25', title: '현직 아나운서의 고품격 진행', price: 400000, author: '이우영', image: '/images/이우영/2-11772248201484.avif' },
+    { id: '35', title: '정이현 사회자 - 청춘의 에너지를 담은 MC', price: 300000, rating: 5.0, reviewCount: 34, author: '정이현', image: '/images/정이현/44561772622988798.avif' },
+    { id: '5', title: '최고의 진행자 아나운서 김유석입니다', price: 550000, rating: 4.7, reviewCount: 65, author: '김유석', image: '/images/김유석/10000029811773033474612.avif' },
   ],
 };
 
