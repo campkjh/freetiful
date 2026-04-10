@@ -101,14 +101,14 @@ const IconUser = () => (
 );
 
 const UPCOMING_SCHEDULES = [
-  { id: '1', proName: '박인애', category: 'MC', date: '4.10 (금)', time: '14:00', location: '그랜드 웨딩홀', proImage: 'https://i.pravatar.cc/300?img=1' },
-  { id: '2', proName: '채안빈', category: '축가', date: '4.10 (금)', time: '14:30', location: '그랜드 웨딩홀', proImage: 'https://i.pravatar.cc/300?img=5' },
+  { id: '1', proName: '박인애', category: 'MC', date: '4.10 (금)', time: '14:00', location: '그랜드 웨딩홀', proImage: '/images/박인애/IMG_0196.avif' },
+  { id: '2', proName: '성연채', category: '축가', date: '4.10 (금)', time: '14:30', location: '그랜드 웨딩홀', proImage: '/images/성연채/20161016_161406_IMG_5921.avif' },
 ];
 
 const MOCK_USER = {
   name: '김정훈',
   email: 'hong@gmail.com',
-  image: 'https://i.pravatar.cc/150?img=32',
+  image: '/images/mc-characters.png',
   linkedAccounts: ['kakao', 'google'],
   points: 1500,
   coupons: 2,

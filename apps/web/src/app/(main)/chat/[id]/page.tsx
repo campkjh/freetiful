@@ -16,11 +16,11 @@ import toast from 'react-hot-toast';
 const MY_ID = 'user-1';
 
 const PROS: Record<string, { id: string; name: string; username: string; profileImageUrl: string; isActive: boolean; lastSeen?: string }> = {
-  '1': { id: 'pro-1', name: '이우영', username: 'wooyoung_mc', profileImageUrl: 'https://i.pravatar.cc/150?img=1', isActive: true },
-  '2': { id: 'pro-2', name: '이승진', username: 'seungjin_mc', profileImageUrl: 'https://i.pravatar.cc/150?img=5', isActive: false, lastSeen: '5분 전' },
-  '3': { id: 'pro-3', name: '김민준', username: 'minjun_mc', profileImageUrl: 'https://i.pravatar.cc/150?img=3', isActive: true },
-  '4': { id: 'pro-4', name: '박서연', username: 'seoyeon_mc', profileImageUrl: 'https://i.pravatar.cc/150?img=9', isActive: false, lastSeen: '1시간 전' },
-  '5': { id: 'pro-5', name: '정하린', username: 'harin_singer', profileImageUrl: 'https://i.pravatar.cc/150?img=12', isActive: true },
+  '1': { id: 'pro-1', name: '이우영', username: 'wooyoung_mc', profileImageUrl: '/images/이우영/2-11772248201484.avif', isActive: true },
+  '2': { id: 'pro-2', name: '이승진', username: 'seungjin_mc', profileImageUrl: '/images/이승진/IMG_46511771924269213.avif', isActive: false, lastSeen: '5분 전' },
+  '3': { id: 'pro-3', name: '박인애', username: 'inae_mc', profileImageUrl: '/images/박인애/IMG_0196.avif', isActive: true },
+  '4': { id: 'pro-4', name: '전해별', username: 'haebyul_mc', profileImageUrl: '/images/전해별/IMG_73341772850094485.avif', isActive: false, lastSeen: '1시간 전' },
+  '5': { id: 'pro-5', name: '정이현', username: 'yihyun_mc', profileImageUrl: '/images/정이현/44561772622988798.avif', isActive: true },
 };
 
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];

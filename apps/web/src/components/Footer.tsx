@@ -9,19 +9,16 @@ const FOOTER_LINKS = {
     { label: '개인정보 처리방침', href: '/terms/privacy' },
   ],
   회사: [
-    { label: '회사 소개', href: '#' },
-    { label: '채용', href: '#' },
-    { label: '블로그', href: '#' },
-    { label: '기술 블로그', href: '#' },
+    { label: '회사 소개', href: '/biz' },
+    { label: '채용', href: '/careers' },
   ],
   문의: [
-    { label: '사업 제휴', href: '#' },
-    { label: '광고 문의', href: '#' },
+    { label: '사업 제휴', href: '/biz' },
     { label: '전문가 입점 문의', href: '/pro-register' },
   ],
   '고객센터': [
-    { label: '전화: 1599-0000 (평일 10-18시)', href: '#' },
-    { label: '이메일: support@freetiful.kr', href: 'mailto:support@freetiful.kr' },
+    { label: '전화: 02-765-8882', href: 'tel:02-765-8882' },
+    { label: '이메일: freetiful2025@gmail.com', href: 'mailto:freetiful2025@gmail.com' },
   ],
 };
 
@@ -29,7 +26,7 @@ export default function Footer() {
   return (
     <footer className="bg-surface-100 border-t border-gray-200/60">
       {/* ─── Link Columns ──────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-5 lg:px-8 pt-12 pb-10">
+      <div className="max-w-7xl mx-auto px-5 lg:px-8 pt-12 pb-6">
         <div className="grid grid-cols-2 gap-8 lg:grid-cols-4 lg:gap-12">
           {Object.entries(FOOTER_LINKS).map(([title, links]) => (
             <div key={title}>
@@ -51,6 +48,21 @@ export default function Footer() {
         </div>
       </div>
 
+      {/* ─── 사업자 정보 ──────────────────────────────────────── */}
+      <div className="border-t border-gray-200/60">
+        <div className="max-w-7xl mx-auto px-5 lg:px-8 py-6">
+          <p className="text-[11px] text-gray-400 leading-[1.8]">
+            프리티풀은 통신판매중개자로서 통신판매의 당사자가 아니며 개별 판매자가 제공하는 서비스에 대한 이행, 계약사항 등과 관련한 의무와 책임은 거래 당사자에게 있습니다.
+          </p>
+          <div className="mt-3 space-y-1 text-[11px] text-gray-400 leading-relaxed">
+            <p>(주)커넥트풀 ㅣ 우 06314 서울특별시 강남구 논현로10길 30, 505-제이20호(개포동)</p>
+            <p>T 02-765-8882 ㅣ E freetiful2025@gmail.com</p>
+            <p>대표자 서나웅 ㅣ 사업자 등록 번호 391-86-03659</p>
+            <p>통신판매업 제 2026-서울강남-01251호</p>
+          </div>
+          <p className="mt-4 text-[10px] text-gray-300">Copyright&copy; Freetiful. All right reserved.</p>
+        </div>
+      </div>
     </footer>
   );
 }

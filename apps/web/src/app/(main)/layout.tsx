@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Footer from '@/components/Footer';
 import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
+import PageTransition from '@/components/PageTransition';
 
 const NAV_ITEMS = [
   { href: '/home',      iconSrc: '/images/icon-home.svg',      label: '홈' },
@@ -114,7 +115,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* ─── Content ─────────────────────────────────────────────────── */}
       <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${hideNav ? '' : 'pb-24 lg:pb-12'}`}>
         <div className="lg:max-w-none">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </div>
       </main>
 

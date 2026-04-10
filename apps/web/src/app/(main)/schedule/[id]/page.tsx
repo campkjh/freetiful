@@ -10,13 +10,13 @@ const MOCK_BOOKINGS: Record<string, {
   date: string; eventDate: string; time: string; location: string;
   plan: string; price: number; status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
 }> = {
-  '1': { proName: '박인애', proImage: 'https://i.pravatar.cc/300?img=1', category: 'MC', date: '2026. 4. 10 (금)', eventDate: '2026-04-10', time: '14:00 - 16:00', location: '그랜드 웨딩홀', plan: 'Premium 패키지', price: 450000, status: 'confirmed' },
-  '2': { proName: '채안빈', proImage: 'https://i.pravatar.cc/300?img=5', category: '축가', date: '2026. 4. 10 (금)', eventDate: '2026-04-10', time: '14:30 - 15:00', location: '그랜드 웨딩홀', plan: 'Superior 패키지', price: 800000, status: 'confirmed' },
-  '3': { proName: '로즈스튜디오', proImage: 'https://i.pravatar.cc/300?img=9', category: '스튜디오', date: '2026. 4. 15 (수)', eventDate: '2026-04-15', time: '10:00 - 13:00', location: '강남 스튜디오', plan: 'Premium 패키지', price: 550000, status: 'pending' },
-  '4': { proName: '라벨드레스', proImage: 'https://i.pravatar.cc/300?img=10', category: '드레스', date: '2026. 4. 18 (토)', eventDate: '2026-04-18', time: '15:00 - 17:00', location: '청담 쇼룸', plan: 'Enterprise 패키지', price: 1700000, status: 'pending' },
-  '5': { proName: '뷰티살롱', proImage: 'https://i.pravatar.cc/300?img=20', category: '헤메샵', date: '2026. 4. 22 (수)', eventDate: '2026-04-22', time: '11:00 - 13:00', location: '압구정 살롱', plan: 'Premium 패키지', price: 450000, status: 'pending' },
-  '6': { proName: '더채플앳청담', proImage: 'https://i.pravatar.cc/300?img=12', category: '웨딩홀', date: '2026. 4. 5 (토)', eventDate: '2026-04-05', time: '14:00 - 15:30', location: '청담동', plan: 'Superior 패키지', price: 800000, status: 'completed' },
-  '7': { proName: '김서현', proImage: 'https://i.pravatar.cc/300?img=15', category: 'MC', date: '2026. 4. 3 (목)', eventDate: '2026-04-03', time: '16:00 - 17:00', location: '카페', plan: 'Premium 패키지', price: 450000, status: 'completed' },
+  '1': { proName: '박인애', proImage: '/images/박인애/IMG_0196.avif', category: 'MC', date: '2026. 4. 10 (금)', eventDate: '2026-04-10', time: '14:00 - 16:00', location: '그랜드 웨딩홀', plan: 'Premium 패키지', price: 450000, status: 'confirmed' },
+  '2': { proName: '성연채', proImage: '/images/이승진/IMG_46511771924269213.avif', category: '축가', date: '2026. 4. 10 (금)', eventDate: '2026-04-10', time: '14:30 - 15:00', location: '그랜드 웨딩홀', plan: 'Superior 패키지', price: 800000, status: 'confirmed' },
+  '3': { proName: '조하늘', proImage: '/images/전해별/IMG_73341772850094485.avif', category: '스튜디오', date: '2026. 4. 15 (수)', eventDate: '2026-04-15', time: '10:00 - 13:00', location: '강남 스튜디오', plan: 'Premium 패키지', price: 550000, status: 'pending' },
+  '4': { proName: '김진아', proImage: '/images/박인애/IMG_0196.avif0', category: '드레스', date: '2026. 4. 18 (토)', eventDate: '2026-04-18', time: '15:00 - 17:00', location: '청담 쇼룸', plan: 'Enterprise 패키지', price: 1700000, status: 'pending' },
+  '5': { proName: '유하영', proImage: '/images/김동현/10000365351773046135169.avif0', category: '헤메샵', date: '2026. 4. 22 (수)', eventDate: '2026-04-22', time: '11:00 - 13:00', location: '압구정 살롱', plan: 'Premium 패키지', price: 450000, status: 'pending' },
+  '6': { proName: '함현지', proImage: '/images/박인애/IMG_0196.avif2', category: '웨딩홀', date: '2026. 4. 5 (토)', eventDate: '2026-04-05', time: '14:00 - 15:30', location: '청담동', plan: 'Superior 패키지', price: 800000, status: 'completed' },
+  '7': { proName: '문정은', proImage: '/images/박인애/IMG_0196.avif5', category: 'MC', date: '2026. 4. 3 (목)', eventDate: '2026-04-03', time: '16:00 - 17:00', location: '카페', plan: 'Premium 패키지', price: 450000, status: 'completed' },
 };
 
 const STATUS_MAP = {

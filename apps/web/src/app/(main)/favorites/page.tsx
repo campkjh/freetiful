@@ -9,9 +9,9 @@ type ProCategory = '전체' | '사회자' | '쇼호스트' | '축가';
 type BizCategory = '전체' | '웨딩홀' | '스튜디오' | '드레스' | '헤메샵';
 
 const MOCK_FAVORITE_PROS = [
-  { id: '1', name: '박인애', category: '사회자', badge: '', intro: '탄탄한 발성의 아나운서가 귀사에 품격을 더해 드립니다', rating: 4.9, reviews: 79, image: 'https://i.pravatar.cc/300?img=1', price: 450000, subName: '사회자 박인애' },
-  { id: '2', name: '김서현', category: '사회자', badge: '', intro: '감동과 웃음을 동시에 선사하는 웨딩 전문 MC', rating: 4.9, reviews: 142, image: 'https://i.pravatar.cc/300?img=5', price: 550000, subName: '사회자 김서현' },
-  { id: '3', name: '채안빈', category: '축가', badge: '', intro: '웨딩 축가 전문, 감동의 무대를 선사합니다', rating: 5.0, reviews: 67, image: 'https://i.pravatar.cc/300?img=9', price: 400000, subName: '축가 채안빈' },
+  { id: '1', name: '박인애', category: '사회자', badge: '', intro: '탄탄한 발성의 아나운서가 귀사에 품격을 더해 드립니다', rating: 4.9, reviews: 79, image: '/images/박인애/IMG_0196.avif', price: 450000, subName: '사회자 박인애' },
+  { id: '2', name: '이승진', category: '사회자', badge: '', intro: '감동과 웃음을 동시에 선사하는 웨딩 전문 MC', rating: 4.9, reviews: 142, image: '/images/이승진/IMG_46511771924269213.avif', price: 550000, subName: '사회자 이승진' },
+  { id: '3', name: '성연채', category: '축가', badge: '', intro: '웨딩 축가 전문, 감동의 무대를 선사합니다', rating: 5.0, reviews: 67, image: '/images/전해별/IMG_73341772850094485.avif', price: 400000, subName: '사회자 성연채' },
 ];
 
 const MOCK_FAVORITE_BIZ = [
@@ -22,13 +22,13 @@ const MOCK_FAVORITE_BIZ = [
 
 // 최근 본 전문가용 전체 목록
 const ALL_PROS = [
-  { id: '1', name: '박인애', category: 'MC', badge: 'premium', intro: '탄탄한 발성의 아나운서가 귀사에 품격을 더해 드립니다', rating: 4.9, reviews: 79, image: 'https://i.pravatar.cc/300?img=1', price: 450000, subName: '아나운서 박인애' },
-  { id: '2', name: '김서현', category: 'MC', badge: 'premium', intro: '감동과 웃음을 동시에 선사하는 웨딩 전문 MC', rating: 4.9, reviews: 142, image: 'https://i.pravatar.cc/300?img=5', price: 550000, subName: '사회자 김서현' },
-  { id: '3', name: '이하늘', category: 'MC', badge: '', intro: '섬세한 진행력으로 당신의 하루를 완성합니다', rating: 4.8, reviews: 98, image: 'https://i.pravatar.cc/300?img=9', price: 450000, subName: '사회자 이하늘' },
-  { id: '4', name: '정다은', category: 'MC', badge: 'premium', intro: '격식과 유쾌함의 완벽한 밸런스', rating: 5.0, reviews: 67, image: 'https://i.pravatar.cc/300?img=10', price: 480000, subName: '사회자 정다은' },
-  { id: '5', name: '최수아', category: 'MC', badge: '', intro: '따뜻한 목소리로 행사를 빛내드립니다', rating: 4.7, reviews: 55, image: 'https://i.pravatar.cc/300?img=12', price: 420000, subName: '사회자 최수아' },
-  { id: '7', name: '윤지민', category: 'MC', badge: 'premium', intro: '프리미엄 웨딩 전문 사회자', rating: 4.9, reviews: 120, image: 'https://i.pravatar.cc/300?img=2', price: 600000, subName: '사회자 윤지민' },
-  { id: '10', name: '오서진', category: 'MC', badge: 'premium', intro: '200회 이상 진행한 베테랑 사회자', rating: 5.0, reviews: 201, image: 'https://i.pravatar.cc/300?img=6', price: 700000, subName: '사회자 오서진' },
+  { id: '1', name: '박인애', category: 'MC', badge: 'premium', intro: '탄탄한 발성의 아나운서가 귀사에 품격을 더해 드립니다', rating: 4.9, reviews: 79, image: '/images/박인애/IMG_0196.avif', price: 450000, subName: '사회자 박인애' },
+  { id: '2', name: '이승진', category: 'MC', badge: 'premium', intro: '감동과 웃음을 동시에 선사하는 웨딩 전문 MC', rating: 4.9, reviews: 142, image: '/images/이승진/IMG_46511771924269213.avif', price: 550000, subName: '사회자 이승진' },
+  { id: '3', name: '전해별', category: 'MC', badge: '', intro: '섬세한 진행력으로 당신의 하루를 완성합니다', rating: 4.8, reviews: 98, image: '/images/전해별/IMG_73341772850094485.avif', price: 450000, subName: '사회자 전해별' },
+  { id: '4', name: '정이현', category: 'MC', badge: 'premium', intro: '격식과 유쾌함의 완벽한 밸런스', rating: 5.0, reviews: 67, image: '/images/박인애/IMG_0196.avif0', price: 480000, subName: '사회자 정이현' },
+  { id: '5', name: '한가람', category: 'MC', badge: '', intro: '따뜻한 목소리로 행사를 빛내드립니다', rating: 4.7, reviews: 55, image: '/images/박인애/IMG_0196.avif2', price: 420000, subName: '사회자 한가람' },
+  { id: '7', name: '김동현', category: 'MC', badge: 'premium', intro: '프리미엄 웨딩 전문 사회자', rating: 4.9, reviews: 120, image: '/images/김동현/10000365351773046135169.avif', price: 600000, subName: '사회자 김동현' },
+  { id: '10', name: '김유석', category: 'MC', badge: 'premium', intro: '200회 이상 진행한 베테랑 사회자', rating: 5.0, reviews: 201, image: '/images/김유석/10000029811773033474612.avif', price: 700000, subName: '사회자 김유석' },
 ];
 
 export default function FavoritesPage() {
