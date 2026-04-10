@@ -82,9 +82,9 @@ function PillBorderTrain() {
 }
 
 const RECOMMENDED = {
-  id: '4',
-  name: '정다은',
-  image: 'https://i.pravatar.cc/300?img=10',
+  id: '35',
+  name: '정이현',
+  image: '/images/정이현/44561772622988798.avif',
   title: '오늘의 추천 전문가',
 };
 
