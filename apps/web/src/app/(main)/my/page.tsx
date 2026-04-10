@@ -34,9 +34,13 @@ const IconTicket = () => (
   </svg>
 );
 const IconSettings = () => (
-  <svg width={22} height={22} viewBox="0 0 48 48" fill="none" className="shrink-0">
-    <path d="M24 30a6 6 0 100-12 6 6 0 000 12z" fill="#9CA3AF"/>
-    <path d="M41.76 18.84l-2.76-.48a15.1 15.1 0 00-1.08-2.64l1.56-2.28a1.2 1.2 0 00-.12-1.56l-3.24-3.24a1.2 1.2 0 00-1.56-.12l-2.28 1.56a15.1 15.1 0 00-2.64-1.08l-.48-2.76A1.2 1.2 0 0028.08 6h-4.56c-.6 0-1.08.48-1.2 1.08l-.48 2.76a15.1 15.1 0 00-2.64 1.08L16.92 9.36a1.2 1.2 0 00-1.56.12L12.12 12.72a1.2 1.2 0 00-.12 1.56l1.56 2.28a15.1 15.1 0 00-1.08 2.64l-2.76.48C9.12 19.8 8.64 20.28 8.64 20.88v4.56c0 .6.48 1.08 1.08 1.2l2.76.48c.24.96.6 1.8 1.08 2.64l-1.56 2.28a1.2 1.2 0 00.12 1.56l3.24 3.24c.48.36 1.08.48 1.56.12l2.28-1.56c.84.48 1.68.84 2.64 1.08l.48 2.76c.12.6.6 1.08 1.2 1.08h4.56c.6 0 1.08-.48 1.2-1.08l.48-2.76a15.1 15.1 0 002.64-1.08l2.28 1.56c.48.36 1.08.24 1.56-.12l3.24-3.24c.36-.48.48-1.08.12-1.56l-1.56-2.28c.48-.84.84-1.68 1.08-2.64l2.76-.48c.6-.12 1.08-.6 1.08-1.2v-4.56c-.24-.48-.72-.96-1.32-1.08z" fill="#D1D5DB"/>
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="3" y="3" width="18" height="18" rx="5" fill="#E5E7EB"/>
+    <circle cx="12" cy="12" r="3.5" fill="#6B7280"/>
+    <rect x="10.5" y="1" width="3" height="4" rx="1.5" fill="#9CA3AF"/>
+    <rect x="10.5" y="19" width="3" height="4" rx="1.5" fill="#9CA3AF"/>
+    <rect x="1" y="10.5" width="4" height="3" rx="1.5" fill="#9CA3AF"/>
+    <rect x="19" y="10.5" width="4" height="3" rx="1.5" fill="#9CA3AF"/>
   </svg>
 );
 const IconBell = () => (
@@ -57,18 +61,19 @@ const IconHelp = () => (
   </svg>
 );
 const IconMegaphone = () => (
-  <svg width={22} height={22} viewBox="0 0 48 48" fill="none" className="shrink-0">
-    <path d="M38 8v32c0 1.1-.9 2-2 2s-2-.9-2-2V8c0-1.1.9-2 2-2s2 .9 2 2z" fill="#DC2626"/>
-    <path d="M34 12L14 18H8a4 4 0 00-4 4v4a4 4 0 004 4h6l20 6V12z" fill="#EF4444"/>
-    <rect x="10" y="30" width="6" height="8" rx="2" fill="#F87171"/>
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="3" y="7" width="7" height="8" rx="2" fill="#FCA5A5"/>
+    <path d="M10 8l9-4v16l-9-4V8z" fill="#EF4444"/>
+    <rect x="19" y="9" width="3" height="6" rx="1.5" fill="#DC2626"/>
+    <path d="M7 15v4a2 2 0 002 2h0a2 2 0 002-2v-3" fill="#F87171"/>
   </svg>
 );
 const IconUsers = () => (
-  <svg width={22} height={22} viewBox="0 0 48 48" fill="none" className="shrink-0">
-    <circle cx="18" cy="14" r="7" fill="#818CF8"/>
-    <path d="M4 38c0-5.52 6.27-10 14-10s14 4.48 14 10" fill="#818CF8"/>
-    <circle cx="34" cy="16" r="5" fill="#C4B5FD"/>
-    <path d="M44 38c0-4.42-4.48-8-10-8-1.38 0-2.72.2-4 .58" fill="#C4B5FD"/>
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <circle cx="9" cy="7" r="4" fill="#818CF8"/>
+    <rect x="2" y="14" width="14" height="8" rx="4" fill="#818CF8"/>
+    <circle cx="18" cy="8" r="3" fill="#C4B5FD"/>
+    <rect x="12" y="15" width="11" height="7" rx="3.5" fill="#C4B5FD"/>
   </svg>
 );
 const IconFile = () => (
