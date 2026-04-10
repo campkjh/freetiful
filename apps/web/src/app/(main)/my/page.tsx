@@ -92,9 +92,12 @@ const IconBriefcase = () => (
   </svg>
 );
 const IconUser = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <circle cx="12" cy="8" r="4" fill="#9CA3AF"/>
-    <path d="M4 20c0-3 3.6-5.5 8-5.5s8 2.5 8 5.5" fill="#9CA3AF"/>
+  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M17.65 6.35a7.95 7.95 0 01.15 9.8" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M18.5 5l-.85 1.35L16.5 5" fill="#4B8DF8"/>
+    <polygon points="18.5,4.2 17.2,6.8 15.8,4.6" fill="#4B8DF8"/>
+    <path d="M6.35 17.65a7.95 7.95 0 01-.15-9.8" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
+    <polygon points="5.5,19.8 6.8,17.2 8.2,19.4" fill="#4B8DF8"/>
   </svg>
 );
 
