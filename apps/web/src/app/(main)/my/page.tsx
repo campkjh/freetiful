@@ -64,8 +64,8 @@ const IconMegaphone = () => (
   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
     <rect x="3" y="8" width="7" height="8" rx="2" fill="#FCA5A5"/>
     <path d="M10 9c0 0 5-3 9-4.5v15c-4-1.5-9-4.5-9-4.5V9z" fill="#EF4444"/>
-    <rect x="19" y="10" width="3" height="6" rx="1.5" fill="#DC2626"/>
-    <path d="M7 16v3.5a2 2 0 002 2h0a2 2 0 002-2V16" fill="#F87171"/>
+    <rect x="19" y="9" width="3" height="6" rx="1.5" fill="#DC2626"/>
+    <path d="M7 14v5.5a2 2 0 002 2h0a2 2 0 002-2V14" fill="#F87171"/>
   </svg>
 );
 const IconUsers = () => (
