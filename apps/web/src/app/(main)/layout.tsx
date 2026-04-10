@@ -28,6 +28,7 @@ const HIDE_NAV_PATTERNS = [
   /^\/pros$/,
   /^\/businesses$/,
   /^\/biz/,
+  /^\/quote/,
   /^\/careers$/,
   /^\/schedule\/.+/,
 ];
