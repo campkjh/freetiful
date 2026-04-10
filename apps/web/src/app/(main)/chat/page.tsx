@@ -461,9 +461,9 @@ export default function ChatListPage() {
 
       {/* ═══ Mobile ═══ */}
       <div className="lg:hidden bg-white min-h-screen pb-24">
-        <div className="px-5 pt-14 pb-2">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-[22px] font-extrabold text-gray-900">채팅</h1>
+        <div className="px-4 pt-3 pb-2">
+          <div className="flex items-center justify-between h-[52px]">
+            <h1 className="text-[18px] font-bold text-gray-900">채팅</h1>
             <button
               onClick={() => setShowSearch(!showSearch)}
               className={`p-2 rounded-full transition-colors active:scale-90 ${showSearch ? 'bg-gray-100' : ''}`}
@@ -503,11 +503,11 @@ export default function ChatListPage() {
                 animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
                 exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                 transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-                className="relative overflow-hidden"
+                className="relative"
               >
-                <Search size={16} className="absolute left-3 top-[18px] text-gray-400" />
-                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 대화 내용 검색" className="w-full bg-gray-100 rounded-full pl-9 pr-9 py-2.5 text-[14px] focus:outline-none focus:ring-2 focus:ring-gray-300" autoFocus />
-                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-[18px]"><X size={14} className="text-gray-400" /></button>}
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 대화 내용 검색" className="w-full bg-gray-100 rounded-2xl pl-9 pr-9 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-gray-300" autoFocus />
+                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-gray-400" /></button>}
               </motion.div>
             )}
           </AnimatePresence>

@@ -701,9 +701,21 @@ export default function HomePage() {
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
+  const [bannerIdx, setBannerIdx] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setBannerIdx((i) => (i + 1) % 3), 4000);
+    return () => clearInterval(timer);
+  }, []);
   const [myRegion, setMyRegion] = useState<string | null>(null);
   const [myRegionLoading, setMyRegionLoading] = useState(false);
   const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
+  const [viewedPros, setViewedPros] = useState<{ id: string; time: number }[]>([]);
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('viewed-pros') || '[]');
+      setViewedPros(stored);
+    } catch {}
+  }, []);
   const [logoVisible, setLogoVisible] = useState(true);
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerH, setHeaderH] = useState(56);
@@ -838,12 +850,13 @@ export default function HomePage() {
               style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
               <video
-                src="/images/reference-video-1775801211148.mp4"
+                src="/images/reference-video-1775801211148.mp4#t=0.001"
                 autoPlay
                 muted
                 loop
                 playsInline
-                className="w-full h-full object-cover"
+                preload="auto"
+                className="w-full h-full object-cover bg-gray-800"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
               <span className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: '#2B313D' }}>빠른무료견적</span>
@@ -857,20 +870,32 @@ export default function HomePage() {
             </Link>
             <Link
               href="/pros?category=행사사회자"
-              className="relative rounded-2xl px-3 flex items-center -space-x-3 opacity-0 active:scale-[0.97] transition-transform aspect-[5.5/2.8]"
+              className="relative rounded-2xl px-3 flex items-center -space-x-3 opacity-0 active:scale-[0.97] transition-transform"
               style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
               <RoundedRectBorderTrain color="#2B313D" />
               <video
-                src="/images/kling_20260410_作品_A_specific_3877_0.mp4"
+                src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.001"
                 autoPlay
                 muted
                 loop
                 playsInline
-                className="w-20 h-20 object-cover shrink-0 rounded-xl"
+                preload="auto"
+                className="w-20 h-20 object-cover shrink-0 rounded-xl bg-gray-100"
+                style={{ transition: 'opacity 0.2s ease' }}
+                onTimeUpdate={(e) => {
+                  const v = e.currentTarget;
+                  if (v.duration - v.currentTime <= 0.2) {
+                    v.style.opacity = `${(v.duration - v.currentTime) / 0.2}`;
+                  } else if (v.currentTime <= 0.2) {
+                    v.style.opacity = `${v.currentTime / 0.2}`;
+                  } else {
+                    v.style.opacity = '1';
+                  }
+                }}
               />
               <div className="leading-none relative z-10">
-                <span className="text-[16px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문행사</span>
+                <span className="text-[16px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문 행사</span>
                 <span className="text-[16px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>사회자 찾기</span>
               </div>
             </Link>
@@ -903,7 +928,7 @@ export default function HomePage() {
 
         {/* 4. Icon category grid (2 rows x 4 cols) */}
         <div className="px-[10px] pb-2 pt-1">
-          <div className="grid grid-cols-4 gap-y-3 gap-x-2">
+          <div className="bg-white rounded-2xl py-2 px-1 grid grid-cols-4 gap-y-2 gap-x-1" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             {[
               { name: '외국어사회자', img: '/images/cat-foreign-mc.png' },
               { name: '웨딩홀', img: '/images/cat-wedding-hall.png' },
@@ -917,7 +942,7 @@ export default function HomePage() {
               <Link
                 key={item.name}
                 href={`/pros?category=${encodeURIComponent(item.name)}`}
-                className="flex flex-col items-center gap-1.5 opacity-0"
+                className="flex flex-col items-center gap-0.5 opacity-0"
                 style={{ animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
               >
                 <div className="w-[52px] h-[52px] flex items-center justify-center overflow-hidden">
@@ -929,8 +954,39 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="h-2 bg-gray-50" />
+        {/* Slide Banner */}
+        <div className="px-[10px] pb-0 pt-1">
+          <div
+            className="relative w-full overflow-hidden rounded-2xl"
+            style={{ aspectRatio: '1170/300' }}
+          >
+            <div className="flex transition-transform duration-500 ease-out h-full"
+              style={{ width: '300%', transform: `translateX(-${bannerIdx * 33.333}%)` }}
+            >
+              {[
+                { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', title: '지금 견적 요청하면', sub: '최대 30% 할인' },
+                { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', title: '후기 작성하고', sub: '푸딩 포인트 받기' },
+                { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', title: 'AI가 추천하는', sub: '나에게 딱 맞는 전문가' },
+              ].map((b, i) => (
+                <div
+                  key={i}
+                  className="w-full h-full shrink-0 flex items-center px-6"
+                  style={{ background: b.bg }}
+                >
+                  <div>
+                    <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
+                    <p className="text-white text-[20px] font-bold mt-1">{b.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* 인디케이터 */}
+            <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
+              {bannerIdx + 1} / 3
+            </div>
+          </div>
+        </div>
+
       </div>
 
       {/* ─── Desktop Hero ────────────────────────────────────────────── */}
@@ -993,7 +1049,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="px-[10px] lg:px-0 py-6 lg:py-12 space-y-10 lg:max-w-7xl lg:mx-auto lg:px-8">
+      <div className="px-[10px] lg:px-0 pt-0 pb-6 lg:py-12 space-y-4 lg:space-y-10 lg:max-w-7xl lg:mx-auto lg:px-8">
         {/* ─── Category Chips (Desktop only) ─────────────────────────── */}
         <div className="hidden lg:flex gap-2.5 overflow-x-auto scrollbar-hide">
           {CATEGORIES.map((cat, i) => (
@@ -1002,6 +1058,53 @@ export default function HomePage() {
             </button>
           ))}
         </div>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 0. 관심있는 전문가 (최근 본 전문가)                            */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {viewedPros.length > 0 && (() => {
+          const viewedProData = viewedPros
+            .map((v) => {
+              const pro = MOCK_PROS.find((p) => p.id === v.id);
+              return pro ? { ...pro, viewedTime: v.time } : null;
+            })
+            .filter(Boolean) as (typeof MOCK_PROS[0] & { viewedTime: number })[];
+          if (viewedProData.length === 0) return null;
+          const isRecent = (time: number) => Date.now() - time < 1000 * 60 * 30; // 30분 이내
+          return (
+            <section>
+              <div className="flex items-center justify-between mb-1">
+                <div>
+                  <h3 className="section-title">관심있는 전문가</h3>
+                  <p className="section-subtitle mt-1">최근 본 전문가를 다시 확인하세요</p>
+                </div>
+                <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
+                  전체보기 <ChevronRight size={16} />
+                </Link>
+              </div>
+              <div className="flex gap-0 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+                {viewedProData.map((pro) => (
+                  <Link
+                    key={pro.id}
+                    href={`/pros/${pro.id}`}
+                    className="shrink-0 w-[100px] flex flex-col items-center"
+                  >
+                    <div className="relative w-[84px] h-[112px] rounded-xl overflow-hidden">
+                      <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
+                      {isRecent(pro.viewedTime) && (
+                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-red-500">
+                          최근 본
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[16px] font-bold text-gray-900 mt-1.5 text-center">{pro.name}</p>
+                    <p className="text-[14px] text-gray-400">{pro.category}</p>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 1. 지금 접속중인 전문가                                      */}
@@ -1019,7 +1122,7 @@ export default function HomePage() {
               <p className="section-subtitle mt-1">지금 바로 상담 가능한 전문가예요</p>
             </div>
           </div>
-          <div className="flex gap-6 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+          <div className="flex gap-3 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
             {onlinePros.map((pro) => (
               <div key={pro.id} className="shrink-0">
                 <OnlineProCard pro={pro} />
@@ -1080,7 +1183,6 @@ export default function HomePage() {
                     className="w-full h-full object-cover shadow-md"
                     style={{ borderRadius: '9999px', border: `1.4px solid ${border}` }}
                   />
-                  <PillBorderTrain color={border} />
                   <img src={trophy} alt="" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
                 </div>
                 <p className="text-[14px] font-bold text-gray-900 mt-4">{pro.name}</p>
@@ -1304,62 +1406,8 @@ export default function HomePage() {
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 5. 외국어 전문가                                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <section className="relative" style={{ overflow: 'visible' }}>
-          {/* Spline crystal ball - 100px 위로 이동 */}
-          <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 overflow-hidden"
-            style={{
-              top: '-120px',
-              width: '100vw',
-              maxWidth: '900px',
-              height: '500px',
-              opacity: 0.4,
-            }}
-            aria-hidden="true"
-          >
-            <iframe
-              src="https://my.spline.design/crystalball-OFag4dxCWGLMOxRxDonTbViO/"
-              frameBorder="0"
-              loading="lazy"
-              allow="autoplay"
-              scrolling="no"
-              className="absolute left-1/2 top-1/2 block"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                width: '200%',
-                height: '200%',
-                transform: 'translate(-50%, -50%) scale(0.5)',
-                transformOrigin: 'center center',
-              }}
-              title="crystal ball"
-            />
-            {/* Spline 하단 → 위로 그라데이션 블러 (Spline 영역 안에서만) */}
-            <div
-              className="absolute left-0 right-0 bottom-0 pointer-events-none"
-              style={{
-                height: '70%',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
-                maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0) 100%)',
-              }}
-            />
-          </div>
-          {/* 화이트 그라데이션 - 하단으로 더 길게 */}
-          <div
-            className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-[5]"
-            style={{
-              top: '40px',
-              width: '100vw',
-              maxWidth: '900px',
-              height: '460px',
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 20%, rgba(255,255,255,0.75) 45%, rgba(255,255,255,0.95) 75%, rgba(255,255,255,1) 100%)',
-            }}
-            aria-hidden="true"
-          />
-
-          <div className="mb-6 relative z-10">
+        <section>
+          <div className="mb-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="section-title">외국어 전문가</h3>
@@ -1372,7 +1420,7 @@ export default function HomePage() {
             <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
               <button
                 onClick={() => setSelectedLang(null)}
-                className={selectedLang === null ? 'chip-active' : 'chip-glass'}
+                className={selectedLang === null ? 'chip-active' : 'chip-inactive'}
               >
                 전체
               </button>
@@ -1383,7 +1431,7 @@ export default function HomePage() {
                   <button
                     key={lang}
                     onClick={() => setSelectedLang(active ? null : lang)}
-                    className={`${active ? 'chip-active' : 'chip-glass'} flex items-center gap-1.5`}
+                    className={`${active ? 'chip-active' : 'chip-inactive'} flex items-center gap-1.5`}
                   >
                     {flag && (
                       <img

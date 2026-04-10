@@ -338,6 +338,17 @@ export default function ProDetailPage() {
 
   const plan = pro.plans[activePlan];
 
+  // 방문 기록 저장
+  useEffect(() => {
+    try {
+      const key = 'viewed-pros';
+      const stored = JSON.parse(localStorage.getItem(key) || '[]') as { id: string; time: number }[];
+      const filtered = stored.filter((v) => v.id !== id);
+      filtered.unshift({ id, time: Date.now() });
+      localStorage.setItem(key, JSON.stringify(filtered.slice(0, 20)));
+    } catch {}
+  }, [id]);
+
   // Active section auto-tracking on scroll + header solid bg
   useEffect(() => {
     const sections: Array<{ id: 'desc' | 'info' | 'reviews'; ref: React.RefObject<HTMLDivElement> }> = [

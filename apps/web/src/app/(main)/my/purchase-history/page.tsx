@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar } from 'lucide-react';
+import { ChevronLeft, Calendar } from 'lucide-react';
 
 type Status = 'all' | 'paid' | 'upcoming' | 'completed' | 'refunded';
 
@@ -26,26 +26,38 @@ export default function PurchaseHistoryPage() {
   const filtered = MOCK_PURCHASES.filter((p) => filter === 'all' || p.status === filter);
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="bg-white px-4 pt-12 pb-3 sticky top-0 z-10 border-b border-gray-100">
-        <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
-          <h1 className="text-lg font-bold">구매 내역</h1>
+    <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white">
+        <div className="flex items-center h-[52px] px-4">
+          <button onClick={() => router.back()} className="p-1 -ml-1">
+            <ChevronLeft size={24} />
+          </button>
+          <h1 className="text-[18px] font-bold ml-2">구매 내역</h1>
         </div>
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-3">
           {(['all', 'paid', 'upcoming', 'completed', 'refunded'] as Status[]).map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                filter === s ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-gray-600 border-gray-200'
+              className={`shrink-0 text-[12px] px-3 py-1.5 transition-colors ${
+                filter === s
+                  ? 'text-white font-bold'
+                  : 'bg-gray-100 text-gray-600'
               }`}
+              style={{
+                borderRadius: 8,
+                ...(filter === s ? { backgroundColor: '#2B313D' } : {}),
+              }}
             >
               {s === 'all' ? '전체' : STATUS_MAP[s].label}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Divider */}
+      <div className="h-1.5 bg-gray-50" />
 
       <div className="px-4 py-4 space-y-3">
         {filtered.length === 0 ? (
@@ -54,13 +66,20 @@ export default function PurchaseHistoryPage() {
           </div>
         ) : (
           filtered.map((item) => (
-            <div key={item.id} className="card p-4">
+            <div
+              key={item.id}
+              className="border border-gray-100 p-4"
+              style={{ borderRadius: 12 }}
+            >
               <div className="flex gap-3">
                 <img src={item.image} alt={item.proName} className="w-14 h-14 rounded-xl object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-sm font-bold text-gray-900">{item.proName}</p>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_MAP[item.status].color}`}>
+                    <span
+                      className={`text-[11px] font-bold px-2 py-0.5 ${STATUS_MAP[item.status].color}`}
+                      style={{ borderRadius: 6 }}
+                    >
                       {STATUS_MAP[item.status].label}
                     </span>
                   </div>
@@ -74,12 +93,18 @@ export default function PurchaseHistoryPage() {
                 </div>
               </div>
               {item.status === 'completed' && !item.hasReview && (
-                <button className="w-full mt-3 py-2.5 text-sm font-semibold text-primary-500 bg-primary-50 rounded-xl">
+                <button
+                  className="w-full mt-3 py-2.5 text-sm font-bold text-white"
+                  style={{ backgroundColor: '#2B313D', borderRadius: 12 }}
+                >
                   리뷰 작성하기
                 </button>
               )}
               {item.status === 'upcoming' && (
-                <button className="w-full mt-3 py-2.5 text-sm font-semibold text-gray-500 bg-gray-50 rounded-xl">
+                <button
+                  className="w-full mt-3 py-2.5 text-sm font-bold text-gray-500 bg-gray-100"
+                  style={{ borderRadius: 12 }}
+                >
                   일정 변경 요청
                 </button>
               )}

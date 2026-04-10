@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface NotifSetting {
@@ -33,24 +33,34 @@ export default function NotificationsSettingsPage() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen max-w-lg mx-auto">
-      <div className="flex items-center px-4 h-14 border-b border-gray-100 bg-white sticky top-0 z-10">
-        <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
-        <h1 className="text-base font-bold ml-3">알림 설정</h1>
+    <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
+      {/* ─── Header ─────────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+        <div className="flex items-center px-4 h-[52px]">
+          <button onClick={() => router.back()} className="p-1"><ChevronLeft size={24} /></button>
+          <h1 className="text-[18px] font-bold ml-3">알림 설정</h1>
+        </div>
       </div>
 
-      <div className="p-4 space-y-2">
+      <div className="px-4 py-4 space-y-2">
         {settings.map((s) => (
-          <div key={s.key} className="bg-white rounded-xl px-4 py-3.5 flex items-center justify-between">
+          <div
+            key={s.key}
+            className="border border-gray-100 px-4 py-3.5 flex items-center justify-between"
+            style={{ borderRadius: 12 }}
+          >
             <div>
-              <p className="text-sm font-medium text-gray-900">{s.label}</p>
+              <p className="text-sm font-bold text-gray-900">{s.label}</p>
               <p className="text-[11px] text-gray-400 mt-0.5">{s.description}</p>
             </div>
             <button
               onClick={() => toggle(s.key)}
-              className={`relative w-11 h-6 rounded-full transition-colors ${s.enabled ? 'bg-primary-500' : 'bg-gray-200'}`}
+              className="relative w-11 h-6 rounded-full transition-colors"
+              style={{ backgroundColor: s.enabled ? '#2B313D' : '#E5E7EB' }}
             >
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${s.enabled ? 'translate-x-5.5 left-[22px]' : 'left-0.5'}`} />
+              <span
+                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${s.enabled ? 'left-[22px]' : 'left-0.5'}`}
+              />
             </button>
           </div>
         ))}

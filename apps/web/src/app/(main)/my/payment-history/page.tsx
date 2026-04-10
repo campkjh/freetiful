@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const MOCK_PAYMENTS = [
@@ -20,26 +20,43 @@ export default function PaymentHistoryPage() {
   const router = useRouter();
 
   return (
-    <div className="bg-gray-50 min-h-screen max-w-lg mx-auto">
-      <div className="flex items-center px-4 h-14 border-b border-gray-100 bg-white sticky top-0 z-10">
-        <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
-        <h1 className="text-base font-bold ml-3">결제/환불 내역</h1>
+    <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white">
+        <div className="flex items-center h-[52px] px-4">
+          <button onClick={() => router.back()} className="p-1 -ml-1">
+            <ChevronLeft size={24} />
+          </button>
+          <h1 className="text-[18px] font-bold ml-2">결제/환불 내역</h1>
+        </div>
       </div>
 
-      <div className="p-4 space-y-3">
+      {/* Divider */}
+      <div className="h-1.5 bg-gray-50" />
+
+      <div className="px-4 py-4 space-y-3">
         {MOCK_PAYMENTS.map((p) => {
           const status = STATUS_MAP[p.status] || STATUS_MAP.pending;
           return (
-            <div key={p.id} className="bg-white rounded-2xl p-4 space-y-2">
+            <div
+              key={p.id}
+              className="border border-gray-100 p-4 space-y-2"
+              style={{ borderRadius: 12 }}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">{p.date}</span>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>
+                <span
+                  className={`text-[11px] font-bold px-2 py-0.5 ${status.color}`}
+                  style={{ borderRadius: 6 }}
+                >
+                  {status.label}
+                </span>
               </div>
               <p className="text-sm font-bold text-gray-900">{p.title}</p>
               <p className="text-xs text-gray-500">{p.proName} · {p.method}</p>
-              <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                 <span className="text-xs text-gray-400">결제금액</span>
-                <span className="text-base font-black text-gray-900">{p.amount.toLocaleString()}원</span>
+                <span className="text-base font-bold text-gray-900">{p.amount.toLocaleString()}원</span>
               </div>
               {p.refundAmount && (
                 <div className="flex items-center justify-between">

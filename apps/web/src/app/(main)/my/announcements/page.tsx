@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, ChevronDown, Pin } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Pin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const MOCK_ANNOUNCEMENTS = [
@@ -17,17 +17,24 @@ export default function AnnouncementsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
-    <div className="bg-gray-50 min-h-screen max-w-lg mx-auto">
-      <div className="flex items-center px-4 h-14 border-b border-gray-100 bg-white sticky top-0 z-10">
-        <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
-        <h1 className="text-base font-bold ml-3">공지사항</h1>
+    <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white flex items-center px-4 h-[52px]">
+        <button onClick={() => router.back()} className="p-1">
+          <ChevronLeft size={24} />
+        </button>
+        <h1 className="text-[18px] font-bold ml-2">공지사항</h1>
       </div>
 
-      <div className="divide-y divide-gray-100">
+      {/* Section divider */}
+      <div className="h-1.5 bg-gray-50" />
+
+      {/* Announcement list */}
+      <div>
         {MOCK_ANNOUNCEMENTS.map((a) => {
           const isOpen = openId === a.id;
           return (
-            <div key={a.id} className="bg-white">
+            <div key={a.id} className="border-b border-gray-100">
               <button
                 onClick={() => setOpenId(isOpen ? null : a.id)}
                 className="flex items-center gap-3 w-full px-4 py-3.5 text-left"
@@ -37,13 +44,23 @@ export default function AnnouncementsPage() {
                   <p className={`text-sm truncate ${a.isPinned ? 'font-bold text-gray-900' : 'text-gray-700'}`}>{a.title}</p>
                   <p className="text-[10px] text-gray-400 mt-0.5">{a.date}</p>
                 </div>
-                <ChevronDown size={16} className={`text-gray-300 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  size={16}
+                  className="text-gray-300 shrink-0 transition-transform duration-200"
+                  style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
               </button>
-              {isOpen && (
-                <div className="px-4 pb-4 text-sm text-gray-600 leading-relaxed whitespace-pre-line bg-gray-50">
+              <div
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{
+                  maxHeight: isOpen ? '500px' : '0px',
+                  opacity: isOpen ? 1 : 0,
+                }}
+              >
+                <div className="px-4 pb-4 text-sm text-gray-600 leading-relaxed whitespace-pre-line bg-gray-50" style={{ borderRadius: 12 }}>
                   {a.content}
                 </div>
-              )}
+              </div>
             </div>
           );
         })}

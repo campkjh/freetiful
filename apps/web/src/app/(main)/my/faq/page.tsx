@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const FAQ_DATA = [
@@ -35,22 +35,25 @@ export default function FaqPage() {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
-    <div className="bg-gray-50 min-h-screen max-w-lg mx-auto">
-      <div className="flex items-center px-4 h-14 border-b border-gray-100 bg-white sticky top-0 z-10">
-        <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
-        <h1 className="text-base font-bold ml-3">FAQ</h1>
+    <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
+      {/* ─── Header ─────────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+        <div className="flex items-center px-4 h-[52px]">
+          <button onClick={() => router.back()} className="p-1"><ChevronLeft size={24} /></button>
+          <h1 className="text-[18px] font-bold ml-3">FAQ</h1>
+        </div>
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="px-4 py-4 space-y-6">
         {FAQ_DATA.map((section) => (
           <div key={section.category}>
-            <h2 className="text-xs font-bold text-primary-500 mb-2 px-1">{section.category}</h2>
-            <div className="bg-white rounded-2xl overflow-hidden">
+            <h2 className="text-xs font-bold text-gray-500 mb-2 px-1">{section.category}</h2>
+            <div className="border border-gray-100 overflow-hidden" style={{ borderRadius: 12 }}>
               {section.items.map((item, idx) => {
                 const id = `${section.category}-${idx}`;
                 const isOpen = openId === id;
                 return (
-                  <div key={id} className="border-b border-gray-50 last:border-0">
+                  <div key={id} className="border-b border-gray-100 last:border-0">
                     <button
                       onClick={() => setOpenId(isOpen ? null : id)}
                       className="flex items-center justify-between w-full px-4 py-3.5 text-left"

@@ -2,14 +2,53 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  ChevronRight, Settings, CreditCard, Ticket, HeadphonesIcon,
-  Users, FileText, Bell, LogOut, Star, Megaphone,
-  Wallet, History, HelpCircle, Briefcase, UserCircle
-} from 'lucide-react';
+import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
+
+const F = ({ d, size = 18 }: { d: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="#9CA3AF" className="shrink-0"><path d={d} /></svg>
+);
+const IconCard = () => <F d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zM4 8h16v2H4V8zm0 4h6v4H4v-4z" />;
+const IconHistory = () => <F d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 10.41l-3.71 3.71-1.41-1.41L11 11.59V6h2v6.41z" />;
+const IconWallet = () => <F d="M21 7H3a1 1 0 00-1 1v10a2 2 0 002 2h16a2 2 0 002-2V8a1 1 0 00-1-1zm-4 8a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM20 5H4a1 1 0 010-2h16a1 1 0 010 2z" />;
+const IconTicket = () => <F d="M22 10V6a2 2 0 00-2-2H4a2 2 0 00-2 2v4a2 2 0 010 4v4a2 2 0 002 2h16a2 2 0 002-2v-4a2 2 0 010-4zm-7-1h-2v2h-2V9H9V7h2V5h2v2h2v2zm0 6h-2v2h-2v-2H9v-2h2v-2h2v2h2v2z" />;
+const IconSettings = () => <F d="M19.14 12.94a7.07 7.07 0 000-1.88l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.04 7.04 0 00-1.62-.94l-.36-2.54A.48.48 0 0013.93 2h-3.86a.48.48 0 00-.48.41l-.36 2.54a7.04 7.04 0 00-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.71 8.47a.49.49 0 00.12.61l2.03 1.58a7.07 7.07 0 000 1.88l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.86c.22 0 .43-.17.48-.41l.36-2.54a7.04 7.04 0 001.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z" />;
+const IconBell = () => <F d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 002 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 00-3 0v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />;
+const IconHeadphones = () => <F d="M12 3a9 9 0 00-9 9v7a2 2 0 002 2h2a1 1 0 001-1v-5a1 1 0 00-1-1H5v-2a7 7 0 0114 0v2h-2a1 1 0 00-1 1v5a1 1 0 001 1h2a2 2 0 002-2v-7a9 9 0 00-9-9z" />;
+const IconHelp = () => (
+  <svg width={18} height={18} viewBox="0 0 24 24" className="shrink-0">
+    <circle cx="12" cy="12" r="10" fill="#9CA3AF"/>
+    <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="system-ui">?</text>
+  </svg>
+);
+const IconMegaphone = () => (
+  <svg width={18} height={18} viewBox="0 0 24 24" fill="#9CA3AF" className="shrink-0">
+    <path d="M4 4h16v2H4zM4 9h12v2H4zM4 14h16v2H4zM4 19h8v2H4z"/>
+  </svg>
+);
+const IconUsers = () => (
+  <svg width={18} height={18} viewBox="0 0 24 24" fill="#9CA3AF" className="shrink-0">
+    <circle cx="9" cy="7" r="3.5"/>
+    <path d="M9 12.5c-4 0-7 1.8-7 4V19h14v-2.5c0-2.2-3-4-7-4z"/>
+    <circle cx="17" cy="8" r="2.5"/>
+    <path d="M17 12.5c-.4 0-.8.03-1.2.08C17.1 13.6 18 15 18 16.5V19h4v-2.5c0-2.2-2.5-4-5-4z"/>
+  </svg>
+);
+const IconFile = () => <F d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 9H8v-2h5v2zm3 4H8v-2h8v2zm-3-8V3.5L18.5 9H13z" />;
+const IconBriefcase = () => <F d="M20 6h-4V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2zM10 4h4v2h-4V4z" />;
+const IconUser = () => (
+  <svg width={18} height={18} viewBox="0 0 24 24" fill="#9CA3AF" className="shrink-0">
+    <circle cx="12" cy="8" r="4"/>
+    <path d="M12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/>
+  </svg>
+);
+
+const UPCOMING_SCHEDULES = [
+  { id: '1', proName: '박인애', category: 'MC', date: '4.10 (금)', time: '14:00', location: '그랜드 웨딩홀', proImage: 'https://i.pravatar.cc/300?img=1' },
+  { id: '2', proName: '채안빈', category: '축가', date: '4.10 (금)', time: '14:30', location: '그랜드 웨딩홀', proImage: 'https://i.pravatar.cc/300?img=5' },
+];
 
 const MOCK_USER = {
-  name: '홍길동',
+  name: '김정훈',
   email: 'hong@gmail.com',
   image: 'https://i.pravatar.cc/150?img=32',
   linkedAccounts: ['kakao', 'google'],
@@ -22,34 +61,34 @@ const MENU_SECTIONS = [
   {
     title: '나의 활동',
     items: [
-      { href: '/my/purchase-history', icon: CreditCard, label: '구매 내역', badge: '' },
-      { href: '/my/payment-history', icon: History, label: '결제/환불 내역', badge: '' },
-      { href: '/my/points', icon: Wallet, label: '포인트', badge: '1,500P' },
-      { href: '/my/coupons', icon: Ticket, label: '쿠폰', badge: '2장' },
+      { href: '/my/purchase-history', icon: IconCard, label: '구매 내역' },
+      { href: '/my/payment-history', icon: IconHistory, label: '결제/환불 내역' },
+      { href: '/my/points', icon: IconWallet, label: '포인트', badge: '1,500P' },
+      { href: '/my/coupons', icon: IconTicket, label: '쿠폰', badge: '2장' },
     ],
   },
   {
     title: '설정',
     items: [
-      { href: '/my/settings', icon: Settings, label: '프로필 설정', badge: '' },
-      { href: '/my/notifications', icon: Bell, label: '알림 설정', badge: '' },
+      { href: '/my/settings', icon: IconSettings, label: '프로필 설정' },
+      { href: '/my/notifications', icon: IconBell, label: '알림 설정' },
     ],
   },
   {
     title: '고객지원',
     items: [
-      { href: '/my/support', icon: HeadphonesIcon, label: '고객센터', badge: '' },
-      { href: '/my/faq', icon: HelpCircle, label: 'FAQ', badge: '' },
-      { href: '/my/announcements', icon: Megaphone, label: '공지사항', badge: '' },
+      { href: '/my/support', icon: IconHeadphones, label: '고객센터' },
+      { href: '/my/faq', icon: IconHelp, label: 'FAQ' },
+      { href: '/my/announcements', icon: IconMegaphone, label: '공지사항' },
     ],
   },
   {
     title: '기타',
     items: [
-      { href: '/my/invite', icon: Users, label: '친구 초대', badge: '500P 적립' },
-      { href: '/my/terms', icon: FileText, label: '약관 및 정책', badge: '' },
-      { href: '/pro-dashboard', icon: Briefcase, label: '파트너 신청', badge: '' },
-      { href: '/general-mode', icon: UserCircle, label: '일반회원 전환', badge: '' },
+      { href: '/my/invite', icon: IconUsers, label: '친구 초대', badge: '500P 적립' },
+      { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
+      { href: '/pro-register/terms', icon: IconBriefcase, label: '파트너 신청', action: 'partner' },
+      { href: '/home', icon: IconUser, label: '일반회원 전환', action: 'general' },
     ],
   },
 ];
@@ -69,132 +108,167 @@ export default function MyPage() {
   };
 
   const handleGeneralMode = () => {
-    // 일반 유저로 변경
     localStorage.setItem('userRole', 'general');
-    // 홈으로 이동
     router.push('/home');
-    // 페이지 새로고침하여 네비게이션 업데이트
     window.location.reload();
   };
 
-  return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="bg-white px-4 pt-12 pb-5">
-        <h1 className="text-xl font-bold mb-5">마이</h1>
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push('/login');
+  };
 
-        {/* Profile Card */}
-        <div className="flex items-center gap-4">
+  return (
+    <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
+      {/* Header */}
+      <div className="sticky top-0 z-20 bg-white px-4">
+        <div className="h-[52px] flex items-center">
+          <h1 className="text-[18px] font-bold text-gray-900">마이페이지</h1>
+        </div>
+      </div>
+
+      {/* Profile */}
+      <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
+        <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
           <div className="relative">
-            <img src={user.image} alt={user.name} className="w-16 h-16 rounded-full object-cover" />
+            <img src={user.image} alt={user.name} className="w-[56px] h-[56px] rounded-full object-cover" />
             <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5">
-              <div className="w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center">
-                <Star size={10} className="text-white fill-white" />
+              <div className="w-4.5 h-4.5 bg-[#2B313D] rounded-full flex items-center justify-center" style={{ width: 18, height: 18 }}>
+                <Star size={9} className="text-white fill-white" />
               </div>
             </div>
           </div>
-          <div className="flex-1">
-            <p className="text-lg font-bold text-gray-900">{user.name}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>
-            <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[17px] font-bold text-gray-900">{user.name}</p>
               {user.linkedAccounts.includes('kakao') && (
-                <span className="text-[10px] bg-[#FEE500] text-[#191919] px-2 py-0.5 rounded-full font-bold">카카오</span>
+                <span className="w-[20px] h-[20px] rounded-full bg-[#FEE500] flex items-center justify-center shrink-0">
+                  <svg width="11" height="10" viewBox="0 0 24 22" fill="#3C1E1E"><path d="M12 1C5.37 1 0 5.13 0 10.2c0 3.26 2.17 6.12 5.44 7.74l-1.1 4.07c-.1.36.31.65.63.44l4.83-3.2c.72.1 1.46.15 2.2.15 6.63 0 12-4.13 12-9.2S18.63 1 12 1z"/></svg>
+                </span>
               )}
               {user.linkedAccounts.includes('google') && (
-                <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold">Google</span>
+                <span className="w-[20px] h-[20px] rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                  <svg width="12" height="12" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                </span>
+              )}
+              {user.linkedAccounts.includes('naver') && (
+                <span className="w-[20px] h-[20px] rounded-full bg-[#03C75A] flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 20 20" fill="white"><path d="M13.56 10.7L6.17 0H0v20h6.44V9.3L13.83 20H20V0h-6.44z"/></svg>
+                </span>
+              )}
+              {user.linkedAccounts.includes('apple') && (
+                <span className="w-[20px] h-[20px] rounded-full bg-black flex items-center justify-center shrink-0">
+                  <svg width="10" height="12" viewBox="0 0 17 20" fill="white"><path d="M13.25 10.06c-.02-2.08 1.7-3.08 1.78-3.13-1-1.42-2.5-1.62-3.04-1.64-1.28-.13-2.53.76-3.18.76-.66 0-1.66-.75-2.74-.73A4.05 4.05 0 002.63 7.5C.86 10.53 2.18 14.95 3.88 17.38c.85 1.2 1.85 2.53 3.16 2.48 1.28-.05 1.76-.8 3.3-.8s1.98.8 3.32.77c1.37-.02 2.23-1.2 3.06-2.41.98-1.38 1.38-2.73 1.4-2.8-.03-.01-2.67-1.02-2.7-4.06-.02-2.55 2.08-3.78 2.18-3.84-1.2-1.76-3.06-1.96-3.72-2z"/></svg>
+                </span>
               )}
             </div>
+            <p className="text-[13px] text-gray-400 mt-0.5">{user.email}</p>
           </div>
-          <Link href="/my/settings" className="p-2">
-            <ChevronRight size={20} className="text-gray-400" />
-          </Link>
-        </div>
+          <ChevronRight size={20} className="text-gray-300 shrink-0" />
+        </Link>
 
         {/* Quick Stats */}
-        <div className="flex mt-5 bg-gray-50 rounded-2xl overflow-hidden">
-          <Link href="/my/points" className="flex-1 py-4 text-center border-r border-gray-100">
-            <p className="text-lg font-black text-primary-500">{user.points.toLocaleString()}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">포인트</p>
+        <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={{ animation: 'myFadeUp 0.5s ease 0.1s both' }}>
+          <Link href="/my/points" className="flex-1 py-2 text-center">
+            <p className="text-[17px] font-bold text-gray-900">{user.points.toLocaleString()}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">포인트</p>
           </Link>
-          <Link href="/my/coupons" className="flex-1 py-4 text-center border-r border-gray-100">
-            <p className="text-lg font-black text-primary-500">{user.coupons}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">쿠폰</p>
+          <div className="w-px bg-gray-100" />
+          <Link href="/my/coupons" className="flex-1 py-2 text-center">
+            <p className="text-[17px] font-bold text-gray-900">{user.coupons}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">쿠폰</p>
           </Link>
-          <Link href="/favorites" className="flex-1 py-4 text-center">
-            <p className="text-lg font-black text-primary-500">3</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">찜</p>
+          <div className="w-px bg-gray-100" />
+          <Link href="/favorites" className="flex-1 py-2 text-center">
+            <p className="text-[17px] font-bold text-gray-900">3</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">찜</p>
           </Link>
         </div>
       </div>
 
-      {/* Menu Sections */}
-      <div className="mt-2">
-        {MENU_SECTIONS.map((section) => (
-          <div key={section.title} className="bg-white mb-2">
-            <p className="px-4 pt-4 pb-2 text-xs font-bold text-gray-400 uppercase">{section.title}</p>
-            {section.items.map(({ href, icon: Icon, label, badge }) => {
-              // 파트너 신청은 버튼으로 처리
-              if (label === '파트너 신청') {
-                return (
-                  <button
-                    key={href}
-                    onClick={handlePartnerApply}
-                    className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors w-full text-left"
-                  >
-                    <Icon size={18} className="text-gray-500 shrink-0" />
-                    <span className="flex-1 text-sm text-gray-900">{label}</span>
-                    {badge && (
-                      <span className="text-xs text-primary-500 font-bold">{badge}</span>
-                    )}
-                    <ChevronRight size={16} className="text-gray-300 shrink-0" />
-                  </button>
-                );
-              }
-
-              // 일반회원 전환은 버튼으로 처리
-              if (label === '일반회원 전환') {
-                return (
-                  <button
-                    key={href}
-                    onClick={handleGeneralMode}
-                    className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors w-full text-left"
-                  >
-                    <Icon size={18} className="text-gray-500 shrink-0" />
-                    <span className="flex-1 text-sm text-gray-900">{label}</span>
-                    {badge && (
-                      <span className="text-xs text-primary-500 font-bold">{badge}</span>
-                    )}
-                    <ChevronRight size={16} className="text-gray-300 shrink-0" />
-                  </button>
-                );
-              }
-
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors"
-                >
-                  <Icon size={18} className="text-gray-500 shrink-0" />
-                  <span className="flex-1 text-sm text-gray-900">{label}</span>
-                  {badge && (
-                    <span className="text-xs text-primary-500 font-bold">{badge}</span>
-                  )}
-                  <ChevronRight size={16} className="text-gray-300 shrink-0" />
-                </Link>
-              );
-            })}
+      {/* Upcoming Schedules */}
+      {UPCOMING_SCHEDULES.length > 0 && (
+        <div className="px-4 pt-2 pb-1" style={{ animation: 'myFadeUp 0.5s ease 0.15s both' }}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[12px] font-bold text-gray-400">다가오는 일정</p>
+            <Link href="/schedule" className="text-[12px] text-gray-400">전체보기</Link>
           </div>
-        ))}
-      </div>
+          <div className="space-y-2">
+            {UPCOMING_SCHEDULES.map((s) => (
+              <Link key={s.id} href={`/schedule/${s.id}`} className="flex items-center gap-2.5 border border-gray-100 active:bg-gray-50 transition-colors" style={{ padding: 5, borderRadius: 12 }}>
+                <img src={s.proImage} alt={s.proName} className="w-10 h-[52px] rounded-lg object-cover shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[16px] font-bold text-gray-900">{s.category} {s.proName}</p>
+                  <div className="flex gap-1.5 mt-1.5">
+                    <span className="px-2 py-0.5 bg-gray-50 text-[11px] font-medium text-gray-600" style={{ borderRadius: 6 }}>{s.date} {s.time}</span>
+                    <span className="px-2 py-0.5 bg-gray-50 text-[11px] font-medium text-gray-600" style={{ borderRadius: 6 }}>{s.location}</span>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-gray-300 shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Menu Sections */}
+      {MENU_SECTIONS.map((section, si) => (
+        <div key={section.title} style={{ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` }}>
+          {si > 0 && <div className="h-1.5 bg-gray-50" />}
+          <div className="px-4 pt-3 pb-0.5">
+            <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
+          </div>
+          {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
+            const inner = (
+              <>
+                <Icon />
+                <span className="flex-1 text-[14px] text-gray-900">{label}</span>
+                {badge && <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#2B313D' }}>{badge}</span>}
+                <ChevronRight size={16} className="text-gray-300 shrink-0" />
+              </>
+            );
+
+            if (action === 'partner') {
+              return (
+                <button key={label} onClick={handlePartnerApply} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
+                  {inner}
+                </button>
+              );
+            }
+            if (action === 'general') {
+              return (
+                <button key={label} onClick={handleGeneralMode} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
+                  {inner}
+                </button>
+              );
+            }
+            return (
+              <Link key={label} href={href} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition-colors">
+                {inner}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
 
       {/* Logout */}
-      <div className="bg-white mb-8">
-        <button className="flex items-center gap-3 px-4 py-3.5 w-full hover:bg-gray-50 transition-colors text-left">
-          <LogOut size={18} className="text-gray-400 shrink-0" />
-          <span className="text-sm text-gray-400">로그아웃</span>
-        </button>
+      <div className="h-1.5 bg-gray-50" />
+      <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full active:bg-gray-50 transition-colors">
+        <LogOut size={18} className="text-gray-400 shrink-0" />
+        <span className="text-[14px] text-gray-400">로그아웃</span>
+      </button>
+
+      {/* App version */}
+      <div className="px-4 pt-6 pb-4 text-center">
+        <p className="text-[11px] text-gray-300">Freetiful v1.0.0</p>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes myFadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}} />
     </div>
   );
 }

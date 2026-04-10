@@ -28,6 +28,14 @@ const HIDE_NAV_PATTERNS = [
   /^\/businesses$/,
   /^\/biz/,
   /^\/careers$/,
+  /^\/schedule\/.+/,
+];
+
+const HIDE_FOOTER_PATTERNS = [
+  /^\/chat$/,
+  /^\/favorites$/,
+  /^\/schedule$/,
+  /^\/my$/,
 ];
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -111,7 +119,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </main>
 
       {/* ─── Footer ────────────────────────────────────────────────── */}
-      {!hideNav && <Footer />}
+      {!hideNav && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && <Footer />}
 
       {/* ─── 추천 전문가 플로팅 (모바일 네비 위) ───────────────────── */}
       {!hideNav && <RecommendedProBar />}

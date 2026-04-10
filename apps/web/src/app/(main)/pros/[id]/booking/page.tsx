@@ -1,26 +1,27 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Minus, Plus, ChevronDown, HelpCircle, Info, X, MapPin, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // ─── Helpers ───────────────────────────────────────────────
-function getDaysOfWeek(year: number, month: number) {
-  const firstDay = new Date(year, month - 1, 1);
-  const startOffset = firstDay.getDay(); // 0=Sun
+function getDaysOfWeek(year: number, month: number, holidays: Record<string, string>) {
   const daysInMonth = new Date(year, month, 0).getDate();
-  const days: { day: number; dayOfWeek: string; isToday: boolean; isPast: boolean }[] = [];
+  const days: { day: number; dayOfWeek: string; isToday: boolean; isPast: boolean; isHoliday: boolean; holidayName: string }[] = [];
   const weekNames = ['일', '월', '화', '수', '목', '금', '토'];
   const today = new Date();
 
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month - 1, d);
+    const key = `${year}${String(month).padStart(2, '0')}${String(d).padStart(2, '0')}`;
     days.push({
       day: d,
       dayOfWeek: weekNames[date.getDay()],
       isToday: date.toDateString() === today.toDateString(),
       isPast: date < new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+      isHoliday: !!holidays[key],
+      holidayName: holidays[key] || '',
     });
   }
   return days;
@@ -72,12 +73,49 @@ export default function BookingPage() {
 
   const extraTotal = EXTRA_OPTIONS.reduce((sum, o) => sum + o.price * (extraQty[o.id] || 0), 0);
 
-  const days = useMemo(() => getDaysOfWeek(currentYear, currentMonth), [currentYear, currentMonth]);
+  // 대한민국 공휴일 (2025~2027)
+  const holidays = useMemo<Record<string, string>>(() => ({
+    // 2025
+    '20250101': '신정', '20250128': '설날', '20250129': '설날', '20250130': '설날',
+    '20250301': '삼일절', '20250505': '어린이날', '20250506': '대체공휴일',
+    '20250604': '석가탄신일', '20250606': '현충일', '20250815': '광복절',
+    '20251003': '개천절', '20251005': '추석', '20251006': '추석', '20251007': '추석',
+    '20251008': '대체공휴일', '20251009': '한글날', '20251225': '크리스마스',
+    // 2026
+    '20260101': '신정', '20260216': '설날', '20260217': '설날', '20260218': '설날',
+    '20260301': '삼일절', '20260505': '어린이날', '20260524': '석가탄신일',
+    '20260606': '현충일', '20260815': '광복절', '20260923': '추석',
+    '20260924': '추석', '20260925': '추석', '20261003': '개천절',
+    '20261009': '한글날', '20261225': '크리스마스',
+    // 2027
+    '20270101': '신정', '20270206': '설날', '20270207': '설날', '20270208': '설날',
+    '20270301': '삼일절', '20270505': '어린이날', '20270513': '석가탄신일',
+    '20270606': '현충일', '20270815': '광복절', '20271003': '개천절',
+    '20271009': '한글날', '20271011': '추석', '20271012': '추석', '20271013': '추석',
+    '20271225': '크리스마스',
+  }), []);
 
-  // 가로 스크롤 가능한 8일치 (선택일 기준)
+  const days = useMemo(() => getDaysOfWeek(currentYear, currentMonth, holidays), [currentYear, currentMonth, holidays]);
+
+  // 7일씩 주 단위로 스와이프
+  const [weekOffset, setWeekOffset] = useState(0);
   const todayIdx = days.findIndex((d) => d.isToday);
-  const startIdx = Math.max(0, todayIdx);
-  const visibleDays = days.slice(startIdx, startIdx + 8);
+  const baseIdx = Math.max(0, todayIdx);
+  const weekStart = baseIdx + weekOffset * 7;
+  const visibleDays = days.slice(weekStart, weekStart + 7);
+  const hasNextWeek = weekStart + 7 < days.length;
+  const hasPrevWeek = weekOffset > 0;
+
+  // 스와이프 핸들링
+  const touchStartX = useRef(0);
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (diff > 50 && hasNextWeek) setWeekOffset((p) => p + 1);
+    if (diff < -50 && hasPrevWeek) setWeekOffset((p) => p - 1);
+  }, [hasNextWeek, hasPrevWeek]);
 
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
 
@@ -351,7 +389,7 @@ export default function BookingPage() {
         {/* Month tabs */}
         <div className="flex items-center gap-4 border-b border-gray-100 mb-1">
           <button
-            onClick={() => setCurrentMonth(now.getMonth() + 1)}
+            onClick={() => { setCurrentMonth(now.getMonth() + 1); setWeekOffset(0); }}
             className={`pb-3 text-[16px] font-bold border-b-2 transition-colors ${
               currentMonth === now.getMonth() + 1 ? 'text-gray-900 border-gray-900' : 'text-gray-300 border-transparent'
             }`}
@@ -359,7 +397,7 @@ export default function BookingPage() {
             {now.getMonth() + 1}월
           </button>
           <button
-            onClick={() => setCurrentMonth(nextMonth)}
+            onClick={() => { setCurrentMonth(nextMonth); setWeekOffset(0); }}
             className={`pb-3 text-[16px] font-bold border-b-2 transition-colors ${
               currentMonth === nextMonth ? 'text-gray-900 border-gray-900' : 'text-gray-300 border-transparent'
             }`}
@@ -368,14 +406,18 @@ export default function BookingPage() {
           </button>
         </div>
 
-        {/* Day picker (horizontal) */}
-        <div className="border-b border-gray-100 py-3">
-          <div className="grid grid-cols-8 text-center gap-y-1">
+        {/* Day picker (swipeable weekly) */}
+        <div
+          className="border-b border-gray-100 py-3 overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="grid grid-cols-7 text-center gap-y-1 transition-opacity duration-200">
             {/* Day of week header */}
             {visibleDays.map((d, i) => (
               <span
                 key={`dow-${i}`}
-                className={`text-[12px] font-medium ${d.dayOfWeek === '일' ? 'text-red-400' : 'text-gray-400'}`}
+                className={`text-[12px] font-medium ${d.dayOfWeek === '일' || d.isHoliday ? 'text-red-400' : 'text-gray-400'}`}
               >
                 {d.dayOfWeek}
               </span>
@@ -383,7 +425,7 @@ export default function BookingPage() {
             {/* Day numbers */}
             {visibleDays.map((d, i) => {
               const selected = selectedDay === d.day;
-              const isSunday = d.dayOfWeek === '일';
+              const isRed = d.dayOfWeek === '일' || d.isHoliday;
               return (
                 <button
                   key={`day-${i}`}
@@ -397,17 +439,25 @@ export default function BookingPage() {
                         ? 'bg-[#2B313D] text-white'
                         : d.isPast
                         ? 'text-gray-200'
-                        : isSunday
+                        : isRed
                         ? 'text-red-400'
                         : 'text-gray-900'
                     }`}
                   >
                     {d.day}
                   </div>
-                  {d.isToday && <span className="text-[10px] text-gray-400 mt-0.5">오늘</span>}
+                  {d.isHoliday && !d.isToday && <span className="text-[9px] text-red-400 mt-0.5 truncate max-w-[40px]">{d.holidayName}</span>}
+                  {d.isToday && !d.isHoliday && <span className="text-[10px] text-gray-400 mt-0.5">오늘</span>}
+                  {d.isToday && d.isHoliday && <span className="text-[9px] text-red-400 mt-0.5 truncate max-w-[40px]">{d.holidayName}</span>}
                 </button>
               );
             })}
+          </div>
+          {/* 스와이프 인디케이터 */}
+          <div className="flex justify-center gap-1 mt-2">
+            {Array.from({ length: Math.ceil((days.length - baseIdx) / 7) }, (_, i) => (
+              <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i === weekOffset ? 'bg-gray-800' : 'bg-gray-200'}`} />
+            ))}
           </div>
         </div>
       </div>
