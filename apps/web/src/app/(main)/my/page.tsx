@@ -4,41 +4,97 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
 
-const F = ({ d, size = 18 }: { d: string; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="#9CA3AF" className="shrink-0"><path d={d} /></svg>
+/* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
+const IconCard = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="2" y="5" width="20" height="14" rx="3" fill="#3B82F6"/>
+    <rect x="2" y="9" width="20" height="3" fill="#2563EB"/>
+    <rect x="5" y="15" width="6" height="2" rx="1" fill="white" opacity="0.7"/>
+  </svg>
 );
-const IconCard = () => <F d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zM4 8h16v2H4V8zm0 4h6v4H4v-4z" />;
-const IconHistory = () => <F d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 10.41l-3.71 3.71-1.41-1.41L11 11.59V6h2v6.41z" />;
-const IconWallet = () => <F d="M21 7H3a1 1 0 00-1 1v10a2 2 0 002 2h16a2 2 0 002-2V8a1 1 0 00-1-1zm-4 8a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM20 5H4a1 1 0 010-2h16a1 1 0 010 2z" />;
-const IconTicket = () => <F d="M22 10V6a2 2 0 00-2-2H4a2 2 0 00-2 2v4a2 2 0 010 4v4a2 2 0 002 2h16a2 2 0 002-2v-4a2 2 0 010-4zm-7-1h-2v2h-2V9H9V7h2V5h2v2h2v2zm0 6h-2v2h-2v-2H9v-2h2v-2h2v2h2v2z" />;
-const IconSettings = () => <F d="M19.14 12.94a7.07 7.07 0 000-1.88l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96a7.04 7.04 0 00-1.62-.94l-.36-2.54A.48.48 0 0013.93 2h-3.86a.48.48 0 00-.48.41l-.36 2.54a7.04 7.04 0 00-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.71 8.47a.49.49 0 00.12.61l2.03 1.58a7.07 7.07 0 000 1.88l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.86c.22 0 .43-.17.48-.41l.36-2.54a7.04 7.04 0 001.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 00-.12-.61l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z" />;
-const IconBell = () => <F d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 002 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 00-3 0v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />;
-const IconHeadphones = () => <F d="M12 3a9 9 0 00-9 9v7a2 2 0 002 2h2a1 1 0 001-1v-5a1 1 0 00-1-1H5v-2a7 7 0 0114 0v2h-2a1 1 0 00-1 1v5a1 1 0 001 1h2a2 2 0 002-2v-7a9 9 0 00-9-9z" />;
+const IconHistory = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <circle cx="12" cy="12" r="10" fill="#3B82F6"/>
+    <path d="M12 7v5l3.5 3.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+const IconWallet = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="2" y="6" width="20" height="14" rx="3" fill="#10B981"/>
+    <path d="M2 6h20V4a2 2 0 00-2-2H4a2 2 0 00-2 2v2z" fill="#059669"/>
+    <text x="8" y="16" fill="white" fontSize="9" fontWeight="bold" fontFamily="system-ui">₩</text>
+  </svg>
+);
+const IconTicket = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="2" y="5" width="20" height="14" rx="3" fill="#F59E0B"/>
+    <circle cx="2" cy="12" r="3" fill="white"/>
+    <circle cx="22" cy="12" r="3" fill="white"/>
+    <rect x="10" y="8" width="4" height="8" rx="1" fill="white" opacity="0.5"/>
+  </svg>
+);
+const IconSettings = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <circle cx="12" cy="12" r="4" fill="#6B7280"/>
+    <circle cx="12" cy="12" r="9" stroke="#6B7280" strokeWidth="2" strokeDasharray="3 3"/>
+    <circle cx="12" cy="3" r="1.5" fill="#6B7280"/>
+    <circle cx="12" cy="21" r="1.5" fill="#6B7280"/>
+    <circle cx="3" cy="12" r="1.5" fill="#6B7280"/>
+    <circle cx="21" cy="12" r="1.5" fill="#6B7280"/>
+  </svg>
+);
+const IconBell = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M12 3a6 6 0 00-6 6v4l-2 3h16l-2-3V9a6 6 0 00-6-6z" fill="#FBBF24"/>
+    <circle cx="12" cy="20" r="2" fill="#F59E0B"/>
+  </svg>
+);
+const IconHeadphones = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M3 12a9 9 0 0118 0" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round"/>
+    <rect x="3" y="14" width="4" height="6" rx="2" fill="#3B82F6"/>
+    <rect x="17" y="14" width="4" height="6" rx="2" fill="#3B82F6"/>
+  </svg>
+);
 const IconHelp = () => (
-  <svg width={18} height={18} viewBox="0 0 24 24" className="shrink-0">
-    <circle cx="12" cy="12" r="10" fill="#9CA3AF"/>
-    <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="system-ui">?</text>
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <circle cx="12" cy="12" r="10" fill="#F59E0B"/>
+    <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="13" fontWeight="bold" fontFamily="system-ui">!</text>
   </svg>
 );
 const IconMegaphone = () => (
-  <svg width={18} height={18} viewBox="0 0 24 24" fill="#9CA3AF" className="shrink-0">
-    <path d="M4 4h16v2H4zM4 9h12v2H4zM4 14h16v2H4zM4 19h8v2H4z"/>
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M19 4L10 8H5a2 2 0 00-2 2v2a2 2 0 002 2h1l2 6h2l-2-6h2l9 4V4z" fill="#EF4444"/>
+    <circle cx="19" cy="12" r="2" fill="#DC2626"/>
   </svg>
 );
 const IconUsers = () => (
-  <svg width={18} height={18} viewBox="0 0 24 24" fill="#9CA3AF" className="shrink-0">
-    <circle cx="9" cy="7" r="3.5"/>
-    <path d="M9 12.5c-4 0-7 1.8-7 4V19h14v-2.5c0-2.2-3-4-7-4z"/>
-    <circle cx="17" cy="8" r="2.5"/>
-    <path d="M17 12.5c-.4 0-.8.03-1.2.08C17.1 13.6 18 15 18 16.5V19h4v-2.5c0-2.2-2.5-4-5-4z"/>
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <circle cx="9" cy="8" r="3.5" fill="#93C5FD"/>
+    <path d="M2 19c0-2.5 3-4.5 7-4.5s7 2 7 4.5" fill="#93C5FD"/>
+    <circle cx="17" cy="9" r="2.5" fill="#60A5FA"/>
+    <path d="M15 19c0-1.5 1-3 3.5-3.5C21 15 22 17 22 19" fill="#60A5FA"/>
   </svg>
 );
-const IconFile = () => <F d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 9H8v-2h5v2zm3 4H8v-2h8v2zm-3-8V3.5L18.5 9H13z" />;
-const IconBriefcase = () => <F d="M20 6h-4V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2H4a2 2 0 00-2 2v11a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2zM10 4h4v2h-4V4z" />;
+const IconFile = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M6 2h8l6 6v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" fill="#D1D5DB"/>
+    <path d="M14 2l6 6h-4a2 2 0 01-2-2V2z" fill="#9CA3AF"/>
+    <rect x="7" y="12" width="10" height="1.5" rx="0.75" fill="white"/>
+    <rect x="7" y="15" width="7" height="1.5" rx="0.75" fill="white"/>
+  </svg>
+);
+const IconBriefcase = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="2" y="7" width="20" height="13" rx="3" fill="#6366F1"/>
+    <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" stroke="#4F46E5" strokeWidth="2"/>
+    <rect x="10" y="11" width="4" height="3" rx="1" fill="white" opacity="0.6"/>
+  </svg>
+);
 const IconUser = () => (
-  <svg width={18} height={18} viewBox="0 0 24 24" fill="#9CA3AF" className="shrink-0">
-    <circle cx="12" cy="8" r="4"/>
-    <path d="M12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/>
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <circle cx="12" cy="8" r="4" fill="#9CA3AF"/>
+    <path d="M4 20c0-3 3.6-5.5 8-5.5s8 2.5 8 5.5" fill="#9CA3AF"/>
   </svg>
 );
 
