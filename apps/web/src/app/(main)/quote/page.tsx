@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, MapPin, Calendar, Clock, Check, Send, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -27,7 +27,15 @@ const MOCK_PROS = [
 
 type Step = 'type' | 'plan' | 'detail' | 'pros' | 'confirm';
 
-export default function QuotePage() {
+export default function QuotePageWrapper() {
+  return (
+    <Suspense fallback={<div className="fixed inset-0 bg-white flex items-center justify-center"><p className="text-gray-400 text-[14px]">로딩 중...</p></div>}>
+      <QuotePage />
+    </Suspense>
+  );
+}
+
+function QuotePage() {
   const router = useRouter();
   const params = useSearchParams();
   const isEvent = params.get('mode') === 'event';
