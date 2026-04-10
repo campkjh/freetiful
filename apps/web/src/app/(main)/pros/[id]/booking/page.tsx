@@ -304,7 +304,8 @@ export default function BookingPage() {
                   const script = document.createElement('script');
                   script.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
                   script.onload = () => {
-                    new (window as unknown as Record<string, unknown>).daum.Postcode({
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    new (window as any).daum.Postcode({
                       oncomplete: (data: { address: string; buildingName: string }) => {
                         setVenueAddress(data.address + (data.buildingName ? ` (${data.buildingName})` : ''));
                         setShowMapSearch(false);
