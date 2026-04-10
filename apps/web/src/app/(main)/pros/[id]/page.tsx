@@ -1,492 +1,589 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  ArrowLeft, Share2, Heart, MessageCircle, Star, MapPin,
-  Calendar, ChevronDown, ChevronUp, Play, ExternalLink,
-  Award, Globe, Building2, Clock
-} from 'lucide-react';
+import Image from 'next/image';
+import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight } from 'lucide-react';
+
+// ─── Mock Data ──────────────────────────────────────────────
 
 const MOCK_PRO = {
   id: '1',
-  name: '김민준',
-  category: 'MC',
-  shortIntro: '10년 경력 웨딩/기업행사 전문 MC',
-  mainExperience: '결혼식 500회 이상 진행',
-  careerYears: 10,
-  gender: '남성',
-  rating: 4.9,
-  reviewCount: 142,
-  responseRate: 98,
-  puddingRank: 1,
-  regions: ['서울/경기', '전국'],
-  eventCategories: ['결혼식', '돌잔치', '생신잔치', '기업행사'],
-  languages: ['한국어', 'English'],
-  awards: '2023 대한민국 베스트 MC 대상, MBC 방송 MC 출연',
-  companies: ['호텔신라', '반포JW메리어트', '그랜드하얏트'],
+  name: '아나운서전해별',
+  level: 'Level 1',
+  profileImage: 'https://i.pravatar.cc/150?img=45',
+  mainImage: 'https://i.pravatar.cc/800?img=45',
   images: [
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=400&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop',
+    'https://i.pravatar.cc/800?img=45',
+    'https://i.pravatar.cc/800?img=47',
+    'https://i.pravatar.cc/800?img=48',
   ],
-  youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-  showPartnersLogo: true,
-  detailHtml: `
-    <h3>안녕하세요, MC 김민준입니다</h3>
-    <p>10년간 500회 이상의 결혼식과 다양한 행사를 진행해온 전문 MC입니다.</p>
-    <p>여러분의 특별한 날을 더욱 빛나게 만들어 드리겠습니다.</p>
-    <h3>진행 스타일</h3>
-    <p>격식과 유머를 적절히 조화시킨 진행을 추구합니다. 하객분들의 반응을 살피며 분위기를 이끌어가는 것이 저의 강점입니다.</p>
-  `,
-  services: [
-    { id: '1', title: '웨딩 MC 패키지', description: '리허설 + 본식 진행 + 피로연', basePrice: 500000, priceUnit: 'per_event' },
-    { id: '2', title: '돌잔치/생신잔치', description: '맞춤형 진행 + 이벤트 기획', basePrice: 400000, priceUnit: 'per_event' },
-    { id: '3', title: '기업행사', description: '세미나, 시상식, 연말파티 등', basePrice: 600000, priceUnit: 'per_event' },
+  title: '탄탄한 발성의 아나운서가 귀사에 품격을 더해 드립니다',
+  isPrime: true,
+  rating: 4.9,
+  reviewCount: 79,
+  plans: [
+    { id: 'standard', label: 'STANDARD', price: 450000, duration: '1시간', title: '행사, 영상 1시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 1시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
+    { id: 'deluxe', label: 'DELUXE', price: 800000, duration: '2시간', title: '행사, 영상 2시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 2시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
+    { id: 'premium', label: 'PREMIUM', price: 1700000, duration: '6시간', title: '6시간 행사 및 촬영 (풀타임)', desc: ['행사 및 영상 진행 6시간 이상 진행', '행사 규모에 따라 조정될 수 있습니다.\n 문의 부탁드립니다'], workDays: 20, revisions: 1 },
   ],
-  faqs: [
-    { id: '1', question: '사전 미팅은 가능한가요?', answer: '네, 행사 전 온/오프라인 미팅을 통해 세부 사항을 조율합니다. 보통 행사 2주 전에 진행합니다.' },
-    { id: '2', question: '교통비는 별도인가요?', answer: '서울/경기 지역은 포함이며, 그 외 지역은 교통비가 별도로 발생합니다.' },
-    { id: '3', question: '리허설은 포함인가요?', answer: '웨딩 MC 패키지에는 본식 당일 1시간 전 리허설이 포함되어 있습니다.' },
+  description: `안녕하세요.
+
+신뢰감 있는 목소리, 탄탄한 발성, 센스 있는 진행
+첫 문장부터 시선을 이끄는
+
+아나운서 전해별입니다.
+
+저는,
+(사) 한국장애인공연예술단 홍보대사,`,
+  expertStats: {
+    totalDeals: 89,
+    satisfaction: 100,
+    memberType: '기업',
+    taxInvoice: '크몽 발행',
+    responseTime: '1시간 이내',
+    contactTime: '언제나 가능',
+  },
+  otherServices: [
+    { id: 'os1', title: '전문 아나운서가 특별한 날을 품격있게 꾸며드리...', price: 400000, rating: 5.0, reviewCount: 3, image: 'https://i.pravatar.cc/200?img=44' },
   ],
-  availableDates: ['2026-04-05', '2026-04-12', '2026-04-19', '2026-04-26', '2026-05-03'],
   reviews: [
-    { id: '1', name: '박**', date: '2026-03-15', rating: 5.0, satisfaction: 5, composition: 5, experience: 5, appearance: 5, voice: 5, wit: 5, comment: '결혼식 MC로 최고였습니다! 하객분들이 정말 재미있어하셨어요. 감동적이면서도 유머러스한 진행 덕분에 평생 기억에 남을 결혼식이 됐습니다.', proReply: '축하드립니다! 행복한 결혼생활 하세요 ❤️' },
-    { id: '2', name: '이**', date: '2026-03-01', rating: 4.8, satisfaction: 5, composition: 5, experience: 5, appearance: 4, voice: 5, wit: 5, comment: '돌잔치 진행을 맡겼는데 정말 만족스러웠어요. 아이 축하 이벤트도 센스있게 해주셨고, 시간 배분도 완벽했습니다.' },
-    { id: '3', name: '최**', date: '2026-02-20', rating: 4.9, satisfaction: 5, composition: 5, experience: 5, appearance: 5, voice: 5, wit: 4, comment: '기업 시상식 MC를 해주셨는데, 전문적이면서도 딱딱하지 않은 진행이 좋았습니다. 다음에도 꼭 부탁드릴 예정입니다.' },
+    {
+      id: 'r1',
+      name: '나른********',
+      rating: 5.0,
+      date: '26.02.09 13:18',
+      content: '상담과정부터 행사 진행, 마무리까지 모두 빠르고 친절하게 응대해 주셨어요! 진행도 상황에 맞게 톤 바꿔가시면서 잘 진행해 주셨습니다! 추운데 고생 많으셨습니다. 감사합니다!',
+      workDays: 13,
+      orderRange: '100만원 ~ 200만원',
+      badge: '대행사/에이전시',
+      proReply: {
+        date: '26.02.09',
+        content: '어머 매니저님 빠른 후기 감사합니다 +_+!!\n이런 큰 행사의 진행을 맡을 수 있어 기뻤고 영광이었습니다.\n다음에도 불러주시면 정말 기쁜 마음으로 달려가겠습니다 :)\n그럼 오늘 남은 하루도 행복하게 보내시기 바랍니다.\n새해 복 많이 받으세요!ㅎㅎ',
+      },
+    },
+    {
+      id: 'r2',
+      name: '스트********',
+      rating: 5.0,
+      date: '25.06.10 12:00',
+      content: '꼼꼼하고 안정적으로 촬영 잘 마쳤습니다~',
+      workDays: 3,
+      orderRange: '80만원 ~ 90만원',
+      badge: 'Biz·기업',
+    },
   ],
-  recommendedPros: [
-    { id: '2', name: '이서연 MC', category: 'MC', rating: 4.8, reviews: 98, image: 'https://i.pravatar.cc/150?img=5' },
-    { id: '3', name: '박준혁 가수', category: '가수', rating: 5.0, reviews: 67, image: 'https://i.pravatar.cc/150?img=3' },
-    { id: '4', name: '최지은 쇼호스트', category: '쇼호스트', rating: 4.7, reviews: 55, image: 'https://i.pravatar.cc/150?img=9' },
+  popularServices: [
+    { id: 'p1', title: '풍부한 경력을 갖춘 전문 아나운서의 고급스러운...', price: 400000, image: 'https://i.pravatar.cc/300?img=25' },
+    { id: 'p2', title: '성우MC 남기희 현직 성우의 품격있는 고급스...', price: 350000, image: 'https://i.pravatar.cc/300?img=33' },
+    { id: 'p3', title: '아나운서 MC 리포터 홍보영상의 품격을 높이...', price: 300000, image: 'https://i.pravatar.cc/300?img=47', isPrime: true },
+  ],
+  alsoViewed: [
+    { id: 'av1', title: '아리랑 국제방송-통역사 출신 영어 아나운서 I 한영...', price: 400000, author: '오유진', image: 'https://i.pravatar.cc/300?img=20' },
+    { id: 'av2', title: '김혜연 아나운서/행사진행, MC, 쇼호스트, 결혼식사회', price: 300000, rating: 5.0, reviewCount: 1, author: '김anna', image: 'https://i.pravatar.cc/300?img=26' },
+    { id: 'av3', title: '비타민 가득 에너지보이 김다솜 아나운서입니다', price: 200000, rating: 5.0, reviewCount: 1, author: '김다솜아나운서', image: 'https://i.pravatar.cc/300?img=48' },
   ],
 };
 
+// ─── Components ─────────────────────────────────────────────
+
+function StarRating({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <div className="flex items-center gap-0" style={{ fontSize: size }}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i < Math.floor(value) ? '#1EC800' : '#E5E7EB'}>
+          <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+// ─── Page ───────────────────────────────────────────────────
+
 export default function ProDetailPage() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'info' | 'reviews'>('info');
+  const pro = { ...MOCK_PRO, id: id || MOCK_PRO.id };
+
   const [activeImage, setActiveImage] = useState(0);
-  const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
+  const [activePlan, setActivePlan] = useState(1); // default deluxe
+  const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [isFavorited, setIsFavorited] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(true);
+  const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
 
-  const pro = MOCK_PRO;
+  const descRef = useRef<HTMLDivElement>(null);
+  const infoRef = useRef<HTMLDivElement>(null);
+  const reviewsRef = useRef<HTMLDivElement>(null);
 
-  const formatPrice = (price: number) => price.toLocaleString('ko-KR') + '원';
+  const plan = pro.plans[activePlan];
+
+  const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
+    setActiveSection(section);
+    const target = section === 'desc' ? descRef.current : section === 'info' ? infoRef.current : reviewsRef.current;
+    if (target) {
+      const y = target.getBoundingClientRect().top + window.scrollY - 100;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  };
 
   return (
     <div className="bg-white min-h-screen pb-24">
-      {/* Header */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg z-30 bg-white/90 backdrop-blur-sm border-b border-gray-100">
-        <div className="flex items-center justify-between px-4 h-12">
-          <button onClick={() => router.back()} className="p-1">
-            <ArrowLeft size={22} />
+      {/* ─── Top Header (Floating) ─── */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 pt-3 pb-3">
+        <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm">
+          <ChevronLeft size={22} className="text-gray-900" />
+        </button>
+        <div className="flex items-center gap-2">
+          <button className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm">
+            <Phone size={18} className="text-gray-900" />
           </button>
-          <div className="flex items-center gap-2">
-            <button className="p-2" onClick={() => navigator.share?.({ url: window.location.href })}>
-              <Share2 size={20} className="text-gray-600" />
-            </button>
-            <button className="p-2" onClick={() => setIsFavorited(!isFavorited)}>
-              <Heart size={20} className={isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-600'} />
-            </button>
-          </div>
+          <button
+            onClick={() => navigator.share?.({ url: typeof window !== 'undefined' ? window.location.href : '' })}
+            className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-sm"
+          >
+            <Share2 size={18} className="text-gray-900" />
+          </button>
         </div>
       </div>
 
-      {/* Image Gallery - 3분할 그리드 */}
-      <div className="pt-12">
-        <div className="grid grid-cols-3 gap-0.5 bg-gray-100" style={{ height: '420px' }}>
-          {/* 1번: 세로형 프로필 이미지 */}
-          <div className="relative overflow-hidden row-span-1 h-full">
-            <img
-              src={pro.images[0]}
-              alt={`${pro.name} 프로필`}
-              className="w-full h-full object-cover"
-            />
-            {pro.showPartnersLogo && (
-              <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-md px-1.5 py-0.5 shadow-sm">
-                <span className="text-[9px] font-bold text-primary-500 tracking-tight">PARTNERS</span>
-              </div>
-            )}
-          </div>
-
-          {/* 2번: 유튜브 영상 또는 프로필 이미지 대체 */}
-          <div className="relative overflow-hidden h-full">
-            {pro.youtubeUrl ? (
-              <div className="w-full h-full relative group">
-                {/* 유튜브 썸네일 + 재생 오버레이 */}
-                <img
-                  src={`https://img.youtube.com/vi/${pro.youtubeUrl.match(/(?:v=|\/)([\w-]{11})/)?.[1]}/hqdefault.jpg`}
-                  alt="영상 미리보기"
-                  className="w-full h-full object-cover"
-                />
-                <a
-                  href={pro.youtubeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors"
-                >
-                  <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
-                    <Play size={20} className="text-white fill-white ml-0.5" />
-                  </div>
-                </a>
-                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] font-medium px-1.5 py-0.5 rounded">
-                  YouTube
-                </div>
-              </div>
-            ) : (
-              <img
-                src={pro.images[1] || pro.images[0]}
-                alt={`${pro.name} 프로필`}
-                className="w-full h-full object-cover"
-              />
-            )}
-          </div>
-
-          {/* 3번: 프로필 이미지 */}
-          <div className="relative overflow-hidden h-full">
-            <img
-              src={pro.images[2] || pro.images[1] || pro.images[0]}
-              alt={`${pro.name} 프로필`}
-              className="w-full h-full object-cover"
-            />
-            {pro.images.length > 3 && (
-              <button
-                onClick={() => setActiveImage(0)}
-                className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-medium px-2 py-1 rounded-full"
-              >
-                +{pro.images.length - 3}장
-              </button>
-            )}
-          </div>
+      {/* ─── Image Gallery ─── */}
+      <div className="relative w-full aspect-square bg-gray-100">
+        <Image
+          src={pro.images[activeImage]}
+          alt={pro.name}
+          fill
+          className="object-cover"
+          priority
+        />
+        {/* Play button overlay */}
+        <button className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/60 flex items-center justify-center">
+          <Play size={20} className="text-white fill-white ml-0.5" />
+        </button>
+        {/* Page indicator */}
+        <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[12px] font-medium px-2.5 py-1 rounded-full">
+          {activeImage + 1} / {pro.images.length}
         </div>
-
-        {/* 이미지 인디케이터 (전체 이미지 스크롤) */}
-        <div className="flex gap-2 px-4 py-3 overflow-x-auto">
-          {pro.images.map((img, i) => (
+        {/* Dot navigation */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {pro.images.map((_, i) => (
             <button
               key={i}
               onClick={() => setActiveImage(i)}
-              className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${
-                i === activeImage ? 'border-primary-500' : 'border-transparent'
+              className={`w-1.5 h-1.5 rounded-full transition-all ${i === activeImage ? 'bg-white w-5' : 'bg-white/50'}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ─── Main Content ─── */}
+      <div className="px-5 pt-5">
+        {/* Pro row + prime */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2.5">
+            <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-full object-cover" />
+            <div>
+              <span className="inline-block text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mb-0.5">{pro.level}</span>
+              <p className="text-[13px] font-medium text-gray-700 leading-tight">{pro.name}</p>
+            </div>
+          </div>
+          {pro.isPrime && (
+            <div className="bg-black text-white text-[11px] font-black italic px-2 py-1 rounded">prime</div>
+          )}
+        </div>
+
+        {/* Title */}
+        <h1 className="text-[20px] font-bold text-gray-900 leading-tight mb-3">{pro.title}</h1>
+
+        {/* Rating */}
+        <div className="flex items-center gap-2 mb-6">
+          <StarRating value={pro.rating} size={16} />
+          <span className="text-[16px] font-bold text-gray-900">{pro.rating}</span>
+          <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
+        </div>
+
+        {/* ─── Plan Tabs ─── */}
+        <div className="flex border-b border-gray-200 -mx-5">
+          {pro.plans.map((p, i) => (
+            <button
+              key={p.id}
+              onClick={() => setActivePlan(i)}
+              className={`flex-1 py-3 text-[14px] font-bold relative transition-colors ${
+                activePlan === i ? 'text-gray-900' : 'text-gray-300'
               }`}
             >
-              <img src={img} alt="" className="w-full h-full object-cover" />
+              {p.label}
+              {activePlan === i && <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-gray-900" />}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Basic Info */}
-      <div className="px-4 pb-4 border-b border-gray-100">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="bg-primary-50 text-primary-500 text-xs font-bold px-2 py-0.5 rounded-full">
-            {pro.category}
-          </span>
-          {pro.puddingRank <= 3 && (
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              pro.puddingRank === 1 ? 'bg-yellow-50 text-yellow-600' :
-              pro.puddingRank === 2 ? 'bg-gray-50 text-gray-500' :
-              'bg-orange-50 text-orange-600'
-            }`}>
-              {pro.puddingRank === 1 ? '🥇' : pro.puddingRank === 2 ? '🥈' : '🥉'} TOP {pro.puddingRank}
-            </span>
-          )}
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">{pro.name}</h1>
-        <p className="text-sm text-gray-600 mt-1">{pro.shortIntro}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{pro.mainExperience}</p>
+        {/* ─── Plan Content ─── */}
+        <div className="py-5">
+          {/* Price */}
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[28px] font-black text-gray-900">{plan.price.toLocaleString()}원</span>
+            <span className="text-[14px] text-gray-400">(VAT 포함)</span>
+          </div>
+          <p className="text-[12px] text-gray-400 mt-1">결제 시 수수료 4.5%(VAT포함)가 추가돼요.</p>
 
-        <div className="flex items-center gap-4 mt-4">
-          <div className="flex items-center gap-1">
-            <Star size={16} className="fill-yellow-400 text-yellow-400" />
-            <span className="font-bold text-sm">{pro.rating}</span>
-            <span className="text-xs text-gray-400">({pro.reviewCount})</span>
+          {/* Service title */}
+          <div className="mt-6 mb-3">
+            <h3 className="text-[17px] font-bold text-gray-900">{plan.title}</h3>
           </div>
-          <div className="flex items-center gap-1 text-gray-500">
-            <Clock size={14} />
-            <span className="text-xs">응답률 {pro.responseRate}%</span>
-          </div>
-          <div className="flex items-center gap-1 text-gray-500">
-            <Calendar size={14} />
-            <span className="text-xs">경력 {pro.careerYears}년</span>
-          </div>
-        </div>
 
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {pro.regions.map((r) => (
-            <span key={r} className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
-              <MapPin size={10} /> {r}
-            </span>
-          ))}
-          {pro.languages.map((l) => (
-            <span key={l} className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
-              <Globe size={10} /> {l}
-            </span>
-          ))}
+          {/* Description */}
+          <ul className="space-y-1 text-[14px] text-gray-700 leading-relaxed">
+            {plan.desc.map((line, i) => (
+              <li key={i} className="whitespace-pre-line">{i === 0 ? '- ' : '* '}{line}</li>
+            ))}
+          </ul>
+
+          {/* Info box */}
+          <div className="mt-6 bg-gray-50 rounded-xl px-5 py-4 flex items-start justify-between">
+            <div className="space-y-1.5">
+              <p className="text-[13px] text-gray-500">작업일</p>
+              <p className="text-[13px] text-gray-500">수정 횟수</p>
+            </div>
+            <div className="space-y-1.5 text-right">
+              <p className="text-[13px] font-semibold text-gray-900">{plan.workDays}일</p>
+              <p className="text-[13px] font-semibold text-gray-900">{plan.revisions}회</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="sticky top-12 z-20 bg-white border-b border-gray-100">
+      {/* ─── Divider ─── */}
+      <div className="h-2 bg-gray-50" />
+
+      {/* ─── Section Tabs (Sticky) ─── */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="flex">
           {[
-            { key: 'info' as const, label: '상세정보' },
-            { key: 'reviews' as const, label: `리뷰 ${pro.reviewCount}` },
-          ].map(({ key, label }) => (
+            { id: 'desc', label: '서비스 설명' },
+            { id: 'info', label: '전문가 정보' },
+            { id: 'reviews', label: `리뷰 (${pro.reviewCount})` },
+          ].map((tab) => (
             <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors ${
-                activeTab === key
-                  ? 'text-primary-500 border-primary-500'
-                  : 'text-gray-400 border-transparent'
+              key={tab.id}
+              onClick={() => scrollToSection(tab.id as 'desc' | 'info' | 'reviews')}
+              className={`flex-1 py-4 text-[15px] font-semibold relative transition-colors ${
+                activeSection === tab.id ? 'text-gray-900' : 'text-gray-400'
               }`}
             >
-              {label}
+              {tab.label}
+              {activeSection === tab.id && <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-gray-900" />}
             </button>
           ))}
         </div>
       </div>
 
-      {activeTab === 'info' ? (
-        <div>
-          {/* Awards & Companies */}
-          {(pro.awards || pro.companies.length > 0) && (
-            <section className="px-4 py-5 border-b border-gray-100">
-              {pro.awards && (
-                <div className="mb-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Award size={16} className="text-primary-500" />
-                    <span className="text-sm font-bold text-gray-900">수상 경력</span>
-                  </div>
-                  <p className="text-sm text-gray-600 pl-6">{pro.awards}</p>
+      {/* ─── 서비스 설명 Section ─── */}
+      <div ref={descRef} className="px-5 pt-8">
+        <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
+
+        {pro.isPrime && (
+          <div className="border border-gray-200 rounded-xl p-5 mb-6">
+            <div className="inline-block bg-black text-white text-[13px] font-black italic px-2 py-0.5 rounded mb-3">prime</div>
+            <p className="text-[15px] font-bold text-gray-900 mb-3">
+              이 서비스는 크몽 엄선 <span className="text-orange-500">상위 2% 전문가</span>가 제공해요
+            </p>
+            <ul className="space-y-1.5">
+              {['포트폴리오와 고객 후기로 검증된 퀄리티', '경력·이력 인증 심사를 통과한 서비스', '다양한 고객의 요청에 맞춘 전문성'].map((item) => (
+                <li key={item} className="flex items-center gap-2 text-[13px] text-gray-700">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Description text */}
+        <div className={`whitespace-pre-line text-[15px] leading-[1.8] text-gray-800 text-center ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`}>
+          {pro.description}
+          {!descExpanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+          )}
+        </div>
+
+        {!descExpanded && (
+          <button
+            onClick={() => setDescExpanded(true)}
+            className="mt-4 w-full py-3.5 border border-gray-200 rounded-lg text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            더보기
+          </button>
+        )}
+
+        {/* Image expand notice */}
+        <div className="mt-8 bg-gray-50 rounded-lg py-3 flex items-center justify-center gap-2 text-[13px] text-gray-400">
+          이미지를 클릭해서 확대 할 수 있어요
+          <ArrowUpRight size={14} />
+        </div>
+      </div>
+
+      {/* ─── 다른 회원들이 함께 보고 있어요 ─── */}
+      <div className="px-5 pt-10">
+        <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">다른 회원들이<br />함께 보고 있어요</h3>
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
+          {pro.alsoViewed.map((item) => (
+            <div key={item.id} className="shrink-0 w-[150px]">
+              <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gray-100">
+                <Image src={item.image} alt="" fill className="object-cover" />
+                <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
+                  <Heart size={14} className="text-gray-400" />
+                </button>
+              </div>
+              <p className="text-[12px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
+              <p className="text-[14px] font-bold text-gray-900">{item.price.toLocaleString()}원~</p>
+              {item.rating && (
+                <div className="flex items-center gap-1 mt-1">
+                  <StarRating value={item.rating} size={10} />
+                  <span className="text-[11px] text-gray-500 font-semibold">{item.rating} ({item.reviewCount})</span>
                 </div>
               )}
-              {pro.companies.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Building2 size={16} className="text-primary-500" />
-                    <span className="text-sm font-bold text-gray-900">주요 활동</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 pl-6">
-                    {pro.companies.map((c) => (
-                      <span key={c} className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{c}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Event Categories */}
-          <section className="px-4 py-5 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">가능한 행사</h3>
-            <div className="flex flex-wrap gap-2">
-              {pro.eventCategories.map((ec) => (
-                <span key={ec} className="text-xs bg-primary-50 text-primary-600 px-3 py-1.5 rounded-full font-medium">{ec}</span>
-              ))}
+              <p className="text-[11px] text-gray-400 mt-0.5">{item.author}</p>
             </div>
-          </section>
-
-          {/* YouTube */}
-          {pro.youtubeUrl && (
-            <section className="px-4 py-5 border-b border-gray-100">
-              <h3 className="text-sm font-bold text-gray-900 mb-3">영상</h3>
-              <a
-                href={pro.youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors"
-              >
-                <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shrink-0">
-                  <Play size={20} className="text-white fill-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">YouTube 영상 보기</p>
-                  <p className="text-xs text-gray-400 truncate">{pro.youtubeUrl}</p>
-                </div>
-                <ExternalLink size={16} className="text-gray-400 shrink-0" />
-              </a>
-            </section>
-          )}
-
-          {/* Detail HTML */}
-          <section className="px-4 py-5 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">소개</h3>
-            <div
-              className="prose prose-sm max-w-none text-gray-600"
-              dangerouslySetInnerHTML={{ __html: pro.detailHtml }}
-            />
-          </section>
-
-          {/* Services */}
-          <section className="px-4 py-5 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">서비스</h3>
-            <div className="space-y-3">
-              {pro.services.map((svc) => (
-                <div key={svc.id} className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-sm text-gray-900">{svc.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{svc.description}</p>
-                    </div>
-                    <p className="text-sm font-bold text-primary-500 shrink-0">
-                      {formatPrice(svc.basePrice)}~
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* FAQ */}
-          <section className="px-4 py-5 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">자주 묻는 질문</h3>
-            <div className="space-y-2">
-              {pro.faqs.map((faq) => (
-                <div key={faq.id} className="bg-gray-50 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                    className="w-full flex items-center justify-between p-4 text-left"
-                  >
-                    <span className="text-sm font-medium text-gray-900">Q. {faq.question}</span>
-                    {expandedFaq === faq.id ? (
-                      <ChevronUp size={16} className="text-gray-400 shrink-0" />
-                    ) : (
-                      <ChevronDown size={16} className="text-gray-400 shrink-0" />
-                    )}
-                  </button>
-                  {expandedFaq === faq.id && (
-                    <div className="px-4 pb-4 text-sm text-gray-600">
-                      A. {faq.answer}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Available Dates */}
-          <section className="px-4 py-5 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">가능한 날짜</h3>
-            <div className="flex flex-wrap gap-2">
-              {pro.availableDates.map((d) => {
-                const date = new Date(d);
-                const month = date.getMonth() + 1;
-                const day = date.getDate();
-                const weekday = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
-                return (
-                  <span key={d} className="text-xs bg-green-50 text-green-600 px-3 py-1.5 rounded-full font-medium">
-                    {month}/{day}({weekday})
-                  </span>
-                );
-              })}
-            </div>
-          </section>
+          ))}
         </div>
-      ) : (
-        /* Reviews Tab */
-        <div className="px-4 py-5">
-          {/* Rating Summary */}
-          <div className="bg-gray-50 rounded-2xl p-5 mb-5">
-            <div className="flex items-center gap-4">
-              <div className="text-center">
-                <p className="text-4xl font-black text-gray-900">{pro.rating}</p>
-                <div className="flex items-center gap-0.5 mt-1 justify-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={14} className={i < Math.round(pro.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'} />
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 mt-1">리뷰 {pro.reviewCount}개</p>
-              </div>
-              <div className="flex-1 space-y-1.5">
-                {['만족도', '구성', '경험', '외모', '목소리', '위트'].map((label, i) => (
-                  <div key={label} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-12">{label}</span>
-                    <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                      <div className="bg-primary-500 h-1.5 rounded-full" style={{ width: `${([98, 96, 99, 95, 97, 94][i])}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+      </div>
 
-          {/* Review List */}
-          <div className="space-y-4">
-            {pro.reviews.map((review) => (
-              <div key={review.id} className="border-b border-gray-100 pb-4 last:border-0">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-gray-500">{review.name[0]}</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{review.name}</p>
-                      <p className="text-xs text-gray-400">{review.date}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-0.5">
-                    <Star size={12} className="fill-yellow-400 text-yellow-400" />
-                    <span className="text-xs font-bold">{review.rating}</span>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-700 leading-relaxed">{review.comment}</p>
-                {review.proReply && (
-                  <div className="mt-3 bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs font-bold text-primary-500 mb-1">전문가 답변</p>
-                    <p className="text-xs text-gray-600">{review.proReply}</p>
-                  </div>
-                )}
-              </div>
-            ))}
+      {/* ─── Divider ─── */}
+      <div className="h-2 bg-gray-50 mt-8" />
+
+      {/* ─── 전문가 정보 Section ─── */}
+      <div ref={infoRef} className="px-5 pt-8">
+        <h2 className="text-[20px] font-bold text-gray-900 mb-5">전문가 정보</h2>
+
+        <div className="flex items-center gap-4 mb-5">
+          <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-full object-cover" />
+          <div className="flex-1">
+            <span className="inline-block text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mb-1">{pro.level}</span>
+            <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <StarRating value={pro.rating} size={12} />
+              <span className="text-[12px] font-semibold text-gray-900">{pro.rating} ({pro.reviewCount + 3})</span>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">연락 가능 시간: {pro.expertStats.contactTime}</p>
+            <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
           </div>
         </div>
-      )}
 
-      {/* Recommended Pros */}
-      <section className="px-4 py-5 bg-gray-50">
-        <h3 className="text-sm font-bold text-gray-900 mb-3">추천 전문가</h3>
-        <div className="flex gap-3 overflow-x-auto -mx-4 px-4 scrollbar-hide">
-          {pro.recommendedPros.map((rec) => (
-            <Link key={rec.id} href={`/pros/${rec.id}`} className="shrink-0 w-32">
-              <div className="bg-white rounded-xl overflow-hidden shadow-sm">
-                <img src={rec.image} alt={rec.name} className="w-full aspect-square object-cover" />
-                <div className="p-2.5">
-                  <p className="text-xs font-bold text-gray-900 truncate">{rec.name}</p>
-                  <p className="text-[10px] text-gray-500">{rec.category}</p>
-                  <div className="flex items-center gap-0.5 mt-1">
-                    <Star size={10} className="fill-yellow-400 text-yellow-400" />
-                    <span className="text-[10px] font-bold">{rec.rating}</span>
-                    <span className="text-[10px] text-gray-400">({rec.reviews})</span>
-                  </div>
-                </div>
+        <button className="w-full py-3.5 border border-gray-200 rounded-lg text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors mb-5">
+          문의하기
+        </button>
+
+        {/* Stats grid */}
+        <div className="bg-gray-50 rounded-xl px-5 py-5 grid grid-cols-4 gap-3">
+          <div className="text-center">
+            <p className="text-[11px] text-gray-400 mb-1">총 거래 건수</p>
+            <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.totalDeals}건</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[11px] text-gray-400 mb-1">만족도</p>
+            <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.satisfaction}%</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[11px] text-gray-400 mb-1">회원구분</p>
+            <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.memberType}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[11px] text-gray-400 mb-1">세금계산서</p>
+            <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.taxInvoice}</p>
+          </div>
+        </div>
+
+        {/* Other services */}
+        <h3 className="text-[17px] font-bold text-gray-900 leading-tight mt-10 mb-4">이 전문가의<br />다른 서비스예요</h3>
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
+          {pro.otherServices.map((item) => (
+            <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[180px]">
+              <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gradient-to-br from-pink-100 to-rose-100">
+                <Image src={item.image} alt="" fill className="object-cover" />
+                <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
+                  <Heart size={14} className="text-gray-400" />
+                </button>
               </div>
+              <p className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
+              <p className="text-[15px] font-bold text-gray-900">{item.price.toLocaleString()}원</p>
+              <div className="flex items-center gap-1 mt-1">
+                <StarRating value={item.rating} size={10} />
+                <span className="text-[11px] text-gray-500 font-semibold">{item.rating} ({item.reviewCount})</span>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5">{pro.name}</p>
             </Link>
           ))}
         </div>
-      </section>
+      </div>
 
-      {/* Floating Bottom Bar */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg bg-white border-t border-gray-100 px-4 py-3 z-40">
-        <div className="flex items-center gap-3">
+      {/* ─── Divider ─── */}
+      <div className="h-2 bg-gray-50 mt-10" />
+
+      {/* ─── 리뷰 Section ─── */}
+      <div ref={reviewsRef} className="px-5 pt-8">
+        <h2 className="text-[20px] font-bold text-gray-900 mb-5">리뷰</h2>
+
+        <div className="flex items-center gap-2 mb-5">
+          <StarRating value={pro.rating} size={20} />
+          <span className="text-[24px] font-black text-gray-900">{pro.rating}</span>
+          <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
+        </div>
+
+        {/* Score bars */}
+        <div className="bg-gray-50 rounded-xl px-5 py-5 space-y-3 mb-6">
+          {[
+            { label: '결과물 만족도', value: 4.9 },
+            { label: '친절한 상담', value: 4.9 },
+            { label: '신속한 대응', value: 4.9 },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center gap-3">
+              <span className="text-[13px] text-gray-600 w-20 shrink-0">{item.label}</span>
+              <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-gray-900 rounded-full" style={{ width: `${(item.value / 5) * 100}%` }} />
+              </div>
+              <span className="text-[13px] font-bold text-gray-900">{item.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Reviews list */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[16px] font-bold text-gray-900">전체 리뷰 {pro.reviewCount}건</h3>
+          <button><ChevronRight size={20} className="text-gray-400" /></button>
+        </div>
+
+        <div className="space-y-6">
+          {pro.reviews.map((review) => (
+            <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>
+                <span className="text-[14px] text-gray-600">{review.name}</span>
+              </div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <StarRating value={review.rating} size={14} />
+                <span className="text-[13px] font-bold text-gray-900">{review.rating}</span>
+                <span className="text-[12px] text-gray-300">|</span>
+                <span className="text-[12px] text-gray-400">{review.date}</span>
+              </div>
+              <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
+              <p className="text-[12px] text-gray-400 mb-2">
+                작업일 : {review.workDays}일 | 주문 금액 : {review.orderRange}
+              </p>
+              {review.badge && (
+                <span className="inline-block text-[11px] text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{review.badge}</span>
+              )}
+              {review.proReply && (
+                <div className="mt-3 bg-gray-50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[13px] font-semibold text-gray-800">{pro.name}</span>
+                    <span className="text-[12px] text-gray-400">{review.proReply.date}</span>
+                  </div>
+                  <p className="text-[13px] leading-[1.7] text-gray-700 whitespace-pre-line">{review.proReply.content}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button className="w-full py-3.5 border border-gray-200 rounded-lg text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors mt-5">
+          리뷰 전체보기
+        </button>
+      </div>
+
+      {/* ─── Expandable panels ─── */}
+      <div className="px-5 pt-8 space-y-1">
+        {[
+          { id: 'info', label: '서비스 정보' },
+          { id: 'revision', label: '수정 및 재진행' },
+          { id: 'cancel', label: '취소 및 환불 규정' },
+          { id: 'notice', label: '상품정보고시' },
+        ].map((panel) => (
           <button
-            onClick={() => setIsFavorited(!isFavorited)}
-            className="w-12 h-12 flex items-center justify-center border border-gray-200 rounded-xl shrink-0"
+            key={panel.id}
+            onClick={() => setExpandedPanel(expandedPanel === panel.id ? null : panel.id)}
+            className="w-full flex items-center justify-between py-4 text-left"
           >
-            <Heart size={22} className={isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-400'} />
+            <span className="text-[15px] font-medium text-gray-900">{panel.label}</span>
+            <ChevronDown size={20} className={`text-gray-400 transition-transform ${expandedPanel === panel.id ? 'rotate-180' : ''}`} />
           </button>
-          <Link href={`/chat/new?proId=${id}`} className="flex-1">
-            <button className="btn-primary flex items-center justify-center gap-2">
-              <MessageCircle size={18} />
-              1:1 문의하기
-            </button>
-          </Link>
+        ))}
+      </div>
+
+      {/* ─── Divider ─── */}
+      <div className="h-2 bg-gray-50 mt-2" />
+
+      {/* ─── MC 인기 서비스 ─── */}
+      <div className="px-5 pt-8 pb-10">
+        <h2 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">MC<br />인기 서비스 어때요?</h2>
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
+          {pro.popularServices.map((item) => (
+            <div key={item.id} className="shrink-0 w-[180px]">
+              <div className="relative aspect-square rounded-xl overflow-hidden mb-2 bg-gray-100">
+                <Image src={item.image} alt="" fill className="object-cover" />
+                <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
+                  <Heart size={14} className="text-gray-400" />
+                </button>
+                {item.isPrime && (
+                  <div className="absolute bottom-2 left-2 bg-black text-white text-[10px] font-black italic px-1.5 py-0.5 rounded">prime</div>
+                )}
+              </div>
+              <p className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2 mb-1">{item.title}</p>
+              <p className="text-[15px] font-bold text-gray-900">{item.price.toLocaleString()}원~</p>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* ─── Bottom Fixed Bar ─── */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-4 py-3 pb-safe">
+        <div className="flex items-stretch gap-2 max-w-[680px] mx-auto">
+          {/* Heart */}
+          <button
+            onClick={() => setIsFavorited(!isFavorited)}
+            className="w-12 border border-gray-200 rounded-lg flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <Heart size={20} className={isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-400'} />
+          </button>
+
+          {/* 문의하기 with tooltip */}
+          <div className="relative flex-1">
+            {showTooltip && (
+              <div
+                className="absolute -top-11 left-0 right-0 flex justify-center"
+                style={{ animation: 'tooltipBounce 2s ease-in-out infinite' }}
+              >
+                <div className="bg-[#B4F163] text-gray-900 text-[11px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap relative">
+                  평균 응답 1시간 이내
+                  <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-[#B4F163] rotate-45" />
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => { setShowTooltip(false); router.push(`/chat/${pro.id}`); }}
+              className="w-full h-12 border border-gray-200 rounded-lg text-[14px] font-semibold text-gray-900 active:scale-95 transition-transform"
+            >
+              문의하기
+            </button>
+          </div>
+
+          {/* 구매하기 */}
+          <button className="flex-1 h-12 bg-gray-900 rounded-lg text-[14px] font-bold text-white active:scale-95 transition-transform">
+            구매하기
+          </button>
+        </div>
+      </div>
+
+      {/* Tooltip animation */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes tooltipBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+      `}} />
     </div>
   );
 }
