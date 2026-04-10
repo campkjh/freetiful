@@ -3,7 +3,8 @@ const nextConfig = {
   transpilePackages: ['@prettyful/types'],
   images: {
     domains: ['localhost', 'cdn.prettyful.co.kr', 'cdn.freetiful.co.kr', 'k.kakaocdn.net', 'lh3.googleusercontent.com', 'i.pravatar.cc', 'images.unsplash.com', 'picsum.photos'],
-    formats: ['image/webp'],
+    formats: ['image/avif', 'image/webp'],
+    unoptimized: true,
   },
   async rewrites() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;

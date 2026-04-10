@@ -511,7 +511,7 @@ export default function ProDetailPage() {
   };
 
   return (
-    <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
       {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
       <div
         className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
