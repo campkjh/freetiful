@@ -46,7 +46,7 @@ const IconSettings = () => (
 const IconBell = () => (
   <svg width={22} height={22} viewBox="0 0 48 48" fill="none" className="shrink-0">
     <path d="M24 4c-1.1 0-2 .9-2 2v1.17C16.36 8.2 12 12.73 12 18v8l-4 4v2h32v-2l-4-4v-8c0-5.27-4.36-9.8-10-10.83V6c0-1.1-.9-2-2-2z" fill="#FBBF24"/>
-    <ellipse cx="24" cy="42" rx="4" ry="3" fill="#F59E0B"/>
+    <circle cx="24" cy="40" r="4" fill="#F59E0B"/>
   </svg>
 );
 const IconHeadphones = () => (
@@ -57,15 +57,15 @@ const IconHeadphones = () => (
 const IconHelp = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
     <circle cx="12" cy="12" r="10" fill="#F59E0B"/>
-    <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="13" fontWeight="bold" fontFamily="system-ui">!</text>
+    <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="13" fontWeight="bold" fontFamily="system-ui">?</text>
   </svg>
 );
 const IconMegaphone = () => (
   <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M7 14v5.5a2 2 0 002 2h0a2 2 0 002-2V14" fill="#F87171"/>
     <rect x="3" y="8" width="7" height="8" rx="2" fill="#FCA5A5"/>
     <path d="M10 9c0 0 5-3 9-4.5v15c-4-1.5-9-4.5-9-4.5V9z" fill="#EF4444"/>
     <rect x="19" y="9" width="3" height="6" rx="1.5" fill="#DC2626"/>
-    <path d="M7 14v5.5a2 2 0 002 2h0a2 2 0 002-2V14" fill="#F87171"/>
   </svg>
 );
 const IconUsers = () => (
