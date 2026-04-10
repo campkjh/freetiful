@@ -2,12 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Page transition — 우→좌 슬라이드로 덮기 */
-@keyframes slideFromRight {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(0); }
-}
-
 /* Custom animations */
 @keyframes fadeSlideUp {
   from { opacity: 0; transform: translateY(24px) scale(0.97); filter: blur(4px); }

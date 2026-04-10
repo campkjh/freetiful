@@ -49,6 +49,11 @@ export default function SettingsPage() {
   const [name, setName] = useState('김정훈');
   const [phone, setPhone] = useState('010-9433-5674');
   const [images, setImages] = useState(MOCK_IMAGES);
+  const [showBankForm, setShowBankForm] = useState(false);
+  const [bank, setBank] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountHolder, setAccountHolder] = useState('');
+  const [savedAccount, setSavedAccount] = useState<{ bank: string; number: string; holder: string } | null>(null);
 
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
@@ -123,10 +128,44 @@ export default function SettingsPage() {
       {/* ─── Refund Account ──────────────────────────────────────────── */}
       <div className="px-4 py-5 space-y-3">
         <p className="text-[13px] font-bold text-gray-500 flex items-center gap-1"><Wallet size={12} /> 환불 계좌</p>
-        <div className="border border-gray-100 rounded-2xl p-4">
-          <p className="text-[13px] text-gray-500">등록된 환불 계좌가 없습니다</p>
-          <button className="text-[13px] text-gray-900 font-bold mt-2">계좌 등록하기</button>
-        </div>
+        {savedAccount ? (
+          <div className="border border-gray-100 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[14px] font-semibold text-gray-900">{savedAccount.bank}</p>
+              <p className="text-[13px] text-gray-500 mt-0.5">{savedAccount.number} · {savedAccount.holder}</p>
+            </div>
+            <button onClick={() => { setSavedAccount(null); setShowBankForm(false); }} className="text-[12px] text-red-500 font-bold">삭제</button>
+          </div>
+        ) : showBankForm ? (
+          <div className="border border-gray-100 rounded-2xl p-4 space-y-3">
+            <select value={bank} onChange={(e) => setBank(e.target.value)} className="input text-[16px]">
+              <option value="">은행 선택</option>
+              {['국민은행','신한은행','하나은행','우리은행','IBK기업','NH농협','카카오뱅크','토스뱅크','케이뱅크'].map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+            <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="계좌번호" className="input text-[16px]" />
+            <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="예금주명" className="input text-[16px]" />
+            <div className="flex gap-2">
+              <button onClick={() => setShowBankForm(false)} className="flex-1 h-11 bg-gray-100 text-gray-600 font-bold rounded-xl text-[14px] active:scale-[0.98]">취소</button>
+              <button
+                onClick={() => {
+                  if (!bank || !accountNumber || !accountHolder) return;
+                  setSavedAccount({ bank, number: accountNumber, holder: accountHolder });
+                  setShowBankForm(false);
+                }}
+                className="flex-1 h-11 bg-gray-900 text-white font-bold rounded-xl text-[14px] active:scale-[0.98]"
+              >
+                등록
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="border border-gray-100 rounded-2xl p-4">
+            <p className="text-[13px] text-gray-500">등록된 환불 계좌가 없습니다</p>
+            <button onClick={() => setShowBankForm(true)} className="text-[13px] text-gray-900 font-bold mt-2">계좌 등록하기</button>
+          </div>
+        )}
       </div>
 
       {/* ─── Save ────────────────────────────────────────────────────── */}

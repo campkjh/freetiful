@@ -748,7 +748,7 @@ export default function BizPage() {
                         ref={vid1.ref}
                         className={`transition-all duration-1000 ease-out ${vid1.visible ? 'translate-x-0 opacity-100' : '-translate-x-16 opacity-0'}`}
                       >
-                        <video className="w-full aspect-video" controls playsInline preload="metadata" muted>
+                        <video className="w-full aspect-video" controls playsInline preload="none" muted>
                           <source src="/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4" type="video/mp4" />
                         </video>
                       </div>
@@ -777,7 +777,7 @@ export default function BizPage() {
                         ref={vid2.ref}
                         className={`transition-all duration-1000 ease-out ${vid2.visible ? 'translate-x-0 opacity-100' : 'translate-x-16 opacity-0'}`}
                       >
-                        <video className="w-full aspect-video" controls playsInline preload="metadata" muted>
+                        <video className="w-full aspect-video" controls playsInline preload="none" muted>
                           <source src="/images/KakaoTalk_Video_2026-04-08-23-05-41.mp4" type="video/mp4" />
                         </video>
                       </div>
@@ -826,7 +826,7 @@ export default function BizPage() {
           </div>
           <Reveal delay={300}>
             <div className="mt-16 rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10 bg-black">
-              <video className="w-full aspect-video" controls playsInline preload="metadata">
+              <video className="w-full aspect-video" controls playsInline preload="none">
                 <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
               </video>
             </div>

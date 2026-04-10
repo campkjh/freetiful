@@ -480,12 +480,12 @@ interface BusinessPartner {
 const BIZ_CATEGORIES = ['전체', '웨딩홀', '피부과', '스튜디오', '드레스', '헤메샵', '스냅영상'];
 
 const MOCK_BUSINESSES: BusinessPartner[] = [
-  { id: 'b1', category: '웨딩홀', name: '더채플앳청담', location: '서울 강남구', images: ['https://i.pravatar.cc/300?img=50', 'https://i.pravatar.cc/300?img=51', 'https://i.pravatar.cc/300?img=52'], tags: ['청담동 루프탑 채플', '연예인 웨딩홀'], originalPrice: 5000000, discountPercent: 40 },
-  { id: 'b2', category: '웨딩홀', name: '그랜드하얏트 서울', location: '서울 용산구', images: ['https://i.pravatar.cc/300?img=53', 'https://i.pravatar.cc/300?img=54', 'https://i.pravatar.cc/300?img=55'], tags: ['남산뷰 프리미엄 호텔', '대규모 하객 수용'], originalPrice: 8000000, discountPercent: 35 },
-  { id: 'b3', category: '피부과', name: '글로우업 피부과', location: '서울 신사동', images: ['https://i.pravatar.cc/300?img=56', 'https://i.pravatar.cc/300?img=57', 'https://i.pravatar.cc/300?img=58'], tags: ['신사동 웨딩피부 1위', '예신 필수 코스'], originalPrice: 1200000, discountPercent: 50 },
-  { id: 'b4', category: '피부과', name: '뉴페이스 클리닉', location: '서울 압구정', images: ['https://i.pravatar.cc/300?img=59', 'https://i.pravatar.cc/300?img=60', 'https://i.pravatar.cc/300?img=61'], tags: ['압구정 프리미엄 피부과', '1:1 맞춤 케어'], originalPrice: 1500000, discountPercent: 45 },
-  { id: 'b5', category: '스튜디오', name: '무드스튜디오', location: '서울 성수동', images: ['https://i.pravatar.cc/300?img=62', 'https://i.pravatar.cc/300?img=63', 'https://i.pravatar.cc/300?img=64'], tags: ['성수동 감성 스튜디오', '자연광 전문'], originalPrice: 2000000, discountPercent: 40 },
-  { id: 'b6', category: '스튜디오', name: '아뜰리에드서울', location: '서울 삼청동', images: ['https://i.pravatar.cc/300?img=65', 'https://i.pravatar.cc/300?img=66', 'https://i.pravatar.cc/300?img=67'], tags: ['삼청동 한옥 스튜디오', '클래식 웨딩 전문'], originalPrice: 2500000, discountPercent: 35 },
+  { id: 'b1', category: '웨딩홀', name: '더채플앳청담', location: '서울 강남구', images: ['/images/65e031ea-8392-44b1-b301-3e1b7d072649.jpg'], tags: ['청담동 루프탑 채플', '연예인 웨딩홀'], originalPrice: 5000000, discountPercent: 40 },
+  { id: 'b2', category: '웨딩홀', name: '그랜드하얏트 서울', location: '서울 용산구', images: ['/images/2017_wedding_ybg_visual_img4.jpg'], tags: ['남산뷰 프리미엄 호텔', '대규모 하객 수용'], originalPrice: 8000000, discountPercent: 35 },
+  { id: 'b3', category: '피부과', name: '글로우업 피부과', location: '서울 신사동', images: ['/images/1675329650.jpg'], tags: ['신사동 웨딩피부 1위', '예신 필수 코스'], originalPrice: 1200000, discountPercent: 50 },
+  { id: 'b4', category: '피부과', name: '뉴페이스 클리닉', location: '서울 압구정', images: ['/images/79598_91056_5542.jpg'], tags: ['압구정 프리미엄 피부과', '1:1 맞춤 케어'], originalPrice: 1500000, discountPercent: 45 },
+  { id: 'b5', category: '스튜디오', name: '무드스튜디오', location: '서울 성수동', images: ['/images/1d2bf19650093.jpg'], tags: ['성수동 감성 스튜디오', '자연광 전문'], originalPrice: 2000000, discountPercent: 40 },
+  { id: 'b6', category: '스튜디오', name: '아뜰리에드서울', location: '서울 삼청동', images: ['/images/65e031ea-8392-44b1-b301-3e1b7d072649.jpg'], tags: ['삼청동 한옥 스튜디오', '클래식 웨딩 전문'], originalPrice: 2500000, discountPercent: 35 },
   { id: 'b7', category: '드레스', name: '라비엔로즈', location: '서울 논현동', images: ['https://i.pravatar.cc/300?img=68', 'https://i.pravatar.cc/300?img=69', 'https://i.pravatar.cc/300?img=70'], tags: ['논현동 유럽 수입 드레스', '맞춤 제작 전문'], originalPrice: 3000000, discountPercent: 30 },
   { id: 'b8', category: '드레스', name: '모니카블랑쉬', location: '서울 청담동', images: ['https://i.pravatar.cc/300?img=1', 'https://i.pravatar.cc/300?img=2', 'https://i.pravatar.cc/300?img=3'], tags: ['청담동 디자이너 드레스', '셀럽 단골샵'], originalPrice: 4000000, discountPercent: 25 },
   { id: 'b9', category: '헤메샵', name: '블룸헤어메이크업', location: '서울 강남구', images: ['https://i.pravatar.cc/300?img=4', 'https://i.pravatar.cc/300?img=5', 'https://i.pravatar.cc/300?img=6'], tags: ['강남 본식 헤메 1위', '자연스러운 메이크업'], originalPrice: 800000, discountPercent: 40 },
@@ -647,7 +647,7 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
           </div>
         </div>
         <div className="flex flex-wrap gap-1">
-          <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력<CountUpText value={pro.experience} suffix="년" /></span>
+          <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
           {languages && languages.map((lang) => (
             <span key={lang} className="text-[10px] font-bold px-1.5 rounded-[5px] bg-blue-50 text-blue-600 flex items-center" style={{ height: 22 }}>{lang}</span>
           ))}
