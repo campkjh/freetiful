@@ -166,9 +166,11 @@ function RoundedRectBorderTrain({ color = '#2B313D' }: { color?: string }) {
     const trainLen = perimeter * 0.2;
     const gapLen = perimeter - trainLen;
     p1.setAttribute('stroke-dasharray', `${trainLen} ${gapLen}`);
+    p1.setAttribute('opacity', '1');
     const a1 = p1.animate([{ strokeDashoffset: 0 }, { strokeDashoffset: -perimeter }], { duration: 6000, iterations: Infinity, easing: 'linear' });
     p2.setAttribute('stroke-dasharray', `${trainLen} ${gapLen}`);
     p2.setAttribute('stroke-dashoffset', `${-perimeter * 0.5}`);
+    p2.setAttribute('opacity', '1');
     const a2 = p2.animate([{ strokeDashoffset: -perimeter * 0.5 }, { strokeDashoffset: -perimeter * 1.5 }], { duration: 6000, iterations: Infinity, easing: 'linear' });
     return () => { a1.cancel(); a2.cancel(); };
   }, [size]);
@@ -1232,23 +1234,20 @@ export default function HomePage() {
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
-            <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-              <button
-                onClick={() => setSelectedEventType(null)}
-                className={selectedEventType === null ? 'chip-active' : 'chip-inactive'}
-              >
-                전체
-              </button>
-              {ALL_EVENT_TYPES.map((et) => (
-                <button
-                  key={et}
-                  onClick={() => setSelectedEventType(selectedEventType === et ? null : et)}
-                  className={selectedEventType === et ? 'chip-active' : 'chip-inactive'}
-                >
-                  {et}
+            <LayoutGroup id="event-tabs">
+              <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+                <button onClick={() => setSelectedEventType(null)} className={`relative chip ${selectedEventType === null ? 'text-white' : 'chip-inactive'}`}>
+                  {selectedEventType === null && <motion.span layoutId="event-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                  <span className="relative">전체</span>
                 </button>
-              ))}
-            </div>
+                {ALL_EVENT_TYPES.map((et) => (
+                  <button key={et} onClick={() => setSelectedEventType(selectedEventType === et ? null : et)} className={`relative chip ${selectedEventType === et ? 'text-white' : 'chip-inactive'}`}>
+                    {selectedEventType === et && <motion.span layoutId="event-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                    <span className="relative">{et}</span>
+                  </button>
+                ))}
+              </div>
+            </LayoutGroup>
           </div>
           <div className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
             {/* 4개씩 묶어서 페이지 단위로 스와이프 */}
@@ -1304,57 +1303,19 @@ export default function HomePage() {
               </Link>
             </div>
           </Reveal>
-          <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-            <button
-              onClick={() => {
-                if (myRegion) {
-                  setSelectedRegion(selectedRegion === myRegion ? null : myRegion);
-                  return;
-                }
-                if (myRegionLoading) return;
-                if (!('geolocation' in navigator)) {
-                  toast.error('위치 기능을 지원하지 않습니다');
-                  return;
-                }
-                setMyRegionLoading(true);
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    // 간단한 위도/경도 → 권역 매핑
-                    let region = '서울/경기';
-                    if (latitude >= 37.0 && latitude <= 38.5 && longitude >= 126.5 && longitude <= 127.7) region = '서울/경기';
-                    else if (latitude >= 36.0 && latitude < 37.0) region = '충청';
-                    else if (latitude >= 35.0 && latitude < 36.5 && longitude >= 128.0) region = '경상';
-                    else if (latitude >= 34.5 && latitude < 36.5 && longitude < 128.0) region = '전라';
-                    else if (latitude >= 37.0 && longitude >= 127.7) region = '강원';
-                    else if (latitude < 34.0) region = '제주';
-                    setMyRegion(region);
-                    setSelectedRegion(region);
-                    setMyRegionLoading(false);
-                    toast.success(`내 지역: ${region}`);
-                  },
-                  () => {
-                    setMyRegionLoading(false);
-                    toast.error('위치 정보를 가져올 수 없습니다');
-                  },
-                  { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+          <LayoutGroup id="region-tabs">
+            <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+              {['서울/경기', '충청', '경상', '전라', '강원', '제주'].map((region) => {
+                const active = selectedRegion === region;
+                return (
+                  <button key={region} onClick={() => setSelectedRegion(active ? null : region)} className={`relative chip ${active ? 'text-white' : 'chip-inactive'}`}>
+                    {active && <motion.span layoutId="region-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                    <span className="relative">{region}</span>
+                  </button>
                 );
-              }}
-              className={`${myRegion && selectedRegion === myRegion ? 'chip-active' : 'chip-inactive'} flex items-center gap-1.5 shrink-0`}
-            >
-              <MapPin size={14} />
-              {myRegionLoading ? '위치 확인 중…' : myRegion ? `내 지역 (${myRegion})` : '내 지역'}
-            </button>
-            {['서울/경기', '충청', '경상', '전라', '강원', '제주'].map((region) => (
-              <button
-                key={region}
-                onClick={() => setSelectedRegion(selectedRegion === region ? null : region)}
-                className={selectedRegion === region ? 'chip-active' : 'chip-inactive'}
-              >
-                {region}
-              </button>
-            ))}
-          </div>
+              })}
+            </div>
+          </LayoutGroup>
           <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
             {regionPros.slice(0, 9).map((pro, i) => (
               <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
@@ -1381,37 +1342,31 @@ export default function HomePage() {
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
-            <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-              <button
-                onClick={() => setSelectedLang(null)}
-                className={selectedLang === null ? 'chip-active' : 'chip-inactive'}
-              >
-                전체
-              </button>
-              {ALL_LANGUAGES.map((lang) => {
-                const flag = LANGUAGE_FLAGS[lang];
-                const active = selectedLang === lang;
-                return (
-                  <button
-                    key={lang}
-                    onClick={() => setSelectedLang(active ? null : lang)}
-                    className={`${active ? 'chip-active' : 'chip-inactive'} flex items-center gap-1.5`}
-                  >
-                    {flag && (
-                      <img
-                        src={flag}
-                        alt=""
-                        width={18}
-                        height={18}
-                        className="w-[18px] h-[18px] rounded-full object-cover shrink-0"
-                        draggable={false}
-                      />
-                    )}
-                    {lang}
-                  </button>
-                );
+            <LayoutGroup id="lang-tabs">
+              <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+                <button onClick={() => setSelectedLang(null)} className={`relative chip ${selectedLang === null ? 'text-white' : 'chip-inactive'}`}>
+                  {selectedLang === null && <motion.span layoutId="lang-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                  <span className="relative">전체</span>
+                </button>
+                {ALL_LANGUAGES.map((lang) => {
+                  const flag = LANGUAGE_FLAGS[lang];
+                  const active = selectedLang === lang;
+                  return (
+                    <button
+                      key={lang}
+                      onClick={() => setSelectedLang(active ? null : lang)}
+                      className={`relative chip flex items-center gap-1.5 ${active ? 'text-white' : 'chip-inactive'}`}
+                    >
+                      {active && <motion.span layoutId="lang-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                      {flag && (
+                        <img src={flag} alt="" width={18} height={18} className="relative w-[18px] h-[18px] rounded-full object-cover shrink-0" draggable={false} />
+                      )}
+                      <span className="relative">{lang}</span>
+                    </button>
+                  );
               })}
-            </div>
+              </div>
+            </LayoutGroup>
           </div>
           <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8 relative z-10">
             {languagePros.slice(0, 9).map((pro, i) => (
@@ -1439,23 +1394,20 @@ export default function HomePage() {
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
-            <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-              <button
-                onClick={() => setSelectedBizCat(null)}
-                className={selectedBizCat === null ? 'chip-active' : 'chip-inactive'}
-              >
-                전체
-              </button>
-              {BIZ_CATEGORIES.slice(1).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedBizCat(selectedBizCat === cat ? null : cat)}
-                  className={selectedBizCat === cat ? 'chip-active' : 'chip-inactive'}
-                >
-                  {cat}
+            <LayoutGroup id="biz-tabs">
+              <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+                <button onClick={() => setSelectedBizCat(null)} className={`relative chip ${selectedBizCat === null ? 'text-white' : 'chip-inactive'}`}>
+                  {selectedBizCat === null && <motion.span layoutId="biz-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                  <span className="relative">전체</span>
                 </button>
-              ))}
-            </div>
+                {BIZ_CATEGORIES.slice(1).map((cat) => (
+                  <button key={cat} onClick={() => setSelectedBizCat(selectedBizCat === cat ? null : cat)} className={`relative chip ${selectedBizCat === cat ? 'text-white' : 'chip-inactive'}`}>
+                    {selectedBizCat === cat && <motion.span layoutId="biz-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                    <span className="relative">{cat}</span>
+                  </button>
+                ))}
+              </div>
+            </LayoutGroup>
           </div>
 
           {/* Business Cards — horizontal scroll with peek crop */}

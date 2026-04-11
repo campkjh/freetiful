@@ -355,7 +355,6 @@ body::after {
   .chip-active {
     @apply chip bg-gray-900 text-white border-gray-900;
     box-shadow: 0 2px 12px rgba(0,0,0,0.12);
-    animation: chipIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .chip-inactive {
