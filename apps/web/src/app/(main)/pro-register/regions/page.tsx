@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const REGIONS = [
   '전국가능',
@@ -16,7 +17,17 @@ const REGIONS = [
 
 export default function RegionsPage() {
   const router = useRouter();
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('proRegister_selectedRegions');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('proRegister_selectedRegions', JSON.stringify(selectedRegions));
+  }, [selectedRegions]);
 
   const toggleRegion = (region: string) => {
     setSelectedRegions(prev =>
@@ -31,49 +42,87 @@ export default function RegionsPage() {
     router.push('/pro-register/photos');
   };
 
+  const hasSelection = selectedRegions.length > 0;
+
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
       {/* Header */}
-      <div className="px-6 pt-12 pb-6">
-        <button onClick={() => router.back()} className="mb-10">
+      <div className="shrink-0 px-6 pt-4 pb-4">
+        <motion.button
+          onClick={() => router.back()}
+          className="mb-4"
+          whileTap={{ scale: 0.9 }}
+        >
           <ChevronLeft size={24} className="text-gray-900" />
-        </button>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">행사 가능 지역 선택</h1>
-        <p className="text-sm text-gray-400">다중선택 가능합니다</p>
+        </motion.button>
+        <motion.h1
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="text-2xl font-bold text-gray-900 mb-2"
+        >
+          행사 가능 지역 선택
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="text-sm text-gray-400"
+        >
+          다중선택 가능합니다
+        </motion.p>
       </div>
 
-      {/* Regions */}
-      <div className="px-6 flex-1">
+      {/* Regions — scrollable */}
+      <div className="flex-1 overflow-y-auto px-6 py-2">
         <div className="space-y-3">
-          {REGIONS.map((region) => (
-            <button
-              key={region}
-              onClick={() => toggleRegion(region)}
-              className={`w-full py-4 rounded-2xl text-center font-medium transition-all ${
-                selectedRegions.includes(region)
-                  ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7]'
-                  : 'bg-white border-2 border-gray-200 text-gray-400'
-              }`}
-            >
-              {region}
-            </button>
-          ))}
+          {REGIONS.map((region, index) => {
+            const selected = selectedRegions.includes(region);
+            return (
+              <motion.button
+                key={region}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  backgroundColor: selected ? '#EFF6FF' : '#FFFFFF',
+                  borderColor: selected ? '#3180F7' : '#E5E7EB',
+                  color: selected ? '#3180F7' : '#9CA3AF',
+                }}
+                transition={{ delay: index * 0.05, duration: 0.2 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => toggleRegion(region)}
+                className="w-full py-4 rounded-2xl text-[18px] font-bold border-2 flex items-center justify-center gap-2"
+              >
+                <AnimatePresence>
+                  {selected && (
+                    <motion.span initial={{ scale: 0, width: 0 }} animate={{ scale: 1, width: 'auto' }} exit={{ scale: 0, width: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
+                      <Check size={18} className="text-[#3180F7] stroke-[3]" />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+                {region}
+              </motion.button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Next Button */}
-      <div className="p-6 pb-8">
-        <button
+      {/* Next Button — fixed bottom */}
+      <div className="shrink-0 p-6 pb-8 bg-white">
+        <motion.button
           onClick={handleNext}
-          disabled={selectedRegions.length === 0}
-          className={`w-full py-4 rounded-2xl font-bold text-base transition-colors ${
-            selectedRegions.length > 0
-              ? 'bg-[#3180F7] text-white'
-              : 'bg-blue-100 text-blue-300 cursor-not-allowed'
-          }`}
+          disabled={!hasSelection}
+          whileTap={{ scale: 0.96 }}
+          animate={{
+            backgroundColor: hasSelection ? '#3180F7' : '#F3F4F6',
+            color: hasSelection ? '#FFFFFF' : '#9CA3AF',
+          }}
+          transition={{ duration: 0.25 }}
+          className="w-full py-4 rounded-2xl font-bold text-base"
         >
           다음
-        </button>
+        </motion.button>
       </div>
     </div>
   );

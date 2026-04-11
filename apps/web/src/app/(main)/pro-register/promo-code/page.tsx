@@ -1,13 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function PromoCodePage() {
   const router = useRouter();
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('proRegister_code') || '';
+    }
+    return '';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('proRegister_code', code);
+  }, [code]);
 
   const handleNext = () => {
     router.push('/pro-register/personal-info');
@@ -83,8 +92,8 @@ export default function PromoCodePage() {
           onClick={handleNext}
           whileTap={{ scale: 0.96 }}
           animate={{
-            backgroundColor: code.length === 6 ? '#3180F7' : '#DBEAFE',
-            color: code.length === 6 ? '#FFFFFF' : '#93C5FD',
+            backgroundColor: code.length === 6 ? '#3180F7' : '#F3F4F6',
+            color: code.length === 6 ? '#FFFFFF' : '#9CA3AF',
           }}
           transition={{ duration: 0.25 }}
           className="w-full py-4 rounded-2xl font-bold text-base"

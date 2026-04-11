@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,14 +9,38 @@ const CATEGORIES = ['결혼식', '행사', '회갑/칠순', '돌잔치', '레슨
 
 export default function PersonalInfoPage() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [gender, setGender] = useState('');
-  const [category, setCategory] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [name, setName] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('proRegister_name') || '';
+    return '';
+  });
+  const [phone, setPhone] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('proRegister_phone') || '';
+    return '';
+  });
+  const [gender, setGender] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('proRegister_gender') || '';
+    return '';
+  });
+  const [category, setCategory] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('proRegister_category') || '';
+    return '';
+  });
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('proRegister_selectedCategories');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [showGenderSheet, setShowGenderSheet] = useState(false);
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [toast, setToast] = useState('');
+
+  useEffect(() => { localStorage.setItem('proRegister_name', name); }, [name]);
+  useEffect(() => { localStorage.setItem('proRegister_phone', phone); }, [phone]);
+  useEffect(() => { localStorage.setItem('proRegister_gender', gender); }, [gender]);
+  useEffect(() => { localStorage.setItem('proRegister_category', category); }, [category]);
+  useEffect(() => { localStorage.setItem('proRegister_selectedCategories', JSON.stringify(selectedCategories)); }, [selectedCategories]);
 
   const displayCategory = () => {
     if (!category) return '';
@@ -194,8 +218,8 @@ export default function PersonalInfoPage() {
           disabled={!isFormValid}
           whileTap={{ scale: 0.96 }}
           animate={{
-            backgroundColor: isFormValid ? '#3180F7' : '#DBEAFE',
-            color: isFormValid ? '#FFFFFF' : '#93C5FD',
+            backgroundColor: isFormValid ? '#3180F7' : '#F3F4F6',
+            color: isFormValid ? '#FFFFFF' : '#9CA3AF',
           }}
           transition={{ duration: 0.25 }}
           className="w-full py-4 rounded-2xl font-bold text-base"

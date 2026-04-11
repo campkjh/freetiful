@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,8 +15,28 @@ const REQUIRED_TERMS = [
 
 export default function TermsPage() {
   const router = useRouter();
-  const [allAgreed, setAllAgreed] = useState(false);
-  const [terms, setTerms] = useState<boolean[]>(new Array(REQUIRED_TERMS.length).fill(false));
+  const [allAgreed, setAllAgreed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('proRegister_allAgreed');
+      return saved ? JSON.parse(saved) : false;
+    }
+    return false;
+  });
+  const [terms, setTerms] = useState<boolean[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('proRegister_terms');
+      return saved ? JSON.parse(saved) : new Array(REQUIRED_TERMS.length).fill(false);
+    }
+    return new Array(REQUIRED_TERMS.length).fill(false);
+  });
+
+  useEffect(() => {
+    localStorage.setItem('proRegister_allAgreed', JSON.stringify(allAgreed));
+  }, [allAgreed]);
+
+  useEffect(() => {
+    localStorage.setItem('proRegister_terms', JSON.stringify(terms));
+  }, [terms]);
 
   const handleAllAgree = () => {
     const newValue = !allAgreed;
@@ -40,13 +60,24 @@ export default function TermsPage() {
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
       {/* Header — fixed */}
       <div className="shrink-0 px-4 pt-4 pb-4">
-        <motion.button
-          onClick={() => router.back()}
-          className="mb-4"
-          whileTap={{ scale: 0.9 }}
-        >
-          <ChevronLeft size={24} className="text-gray-900" />
-        </motion.button>
+        <div className="flex items-center justify-between mb-4">
+          <motion.button
+            onClick={() => router.back()}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ChevronLeft size={24} className="text-gray-900" />
+          </motion.button>
+          <motion.button
+            onClick={() => {
+              localStorage.setItem('proRegister_allAgreed', JSON.stringify(allAgreed));
+              localStorage.setItem('proRegister_terms', JSON.stringify(terms));
+            }}
+            whileTap={{ scale: 0.95 }}
+            className="text-[13px] text-gray-400 font-medium px-3 py-1.5 rounded-full hover:bg-gray-50 transition-colors"
+          >
+            중간저장
+          </motion.button>
+        </div>
         <motion.p
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -174,8 +205,8 @@ export default function TermsPage() {
           disabled={!allAgreed}
           whileTap={{ scale: 0.96 }}
           animate={{
-            backgroundColor: allAgreed ? '#3180F7' : '#DBEAFE',
-            color: allAgreed ? '#FFFFFF' : '#93C5FD',
+            backgroundColor: allAgreed ? '#3180F7' : '#F3F4F6',
+            color: allAgreed ? '#FFFFFF' : '#9CA3AF',
           }}
           transition={{ duration: 0.3 }}
           className="w-full py-4 rounded-2xl font-bold text-base"
