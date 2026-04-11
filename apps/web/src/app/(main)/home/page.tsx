@@ -554,8 +554,6 @@ const HERO_CATEGORIES = [
 const BANNERS = [
   { id: 'b1', title: '', subtitle: '', bgColor: '', image: '/images/Frame 1707490590.png' },
   { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/Frame 1707490591.png' },
-  { id: 'b3', title: '지금 견적 요청하면\n최대 30% 할인', subtitle: 'Special Offer', bgColor: 'bg-gradient-to-br from-violet-500 via-violet-500 to-purple-600' },
-  { id: 'b4', title: 'AI가 추천하는\n나에게 딱 맞는 전문가', subtitle: 'AI Matching', bgColor: 'bg-gradient-to-br from-rose-400 via-pink-500 to-rose-600' },
 ];
 
 const CATEGORIES = ['전체', 'MC', '가수', '쇼호스트'];

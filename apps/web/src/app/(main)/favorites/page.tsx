@@ -149,36 +149,34 @@ export default function FavoritesPage() {
           }}
         >
           {activeTab === 'service' && (
-            <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
-              {proCategories.map((c) => (
-                <button
-                  key={c.key}
-                  onClick={() => setProCategory(c.key)}
-                  className={`px-3.5 py-1.5 text-[13px] font-medium shrink-0 ${
-                    proCategory === c.key ? 'bg-[#2B313D] text-white' : 'bg-white text-gray-600 border border-gray-200'
-                  }`}
-                  style={{ borderRadius: 20 }}
-                >
-                  {c.key} ({c.count})
-                </button>
-              ))}
-            </div>
+            <LayoutGroup id="fav-pro-cats">
+              <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+                {proCategories.map((c) => {
+                  const active = proCategory === c.key;
+                  return (
+                    <button key={c.key} onClick={() => setProCategory(c.key)} className={`relative isolate px-3.5 py-1.5 text-[13px] font-medium shrink-0 rounded-full ${active ? 'text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
+                      {active && <motion.span layoutId="fav-pro-cat-bg" className="absolute inset-0 bg-[#2B313D] rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                      <span className="relative">{c.key} ({c.count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </LayoutGroup>
           )}
           {activeTab === 'portfolio' && (
-            <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
-              {bizCategories.filter((c) => c.count > 0 || c.key === '전체').map((c) => (
-                <button
-                  key={c.key}
-                  onClick={() => setBizCategory(c.key)}
-                  className={`px-3.5 py-1.5 text-[13px] font-medium shrink-0 ${
-                    bizCategory === c.key ? 'bg-[#2B313D] text-white' : 'bg-white text-gray-600 border border-gray-200'
-                  }`}
-                  style={{ borderRadius: 20 }}
-                >
-                  {c.key} ({c.count})
-                </button>
-              ))}
-            </div>
+            <LayoutGroup id="fav-biz-cats">
+              <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+                {bizCategories.filter((c) => c.count > 0 || c.key === '전체').map((c) => {
+                  const active = bizCategory === c.key;
+                  return (
+                    <button key={c.key} onClick={() => setBizCategory(c.key)} className={`relative isolate px-3.5 py-1.5 text-[13px] font-medium shrink-0 rounded-full ${active ? 'text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
+                      {active && <motion.span layoutId="fav-biz-cat-bg" className="absolute inset-0 bg-[#2B313D] rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                      <span className="relative">{c.key} ({c.count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </LayoutGroup>
           )}
         </div>
       </div>
