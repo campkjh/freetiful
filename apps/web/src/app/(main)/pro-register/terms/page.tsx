@@ -38,18 +38,17 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <div className="px-4 pt-12 pb-8">
-        <button onClick={() => router.back()} className="mb-10">
+      <div className="px-4 pt-4 pb-4">
+        <button onClick={() => router.back()} className="mb-4">
           <ChevronLeft size={24} className="text-gray-900" />
         </button>
-        <p className="text-sm text-gray-400 mb-2">프리티풀</p>
-        <h1 className="text-3xl font-bold text-gray-900 mb-3">파트너스 시작하기</h1>
-        <p className="text-sm text-gray-400">프리티풀 파트너스를</p>
-        <p className="text-sm text-gray-400">시작하시려면 아래의 약관 동의가 필요합니다</p>
+        <p className="text-sm text-gray-400 mb-1">프리티풀</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">파트너스 시작하기</h1>
+        <p className="text-sm text-gray-400">프리티풀 파트너스를 시작하시려면<br/>아래의 약관 동의가 필요합니다</p>
       </div>
 
       {/* All Agree */}
-      <div className="px-4 mb-8">
+      <div className="px-4 mb-5">
         <button
           onClick={handleAllAgree}
           className="flex items-center gap-3 w-full px-5 py-5 bg-gray-50 rounded-2xl"
@@ -66,9 +65,9 @@ export default function TermsPage() {
       </div>
 
       {/* Terms List */}
-      <div className="px-4 mb-6 flex-1">
+      <div className="px-4 mb-4 flex-1">
         <p className="text-sm font-bold text-gray-900 mb-2">필수 약관</p>
-        <p className="text-xs text-gray-400 mb-5">프리티풀</p>
+        <p className="text-xs text-gray-400 mb-3">프리티풀</p>
 
         <div className="space-y-5">
           {REQUIRED_TERMS.map((term, index) => (
