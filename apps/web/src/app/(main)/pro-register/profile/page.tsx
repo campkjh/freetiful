@@ -482,7 +482,7 @@ export default function ProfilePage() {
                   value={videoInput}
                   onChange={(e) => setVideoInput(e.target.value)}
                   placeholder="유튜브 링크를 입력해주세요"
-                  className="flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                  className="flex-1 outline-none text-[16px] text-gray-900 placeholder:text-gray-400"
                   autoFocus
                 />
                 <motion.button onClick={addVideo} className="text-[#3180F7] text-sm font-medium shrink-0" whileTap={{ scale: 0.92 }}>추가</motion.button>
@@ -688,7 +688,7 @@ export default function ProfilePage() {
                   value={companySearch}
                   onChange={(e) => setCompanySearch(e.target.value)}
                   placeholder="기업명을 검색하세요"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 outline-none text-[16px] text-gray-900 placeholder:text-gray-400"
                   autoFocus
                 />
               </div>
