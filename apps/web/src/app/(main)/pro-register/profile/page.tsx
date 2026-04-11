@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon, CheckCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 
 const COMPANY_LOGOS: string[] = [
@@ -674,7 +674,7 @@ export default function ProfilePage() {
                 {/* Error */}
                 <AnimatePresence>
                   {videoError && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-[12px] text-red-500 font-medium mt-1.5 ml-1">{videoError}</motion.p>
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-[12px] text-[#3180F7] font-medium mt-1.5 ml-1">{videoError}</motion.p>
                   )}
                 </AnimatePresence>
                 {/* Live preview */}
@@ -687,7 +687,7 @@ export default function ProfilePage() {
                         className="absolute inset-0 w-full h-full object-cover rounded-xl"
                       />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+                        <div className="w-12 h-12 rounded-full bg-[#3180F7] flex items-center justify-center shadow-lg">
                           <div className="w-0 h-0 border-l-[14px] border-l-white border-y-[8px] border-y-transparent ml-1" />
                         </div>
                       </div>
@@ -707,11 +707,11 @@ export default function ProfilePage() {
                 </motion.button>
                 <motion.button
                   onClick={() => setShowYoutubeSearch(true)}
-                  className="flex items-center gap-1.5 border border-red-200 rounded-xl px-3 py-2.5 bg-red-50/50"
+                  className="flex items-center gap-1.5 border border-blue-200 rounded-xl px-3 py-2.5 bg-blue-50/50"
                   whileTap={{ scale: 0.98 }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#FF0000"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="white"/></svg>
-                  <span className="text-[13px] text-red-600 font-semibold">검색</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#3180F7"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="white"/></svg>
+                  <span className="text-[13px] text-[#3180F7] font-semibold">검색</span>
                 </motion.button>
               </div>
             )}
@@ -744,7 +744,7 @@ export default function ProfilePage() {
                       <motion.button
                         onClick={() => removeVideo(index)}
                         whileTap={{ scale: 0.9 }}
-                        className="text-[12px] text-red-500 font-bold shrink-0 ml-2"
+                        className="text-[12px] text-[#3180F7] font-bold shrink-0 ml-2"
                       >
                         삭제
                       </motion.button>
@@ -920,14 +920,14 @@ export default function ProfilePage() {
                     onChange={(e) => setYtChannelQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && searchYtChannels()}
                     placeholder="채널명을 검색하세요"
-                    className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-red-400 transition-colors"
+                    className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                     autoFocus
                   />
                 </div>
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={searchYtChannels}
-                  className="h-11 px-4 bg-red-600 text-white rounded-xl text-[14px] font-bold shrink-0"
+                  className="h-11 px-4 bg-[#3180F7] text-white rounded-xl text-[14px] font-bold shrink-0"
                 >
                   검색
                 </motion.button>
@@ -938,7 +938,7 @@ export default function ProfilePage() {
             <div className="flex-1 overflow-y-auto">
               {ytLoading && (
                 <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
 
@@ -974,7 +974,7 @@ export default function ProfilePage() {
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       onClick={() => { setYtSelectedChannel(null); setYtVideos([]); }}
-                      className="text-[12px] text-red-500 font-semibold"
+                      className="text-[12px] text-[#3180F7] font-semibold"
                     >
                       채널 다시 선택
                     </motion.button>
@@ -987,16 +987,22 @@ export default function ProfilePage() {
                           key={v.id}
                           whileTap={{ scale: 0.98 }}
                           onClick={() => { if (!alreadyAdded) selectYtVideo(v.id); }}
-                          className={`w-full rounded-xl overflow-hidden border text-left transition-all ${alreadyAdded ? 'border-green-300 bg-green-50/30' : 'border-gray-100'}`}
+                          className={`w-full rounded-xl overflow-hidden border text-left transition-all ${alreadyAdded ? 'border-[#3180F7] bg-blue-50/30' : 'border-gray-100'}`}
                         >
                           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                             <img src={v.thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover" />
                             {alreadyAdded && (
-                              <div className="absolute inset-0 bg-green-600/30 flex items-center justify-center">
-                                <div className="bg-white rounded-full px-3 py-1">
-                                  <span className="text-[12px] font-bold text-green-600">추가됨</span>
-                                </div>
-                              </div>
+                              <>
+                                <div className="absolute inset-0 bg-[#3180F7]/10" />
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                                  className="absolute top-2 right-2 w-7 h-7 bg-[#3180F7] rounded-full flex items-center justify-center shadow-md"
+                                >
+                                  <Check size={16} className="text-white stroke-[3]" />
+                                </motion.div>
+                              </>
                             )}
                           </div>
                           <div className="p-3">
@@ -1015,7 +1021,7 @@ export default function ProfilePage() {
               )}
               {!ytLoading && !ytChannelQuery && ytChannels.length === 0 && (
                 <div className="flex flex-col items-center py-16">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#FEE2E2"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="#EF4444"/></svg>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#DBEAFE"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="#3180F7"/></svg>
                   <p className="text-[14px] text-gray-500 mt-4">채널명을 검색해주세요</p>
                   <p className="text-[12px] text-gray-400 mt-1">검색 후 영상을 선택할 수 있습니다</p>
                 </div>
@@ -1028,7 +1034,7 @@ export default function ProfilePage() {
                 <motion.button
                   onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }}
                   whileTap={{ scale: 0.96 }}
-                  className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold text-[16px]"
+                  className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-[16px]"
                 >
                   완료 ({videos.length}개 영상)
                 </motion.button>
@@ -1058,7 +1064,7 @@ export default function ProfilePage() {
             >
               <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
               <h2 className="text-xl font-bold mb-2">정말로 제출하시겠습니까?</h2>
-              <p className="text-sm text-red-500 mb-1 font-medium">
+              <p className="text-sm text-[#3180F7] mb-1 font-medium">
                 허위로 작성된 프로필일 경우 영구제재가 이루어질 수 있습니다.
               </p>
               <p className="text-sm text-gray-500 mb-6">
