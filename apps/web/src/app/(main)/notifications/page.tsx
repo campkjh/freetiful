@@ -17,13 +17,51 @@ interface Notification {
   link?: string;
 }
 
-const typeIconMap: Record<NotifType, { color: string; bg: string; icon: React.ReactNode }> = {
-  chat:      { color: '#2563EB', bg: '#DBEAFE', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.96L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" fill="#2563EB"/><circle cx="9" cy="12" r="1" fill="white"/><circle cx="12" cy="12" r="1" fill="white"/><circle cx="15" cy="12" r="1" fill="white"/></svg> },
-  booking:   { color: '#059669', bg: '#D1FAE5', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" fill="#059669"/><path d="M3 10h18" stroke="white" strokeWidth="1.5"/><rect x="7" y="2" width="2" height="4" rx="1" fill="#047857"/><rect x="15" y="2" width="2" height="4" rx="1" fill="#047857"/><path d="M9 15l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  payment:   { color: '#7C3AED', bg: '#EDE9FE', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" fill="#7C3AED"/><path d="M2 10h20" stroke="white" strokeWidth="1.5"/><rect x="5" y="14" width="6" height="2" rx="1" fill="white" opacity="0.6"/></svg> },
-  review:    { color: '#D97706', bg: '#FEF3C7', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.4l-6.4 4.8 2.4-7.2-6-4.8h7.6L12 2z" fill="#D97706"/></svg> },
-  system:    { color: '#6B7280', bg: '#F3F4F6', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#6B7280"/><path d="M12 8v4M12 16h.01" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg> },
-  marketing: { color: '#DC2626', bg: '#FEE2E2', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v10l8 5 8-5V7l-8-5z" fill="#DC2626"/><path d="M12 11v3M12 17h.01" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg> },
+const typeIconMap: Record<NotifType, { icon: React.ReactNode }> = {
+  chat: { icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#4A8AF4"/>
+      <circle cx="8.5" cy="12" r="1" fill="white"/><circle cx="11.5" cy="12" r="1" fill="white"/><circle cx="14.5" cy="12" r="1" fill="white"/>
+    </svg>
+  )},
+  booking: { icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E8E8E8"/>
+      <rect x="3" y="4" width="18" height="6" rx="2.5" fill="#F5F5F5"/>
+      <rect x="7" y="2" width="2" height="4" rx="1" fill="#BDBDBD"/>
+      <rect x="15" y="2" width="2" height="4" rx="1" fill="#BDBDBD"/>
+      <path d="M9 15l2 2 4-4" stroke="#E53935" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )},
+  payment: { icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="1" y="5" width="22" height="15" rx="3" fill="#43A047"/>
+      <text x="12" y="14.5" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold" fontFamily="sans-serif">₩</text>
+      <path d="M1 10h22" stroke="white" strokeWidth="0.8" opacity="0.3"/>
+    </svg>
+  )},
+  review: { icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17l-5.8 3 1.1-6.5L2.6 8.8l6.5-.9L12 2z" fill="#FBC02D"/>
+    </svg>
+  )},
+  system: { icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9.5" fill="#9E9E9E"/>
+      <circle cx="12" cy="12" r="3.5" fill="#616161"/>
+      <circle cx="12" cy="12" r="1.5" fill="#9E9E9E"/>
+      <rect x="11" y="2" width="2" height="3" rx="1" fill="#9E9E9E"/><rect x="11" y="19" width="2" height="3" rx="1" fill="#9E9E9E"/>
+      <rect x="19" y="11" width="3" height="2" rx="1" fill="#9E9E9E"/><rect x="2" y="11" width="3" height="2" rx="1" fill="#9E9E9E"/>
+    </svg>
+  )},
+  marketing: { icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="4" width="18" height="16" rx="2" fill="#5C6BC0"/>
+      <path d="M7 8h4v4H7z" fill="#FFD54F"/>
+      <rect x="7" y="14" width="10" height="1.5" rx="0.75" fill="white" opacity="0.5"/>
+      <path d="M17 4l3-2v4l-3-2z" fill="#FFA726"/>
+    </svg>
+  )},
 };
 
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -242,34 +280,25 @@ export default function NotificationsPage() {
   );
 }
 
-function NotifContent({ n, badge }: { n: Notification; badge: { color: string; bg: string; icon: React.ReactNode } }) {
+function NotifContent({ n, badge }: { n: Notification; badge: { icon: React.ReactNode } }) {
   return (
-    <div className="flex gap-3">
-      {/* Icon */}
-      <div
-        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-        style={{ backgroundColor: badge.bg }}
-      >
-        {badge.icon}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        {/* Title + Date row */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <p className={`text-[15px] leading-snug truncate ${!n.isRead ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
-              {n.title}
-            </p>
-            {!n.isRead && (
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0" />
-            )}
-          </div>
-          <span className="text-[11px] text-gray-400 shrink-0 mt-0.5">{n.date}</span>
+    <div>
+      {/* Title row: icon + title + unread dot + date */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="shrink-0 flex items-center">{badge.icon}</span>
+          <p className={`text-[15px] leading-snug truncate ${!n.isRead ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+            {n.title}
+          </p>
+          {!n.isRead && (
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0" />
+          )}
         </div>
-
-        {/* Content preview */}
-        <p className="text-[13px] text-gray-400 leading-[18px] mt-1 line-clamp-2">{n.body}</p>
+        <span className="text-[11px] text-gray-400 shrink-0">{n.date}</span>
       </div>
+
+      {/* Content preview */}
+      <p className="text-[13px] text-gray-400 leading-[18px] mt-1.5 ml-[26px] line-clamp-2">{n.body}</p>
     </div>
   );
 }
