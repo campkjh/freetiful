@@ -3,7 +3,19 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Check, Send, Star, ChevronDown, Search } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast from 'react-hot-toast';
+
+const stepVariants = {
+  initial: { opacity: 0, x: 40 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -40 },
+};
+const staggerContainer = { animate: { transition: { staggerChildren: 0.04 } } };
+const staggerItem = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } },
+};
 
 /* ─── 아이콘 ─── */
 const PlanIconPremium = () => (
@@ -282,54 +294,57 @@ function QuotePage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-[10px] pb-6 relative z-10">
+        <AnimatePresence mode="wait">
         {/* Step: 행사 유형 */}
         {step === 'type' && (
-          <div>
-            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">어떤 행사인가요?</h2>
-            <p className="text-[14px] text-gray-400 mb-6">행사 유형을 선택해주세요</p>
-            <div className="grid grid-cols-2 gap-2.5">
+          <motion.div key="type" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">어떤 행사인가요?</motion.h2>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">행사 유형을 선택해주세요</motion.p>
+            <motion.div className="grid grid-cols-2 gap-2.5" variants={staggerContainer} initial="initial" animate="animate">
               {EVENT_TYPES.map((t) => (
-                <button key={t} onClick={() => setEventType(t)} className={`p-4 rounded-2xl border text-left transition-all active:scale-[0.97] ${eventType === t ? 'border-[#3180F7] bg-blue-50/60' : 'border-gray-100'}`}>
+                <motion.button key={t} variants={staggerItem} whileTap={{ scale: 0.95 }} onClick={() => setEventType(t)} className={`p-4 rounded-2xl border text-left transition-colors ${eventType === t ? 'border-[#3180F7] bg-blue-50/60' : 'border-gray-100'}`}>
                   <p className={`text-[15px] font-semibold ${eventType === t ? 'text-[#3180F7]' : 'text-gray-600'}`}>{t}</p>
-                </button>
+                </motion.button>
               ))}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Step: 플랜 선택 */}
         {step === 'plan' && (
-          <div>
-            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">플랜을 선택해주세요</h2>
-            <p className="text-[14px] text-gray-400 mb-6">행사 규모에 맞는 플랜을 골라주세요</p>
+          <motion.div key="plan" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">플랜을 선택해주세요</motion.h2>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">행사 규모에 맞는 플랜을 골라주세요</motion.p>
 
-            {/* Plan selector — flat row */}
-            <div className="flex gap-0 border-b border-gray-100">
-              {PLANS.map((p) => {
-                const active = plan === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setPlan(p.id)}
-                    className="flex-1 py-4 flex flex-col items-center gap-1.5 relative transition-all active:scale-[0.97]"
-                  >
-                    <div className={`transition-transform duration-300 ${active ? 'scale-110' : 'opacity-40'}`}>{p.icon}</div>
-                    <p className={`text-[14px] font-bold transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{p.label}</p>
-                    <p className={`text-[12px] transition-colors ${active ? 'text-gray-500' : 'text-gray-300'}`}>{p.desc}</p>
-                    <p className={`text-[15px] font-bold mt-0.5 transition-colors ${active ? 'text-[#3180F7]' : 'text-gray-300'}`}>{(p.price / 10000).toFixed(0)}만원~</p>
-                    {active && (
-                      <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#3180F7] rounded-full" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Plan selector — flat row with layoutId indicator */}
+            <LayoutGroup id="plan-tabs">
+              <div className="flex gap-0 border-b border-gray-100">
+                {PLANS.map((p) => {
+                  const active = plan === p.id;
+                  return (
+                    <motion.button
+                      key={p.id}
+                      onClick={() => setPlan(p.id)}
+                      whileTap={{ scale: 0.95 }}
+                      className="flex-1 py-4 flex flex-col items-center gap-1.5 relative"
+                    >
+                      <motion.div animate={{ scale: active ? 1.1 : 1, opacity: active ? 1 : 0.4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>{p.icon}</motion.div>
+                      <p className={`text-[14px] font-bold transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{p.label}</p>
+                      <p className={`text-[12px] transition-colors ${active ? 'text-gray-500' : 'text-gray-300'}`}>{p.desc}</p>
+                      <p className={`text-[15px] font-bold mt-0.5 transition-colors ${active ? 'text-[#3180F7]' : 'text-gray-300'}`}>{(p.price / 10000).toFixed(0)}만원~</p>
+                      {active && (
+                        <motion.div layoutId="plan-indicator" className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#3180F7] rounded-full" transition={{ type: 'spring', stiffness: 380, damping: 30 }} />
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </LayoutGroup>
 
             {/* Service comparison table — clickable */}
-            <div className="mt-6">
+            <motion.div className="mt-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <p className="text-[13px] font-bold text-gray-900 mb-3">서비스 포함 내역</p>
               <div className="overflow-hidden rounded-xl border border-gray-100">
-                {/* Table header */}
                 <div className="grid grid-cols-4 bg-gray-50">
                   <div className="py-2.5 px-3 text-[11px] font-bold text-gray-400">서비스</div>
                   {PLANS.map((p) => (
@@ -338,47 +353,43 @@ function QuotePage() {
                     </button>
                   ))}
                 </div>
-                {/* Table rows */}
                 {SERVICE_TABLE.map((row, i) => (
-                  <div key={row.name} className={`grid grid-cols-4 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${i < SERVICE_TABLE.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                  <motion.div key={row.name} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 + i * 0.03 }} className={`grid grid-cols-4 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${i < SERVICE_TABLE.length - 1 ? 'border-b border-gray-50' : ''}`}>
                     <div className="py-2.5 px-3 text-[12px] text-gray-600 font-medium flex items-center">{row.name}</div>
                     {(['premium', 'superior', 'enterprise'] as const).map((planKey) => {
                       const included = row[planKey];
                       const isActive = plan === planKey;
                       return (
-                        <button
-                          key={planKey}
-                          onClick={() => handleTableCellClick(planKey)}
-                          className={`py-2.5 flex items-center justify-center transition-colors ${isActive ? 'bg-blue-50/30' : ''}`}
-                        >
+                        <button key={planKey} onClick={() => handleTableCellClick(planKey)} className={`py-2.5 flex items-center justify-center transition-colors ${isActive ? 'bg-blue-50/30' : ''}`}>
                           {included ? (
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${isActive ? 'bg-[#3180F7]' : 'bg-gray-200'}`}>
+                            <motion.div animate={{ scale: isActive ? 1 : 0.85, backgroundColor: isActive ? '#3180F7' : '#E5E7EB' }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} className="w-5 h-5 rounded-full flex items-center justify-center">
                               <Check size={11} className="text-white" />
-                            </div>
+                            </motion.div>
                           ) : (
                             <span className="text-[12px] text-gray-300">—</span>
                           )}
                         </button>
                       );
                     })}
-                  </div>
+                  </motion.div>
                 ))}
               </div>
               <p className="text-[11px] text-gray-400 mt-2">* 가격은 사회자에 따라 달라질 수 있습니다</p>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Step: 행사 정보 */}
         {step === 'detail' && (
-          <div>
-            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">행사 정보를 입력해주세요</h2>
-            <p className="text-[14px] text-gray-400 mb-6">장소, 날짜, 시간을 알려주세요</p>
+          <motion.div key="detail" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">행사 정보를 입력해주세요</motion.h2>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">장소, 날짜, 시간을 알려주세요</motion.p>
             <div className="space-y-5">
-              {/* 장소 — 다음 포스트 API 모달 */}
-              <div>
+              {/* 장소 */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><LocationIcon />행사 장소</label>
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setShowAddressModal(true)}
                   className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-left flex items-center gap-2 active:bg-gray-100 transition-colors"
                 >
@@ -386,14 +397,16 @@ function QuotePage() {
                   <span className={`text-[15px] truncate ${location ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
                     {location || '주소를 검색해주세요'}
                   </span>
-                </button>
-                {location && (
-                  <p className="text-[12px] text-[#3180F7] mt-1.5 font-medium">{location}</p>
-                )}
-              </div>
+                </motion.button>
+                <AnimatePresence>
+                  {location && (
+                    <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-[12px] text-[#3180F7] mt-1.5 font-medium">{location}</motion.p>
+                  )}
+                </AnimatePresence>
+              </motion.div>
 
-              {/* 날짜 — 클릭 가능한 date input */}
-              <div>
+              {/* 날짜 */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><CalendarIcon />행사 날짜</label>
                 <div className="relative">
                   <input
@@ -409,14 +422,16 @@ function QuotePage() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-gray-400 pointer-events-none">날짜를 선택해주세요</span>
                   )}
                 </div>
-              </div>
+              </motion.div>
 
-              {/* 시간 — 30분 단위 범위 선택 */}
-              <div>
+              {/* 시간 */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><ClockIcon />행사 시간</label>
-                {timeDisplay && (
-                  <p className="text-[13px] text-[#3180F7] font-bold mb-2">{timeDisplay}</p>
-                )}
+                <AnimatePresence>
+                  {timeDisplay && (
+                    <motion.p initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-[13px] text-[#3180F7] font-bold mb-2">{timeDisplay}</motion.p>
+                  )}
+                </AnimatePresence>
                 <p className="text-[11px] text-gray-400 mb-2">시작 시간과 종료 시간을 순서대로 선택해주세요</p>
                 <div className="grid grid-cols-5 gap-1.5">
                   {TIME_SLOTS.map((slot) => {
@@ -424,71 +439,72 @@ function QuotePage() {
                     const isStart = slot === timeStart;
                     const isEnd = slot === timeEnd;
                     return (
-                      <button
+                      <motion.button
                         key={slot}
+                        whileTap={{ scale: 0.9 }}
+                        animate={{
+                          backgroundColor: isStart || isEnd ? '#3180F7' : inRange ? '#DBEAFE' : '#F9FAFB',
+                          color: isStart || isEnd ? '#FFFFFF' : inRange ? '#3180F7' : '#4B5563',
+                        }}
+                        transition={{ duration: 0.2 }}
                         onClick={() => handleTimeClick(slot)}
-                        className={`py-2 rounded-lg text-[13px] font-medium transition-all active:scale-95 ${
-                          isStart || isEnd
-                            ? 'bg-[#3180F7] text-white'
-                            : inRange
-                              ? 'bg-blue-100 text-[#3180F7]'
-                              : 'bg-gray-50 text-gray-600 border border-gray-100'
-                        }`}
+                        className={`py-2 rounded-lg text-[13px] font-medium ${!inRange && !isStart && !isEnd ? 'border border-gray-100' : ''}`}
                       >
                         {slot}
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
-              </div>
+              </motion.div>
 
               {/* 선호 분위기 태그 */}
-              <div>
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
                 <label className="block text-[13px] font-semibold text-gray-700 mb-2">선호 분위기 (다중 선택)</label>
                 <div className="flex flex-wrap gap-2">
                   {MOOD_TAGS.map((m) => {
                     const active = moods.has(m);
                     return (
-                      <button key={m} onClick={() => toggleMood(m)} className={`px-3.5 py-2 rounded-full text-[13px] font-medium transition-all active:scale-95 ${active ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                      <motion.button key={m} whileTap={{ scale: 0.9 }} animate={{ backgroundColor: active ? '#3180F7' : '#F3F4F6', color: active ? '#FFFFFF' : '#6B7280' }} transition={{ duration: 0.2 }} onClick={() => toggleMood(m)} className="px-3.5 py-2 rounded-full text-[13px] font-medium">
                         {m}
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
-              </div>
+              </motion.div>
 
-              <div>
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
                 <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">추가 요청사항 (선택)</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="특별히 요청하실 사항이 있으시면 적어주세요" className="w-full h-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#3180F7] resize-none transition-colors" />
-              </div>
+              </motion.div>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        {/* Step: 사회자 선택 — 유튜브 영상 + 로테이팅 리뷰 */}
+        {/* Step: 사회자 선택 */}
         {step === 'pros' && (
-          <div>
-            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">사회자를 선택해주세요</h2>
-            <p className="text-[14px] text-gray-400 mb-6">여러 명을 선택하면 동시에 견적을 받을 수 있어요</p>
-            <div className="grid grid-cols-2 gap-3">
+          <motion.div key="pros" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">사회자를 선택해주세요</motion.h2>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">여러 명을 선택하면 동시에 견적을 받을 수 있어요</motion.p>
+            <motion.div className="grid grid-cols-2 gap-3" variants={staggerContainer} initial="initial" animate="animate">
               {MOCK_PROS.map((pro) => (
-                <ProSelectCard
-                  key={pro.id}
-                  pro={pro}
-                  selected={selectedPros.has(pro.id)}
-                  onToggle={() => togglePro(pro.id)}
-                />
+                <motion.div key={pro.id} variants={staggerItem}>
+                  <ProSelectCard
+                    pro={pro}
+                    selected={selectedPros.has(pro.id)}
+                    onToggle={() => togglePro(pro.id)}
+                  />
+                </motion.div>
               ))}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Step: 확인 */}
         {step === 'confirm' && (
-          <div>
-            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">견적 요청 확인</h2>
-            <p className="text-[14px] text-gray-400 mb-6">아래 내용을 확인하고 전송해주세요</p>
-            <div className="bg-gray-50 rounded-2xl p-5 space-y-3">
+          <motion.div key="confirm" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">견적 요청 확인</motion.h2>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">아래 내용을 확인하고 전송해주세요</motion.p>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-gray-50 rounded-2xl p-5 space-y-3">
               {isEvent && eventType && (
                 <div className="flex justify-between"><span className="text-[13px] text-gray-500">행사 유형</span><span className="text-[13px] font-semibold text-gray-900">{eventType}</span></div>
               )}
@@ -499,18 +515,18 @@ function QuotePage() {
               {moods.size > 0 && (
                 <div className="pt-3 border-t border-gray-200">
                   <p className="text-[13px] text-gray-500 mb-1">선호 분위기</p>
-                  <div className="flex flex-wrap gap-1.5">{[...moods].map((m) => <span key={m} className="text-[11px] bg-blue-50 text-[#3180F7] px-2.5 py-1 rounded-full font-medium">{m}</span>)}</div>
+                  <div className="flex flex-wrap gap-1.5">{[...moods].map((m) => <motion.span key={m} initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-[11px] bg-blue-50 text-[#3180F7] px-2.5 py-1 rounded-full font-medium">{m}</motion.span>)}</div>
                 </div>
               )}
               {!isEvent && selectedPros.size > 0 && (
                 <div className="pt-3 border-t border-gray-200">
                   <p className="text-[13px] text-gray-500 mb-2">선택한 사회자 ({selectedPros.size}명)</p>
                   <div className="flex flex-wrap gap-2">
-                    {MOCK_PROS.filter((p) => selectedPros.has(p.id)).map((p) => (
-                      <div key={p.id} className="flex items-center gap-2 bg-white rounded-full pl-1 pr-3 py-1 border border-gray-200">
+                    {MOCK_PROS.filter((p) => selectedPros.has(p.id)).map((p, i) => (
+                      <motion.div key={p.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-2 bg-white rounded-full pl-1 pr-3 py-1 border border-gray-200">
                         <img src={p.image} alt={p.name} className="w-6 h-6 rounded-full object-cover" />
                         <span className="text-[12px] font-medium text-gray-700">{p.name}</span>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
@@ -521,52 +537,67 @@ function QuotePage() {
                   <p className="text-[13px] text-gray-700 mt-1">{note}</p>
                 </div>
               )}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {/* Address Search Modal */}
-      {showAddressModal && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/40" onClick={() => setShowAddressModal(false)}>
-          <div className="flex-1" />
-          <div
-            className="bg-white rounded-t-2xl overflow-hidden"
-            style={{ height: '75vh' }}
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {showAddressModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col bg-black/40"
+            onClick={() => setShowAddressModal(false)}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <h3 className="text-[16px] font-bold text-gray-900">주소 검색</h3>
-              <button onClick={() => setShowAddressModal(false)} className="p-1 text-gray-400 active:scale-90 transition-transform">
-                <ChevronDown size={24} />
-              </button>
-            </div>
-            <div ref={addressEmbedRef} className="w-full" style={{ height: 'calc(75vh - 52px)' }} />
-          </div>
-        </div>
-      )}
+            <div className="flex-1" />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="bg-white rounded-t-2xl overflow-hidden"
+              style={{ height: '75vh' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <h3 className="text-[16px] font-bold text-gray-900">주소 검색</h3>
+                <button onClick={() => setShowAddressModal(false)} className="p-1 text-gray-400 active:scale-90 transition-transform">
+                  <ChevronDown size={24} />
+                </button>
+              </div>
+              <div ref={addressEmbedRef} className="w-full" style={{ height: 'calc(75vh - 52px)' }} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bottom Button */}
       <div className="shrink-0 px-[10px] pb-6 pt-3 bg-white">
         {step === 'confirm' ? (
-          <button
+          <motion.button
+            whileTap={{ scale: 0.96 }}
             onClick={handleSubmit}
             disabled={sending}
-            className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2568d9] text-white font-semibold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-[15px]"
+            className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2568d9] text-white font-semibold rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-[15px]"
           >
             <Send size={16} />
             {sending ? '전송 중...' : isEvent ? '견적 요청 보내기' : `${selectedPros.size}명에게 견적 보내기`}
-          </button>
+          </motion.button>
         ) : (
-          <button
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            animate={{ backgroundColor: canNext() ? '#3180F7' : '#F3F4F6', color: canNext() ? '#FFFFFF' : '#9CA3AF' }}
+            transition={{ duration: 0.25 }}
             onClick={nextStep}
             disabled={!canNext()}
-            className={`w-full h-[52px] font-semibold rounded-2xl active:scale-[0.98] transition-all text-[15px] ${
-              canNext() ? 'bg-[#3180F7] hover:bg-[#2568d9] text-white' : 'bg-gray-100 text-gray-400'
-            }`}
+            className="w-full h-[52px] font-semibold rounded-2xl text-[15px]"
           >
             다음
-          </button>
+          </motion.button>
         )}
       </div>
     </div>
