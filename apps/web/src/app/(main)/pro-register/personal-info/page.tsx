@@ -45,9 +45,7 @@ export default function PersonalInfoPage() {
   useEffect(() => { localStorage.setItem('proRegister_selectedCategories', JSON.stringify(selectedCategories)); }, [selectedCategories]);
 
   const displayCategory = () => {
-    if (!category) return '';
-    if (selectedCategories.length > 0) return `${selectedCategories[0]}${category}`;
-    return category;
+    return category || '';
   };
 
   const validatePhone = (phoneNumber: string) => /^010-\d{4}-\d{4}$/.test(phoneNumber);
