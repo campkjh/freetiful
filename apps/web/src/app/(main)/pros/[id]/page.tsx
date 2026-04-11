@@ -391,6 +391,8 @@ export default function ProDetailPage() {
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
   const [favoriteItems, setFavoriteItems] = useState<Set<string>>(new Set());
   const [imageModal, setImageModal] = useState<string | null>(null);
+  const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
+  const lastTapRef = useRef(0);
   const [shareModal, setShareModal] = useState(false);
   const [purchaseModal, setPurchaseModal] = useState(false);
   const [reviewsModal, setReviewsModal] = useState(false);
@@ -600,7 +602,18 @@ export default function ProDetailPage() {
             {pro.images.map((src, i) => (
               <button
                 key={i}
-                onClick={() => setImageModal(src)}
+                onClick={() => {
+                  const now = Date.now();
+                  if (now - lastTapRef.current < 300) {
+                    // Double tap → favorite
+                    if (!isFavorited) setIsFavorited(true);
+                    setShowDoubleTapHeart(true);
+                    setTimeout(() => setShowDoubleTapHeart(false), 900);
+                    lastTapRef.current = 0;
+                  } else {
+                    lastTapRef.current = now;
+                  }
+                }}
                 className="relative w-full h-full shrink-0 block"
               >
                 <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} />
@@ -608,6 +621,17 @@ export default function ProDetailPage() {
             ))}
           </div>
         </div>
+
+        {/* Double-tap heart overlay */}
+        {showDoubleTapHeart && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+            <Heart
+              size={80}
+              className="fill-white text-white drop-shadow-lg"
+              style={{ animation: 'doubleTapHeart 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
+            />
+          </div>
+        )}
 
         {/* Play button with pulse */}
         <button
@@ -1392,6 +1416,13 @@ export default function ProDetailPage() {
           0% { transform: scale(1); }
           50% { transform: scale(1.4); }
           100% { transform: scale(1); }
+        }
+        @keyframes doubleTapHeart {
+          0% { transform: scale(0); opacity: 0; }
+          15% { transform: scale(1.3); opacity: 1; }
+          30% { transform: scale(1); opacity: 1; }
+          70% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(1.1); opacity: 0; }
         }
         @keyframes buttonShine {
           0% { transform: translateX(-100%) skewX(-15deg); }
