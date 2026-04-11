@@ -1069,6 +1069,7 @@ export default function HomePage() {
                 ))}
               </div>
             </section>
+        <div className="my-6 border-t border-gray-100" />
           );
         })()}
 
@@ -1096,6 +1097,7 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+        <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 2. 이달의 TOP 전문가                                        */}
@@ -1194,6 +1196,7 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+        <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 3. 인기 전문가 — PC 5×2, Mobile 2×3                        */}
@@ -1219,6 +1222,7 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+        <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 4. 행사 전문가                                              */}
@@ -1287,6 +1291,7 @@ export default function HomePage() {
             <p className="text-center text-gray-400 text-[14px] py-10">해당 행사 유형의 전문가가 없습니다</p>
           )}
         </section>
+        <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 4.5 지역별 사회자                                           */}
@@ -1327,6 +1332,7 @@ export default function HomePage() {
             <p className="text-center text-gray-400 text-[14px] py-10">해당 지역의 전문가가 없습니다</p>
           )}
         </section>
+        <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 5. 외국어 전문가                                            */}
@@ -1379,6 +1385,7 @@ export default function HomePage() {
             <p className="text-center text-gray-400 text-[14px] py-10">해당 언어의 전문가가 없습니다</p>
           )}
         </section>
+        <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 6. 기업회원 컨텐츠                                          */}
@@ -1422,6 +1429,7 @@ export default function HomePage() {
             <p className="text-center text-gray-400 text-[14px] py-10">해당 카테고리의 업체가 없습니다</p>
           )}
         </section>
+        <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 7. 행사 맞춤의뢰 (Mobile only)                              */}
@@ -1463,6 +1471,7 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+        <div className="my-6 border-t border-gray-100" />
       </div>
 
     </div>
