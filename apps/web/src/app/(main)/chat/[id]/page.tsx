@@ -497,43 +497,32 @@ function SystemMessageCard({ msg }: { msg: Message }) {
 
   const wrapperClass = 'mx-auto max-w-[320px] my-3 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
 
-  // 견적서
+  // 견적서 — 플랫 카드
   if (sys.kind === 'quote') {
     return (
       <div className={wrapperClass}>
-        <div className="bg-white rounded-3xl border border-gray-200/80 shadow-[0_8px_32px_rgba(0,0,0,0.06)] overflow-hidden">
-          <div className="bg-gradient-to-br from-[#007AFF] to-[#0051D5] px-5 py-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                <FileSignature size={16} className="text-white" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold tracking-wider text-white/70 uppercase">QUOTE</p>
-                <p className="text-[14px] font-bold text-white leading-tight">견적서가 발송되었습니다</p>
-              </div>
-            </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-[#3180F7] px-4 py-3.5 flex items-center gap-2.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2.5" fill="white" opacity="0.3"/><rect x="7.5" y="6" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/><rect x="7.5" y="9.5" width="6" height="1.5" rx="0.75" fill="white" opacity="0.5"/><rect x="7.5" y="13" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/></svg>
+            <p className="text-[14px] font-bold text-white">견적서가 발송되었습니다</p>
           </div>
-          <div className="px-5 py-4">
-            {sys.eventName && (
-              <p className="text-[11px] font-semibold text-gray-400 mb-1">{sys.eventName}</p>
-            )}
-            <p className="text-[24px] font-black text-gray-900 tabular-nums leading-none">
-              {formatKRW(sys.amount || 0)}
-            </p>
+          <div className="px-4 py-3.5">
+            {sys.eventName && <p className="text-[11px] font-medium text-gray-400 mb-1">{sys.eventName}</p>}
+            <p className="text-[22px] font-black text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
             {sys.items && sys.items.length > 0 && (
               <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
                 {sys.items.map((it, i) => (
-                  <p key={i} className="text-[12px] text-gray-600 flex items-start gap-1.5">
-                    <span className="text-[#007AFF] mt-0.5">•</span>
+                  <div key={i} className="flex items-center gap-1.5 text-[12px] text-gray-600">
+                    <div className="w-1 h-1 rounded-full bg-[#3180F7]" />
                     <span>{it}</span>
-                  </p>
+                  </div>
                 ))}
               </div>
             )}
             {sys.eventDate && (
               <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
-                <CalendarCheck size={14} className="text-gray-400" />
-                <p className="text-[12px] text-gray-600">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E5E7EB"/><rect x="3" y="4" width="18" height="6" rx="2.5" fill="#9CA3AF"/><rect x="7" y="2" width="2" height="4" rx="1" fill="#D1D5DB"/><rect x="15" y="2" width="2" height="4" rx="1" fill="#D1D5DB"/></svg>
+                <p className="text-[12px] text-gray-500">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
               </div>
             )}
           </div>
@@ -542,88 +531,62 @@ function SystemMessageCard({ msg }: { msg: Message }) {
     );
   }
 
-  // 결제 요청
+  // 결제 요청 — 플랫 카드
   if (sys.kind === 'payment_request') {
     const isDeposit = sys.paymentType === 'deposit';
     return (
       <div className={wrapperClass}>
-        <div className="bg-white rounded-3xl border border-amber-200/60 shadow-[0_8px_32px_rgba(245,158,11,0.12)] overflow-hidden">
-          <div className="px-5 py-4 bg-amber-50/60 border-b border-amber-100/80 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-              <CreditCard size={16} className="text-amber-600" />
-            </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-gray-100 flex items-center gap-2.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" fill="#43A047"/><path d="M2 10h20" stroke="white" strokeWidth="1" opacity="0.3"/><rect x="5" y="14" width="5" height="1.5" rx="0.75" fill="white" opacity="0.5"/></svg>
             <div>
-              <p className="text-[10px] font-bold tracking-wider text-amber-600 uppercase">PAYMENT</p>
-              <p className="text-[14px] font-bold text-amber-900 leading-tight">{isDeposit ? '예약금 결제 요청' : '잔금 결제 요청'}</p>
+              <p className="text-[14px] font-bold text-gray-900">{isDeposit ? '예약금 결제 요청' : '잔금 결제 요청'}</p>
+              <p className="text-[11px] text-gray-400">{isDeposit ? '예약 확정을 위한 선급금' : '행사 종료 후 잔금'}</p>
             </div>
           </div>
-          <div className="px-5 py-4">
-            <p className="text-[11px] font-semibold text-gray-400 mb-1">{isDeposit ? '예약 확정을 위한 선급금' : '행사 종료 후 잔금'}</p>
-            <p className="text-[24px] font-black text-gray-900 tabular-nums leading-none">
-              {formatKRW(sys.amount || 0)}
-            </p>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); }}
-              className="mt-4 w-full h-11 bg-gray-900 hover:bg-black active:scale-[0.98] text-white text-[13px] font-bold rounded-2xl transition-all flex items-center justify-center gap-2"
-            >
-              <CreditCard size={14} />
+          <div className="px-4 py-3.5">
+            <p className="text-[22px] font-black text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+            <button type="button" onClick={(e) => e.stopPropagation()} className="mt-3 w-full h-10 bg-[#3180F7] active:scale-[0.98] text-white text-[13px] font-bold rounded-xl transition-transform">
               지금 결제하기
             </button>
-            <p className="mt-2 text-[10px] text-gray-400 text-center">결제 후 자동으로 예약이 확정됩니다</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // 결제 완료
+  // 결제 완료 — 심플
   if (sys.kind === 'payment_paid') {
     const isDeposit = sys.paymentType === 'deposit';
     return (
       <div className={wrapperClass}>
-        <div className="bg-emerald-50/80 backdrop-blur-sm rounded-3xl border border-emerald-200/60 px-5 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={20} className="text-white" />
-          </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#43A047"/><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-bold tracking-wider text-emerald-600 uppercase">PAID</p>
-            <p className="text-[14px] font-bold text-emerald-900 leading-tight">
-              {isDeposit ? '예약금' : '잔금'} 결제 완료
-            </p>
-            <p className="text-[12px] text-emerald-700 mt-0.5 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+            <p className="text-[14px] font-bold text-gray-900">{isDeposit ? '예약금' : '잔금'} 결제 완료</p>
+            <p className="text-[13px] text-gray-500 tabular-nums">{formatKRW(sys.amount || 0)}</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // 예약 확정
+  // 예약 확정 — 플랫 컬러
   if (sys.kind === 'booking_confirmed') {
     return (
       <div className={wrapperClass}>
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl shadow-[0_12px_40px_rgba(16,185,129,0.25)] overflow-hidden">
-          <div className="px-5 py-5 text-white">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={16} />
-              <p className="text-[11px] font-bold tracking-wider uppercase">BOOKING CONFIRMED</p>
+        <div className="bg-[#3180F7] rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-4 py-4 text-white">
+            <div className="flex items-center gap-2 mb-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="white" opacity="0.3"/><path d="M9 13l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <p className="text-[11px] font-bold tracking-wider uppercase opacity-80">CONFIRMED</p>
             </div>
-            <p className="text-[18px] font-black leading-tight">예약이 확정되었습니다</p>
-            <p className="text-[12px] text-white/80 mt-1">내 스케줄에 자동으로 추가되었습니다</p>
+            <p className="text-[17px] font-bold">예약이 확정되었습니다</p>
+            <p className="text-[12px] opacity-70 mt-0.5">내 스케줄에 자동 추가되었습니다</p>
             {(sys.eventDate || sys.venue) && (
-              <div className="mt-4 pt-4 border-t border-white/20 space-y-1.5">
-                {sys.eventDate && (
-                  <div className="flex items-center gap-2 text-[12px]">
-                    <CalendarCheck size={12} className="text-white/70" />
-                    <span>{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</span>
-                  </div>
-                )}
-                {sys.venue && (
-                  <div className="flex items-center gap-2 text-[12px]">
-                    <MapPin size={12} className="text-white/70" />
-                    <span>{sys.venue}</span>
-                  </div>
-                )}
+              <div className="mt-3 pt-3 border-t border-white/20 space-y-1">
+                {sys.eventDate && <p className="text-[12px] opacity-80">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>}
+                {sys.venue && <p className="text-[12px] opacity-80">{sys.venue}</p>}
               </div>
             )}
           </div>
@@ -632,57 +595,42 @@ function SystemMessageCard({ msg }: { msg: Message }) {
     );
   }
 
-  // D-day 리마인더
+  // D-day 리마인더 — 깔끔한 카드
   if (sys.kind === 'reminder') {
     const d = sys.daysLeft ?? 0;
     return (
       <div className={wrapperClass}>
-        <div className="bg-white rounded-3xl border border-blue-200/60 px-4 py-3.5 flex items-center gap-3 shadow-sm">
-          <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-[#007AFF] to-[#0051D5] flex flex-col items-center justify-center shrink-0">
-            <span className="text-[8px] font-bold text-white/80 leading-none">D-</span>
-            <span className="text-[16px] font-black text-white leading-tight tabular-nums">{d}</span>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#3180F7] flex flex-col items-center justify-center shrink-0">
+            <span className="text-[8px] font-bold text-white/70 leading-none">D-</span>
+            <span className="text-[15px] font-black text-white leading-tight tabular-nums">{d}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-bold tracking-wider text-[#007AFF] uppercase">REMINDER</p>
-            <p className="text-[13px] font-bold text-gray-900 leading-tight">
-              {sys.eventName || '본식'}까지 {d}일 남았습니다
-            </p>
-            {sys.eventDate && (
-              <p className="text-[11px] text-gray-500 mt-0.5">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
-            )}
+            <p className="text-[13px] font-bold text-gray-900">{sys.eventName || '본식'}까지 {d}일</p>
+            {sys.eventDate && <p className="text-[11px] text-gray-400 mt-0.5">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>}
           </div>
-          <AlarmClock size={16} className="text-gray-300" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" fill="#FBBF24"/><path d="M12 9v4l2.5 1.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 5V3M8 6L6.5 4.5M16 6l1.5-1.5" stroke="#FBBF24" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </div>
       </div>
     );
   }
 
-  // 행사 당일
+  // 행사 당일 — 플랫 레드
   if (sys.kind === 'event_today') {
     return (
       <div className={wrapperClass}>
-        <div className="bg-gradient-to-br from-rose-400 to-pink-500 rounded-3xl shadow-[0_12px_40px_rgba(244,63,94,0.3)] overflow-hidden">
-          <div className="px-5 py-5 text-white">
+        <div className="bg-[#EF4444] rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-4 py-4 text-white">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[20px]">🎉</span>
-              <p className="text-[11px] font-bold tracking-wider uppercase">D-DAY</p>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.4l-6.4 4.8 2.4-7.2-6-4.8h7.6L12 2z" fill="white" opacity="0.5"/></svg>
+              <p className="text-[11px] font-bold tracking-wider uppercase opacity-80">D-DAY</p>
             </div>
-            <p className="text-[20px] font-black leading-tight">오늘은 {sys.eventName || '본식'} 당일입니다</p>
-            <p className="text-[12px] text-white/85 mt-1">사회자님과 함께 멋진 순간을 만들어보세요</p>
+            <p className="text-[18px] font-bold">오늘은 {sys.eventName || '본식'} 당일입니다</p>
+            <p className="text-[12px] opacity-70 mt-0.5">멋진 순간을 만들어보세요</p>
             {(sys.eventTime || sys.venue) && (
-              <div className="mt-4 pt-4 border-t border-white/25 space-y-1.5">
-                {sys.eventTime && (
-                  <div className="flex items-center gap-2 text-[12px]">
-                    <Clock size={12} className="text-white/80" />
-                    <span>{sys.eventTime}</span>
-                  </div>
-                )}
-                {sys.venue && (
-                  <div className="flex items-center gap-2 text-[12px]">
-                    <MapPin size={12} className="text-white/80" />
-                    <span>{sys.venue}</span>
-                  </div>
-                )}
+              <div className="mt-3 pt-3 border-t border-white/20 space-y-1">
+                {sys.eventTime && <p className="text-[12px] opacity-80">{sys.eventTime}</p>}
+                {sys.venue && <p className="text-[12px] opacity-80">{sys.venue}</p>}
               </div>
             )}
           </div>
@@ -695,40 +643,34 @@ function SystemMessageCard({ msg }: { msg: Message }) {
   if (sys.kind === 'event_done') {
     return (
       <div className={wrapperClass}>
-        <div className="bg-white rounded-3xl border border-gray-200/80 px-5 py-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 size={14} className="text-emerald-500" />
-            <p className="text-[10px] font-bold tracking-wider text-gray-500 uppercase">EVENT COMPLETED</p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#9CA3AF"/><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <div>
+            <p className="text-[14px] font-bold text-gray-900">행사가 종료되었습니다</p>
+            <p className="text-[12px] text-gray-400 mt-0.5">사회자님과 함께한 시간 어떠셨나요?</p>
           </div>
-          <p className="text-[14px] font-bold text-gray-900">행사가 무사히 종료되었습니다</p>
-          <p className="text-[12px] text-gray-500 mt-1">사회자님과 함께한 시간 어떠셨나요?</p>
         </div>
       </div>
     );
   }
 
-  // 후기 요청
+  // 후기 요청 — 별 아이콘
   if (sys.kind === 'review_request') {
     return (
       <div className={wrapperClass}>
-        <div className="bg-white rounded-3xl border border-amber-200/60 overflow-hidden">
-          <div className="px-5 py-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3.5">
             <div className="flex items-center gap-2 mb-2">
-              <Star size={14} className="text-amber-400 fill-amber-400" />
-              <p className="text-[10px] font-bold tracking-wider text-amber-600 uppercase">REVIEW</p>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" fill="#FBBF24"/></svg>
+              <p className="text-[14px] font-bold text-gray-900">후기를 남겨주세요</p>
             </div>
-            <p className="text-[14px] font-bold text-gray-900">후기를 남겨주세요</p>
-            <p className="text-[12px] text-gray-500 mt-1">소중한 후기는 다른 고객에게 큰 도움이 됩니다</p>
-            <div className="mt-3 flex items-center justify-center gap-1">
+            <p className="text-[12px] text-gray-400 mb-3">소중한 후기는 다른 고객에게 큰 도움이 됩니다</p>
+            <div className="flex items-center justify-center gap-1.5 mb-3">
               {[1, 2, 3, 4, 5].map((s) => (
-                <Star key={s} size={28} className="text-gray-200 hover:text-amber-400 hover:fill-amber-400 cursor-pointer transition-colors" />
+                <svg key={s} width={24} height={24} viewBox="0 0 24 24" fill="none"><path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" fill="#E5E7EB"/></svg>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={(e) => e.stopPropagation()}
-              className="mt-3 w-full h-11 bg-amber-400 hover:bg-amber-500 active:scale-[0.98] text-white text-[13px] font-bold rounded-2xl transition-all"
-            >
+            <button type="button" onClick={(e) => e.stopPropagation()} className="w-full h-10 bg-[#FBBF24] active:scale-[0.98] text-white text-[13px] font-bold rounded-xl transition-transform">
               후기 작성하기
             </button>
           </div>
@@ -741,10 +683,8 @@ function SystemMessageCard({ msg }: { msg: Message }) {
   if (sys.kind === 'refund') {
     return (
       <div className={wrapperClass}>
-        <div className="bg-white rounded-3xl border border-gray-200/80 px-5 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-            <RefreshCw size={18} className="text-gray-500" />
-          </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#60A5FA"/><path d="M8 12h8M15 9l-3 3 3 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-bold tracking-wider text-gray-500 uppercase">REFUND</p>
             <p className="text-[14px] font-bold text-gray-900 leading-tight">환불이 완료되었습니다</p>
