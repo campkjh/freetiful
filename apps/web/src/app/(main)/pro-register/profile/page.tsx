@@ -316,24 +316,20 @@ export default function ProfilePage() {
                     key={index}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-start gap-3 p-3.5 bg-white border border-gray-100 rounded-2xl shadow-sm"
+                    className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-b-0"
                   >
-                    {/* 날짜 태그 */}
-                    <div className="shrink-0 w-[52px] h-[52px] rounded-xl bg-gradient-to-br from-[#3180F7] to-[#60A5FA] flex flex-col items-center justify-center">
-                      {award.year ? (
-                        <>
-                          <span className="text-[11px] text-white/70 font-medium leading-none">{award.year}</span>
-                          <span className="text-[16px] text-white font-bold leading-tight">{award.month ? `${award.month}월` : ''}</span>
-                        </>
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.4l-6.4 4.8 2.4-7.2-6-4.8h7.6L12 2z" fill="white"/></svg>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <p className="text-[15px] font-semibold text-gray-900 leading-snug">{award.text}</p>
-                    </div>
-                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => setAwardList(prev => prev.filter((_, i) => i !== index))} className="shrink-0 mt-1">
-                      <X size={16} className="text-gray-300" />
+                    {/* 날짜 */}
+                    {(award.year || award.month) ? (
+                      <span className="shrink-0 text-[14px] text-gray-900 font-bold tabular-nums">
+                        {award.year}.{award.month?.padStart(2, '0')}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[14px] text-gray-300">—</span>
+                    )}
+                    {/* 수상명 */}
+                    <p className="flex-1 min-w-0 text-[14px] text-gray-600 leading-snug">{award.text}</p>
+                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => setAwardList(prev => prev.filter((_, i) => i !== index))} className="shrink-0">
+                      <X size={14} className="text-gray-300" />
                     </motion.button>
                   </motion.div>
                 ))}
@@ -424,7 +420,7 @@ export default function ProfilePage() {
                   onChange={(e) => setAwardInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addAward()}
                   placeholder="수상명을 입력해주세요"
-                  className="flex-1 h-11 bg-white border border-gray-200 rounded-xl px-4 outline-none text-[15px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
+                  className="flex-1 h-11 bg-white border border-gray-200 rounded-xl px-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                 />
                 <motion.button
                   whileTap={{ scale: 0.9 }}
