@@ -351,10 +351,11 @@ export default function MyPage() {
             const current = localStorage.getItem('userRole');
             if (current === 'pro') {
               localStorage.setItem('userRole', 'general');
+              window.location.href = '/main';
             } else {
               localStorage.setItem('userRole', 'pro');
+              window.location.href = '/pro-dashboard';
             }
-            window.location.reload();
           }}
           className="w-full py-3 rounded-xl border-2 border-dashed border-gray-300 text-[13px] font-medium text-gray-400 active:scale-[0.98] transition-transform"
         >
