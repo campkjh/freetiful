@@ -600,16 +600,22 @@ function SystemMessageCard({ msg }: { msg: Message }) {
     const d = sys.daysLeft ?? 0;
     return (
       <div className={wrapperClass}>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#3180F7] flex flex-col items-center justify-center shrink-0">
-            <span className="text-[8px] font-bold text-white/70 leading-none">D-</span>
-            <span className="text-[15px] font-black text-white leading-tight tabular-nums">{d}</span>
+        <div className="relative">
+          {/* 말풍선 */}
+          <div className="bg-[#3180F7] rounded-2xl px-4 py-3.5 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex flex-col items-center justify-center shrink-0">
+                <span className="text-[7px] font-bold text-white/60 leading-none">D-</span>
+                <span className="text-[14px] font-black text-white leading-tight tabular-nums">{d}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-bold">{sys.eventName || '본식'}까지 {d}일 남았습니다</p>
+                {sys.eventDate && <p className="text-[11px] text-white/60 mt-0.5">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>}
+              </div>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-bold text-gray-900">{sys.eventName || '본식'}까지 {d}일</p>
-            {sys.eventDate && <p className="text-[11px] text-gray-400 mt-0.5">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>}
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" fill="#FBBF24"/><path d="M12 9v4l2.5 1.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 5V3M8 6L6.5 4.5M16 6l1.5-1.5" stroke="#FBBF24" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          {/* 말풍선 꼬리 */}
+          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#3180F7] rotate-45 rounded-sm" />
         </div>
       </div>
     );
