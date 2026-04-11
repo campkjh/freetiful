@@ -9,13 +9,20 @@ import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
 import PageTransition from '@/components/PageTransition';
 
-const NAV_ITEMS = [
+const USER_NAV_ITEMS = [
   { href: '/main',      iconSrc: '/images/icon-home.svg',      label: '홈' },
   { href: '/schedule',  iconSrc: '/images/icon-schedule.svg',  label: '스케줄' },
   { href: '/biz',       iconSrc: '/images/icon-biz.svg',       label: 'Biz' },
   { href: '/chat',      iconSrc: '/images/icon-chat.svg',      label: '채팅' },
   { href: '/favorites', iconSrc: '/images/icon-favorites.svg', label: '찜' },
   { href: '/my',        iconSrc: '/images/icon-my.svg',        label: '마이' },
+];
+
+const PRO_NAV_ITEMS = [
+  { href: '/pro-dashboard', iconSrc: '/images/icon-home.svg',     label: '홈' },
+  { href: '/schedule',      iconSrc: '/images/icon-schedule.svg', label: '스케줄' },
+  { href: '/chat',          iconSrc: '/images/icon-chat.svg',     label: '채팅' },
+  { href: '/my',            iconSrc: '/images/icon-my.svg',       label: '마이' },
 ];
 
 const HIDE_NAV_PATTERNS = [
@@ -47,7 +54,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [navVisible, setNavVisible] = useState(true);
   const [navExpanding, setNavExpanding] = useState(false);
   const [bizCollapsing, setBizCollapsing] = useState(false);
+  const [isPro, setIsPro] = useState(false);
   const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    setIsPro(localStorage.getItem('userRole') === 'pro');
+  }, [pathname]);
+
+  const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
+  const homeHref = isPro ? '/pro-dashboard' : '/main';
 
   // pathname 변경 시 collapsing 리셋
   useEffect(() => {
@@ -85,13 +100,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* ─── Desktop Top Navigation (Glass) ──────────────────────────── */}
       <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 glass border-b border-gray-100/50`}>
         <div className="max-w-7xl mx-auto px-8 h-[72px] flex items-center justify-between">
-          <Link href="/main" className="text-[22px] font-black text-primary-500 tracking-tight">
+          <Link href={homeHref} className="text-[22px] font-black text-primary-500 tracking-tight">
             Freetiful
           </Link>
 
           <nav className="flex items-center gap-1">
             {NAV_ITEMS.map(({ href, iconSrc, label }) => {
-              const active = pathname === href || (href !== '/main' && pathname.startsWith(href));
+              const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
               const isBiz = href === '/biz';
               return (
                 <Link
@@ -123,8 +138,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* ─── Footer ────────────────────────────────────────────────── */}
       {!hideNav && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && <Footer />}
 
-      {/* ─── 추천 전문가 플로팅 (모바일 네비 위) ───────────────────── */}
-      {!hideNav && <RecommendedProBar />}
+      {/* ─── 추천 전문가 플로팅 (모바일 네비 위, 일반유저만) ──────── */}
+      {!hideNav && !isPro && <RecommendedProBar />}
 
       {/* ─── Mobile Bottom Navigation (Glass Pill) ───────────────────── */}
       {!hideNav && (
@@ -156,7 +171,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             >
               <div className="flex items-center justify-around h-full overflow-hidden">
                 {NAV_ITEMS.map(({ href, iconSrc, label }, idx) => {
-                  const active = pathname === href || (href !== '/main' && pathname.startsWith(href));
+                  const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
                   const isBiz = href === '/biz';
                   const itemStyle: React.CSSProperties = {
                     opacity: bizCollapsing ? 0 : 1,
