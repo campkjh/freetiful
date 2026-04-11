@@ -611,13 +611,12 @@ function ProSelectCard({ pro, selected, onToggle }: {
   onToggle: () => void;
 }) {
   const review = useRotatingReview(pro.recentReviews);
-  const [reviewFade, setReviewFade] = useState(true);
+  const [displayReview, setDisplayReview] = useState(review);
+  const [reviewKey, setReviewKey] = useState(0);
 
   useEffect(() => {
-    // Fade transition
-    setReviewFade(false);
-    const t = setTimeout(() => setReviewFade(true), 50);
-    return () => clearTimeout(t);
+    setReviewKey(k => k + 1);
+    setDisplayReview(review);
   }, [review]);
 
   return (
@@ -630,9 +629,13 @@ function ProSelectCard({ pro, selected, onToggle }: {
       <div className="relative aspect-[3/4]">
         <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
         {selected && (
-          <div className="absolute top-2 right-2 w-6 h-6 bg-[#3180F7] rounded-full flex items-center justify-center shadow z-10">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute top-2 right-2 w-6 h-6 bg-[#3180F7] rounded-full flex items-center justify-center shadow z-10"
+          >
             <Check size={14} className="text-white" />
-          </div>
+          </motion.div>
         )}
         {/* YouTube thumbnail — bottom right */}
         {pro.youtubeId && (
@@ -650,23 +653,31 @@ function ProSelectCard({ pro, selected, onToggle }: {
           </div>
         )}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 pt-8">
-          <p className="text-[14px] font-semibold text-white">{pro.name}</p>
+          <p className="text-[15px] font-bold text-white">{pro.name}</p>
           <div className="flex items-center gap-1 mt-0.5">
-            <Star size={10} className="text-amber-400 fill-amber-400" />
-            <span className="text-[11px] text-white/90">{pro.rating.toFixed(1)} · 리뷰 {pro.reviews}</span>
+            <Star size={11} className="text-amber-400 fill-amber-400" />
+            <span className="text-[12px] text-white/90 font-medium">{pro.rating.toFixed(1)} · 리뷰 {pro.reviews}</span>
           </div>
         </div>
       </div>
-      <div className="p-2.5">
-        <p className="text-[11px] text-gray-500 line-clamp-1 leading-relaxed">{pro.intro}</p>
-        {/* Rotating review */}
-        <div className="mt-1.5 flex items-start gap-1">
-          <span className="text-[9px] text-[#3180F7] font-bold shrink-0 mt-px">리뷰</span>
-          <p
-            className={`text-[10px] text-gray-400 line-clamp-1 transition-opacity duration-300 ${reviewFade ? 'opacity-100' : 'opacity-0'}`}
-          >
-            &ldquo;{review}&rdquo;
-          </p>
+      <div className="p-3">
+        <p className="text-[13px] text-gray-700 font-medium line-clamp-1 leading-snug">{pro.intro}</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">경력 {pro.experience}년</p>
+        {/* Rotating review with slide animation */}
+        <div className="mt-2 flex items-start gap-1.5 overflow-hidden">
+          <span className="text-[10px] text-[#3180F7] font-bold shrink-0 mt-0.5">리뷰</span>
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={reviewKey}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+              className="text-[11px] text-gray-500 line-clamp-1"
+            >
+              &ldquo;{displayReview}&rdquo;
+            </motion.p>
+          </AnimatePresence>
         </div>
       </div>
     </button>
