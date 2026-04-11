@@ -99,10 +99,16 @@ function useRotatingReview(reviews: string[], interval = 4000) {
 
 type Step = 'type' | 'plan' | 'detail' | 'pros' | 'confirm';
 
-/* ─── Daum Postcode API ─── */
+/* ─── Daum Postcode API (embed modal) ─── */
 declare global {
   interface Window {
-    daum: { Postcode: new (opts: { oncomplete: (data: { address: string; zonecode: string }) => void }) => { open: () => void } };
+    daum: {
+      Postcode: new (opts: {
+        oncomplete: (data: { address: string; zonecode: string }) => void;
+        width: string;
+        height: string;
+      }) => { embed: (el: HTMLElement) => void };
+    };
   }
 }
 
@@ -118,12 +124,7 @@ function useDaumPostcode() {
     loaded.current = true;
   }, []);
 
-  return (onComplete: (addr: string) => void) => {
-    if (!window.daum) { toast.error('주소 검색을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
-    new window.daum.Postcode({
-      oncomplete: (data) => onComplete(data.address),
-    }).open();
-  };
+  return loaded;
 }
 
 export default function QuotePageWrapper() {
@@ -138,9 +139,11 @@ function QuotePage() {
   const router = useRouter();
   const params = useSearchParams();
   const isEvent = params.get('mode') === 'event';
-  const openPostcode = useDaumPostcode();
+  const postcodeLoaded = useDaumPostcode();
 
   const [step, setStep] = useState<Step>(isEvent ? 'type' : 'plan');
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const addressEmbedRef = useRef<HTMLDivElement>(null);
   const [eventType, setEventType] = useState('');
   const [plan, setPlan] = useState('');
   const [location, setLocation] = useState('');
@@ -151,10 +154,23 @@ function QuotePage() {
   const [moods, setMoods] = useState<Set<string>>(new Set());
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const toggleMood = (m: string) => setMoods((prev) => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n; });
+
+  // Embed Daum Postcode when modal opens
+  useEffect(() => {
+    if (!showAddressModal || !addressEmbedRef.current || !window.daum) return;
+    addressEmbedRef.current.innerHTML = '';
+    new window.daum.Postcode({
+      oncomplete: (data) => {
+        setLocation(data.address);
+        setShowAddressModal(false);
+      },
+      width: '100%',
+      height: '100%',
+    }).embed(addressEmbedRef.current);
+  }, [showAddressModal]);
   const togglePro = (id: string) => setSelectedPros((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   // Time range: clicking sets start, then end
@@ -359,11 +375,11 @@ function QuotePage() {
             <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">행사 정보를 입력해주세요</h2>
             <p className="text-[14px] text-gray-400 mb-6">장소, 날짜, 시간을 알려주세요</p>
             <div className="space-y-5">
-              {/* 장소 — 다음 포스트 API */}
+              {/* 장소 — 다음 포스트 API 모달 */}
               <div>
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><LocationIcon />행사 장소</label>
                 <button
-                  onClick={() => openPostcode((addr) => setLocation(addr))}
+                  onClick={() => setShowAddressModal(true)}
                   className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-left flex items-center gap-2 active:bg-gray-100 transition-colors"
                 >
                   <Search size={14} className="text-gray-400 shrink-0" />
@@ -376,27 +392,22 @@ function QuotePage() {
                 )}
               </div>
 
-              {/* 날짜 — date picker */}
+              {/* 날짜 — 클릭 가능한 date input */}
               <div>
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><CalendarIcon />행사 날짜</label>
                 <div className="relative">
-                  <button
-                    onClick={() => dateInputRef.current?.showPicker()}
-                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-left flex items-center justify-between active:bg-gray-100 transition-colors"
-                  >
-                    <span className={`text-[15px] ${date ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
-                      {date ? formatDate(date) : '날짜를 선택해주세요'}
-                    </span>
-                    <ChevronDown size={16} className="text-gray-400" />
-                  </button>
                   <input
                     ref={dateInputRef}
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className="absolute inset-0 opacity-0 pointer-events-none"
+                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[15px] text-gray-900 outline-none focus:border-[#3180F7] transition-colors appearance-none"
+                    style={{ colorScheme: 'light' }}
                   />
+                  {!date && (
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-gray-400 pointer-events-none">날짜를 선택해주세요</span>
+                  )}
                 </div>
               </div>
 
@@ -514,6 +525,26 @@ function QuotePage() {
           </div>
         )}
       </div>
+
+      {/* Address Search Modal */}
+      {showAddressModal && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/40" onClick={() => setShowAddressModal(false)}>
+          <div className="flex-1" />
+          <div
+            className="bg-white rounded-t-2xl overflow-hidden"
+            style={{ height: '75vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <h3 className="text-[16px] font-bold text-gray-900">주소 검색</h3>
+              <button onClick={() => setShowAddressModal(false)} className="p-1 text-gray-400 active:scale-90 transition-transform">
+                <ChevronDown size={24} />
+              </button>
+            </div>
+            <div ref={addressEmbedRef} className="w-full" style={{ height: 'calc(75vh - 52px)' }} />
+          </div>
+        </div>
+      )}
 
       {/* Bottom Button */}
       <div className="shrink-0 px-[10px] pb-6 pt-3 bg-white">
