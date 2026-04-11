@@ -261,10 +261,12 @@ function QuotePage() {
   };
 
   const SURVEY_QUESTIONS = [
-    { key: 'source', question: '프리티풀을 어떻게 알게 되셨나요?', options: ['검색 (네이버/구글)', 'SNS (인스타/유튜브)', '지인 추천', '웨딩 커뮤니티', '블로그/카페', '기타'] },
-    { key: 'important', question: '사회자 선택 시 가장 중요한 점은?', options: ['진행 스타일', '경력/경험', '가격', '리뷰/평판', '외모/목소리', '영상 포트폴리오'] },
-    { key: 'budget', question: '예상 사회자 예산은?', options: ['30만원 이하', '30~50만원', '50~70만원', '70~100만원', '100만원 이상', '아직 미정'] },
-    { key: 'weddingDate', question: '예식 예정 시기는?', options: ['1개월 이내', '1~3개월', '3~6개월', '6개월~1년', '1년 이후', '아직 미정'] },
+    { key: 'dress', question: '드레스는 준비하셨나요?', options: ['대여 완료', '대여 예정', '구매 예정', '아직 미정'] },
+    { key: 'photo', question: '본식 스냅/영상 촬영은?', options: ['스냅 + 영상 모두', '스냅만', '영상만', '촬영 안 함', '아직 미정'] },
+    { key: 'bouquet', question: '부케/꽃 장식은?', options: ['생화 부케', '조화 부케', '플라워 장식 포함', '아직 미정'] },
+    { key: 'makeup', question: '헤어 · 메이크업은?', options: ['업체 계약 완료', '알아보는 중', '셀프 예정', '아직 미정'] },
+    { key: 'singer', question: '축가 · 연주는?', options: ['섭외 완료', '섭외 예정', '필요 없음', '아직 미정'] },
+    { key: 'honeymoon', question: '신혼여행은?', options: ['예약 완료', '알아보는 중', '나중에 예정', '아직 미정'] },
   ];
 
   const canNext = () => {
@@ -758,8 +760,9 @@ function QuotePage() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.25 }}
                 >
-                  <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">{SURVEY_QUESTIONS[surveyStep].question}</h2>
-                  <p className="text-[14px] text-gray-400 mb-6">하나를 선택해주세요</p>
+                  <p className="text-[12px] text-[#3180F7] font-bold mb-2">웨딩 준비 현황</p>
+                  <h2 className="text-[22px] font-bold text-gray-900 mb-1">{SURVEY_QUESTIONS[surveyStep].question}</h2>
+                  <p className="text-[14px] text-gray-400 mb-6">현재 상태를 선택해주세요</p>
                   <div className="space-y-2.5">
                     {SURVEY_QUESTIONS[surveyStep].options.map((opt, i) => {
                       const selected = surveyAnswers[SURVEY_QUESTIONS[surveyStep].key] === opt;
