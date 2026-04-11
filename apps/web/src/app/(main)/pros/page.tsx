@@ -257,6 +257,29 @@ export default function ProsListPage() {
                         {pro.puddingRank === 1 ? '🥇' : pro.puddingRank === 2 ? '🥈' : '🥉'} TOP {pro.puddingRank}
                       </span>
                     )}
+                    {/* 미니 레이더 그래프 */}
+                    <div className="absolute bottom-2 right-2 w-[42px] h-[42px] bg-white/90 backdrop-blur-sm rounded-lg shadow-sm flex items-center justify-center">
+                      <svg width="32" height="32" viewBox="0 0 32 32">
+                        {(() => {
+                          const scores = [pro.rating / 5, Math.min(pro.reviews / 200, 1), Math.min((pro.price || 400000) / 700000, 1), 0.8, 0.9, 0.75];
+                          const cx = 16, cy = 16, r = 12, n = 6;
+                          const bgPts = Array.from({ length: n }, (_, i) => {
+                            const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+                            return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
+                          }).join(' ');
+                          const dataPts = scores.map((s, i) => {
+                            const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+                            return `${cx + r * s * Math.cos(a)},${cy + r * s * Math.sin(a)}`;
+                          }).join(' ');
+                          return (
+                            <>
+                              <polygon points={bgPts} fill="none" stroke="#E5E7EB" strokeWidth="0.5" />
+                              <polygon points={dataPts} fill="rgba(49,128,247,0.2)" stroke="#3180F7" strokeWidth="1" />
+                            </>
+                          );
+                        })()}
+                      </svg>
+                    </div>
                   </div>
                   <div className="p-3">
                     <div className="flex items-center gap-1 mb-0.5">
