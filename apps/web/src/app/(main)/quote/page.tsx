@@ -168,6 +168,11 @@ function QuotePage() {
   const [sending, setSending] = useState(false);
   const [nearbyVenues, setNearbyVenues] = useState<{ name: string; address: string; phone: string; distance: number; url: string }[]>([]);
   const [venuesLoading, setVenuesLoading] = useState(false);
+  const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [surveyStep, setSurveyStep] = useState(0);
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const toggleMood = (m: string) => setMoods((prev) => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n; });
@@ -226,13 +231,41 @@ function QuotePage() {
 
   const timeDisplay = timeStart && timeEnd ? `${timeStart} ~ ${timeEnd}` : timeStart || '';
 
-  const handleSubmit = async () => {
+  const handleSubmitClick = () => {
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirm = async () => {
+    setShowConfirmModal(false);
+    // Check if first-time user
+    const hasSubmitted = localStorage.getItem('freetiful-quote-submitted');
+    if (!hasSubmitted) {
+      setShowSurvey(true);
+      return;
+    }
+    await doSubmit();
+  };
+
+  const doSubmit = async () => {
     setSending(true);
     await new Promise((r) => setTimeout(r, 1500));
     setSending(false);
+    localStorage.setItem('freetiful-quote-submitted', 'true');
     toast.success(isEvent ? '행사 견적 요청이 접수되었습니다.' : `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.`);
     router.push('/home');
   };
+
+  const handleSurveyComplete = async () => {
+    setShowSurvey(false);
+    await doSubmit();
+  };
+
+  const SURVEY_QUESTIONS = [
+    { key: 'source', question: '프리티풀을 어떻게 알게 되셨나요?', options: ['검색 (네이버/구글)', 'SNS (인스타/유튜브)', '지인 추천', '웨딩 커뮤니티', '블로그/카페', '기타'] },
+    { key: 'important', question: '사회자 선택 시 가장 중요한 점은?', options: ['진행 스타일', '경력/경험', '가격', '리뷰/평판', '외모/목소리', '영상 포트폴리오'] },
+    { key: 'budget', question: '예상 사회자 예산은?', options: ['30만원 이하', '30~50만원', '50~70만원', '70~100만원', '100만원 이상', '아직 미정'] },
+    { key: 'weddingDate', question: '예식 예정 시기는?', options: ['1개월 이내', '1~3개월', '3~6개월', '6개월~1년', '1년 이후', '아직 미정'] },
+  ];
 
   const canNext = () => {
     switch (step) {
@@ -431,28 +464,37 @@ function QuotePage() {
                       </div>
                       {nearbyVenues.length > 0 && (
                         <div className="space-y-1.5 max-h-[180px] overflow-y-auto">
-                          {nearbyVenues.slice(0, 5).map((v, i) => (
-                            <motion.button
-                              key={i}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: i * 0.05 }}
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => setLocation(v.address || v.name)}
-                              className="w-full flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl text-left hover:bg-blue-50/50 transition-colors"
-                            >
-                              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 21V7l9-4 9 4v14" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/><path d="M9 21V13h6v8" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/></svg>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-semibold text-gray-900 truncate">{v.name}</p>
-                                <p className="text-[11px] text-gray-400 truncate">{v.address}</p>
-                              </div>
-                              <span className="text-[11px] text-[#3180F7] font-bold shrink-0">
-                                {v.distance < 1000 ? `${v.distance}m` : `${(v.distance / 1000).toFixed(1)}km`}
-                              </span>
-                            </motion.button>
-                          ))}
+                          {nearbyVenues.slice(0, 5).map((v, i) => {
+                            const isSelected = selectedVenue === v.name;
+                            return (
+                              <motion.button
+                                key={i}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => setSelectedVenue(isSelected ? null : v.name)}
+                                className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl text-left transition-all ${
+                                  isSelected ? 'bg-blue-50 border border-[#3180F7]' : 'bg-gray-50 border border-transparent'
+                                }`}
+                              >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#3180F7]' : 'bg-blue-100'}`}>
+                                  {isSelected ? (
+                                    <Check size={14} className="text-white" />
+                                  ) : (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 21V7l9-4 9 4v14" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/><path d="M9 21V13h6v8" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/></svg>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-[13px] font-semibold truncate ${isSelected ? 'text-[#3180F7]' : 'text-gray-900'}`}>{v.name}</p>
+                                  <p className="text-[11px] text-gray-400 truncate">{v.address}</p>
+                                </div>
+                                <span className="text-[11px] text-[#3180F7] font-bold shrink-0">
+                                  {v.distance < 1000 ? `${v.distance}m` : `${(v.distance / 1000).toFixed(1)}km`}
+                                </span>
+                              </motion.button>
+                            );
+                          })}
                         </div>
                       )}
                       {!venuesLoading && nearbyVenues.length === 0 && location && (
@@ -568,6 +610,9 @@ function QuotePage() {
               )}
               <div className="flex justify-between"><span className="text-[13px] text-gray-500">플랜</span><span className="text-[13px] font-semibold text-gray-900">{PLANS.find((p) => p.id === plan)?.label}</span></div>
               <div className="flex justify-between"><span className="text-[13px] text-gray-500">장소</span><span className="text-[13px] font-semibold text-gray-900 text-right max-w-[60%]">{location}</span></div>
+              {selectedVenue && (
+                <div className="flex justify-between"><span className="text-[13px] text-gray-500">웨딩홀</span><span className="text-[13px] font-semibold text-[#3180F7] text-right max-w-[60%]">{selectedVenue}</span></div>
+              )}
               <div className="flex justify-between"><span className="text-[13px] text-gray-500">날짜</span><span className="text-[13px] font-semibold text-gray-900">{formatDate(date)}</span></div>
               <div className="flex justify-between"><span className="text-[13px] text-gray-500">시간</span><span className="text-[13px] font-semibold text-gray-900">{timeDisplay}</span></div>
               {moods.size > 0 && (
@@ -633,12 +678,148 @@ function QuotePage() {
         )}
       </AnimatePresence>
 
+      {/* Confirm Modal */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8"
+            onClick={() => setShowConfirmModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 mx-auto mb-4">
+                <Send size={20} className="text-[#3180F7]" />
+              </div>
+              <h3 className="text-[18px] font-bold text-gray-900 text-center">정말로 요청하시겠습니까?</h3>
+              <p className="text-[13px] text-gray-500 text-center mt-2 leading-relaxed">
+                {isEvent ? '행사 견적 요청을 전송합니다.' : `${selectedPros.size}명의 사회자에게 견적 요청을 보냅니다.`}
+              </p>
+              <div className="flex gap-2.5 mt-6">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowConfirmModal(false)}
+                  className="flex-1 h-[46px] rounded-xl bg-gray-100 text-[14px] font-semibold text-gray-600"
+                >
+                  취소
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleConfirm}
+                  className="flex-1 h-[46px] rounded-xl bg-[#3180F7] text-[14px] font-semibold text-white"
+                >
+                  요청하기
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Survey Modal (first-time users) */}
+      <AnimatePresence>
+        {showSurvey && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col bg-white"
+          >
+            <div className="flex items-center px-4 h-[52px]">
+              <button onClick={() => { setShowSurvey(false); doSubmit(); }} className="text-[13px] text-gray-400 font-medium">건너뛰기</button>
+            </div>
+
+            {/* Survey progress */}
+            <div className="px-6 pb-4">
+              <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
+                  animate={{ width: `${((surveyStep + 1) / SURVEY_QUESTIONS.length) * 100}%` }}
+                  transition={{ duration: 0.4 }}
+                />
+              </div>
+              <p className="text-[11px] text-gray-300 mt-2 text-right">{surveyStep + 1} / {SURVEY_QUESTIONS.length}</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-[10px] pb-6">
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  key={surveyStep}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">{SURVEY_QUESTIONS[surveyStep].question}</h2>
+                  <p className="text-[14px] text-gray-400 mb-6">하나를 선택해주세요</p>
+                  <div className="space-y-2.5">
+                    {SURVEY_QUESTIONS[surveyStep].options.map((opt, i) => {
+                      const selected = surveyAnswers[SURVEY_QUESTIONS[surveyStep].key] === opt;
+                      return (
+                        <motion.button
+                          key={opt}
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.04 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => setSurveyAnswers(prev => ({ ...prev, [SURVEY_QUESTIONS[surveyStep].key]: opt }))}
+                          className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                            selected ? 'border-[#3180F7] bg-blue-50/60' : 'border-gray-100'
+                          }`}
+                        >
+                          <p className={`text-[15px] font-semibold ${selected ? 'text-[#3180F7]' : 'text-gray-600'}`}>{opt}</p>
+                          {selected && (
+                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-5 h-5 rounded-full bg-[#3180F7] flex items-center justify-center">
+                              <Check size={12} className="text-white" />
+                            </motion.div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <div className="shrink-0 px-[10px] pb-6 pt-3">
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                animate={{
+                  backgroundColor: surveyAnswers[SURVEY_QUESTIONS[surveyStep].key] ? '#3180F7' : '#F3F4F6',
+                  color: surveyAnswers[SURVEY_QUESTIONS[surveyStep].key] ? '#FFFFFF' : '#9CA3AF',
+                }}
+                transition={{ duration: 0.25 }}
+                disabled={!surveyAnswers[SURVEY_QUESTIONS[surveyStep].key]}
+                onClick={() => {
+                  if (surveyStep < SURVEY_QUESTIONS.length - 1) {
+                    setSurveyStep(s => s + 1);
+                  } else {
+                    handleSurveyComplete();
+                  }
+                }}
+                className="w-full h-[52px] font-semibold rounded-2xl text-[15px]"
+              >
+                {surveyStep < SURVEY_QUESTIONS.length - 1 ? '다음' : '완료'}
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Bottom Button */}
       <div className="shrink-0 px-[10px] pb-6 pt-3 bg-white">
         {step === 'confirm' ? (
           <motion.button
             whileTap={{ scale: 0.96 }}
-            onClick={handleSubmit}
+            onClick={handleSubmitClick}
             disabled={sending}
             className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2568d9] text-white font-semibold rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-[15px]"
           >
