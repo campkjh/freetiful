@@ -17,13 +17,13 @@ interface Notification {
   link?: string;
 }
 
-const typeBadgeMap: Record<NotifType, { label: string; color: string; bg: string }> = {
-  chat:      { label: '채팅',     color: '#2563EB', bg: '#DBEAFE' },
-  booking:   { label: '예약',     color: '#059669', bg: '#D1FAE5' },
-  payment:   { label: '결제',     color: '#7C3AED', bg: '#EDE9FE' },
-  review:    { label: '리뷰',     color: '#D97706', bg: '#FEF3C7' },
-  system:    { label: '안내',     color: '#6B7280', bg: '#F3F4F6' },
-  marketing: { label: '이벤트',   color: '#DC2626', bg: '#FEE2E2' },
+const typeIconMap: Record<NotifType, { color: string; bg: string; icon: React.ReactNode }> = {
+  chat:      { color: '#2563EB', bg: '#DBEAFE', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.96L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" fill="#2563EB"/><circle cx="9" cy="12" r="1" fill="white"/><circle cx="12" cy="12" r="1" fill="white"/><circle cx="15" cy="12" r="1" fill="white"/></svg> },
+  booking:   { color: '#059669', bg: '#D1FAE5', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="3" fill="#059669"/><path d="M3 10h18" stroke="white" strokeWidth="1.5"/><rect x="7" y="2" width="2" height="4" rx="1" fill="#047857"/><rect x="15" y="2" width="2" height="4" rx="1" fill="#047857"/><path d="M9 15l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  payment:   { color: '#7C3AED', bg: '#EDE9FE', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" fill="#7C3AED"/><path d="M2 10h20" stroke="white" strokeWidth="1.5"/><rect x="5" y="14" width="6" height="2" rx="1" fill="white" opacity="0.6"/></svg> },
+  review:    { color: '#D97706', bg: '#FEF3C7', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.4l-6.4 4.8 2.4-7.2-6-4.8h7.6L12 2z" fill="#D97706"/></svg> },
+  system:    { color: '#6B7280', bg: '#F3F4F6', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#6B7280"/><path d="M12 8v4M12 16h.01" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg> },
+  marketing: { color: '#DC2626', bg: '#FEE2E2', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v10l8 5 8-5V7l-8-5z" fill="#DC2626"/><path d="M12 11v3M12 17h.01" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg> },
 };
 
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -151,7 +151,7 @@ export default function NotificationsPage() {
       {filteredItems.length > 0 ? (
         <div>
           {filteredItems.map((n) => {
-            const badge = typeBadgeMap[n.type];
+            const badge = typeIconMap[n.type];
             const swipeX = swipeStates[n.id] ?? 0;
 
             return (
@@ -242,42 +242,34 @@ export default function NotificationsPage() {
   );
 }
 
-function NotifContent({ n, badge }: { n: Notification; badge: { label: string; color: string; bg: string } }) {
+function NotifContent({ n, badge }: { n: Notification; badge: { color: string; bg: string; icon: React.ReactNode } }) {
   return (
-    <>
-      {/* Badge + Date row */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-[11px] font-semibold px-2 py-0.5 rounded"
-            style={{ color: badge.color, backgroundColor: badge.bg }}
-          >
-            {badge.label}
-          </span>
-          {!n.isRead && (
-            <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
-          )}
+    <div className="flex gap-3">
+      {/* Icon */}
+      <div
+        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+        style={{ backgroundColor: badge.bg }}
+      >
+        {badge.icon}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        {/* Title + Date row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className={`text-[15px] leading-snug truncate ${!n.isRead ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+              {n.title}
+            </p>
+            {!n.isRead && (
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0" />
+            )}
+          </div>
+          <span className="text-[11px] text-gray-400 shrink-0 mt-0.5">{n.date}</span>
         </div>
-        <span className="text-[12px] text-gray-400">{n.date}</span>
-      </div>
 
-      {/* Title */}
-      <p className={`text-[16px] leading-snug mb-1.5 ${!n.isRead ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
-        {n.title}
-      </p>
-
-      {/* Content preview with gradient fade */}
-      <div className="relative max-h-[50px] overflow-hidden">
-        <p className="text-[14px] text-gray-400 leading-[20px]">{n.body}</p>
-        <div
-          className="absolute bottom-0 left-0 right-0 h-[24px]"
-          style={{
-            background: !n.isRead
-              ? 'linear-gradient(transparent, #F0F4FF)'
-              : 'linear-gradient(transparent, #FFFFFF)',
-          }}
-        />
+        {/* Content preview */}
+        <p className="text-[13px] text-gray-400 leading-[18px] mt-1 line-clamp-2">{n.body}</p>
       </div>
-    </>
+    </div>
   );
 }
