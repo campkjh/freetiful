@@ -137,8 +137,8 @@ function QuotePage() {
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh', fontWeight: 400 }}>
-      {/* 배경 영상 (opacity 20%) */}
-      <div className="absolute top-0 left-0 right-0 h-[200px] overflow-hidden pointer-events-none z-0">
+      {/* 배경 영상 (opacity 20%) — 최하단 레이어 */}
+      <div className="absolute top-0 left-0 right-0 h-[200px] overflow-hidden pointer-events-none" style={{ zIndex: -1 }}>
         <video
           src="/images/reference-video-1775801211148.mp4#t=0.001"
           autoPlay muted loop playsInline preload="none"
@@ -167,7 +167,7 @@ function QuotePage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 pb-6 relative z-10">
         {/* Step: 행사 유형 */}
         {step === 'type' && (
           <div>
