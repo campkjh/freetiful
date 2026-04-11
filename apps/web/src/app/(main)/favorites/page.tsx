@@ -38,6 +38,21 @@ export default function FavoritesPage() {
   const [bizCategory, setBizCategory] = useState<BizCategory>('전체');
   const [favPros, setFavPros] = useState(MOCK_FAVORITE_PROS);
   const [favBiz, setFavBiz] = useState(MOCK_FAVORITE_BIZ);
+
+  // Sync favorites from localStorage
+  useEffect(() => {
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+      if (stored.length > 0) {
+        // Merge: keep mock pros that are in localStorage, plus add any ALL_PROS entries from localStorage
+        const allKnown = [...MOCK_FAVORITE_PROS, ...ALL_PROS];
+        const merged = stored
+          .map((id) => allKnown.find((p) => p.id === id))
+          .filter(Boolean) as typeof MOCK_FAVORITE_PROS;
+        if (merged.length > 0) setFavPros(merged);
+      }
+    } catch {}
+  }, []);
   const [recentPros, setRecentPros] = useState<typeof ALL_PROS>([]);
   const [scrolled, setScrolled] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -66,7 +81,13 @@ export default function FavoritesPage() {
     } catch {}
   }, []);
 
-  const removePro = (id: string) => setFavPros((prev) => prev.filter((p) => p.id !== id));
+  const removePro = (id: string) => {
+    setFavPros((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+      localStorage.setItem('freetiful-favorites', JSON.stringify(stored.filter((s) => s !== id)));
+    } catch {}
+  };
   const removeBiz = (id: string) => setFavBiz((prev) => prev.filter((b) => b.id !== id));
 
   const filteredPros = proCategory === '전체'

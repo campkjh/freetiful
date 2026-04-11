@@ -230,7 +230,7 @@ export default function BookingDetailPage() {
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-4 pt-3 pb-safe">
         {booking.status === 'completed' ? (
           <button
-            onClick={() => router.push(`/pros/${id}/reviews`)}
+            onClick={() => router.push(`/pros/${id}/reviews/write`)}
             className="w-full h-[52px] text-[16px] font-bold text-white active:scale-[0.98] transition-transform"
             style={{ backgroundColor: '#2B313D', borderRadius: 14 }}
           >

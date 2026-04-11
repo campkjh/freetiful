@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, MoreHorizontal } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronLeft, MoreHorizontal, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const BRAND = '#3180F7';
@@ -31,6 +32,17 @@ export default function ReviewsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [userReviews, setUserReviews] = useState<typeof REVIEWS>([]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('freetiful-reviews') || '[]');
+      const proReviews = stored.filter((r: any) => r.proId === id);
+      setUserReviews(proReviews);
+    } catch {}
+  }, [id]);
+
+  const allReviews = [...userReviews, ...REVIEWS];
 
   return (
     <div className="bg-white min-h-screen pb-10" style={{ letterSpacing: '-0.02em' }}>
@@ -73,7 +85,18 @@ export default function ReviewsPage() {
 
       {/* Review List */}
       <div className="px-4 divide-y divide-gray-100">
-        {REVIEWS.map((review) => (
+        {/* Write Review Button */}
+        <div className="px-4 py-3">
+          <Link
+            href={`/pros/${id}/reviews/write`}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-[#3180F7] text-white rounded-xl font-bold text-[14px] active:scale-[0.98] transition-transform"
+          >
+            <Pencil size={14} />
+            리뷰 작성하기
+          </Link>
+        </div>
+
+        {allReviews.map((review) => (
           <div key={review.id} className="py-5 relative">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">

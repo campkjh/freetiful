@@ -659,7 +659,12 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
 }
 
 export default function HomePage() {
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<Set<string>>(() => {
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+      return new Set(stored);
+    } catch { return new Set(); }
+  });
   const rankScrollRef = useRef<HTMLDivElement>(null);
   const [selectedLang, setSelectedLang] = useState<string | null>(null);
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
@@ -710,6 +715,17 @@ export default function HomePage() {
       const next = new Set(prev);
       if (next.has(proId)) next.delete(proId);
       else next.add(proId);
+      // Sync to localStorage
+      try {
+        const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+        if (isAdding) {
+          if (!stored.includes(proId)) stored.push(proId);
+        } else {
+          const idx = stored.indexOf(proId);
+          if (idx !== -1) stored.splice(idx, 1);
+        }
+        localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
+      } catch {}
       return next;
     });
     // Trigger fly animation when adding to favorites

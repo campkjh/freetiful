@@ -385,7 +385,12 @@ export default function ProDetailPage() {
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(() => {
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+      return stored.includes(id);
+    } catch { return false; }
+  });
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
@@ -489,8 +494,19 @@ export default function ProDetailPage() {
 
   const handleToggleFavorite = () => {
     setIsFavorited((v) => {
+      const newVal = !v;
       toast(v ? '찜 해제' : '찜 목록에 추가됨', { icon: v ? '💙' : '❤️' });
-      return !v;
+      try {
+        const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+        if (newVal) {
+          if (!stored.includes(pro.id)) stored.push(pro.id);
+        } else {
+          const idx = stored.indexOf(pro.id);
+          if (idx !== -1) stored.splice(idx, 1);
+        }
+        localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
+      } catch {}
+      return newVal;
     });
   };
 
