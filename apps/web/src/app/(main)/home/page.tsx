@@ -667,7 +667,7 @@ export default function HomePage() {
   const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
   const [bannerIdx, setBannerIdx] = useState(0);
   useEffect(() => {
-    const timer = setInterval(() => setBannerIdx((i) => (i + 1) % 3), 4000);
+    const timer = setInterval(() => setBannerIdx((i) => (i + 1) % BANNERS.length), 4000);
     return () => clearInterval(timer);
   }, []);
   const [myRegion, setMyRegion] = useState<string | null>(null);
@@ -918,35 +918,33 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Slide Banner */}
+        {/* Slide Banner — 이미지 배너 */}
         <div className="px-[10px] pb-0 pt-1">
           <div
             className="relative w-full overflow-hidden rounded-2xl"
             style={{ aspectRatio: '1170/300' }}
           >
             <div className="flex transition-transform duration-500 ease-out h-full"
-              style={{ width: '300%', transform: `translateX(-${bannerIdx * 33.333}%)` }}
+              style={{ width: `${BANNERS.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / BANNERS.length)}%)` }}
             >
-              {[
-                { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', title: '지금 견적 요청하면', sub: '최대 30% 할인' },
-                { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', title: '후기 작성하고', sub: '푸딩 포인트 받기' },
-                { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', title: 'AI가 추천하는', sub: '나에게 딱 맞는 전문가' },
-              ].map((b, i) => (
-                <div
-                  key={i}
-                  className="w-full h-full shrink-0 flex items-center px-6"
-                  style={{ background: b.bg }}
-                >
-                  <div>
-                    <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
-                    <p className="text-white text-[20px] font-bold mt-1">{b.sub}</p>
-                  </div>
+              {BANNERS.map((b, i) => (
+                <div key={i} className="w-full h-full shrink-0">
+                  {b.image ? (
+                    <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
+                  ) : (
+                    <div className={`w-full h-full ${b.bgColor} flex items-center px-6`}>
+                      <div>
+                        <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
+                        <p className="text-white text-[20px] font-bold mt-1">{b.subtitle}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
             {/* 인디케이터 */}
             <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
-              {bannerIdx + 1} / 3
+              {bannerIdx + 1} / {BANNERS.length}
             </div>
           </div>
         </div>
