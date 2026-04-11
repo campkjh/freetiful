@@ -102,11 +102,12 @@ export default function ProfilePage() {
   const [videoInput, setVideoInput] = useState('');
   const [showVideoInput, setShowVideoInput] = useState(false);
   const FAQ_CATEGORIES = ['서비스정보', '수정 및 재진행', '취소 및 환불 규정', '상품정보 고시'] as const;
+  const userName = typeof window !== 'undefined' ? localStorage.getItem('proRegister_name') || '' : '';
   const FAQ_DEFAULTS: Record<string, string> = {
     '서비스정보': '전문 사회자가 행사 당일 현장에서 사회를 진행합니다. 사전 미팅을 통해 행사 진행 순서를 조율하며, 신랑신부님의 요청에 맞춰 맞춤형 진행을 제공합니다.',
     '수정 및 재진행': '행사 진행 대본은 행사 3일 전까지 수정 가능합니다. 행사 당일 현장 상황에 따른 즉석 수정은 무료로 제공됩니다.',
     '취소 및 환불 규정': '행사 7일 전 취소 시 전액 환불, 3일 전 취소 시 50% 환불, 당일 취소 시 환불 불가합니다. 천재지변 등 불가항력적인 사유의 경우 별도 협의합니다.',
-    '상품정보 고시': '서비스 제공자: 프리티풀 등록 전문 사회자\n서비스 형태: 행사 현장 사회 진행\n이용 조건: 사전 예약 필수\n취소/환불 조건: 취소 및 환불 규정 참조',
+    '상품정보 고시': `서비스 제공자: ${userName || '프리티풀 등록 전문 사회자'}\n서비스 형태: 행사 현장 사회 진행\n이용 조건: 사전 예약 필수\n취소/환불 조건: 취소 및 환불 규정 참조`,
   };
   const [faqContents, setFaqContents] = useState<Record<string, string>>({ ...FAQ_DEFAULTS });
   const [activeFaqTab, setActiveFaqTab] = useState<string>('서비스정보');
