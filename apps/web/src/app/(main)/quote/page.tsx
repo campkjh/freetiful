@@ -355,7 +355,7 @@ function QuotePage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-[10px] pb-6 relative z-10">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence>
         {/* Step: 행사 유형 */}
         {step === 'type' && (
           <motion.div key="type" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
@@ -815,7 +815,7 @@ function QuotePage() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-[10px] pb-6">
-              <AnimatePresence mode="popLayout">
+              <AnimatePresence>
                 <motion.div
                   key={surveyStep}
                   initial={{ opacity: 0, y: 20 }}

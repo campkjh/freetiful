@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Calendar, List, MapPin, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const DAYS_KR = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -117,6 +118,7 @@ export default function SchedulePage() {
   }, [year, month, daysInMonth, holidays, today]);
 
   // 7일 주 단위 스와이프
+  const [slideDirection, setSlideDirection] = useState(0); // -1 = left, 1 = right
   const [weekOffset, setWeekOffset] = useState(0);
   const todayIdx = allDays.findIndex((d) => d.isToday);
   const baseIdx = month === today.getMonth() + 1 && year === today.getFullYear() ? Math.max(0, todayIdx) : 0;
@@ -130,8 +132,8 @@ export default function SchedulePage() {
   const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = (e: React.TouchEvent) => {
     const diff = touchStartX.current - e.changedTouches[0].clientX;
-    if (diff > 50 && hasNextWeek) setWeekOffset((p) => p + 1);
-    if (diff < -50 && hasPrevWeek) setWeekOffset((p) => p - 1);
+    if (diff > 50 && hasNextWeek) { setSlideDirection(1); setWeekOffset((p) => p + 1); }
+    if (diff < -50 && hasPrevWeek) { setSlideDirection(-1); setWeekOffset((p) => p - 1); }
   };
 
   const schedulesByDate = useMemo(() => {
@@ -211,61 +213,71 @@ export default function SchedulePage() {
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            <div className="grid grid-cols-7 text-center gap-y-1">
-              {/* Day of week header */}
-              {visibleDays.map((d, i) => (
-                <span
-                  key={`dow-${i}`}
-                  className={`text-[12px] font-medium ${d.dayOfWeek === '일' || d.isHoliday ? 'text-red-400' : d.dayOfWeek === '토' ? 'text-blue-400' : 'text-gray-400'}`}
-                >
-                  {d.dayOfWeek}
-                </span>
-              ))}
-              {/* Day numbers */}
-              {visibleDays.map((d, i) => {
-                const isSelected = d.dateStr === selectedDate;
-                const isRed = d.dayOfWeek === '일' || d.isHoliday;
-                const isSat = d.dayOfWeek === '토';
-                const items = schedulesByDate[d.dateStr];
-                return (
-                  <button
-                    key={`day-${i}`}
-                    onClick={() => setSelectedDate(d.dateStr)}
-                    className="flex flex-col items-center"
+            <AnimatePresence mode="wait" initial={false} custom={slideDirection}>
+              <motion.div
+                key={weekOffset}
+                custom={slideDirection}
+                initial={{ x: slideDirection * 300, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: slideDirection * -300, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                className="grid grid-cols-7 text-center gap-y-1"
+              >
+                {/* Day of week header */}
+                {visibleDays.map((d, i) => (
+                  <span
+                    key={`dow-${i}`}
+                    className={`text-[12px] font-medium ${d.dayOfWeek === '일' || d.isHoliday ? 'text-red-400' : d.dayOfWeek === '토' ? 'text-blue-400' : 'text-gray-400'}`}
                   >
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] font-bold transition-all ${
-                        isSelected
-                          ? 'bg-[#2B313D] text-white'
-                          : d.isPast
-                          ? 'text-gray-200'
-                          : isRed
-                          ? 'text-red-400'
-                          : isSat
-                          ? 'text-blue-400'
-                          : 'text-gray-900'
-                      }`}
+                    {d.dayOfWeek}
+                  </span>
+                ))}
+                {/* Day numbers */}
+                {visibleDays.map((d, i) => {
+                  const isSelected = d.dateStr === selectedDate;
+                  const isRed = d.dayOfWeek === '일' || d.isHoliday;
+                  const isSat = d.dayOfWeek === '토';
+                  const items = schedulesByDate[d.dateStr];
+                  return (
+                    <button
+                      key={`day-${i}`}
+                      onClick={() => setSelectedDate(d.dateStr)}
+                      className="flex flex-col items-center"
                     >
-                      {d.day}
-                    </div>
-                    {d.isHoliday && !d.isToday && <span className="text-[9px] text-red-400 mt-0.5 truncate max-w-[40px]">{d.holidayName}</span>}
-                    {d.isToday && !d.isHoliday && <span className="text-[10px] text-gray-400 mt-0.5">오늘</span>}
-                    {d.isToday && d.isHoliday && <span className="text-[9px] text-red-400 mt-0.5 truncate max-w-[40px]">{d.holidayName}</span>}
-                    {!d.isToday && !d.isHoliday && items && items.length > 0 && (
-                      <div className="flex gap-0.5 mt-0.5">
-                        {items.slice(0, 3).map((s, j) => (
-                          <span
-                            key={j}
-                            className="w-[5px] h-[5px] rounded-full"
-                            style={{ backgroundColor: CATEGORY_COLORS[s.category] ?? '#999' }}
-                          />
-                        ))}
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] font-bold transition-all ${
+                          isSelected
+                            ? 'bg-[#2B313D] text-white'
+                            : d.isPast
+                            ? 'text-gray-200'
+                            : isRed
+                            ? 'text-red-400'
+                            : isSat
+                            ? 'text-blue-400'
+                            : 'text-gray-900'
+                        }`}
+                      >
+                        {d.day}
                       </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                      {d.isHoliday && !d.isToday && <span className="text-[9px] text-red-400 mt-0.5 truncate max-w-[40px]">{d.holidayName}</span>}
+                      {d.isToday && !d.isHoliday && <span className="text-[10px] text-gray-400 mt-0.5">오늘</span>}
+                      {d.isToday && d.isHoliday && <span className="text-[9px] text-red-400 mt-0.5 truncate max-w-[40px]">{d.holidayName}</span>}
+                      {!d.isToday && !d.isHoliday && items && items.length > 0 && (
+                        <div className="flex gap-0.5 mt-0.5">
+                          {items.slice(0, 3).map((s, j) => (
+                            <span
+                              key={j}
+                              className="w-[5px] h-[5px] rounded-full"
+                              style={{ backgroundColor: CATEGORY_COLORS[s.category] ?? '#999' }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
             {/* 스와이프 인디케이터 */}
             <div className="flex justify-center gap-1 mt-2">
               {Array.from({ length: totalWeeks }, (_, i) => (
@@ -320,7 +332,13 @@ export default function SchedulePage() {
               </div>
             ) : (
               <div className="flex flex-col items-center py-14 text-gray-400">
-                <Calendar size={32} className="mb-3 text-gray-200" />
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mb-3">
+                  <rect x="3" y="4" width="18" height="18" rx="3" fill="#E5E7EB"/>
+                  <rect x="3" y="4" width="18" height="7" rx="3" fill="#9CA3AF"/>
+                  <rect x="7" y="2" width="2.5" height="4" rx="1.25" fill="#D1D5DB"/>
+                  <rect x="14.5" y="2" width="2.5" height="4" rx="1.25" fill="#D1D5DB"/>
+                  <path d="M9 15l2 2 4-4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
                 <p className="text-[14px]">이 날에는 일정이 없습니다</p>
               </div>
             )}
@@ -373,7 +391,13 @@ export default function SchedulePage() {
             </div>
           ) : (
             <div className="flex flex-col items-center py-16 text-gray-400">
-              <Calendar size={32} className="mb-3 text-gray-200" />
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mb-3">
+                <rect x="3" y="4" width="18" height="18" rx="3" fill="#E5E7EB"/>
+                <rect x="3" y="4" width="18" height="7" rx="3" fill="#9CA3AF"/>
+                <rect x="7" y="2" width="2.5" height="4" rx="1.25" fill="#D1D5DB"/>
+                <rect x="14.5" y="2" width="2.5" height="4" rx="1.25" fill="#D1D5DB"/>
+                <path d="M9 15l2 2 4-4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               <p className="text-[14px]">이번 달 일정이 없습니다</p>
             </div>
           )}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -18,6 +19,7 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 
 export default function PaymentHistoryPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>

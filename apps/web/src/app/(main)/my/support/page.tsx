@@ -1,11 +1,13 @@
 'use client';
 
-import { ChevronLeft, Phone, Mail, MessageCircle, Clock, ChevronRight } from 'lucide-react';
+import { useEffect } from 'react';
+import { ChevronLeft, Clock, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function SupportPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
@@ -31,32 +33,42 @@ export default function SupportPage() {
         {/* 연락 방법 */}
         <div className="border border-gray-100 overflow-hidden" style={{ borderRadius: 12 }}>
           <a href="tel:1544-0000" className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
-            <div className="w-10 h-10 bg-green-100 flex items-center justify-center" style={{ borderRadius: 12 }}>
-              <Phone size={18} className="text-green-600" />
-            </div>
             <div className="flex-1">
-              <p className="text-sm font-bold text-gray-900">전화 문의</p>
-              <p className="text-xs text-gray-400">1544-0000</p>
+              <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect x="5" y="2" width="14" height="20" rx="3" fill="#4A8AF4"/>
+                  <rect x="9" y="17" width="6" height="1.5" rx="0.75" fill="white" opacity="0.6"/>
+                  <rect x="8" y="5" width="8" height="9" rx="1" fill="white" opacity="0.3"/>
+                </svg>
+                전화 문의
+              </p>
+              <p className="text-xs text-gray-400 ml-7">1544-0000</p>
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </a>
           <a href="mailto:support@freetiful.co.kr" className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
-            <div className="w-10 h-10 bg-blue-100 flex items-center justify-center" style={{ borderRadius: 12 }}>
-              <Mail size={18} className="text-blue-600" />
-            </div>
             <div className="flex-1">
-              <p className="text-sm font-bold text-gray-900">이메일 문의</p>
-              <p className="text-xs text-gray-400">support@freetiful.co.kr</p>
+              <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect x="2" y="5" width="20" height="14" rx="3" fill="#F59E0B"/>
+                  <path d="M2 8l10 6 10-6" stroke="white" strokeWidth="1.5" strokeLinejoin="round" opacity="0.7"/>
+                </svg>
+                이메일 문의
+              </p>
+              <p className="text-xs text-gray-400 ml-7">support@freetiful.co.kr</p>
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </a>
           <button className="flex items-center gap-3 px-4 py-4 w-full text-left">
-            <div className="w-10 h-10 bg-purple-100 flex items-center justify-center" style={{ borderRadius: 12 }}>
-              <MessageCircle size={18} className="text-purple-600" />
-            </div>
             <div className="flex-1">
-              <p className="text-sm font-bold text-gray-900">카카오톡 문의</p>
-              <p className="text-xs text-gray-400">@프리티풀</p>
+              <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" fill="#FEE500"/>
+                  <path d="M12 6c-3.86 0-7 2.46-7 5.5 0 1.97 1.31 3.7 3.28 4.67l-.84 3.14c-.05.18.16.33.31.22l3.73-2.47c.17.01.34.02.52.02 3.86 0 7-2.46 7-5.5S15.86 6 12 6z" fill="#3C1E1E"/>
+                </svg>
+                카카오톡 문의
+              </p>
+              <p className="text-xs text-gray-400 ml-7">@프리티풀</p>
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Lock, Link2, Wallet } from 'lucide-react';
 import ImageUploader from '@/components/ui/ImageUploader';
@@ -46,6 +46,7 @@ const SOCIAL_ACCOUNTS = [
 
 export default function SettingsPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [name, setName] = useState('김정훈');
   const [phone, setPhone] = useState('010-9433-5674');
   const [images, setImages] = useState(MOCK_IMAGES);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -24,6 +24,7 @@ const INITIAL_SETTINGS: NotifSetting[] = [
 
 export default function NotificationsSettingsPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
 
   const toggle = (key: string) => {

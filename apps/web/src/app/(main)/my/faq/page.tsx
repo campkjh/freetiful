@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronDown, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -32,6 +32,7 @@ const FAQ_DATA = [
 
 export default function FaqPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);

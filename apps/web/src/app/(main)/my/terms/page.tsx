@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -15,6 +16,7 @@ const TERMS_ITEMS = [
 
 export default function TermsListPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>

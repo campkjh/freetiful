@@ -374,7 +374,10 @@ export default function ChatListPage() {
           <div className="flex-1 overflow-y-auto">
             {sorted.length === 0 ? (
               <div className="text-center py-16">
-                <span className="text-3xl">💬</span>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto">
+                  <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
+                  <circle cx="8.5" cy="12" r="1.2" fill="white"/><circle cx="11.5" cy="12" r="1.2" fill="white"/><circle cx="14.5" cy="12" r="1.2" fill="white"/>
+                </svg>
                 <p className="text-gray-400 text-[13px] mt-3">대화가 없습니다</p>
               </div>
             ) : renderChatList(true)}
@@ -555,7 +558,10 @@ export default function ChatListPage() {
         </AnimatePresence>
         {sorted.length === 0 ? (
           <div className="text-center py-20">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-3xl">💬</span></div>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto mb-4">
+              <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
+              <circle cx="8.5" cy="12" r="1.2" fill="white"/><circle cx="11.5" cy="12" r="1.2" fill="white"/><circle cx="14.5" cy="12" r="1.2" fill="white"/>
+            </svg>
             <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
             {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">전문가 찾아보기</Link>}
           </div>

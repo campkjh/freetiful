@@ -362,7 +362,9 @@ function SwipeToDelete({ children, onDelete }: { children: React.ReactNode; onDe
 function EmptyState({ message, linkText, linkHref }: { message: string; linkText: string; linkHref: string }) {
   return (
     <div className="flex flex-col items-center py-24 text-gray-400">
-      <Heart size={36} className="mb-3 text-gray-200" />
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mb-3">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#FBBF24"/>
+      </svg>
       <p className="text-[14px]">{message}</p>
       <Link href={linkHref} className="text-[13px] text-blue-500 font-medium mt-2">{linkText}</Link>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Calendar } from 'lucide-react';
 
@@ -21,6 +21,7 @@ const MOCK_PURCHASES = [
 
 export default function PurchaseHistoryPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [filter, setFilter] = useState<Status>('all');
 
   const filtered = MOCK_PURCHASES.filter((p) => filter === 'all' || p.status === filter);

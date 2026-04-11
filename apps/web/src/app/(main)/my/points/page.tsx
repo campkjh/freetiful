@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Info } from 'lucide-react';
 
@@ -9,6 +10,7 @@ const MOCK_TRANSACTIONS = [
 
 export default function PointsPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const totalPoints = 5000;
 
   return (

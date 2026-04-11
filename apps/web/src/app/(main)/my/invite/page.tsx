@@ -2,7 +2,7 @@
 
 import { ChevronLeft, Copy, Share2, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const REFERRAL = {
   code: 'FREETIFUL2026',
@@ -13,6 +13,7 @@ const REFERRAL = {
 
 export default function InvitePage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {

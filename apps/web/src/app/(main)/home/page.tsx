@@ -788,7 +788,7 @@ export default function HomePage() {
           </Link>
           {/* Search bar - expands with bounce */}
           <Link
-            href="/pros"
+            href="/search"
             className="flex items-center gap-2 bg-surface-100 rounded-full px-3 py-2.5 hover:bg-surface-200/80"
             style={{
               flex: 1,

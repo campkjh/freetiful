@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Clock } from 'lucide-react';
 
@@ -12,6 +12,7 @@ const MOCK_COUPONS = [
 
 export default function CouponsPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [couponCode, setCouponCode] = useState('');
 
   const available = MOCK_COUPONS.filter((c) => !c.isUsed);

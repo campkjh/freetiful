@@ -81,9 +81,18 @@ function ProsListContent() {
   const [selectedPrice, setSelectedPrice] = useState(0); // index into PRICE_RANGES
   const [page, setPage] = useState(1);
   const [scrolled, setScrolled] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setPage(1); }, [selectedRegion, sortBy, selectedPrice]);
+  useEffect(() => { setPage(1); }, [selectedRegion, sortBy, selectedPrice, searchQuery]);
+
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [showSearch]);
 
   // Scroll tracker
   useEffect(() => {
@@ -102,7 +111,9 @@ function ProsListContent() {
 
   const filtered = useMemo(() => {
     const priceRange = PRICE_RANGES[selectedPrice];
+    const q = searchQuery.trim().toLowerCase();
     let results = MOCK_PROS.filter((p) => {
+      if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !p.category.toLowerCase().includes(q)) return false;
       if (selectedRegion !== '전체' && p.region !== selectedRegion && p.region !== '전국') return false;
       if (p.price < priceRange.min || p.price > priceRange.max) return false;
       return true;
@@ -130,7 +141,7 @@ function ProsListContent() {
     }
 
     return results;
-  }, [selectedRegion, sortBy, selectedPrice]);
+  }, [selectedRegion, sortBy, selectedPrice, searchQuery]);
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;
@@ -145,11 +156,50 @@ function ProsListContent() {
           <button onClick={() => router.back()} className="p-1 -ml-2 shrink-0 active:scale-90 transition-transform">
             <ChevronLeft size={24} className="text-gray-800" />
           </button>
-          <h1 className="text-[18px] font-bold text-gray-900">사회자</h1>
+          <AnimatePresence mode="wait">
+            {showSearch ? (
+              <motion.div
+                key="search-input"
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: '100%' }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5 ml-1"
+              >
+                <Search size={16} className="text-gray-400 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="이름, 소개로 검색"
+                  className="flex-1 bg-transparent text-[14px] text-gray-900 placeholder-gray-400 outline-none"
+                />
+                <button
+                  onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+                  className="p-0.5 active:scale-90 transition-transform"
+                >
+                  <X size={16} className="text-gray-500" />
+                </button>
+              </motion.div>
+            ) : (
+              <motion.h1
+                key="title"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-[18px] font-bold text-gray-900"
+              >
+                사회자
+              </motion.h1>
+            )}
+          </AnimatePresence>
           <div className="flex-1" />
-          <Link href="/pros/search" className="p-1 active:scale-90 transition-transform">
-            <Search size={20} className="text-gray-600" />
-          </Link>
+          {!showSearch && (
+            <button onClick={() => setShowSearch(true)} className="p-1 active:scale-90 transition-transform">
+              <Search size={20} className="text-gray-600" />
+            </button>
+          )}
         </div>
 
         {/* Region filter chips + Filter button */}

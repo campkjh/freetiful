@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -22,6 +22,7 @@ const TAG_COLORS: Record<string, string> = {
 
 export default function AnnouncementsPage() {
   const router = useRouter();
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
