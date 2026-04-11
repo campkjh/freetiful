@@ -1236,12 +1236,12 @@ export default function HomePage() {
             </div>
             <LayoutGroup id="event-tabs">
               <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-                <button onClick={() => setSelectedEventType(null)} className={`relative chip ${selectedEventType === null ? 'text-white' : 'chip-inactive'}`}>
+                <button onClick={() => setSelectedEventType(null)} className={`relative isolate chip ${selectedEventType === null ? 'text-white' : 'chip-inactive'}`}>
                   {selectedEventType === null && <motion.span layoutId="event-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                   <span className="relative">전체</span>
                 </button>
                 {ALL_EVENT_TYPES.map((et) => (
-                  <button key={et} onClick={() => setSelectedEventType(selectedEventType === et ? null : et)} className={`relative chip ${selectedEventType === et ? 'text-white' : 'chip-inactive'}`}>
+                  <button key={et} onClick={() => setSelectedEventType(selectedEventType === et ? null : et)} className={`relative isolate chip ${selectedEventType === et ? 'text-white' : 'chip-inactive'}`}>
                     {selectedEventType === et && <motion.span layoutId="event-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                     <span className="relative">{et}</span>
                   </button>
@@ -1308,7 +1308,7 @@ export default function HomePage() {
               {['서울/경기', '충청', '경상', '전라', '강원', '제주'].map((region) => {
                 const active = selectedRegion === region;
                 return (
-                  <button key={region} onClick={() => setSelectedRegion(active ? null : region)} className={`relative chip ${active ? 'text-white' : 'chip-inactive'}`}>
+                  <button key={region} onClick={() => setSelectedRegion(active ? null : region)} className={`relative isolate chip ${active ? 'text-white' : 'chip-inactive'}`}>
                     {active && <motion.span layoutId="region-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                     <span className="relative">{region}</span>
                   </button>
@@ -1344,7 +1344,7 @@ export default function HomePage() {
             </div>
             <LayoutGroup id="lang-tabs">
               <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-                <button onClick={() => setSelectedLang(null)} className={`relative chip ${selectedLang === null ? 'text-white' : 'chip-inactive'}`}>
+                <button onClick={() => setSelectedLang(null)} className={`relative isolate chip ${selectedLang === null ? 'text-white' : 'chip-inactive'}`}>
                   {selectedLang === null && <motion.span layoutId="lang-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                   <span className="relative">전체</span>
                 </button>
@@ -1355,7 +1355,7 @@ export default function HomePage() {
                     <button
                       key={lang}
                       onClick={() => setSelectedLang(active ? null : lang)}
-                      className={`relative chip flex items-center gap-1.5 ${active ? 'text-white' : 'chip-inactive'}`}
+                      className={`relative isolate chip flex items-center gap-1.5 ${active ? 'text-white' : 'chip-inactive'}`}
                     >
                       {active && <motion.span layoutId="lang-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                       {flag && (
@@ -1396,12 +1396,12 @@ export default function HomePage() {
             </div>
             <LayoutGroup id="biz-tabs">
               <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-                <button onClick={() => setSelectedBizCat(null)} className={`relative chip ${selectedBizCat === null ? 'text-white' : 'chip-inactive'}`}>
+                <button onClick={() => setSelectedBizCat(null)} className={`relative isolate chip ${selectedBizCat === null ? 'text-white' : 'chip-inactive'}`}>
                   {selectedBizCat === null && <motion.span layoutId="biz-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                   <span className="relative">전체</span>
                 </button>
                 {BIZ_CATEGORIES.slice(1).map((cat) => (
-                  <button key={cat} onClick={() => setSelectedBizCat(selectedBizCat === cat ? null : cat)} className={`relative chip ${selectedBizCat === cat ? 'text-white' : 'chip-inactive'}`}>
+                  <button key={cat} onClick={() => setSelectedBizCat(selectedBizCat === cat ? null : cat)} className={`relative isolate chip ${selectedBizCat === cat ? 'text-white' : 'chip-inactive'}`}>
                     {selectedBizCat === cat && <motion.span layoutId="biz-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                     <span className="relative">{cat}</span>
                   </button>
