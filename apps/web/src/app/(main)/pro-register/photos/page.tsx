@@ -92,7 +92,17 @@ export default function PhotosPage() {
   const [cropFor, setCropFor] = useState<'new' | number>('new');
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [aspect, setAspect] = useState(1);
   const [croppedArea, setCroppedArea] = useState<Area | null>(null);
+
+  const ASPECT_OPTIONS = [
+    { label: '1:1', value: 1 },
+    { label: '3:4', value: 3 / 4 },
+    { label: '4:3', value: 4 / 3 },
+    { label: '16:9', value: 16 / 9 },
+    { label: '9:16', value: 9 / 16 },
+    { label: '자유', value: 0 },
+  ];
 
   // Face detection
   const [faceError, setFaceError] = useState('');
@@ -122,6 +132,7 @@ export default function PhotosPage() {
       setCropFor('new');
       setCrop({ x: 0, y: 0 });
       setZoom(1);
+      setAspect(1);
       setFaceError('');
     };
     reader.readAsDataURL(file);
@@ -177,6 +188,7 @@ export default function PhotosPage() {
     setCropFor(index);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
+    setAspect(1);
     setFaceError('');
   };
 
@@ -342,7 +354,7 @@ export default function PhotosPage() {
                 image={cropImage}
                 crop={crop}
                 zoom={zoom}
-                aspect={1}
+                aspect={aspect || undefined}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={onCropComplete}
@@ -355,8 +367,24 @@ export default function PhotosPage() {
               />
             </div>
 
+            {/* Aspect ratio tabs */}
+            <div className="shrink-0 px-4 py-3 bg-black/80 flex gap-2 justify-center">
+              {ASPECT_OPTIONS.map((opt) => (
+                <motion.button
+                  key={opt.label}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setAspect(opt.value)}
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors ${
+                    aspect === opt.value ? 'bg-[#3180F7] text-white' : 'bg-white/10 text-gray-400'
+                  }`}
+                >
+                  {opt.label}
+                </motion.button>
+              ))}
+            </div>
+
             {/* Zoom slider */}
-            <div className="shrink-0 px-8 py-4 bg-black/80 flex items-center gap-3">
+            <div className="shrink-0 px-8 py-3 bg-black/80 flex items-center gap-3">
               <span className="text-[12px] text-gray-400">-</span>
               <input
                 type="range"
