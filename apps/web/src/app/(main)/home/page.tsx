@@ -928,7 +928,7 @@ export default function HomePage() {
               style={{ width: `${BANNERS.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / BANNERS.length)}%)` }}
             >
               {BANNERS.map((b, i) => (
-                <div key={i} className="w-full h-full shrink-0">
+                <div key={i} className="h-full shrink-0" style={{ width: `${100 / BANNERS.length}%` }}>
                   {b.image ? (
                     <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
                   ) : (

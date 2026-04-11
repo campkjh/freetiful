@@ -53,7 +53,7 @@ export default function StackBanner({ banners, autoPlayInterval = 4000 }: StackB
 
   return (
     <div className="w-full">
-      <div className="relative w-full" style={{ aspectRatio: '2 / 1' }}>
+      <div className="relative w-full" style={{ aspectRatio: '1170 / 300' }}>
         {Array.from({ length: visibleCount - 1 }, (_, i) => {
           const stackIndex = visibleCount - 1 - i;
           const bannerIdx = (currentIndex + stackIndex) % banners.length;
