@@ -191,19 +191,14 @@ export default function PricingPage() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                {/* Price input */}
+                {/* Price — fixed */}
                 <div className="mb-5">
-                  <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">가격 설정</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      value={activeTab in prices ? prices[activeTab] : PLANS.find(p => p.id === activeTab)?.defaultPrice ?? ''}
-                      onChange={(e) => setPrices(prev => ({ ...prev, [activeTab]: e.target.value }))}
-                      onFocus={() => { if (!(activeTab in prices)) setPrices(prev => ({ ...prev, [activeTab]: String(PLANS.find(p => p.id === activeTab)?.defaultPrice ?? '') })); }}
-                      placeholder="가격을 입력하세요"
-                      className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] transition-colors"
-                    />
-                    <span className="text-[14px] text-gray-500 font-medium shrink-0">원</span>
+                  <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">가격</label>
+                  <div className="h-12 bg-gray-50 border border-gray-100 rounded-xl px-4 flex items-center justify-between">
+                    <span className="text-[18px] font-bold text-gray-900">
+                      {(PLANS.find(p => p.id === activeTab)?.defaultPrice ?? 0).toLocaleString()}원
+                    </span>
+                    <span className="text-[12px] text-gray-400">고정 가격</span>
                   </div>
                 </div>
 
