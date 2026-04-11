@@ -166,6 +166,8 @@ function QuotePage() {
   const [moods, setMoods] = useState<Set<string>>(new Set());
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
+  const [nearbyVenues, setNearbyVenues] = useState<{ name: string; address: string; phone: string; distance: number; url: string }[]>([]);
+  const [venuesLoading, setVenuesLoading] = useState(false);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const toggleMood = (m: string) => setMoods((prev) => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n; });
@@ -183,6 +185,20 @@ function QuotePage() {
       height: '100%',
     }).embed(addressEmbedRef.current);
   }, [showAddressModal]);
+
+  // Fetch nearby wedding venues when location changes
+  useEffect(() => {
+    if (!location) { setNearbyVenues([]); return; }
+    let cancelled = false;
+    setVenuesLoading(true);
+    fetch(`/api/nearby-venues?address=${encodeURIComponent(location)}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setNearbyVenues(data.venues || []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setVenuesLoading(false); });
+    return () => { cancelled = true; };
+  }, [location]);
+
   const togglePro = (id: string) => setSelectedPros((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   // Time range: clicking sets start, then end
@@ -401,6 +417,48 @@ function QuotePage() {
                 <AnimatePresence>
                   {location && (
                     <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-[12px] text-[#3180F7] mt-1.5 font-medium">{location}</motion.p>
+                  )}
+                </AnimatePresence>
+
+                {/* Nearby Wedding Venues */}
+                <AnimatePresence>
+                  {location && (venuesLoading || nearbyVenues.length > 0) && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 21V7l9-4 9 4v14" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/><path d="M9 21V13h6v8" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/></svg>
+                        <span className="text-[12px] font-bold text-gray-700">근처 웨딩홀</span>
+                        {venuesLoading && <span className="text-[10px] text-gray-400 ml-1">검색중...</span>}
+                      </div>
+                      {nearbyVenues.length > 0 && (
+                        <div className="space-y-1.5 max-h-[180px] overflow-y-auto">
+                          {nearbyVenues.slice(0, 5).map((v, i) => (
+                            <motion.button
+                              key={i}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => setLocation(v.address || v.name)}
+                              className="w-full flex items-center gap-2.5 p-2.5 bg-gray-50 rounded-xl text-left hover:bg-blue-50/50 transition-colors"
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 21V7l9-4 9 4v14" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/><path d="M9 21V13h6v8" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/></svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-semibold text-gray-900 truncate">{v.name}</p>
+                                <p className="text-[11px] text-gray-400 truncate">{v.address}</p>
+                              </div>
+                              <span className="text-[11px] text-[#3180F7] font-bold shrink-0">
+                                {v.distance < 1000 ? `${v.distance}m` : `${(v.distance / 1000).toFixed(1)}km`}
+                              </span>
+                            </motion.button>
+                          ))}
+                        </div>
+                      )}
+                      {!venuesLoading && nearbyVenues.length === 0 && location && (
+                        <p className="text-[11px] text-gray-400">근처에 웨딩홀이 없습니다</p>
+                      )}
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </motion.div>
