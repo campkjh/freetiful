@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const CATEGORIES = ['결혼식', '행사', '회갑/칠순', '돌잔치', '레슨/클래스'];
+const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
+const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
+const OTHER_TAGS = ['레슨/클래스', '쇼호스트', '축가/연주'];
 
 export default function PersonalInfoPage() {
   const router = useRouter();
@@ -112,8 +114,10 @@ export default function PersonalInfoPage() {
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={`w-full text-[20px] font-semibold outline-none pb-2 transition-all ${
+            onChange={(e) => { if (e.target.value.length <= 4) setName(e.target.value); }}
+            maxLength={4}
+            placeholder="이름 (최대 4자)"
+            className={`w-full text-[20px] font-semibold outline-none pb-2 transition-all placeholder:text-gray-300 ${
               name ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-900'
             }`}
           />
@@ -169,44 +173,31 @@ export default function PersonalInfoPage() {
 
         {/* [필수]전문영역 */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-6">
-          <p className="text-sm font-bold text-gray-900 mb-4">[필수]전문영역</p>
-          <div className="flex flex-wrap gap-3">
-            {CATEGORIES.map((cat, i) => {
-              const selected = selectedCategories.includes(cat);
-              return (
-                <motion.button
-                  key={cat}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.4 + i * 0.05 }}
-                  whileTap={{ scale: 0.93 }}
-                  onClick={() => toggleCategory(cat)}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: selected ? '#3180F7' : '#FFFFFF',
-                    color: selected ? '#FFFFFF' : '#4B5563',
-                    border: selected ? '1px solid #3180F7' : '1px solid #D1D5DB',
-                  }}
-                >
-                  <motion.div
-                    animate={{
-                      backgroundColor: selected ? '#FFFFFF' : '#FFFFFF',
-                      borderColor: selected ? '#FFFFFF' : '#D1D5DB',
-                    }}
-                    className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2"
-                  >
-                    <AnimatePresence>
-                      {selected && (
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
-                          <Check size={14} className="text-[#3180F7] stroke-[3]" />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                  {cat}
-                </motion.button>
-              );
-            })}
+          <p className="text-sm font-bold text-gray-900 mb-1">[필수]전문영역</p>
+          <p className="text-xs text-gray-400 mb-4">가능한 분야를 모두 선택해주세요</p>
+
+          {/* 웨딩/가족행사 */}
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">웨딩 · 가족행사</p>
+          <div className="flex flex-wrap gap-2 mb-5">
+            {WEDDING_TAGS.map((cat, i) => (
+              <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} delay={0.4 + i * 0.03} />
+            ))}
+          </div>
+
+          {/* 기업/공식행사 */}
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">기업 · 공식행사</p>
+          <div className="flex flex-wrap gap-2 mb-5">
+            {EVENT_TAGS.map((cat, i) => (
+              <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} delay={0.5 + i * 0.03} />
+            ))}
+          </div>
+
+          {/* 기타 */}
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">기타</p>
+          <div className="flex flex-wrap gap-2">
+            {OTHER_TAGS.map((cat, i) => (
+              <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} delay={0.6 + i * 0.03} />
+            ))}
           </div>
         </motion.div>
       </div>
@@ -307,5 +298,25 @@ export default function PersonalInfoPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function TagChip({ label, selected, onToggle, delay }: { label: string; selected: boolean; onToggle: () => void; delay: number }) {
+  return (
+    <motion.button
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay }}
+      whileTap={{ scale: 0.93 }}
+      onClick={onToggle}
+      className="px-3.5 py-2 rounded-full text-[13px] font-medium transition-colors"
+      style={{
+        backgroundColor: selected ? '#3180F7' : '#FFFFFF',
+        color: selected ? '#FFFFFF' : '#4B5563',
+        border: selected ? '1px solid #3180F7' : '1px solid #D1D5DB',
+      }}
+    >
+      {label}
+    </motion.button>
   );
 }
