@@ -52,6 +52,19 @@ const PLANS = [
   { id: 'enterprise', label: 'Enterprise', price: 1700000, desc: '6시간 풀타임', icon: <PlanIconEnterprise />, color: 'border-amber-200 bg-amber-50/40' },
 ];
 
+const SERVICE_TABLE = [
+  { name: '사회 진행', premium: true, superior: true, enterprise: true },
+  { name: '사전 미팅', premium: true, superior: true, enterprise: true },
+  { name: '대본 작성', premium: false, superior: true, enterprise: true },
+  { name: '리허설 참석', premium: false, superior: true, enterprise: true },
+  { name: '축사/건배사 코디', premium: false, superior: false, enterprise: true },
+  { name: '포토타임 진행', premium: false, superior: true, enterprise: true },
+  { name: '하객 응대 안내', premium: false, superior: false, enterprise: true },
+  { name: '2차 진행', premium: false, superior: false, enterprise: true },
+  { name: '영상 큐시트 관리', premium: false, superior: true, enterprise: true },
+  { name: '전담 코디네이터', premium: false, superior: false, enterprise: true },
+];
+
 const EVENT_TYPES = ['결혼식', '돌잔치', '기업행사', '공식행사', '체육대회', '레크리에이션', '팀빌딩', '송년회', '컨퍼런스', '라이브커머스', '기업PT', '워크숍'];
 
 const MOOD_TAGS = ['격식있는', '따뜻한', '유쾌한', '감동적인', '차분한', '에너지넘치는', '프리미엄', '친근한', '세련된', '로맨틱한'];
@@ -167,7 +180,7 @@ function QuotePage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 pb-6 relative z-10">
+      <div className="flex-1 overflow-y-auto px-[10px] pb-6 relative z-10">
         {/* Step: 행사 유형 */}
         {step === 'type' && (
           <div>
@@ -183,30 +196,71 @@ function QuotePage() {
           </div>
         )}
 
-        {/* Step: 플랜 — 가로형 3*1 카드, 클릭 시 확대 */}
+        {/* Step: 플랜 선택 — 플랫 + 서비스 비교표 */}
         {step === 'plan' && (
           <div>
             <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">플랜을 선택해주세요</h2>
             <p className="text-[14px] text-gray-400 mb-6">행사 규모에 맞는 플랜을 골라주세요</p>
-            <div className="grid grid-cols-3 gap-2.5">
+
+            {/* Plan selector — flat row */}
+            <div className="flex gap-0 border-b border-gray-100">
               {PLANS.map((p) => {
                 const active = plan === p.id;
                 return (
                   <button
                     key={p.id}
                     onClick={() => setPlan(p.id)}
-                    className={`relative flex flex-col items-center p-4 rounded-2xl border text-center transition-all duration-300 active:scale-[0.95] ${
-                      active ? `border-[#3180F7] ${p.color} scale-[1.05] shadow-md` : 'border-gray-100'
-                    }`}
+                    className="flex-1 py-4 flex flex-col items-center gap-1.5 relative transition-all active:scale-[0.97]"
                   >
-                    {active && <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#3180F7] rounded-full flex items-center justify-center"><Check size={12} className="text-white" /></div>}
-                    <div className="mb-2">{p.icon}</div>
-                    <p className={`text-[13px] font-semibold ${active ? 'text-gray-900' : 'text-gray-600'}`}>{p.label}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">{p.desc}</p>
-                    <p className={`text-[13px] font-bold mt-2 ${active ? 'text-[#3180F7]' : 'text-gray-700'}`}>{(p.price / 10000).toFixed(0)}만원</p>
+                    <div className={`transition-transform duration-300 ${active ? 'scale-110' : 'opacity-40'}`}>{p.icon}</div>
+                    <p className={`text-[14px] font-bold transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{p.label}</p>
+                    <p className={`text-[12px] transition-colors ${active ? 'text-gray-500' : 'text-gray-300'}`}>{p.desc}</p>
+                    <p className={`text-[15px] font-bold mt-0.5 transition-colors ${active ? 'text-[#3180F7]' : 'text-gray-300'}`}>{(p.price / 10000).toFixed(0)}만원~</p>
+                    {/* Active indicator */}
+                    {active && (
+                      <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#3180F7] rounded-full" />
+                    )}
                   </button>
                 );
               })}
+            </div>
+
+            {/* Service comparison table */}
+            <div className="mt-6">
+              <p className="text-[13px] font-bold text-gray-900 mb-3">서비스 포함 내역</p>
+              <div className="overflow-hidden rounded-xl border border-gray-100">
+                {/* Table header */}
+                <div className="grid grid-cols-4 bg-gray-50">
+                  <div className="py-2.5 px-3 text-[11px] font-bold text-gray-400">서비스</div>
+                  {PLANS.map((p) => (
+                    <div key={p.id} className={`py-2.5 text-center text-[11px] font-bold transition-colors ${plan === p.id ? 'text-[#3180F7]' : 'text-gray-400'}`}>
+                      {p.label}
+                    </div>
+                  ))}
+                </div>
+                {/* Table rows */}
+                {SERVICE_TABLE.map((row, i) => (
+                  <div key={row.name} className={`grid grid-cols-4 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${i < SERVICE_TABLE.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                    <div className="py-2.5 px-3 text-[12px] text-gray-600 font-medium flex items-center">{row.name}</div>
+                    {(['premium', 'superior', 'enterprise'] as const).map((planKey) => {
+                      const included = row[planKey];
+                      const isActive = plan === planKey;
+                      return (
+                        <div key={planKey} className={`py-2.5 flex items-center justify-center ${isActive ? 'bg-blue-50/30' : ''}`}>
+                          {included ? (
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isActive ? 'bg-[#3180F7]' : 'bg-gray-200'}`}>
+                              <Check size={11} className="text-white" />
+                            </div>
+                          ) : (
+                            <span className="text-[12px] text-gray-300">—</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-2">* 가격은 사회자에 따라 달라질 수 있습니다</p>
             </div>
           </div>
         )}
@@ -339,7 +393,7 @@ function QuotePage() {
       </div>
 
       {/* Bottom Button */}
-      <div className="shrink-0 px-5 pb-6 pt-3 bg-white">
+      <div className="shrink-0 px-[10px] pb-6 pt-3 bg-white">
         {step === 'confirm' ? (
           <button
             onClick={handleSubmit}
