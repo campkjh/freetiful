@@ -170,6 +170,7 @@ function QuotePage() {
   const [venuesLoading, setVenuesLoading] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSurveyPrompt, setShowSurveyPrompt] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyStep, setSurveyStep] = useState(0);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
@@ -237,12 +238,21 @@ function QuotePage() {
 
   const handleConfirm = async () => {
     setShowConfirmModal(false);
-    // Check if first-time user
     const hasSubmitted = localStorage.getItem('freetiful-quote-submitted');
     if (!hasSubmitted) {
-      setShowSurvey(true);
+      setShowSurveyPrompt(true);
       return;
     }
+    await doSubmit();
+  };
+
+  const handleSurveyAccept = () => {
+    setShowSurveyPrompt(false);
+    setShowSurvey(true);
+  };
+
+  const handleSurveyDecline = async () => {
+    setShowSurveyPrompt(false);
     await doSubmit();
   };
 
@@ -719,6 +729,59 @@ function QuotePage() {
                   className="flex-1 h-[46px] rounded-xl bg-[#3180F7] text-[14px] font-semibold text-white"
                 >
                   요청하기
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Survey Prompt Modal — coffee coupon */}
+      <AnimatePresence>
+        {showSurveyPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8"
+            onClick={() => {}}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+            >
+              {/* Coffee icon */}
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-amber-50 mx-auto mb-4">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <path d="M17 8h1a4 4 0 010 8h-1" stroke="#D97706" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z" fill="#FBBF24"/>
+                  <path d="M7 1v3M10 1v3M13 1v3" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <h3 className="text-[18px] font-bold text-gray-900 text-center leading-snug">
+                간단한 설문에 참여하시면<br/>
+                <span className="text-[#D97706]">컴포즈 커피 쿠폰</span>을 드려요!
+              </h3>
+              <p className="text-[13px] text-gray-500 text-center mt-2.5 leading-relaxed">
+                웨딩 준비 현황에 대한 간단한 설문입니다.<br/>약 1분 정도 소요됩니다.
+              </p>
+              <div className="flex gap-2.5 mt-6">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleSurveyDecline}
+                  className="flex-1 h-[46px] rounded-xl bg-gray-100 text-[14px] font-semibold text-gray-500"
+                >
+                  괜찮아요
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleSurveyAccept}
+                  className="flex-1 h-[46px] rounded-xl bg-[#D97706] text-[14px] font-semibold text-white"
+                >
+                  참여할게요
                 </motion.button>
               </div>
             </motion.div>
