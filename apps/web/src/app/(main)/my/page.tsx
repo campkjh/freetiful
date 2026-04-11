@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
@@ -154,6 +155,11 @@ const MENU_SECTIONS = [
 export default function MyPage() {
   const user = MOCK_USER;
   const router = useRouter();
+  const [proRegistrationPending, setProRegistrationPending] = useState(false);
+
+  useEffect(() => {
+    setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
+  }, []);
 
   const handlePartnerApply = () => {
     const alreadyRegistered = localStorage.getItem('proRegistrationComplete') === 'true';
@@ -224,6 +230,22 @@ export default function MyPage() {
           </div>
           <ChevronRight size={20} className="text-gray-300 shrink-0" />
         </Link>
+
+        {/* Pro Registration Pending Banner */}
+        {proRegistrationPending && (
+          <div
+            className="mt-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3.5 flex items-center gap-3"
+            style={{ animation: 'myFadeUp 0.5s ease 0.08s both' }}
+          >
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+              <Clock size={20} className="text-blue-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] font-bold text-blue-700">전문가 양식 제출완료!</p>
+              <p className="text-[12px] text-blue-500 mt-0.5">심사를 기다려주세요. 7일 이내에 결과를 알려드립니다.</p>
+            </div>
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={{ animation: 'myFadeUp 0.5s ease 0.1s both' }}>

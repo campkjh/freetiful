@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 
 const COMPANY_LOGOS: string[] = [
   '/images/기업로고/ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg',
@@ -87,9 +87,7 @@ const bottomSheetVariants = {
 export default function ProfilePage() {
   const router = useRouter();
   const [intro, setIntro] = useState('');
-  const [mainCareer, setMainCareer] = useState('');
   const [careerYears, setCareerYears] = useState('');
-  const [showCareerSheet, setShowCareerSheet] = useState(false);
   const [awardInput, setAwardInput] = useState('');
   const [awardYear, setAwardYear] = useState('');
   const [awardMonth, setAwardMonth] = useState('');
@@ -103,10 +101,18 @@ export default function ProfilePage() {
   const [videos, setVideos] = useState<string[]>([]);
   const [videoInput, setVideoInput] = useState('');
   const [showVideoInput, setShowVideoInput] = useState(false);
-  const [faqs, setFaqs] = useState([{ id: 1, question: '', answer: '' }]);
-  const [activeFaqTab, setActiveFaqTab] = useState(1);
+  const FAQ_CATEGORIES = ['서비스정보', '수정 및 재진행', '취소 및 환불 규정', '상품정보 고시'] as const;
+  const FAQ_DEFAULTS: Record<string, string> = {
+    '서비스정보': '전문 사회자가 행사 당일 현장에서 사회를 진행합니다. 사전 미팅을 통해 행사 진행 순서를 조율하며, 신랑신부님의 요청에 맞춰 맞춤형 진행을 제공합니다.',
+    '수정 및 재진행': '행사 진행 대본은 행사 3일 전까지 수정 가능합니다. 행사 당일 현장 상황에 따른 즉석 수정은 무료로 제공됩니다.',
+    '취소 및 환불 규정': '행사 7일 전 취소 시 전액 환불, 3일 전 취소 시 50% 환불, 당일 취소 시 환불 불가합니다. 천재지변 등 불가항력적인 사유의 경우 별도 협의합니다.',
+    '상품정보 고시': '서비스 제공자: 프리티풀 등록 전문 사회자\n서비스 형태: 행사 현장 사회 진행\n이용 조건: 사전 예약 필수\n취소/환불 조건: 취소 및 환불 규정 참조',
+  };
+  const [faqContents, setFaqContents] = useState<Record<string, string>>({ ...FAQ_DEFAULTS });
+  const [activeFaqTab, setActiveFaqTab] = useState<string>('서비스정보');
 
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [showCompanySheet, setShowCompanySheet] = useState(false);
   const [companySearch, setCompanySearch] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
@@ -138,8 +144,8 @@ export default function ProfilePage() {
 
   const [isFormValid, setIsFormValid] = useState(false);
   useEffect(() => {
-    setIsFormValid(intro.trim() !== '' && faqs.some(faq => faq.question.trim() !== ''));
-  }, [intro, faqs]);
+    setIsFormValid(intro.trim() !== '');
+  }, [intro]);
 
   const careerYearsOptions = Array.from({ length: 30 }, (_, i) => `${i + 1}년`);
 
@@ -193,27 +199,9 @@ export default function ProfilePage() {
     setVideos(prev => prev.filter((_, i) => i !== index));
   };
 
-  const addFaq = () => {
-    const newId = faqs.length + 1;
-    setFaqs(prev => [...prev, { id: newId, question: '', answer: '' }]);
-    setActiveFaqTab(newId);
+  const updateFaqContent = (category: string, value: string) => {
+    setFaqContents(prev => ({ ...prev, [category]: value }));
   };
-
-  const updateFaq = (id: number, field: 'question' | 'answer', value: string) => {
-    setFaqs(prev => prev.map(faq => faq.id === id ? { ...faq, [field]: value } : faq));
-  };
-
-  const deleteFaq = (id: number) => {
-    setFaqs(prev => {
-      const filtered = prev.filter(faq => faq.id !== id);
-      if (activeFaqTab === id && filtered.length > 0) {
-        setActiveFaqTab(filtered[filtered.length - 1].id);
-      }
-      return filtered;
-    });
-  };
-
-  const activeFaq = faqs.find(faq => faq.id === activeFaqTab);
 
   return (
     <div className="fixed inset-0 h-[100dvh] flex flex-col bg-white">
@@ -256,29 +244,25 @@ export default function ProfilePage() {
             />
           </motion.div>
 
-          {/* 주요이력 */}
-          <motion.div className="py-4" variants={staggerItem}>
-            <input
-              type="text"
-              value={mainCareer}
-              onChange={(e) => setMainCareer(e.target.value)}
-              placeholder="주요이력"
-              className="w-full border-b border-gray-300 pb-2 outline-none text-gray-900 placeholder:text-gray-400 text-xl font-semibold"
-            />
-          </motion.div>
-
-          {/* 경력 - opens bottom sheet */}
+          {/* 경력 - horizontal scrollable pills */}
           <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <motion.button
-              onClick={() => setShowCareerSheet(true)}
-              className="w-full outline-none text-left text-xl font-semibold flex items-center justify-between"
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className={careerYears ? 'text-gray-900' : 'text-gray-400'}>
-                {careerYears || '경력'}
-              </span>
-              <ChevronDown size={20} className="text-gray-400" />
-            </motion.button>
+            <p className="text-sm font-bold text-gray-900 mb-3">경력</p>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {careerYearsOptions.map((year) => (
+                <motion.button
+                  key={year}
+                  onClick={() => setCareerYears(year)}
+                  className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    careerYears === year
+                      ? 'bg-[#3180F7] text-white'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}
+                  whileTap={{ scale: 0.92 }}
+                >
+                  {year}
+                </motion.button>
+              ))}
+            </div>
           </motion.div>
 
           {/* 수상 내역 */}
@@ -732,68 +716,43 @@ export default function ProfilePage() {
             <p className="text-sm font-bold text-gray-900 mb-3">[필수]전문가 FAQ</p>
 
             {/* 탭 목록 */}
-            <div className="flex gap-2 mb-4 flex-wrap">
-              <motion.button
-                onClick={addFaq}
-                className="w-10 h-10 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400"
-                whileTap={{ scale: 0.9 }}
-              >
-                <Plus size={16} />
-              </motion.button>
-              {[...faqs].reverse().map((faq) => (
-                <motion.button
-                  key={faq.id}
-                  onClick={() => setActiveFaqTab(faq.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-medium ${
-                    activeFaqTab === faq.id
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-400 border-2 border-dashed border-gray-300'
-                  }`}
-                  whileTap={{ scale: 0.92 }}
-                >
-                  질문{faq.id}
-                </motion.button>
-              ))}
-            </div>
-
-            {/* 활성 FAQ 입력 */}
-            {activeFaq && (
-              <div>
-                {/* 질문 제목 */}
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <input
-                    type="text"
-                    value={activeFaq.question}
-                    onChange={(e) => updateFaq(activeFaq.id, 'question', e.target.value)}
-                    placeholder="질문제목"
-                    className="flex-1 outline-none text-gray-900 placeholder:text-gray-400 font-bold text-base"
-                  />
-                  {activeFaq.question && (
-                    <div className="flex gap-2 shrink-0">
-                      <motion.button className="text-sm text-gray-500" whileTap={{ scale: 0.92 }}>저장</motion.button>
-                      <motion.button
-                        onClick={() => deleteFaq(activeFaq.id)}
-                        className="text-sm text-white bg-red-400 px-3 py-1 rounded-lg"
-                        whileTap={{ scale: 0.92 }}
-                      >
-                        삭제
-                      </motion.button>
-                    </div>
-                  )}
-                </div>
-
-                {/* 질문 답변 */}
-                <div className="flex items-start justify-between gap-3">
-                  <textarea
-                    value={activeFaq.answer}
-                    onChange={(e) => updateFaq(activeFaq.id, 'answer', e.target.value)}
-                    placeholder="질문 내용을 작성해주세요"
-                    className="flex-1 outline-none text-gray-900 placeholder:text-gray-400 text-base resize-none"
-                    rows={2}
-                  />
-                </div>
+            <LayoutGroup>
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
+                {FAQ_CATEGORIES.map((cat) => (
+                  <motion.button
+                    key={cat}
+                    onClick={() => setActiveFaqTab(cat)}
+                    className={`relative shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-colors ${
+                      activeFaqTab === cat
+                        ? 'text-white'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                    whileTap={{ scale: 0.92 }}
+                  >
+                    {activeFaqTab === cat && (
+                      <motion.div
+                        layoutId="faqActiveTab"
+                        className="absolute inset-0 bg-gray-900 rounded-full"
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative z-10">{cat}</span>
+                  </motion.button>
+                ))}
               </div>
-            )}
+            </LayoutGroup>
+
+            {/* 활성 FAQ 내용 편집 */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">{activeFaqTab}</p>
+              <textarea
+                value={faqContents[activeFaqTab] || ''}
+                onChange={(e) => updateFaqContent(activeFaqTab, e.target.value)}
+                placeholder="내용을 작성해주세요"
+                className="w-full outline-none text-gray-900 placeholder:text-gray-400 text-sm resize-none bg-gray-50 rounded-xl p-4 leading-relaxed"
+                rows={5}
+              />
+            </div>
           </motion.div>
 
           {/* Bottom spacer so content isn't hidden behind the fixed footer */}
@@ -814,50 +773,9 @@ export default function ProfilePage() {
           transition={{ duration: 0.3 }}
           whileTap={isFormValid ? { scale: 0.97 } : {}}
         >
-          다음
+          제출
         </motion.button>
       </div>
-
-      {/* 경력 선택 바텀시트 */}
-      <AnimatePresence>
-        {showCareerSheet && (
-          <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowCareerSheet(false)}>
-            <motion.div
-              className="absolute inset-0 bg-black/50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            />
-            <motion.div
-              className="relative bg-white rounded-t-3xl w-full max-h-[60vh] flex flex-col"
-              variants={bottomSheetVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6 pb-3">
-                <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-                <h2 className="text-lg font-bold text-gray-900">경력 선택</h2>
-              </div>
-              <div className="flex-1 overflow-y-auto px-6 pb-10">
-                {careerYearsOptions.map((year) => (
-                  <motion.button
-                    key={year}
-                    onClick={() => { setCareerYears(year); setShowCareerSheet(false); }}
-                    className={`w-full px-4 py-3 text-left rounded-lg text-sm mb-1 ${
-                      careerYears === year ? 'bg-[#3180F7]/10 text-[#3180F7] font-semibold' : 'text-gray-900 hover:bg-gray-50'
-                    }`}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {year}
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* 기업이력 검색 — 전체 페이지 덮기 */}
       <AnimatePresence>
@@ -949,20 +867,23 @@ export default function ProfilePage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-              <h2 className="text-xl font-bold mb-2">프로필작성을 제출하시겠습니까?</h2>
+              <h2 className="text-xl font-bold mb-2">정말로 제출하시겠습니까?</h2>
+              <p className="text-sm text-red-500 mb-1 font-medium">
+                허위로 작성된 프로필일 경우 영구제재가 이루어질 수 있습니다.
+              </p>
               <p className="text-sm text-gray-500 mb-6">
-                심사기간은 최대 일주일이며 허위로 작성된 프로필일 경우 영구제재가 이루어질 수 있습니다.
+                심사기간은 최대 7일이며, 결과는 알림으로 안내드립니다.
               </p>
               <motion.button
                 onClick={() => {
-                  localStorage.setItem('userRole', 'pro');
-                  localStorage.setItem('proRegistrationComplete', 'true');
-                  window.location.href = '/my';
+                  localStorage.setItem('proRegistrationComplete', 'pending');
+                  setShowConfirm(false);
+                  setShowSuccess(true);
                 }}
                 className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base mb-3"
                 whileTap={{ scale: 0.97 }}
               >
-                완료
+                제출
               </motion.button>
               <motion.button
                 onClick={() => setShowConfirm(false)}
@@ -973,6 +894,54 @@ export default function ProfilePage() {
               </motion.button>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* 제출 완료 페이지 */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            className="fixed inset-0 z-[60] bg-white flex flex-col items-center justify-center px-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.15 }}
+              className="mb-6"
+            >
+              <CheckCircle size={72} className="text-[#3180F7]" />
+            </motion.div>
+            <motion.h2
+              className="text-2xl font-bold text-gray-900 mb-3"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+            >
+              제출이 완료되었습니다!
+            </motion.h2>
+            <motion.p
+              className="text-base text-gray-500 text-center mb-10"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+            >
+              7일 이내에 승인 결과를 알려드립니다
+            </motion.p>
+            <motion.button
+              onClick={() => { router.push('/home'); }}
+              className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              확인
+            </motion.button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
