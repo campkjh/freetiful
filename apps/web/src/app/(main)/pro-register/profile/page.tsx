@@ -67,7 +67,12 @@ export default function ProfilePage() {
   const [careerYears, setCareerYears] = useState('');
   const [showCareerSheet, setShowCareerSheet] = useState(false);
   const [awardInput, setAwardInput] = useState('');
-  const [awardList, setAwardList] = useState<string[]>([]);
+  const [awardYear, setAwardYear] = useState('');
+  const [awardMonth, setAwardMonth] = useState('');
+  const [showAwardYear, setShowAwardYear] = useState(false);
+  const [showAwardMonth, setShowAwardMonth] = useState(false);
+  const [awardList, setAwardList] = useState<{ text: string; year: string; month: string }[]>([]);
+  const [videoError, setVideoError] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [description, setDescription] = useState('');
@@ -132,17 +137,34 @@ export default function ProfilePage() {
 
   const addAward = () => {
     if (awardInput.trim()) {
-      setAwardList(prev => [...prev, awardInput.trim()]);
+      setAwardList(prev => [...prev, { text: awardInput.trim(), year: awardYear, month: awardMonth }]);
       setAwardInput('');
+      setAwardYear('');
+      setAwardMonth('');
     }
   };
 
-  const addVideo = () => {
-    if (videoInput.trim()) {
-      setVideos(prev => [...prev, videoInput.trim()]);
-      setVideoInput('');
-      setShowVideoInput(false);
+  const extractYouTubeId = (url: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    ];
+    for (const p of patterns) {
+      const m = url.match(p);
+      if (m) return m[1];
     }
+    return null;
+  };
+
+  const addVideo = () => {
+    const id = extractYouTubeId(videoInput.trim());
+    if (!id) {
+      setVideoError('유효한 유튜브 링크를 입력해주세요');
+      return;
+    }
+    setVideoError('');
+    setVideos(prev => [...prev, videoInput.trim()]);
+    setVideoInput('');
+    setShowVideoInput(false);
   };
 
   const removeVideo = (index: number) => {
@@ -239,20 +261,110 @@ export default function ProfilePage() {
 
           {/* 수상 내역 */}
           <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
+            <p className="text-sm font-bold text-gray-900 mb-3">수상 내역</p>
+            {/* Date selectors + input */}
+            <div className="flex gap-2 mb-3">
+              {/* Year dropdown */}
+              <div className="relative">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { setShowAwardYear(!showAwardYear); setShowAwardMonth(false); }}
+                  className="h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 flex items-center gap-1.5 text-[14px] font-medium min-w-[80px] justify-between"
+                >
+                  <span className={awardYear ? 'text-gray-900' : 'text-gray-400'}>{awardYear || '연도'}</span>
+                  <ChevronDown size={14} className="text-gray-400" />
+                </motion.button>
+                <AnimatePresence>
+                  {showAwardYear && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-12 left-0 w-[100px] max-h-[200px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30"
+                    >
+                      {Array.from({ length: 30 }, (_, i) => `${2026 - i}`).map((y) => (
+                        <button
+                          key={y}
+                          onClick={() => { setAwardYear(y); setShowAwardYear(false); }}
+                          className={`w-full px-3 py-2.5 text-left text-[14px] transition-colors ${awardYear === y ? 'bg-[#3180F7] text-white font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                        >
+                          {y}년
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {/* Month dropdown */}
+              <div className="relative">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { setShowAwardMonth(!showAwardMonth); setShowAwardYear(false); }}
+                  className="h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 flex items-center gap-1.5 text-[14px] font-medium min-w-[65px] justify-between"
+                >
+                  <span className={awardMonth ? 'text-gray-900' : 'text-gray-400'}>{awardMonth || '월'}</span>
+                  <ChevronDown size={14} className="text-gray-400" />
+                </motion.button>
+                <AnimatePresence>
+                  {showAwardMonth && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-12 left-0 w-[80px] max-h-[200px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => `${i + 1}`).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => { setAwardMonth(m); setShowAwardMonth(false); }}
+                          className={`w-full px-3 py-2.5 text-left text-[14px] transition-colors ${awardMonth === m ? 'bg-[#3180F7] text-white font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                        >
+                          {m}월
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={awardInput}
                 onChange={(e) => setAwardInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addAward()}
+                onKeyDown={(e) => e.key === 'Enter' && addAward()}
                 placeholder="수상 내역을 입력해주세요"
-                className="flex-1 outline-none text-gray-900 placeholder:text-gray-400 text-xl font-semibold"
+                className="flex-1 outline-none text-gray-900 placeholder:text-gray-400 text-[16px] font-semibold border-b border-gray-200 pb-2"
               />
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={addAward}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${awardInput.trim() ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-400'}`}
+              >
+                추가
+              </motion.button>
             </div>
             {awardList.length > 0 && (
-              <div className="mt-3 space-y-1">
+              <div className="mt-4 space-y-2">
                 {awardList.map((award, index) => (
-                  <p key={index} className="text-sm text-gray-700">{award}</p>
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5"
+                  >
+                    {(award.year || award.month) && (
+                      <span className="text-[12px] text-[#3180F7] font-bold shrink-0">
+                        {award.year && `${award.year}.`}{award.month && `${award.month.padStart(2, '0')}`}
+                      </span>
+                    )}
+                    <span className="text-[14px] text-gray-700 flex-1">{award.text}</span>
+                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => setAwardList(prev => prev.filter((_, i) => i !== index))}>
+                      <X size={14} className="text-gray-400" />
+                    </motion.button>
+                  </motion.div>
                 ))}
               </div>
             )}
@@ -476,56 +588,92 @@ export default function ProfilePage() {
 
             {/* 링크 추가 입력 */}
             {showVideoInput ? (
-              <div className="flex items-center gap-2 mb-3 border border-gray-200 rounded-lg px-3 py-2">
-                <input
-                  type="text"
-                  value={videoInput}
-                  onChange={(e) => setVideoInput(e.target.value)}
-                  placeholder="유튜브 링크를 입력해주세요"
-                  className="flex-1 outline-none text-[16px] text-gray-900 placeholder:text-gray-400"
-                  autoFocus
-                />
-                <motion.button onClick={addVideo} className="text-[#3180F7] text-sm font-medium shrink-0" whileTap={{ scale: 0.92 }}>추가</motion.button>
-                <motion.button onClick={() => { setShowVideoInput(false); setVideoInput(''); }} className="text-gray-400" whileTap={{ scale: 0.92 }}>
-                  <X size={16} />
-                </motion.button>
+              <div className="mb-3">
+                <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5">
+                  <input
+                    type="text"
+                    value={videoInput}
+                    onChange={(e) => { setVideoInput(e.target.value); setVideoError(''); }}
+                    placeholder="유튜브 링크를 입력해주세요"
+                    className="flex-1 outline-none text-[16px] text-gray-900 placeholder:text-gray-400"
+                    autoFocus
+                  />
+                  <motion.button onClick={addVideo} whileTap={{ scale: 0.92 }} className="text-[#3180F7] text-[14px] font-bold shrink-0">추가</motion.button>
+                  <motion.button onClick={() => { setShowVideoInput(false); setVideoInput(''); setVideoError(''); }} whileTap={{ scale: 0.92 }} className="text-gray-400">
+                    <X size={16} />
+                  </motion.button>
+                </div>
+                {/* Error */}
+                <AnimatePresence>
+                  {videoError && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-[12px] text-red-500 font-medium mt-1.5 ml-1">{videoError}</motion.p>
+                  )}
+                </AnimatePresence>
+                {/* Live preview */}
+                {videoInput && extractYouTubeId(videoInput) && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3 rounded-xl overflow-hidden">
+                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                      <img
+                        src={`https://img.youtube.com/vi/${extractYouTubeId(videoInput)}/mqdefault.jpg`}
+                        alt="preview"
+                        className="absolute inset-0 w-full h-full object-cover rounded-xl"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+                          <div className="w-0 h-0 border-l-[14px] border-l-white border-y-[8px] border-y-transparent ml-1" />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
               </div>
             ) : (
               <motion.button
                 onClick={() => setShowVideoInput(true)}
-                className="flex items-center justify-between w-full border border-gray-200 rounded-lg px-3 py-2 mb-3 bg-[#F9F9F9]"
+                className="flex items-center justify-between w-full border border-gray-200 rounded-xl px-3 py-2.5 mb-3 bg-[#F9F9F9]"
                 whileTap={{ scale: 0.98 }}
               >
-                <span className="text-sm text-gray-400">유튜브 링크 추가</span>
+                <span className="text-[14px] text-gray-400">유튜브 링크 추가</span>
                 <Plus size={16} className="text-gray-400" />
               </motion.button>
             )}
 
-            {/* 비디오 목록 */}
+            {/* 비디오 목록 — with preview thumbnails */}
             {videos.length > 0 && (
               <div className="space-y-3">
-                {videos.map((url, index) => (
-                  <div key={index} className="flex items-center gap-3 border-b border-gray-100 pb-3">
-                    <span className="text-sm text-gray-500 w-4">{index + 1}</span>
-                    <div className="w-10 h-10 bg-gray-200 rounded overflow-hidden shrink-0">
-                      <img
-                        src={`https://img.youtube.com/vi/${url.split('v=')[1]?.split('&')[0]}/default.jpg`}
-                        alt="thumb"
-                        className="w-full h-full object-cover"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
+                {videos.map((url, index) => {
+                  const ytId = extractYouTubeId(url);
+                  return (
+                  <motion.div key={index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-gray-100 overflow-hidden">
+                    {/* Thumbnail preview */}
+                    {ytId && (
+                      <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                        <img
+                          src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`}
+                          alt="thumb"
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+                            <div className="w-0 h-0 border-l-[10px] border-l-white border-y-[6px] border-y-transparent ml-0.5" />
+                          </div>
+                        </div>
+                        <span className="absolute top-2 left-2 bg-black/60 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">{index + 1}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-[12px] text-gray-500 truncate flex-1">{url.length > 35 ? url.slice(0, 35) + '...' : url}</span>
+                      <motion.button
+                        onClick={() => removeVideo(index)}
+                        whileTap={{ scale: 0.9 }}
+                        className="text-[12px] text-red-500 font-bold shrink-0 ml-2"
+                      >
+                        삭제
+                      </motion.button>
                     </div>
-                    <span className="flex-1 text-sm text-gray-600 truncate">{url.length > 20 ? url.slice(0, 20) + '...' : url}</span>
-                    <motion.button className="text-sm text-gray-500 shrink-0" whileTap={{ scale: 0.92 }}>수정</motion.button>
-                    <motion.button
-                      onClick={() => removeVideo(index)}
-                      className="text-sm text-white bg-red-400 px-3 py-1 rounded-lg shrink-0"
-                      whileTap={{ scale: 0.92 }}
-                    >
-                      삭제
-                    </motion.button>
-                  </div>
-                ))}
+                  </motion.div>
+                  );
+                })}
               </div>
             )}
           </motion.div>
