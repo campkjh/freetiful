@@ -310,35 +310,25 @@ function ProsListContent() {
                     transition={{ duration: 0.3, delay: i < PAGE_SIZE ? i * 0.03 : 0 }}
                   >
                     <div className="px-4 py-3">
-                      <Link href={`/pros/${pro.id}`} className="flex gap-3 active:opacity-80 transition-opacity">
-                        <div className="shrink-0">
-                          <div className="w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100 relative">
+                      <div className="flex gap-3">
+                        <Link href={`/pros/${pro.id}`} className="shrink-0">
+                          <div className="w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100">
                             <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
-                            {pro.puddingRank <= 3 && (
-                              <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/90 backdrop-blur-sm text-gray-800 shadow-sm">
-                                TOP {pro.puddingRank}
-                              </span>
-                            )}
                           </div>
+                        </Link>
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <Link href={`/pros/${pro.id}`} className="flex-1">
+                            <p className="text-[16px] font-bold text-gray-900">{pro.role} {pro.name}</p>
+                            <div className="flex items-center gap-0.5 mt-1">
+                              <Star size={13} className="fill-yellow-400 text-yellow-400" />
+                              <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
+                              <span className="text-[13px] text-gray-400">({pro.reviews})</span>
+                            </div>
+                            <p className="text-[15px] font-bold text-gray-900 mt-1">{pro.price.toLocaleString()}원~</p>
+                            <p className="text-[13px] text-gray-500 mt-2 line-clamp-2 leading-snug">&ldquo;{pro.intro}&rdquo;</p>
+                          </Link>
                         </div>
-                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                          <p className="text-[16px] font-bold text-gray-900">{pro.role} {pro.name}</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            <Star size={13} className="fill-yellow-400 text-yellow-400" />
-                            <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
-                            <span className="text-[13px] text-gray-400">({pro.reviews})</span>
-                            <span className="text-[11px] text-gray-300 mx-1">|</span>
-                            <span className="text-[12px] text-gray-400 flex items-center gap-0.5">
-                              <MapPin size={10} /> {pro.region}
-                            </span>
-                          </div>
-                          <p className="text-[15px] font-bold text-gray-900 mt-1">{pro.price.toLocaleString()}원~</p>
-                          <p className="text-[13px] text-gray-500 mt-1.5 line-clamp-2 leading-snug">&ldquo;{pro.intro}&rdquo;</p>
-                          {pro.experience > 0 && (
-                            <p className="text-[11px] text-gray-400 mt-1">경력 {pro.experience}년</p>
-                          )}
-                        </div>
-                      </Link>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
