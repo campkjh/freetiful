@@ -261,113 +261,140 @@ export default function ProfilePage() {
 
           {/* 수상 내역 */}
           <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <p className="text-sm font-bold text-gray-900 mb-3">수상 내역</p>
-            {/* Date selectors + input */}
-            <div className="flex gap-2 mb-3">
-              {/* Year dropdown */}
-              <div className="relative">
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => { setShowAwardYear(!showAwardYear); setShowAwardMonth(false); }}
-                  className="h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 flex items-center gap-1.5 text-[14px] font-medium min-w-[80px] justify-between"
-                >
-                  <span className={awardYear ? 'text-gray-900' : 'text-gray-400'}>{awardYear || '연도'}</span>
-                  <ChevronDown size={14} className="text-gray-400" />
-                </motion.button>
-                <AnimatePresence>
-                  {showAwardYear && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute top-12 left-0 w-[100px] max-h-[200px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30"
-                    >
-                      {Array.from({ length: 30 }, (_, i) => `${2026 - i}`).map((y) => (
-                        <button
-                          key={y}
-                          onClick={() => { setAwardYear(y); setShowAwardYear(false); }}
-                          className={`w-full px-3 py-2.5 text-left text-[14px] transition-colors ${awardYear === y ? 'bg-[#3180F7] text-white font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
-                        >
-                          {y}년
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              {/* Month dropdown */}
-              <div className="relative">
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => { setShowAwardMonth(!showAwardMonth); setShowAwardYear(false); }}
-                  className="h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 flex items-center gap-1.5 text-[14px] font-medium min-w-[65px] justify-between"
-                >
-                  <span className={awardMonth ? 'text-gray-900' : 'text-gray-400'}>{awardMonth || '월'}</span>
-                  <ChevronDown size={14} className="text-gray-400" />
-                </motion.button>
-                <AnimatePresence>
-                  {showAwardMonth && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute top-12 left-0 w-[80px] max-h-[200px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30"
-                    >
-                      {Array.from({ length: 12 }, (_, i) => `${i + 1}`).map((m) => (
-                        <button
-                          key={m}
-                          onClick={() => { setAwardMonth(m); setShowAwardMonth(false); }}
-                          className={`w-full px-3 py-2.5 text-left text-[14px] transition-colors ${awardMonth === m ? 'bg-[#3180F7] text-white font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
-                        >
-                          {m}월
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={awardInput}
-                onChange={(e) => setAwardInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addAward()}
-                placeholder="수상 내역을 입력해주세요"
-                className="flex-1 outline-none text-gray-900 placeholder:text-gray-400 text-[16px] font-semibold border-b border-gray-200 pb-2"
-              />
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={addAward}
-                className={`shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${awardInput.trim() ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-400'}`}
-              >
-                추가
-              </motion.button>
-            </div>
+            <p className="text-sm font-bold text-gray-900 mb-4">수상 내역</p>
+
+            {/* 등록된 수상 내역 */}
             {awardList.length > 0 && (
-              <div className="mt-4 space-y-2">
+              <div className="space-y-2.5 mb-4">
                 {awardList.map((award, index) => (
                   <motion.div
                     key={index}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-start gap-3 p-3.5 bg-white border border-gray-100 rounded-2xl shadow-sm"
                   >
-                    {(award.year || award.month) && (
-                      <span className="text-[12px] text-[#3180F7] font-bold shrink-0">
-                        {award.year && `${award.year}.`}{award.month && `${award.month.padStart(2, '0')}`}
-                      </span>
-                    )}
-                    <span className="text-[14px] text-gray-700 flex-1">{award.text}</span>
-                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => setAwardList(prev => prev.filter((_, i) => i !== index))}>
-                      <X size={14} className="text-gray-400" />
+                    {/* 날짜 태그 */}
+                    <div className="shrink-0 w-[52px] h-[52px] rounded-xl bg-gradient-to-br from-[#3180F7] to-[#60A5FA] flex flex-col items-center justify-center">
+                      {award.year ? (
+                        <>
+                          <span className="text-[11px] text-white/70 font-medium leading-none">{award.year}</span>
+                          <span className="text-[16px] text-white font-bold leading-tight">{award.month ? `${award.month}월` : ''}</span>
+                        </>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.4l-6.4 4.8 2.4-7.2-6-4.8h7.6L12 2z" fill="white"/></svg>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <p className="text-[15px] font-semibold text-gray-900 leading-snug">{award.text}</p>
+                    </div>
+                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => setAwardList(prev => prev.filter((_, i) => i !== index))} className="shrink-0 mt-1">
+                      <X size={16} className="text-gray-300" />
                     </motion.button>
                   </motion.div>
                 ))}
               </div>
             )}
+
+            {/* 입력 영역 — 카드 스타일 */}
+            <div className="bg-gray-50 rounded-2xl p-4">
+              {/* 연도/월 선택 — 인라인 */}
+              <div className="flex gap-2 mb-3">
+                <div className="relative flex-1">
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => { setShowAwardYear(!showAwardYear); setShowAwardMonth(false); }}
+                    className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 flex items-center justify-between text-[14px] font-medium"
+                  >
+                    <span className={awardYear ? 'text-gray-900' : 'text-gray-400'}>{awardYear ? `${awardYear}년` : '연도'}</span>
+                    <motion.span animate={{ rotate: showAwardYear ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                      <ChevronDown size={14} className="text-gray-400" />
+                    </motion.span>
+                  </motion.button>
+                  <AnimatePresence>
+                    {showAwardYear && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute top-12 left-0 right-0 max-h-[180px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30 scrollbar-hide"
+                      >
+                        {Array.from({ length: 30 }, (_, i) => `${2026 - i}`).map((y) => (
+                          <button
+                            key={y}
+                            onClick={() => { setAwardYear(y); setShowAwardYear(false); }}
+                            className={`w-full px-4 py-2.5 text-left text-[14px] transition-colors first:rounded-t-xl last:rounded-b-xl ${
+                              awardYear === y ? 'bg-[#3180F7] text-white font-bold' : 'text-gray-700 hover:bg-blue-50'
+                            }`}
+                          >
+                            {y}년
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <div className="relative w-[90px]">
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => { setShowAwardMonth(!showAwardMonth); setShowAwardYear(false); }}
+                    className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 flex items-center justify-between text-[14px] font-medium"
+                  >
+                    <span className={awardMonth ? 'text-gray-900' : 'text-gray-400'}>{awardMonth ? `${awardMonth}월` : '월'}</span>
+                    <motion.span animate={{ rotate: showAwardMonth ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                      <ChevronDown size={14} className="text-gray-400" />
+                    </motion.span>
+                  </motion.button>
+                  <AnimatePresence>
+                    {showAwardMonth && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute top-12 left-0 right-0 max-h-[180px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30 scrollbar-hide"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => `${i + 1}`).map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => { setAwardMonth(m); setShowAwardMonth(false); }}
+                            className={`w-full px-4 py-2.5 text-left text-[14px] transition-colors first:rounded-t-xl last:rounded-b-xl ${
+                              awardMonth === m ? 'bg-[#3180F7] text-white font-bold' : 'text-gray-700 hover:bg-blue-50'
+                            }`}
+                          >
+                            {m}월
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* 수상명 입력 + 추가 버튼 */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={awardInput}
+                  onChange={(e) => setAwardInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addAward()}
+                  placeholder="수상명을 입력해주세요"
+                  className="flex-1 h-11 bg-white border border-gray-200 rounded-xl px-4 outline-none text-[15px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
+                />
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={addAward}
+                  animate={{
+                    backgroundColor: awardInput.trim() ? '#3180F7' : '#E5E7EB',
+                    color: awardInput.trim() ? '#FFFFFF' : '#9CA3AF',
+                  }}
+                  transition={{ duration: 0.2 }}
+                  className="shrink-0 h-11 px-5 rounded-xl text-[14px] font-bold"
+                >
+                  추가
+                </motion.button>
+              </div>
+            </div>
           </motion.div>
 
           {/* [선택]기업이력 - opens company search modal */}
