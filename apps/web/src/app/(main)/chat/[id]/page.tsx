@@ -82,6 +82,7 @@ const formatDate = (iso: string) => {
 declare global {
   interface Window {
     naver?: any;
+    kakao?: any;
   }
 }
 
@@ -482,6 +483,57 @@ function shouldShowDateDivider(messages: Message[], index: number) {
   return curr.getTime() - prev.getTime() > 30 * 60 * 1000;
 }
 
+// ─── 카카오맵 Embed ─────────────────────────────────────────
+function KakaoMapEmbed({ venue }: { venue: string }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Load Kakao Maps SDK
+    const existingScript = document.querySelector('script[src*="dapi.kakao.com/v2/maps"]');
+    const init = () => {
+      if (!window.kakao?.maps) return;
+      window.kakao.maps.load(() => {
+        const container = mapRef.current;
+        if (!container) return;
+        const map = new window.kakao.maps.Map(container, {
+          center: new window.kakao.maps.LatLng(37.566, 126.978),
+          level: 4,
+        });
+        // 장소 검색
+        const ps = new window.kakao.maps.services.Places();
+        ps.keywordSearch(venue, (data: any[], status: string) => {
+          if (status === window.kakao.maps.services.Status.OK && data[0]) {
+            const pos = new window.kakao.maps.LatLng(data[0].y, data[0].x);
+            map.setCenter(pos);
+            new window.kakao.maps.Marker({ map, position: pos });
+          }
+        });
+        setLoaded(true);
+      });
+    };
+
+    if (existingScript) {
+      if (window.kakao?.maps) init();
+      else existingScript.addEventListener('load', init);
+    } else {
+      const script = document.createElement('script');
+      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=dca1b472188890116c81a55eff590885&libraries=services&autoload=false`;
+      script.async = true;
+      script.onload = init;
+      document.head.appendChild(script);
+    }
+  }, [venue]);
+
+  return (
+    <a href={`https://map.kakao.com/?q=${encodeURIComponent(venue)}`} target="_blank" rel="noopener noreferrer" className="block">
+      <div ref={mapRef} className="w-full h-[120px]" style={{ background: '#F3F4F6' }} />
+    </a>
+  );
+}
+
 // ─── 시스템 메시지 카드 ─────────────────────────────────────
 function SystemMessageCard({ msg }: { msg: Message }) {
   const sys = msg.system;
@@ -498,7 +550,7 @@ function SystemMessageCard({ msg }: { msg: Message }) {
     );
   }
 
-  const wrapperClass = 'mx-auto max-w-[320px] my-3 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
+  const wrapperClass = 'max-w-[280px] my-2 ml-14 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
 
   // 견적서 — 플랜 + 세부 옵션
   if (sys.kind === 'quote') {
@@ -567,12 +619,30 @@ function SystemMessageCard({ msg }: { msg: Message }) {
             </div>
           </div>
           <div className="px-4 py-3.5">
-            <p className="text-[16px] font-semibold text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
-            <div className="flex items-center gap-1.5 mt-1.5">
+            {/* 세부 내역 */}
+            <div className="space-y-1.5 mb-3">
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-gray-500">서비스 금액</span>
+                <span className="text-gray-900 tabular-nums">{formatKRW(Math.round((sys.amount || 0) / 1.1))}</span>
+              </div>
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-gray-500">부가세 (10%)</span>
+                <span className="text-gray-900 tabular-nums">{formatKRW((sys.amount || 0) - Math.round((sys.amount || 0) / 1.1))}</span>
+              </div>
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-gray-500">플랫폼 수수료</span>
+                <span className="text-gray-400">₩0</span>
+              </div>
+              <div className="pt-2 mt-2 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-gray-900">총 결제금액</span>
+                <span className="text-[15px] font-semibold text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 mb-3">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="#3180F7" opacity="0.2"/><path d="M9 12l2 2 4-4" stroke="#3180F7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               <span className="text-[11px] text-[#3180F7] font-medium">프리티풀 구매안심보호</span>
             </div>
-            <button type="button" onClick={(e) => e.stopPropagation()} className="mt-3 w-full h-10 bg-[#3180F7] active:scale-[0.98] text-white text-[13px] font-semibold rounded-xl transition-transform flex items-center justify-center gap-1.5">
+            <button type="button" onClick={(e) => e.stopPropagation()} className="w-full h-10 bg-[#3180F7] active:scale-[0.98] text-white text-[13px] font-semibold rounded-xl transition-transform flex items-center justify-center gap-1.5">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="white" opacity="0.3"/><path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               안전결제하기
             </button>
@@ -614,21 +684,7 @@ function SystemMessageCard({ msg }: { msg: Message }) {
             <p className="text-[12px] opacity-60 mt-0.5">내 스케줄에 자동 추가되었습니다</p>
           </div>
           {/* 카카오 지도 */}
-          {sys.venue && (
-            <a
-              href={`https://map.kakao.com/?q=${mapQuery}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block"
-            >
-              <img
-                src={`https://dapi.kakao.com/v2/maps/staticmap?appkey=dca1b472188890116c81a55eff590885&center=126.978,37.566&level=4&w=320&h=140&format=png`}
-                alt="지도"
-                className="w-full h-[120px] object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            </a>
-          )}
+          {sys.venue && <KakaoMapEmbed venue={sys.venue} />}
           {(sys.eventDate || sys.venue) && (
             <div className="px-4 py-3 space-y-1.5">
               {sys.eventDate && (
@@ -654,23 +710,11 @@ function SystemMessageCard({ msg }: { msg: Message }) {
   if (sys.kind === 'reminder') {
     const d = sys.daysLeft ?? 0;
     return (
-      <div className={wrapperClass}>
-        <div className="relative">
-          {/* 말풍선 */}
-          <div className="bg-[#3180F7] rounded-2xl px-4 py-3.5 text-white">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex flex-col items-center justify-center shrink-0">
-                <span className="text-[7px] font-bold text-white/60 leading-none">D-</span>
-                <span className="text-[14px] font-black text-white leading-tight tabular-nums">{d}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-bold">{sys.eventName || '본식'}까지 {d}일 남았습니다</p>
-                {sys.eventDate && <p className="text-[11px] text-white/60 mt-0.5">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>}
-              </div>
-            </div>
-          </div>
-          {/* 말풍선 꼬리 */}
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#3180F7] rotate-45 rounded-sm" />
+      <div className="mx-4 my-2">
+        <div className="bg-blue-50 rounded-xl px-4 py-2.5 flex items-center gap-2.5">
+          <span className="text-[13px] font-bold text-[#3180F7] tabular-nums shrink-0">D-{d}</span>
+          <span className="text-[13px] text-gray-600">{sys.eventName || '본식'}까지 {d}일 남았습니다</span>
+          {sys.eventDate && <span className="text-[11px] text-gray-400 ml-auto shrink-0">{formatDate(sys.eventDate)}</span>}
         </div>
       </div>
     );
