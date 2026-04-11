@@ -508,7 +508,7 @@ function SystemMessageCard({ msg }: { msg: Message }) {
           </div>
           <div className="px-4 py-3.5">
             {sys.eventName && <p className="text-[11px] font-medium text-gray-400 mb-1">{sys.eventName}</p>}
-            <p className="text-[22px] font-black text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+            <p className="text-[16px] font-semibold text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
             {sys.items && sys.items.length > 0 && (
               <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
                 {sys.items.map((it, i) => (
@@ -545,7 +545,7 @@ function SystemMessageCard({ msg }: { msg: Message }) {
             </div>
           </div>
           <div className="px-4 py-3.5">
-            <p className="text-[22px] font-black text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+            <p className="text-[16px] font-semibold text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
             <button type="button" onClick={(e) => e.stopPropagation()} className="mt-3 w-full h-10 bg-[#3180F7] active:scale-[0.98] text-white text-[13px] font-bold rounded-xl transition-transform">
               지금 결제하기
             </button>
@@ -573,23 +573,51 @@ function SystemMessageCard({ msg }: { msg: Message }) {
 
   // 예약 확정 — 플랫 컬러
   if (sys.kind === 'booking_confirmed') {
+    // 카카오 지도 static URL (venue 기반)
+    const mapQuery = sys.venue ? encodeURIComponent(sys.venue) : '';
     return (
       <div className={wrapperClass}>
-        <div className="bg-[#3180F7] rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-4 py-4 text-white">
-            <div className="flex items-center gap-2 mb-2">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-[#3180F7] px-4 py-3.5 text-white">
+            <div className="flex items-center gap-2 mb-1.5">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="white" opacity="0.3"/><path d="M9 13l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <p className="text-[11px] font-bold tracking-wider uppercase opacity-80">CONFIRMED</p>
+              <p className="text-[11px] font-semibold tracking-wider uppercase opacity-80">CONFIRMED</p>
             </div>
-            <p className="text-[17px] font-bold">예약이 확정되었습니다</p>
-            <p className="text-[12px] opacity-70 mt-0.5">내 스케줄에 자동 추가되었습니다</p>
-            {(sys.eventDate || sys.venue) && (
-              <div className="mt-3 pt-3 border-t border-white/20 space-y-1">
-                {sys.eventDate && <p className="text-[12px] opacity-80">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>}
-                {sys.venue && <p className="text-[12px] opacity-80">{sys.venue}</p>}
-              </div>
-            )}
+            <p className="text-[16px] font-semibold">예약이 확정되었습니다</p>
+            <p className="text-[12px] opacity-60 mt-0.5">내 스케줄에 자동 추가되었습니다</p>
           </div>
+          {/* 카카오 지도 */}
+          {sys.venue && (
+            <a
+              href={`https://map.kakao.com/?q=${mapQuery}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <img
+                src={`https://dapi.kakao.com/v2/maps/staticmap?appkey=dca1b472188890116c81a55eff590885&center=126.978,37.566&level=4&w=320&h=140&format=png`}
+                alt="지도"
+                className="w-full h-[120px] object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </a>
+          )}
+          {(sys.eventDate || sys.venue) && (
+            <div className="px-4 py-3 space-y-1.5">
+              {sys.eventDate && (
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E5E7EB"/><rect x="3" y="4" width="18" height="6" rx="2.5" fill="#9CA3AF"/></svg>
+                  <p className="text-[12px] text-gray-600">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
+                </div>
+              )}
+              {sys.venue && (
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EF4444"/><circle cx="12" cy="9" r="2" fill="white"/></svg>
+                  <p className="text-[12px] text-gray-600">{sys.venue}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
