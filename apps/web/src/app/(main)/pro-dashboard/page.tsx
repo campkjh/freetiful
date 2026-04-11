@@ -1,47 +1,61 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
-/* ─── SVG Icons (flat-color, solid fill, no strokes) ─── */
+/* ─── Detailed SVG Icons (multi-layered, flat-color, premium) ─── */
 
 const BellIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <path d="M12 2C8.69 2 6 4.69 6 8V12L4 16H20L18 12V8C18 4.69 15.31 2 12 2Z" fill="#9CA3AF" />
-    <rect x="10" y="18" width="4" height="3" rx="1.5" fill="#9CA3AF" />
-    <circle cx="17" cy="5" r="3.5" fill="#EF4444" />
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+    <path d="M13 2C9.13 2 6 5.13 6 9V13.5L4 17.5H22L20 13.5V9C20 5.13 16.87 2 13 2Z" fill="#D1D5DB" />
+    <path d="M13 2C9.13 2 6 5.13 6 9V13.5L4 17.5H13V2Z" fill="#E5E7EB" />
+    <rect x="10.5" y="19" width="5" height="3.5" rx="1.75" fill="#9CA3AF" />
+    <circle cx="19" cy="5" r="4" fill="#EF4444" />
+    <text x="19" y="7" textAnchor="middle" fill="#fff" fontSize="6" fontWeight="bold">3</text>
   </svg>
 );
 
-const DocumentIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-    <rect x="5" y="2" width="18" height="24" rx="3" fill="#3180F7" />
-    <rect x="9" y="7" width="10" height="2" rx="1" fill="#fff" />
-    <rect x="9" y="12" width="7" height="2" rx="1" fill="#fff" />
-    <rect x="9" y="17" width="10" height="2" rx="1" fill="#fff" />
+const DocumentDetailedIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+    <rect x="5" y="2" width="20" height="26" rx="3" fill="#3180F7" />
+    <path d="M18 2H22C23.66 2 25 3.34 25 5V2L18 2Z" fill="#2563EB" />
+    <path d="M18 2V7C18 7.55 18.45 8 19 8H25L18 2Z" fill="#93C5FD" />
+    <rect x="9" y="11" width="12" height="2" rx="1" fill="#BFDBFE" />
+    <rect x="9" y="15" width="8" height="2" rx="1" fill="#DBEAFE" />
+    <rect x="9" y="19" width="10" height="2" rx="1" fill="#BFDBFE" />
+    <rect x="9" y="23" width="6" height="2" rx="1" fill="#DBEAFE" />
   </svg>
 );
 
-const MoneyIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-    <rect x="2" y="6" width="24" height="16" rx="3" fill="#22C55E" />
-    <circle cx="14" cy="14" r="5" fill="#16A34A" />
-    <text x="14" y="17.5" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold">W</text>
+const MoneyDetailedIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+    <rect x="2" y="6" width="26" height="18" rx="4" fill="#22C55E" />
+    <rect x="2" y="6" width="26" height="6" rx="4" fill="#16A34A" />
+    <circle cx="15" cy="16" r="5.5" fill="#15803D" />
+    <circle cx="15" cy="16" r="4" fill="#22C55E" />
+    <text x="15" y="19.5" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">₩</text>
+    <circle cx="5" cy="16" r="1.5" fill="#15803D" opacity="0.4" />
+    <circle cx="25" cy="16" r="1.5" fill="#15803D" opacity="0.4" />
   </svg>
 );
 
-const EyeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-    <path d="M14 8C8 8 3 14 3 14C3 14 8 20 14 20C20 20 25 14 25 14C25 14 20 8 14 8Z" fill="#9CA3AF" />
-    <circle cx="14" cy="14" r="4" fill="#fff" />
-    <circle cx="14" cy="14" r="2" fill="#6B7280" />
+const EyeDetailedIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+    <path d="M15 8C8 8 3 15 3 15C3 15 8 22 15 22C22 22 27 15 27 15C27 15 22 8 15 8Z" fill="#A78BFA" />
+    <path d="M15 8C8 8 3 15 3 15C3 15 8 22 15 22V8Z" fill="#C4B5FD" />
+    <circle cx="15" cy="15" r="5" fill="#fff" />
+    <circle cx="15" cy="15" r="3" fill="#7C3AED" />
+    <circle cx="13.5" cy="13.5" r="1" fill="#fff" opacity="0.8" />
+    <path d="M3 15C3 15 5 10 10 8.5" stroke="#C4B5FD" strokeWidth="0.5" fill="none" opacity="0.5" />
   </svg>
 );
 
-const StarIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-    <path d="M14 3L17.09 9.26L24 10.27L19 15.14L20.18 22.02L14 18.77L7.82 22.02L9 15.14L4 10.27L10.91 9.26L14 3Z" fill="#FACC15" />
+const StarDetailedIcon = () => (
+  <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+    <path d="M15 3L18.54 10.16L26.5 11.33L20.75 16.92L22.08 24.84L15 21.1L7.92 24.84L9.25 16.92L3.5 11.33L11.46 10.16L15 3Z" fill="#FACC15" />
+    <path d="M15 3L18.54 10.16L26.5 11.33L20.75 16.92L22.08 24.84L15 21.1V3Z" fill="#EAB308" />
+    <circle cx="15" cy="14" r="2" fill="#FDE68A" opacity="0.6" />
   </svg>
 );
 
@@ -57,33 +71,8 @@ const SmallStarIcon = ({ filled = true }: { filled?: boolean }) => (
 const PersonIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
     <circle cx="10" cy="6" r="4" fill="#93C5FD" />
+    <circle cx="10" cy="6" r="2.5" fill="#60A5FA" />
     <path d="M2 18C2 14 5.58 11 10 11C14.42 11 18 14 18 18H2Z" fill="#93C5FD" />
-  </svg>
-);
-
-const CalendarBadgeIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-    <rect x="2" y="3" width="16" height="15" rx="3" fill="#3180F7" />
-    <rect x="2" y="3" width="16" height="5" rx="3" fill="#2563EB" />
-    <rect x="5" y="10" width="3" height="2" rx="0.5" fill="#fff" />
-    <rect x="9" y="10" width="3" height="2" rx="0.5" fill="#fff" />
-    <rect x="5" y="14" width="3" height="2" rx="0.5" fill="#BFDBFE" />
-  </svg>
-);
-
-const ClockIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <circle cx="8" cy="8" r="7" fill="#E5E7EB" />
-    <circle cx="8" cy="8" r="5.5" fill="#fff" />
-    <rect x="7.5" y="4" width="1" height="4.5" rx="0.5" fill="#6B7280" />
-    <rect x="7.5" y="7.5" width="3" height="1" rx="0.5" fill="#6B7280" />
-  </svg>
-);
-
-const LocationIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-    <path d="M7 1C4.51 1 2.5 3.01 2.5 5.5C2.5 9.12 7 13 7 13C7 13 11.5 9.12 11.5 5.5C11.5 3.01 9.49 1 7 1Z" fill="#3180F7" />
-    <circle cx="7" cy="5.5" r="1.5" fill="#fff" />
   </svg>
 );
 
@@ -105,6 +94,23 @@ const BarChartIcon = () => (
     <rect x="2" y="12" width="4" height="8" rx="1" fill="#93C5FD" />
     <rect x="9" y="6" width="4" height="14" rx="1" fill="#3180F7" />
     <rect x="16" y="9" width="4" height="11" rx="1" fill="#60A5FA" />
+    <rect x="2" y="12" width="4" height="3" rx="1" fill="#BFDBFE" />
+    <rect x="9" y="6" width="4" height="3" rx="1" fill="#60A5FA" />
+    <rect x="16" y="9" width="4" height="3" rx="1" fill="#93C5FD" />
+  </svg>
+);
+
+const ArchiveIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <rect x="2" y="2" width="14" height="4" rx="1.5" fill="#6B7280" />
+    <path d="M3 6H15V15C15 15.55 14.55 16 14 16H4C3.45 16 3 15.55 3 15V6Z" fill="#9CA3AF" />
+    <rect x="7" y="9" width="4" height="2" rx="1" fill="#fff" />
+  </svg>
+);
+
+const ReplyIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M6 4L2 8L6 12V9.5C10 9.5 12.5 10.5 14 13C13.5 9 11 6.5 6 6V4Z" fill="#3180F7" />
   </svg>
 );
 
@@ -117,7 +123,7 @@ interface Quote {
   eventDate: string;
   plan: 'Premium' | 'Superior' | 'Enterprise';
   budget: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'accepted' | 'rejected' | 'archived';
   rejectionReason?: string;
 }
 
@@ -127,19 +133,33 @@ const INITIAL_QUOTES: Quote[] = [
   { id: 'q1', clientName: '홍**', eventType: '결혼식', eventDate: '2026-05-17', plan: 'Premium', budget: '₩1,800,000', status: 'pending' },
   { id: 'q2', clientName: '김**', eventType: '돌잔치', eventDate: '2026-05-24', plan: 'Superior', budget: '₩1,200,000', status: 'pending' },
   { id: 'q3', clientName: '박**', eventType: '기업행사', eventDate: '2026-06-01', plan: 'Enterprise', budget: '₩3,500,000', status: 'pending' },
-  { id: 'q4', clientName: '이**', eventType: '결혼식', eventDate: '2026-06-14', plan: 'Premium', budget: '₩2,000,000', status: 'pending' },
 ];
 
 const UPCOMING_EVENTS = [
-  { date: '4/19', day: '토', eventType: '웨딩 MC', client: '최**', venue: '시에나호텔 그랜드홀', time: '11:00' },
-  { date: '4/26', day: '토', eventType: '돌잔치 MC', client: '장**', venue: '그랜드하얏트 볼룸', time: '12:00' },
-  { date: '5/03', day: '토', eventType: '웨딩 MC', client: '서**', venue: 'JW메리어트 가든', time: '14:00' },
+  { date: '4/19', day: '토', eventType: '웨딩 MC', client: '최**', venue: '시에나호텔 그랜드홀', time: '11:00', status: '확정' },
+  { date: '4/26', day: '토', eventType: '돌잔치 MC', client: '장**', venue: '그랜드하얏트 볼룸', time: '12:00', status: '확정' },
+  { date: '5/03', day: '토', eventType: '웨딩 MC', client: '서**', venue: 'JW메리어트 가든', time: '14:00', status: '조율중' },
 ];
 
 const RECENT_REVIEWS = [
-  { author: '김**', rating: 5, text: '정말 프로페셔널하시고, 분위기를 완벽하게 이끌어주셨어요. 하객분들 모두 만족하셨습니다!', date: '2026-04-05' },
-  { author: '이**', rating: 5, text: '아이 돌잔치를 정말 따뜻하고 감동적으로 진행해주셔서 감사합니다.', date: '2026-03-29' },
-  { author: '박**', rating: 4, text: '전문적인 진행과 세심한 배려가 인상적이었습니다. 다음에도 부탁드릴게요.', date: '2026-03-22' },
+  {
+    id: 'r1',
+    author: '김**',
+    rating: 5,
+    text: '정말 프로페셔널하시고, 분위기를 완벽하게 이끌어주셨어요. 하객분들 모두 만족하셨습니다!',
+    date: '2026-04-05',
+    badge: '개인' as const,
+    scores: { 경력: 5, 만족도: 5, 구성력: 5, 위트: 4, 발성: 5, 이미지: 5 },
+  },
+  {
+    id: 'r2',
+    author: '이**',
+    rating: 5,
+    text: '아이 돌잔치를 정말 따뜻하고 감동적으로 진행해주셔서 감사합니다.',
+    date: '2026-03-29',
+    badge: 'Biz' as const,
+    scores: { 경력: 5, 만족도: 5, 구성력: 4, 위트: 5, 발성: 5, 이미지: 4 },
+  },
 ];
 
 const REJECTION_REASONS = ['일정 불가', '지역 불가', '금액 불일치', '전문 분야 불일치', '기타'];
@@ -149,6 +169,14 @@ const PLAN_COLORS: Record<string, { bg: string; text: string }> = {
   Superior: { bg: 'bg-purple-100', text: 'text-purple-700' },
   Enterprise: { bg: 'bg-amber-100', text: 'text-amber-700' },
 };
+
+const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
+  '개인': { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+  'Biz': { bg: 'bg-blue-50', text: 'text-blue-600' },
+  '에이전시': { bg: 'bg-purple-50', text: 'text-purple-600' },
+};
+
+const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 
 /* ─── Animation variants ─── */
 
@@ -198,8 +226,12 @@ export default function ProDashboardPage() {
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [confirmAccept, setConfirmAccept] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load from localStorage
   useEffect(() => {
     const storedName = localStorage.getItem('proRegister_name') || '프로';
     setName(storedName);
@@ -216,7 +248,20 @@ export default function ProDashboardPage() {
       setQuotes(INITIAL_QUOTES);
       localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES));
     }
+
+    const storedReplies = localStorage.getItem('pro-review-replies');
+    if (storedReplies) {
+      try { setSavedReplies(JSON.parse(storedReplies)); } catch { /* ignore */ }
+    }
   }, []);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, [contextMenu]);
 
   function saveQuotes(updated: Quote[]) {
     setQuotes(updated);
@@ -241,17 +286,47 @@ export default function ProDashboardPage() {
     setCustomReason('');
   }
 
+  function handleArchive(id: string) {
+    const updated = quotes.map((q) => (q.id === id ? { ...q, status: 'archived' as const } : q));
+    saveQuotes(updated);
+    setContextMenu(null);
+  }
+
+  const handlePointerDown = useCallback((id: string, e: React.PointerEvent) => {
+    const x = e.clientX;
+    const y = e.clientY;
+    longPressTimer.current = setTimeout(() => {
+      setContextMenu({ id, x, y });
+    }, 600);
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  function saveReply(reviewId: string) {
+    const text = replyTexts[reviewId];
+    if (!text?.trim()) return;
+    const updated = { ...savedReplies, [reviewId]: text };
+    setSavedReplies(updated);
+    localStorage.setItem('pro-review-replies', JSON.stringify(updated));
+    setReplyingTo(null);
+    setReplyTexts((prev) => ({ ...prev, [reviewId]: '' }));
+  }
+
   const pendingQuotes = quotes.filter((q) => q.status === 'pending');
 
-  /* ─── Revenue data ─── */
   const thisMonth = 2400000;
   const lastMonth = 1800000;
   const maxRevenue = Math.max(thisMonth, lastMonth);
 
   return (
     <div className="bg-gray-50 min-h-screen pb-28">
-      {/* ── Fixed Header ── */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-100">
+      {/* ── Header ── */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="px-5 pt-12 pb-4 flex items-center justify-between">
           <div>
             <motion.h1
@@ -271,16 +346,15 @@ export default function ProDashboardPage() {
               {todayString()}
             </motion.p>
           </div>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            className="relative p-2"
-          >
-            <BellIcon />
-          </motion.button>
+          <Link href="/pro-dashboard/notifications">
+            <motion.div whileTap={{ scale: 0.9 }} className="relative p-2">
+              <BellIcon />
+            </motion.div>
+          </Link>
         </div>
       </div>
 
-      {/* ── Quick Stats ── */}
+      {/* ── Quick Stats (clickable Links) ── */}
       <motion.div
         variants={stagger}
         initial="hidden"
@@ -288,26 +362,29 @@ export default function ProDashboardPage() {
         className="px-4 mt-5 grid grid-cols-2 gap-3"
       >
         {[
-          { icon: <DocumentIcon />, label: '새 견적요청', value: `${pendingQuotes.length}건`, bg: 'bg-blue-50' },
-          { icon: <MoneyIcon />, label: '이번달 매출', value: '₩2,400,000', bg: 'bg-green-50' },
-          { icon: <EyeIcon />, label: '프로필 조회', value: '328회', bg: 'bg-gray-50' },
-          { icon: <StarIcon />, label: '평균 평점', value: '4.8', bg: 'bg-yellow-50' },
+          { icon: <DocumentDetailedIcon />, label: '새 견적요청', value: `${pendingQuotes.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/quotes' },
+          { icon: <MoneyDetailedIcon />, label: '이번달 매출', value: '₩2,400,000', bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
+          { icon: <EyeDetailedIcon />, label: '프로필 조회', value: '328회', bg: 'bg-purple-50', href: '/pro-dashboard/views' },
+          { icon: <StarDetailedIcon />, label: '평균 평점', value: '4.8', bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
         ].map((stat, i) => (
-          <motion.div
-            key={i}
-            variants={fadeUp}
-            className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
-          >
-            <div className={`w-11 h-11 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
-              {stat.icon}
-            </div>
-            <p className="text-[11px] text-gray-400 font-medium">{stat.label}</p>
-            <p className="text-xl font-bold text-gray-900 mt-0.5">{stat.value}</p>
+          <motion.div key={i} variants={fadeUp}>
+            <Link href={stat.href}>
+              <motion.div
+                whileTap={{ scale: 0.96 }}
+                className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] active:bg-gray-50 transition-colors"
+              >
+                <div className={`w-11 h-11 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
+                  {stat.icon}
+                </div>
+                <p className="text-[11px] text-gray-400 font-medium">{stat.label}</p>
+                <p className="text-xl font-bold text-gray-900 mt-0.5">{stat.value}</p>
+              </motion.div>
+            </Link>
           </motion.div>
         ))}
       </motion.div>
 
-      {/* ── 견적 요청 관리 ── */}
+      {/* ── 견적 요청 ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -323,59 +400,47 @@ export default function ProDashboardPage() {
           )}
         </div>
 
-        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
+        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-0">
           <AnimatePresence mode="popLayout">
             {pendingQuotes.length === 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white rounded-2xl p-8 text-center shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+                className="py-10 text-center"
               >
                 <p className="text-sm text-gray-400">대기 중인 견적 요청이 없습니다</p>
               </motion.div>
             )}
-            {pendingQuotes.map((quote) => (
+            {pendingQuotes.map((quote, idx) => (
               <motion.div
                 key={quote.id}
                 layout
                 variants={fadeUp}
                 exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
-                className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+                onPointerDown={(e) => handlePointerDown(quote.id, e)}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                className={`py-4 select-none ${idx < pendingQuotes.length - 1 ? 'border-b border-gray-100' : ''}`}
               >
                 {/* Top row */}
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <PersonIcon />
                     <span className="text-sm font-bold text-gray-900">{quote.clientName}</span>
+                    <span className="text-xs text-gray-400">{quote.eventType}</span>
                   </div>
                   <span
-                    className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${PLAN_COLORS[quote.plan].bg} ${PLAN_COLORS[quote.plan].text}`}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${PLAN_COLORS[quote.plan].bg} ${PLAN_COLORS[quote.plan].text}`}
                   >
                     {quote.plan}
                   </span>
                 </div>
 
-                {/* Details */}
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                  <div className="flex items-center gap-1.5">
-                    <CalendarBadgeIcon />
-                    <div>
-                      <p className="text-[10px] text-gray-400">행사 종류</p>
-                      <p className="text-xs font-semibold text-gray-700">{quote.eventType}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <ClockIcon />
-                    <div>
-                      <p className="text-[10px] text-gray-400">행사 날짜</p>
-                      <p className="text-xs font-semibold text-gray-700">{formatDate(quote.eventDate)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 rounded-xl px-3 py-2 mb-4 flex items-center justify-between">
-                  <span className="text-[11px] text-gray-400">예산</span>
-                  <span className="text-sm font-bold text-gray-900">{quote.budget}</span>
+                {/* Details row */}
+                <div className="flex items-center gap-3 mb-3 text-xs text-gray-500">
+                  <span>{formatDate(quote.eventDate)}</span>
+                  <span className="text-gray-200">|</span>
+                  <span className="font-bold text-gray-900">{quote.budget}</span>
                 </div>
 
                 {/* Action Buttons */}
@@ -401,7 +466,30 @@ export default function ProDashboardPage() {
         </motion.div>
       </motion.div>
 
-      {/* ── 다가오는 일정 ── */}
+      {/* ── Context Menu ── */}
+      <AnimatePresence>
+        {contextMenu && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
+            style={{ top: contextMenu.y, left: Math.min(contextMenu.x, window.innerWidth - 140) }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => handleArchive(contextMenu.id)}
+              className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 font-medium hover:bg-gray-50 w-full"
+            >
+              <ArchiveIcon />
+              보관
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 다가오는 일정 (timeline style) ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -414,44 +502,45 @@ export default function ProDashboardPage() {
             전체보기 <ChevronRightIcon />
           </Link>
         </div>
-        <div className="space-y-3">
+
+        <div className="relative">
           {UPCOMING_EVENTS.map((ev, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.55 + i * 0.08 }}
-              className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] flex items-center gap-3"
+              className="flex gap-4 pb-5 last:pb-0 relative"
             >
-              {/* Date badge */}
-              <div className="w-14 h-14 bg-[#3180F7] rounded-xl flex flex-col items-center justify-center shrink-0">
-                <span className="text-xs font-bold text-white">{ev.date}</span>
-                <span className="text-[10px] text-blue-200 font-medium">({ev.day})</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900">{ev.eventType}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <PersonIcon />
-                  <span className="text-xs text-gray-500">{ev.client}</span>
+              {/* Timeline line + dot */}
+              <div className="flex flex-col items-center shrink-0 w-3">
+                <div className="w-3 h-3 rounded-full bg-[#3180F7] mt-1.5 shrink-0 relative">
+                  <div className="absolute inset-0 rounded-full bg-[#3180F7] animate-ping opacity-20" />
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="flex items-center gap-0.5">
-                    <LocationIcon />
-                    <span className="text-[11px] text-gray-400">{ev.venue}</span>
-                  </div>
-                  <span className="text-[11px] text-gray-400">|</span>
-                  <span className="text-[11px] text-gray-400">{ev.time}</span>
-                </div>
+                {i < UPCOMING_EVENTS.length - 1 && (
+                  <div className="w-0.5 flex-1 bg-blue-100 mt-1" />
+                )}
               </div>
-              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full shrink-0">
-                확정
-              </span>
+
+              {/* Content */}
+              <div className="flex-1 flex items-start justify-between min-w-0">
+                <div>
+                  <p className="text-sm font-bold text-gray-900">{ev.date} ({ev.day})</p>
+                  <p className="text-xs text-gray-700 mt-0.5">{ev.eventType} · {ev.client}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{ev.venue} · {ev.time}</p>
+                </div>
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ml-2 ${
+                  ev.status === '확정' ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'
+                }`}>
+                  {ev.status}
+                </span>
+              </div>
             </motion.div>
           ))}
         </div>
       </motion.div>
 
-      {/* ── 최근 리뷰 ── */}
+      {/* ── 최근 리뷰 (with 6 category scores) ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -460,19 +549,20 @@ export default function ProDashboardPage() {
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-gray-900">최근 리뷰</h2>
-          <Link href="/reviews" className="flex items-center gap-0.5 text-xs font-medium text-[#3180F7]">
+          <Link href="/pro-dashboard/reviews" className="flex items-center gap-0.5 text-xs font-medium text-[#3180F7]">
             전체보기 <ChevronRightIcon />
           </Link>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {RECENT_REVIEWS.map((review, i) => (
             <motion.div
-              key={i}
+              key={review.id}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7 + i * 0.08 }}
-              className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+              className="border-b border-gray-100 pb-4 last:border-0"
             >
+              {/* Header */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-gray-900">{review.author}</span>
@@ -481,10 +571,72 @@ export default function ProDashboardPage() {
                       <SmallStarIcon key={s} filled={s <= review.rating} />
                     ))}
                   </div>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${BADGE_COLORS[review.badge].bg} ${BADGE_COLORS[review.badge].text}`}>
+                    {review.badge}
+                  </span>
                 </div>
                 <span className="text-[11px] text-gray-300">{formatDate(review.date)}</span>
               </div>
-              <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{review.text}</p>
+
+              {/* Category Scores */}
+              <div className="flex gap-2 flex-wrap mb-2">
+                {CATEGORY_LABELS.map((cat) => (
+                  <span key={cat} className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                    {cat} <span className="font-bold text-gray-600">{review.scores[cat]}</span>
+                  </span>
+                ))}
+              </div>
+
+              <p className="text-xs text-gray-500 leading-relaxed">{review.text}</p>
+
+              {/* Reply */}
+              {savedReplies[review.id] ? (
+                <div className="mt-2 bg-blue-50 rounded-lg px-3 py-2">
+                  <p className="text-[11px] text-blue-600 font-medium">내 답글</p>
+                  <p className="text-xs text-blue-800 mt-0.5">{savedReplies[review.id]}</p>
+                </div>
+              ) : (
+                <>
+                  {replyingTo === review.id ? (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="mt-2"
+                    >
+                      <textarea
+                        value={replyTexts[review.id] || ''}
+                        onChange={(e) => setReplyTexts((prev) => ({ ...prev, [review.id]: e.target.value }))}
+                        placeholder="답글을 입력하세요..."
+                        className="w-full border border-gray-200 rounded-lg p-2.5 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-16"
+                      />
+                      <div className="flex gap-2 mt-1.5">
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setReplyingTo(null)}
+                          className="px-3 py-1.5 text-[11px] text-gray-400 font-medium"
+                        >
+                          취소
+                        </motion.button>
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => saveReply(review.id)}
+                          className="px-3 py-1.5 bg-[#3180F7] text-white text-[11px] font-bold rounded-lg"
+                        >
+                          등록
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setReplyingTo(review.id)}
+                      className="flex items-center gap-1 mt-2 text-[11px] text-[#3180F7] font-medium"
+                    >
+                      <ReplyIcon /> 답글 작성
+                    </motion.button>
+                  )}
+                </>
+              )}
             </motion.div>
           ))}
         </div>
@@ -502,7 +654,6 @@ export default function ProDashboardPage() {
           <h2 className="text-base font-bold text-gray-900">수익 현황</h2>
         </div>
         <div className="bg-white rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-          {/* This month */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-medium text-gray-500">이번 달</span>
@@ -517,7 +668,6 @@ export default function ProDashboardPage() {
               />
             </div>
           </div>
-          {/* Last month */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-medium text-gray-500">지난 달</span>
@@ -585,7 +735,7 @@ export default function ProDashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Rejection Reason Modal (bottom sheet) ── */}
+      {/* ── Rejection Reason Modal ── */}
       <AnimatePresence>
         {rejectTarget && (
           <motion.div
@@ -595,11 +745,7 @@ export default function ProDashboardPage() {
             animate="visible"
             exit="exit"
             className="fixed inset-0 z-50 bg-black/40 flex items-end"
-            onClick={() => {
-              setRejectTarget(null);
-              setSelectedReason('');
-              setCustomReason('');
-            }}
+            onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}
           >
             <motion.div
               variants={modalSheet}
@@ -609,26 +755,19 @@ export default function ProDashboardPage() {
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto shadow-xl"
             >
-              {/* Handle bar */}
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 bg-gray-200 rounded-full" />
               </div>
-
               <div className="px-5 pt-3 pb-8">
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="text-base font-bold text-gray-900">거절 사유 선택</h3>
                   <motion.button
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => {
-                      setRejectTarget(null);
-                      setSelectedReason('');
-                      setCustomReason('');
-                    }}
+                    onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}
                   >
                     <CloseIcon />
                   </motion.button>
                 </div>
-
                 <div className="space-y-2 mb-5">
                   {REJECTION_REASONS.map((reason) => (
                     <motion.button
@@ -645,13 +784,8 @@ export default function ProDashboardPage() {
                     </motion.button>
                   ))}
                 </div>
-
                 {selectedReason === '기타' && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="mb-5"
-                  >
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-5">
                     <textarea
                       value={customReason}
                       onChange={(e) => setCustomReason(e.target.value)}
@@ -660,7 +794,6 @@ export default function ProDashboardPage() {
                     />
                   </motion.div>
                 )}
-
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={handleReject}
