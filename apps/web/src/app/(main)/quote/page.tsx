@@ -262,7 +262,7 @@ function QuotePage() {
     setSending(false);
     localStorage.setItem('freetiful-quote-submitted', 'true');
     toast.success(isEvent ? '행사 견적 요청이 접수되었습니다.' : `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.`);
-    router.push('/home');
+    router.push('/main');
   };
 
   const handleSurveyComplete = async () => {

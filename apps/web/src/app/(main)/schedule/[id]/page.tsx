@@ -238,7 +238,7 @@ export default function BookingDetailPage() {
           </button>
         ) : booking.status === 'cancelled' ? (
           <button
-            onClick={() => router.push('/home')}
+            onClick={() => router.push('/main')}
             className="w-full h-[52px] text-[16px] font-bold text-white active:scale-[0.98] transition-transform"
             style={{ backgroundColor: '#2B313D', borderRadius: 14 }}
           >

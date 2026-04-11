@@ -147,7 +147,7 @@ const MENU_SECTIONS = [
       { href: '/my/invite', icon: IconUsers, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
       { href: '/pro-register/terms', icon: IconBriefcase, label: '파트너 신청', action: 'partner' },
-      { href: '/home', icon: IconUser, label: '일반회원 전환', action: 'general' },
+      { href: '/main', icon: IconUser, label: '일반회원 전환', action: 'general' },
     ],
   },
 ];
@@ -173,7 +173,7 @@ export default function MyPage() {
 
   const handleGeneralMode = () => {
     localStorage.setItem('userRole', 'general');
-    router.push('/home');
+    router.push('/main');
     window.location.reload();
   };
 

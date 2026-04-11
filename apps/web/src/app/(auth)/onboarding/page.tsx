@@ -27,7 +27,7 @@ export default function OnboardingPage() {
     // Simulate API call
     await new Promise((r) => setTimeout(r, 800));
     setLoading(false);
-    router.push('/home');
+    router.push('/main');
   };
 
   const isValid = name.trim().length >= 2 && phone.replace(/\D/g, '').length >= 10;

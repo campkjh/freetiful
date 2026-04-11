@@ -774,7 +774,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2">
           {/* Logo - shrinks & disappears on scroll */}
           <Link
-            href="/home"
+            href="/main"
             className="shrink-0 origin-left"
             style={{
               width: logoVisible ? 'auto' : 0,

@@ -1137,7 +1137,7 @@ export default function ProfilePage() {
               7일 이내에 승인 결과를 알려드립니다
             </motion.p>
             <motion.button
-              onClick={() => { router.push('/home'); }}
+              onClick={() => { router.push('/main'); }}
               className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}

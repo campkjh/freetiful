@@ -337,7 +337,7 @@ export default function BizPage() {
               : 'max-w-[1200px] w-full h-[60px] px-6 bg-transparent'
           }`}
         >
-          <Link href="/home" className="transition-all duration-700">
+          <Link href="/main" className="transition-all duration-700">
             <Image
               src="/images/logo-prettyful.svg"
               alt="Freetiful"
@@ -1117,7 +1117,7 @@ export default function BizPage() {
               <a href={COMPANY_INFO.tiktok} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">틱톡</a>
               <button onClick={() => setShowPrivacy(true)} className="transition-colors hover:text-gray-500">개인정보처리방침</button>
               <Link href="/careers" className="transition-colors hover:text-gray-500">인재채용</Link>
-              <Link href="/home" className="transition-colors hover:text-gray-500">홈으로</Link>
+              <Link href="/main" className="transition-colors hover:text-gray-500">홈으로</Link>
             </div>
           </div>
         </div>
@@ -1158,7 +1158,7 @@ export default function BizPage() {
                 onClick={() => {
                   sessionStorage.setItem('nav-transition', 'from-biz');
                   setBizNavCollapsing(true);
-                  setTimeout(() => router.push('/home'), 500);
+                  setTimeout(() => router.push('/main'), 500);
                 }}
                 className={`flex items-center justify-center w-[48px] h-[48px] shrink-0 -ml-1 rounded-full transition-all duration-500 active:scale-90 ${bizNavCollapsing ? 'bg-transparent text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
               >

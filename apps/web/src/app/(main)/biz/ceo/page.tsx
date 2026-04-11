@@ -89,7 +89,7 @@ export default function CeoPage() {
               : 'max-w-[1200px] w-full h-[60px] px-6 bg-transparent'
           }`}
         >
-          <Link href="/home" className="transition-all duration-700">
+          <Link href="/main" className="transition-all duration-700">
             <Image
               src="/images/logo-prettyful.svg"
               alt="Freetiful"
@@ -365,7 +365,7 @@ export default function CeoPage() {
             <div className="flex gap-4 text-[12px] text-gray-300">
               <Link href="/biz" className="transition-colors hover:text-gray-500">회사소개</Link>
               <Link href="/careers" className="transition-colors hover:text-gray-500">채용</Link>
-              <Link href="/home" className="transition-colors hover:text-gray-500">홈으로</Link>
+              <Link href="/main" className="transition-colors hover:text-gray-500">홈으로</Link>
             </div>
           </div>
         </div>
