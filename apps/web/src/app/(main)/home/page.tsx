@@ -782,7 +782,7 @@ export default function HomePage() {
             }}
           >
             <Search size={16} className="text-gray-400 shrink-0" />
-            <span className="text-gray-400 text-[14px] font-medium truncate">어떤 전문가를 찾으시나요?</span>
+            <span className="text-gray-400 text-[16px] font-medium truncate">어떤 전문가를 찾으시나요?</span>
           </Link>
           {/* Bell icon */}
           <Link
