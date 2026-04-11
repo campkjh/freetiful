@@ -95,13 +95,22 @@ export default function PromoCodePage() {
             건너뛰기
           </motion.button>
         </div>
+        {/* Progress bar */}
+        <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
+          <motion.div
+            className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${(2 / 7) * 100}%` }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+          />
+        </div>
         <motion.h1
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className="text-2xl font-bold text-gray-900"
         >
-          프로모션 코드입력
+          프로모션 코드입력 <span className="text-[11px] text-gray-400">2/7</span>
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 8 }}

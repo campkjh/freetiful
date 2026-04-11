@@ -80,13 +80,22 @@ export default function PersonalInfoPage() {
         <motion.button onClick={() => router.back()} className="mb-4" whileTap={{ scale: 0.9 }}>
           <ChevronLeft size={24} className="text-gray-900" />
         </motion.button>
+        {/* Progress bar */}
+        <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
+          <motion.div
+            className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${(3 / 7) * 100}%` }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+          />
+        </div>
         <motion.h1
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className="text-2xl font-bold text-gray-900"
         >
-          개인정보
+          개인정보 <span className="text-[11px] text-gray-400">3/7</span>
         </motion.h1>
       </div>
 
