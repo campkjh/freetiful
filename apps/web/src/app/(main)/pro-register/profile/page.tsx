@@ -810,68 +810,93 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
-      {/* 기업이력 검색 바텀시트 */}
+      {/* 기업이력 검색 — 전체 페이지 덮기 */}
       <AnimatePresence>
         {showCompanySheet && (
-          <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowCompanySheet(false)}>
-            <motion.div
-              className="absolute inset-0 bg-black/50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            />
-            <motion.div
-              className="relative bg-white rounded-t-3xl w-full max-h-[70vh] flex flex-col"
-              variants={bottomSheetVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6 pb-3">
-                <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-                <h2 className="text-lg font-bold text-gray-900 mb-3">[선택]기업이력</h2>
+          <motion.div
+            className="fixed inset-0 z-50 bg-white flex flex-col"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          >
+            {/* Header */}
+            <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-3 mb-4">
+                <motion.button onClick={() => setShowCompanySheet(false)} whileTap={{ scale: 0.9 }}>
+                  <ChevronLeft size={24} className="text-gray-900" />
+                </motion.button>
+                <h2 className="text-[18px] font-bold text-gray-900">기업이력 선택</h2>
+              </div>
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 <input
                   type="text"
                   value={companySearch}
                   onChange={(e) => setCompanySearch(e.target.value)}
                   placeholder="기업명을 검색하세요"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 outline-none text-[16px] text-gray-900 placeholder:text-gray-400"
+                  className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                   autoFocus
                 />
               </div>
-              <div className="flex-1 overflow-y-auto px-6 pb-10">
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {filteredCompanies.map((cat) => (
-                    <motion.button
+              {/* 선택된 기업 칩 */}
+              {selectedCategories.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {selectedCategories.map((cat) => (
+                    <motion.span
                       key={cat}
-                      onClick={() => toggleCategory(cat)}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                        selectedCategories.includes(cat)
-                          ? 'bg-[#3180F7] text-white border-[#3180F7]'
-                          : 'bg-white text-gray-700 border-gray-300'
-                      }`}
-                      whileTap={{ scale: 0.92 }}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="inline-flex items-center gap-1 bg-[#3180F7] text-white text-[12px] font-bold px-2.5 py-1 rounded-full"
                     >
                       {cat}
-                    </motion.button>
+                      <button onClick={() => toggleCategory(cat)}><X size={12} /></button>
+                    </motion.span>
                   ))}
-                  {filteredCompanies.length === 0 && (
-                    <p className="text-sm text-gray-400 py-4 text-center w-full">검색 결과가 없습니다</p>
-                  )}
                 </div>
+              )}
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="space-y-1">
+                {filteredCompanies.map((cat) => {
+                  const selected = selectedCategories.includes(cat);
+                  return (
+                    <motion.button
+                      key={cat}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => toggleCategory(cat)}
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-colors ${
+                        selected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className={`text-[15px] font-medium ${selected ? 'text-[#3180F7]' : 'text-gray-700'}`}>{cat}</span>
+                      {selected && (
+                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-5 h-5 rounded-full bg-[#3180F7] flex items-center justify-center">
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </motion.div>
+                      )}
+                    </motion.button>
+                  );
+                })}
+                {filteredCompanies.length === 0 && (
+                  <p className="text-[14px] text-gray-400 py-8 text-center">검색 결과가 없습니다</p>
+                )}
               </div>
-              <div className="shrink-0 p-6 pt-3">
-                <motion.button
-                  onClick={() => setShowCompanySheet(false)}
-                  className="w-full py-3 bg-[#3180F7] text-white rounded-2xl font-bold text-sm"
-                  whileTap={{ scale: 0.97 }}
-                >
-                  선택 완료 ({selectedCategories.length}개)
-                </motion.button>
-              </div>
-            </motion.div>
-          </div>
+            </div>
+
+            {/* Bottom button */}
+            <div className="shrink-0 p-4 pb-8 bg-white border-t border-gray-100">
+              <motion.button
+                onClick={() => setShowCompanySheet(false)}
+                whileTap={{ scale: 0.96 }}
+                className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-[16px]"
+              >
+                선택 완료 ({selectedCategories.length}개)
+              </motion.button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
