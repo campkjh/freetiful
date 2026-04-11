@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Calendar, List, MapPin, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -88,7 +88,166 @@ function getKoreanHolidays(year: number, month: number): Record<number, string> 
   return holidays;
 }
 
+/* ─── Pro (사회자) Mock Data ─── */
+interface ProBooking {
+  id: string;
+  clientName: string;
+  eventType: string;
+  date: string;
+  time: string;
+  venue: string;
+  plan: string;
+  paymentStatus: '결제완료' | '대기';
+  amount: string;
+  status: 'confirmed' | 'pending' | 'completed';
+}
+
+const PRO_MOCK_BOOKINGS: ProBooking[] = [
+  { id: 'pb1', clientName: '김정훈', eventType: '결혼식 MC', date: '2026-04-10', time: '14:00 - 16:00', venue: '그랜드 웨딩홀', plan: '프리미엄', paymentStatus: '결제완료', amount: '800,000', status: 'confirmed' },
+  { id: 'pb2', clientName: '이수진', eventType: '결혼식 MC', date: '2026-04-18', time: '12:00 - 14:00', venue: '더 채플 하우스', plan: '스탠다드', paymentStatus: '대기', amount: '600,000', status: 'pending' },
+  { id: 'pb3', clientName: '박민서', eventType: '돌잔치 MC', date: '2026-04-22', time: '11:00 - 12:30', venue: '리츠칼튼 서울', plan: '베이직', paymentStatus: '결제완료', amount: '500,000', status: 'confirmed' },
+  { id: 'pb4', clientName: '최현우', eventType: '결혼식 MC', date: '2026-05-01', time: '13:00 - 15:00', venue: '반포 JW메리어트', plan: '프리미엄', paymentStatus: '대기', amount: '800,000', status: 'pending' },
+];
+
+const PRO_STATUS_MAP = {
+  confirmed: { label: '확정', textColor: 'text-green-700', bgColor: 'bg-green-50' },
+  pending: { label: '대기', textColor: 'text-amber-700', bgColor: 'bg-amber-50' },
+  completed: { label: '완료', textColor: 'text-gray-500', bgColor: 'bg-gray-100' },
+};
+
+/* ─── Pro SVG Icons ─── */
+const ProIconCalendar = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="4" width="18" height="18" rx="3" fill="#3B82F6"/>
+    <rect x="3" y="4" width="18" height="7" rx="3" fill="#2563EB"/>
+    <rect x="7" y="2" width="2.5" height="4" rx="1.25" fill="#93C5FD"/>
+    <rect x="14.5" y="2" width="2.5" height="4" rx="1.25" fill="#93C5FD"/>
+  </svg>
+);
+const ProIconClock = () => (
+  <svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" fill="#E5E7EB"/>
+    <path d="M12 7v5l3.5 3.5" stroke="#6B7280" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+const ProIconPin = () => (
+  <svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EF4444"/>
+    <circle cx="12" cy="9" r="2.5" fill="white"/>
+  </svg>
+);
+const ProIconWon = () => (
+  <svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" fill="#10B981"/>
+    <text x="12" y="16" textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" fontFamily="system-ui">₩</text>
+  </svg>
+);
+
+function ProScheduleView() {
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 h-14">
+          <h1 className="text-[18px] font-bold text-gray-900">예약 관리</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">PRO</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="px-4 py-4">
+        <div className="flex gap-2">
+          {[
+            { label: '확정', count: PRO_MOCK_BOOKINGS.filter(b => b.status === 'confirmed').length, color: '#22C55E' },
+            { label: '대기', count: PRO_MOCK_BOOKINGS.filter(b => b.status === 'pending').length, color: '#F59E0B' },
+            { label: '완료', count: PRO_MOCK_BOOKINGS.filter(b => b.status === 'completed').length, color: '#9CA3AF' },
+          ].map(s => (
+            <div key={s.label} className="flex-1 bg-gray-50 rounded-xl py-3 text-center">
+              <p className="text-[20px] font-bold" style={{ color: s.color }}>{s.count}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Section Title */}
+      <div className="px-4 pb-2">
+        <div className="flex items-center gap-2">
+          <ProIconCalendar />
+          <h2 className="text-[16px] font-bold text-gray-900">예약된 행사</h2>
+        </div>
+      </div>
+
+      {/* Booking Cards */}
+      <div className="px-4 space-y-3 pb-24">
+        {PRO_MOCK_BOOKINGS.map(booking => {
+          const status = PRO_STATUS_MAP[booking.status];
+          const dateObj = new Date(booking.date);
+          const dateLabel = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 (${DAYS_KR[dateObj.getDay()]})`;
+          return (
+            <div key={booking.id} className="bg-white border border-gray-100 rounded-2xl p-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              {/* Top: Client + Status */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="8" r="4" fill="#9CA3AF"/>
+                      <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" fill="#9CA3AF"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[15px] font-bold text-gray-900">{booking.clientName}</p>
+                    <p className="text-[12px] text-gray-400">{booking.eventType}</p>
+                  </div>
+                </div>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${status.bgColor} ${status.textColor}`}>
+                  {status.label}
+                </span>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-1.5 mb-3">
+                <div className="flex items-center gap-2 text-[13px] text-gray-600">
+                  <ProIconCalendar /><span className="text-[12px]">{dateLabel}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[13px] text-gray-600">
+                  <ProIconClock /><span className="text-[12px]">{booking.time}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[13px] text-gray-600">
+                  <ProIconPin /><span className="text-[12px]">{booking.venue}</span>
+                </div>
+              </div>
+
+              {/* Plan + Payment */}
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[11px] font-medium text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full">{booking.plan}</span>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${booking.paymentStatus === '결제완료' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                  {booking.paymentStatus}
+                </span>
+                <div className="flex items-center gap-1 ml-auto">
+                  <ProIconWon />
+                  <span className="text-[13px] font-bold text-gray-900">{booking.amount}원</span>
+                </div>
+              </div>
+
+              {/* Action */}
+              <Link href={`/schedule/${booking.id}`} className="block w-full py-2.5 text-[14px] text-white font-bold text-center" style={{ backgroundColor: '#2B313D', borderRadius: 12 }}>
+                상세보기
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SchedulePage() {
+  const [isPro, setIsPro] = useState(false);
+  useEffect(() => { setIsPro(localStorage.getItem('userRole') === 'pro'); }, []);
+
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -170,6 +329,8 @@ export default function SchedulePage() {
   // Stats
   const confirmedCount = monthSchedules.filter(s => s.status === 'confirmed').length;
   const pendingCount = monthSchedules.filter(s => s.status === 'pending').length;
+
+  if (isPro) return <ProScheduleView />;
 
   return (
     <div className="min-h-screen bg-white">

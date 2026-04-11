@@ -302,7 +302,7 @@ export default function ProDashboardPage() {
               {stat.icon}
             </div>
             <p className="text-[11px] text-gray-400 font-medium">{stat.label}</p>
-            <p className="text-xl font-black text-gray-900 mt-0.5">{stat.value}</p>
+            <p className="text-xl font-bold text-gray-900 mt-0.5">{stat.value}</p>
           </motion.div>
         ))}
       </motion.div>

@@ -116,6 +116,125 @@ const MOCK_USER = {
   role: 'general',
 };
 
+/* ─── Pro (사회자) Icons ─── */
+const ProIconRevenue = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="2" y="4" width="20" height="16" rx="3" fill="#10B981"/>
+    <path d="M2 10h20" stroke="#059669" strokeWidth="1.5"/>
+    <text x="12" y="18" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" fontFamily="system-ui">₩</text>
+  </svg>
+);
+const ProIconSettle = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="3" y="3" width="18" height="18" rx="3" fill="#3B82F6"/>
+    <path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const ProIconBank = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M3 21h18v-2H3v2zm0-4h4v-6H3v6zm6 0h4v-6H9v6zm6 0h4v-6h-4v6zM12 2L2 7v2h20V7L12 2z" fill="#6366F1"/>
+  </svg>
+);
+const ProIconProfile = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <circle cx="12" cy="8" r="5" fill="#818CF8"/>
+    <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" fill="#818CF8"/>
+    <circle cx="18" cy="6" r="4" fill="#3B82F6"/>
+    <path d="M16.5 6h3M18 4.5v3" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+const ProIconPortfolio = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="2" y="3" width="20" height="18" rx="3" fill="#F59E0B"/>
+    <rect x="5" y="6" width="6" height="5" rx="1" fill="white" opacity="0.6"/>
+    <rect x="13" y="6" width="6" height="5" rx="1" fill="white" opacity="0.6"/>
+    <rect x="5" y="13" width="6" height="5" rx="1" fill="white" opacity="0.6"/>
+    <rect x="13" y="13" width="6" height="5" rx="1" fill="white" opacity="0.6"/>
+  </svg>
+);
+const ProIconFAQ = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <circle cx="12" cy="12" r="10" fill="#F59E0B"/>
+    <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="13" fontWeight="bold" fontFamily="system-ui">?</text>
+  </svg>
+);
+const ProIconPudding = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <ellipse cx="12" cy="8" rx="9" ry="4" fill="#FBBF24"/>
+    <path d="M3 8v8c0 2.2 4 4 9 4s9-1.8 9-4V8" fill="#F59E0B"/>
+    <ellipse cx="12" cy="8" rx="9" ry="4" fill="#FBBF24"/>
+    <ellipse cx="12" cy="8" rx="5" ry="2" fill="#FDE68A"/>
+  </svg>
+);
+const ProIconRanking = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="3" y="14" width="5" height="8" rx="1" fill="#9CA3AF"/>
+    <rect x="9.5" y="6" width="5" height="16" rx="1" fill="#FBBF24"/>
+    <rect x="16" y="10" width="5" height="12" rx="1" fill="#F97316"/>
+    <circle cx="12" cy="3.5" r="2" fill="#FBBF24"/>
+  </svg>
+);
+const ProIconPhone = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1C10.07 21 3 13.93 3 4c0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.31.03.7-.25 1.02l-2.2 2.2z" fill="#4B8DF8"/>
+  </svg>
+);
+const ProIconEmail = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <rect x="2" y="4" width="20" height="16" rx="3" fill="#6366F1"/>
+    <path d="M2 7l10 6 10-6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+const ProIconSwitch = () => (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
+    <path d="M7.5 4A7.5 7.5 0 0119.3 8" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M19.3 8l1.2-3.2M19.3 8l-3.3-.8" stroke="#4B8DF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M16.5 20A7.5 7.5 0 014.7 16" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M4.7 16l-1.2 3.2M4.7 16l3.3.8" stroke="#4B8DF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const PRO_MENU_SECTIONS = [
+  {
+    title: '수익 관리',
+    items: [
+      { href: '/my/revenue', icon: ProIconRevenue, label: '매출 내역' },
+      { href: '/my/settlement', icon: ProIconSettle, label: '정산 내역' },
+      { href: '/my/bank', icon: ProIconBank, label: '계좌 관리' },
+    ],
+  },
+  {
+    title: '프로필 관리',
+    items: [
+      { href: '/my/settings', icon: ProIconProfile, label: '프로필 수정' },
+      { href: '/my/portfolio', icon: ProIconPortfolio, label: '포트폴리오 관리' },
+      { href: '/my/pro-faq', icon: ProIconFAQ, label: 'FAQ 관리' },
+    ],
+  },
+  {
+    title: '푸딩',
+    items: [
+      { href: '/my/pudding-charge', icon: ProIconPudding, label: '푸딩 충전' },
+      { href: '/my/pudding-history', icon: IconHistory, label: '푸딩 사용 내역' },
+      { href: '/my/pudding-ranking', icon: ProIconRanking, label: '랭킹 보기' },
+    ],
+  },
+  {
+    title: '고객센터',
+    items: [
+      { href: 'tel:02-1234-5678', icon: ProIconPhone, label: '전화문의' },
+      { href: 'mailto:support@freetiful.com', icon: ProIconEmail, label: '이메일문의' },
+    ],
+  },
+  {
+    title: '기타',
+    items: [
+      { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
+      { href: '#', icon: ProIconSwitch, label: '[테스트] 일반유저 전환', action: 'switchToGeneral' },
+    ],
+  },
+];
+
 const MENU_SECTIONS = [
   {
     title: '나의 활동',
@@ -156,9 +275,11 @@ export default function MyPage() {
   const user = MOCK_USER;
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
+  const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
     setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
+    setIsPro(localStorage.getItem('userRole') === 'pro');
   }, []);
 
   const handlePartnerApply = () => {
@@ -181,6 +302,126 @@ export default function MyPage() {
     localStorage.clear();
     router.push('/login');
   };
+
+  const handleSwitchToGeneral = () => {
+    localStorage.setItem('userRole', 'general');
+    window.location.reload();
+  };
+
+  if (isPro) {
+    const proMockStats = { revenue: '2,400,000', reviews: 48, pudding: 320 };
+    return (
+      <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
+        {/* Header */}
+        <div className="sticky top-0 z-20 bg-white px-4">
+          <div className="h-[52px] flex items-center">
+            <h1 className="text-[18px] font-bold text-gray-900">마이페이지</h1>
+            <span className="ml-2 text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">PRO</span>
+          </div>
+        </div>
+
+        {/* Pro Profile */}
+        <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
+          <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
+            <div className="relative">
+              <img src={user.image} alt={user.name} className="w-[56px] h-[56px] rounded-full object-cover" />
+              <div className="absolute -bottom-0.5 -right-0.5 bg-blue-500 rounded-full flex items-center justify-center" style={{ width: 20, height: 20 }}>
+                <svg width={10} height={10} viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
+                </svg>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[17px] font-bold text-gray-900">사회자 {user.name}</p>
+                <span className="text-[10px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded" style={{ lineHeight: 1.2 }}>PRO</span>
+              </div>
+              <p className="text-[13px] text-gray-400 mt-0.5">{user.email}</p>
+            </div>
+            <ChevronRight size={20} className="text-gray-300 shrink-0" />
+          </Link>
+
+          {/* Pro Quick Stats */}
+          <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={{ animation: 'myFadeUp 0.5s ease 0.1s both' }}>
+            <Link href="/my/revenue" className="flex-1 py-2 text-center">
+              <p className="text-[17px] font-bold text-gray-900">₩{proMockStats.revenue}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">이번달 매출</p>
+            </Link>
+            <div className="w-px bg-gray-100" />
+            <Link href="/my/reviews" className="flex-1 py-2 text-center">
+              <p className="text-[17px] font-bold text-gray-900">{proMockStats.reviews}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">총 리뷰</p>
+            </Link>
+            <div className="w-px bg-gray-100" />
+            <Link href="/my/pudding-charge" className="flex-1 py-2 text-center">
+              <p className="text-[17px] font-bold text-gray-900">{proMockStats.pudding}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">푸딩</p>
+            </Link>
+          </div>
+
+          {/* Pudding ranking info */}
+          <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3" style={{ animation: 'myFadeUp 0.5s ease 0.15s both' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <ProIconPudding />
+              <p className="text-[13px] font-bold text-amber-800">푸딩 랭킹 시스템</p>
+            </div>
+            <p className="text-[12px] text-amber-600 ml-[28px]">현재 보유: <strong>{proMockStats.pudding}개</strong> (상위 15%)</p>
+            <p className="text-[11px] text-amber-500 ml-[28px] mt-0.5">푸딩을 사용하면 프로필이 상단에 노출됩니다</p>
+          </div>
+        </div>
+
+        {/* Pro Menu Sections */}
+        {PRO_MENU_SECTIONS.map((section, si) => (
+          <div key={section.title} style={{ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` }}>
+            {si > 0 && <div className="h-1.5 bg-gray-50" />}
+            <div className="px-4 pt-3 pb-0.5">
+              <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
+            </div>
+            {section.items.map(({ href, icon: Icon, label, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
+              const inner = (
+                <>
+                  <Icon />
+                  <span className="flex-1 text-[14px] text-gray-900">{label}</span>
+                  <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                </>
+              );
+
+              if (action === 'switchToGeneral') {
+                return (
+                  <button key={label} onClick={handleSwitchToGeneral} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
+                    {inner}
+                  </button>
+                );
+              }
+              return (
+                <Link key={label} href={href} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition-colors">
+                  {inner}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+
+        {/* Logout */}
+        <div className="h-1.5 bg-gray-50" />
+        <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full active:bg-gray-50 transition-colors">
+          <LogOut size={18} className="text-gray-400 shrink-0" />
+          <span className="text-[14px] text-gray-400">로그아웃</span>
+        </button>
+
+        <div className="px-4 pt-2 pb-4 text-center">
+          <p className="text-[11px] text-gray-300">Freetiful v1.0.0</p>
+        </div>
+
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes myFadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}} />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>

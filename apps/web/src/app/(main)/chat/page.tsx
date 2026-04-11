@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -78,7 +78,13 @@ function makePreviewMessages(room: ChatRoom) {
 
 type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 
+type ProChatFilter = '전체' | '견적문의' | '예약확정';
+
 export default function ChatListPage() {
+  const [isPro, setIsPro] = useState(false);
+  const [proChatFilter, setProChatFilter] = useState<ProChatFilter>('전체');
+  useEffect(() => { setIsPro(localStorage.getItem('userRole') === 'pro'); }, []);
+
   const [rooms, setRooms] = useState<ChatRoom[]>(MOCK_ROOMS);
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');
   const [editMode, setEditMode] = useState(false);
@@ -346,7 +352,22 @@ export default function ChatListPage() {
         {/* 좌측: 채팅 목록 */}
         <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
           <div className="px-5 pt-6 pb-3">
-            <h1 className="text-[20px] font-extrabold text-gray-900 mb-3">채팅</h1>
+            <h1 className="text-[20px] font-extrabold text-gray-900 mb-3">{isPro ? '고객 문의' : '채팅'}</h1>
+            {isPro && (
+              <div className="flex gap-1.5 mb-3">
+                {(['전체', '견적문의', '예약확정'] as ProChatFilter[]).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setProChatFilter(f)}
+                    className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+                      proChatFilter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="relative mb-3">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -453,7 +474,7 @@ export default function ChatListPage() {
       <div className="lg:hidden bg-white min-h-screen pb-24">
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between h-[52px]">
-            <h1 className="text-[18px] font-bold text-gray-900">채팅</h1>
+            <h1 className="text-[18px] font-bold text-gray-900">{isPro ? '고객 문의' : '채팅'}</h1>
             <button
               onClick={() => setShowSearch(!showSearch)}
               className={`p-2 rounded-full transition-colors active:scale-90 ${showSearch ? 'bg-gray-100' : ''}`}
@@ -501,6 +522,21 @@ export default function ChatListPage() {
               </motion.div>
             )}
           </AnimatePresence>
+          {isPro && (
+            <div className="flex gap-2 mb-2">
+              {(['전체', '견적문의', '예약확정'] as ProChatFilter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setProChatFilter(f)}
+                  className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all ${
+                    proChatFilter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          )}
           <LayoutGroup id="mobile-tabs">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
               {TABS.map((tab) => {
