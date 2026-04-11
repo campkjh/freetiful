@@ -6,12 +6,18 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, Search, SlidersHorizontal, Star, MapPin, X, Clock } from 'lucide-react';
 
 const MOCK_PROS = [
-  { id: '1', name: '김민준', category: 'MC', region: '서울/경기', rating: 4.9, reviews: 142, puddingRank: 1, image: 'https://i.pravatar.cc/300?img=1', intro: '10년 경력 웨딩/기업행사 전문 MC', price: 500000 },
-  { id: '2', name: '이서연', category: 'MC', region: '서울/경기', rating: 4.8, reviews: 98, puddingRank: 2, image: 'https://i.pravatar.cc/300?img=5', intro: '감동과 유머를 함께하는 행사 MC', price: 450000 },
-  { id: '3', name: '박준혁', category: '가수', region: '전국', rating: 5.0, reviews: 67, puddingRank: 3, image: 'https://i.pravatar.cc/300?img=3', intro: '발라드 전문 웨딩 축가 가수', price: 400000 },
-  { id: '4', name: '최지은', category: '쇼호스트', region: '서울/경기', rating: 4.7, reviews: 55, puddingRank: 4, image: 'https://i.pravatar.cc/300?img=9', intro: '명랑하고 전문적인 쇼호스트', price: 350000 },
-  { id: '5', name: '정대현', category: 'MC', region: '경상', rating: 4.9, reviews: 89, puddingRank: 5, image: 'https://i.pravatar.cc/300?img=11', intro: '부산 경남 지역 웨딩 전문 MC', price: 400000 },
-  { id: '6', name: '한소희', category: '가수', region: '서울/경기', rating: 4.6, reviews: 43, puddingRank: 6, image: 'https://i.pravatar.cc/300?img=20', intro: '팝&재즈 웨딩 축가 전문', price: 350000 },
+  { id: '15', name: '박인애', category: 'MC', region: '전국', rating: 4.9, reviews: 134, puddingRank: 1, image: '/images/박인애/IMG_0196.avif', intro: '13년 생방송 뉴스 진행으로 다져진 품격있는 사회자', price: 550000 },
+  { id: '23', name: '이승진', category: 'MC', region: '서울/경기', rating: 4.8, reviews: 211, puddingRank: 2, image: '/images/이승진/IMG_46511771924269213.avif', intro: '따뜻하고 깔끔한 진행의 사회자', price: 500000 },
+  { id: '31', name: '전해별', category: 'MC', region: '서울/경기', rating: 4.8, reviews: 133, puddingRank: 3, image: '/images/전해별/IMG_73341772850094485.avif', intro: '탄탄한 발성의 아나운서', price: 500000 },
+  { id: '12', name: '문정은', category: 'MC', region: '서울/경기', rating: 4.6, reviews: 216, puddingRank: 4, image: '/images/문정은/IMG_27221772621229571.avif', intro: '품격있고 고급스러운 진행', price: 550000 },
+  { id: '25', name: '이우영', category: 'MC', region: '전국', rating: 4.7, reviews: 158, puddingRank: 5, image: '/images/이우영/2-11772248201484.avif', intro: '현직 아나운서의 고품격 진행', price: 400000 },
+  { id: '5', name: '김유석', category: 'MC', region: '전국', rating: 4.7, reviews: 65, puddingRank: 6, image: '/images/김유석/10000029811773033474612.avif', intro: '최고의 진행자 아나운서 김유석', price: 550000 },
+  { id: '1', name: '강도현', category: 'MC', region: '서울/경기', rating: 4.6, reviews: 117, puddingRank: 7, image: '/images/강도현/10000133881772850005043.avif', intro: '신뢰감 있는 보이스의 현직 아나운서', price: 500000 },
+  { id: '24', name: '이용석', category: 'MC', region: '전국', rating: 4.9, reviews: 239, puddingRank: 8, image: '/images/이용석/10001176941772847263491.avif', intro: '1000회 이상 결혼식사회 경력', price: 600000 },
+  { id: '35', name: '정이현', category: 'MC', region: '전국', rating: 4.9, reviews: 34, puddingRank: 9, image: '/images/정이현/44561772622988798.avif', intro: '10년차 전문 사회자', price: 600000 },
+  { id: '38', name: '한가람', category: 'MC', region: '전라', rating: 4.7, reviews: 66, puddingRank: 10, image: '/images/한가람/IMG_34281772111635068.avif', intro: '고급스럽고 따뜻한 보이스 사회자', price: 550000 },
+  { id: '2', name: '김동현', category: 'MC', region: '서울/경기', rating: 4.7, reviews: 165, puddingRank: 11, image: '/images/김동현/10000365351773046135169.avif', intro: 'MC 김동현', price: 400000 },
+  { id: '18', name: '성연채', category: 'MC', region: '전라', rating: 4.9, reviews: 75, puddingRank: 12, image: '/images/성연채/20161016_161406_IMG_5921.avif', intro: '따뜻하고 다정한 아나운서', price: 500000 },
 ];
 
 const CATEGORIES = ['전체', 'MC', '가수', '쇼호스트'];
