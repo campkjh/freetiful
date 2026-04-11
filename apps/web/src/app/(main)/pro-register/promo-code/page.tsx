@@ -29,7 +29,7 @@ export default function PromoCodePage() {
   return (
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
       {/* Header — fixed */}
-      <div className="shrink-0 px-6 pt-4 pb-4">
+      <div className="shrink-0 px-6 pt-4 pb-4 relative z-10">
         <div className="flex items-center justify-between mb-4">
           <motion.button onClick={() => router.back()} whileTap={{ scale: 0.9 }}>
             <ChevronLeft size={24} className="text-gray-900" />
@@ -37,7 +37,7 @@ export default function PromoCodePage() {
           <motion.button
             onClick={handleSkip}
             whileTap={{ scale: 0.95 }}
-            className="text-[13px] text-gray-400 font-medium px-3 py-1.5 rounded-full hover:bg-gray-50 transition-colors"
+            className="text-[14px] text-[#3180F7] font-semibold px-4 py-2 rounded-full hover:bg-blue-50 active:bg-blue-100 transition-colors"
           >
             건너뛰기
           </motion.button>
