@@ -277,7 +277,7 @@ export default function ProfilePage() {
               value={intro}
               onChange={(e) => setIntro(e.target.value)}
               placeholder="자기소개를 작성해주세요."
-              className={`w-full pb-2 outline-none text-gray-900 text-xl font-semibold placeholder:text-gray-400 ${
+              className={`w-full pb-2 outline-none text-gray-900 text-[16px] font-semibold placeholder:text-gray-400 ${
                 intro ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300'
               } focus:border-b-2 focus:border-[#3180F7]`}
             />
@@ -643,7 +643,7 @@ export default function ProfilePage() {
                 ref={editorRef}
                 contentEditable
                 suppressContentEditableWarning
-                className="min-h-32 outline-none text-gray-900 text-sm [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2"
+                className="min-h-32 outline-none text-gray-900 text-[16px] [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2"
                 onInput={(e) => setDescription(e.currentTarget.innerHTML)}
               />
               {!description && (
@@ -798,7 +798,7 @@ export default function ProfilePage() {
                 value={faqContents[activeFaqTab] || ''}
                 onChange={(e) => updateFaqContent(activeFaqTab, e.target.value)}
                 placeholder="내용을 작성해주세요"
-                className="w-full outline-none text-gray-900 placeholder:text-gray-400 text-sm resize-none bg-gray-50 rounded-xl p-4 leading-relaxed"
+                className="w-full outline-none text-gray-900 placeholder:text-gray-400 text-[16px] resize-none bg-gray-50 rounded-xl p-4 leading-relaxed"
                 rows={5}
               />
             </div>

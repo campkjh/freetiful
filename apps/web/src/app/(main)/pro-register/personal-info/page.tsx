@@ -115,7 +115,7 @@ export default function PersonalInfoPage() {
             onChange={(e) => { if (e.target.value.length <= 4) setName(e.target.value); }}
             maxLength={4}
             placeholder="이름 (최대 4자)"
-            className={`w-full text-[20px] font-semibold outline-none pb-2 transition-all placeholder:text-gray-300 ${
+            className={`w-full text-[16px] font-semibold outline-none pb-2 transition-all placeholder:text-gray-300 ${
               name ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-900'
             } focus:border-b-2 focus:border-[#3180F7]`}
           />
@@ -129,7 +129,7 @@ export default function PersonalInfoPage() {
             value={phone}
             onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
             placeholder="010-0000-0000"
-            className={`w-full text-[20px] font-semibold outline-none pb-2 transition-all ${
+            className={`w-full text-[16px] font-semibold outline-none pb-2 transition-all ${
               phone ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-400'
             } focus:border-b-2 focus:border-[#3180F7]`}
           />
@@ -145,7 +145,7 @@ export default function PersonalInfoPage() {
               gender ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300 focus:border-b-2 focus:border-[#3180F7]'
             }`}
           >
-            <span className={`text-[20px] font-semibold ${gender ? 'text-gray-900' : 'text-gray-400'}`}>
+            <span className={`text-[16px] font-semibold ${gender ? 'text-gray-900' : 'text-gray-400'}`}>
               {gender || '성별을 선택해주세요'}
             </span>
             <ChevronDown size={20} className="text-gray-400" />
@@ -162,7 +162,7 @@ export default function PersonalInfoPage() {
               category ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300 focus:border-b-2 focus:border-[#3180F7]'
             }`}
           >
-            <span className={`text-[20px] font-semibold ${category ? 'text-gray-900' : 'text-gray-400'}`}>
+            <span className={`text-[16px] font-semibold ${category ? 'text-gray-900' : 'text-gray-400'}`}>
               {displayCategory() || '전문가분류를 선택해주세요'}
             </span>
             <ChevronDown size={20} className="text-gray-400" />
