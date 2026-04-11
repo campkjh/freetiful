@@ -197,8 +197,9 @@ export default function PricingPage() {
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
-                      value={prices[activeTab] || PLANS.find(p => p.id === activeTab)?.defaultPrice || ''}
+                      value={activeTab in prices ? prices[activeTab] : PLANS.find(p => p.id === activeTab)?.defaultPrice ?? ''}
                       onChange={(e) => setPrices(prev => ({ ...prev, [activeTab]: e.target.value }))}
+                      onFocus={() => { if (!(activeTab in prices)) setPrices(prev => ({ ...prev, [activeTab]: String(PLANS.find(p => p.id === activeTab)?.defaultPrice ?? '') })); }}
                       placeholder="가격을 입력하세요"
                       className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] transition-colors"
                     />
