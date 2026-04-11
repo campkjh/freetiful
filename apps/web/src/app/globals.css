@@ -2,7 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Pill border dash animation (CSS instead of Web Animations API) */
+/* Chip tab 전환 애니메이션 */
+@keyframes chipIn {
+  0% { transform: scale(0.92); opacity: 0.6; }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Pill border dash animation */
 @keyframes pillDash {
   to { stroke-dashoffset: -500; }
 }
@@ -348,6 +355,7 @@ body::after {
   .chip-active {
     @apply chip bg-gray-900 text-white border-gray-900;
     box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    animation: chipIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .chip-inactive {

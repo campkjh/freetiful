@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react
 import Link from 'next/link';
 import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin, Gift } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion, LayoutGroup } from 'framer-motion';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 
@@ -165,10 +166,11 @@ function RoundedRectBorderTrain({ color = '#2B313D' }: { color?: string }) {
     const trainLen = perimeter * 0.2;
     const gapLen = perimeter - trainLen;
     p1.setAttribute('stroke-dasharray', `${trainLen} ${gapLen}`);
-    p1.style.animation = `pillDash 6s linear infinite`;
+    const a1 = p1.animate([{ strokeDashoffset: 0 }, { strokeDashoffset: -perimeter }], { duration: 6000, iterations: Infinity, easing: 'linear' });
     p2.setAttribute('stroke-dasharray', `${trainLen} ${gapLen}`);
     p2.setAttribute('stroke-dashoffset', `${-perimeter * 0.5}`);
-    p2.style.animation = `pillDash 6s linear infinite`;
+    const a2 = p2.animate([{ strokeDashoffset: -perimeter * 0.5 }, { strokeDashoffset: -perimeter * 1.5 }], { duration: 6000, iterations: Infinity, easing: 'linear' });
+    return () => { a1.cancel(); a2.cancel(); };
   }, [size]);
 
   if (size.w === 0) {
@@ -892,18 +894,18 @@ export default function HomePage() {
         <div className="px-[10px] pb-2 pt-1">
           <div className="bg-white rounded-2xl py-2 px-1 grid grid-cols-4 gap-y-2 gap-x-1" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             {[
-              { name: '외국어사회자', img: '/images/cat-foreign-mc.png' },
-              { name: '웨딩홀', img: '/images/cat-wedding-hall.png' },
-              { name: '스튜디오', img: '/images/cat-studio.png' },
-              { name: '피부과', img: '/images/cat-derma.png' },
-              { name: '드레스', img: '/images/cat-dress.png' },
-              { name: '헤메샵', img: '/images/cat-hair-makeup.png' },
-              { name: '스냅·영상', img: '/images/cat-snap-video.png' },
-              { name: '축가·연주', img: '/images/cat-singer.png' },
+              { name: '외국어사회자', img: '/images/cat-foreign-mc.png', href: '/pros?category=외국어사회자' },
+              { name: '웨딩홀', img: '/images/cat-wedding-hall.png', href: '/businesses?category=웨딩홀' },
+              { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
+              { name: '피부과', img: '/images/cat-derma.png', href: '/businesses?category=피부과' },
+              { name: '드레스', img: '/images/cat-dress.png', href: '/businesses?category=드레스' },
+              { name: '헤메샵', img: '/images/cat-hair-makeup.png', href: '/businesses?category=헤메샵' },
+              { name: '스냅·영상', img: '/images/cat-snap-video.png', href: '/businesses?category=스냅·영상' },
+              { name: '축가·연주', img: '/images/cat-singer.png', href: '/pros?category=축가·연주' },
             ].map((item, i) => (
               <Link
                 key={item.name}
-                href={`/pros?category=${encodeURIComponent(item.name)}`}
+                href={item.href}
                 className="flex flex-col items-center gap-0.5 opacity-0"
                 style={{ animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
               >

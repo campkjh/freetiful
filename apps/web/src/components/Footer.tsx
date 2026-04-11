@@ -25,8 +25,13 @@ const FOOTER_LINKS = {
 export default function Footer() {
   return (
     <footer className="bg-surface-100 border-t border-gray-200/60">
+      {/* ─── Logo ──────────────────────────────────────── */}
+      <div className="max-w-7xl mx-auto px-5 lg:px-8 pt-10 pb-4">
+        <img src="/images/logo-prettyful.svg" alt="Freetiful" className="h-6 opacity-20 grayscale" />
+      </div>
+
       {/* ─── Link Columns ──────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-5 lg:px-8 pt-12 pb-6">
+      <div className="max-w-7xl mx-auto px-5 lg:px-8 pb-6">
         <div className="grid grid-cols-2 gap-8 lg:grid-cols-4 lg:gap-12">
           {Object.entries(FOOTER_LINKS).map(([title, links]) => (
             <div key={title}>
