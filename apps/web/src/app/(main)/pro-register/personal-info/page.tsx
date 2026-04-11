@@ -108,7 +108,7 @@ export default function PersonalInfoPage() {
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {/* 이름 */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-8">
-          <label className={`block text-xs mb-1 transition-colors ${name ? 'text-[#3180F7]' : 'text-gray-400'}`}>이름</label>
+          {name && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">이름</label>}
           <input
             type="text"
             value={name}
@@ -117,13 +117,13 @@ export default function PersonalInfoPage() {
             placeholder="이름 (최대 4자)"
             className={`w-full text-[20px] font-semibold outline-none pb-2 transition-all placeholder:text-gray-300 ${
               name ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-900'
-            }`}
+            } focus:border-b-2 focus:border-[#3180F7]`}
           />
         </motion.div>
 
         {/* 전화번호 */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
-          <label className={`block text-xs mb-1 transition-colors ${phone ? 'text-[#3180F7]' : 'text-gray-400'}`}>전화번호</label>
+          {phone && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">전화번호</label>}
           <input
             type="tel"
             value={phone}
@@ -131,18 +131,18 @@ export default function PersonalInfoPage() {
             placeholder="010-0000-0000"
             className={`w-full text-[20px] font-semibold outline-none pb-2 transition-all ${
               phone ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-400'
-            }`}
+            } focus:border-b-2 focus:border-[#3180F7]`}
           />
         </motion.div>
 
         {/* 성별 */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-8">
-          <label className={`block text-xs mb-1 transition-colors ${gender ? 'text-[#3180F7]' : 'text-gray-400'}`}>성별</label>
+          {gender && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">성별</label>}
           <motion.button
             onClick={() => setShowGenderSheet(true)}
             whileTap={{ scale: 0.99 }}
             className={`w-full flex items-center justify-between pb-2 transition-all ${
-              gender ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300'
+              gender ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300 focus:border-b-2 focus:border-[#3180F7]'
             }`}
           >
             <span className={`text-[20px] font-semibold ${gender ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -154,12 +154,12 @@ export default function PersonalInfoPage() {
 
         {/* 전문가분류 */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-10">
-          <label className={`block text-xs mb-1 transition-colors ${category ? 'text-[#3180F7]' : 'text-gray-400'}`}>전문가분류</label>
+          {category && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">전문가분류</label>}
           <motion.button
             onClick={() => setShowCategorySheet(true)}
             whileTap={{ scale: 0.99 }}
             className={`w-full flex items-center justify-between pb-2 transition-all ${
-              category ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300'
+              category ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300 focus:border-b-2 focus:border-[#3180F7]'
             }`}
           >
             <span className={`text-[20px] font-semibold ${category ? 'text-gray-900' : 'text-gray-400'}`}>

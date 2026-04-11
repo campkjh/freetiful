@@ -271,13 +271,15 @@ export default function ProfilePage() {
           {/* [필수]전문가 소개 */}
           <motion.div className="py-4" variants={staggerItem}>
             <p className="text-sm text-gray-500 mb-2">[필수]전문가 소개</p>
-            <label className="text-xs text-[#3180F7] mb-1 block">한줄평소개</label>
+            {intro && <label className="text-xs text-[#3180F7] mb-1 block">한줄평소개</label>}
             <input
               type="text"
               value={intro}
               onChange={(e) => setIntro(e.target.value)}
               placeholder="자기소개를 작성해주세요."
-              className="w-full border-b-2 border-[#3180F7] pb-2 outline-none text-gray-900 text-xl font-semibold"
+              className={`w-full pb-2 outline-none text-gray-900 text-xl font-semibold placeholder:text-gray-400 ${
+                intro ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300'
+              } focus:border-b-2 focus:border-[#3180F7]`}
             />
           </motion.div>
 
