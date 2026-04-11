@@ -83,12 +83,16 @@ export default function TermsPage() {
         <motion.button
           onClick={handleAllAgree}
           whileTap={{ scale: 0.98 }}
-          className="flex items-center gap-3 w-full px-5 py-5 bg-gray-50 rounded-2xl transition-colors"
+          animate={{
+            backgroundColor: allAgreed ? '#3180F7' : '#F9FAFB',
+          }}
+          transition={{ duration: 0.25 }}
+          className="flex items-center gap-3 w-full px-5 py-5 rounded-2xl"
         >
           <motion.div
             animate={{
-              backgroundColor: allAgreed ? '#3180F7' : '#FFFFFF',
-              borderColor: allAgreed ? '#3180F7' : '#D1D5DB',
+              backgroundColor: allAgreed ? '#FFFFFF' : '#FFFFFF',
+              borderColor: allAgreed ? '#FFFFFF' : '#D1D5DB',
             }}
             transition={{ duration: 0.2 }}
             className="w-6 h-6 rounded flex items-center justify-center shrink-0 border-2"
@@ -96,14 +100,18 @@ export default function TermsPage() {
             <AnimatePresence>
               {allAgreed && (
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
-                  <Check size={16} className="text-white stroke-[3]" />
+                  <Check size={16} className="text-[#3180F7] stroke-[3]" />
                 </motion.div>
               )}
             </AnimatePresence>
           </motion.div>
-          <span className="text-base font-semibold text-gray-900">
+          <motion.span
+            animate={{ color: allAgreed ? '#FFFFFF' : '#111827' }}
+            transition={{ duration: 0.25 }}
+            className="text-base font-semibold"
+          >
             프리티풀의 필수약관을 모두 동의합니다
-          </span>
+          </motion.span>
         </motion.button>
       </motion.div>
 
