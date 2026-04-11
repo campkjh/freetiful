@@ -229,7 +229,7 @@ export default function PersonalInfoPage() {
                   key={g}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => { setGender(g); setShowGenderSheet(false); }}
-                  className={`w-full py-4 rounded-2xl mb-3 transition-all ${
+                  className={`w-full py-4 rounded-2xl mb-3 text-[18px] font-bold transition-all ${
                     gender === g
                       ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7] font-medium'
                       : 'bg-white border-2 border-gray-200 text-gray-400'
@@ -269,7 +269,7 @@ export default function PersonalInfoPage() {
                   key={item}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => { setCategory(item); setShowCategorySheet(false); }}
-                  className={`w-full py-4 rounded-2xl mb-3 transition-all ${
+                  className={`w-full py-4 rounded-2xl mb-3 text-[18px] font-bold transition-all ${
                     category === item
                       ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7] font-medium'
                       : 'bg-white border-2 border-gray-200 text-gray-400'
