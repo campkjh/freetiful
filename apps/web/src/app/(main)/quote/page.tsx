@@ -294,10 +294,10 @@ function QuotePage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-[10px] pb-6 relative z-10">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout">
         {/* Step: 행사 유형 */}
         {step === 'type' && (
-          <motion.div key="type" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+          <motion.div key="type" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
             <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">어떤 행사인가요?</motion.h2>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">행사 유형을 선택해주세요</motion.p>
             <motion.div className="grid grid-cols-2 gap-2.5" variants={staggerContainer} initial="initial" animate="animate">
@@ -312,7 +312,7 @@ function QuotePage() {
 
         {/* Step: 플랜 선택 */}
         {step === 'plan' && (
-          <motion.div key="plan" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+          <motion.div key="plan" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
             <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">플랜을 선택해주세요</motion.h2>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">행사 규모에 맞는 플랜을 골라주세요</motion.p>
 
@@ -381,7 +381,7 @@ function QuotePage() {
 
         {/* Step: 행사 정보 */}
         {step === 'detail' && (
-          <motion.div key="detail" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+          <motion.div key="detail" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
             <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">행사 정보를 입력해주세요</motion.h2>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">장소, 날짜, 시간을 알려주세요</motion.p>
             <div className="space-y-5">
@@ -482,7 +482,7 @@ function QuotePage() {
 
         {/* Step: 사회자 선택 */}
         {step === 'pros' && (
-          <motion.div key="pros" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+          <motion.div key="pros" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
             <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">사회자를 선택해주세요</motion.h2>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">여러 명을 선택하면 동시에 견적을 받을 수 있어요</motion.p>
             <motion.div className="grid grid-cols-2 gap-3" variants={staggerContainer} initial="initial" animate="animate">
@@ -501,7 +501,7 @@ function QuotePage() {
 
         {/* Step: 확인 */}
         {step === 'confirm' && (
-          <motion.div key="confirm" variants={stepVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}>
+          <motion.div key="confirm" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
             <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">견적 요청 확인</motion.h2>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">아래 내용을 확인하고 전송해주세요</motion.p>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-gray-50 rounded-2xl p-5 space-y-3">
