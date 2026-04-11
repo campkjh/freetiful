@@ -8,11 +8,28 @@ interface BannerItem {
   title: string;
   subtitle: string;
   bgColor: string;
+  image?: string;
 }
 
 interface StackBannerProps {
   banners: BannerItem[];
   autoPlayInterval?: number;
+}
+
+function BannerContent({ banner, onClick }: { banner: BannerItem; onClick?: () => void }) {
+  if (banner.image) {
+    return (
+      <div className="w-full h-full cursor-pointer" onClick={onClick}>
+        <img src={banner.image} alt="" className="w-full h-full object-cover" draggable={false} />
+      </div>
+    );
+  }
+  return (
+    <div className={`w-full h-full ${banner.bgColor} flex flex-col justify-end p-6 cursor-pointer`} onClick={onClick}>
+      <p className="text-white/70 text-[12px] font-medium tracking-wide uppercase mb-1.5">{banner.subtitle}</p>
+      <h3 className="text-white text-[20px] lg:text-[24px] font-bold leading-snug">{banner.title}</h3>
+    </div>
+  );
 }
 
 export default function StackBanner({ banners, autoPlayInterval = 4000 }: StackBannerProps) {
@@ -32,15 +49,13 @@ export default function StackBanner({ banners, autoPlayInterval = 4000 }: StackB
 
   if (banners.length === 0) return null;
 
-  // Show up to 3 stacked cards behind the current one
   const visibleCount = Math.min(banners.length, 3);
 
   return (
     <div className="w-full">
       <div className="relative w-full" style={{ aspectRatio: '2 / 1' }}>
-        {/* Stacked cards behind (static, showing depth) */}
         {Array.from({ length: visibleCount - 1 }, (_, i) => {
-          const stackIndex = visibleCount - 1 - i; // 2, 1 (back to front)
+          const stackIndex = visibleCount - 1 - i;
           const bannerIdx = (currentIndex + stackIndex) % banners.length;
           const banner = banners[bannerIdx];
           const scale = 1 - stackIndex * 0.04;
@@ -50,27 +65,13 @@ export default function StackBanner({ banners, autoPlayInterval = 4000 }: StackB
             <div
               key={`stack-${stackIndex}`}
               className="absolute inset-0 rounded-2xl overflow-hidden"
-              style={{
-                transform: `scale(${scale}) translateY(${translateY}px)`,
-                zIndex: stackIndex,
-                opacity: 1 - stackIndex * 0.15,
-              }}
+              style={{ transform: `scale(${scale}) translateY(${translateY}px)`, zIndex: stackIndex, opacity: 1 - stackIndex * 0.15 }}
             >
-              <div
-                className={`w-full h-full ${banner.bgColor} flex flex-col justify-end p-6`}
-              >
-                <p className="text-white/60 text-[12px] font-medium tracking-wide uppercase mb-1">
-                  {banner.subtitle}
-                </p>
-                <h3 className="text-white text-[18px] lg:text-[22px] font-bold leading-snug">
-                  {banner.title}
-                </h3>
-              </div>
+              <BannerContent banner={banner} />
             </div>
           );
         })}
 
-        {/* Active card (animated) */}
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
             key={banners[currentIndex].id}
@@ -79,42 +80,18 @@ export default function StackBanner({ banners, autoPlayInterval = 4000 }: StackB
             initial={{ y: 60, scale: 0.92, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: -300, scale: 0.95, opacity: 0 }}
-            transition={{
-              type: 'spring',
-              stiffness: 300,
-              damping: 30,
-              mass: 1,
-            }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
           >
-            <div
-              className={`w-full h-full ${banners[currentIndex].bgColor} flex flex-col justify-end p-6 cursor-pointer`}
-              onClick={next}
-            >
-              <p className="text-white/70 text-[12px] font-medium tracking-wide uppercase mb-1.5">
-                {banners[currentIndex].subtitle}
-              </p>
-              <h3 className="text-white text-[20px] lg:text-[24px] font-bold leading-snug">
-                {banners[currentIndex].title}
-              </h3>
-
-              {/* Page indicator */}
-              <div className="flex gap-1.5 mt-4">
-                {banners.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDirection(i > currentIndex ? 1 : -1);
-                      setCurrentIndex(i);
-                    }}
-                    className={`h-[3px] rounded-full transition-all duration-300 ${
-                      i === currentIndex
-                        ? 'w-5 bg-white'
-                        : 'w-2 bg-white/40'
-                    }`}
-                  />
-                ))}
-              </div>
+            <BannerContent banner={banners[currentIndex]} onClick={next} />
+            {/* Page indicator */}
+            <div className="absolute bottom-4 left-6 flex gap-1.5">
+              {banners.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={(e) => { e.stopPropagation(); setDirection(i > currentIndex ? 1 : -1); setCurrentIndex(i); }}
+                  className={`h-[3px] rounded-full transition-all duration-300 ${i === currentIndex ? 'w-5 bg-white' : 'w-2 bg-white/40'}`}
+                />
+              ))}
             </div>
           </motion.div>
         </AnimatePresence>
