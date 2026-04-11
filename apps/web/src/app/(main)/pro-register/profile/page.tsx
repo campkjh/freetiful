@@ -101,6 +101,12 @@ export default function ProfilePage() {
   const [videos, setVideos] = useState<string[]>([]);
   const [videoInput, setVideoInput] = useState('');
   const [showVideoInput, setShowVideoInput] = useState(false);
+  const [showYoutubeSearch, setShowYoutubeSearch] = useState(false);
+  const [ytChannelQuery, setYtChannelQuery] = useState('');
+  const [ytChannels, setYtChannels] = useState<{ id: string; title: string; thumbnail: string; description: string }[]>([]);
+  const [ytVideos, setYtVideos] = useState<{ id: string; title: string; thumbnail: string }[]>([]);
+  const [ytSelectedChannel, setYtSelectedChannel] = useState<string | null>(null);
+  const [ytLoading, setYtLoading] = useState(false);
   const FAQ_CATEGORIES = ['서비스정보', '수정 및 재진행', '취소 및 환불 규정', '상품정보 고시'] as const;
   const userName = typeof window !== 'undefined' ? localStorage.getItem('proRegister_name') || '' : '';
   const FAQ_DEFAULTS: Record<string, string> = {
@@ -170,6 +176,36 @@ export default function ProfilePage() {
       setAwardInput('');
       setAwardYear('');
       setAwardMonth('');
+    }
+  };
+
+  const searchYtChannels = async () => {
+    if (!ytChannelQuery.trim()) return;
+    setYtLoading(true);
+    setYtChannels([]);
+    setYtVideos([]);
+    setYtSelectedChannel(null);
+    try {
+      const res = await fetch(`/api/youtube?action=searchChannels&q=${encodeURIComponent(ytChannelQuery)}`);
+      const data = await res.json();
+      setYtChannels(data.channels || []);
+    } catch {} finally { setYtLoading(false); }
+  };
+
+  const loadYtVideos = async (channelId: string) => {
+    setYtSelectedChannel(channelId);
+    setYtLoading(true);
+    try {
+      const res = await fetch(`/api/youtube?action=channelVideos&channelId=${channelId}`);
+      const data = await res.json();
+      setYtVideos(data.videos || []);
+    } catch {} finally { setYtLoading(false); }
+  };
+
+  const selectYtVideo = (videoId: string) => {
+    const url = `https://www.youtube.com/watch?v=${videoId}`;
+    if (!videos.includes(url)) {
+      setVideos(prev => [...prev, url]);
     }
   };
 
@@ -662,14 +698,24 @@ export default function ProfilePage() {
                 )}
               </div>
             ) : (
-              <motion.button
-                onClick={() => setShowVideoInput(true)}
-                className="flex items-center justify-between w-full border border-gray-200 rounded-xl px-3 py-2.5 mb-3 bg-[#F9F9F9]"
-                whileTap={{ scale: 0.98 }}
-              >
-                <span className="text-[14px] text-gray-400">유튜브 링크 추가</span>
-                <Plus size={16} className="text-gray-400" />
-              </motion.button>
+              <div className="flex gap-2 mb-3">
+                <motion.button
+                  onClick={() => setShowVideoInput(true)}
+                  className="flex-1 flex items-center justify-between border border-gray-200 rounded-xl px-3 py-2.5 bg-[#F9F9F9]"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span className="text-[14px] text-gray-400">링크 직접 입력</span>
+                  <Plus size={16} className="text-gray-400" />
+                </motion.button>
+                <motion.button
+                  onClick={() => setShowYoutubeSearch(true)}
+                  className="flex items-center gap-1.5 border border-red-200 rounded-xl px-3 py-2.5 bg-red-50/50"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#FF0000"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="white"/></svg>
+                  <span className="text-[13px] text-red-600 font-semibold">검색</span>
+                </motion.button>
+              </div>
             )}
 
             {/* 비디오 목록 — with preview thumbnails */}
@@ -845,6 +891,151 @@ export default function ProfilePage() {
                 선택 완료 ({selectedCategories.length}개)
               </motion.button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* YouTube 채널 검색 페이지 */}
+      <AnimatePresence>
+        {showYoutubeSearch && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-white flex flex-col"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          >
+            {/* Header */}
+            <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-3 mb-3">
+                <motion.button onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }} whileTap={{ scale: 0.9 }}>
+                  <ChevronLeft size={24} className="text-gray-900" />
+                </motion.button>
+                <h2 className="text-[18px] font-bold text-gray-900">YouTube 영상 검색</h2>
+              </div>
+              {/* Search input */}
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={ytChannelQuery}
+                    onChange={(e) => setYtChannelQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && searchYtChannels()}
+                    placeholder="채널명을 검색하세요"
+                    className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl pl-4 pr-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-red-400 transition-colors"
+                    autoFocus
+                  />
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={searchYtChannels}
+                  className="h-11 px-4 bg-red-600 text-white rounded-xl text-[14px] font-bold shrink-0"
+                >
+                  검색
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto">
+              {ytLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+
+              {/* Channel results */}
+              {!ytSelectedChannel && ytChannels.length > 0 && !ytLoading && (
+                <div className="p-4">
+                  <p className="text-[12px] text-gray-400 font-bold uppercase mb-3">채널 선택</p>
+                  <div className="space-y-2">
+                    {ytChannels.map((ch) => (
+                      <motion.button
+                        key={ch.id}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => loadYtVideos(ch.id)}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors text-left"
+                      >
+                        <img src={ch.thumbnail} alt="" className="w-10 h-10 rounded-full object-cover bg-gray-200" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold text-gray-900 truncate">{ch.title}</p>
+                          <p className="text-[12px] text-gray-400 truncate">{ch.description}</p>
+                        </div>
+                        <ChevronDown size={16} className="text-gray-400 -rotate-90 shrink-0" />
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Video results */}
+              {ytSelectedChannel && ytVideos.length > 0 && !ytLoading && (
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[12px] text-gray-400 font-bold uppercase">영상 선택</p>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => { setYtSelectedChannel(null); setYtVideos([]); }}
+                      className="text-[12px] text-red-500 font-semibold"
+                    >
+                      채널 다시 선택
+                    </motion.button>
+                  </div>
+                  <div className="space-y-3">
+                    {ytVideos.map((v) => {
+                      const alreadyAdded = videos.includes(`https://www.youtube.com/watch?v=${v.id}`);
+                      return (
+                        <motion.button
+                          key={v.id}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => { if (!alreadyAdded) selectYtVideo(v.id); }}
+                          className={`w-full rounded-xl overflow-hidden border text-left transition-all ${alreadyAdded ? 'border-green-300 bg-green-50/30' : 'border-gray-100'}`}
+                        >
+                          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                            <img src={v.thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                            {alreadyAdded && (
+                              <div className="absolute inset-0 bg-green-600/30 flex items-center justify-center">
+                                <div className="bg-white rounded-full px-3 py-1">
+                                  <span className="text-[12px] font-bold text-green-600">추가됨</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-3">
+                            <p className="text-[14px] font-semibold text-gray-900 line-clamp-2">{v.title}</p>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!ytLoading && ytChannels.length === 0 && !ytSelectedChannel && ytChannelQuery && (
+                <p className="text-center text-gray-400 text-[14px] py-12">검색 결과가 없습니다</p>
+              )}
+              {!ytLoading && !ytChannelQuery && ytChannels.length === 0 && (
+                <div className="flex flex-col items-center py-16">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#FEE2E2"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="#EF4444"/></svg>
+                  <p className="text-[14px] text-gray-500 mt-4">채널명을 검색해주세요</p>
+                  <p className="text-[12px] text-gray-400 mt-1">검색 후 영상을 선택할 수 있습니다</p>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom: 선택 완료 */}
+            {videos.length > 0 && (
+              <div className="shrink-0 p-4 pb-8 bg-white border-t border-gray-100">
+                <motion.button
+                  onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }}
+                  whileTap={{ scale: 0.96 }}
+                  className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold text-[16px]"
+                >
+                  완료 ({videos.length}개 영상)
+                </motion.button>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
