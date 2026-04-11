@@ -344,8 +344,26 @@ export default function MyPage() {
         <span className="text-[14px] text-gray-400">로그아웃</span>
       </button>
 
+      {/* 테스트: 사회자 페이지 전환 */}
+      <div className="px-4 pt-4 pb-2">
+        <button
+          onClick={() => {
+            const current = localStorage.getItem('userRole');
+            if (current === 'pro') {
+              localStorage.setItem('userRole', 'general');
+            } else {
+              localStorage.setItem('userRole', 'pro');
+            }
+            window.location.reload();
+          }}
+          className="w-full py-3 rounded-xl border-2 border-dashed border-gray-300 text-[13px] font-medium text-gray-400 active:scale-[0.98] transition-transform"
+        >
+          [테스트] {typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro' ? '일반회원으로 전환' : '사회자 모드로 전환'}
+        </button>
+      </div>
+
       {/* App version */}
-      <div className="px-4 pt-6 pb-4 text-center">
+      <div className="px-4 pt-2 pb-4 text-center">
         <p className="text-[11px] text-gray-300">Freetiful v1.0.0</p>
       </div>
 
