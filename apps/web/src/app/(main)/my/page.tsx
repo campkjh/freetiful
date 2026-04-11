@@ -234,16 +234,22 @@ export default function MyPage() {
         {/* Pro Registration Pending Banner */}
         {proRegistrationPending && (
           <div
-            className="mt-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3.5 flex items-center gap-3"
+            className="mt-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3.5"
             style={{ animation: 'myFadeUp 0.5s ease 0.08s both' }}
           >
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-              <Clock size={20} className="text-blue-500" />
-            </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              {/* 서류+체크 아이콘 — 플랫 컬러 */}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect x="4" y="2" width="16" height="20" rx="2.5" fill="#93C5FD"/>
+                <rect x="4" y="2" width="16" height="6" rx="2.5" fill="#60A5FA"/>
+                <rect x="7.5" y="11" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/>
+                <rect x="7.5" y="14.5" width="6" height="1.5" rx="0.75" fill="white" opacity="0.5"/>
+                <circle cx="18" cy="18" r="5" fill="#3B82F6"/>
+                <path d="M15.5 18l1.5 1.5 3-3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               <p className="text-[14px] font-bold text-blue-700">전문가 양식 제출완료!</p>
-              <p className="text-[12px] text-blue-500 mt-0.5">심사를 기다려주세요. 7일 이내에 결과를 알려드립니다.</p>
             </div>
+            <p className="text-[12px] text-blue-500 mt-1 ml-[26px]">심사를 기다려주세요. 7일 이내에 결과를 알려드립니다.</p>
           </div>
         )}
 
