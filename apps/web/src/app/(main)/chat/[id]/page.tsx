@@ -49,6 +49,7 @@ interface SystemPayload {
   venue?: string;               // ex) 더시에나호텔 강남
   daysLeft?: number;            // 본식까지 D-N
   paymentType?: 'deposit' | 'balance'; // 예약금/잔금
+  plan?: 'premium' | 'superior' | 'enterprise';
   reviewUrl?: string;
   rating?: number;
 }
@@ -385,16 +386,18 @@ function makeMockMessages(proId: string, proName: string): Message[] {
       type: 'system', createdAt: t(9, 11), isRead: true,
       system: {
         kind: 'quote',
+        plan: 'superior',
         eventName,
-        amount: 500000,
+        amount: 800000,
         eventDate,
         eventTime,
         items: [
           '본식 사회 (60분)',
           '리허설 진행 (30분)',
           '피로연 사회 (60분)',
-          '맞춤 멘트 작성',
-          '음향 큐시트 협의',
+          '맞춤 대본 작성',
+          '포토타임 진행',
+          '영상 큐시트 관리',
         ],
       },
     },
@@ -497,32 +500,47 @@ function SystemMessageCard({ msg }: { msg: Message }) {
 
   const wrapperClass = 'mx-auto max-w-[320px] my-3 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
 
-  // 견적서 — 플랫 카드
+  // 견적서 — 플랜 + 세부 옵션
   if (sys.kind === 'quote') {
+    const planLabel = sys.plan === 'enterprise' ? 'Enterprise' : sys.plan === 'superior' ? 'Superior' : 'Premium';
+    const planColor = sys.plan === 'enterprise' ? '#F59E0B' : sys.plan === 'superior' ? '#8B5CF6' : '#3180F7';
     return (
       <div className={wrapperClass}>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="bg-[#3180F7] px-4 py-3.5 flex items-center gap-2.5">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2.5" fill="white" opacity="0.3"/><rect x="7.5" y="6" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/><rect x="7.5" y="9.5" width="6" height="1.5" rx="0.75" fill="white" opacity="0.5"/><rect x="7.5" y="13" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/></svg>
-            <p className="text-[14px] font-bold text-white">견적서가 발송되었습니다</p>
+          {/* 헤더 */}
+          <div className="bg-[#3180F7] px-4 py-3 flex items-center gap-2.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2.5" fill="white" opacity="0.3"/><rect x="7.5" y="6" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/><rect x="7.5" y="9.5" width="6" height="1.5" rx="0.75" fill="white" opacity="0.5"/><rect x="7.5" y="13" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/></svg>
+            <p className="text-[14px] font-semibold text-white">견적서가 발송되었습니다</p>
           </div>
           <div className="px-4 py-3.5">
-            {sys.eventName && <p className="text-[11px] font-medium text-gray-400 mb-1">{sys.eventName}</p>}
+            {/* 플랜 뱃지 */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: `${planColor}15`, color: planColor }}>
+                {planLabel}
+              </span>
+              {sys.eventName && <span className="text-[11px] text-gray-400">{sys.eventName}</span>}
+            </div>
+            {/* 금액 */}
             <p className="text-[16px] font-semibold text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+            {/* 포함 서비스 */}
             {sys.items && sys.items.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
-                {sys.items.map((it, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-[12px] text-gray-600">
-                    <div className="w-1 h-1 rounded-full bg-[#3180F7]" />
-                    <span>{it}</span>
-                  </div>
-                ))}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">포함 서비스</p>
+                <div className="space-y-1">
+                  {sys.items.map((it, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-[12px] text-gray-600">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill={planColor} opacity="0.15"/><path d="M8 12l3 3 5-5" stroke={planColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <span>{it}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
+            {/* 날짜 */}
             {sys.eventDate && (
               <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E5E7EB"/><rect x="3" y="4" width="18" height="6" rx="2.5" fill="#9CA3AF"/><rect x="7" y="2" width="2" height="4" rx="1" fill="#D1D5DB"/><rect x="15" y="2" width="2" height="4" rx="1" fill="#D1D5DB"/></svg>
-                <p className="text-[12px] text-gray-500">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E5E7EB"/><rect x="3" y="4" width="18" height="6" rx="2.5" fill="#9CA3AF"/></svg>
+                <p className="text-[11px] text-gray-400">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
               </div>
             )}
           </div>
@@ -531,23 +549,32 @@ function SystemMessageCard({ msg }: { msg: Message }) {
     );
   }
 
-  // 결제 요청 — 플랫 카드
+  // 프리티풀 안전결제 요청
   if (sys.kind === 'payment_request') {
-    const isDeposit = sys.paymentType === 'deposit';
     return (
       <div className={wrapperClass}>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-4 py-3.5 border-b border-gray-100 flex items-center gap-2.5">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" fill="#43A047"/><path d="M2 10h20" stroke="white" strokeWidth="1" opacity="0.3"/><rect x="5" y="14" width="5" height="1.5" rx="0.75" fill="white" opacity="0.5"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="5" width="20" height="14" rx="3" fill="#3180F7"/>
+              <path d="M2 10h20" stroke="white" strokeWidth="1" opacity="0.3"/>
+              <rect x="5" y="14" width="5" height="1.5" rx="0.75" fill="white" opacity="0.5"/>
+              <circle cx="18" cy="14" r="2.5" fill="white" opacity="0.3"/>
+            </svg>
             <div>
-              <p className="text-[14px] font-bold text-gray-900">{isDeposit ? '예약금 결제 요청' : '잔금 결제 요청'}</p>
-              <p className="text-[11px] text-gray-400">{isDeposit ? '예약 확정을 위한 선급금' : '행사 종료 후 잔금'}</p>
+              <p className="text-[14px] font-semibold text-gray-900">프리티풀 안전결제 요청</p>
+              <p className="text-[11px] text-gray-400">프리티풀을 통해 안전하게 결제됩니다</p>
             </div>
           </div>
           <div className="px-4 py-3.5">
             <p className="text-[16px] font-semibold text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
-            <button type="button" onClick={(e) => e.stopPropagation()} className="mt-3 w-full h-10 bg-[#3180F7] active:scale-[0.98] text-white text-[13px] font-bold rounded-xl transition-transform">
-              지금 결제하기
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="#3180F7" opacity="0.2"/><path d="M9 12l2 2 4-4" stroke="#3180F7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span className="text-[11px] text-[#3180F7] font-medium">프리티풀 구매안심보호</span>
+            </div>
+            <button type="button" onClick={(e) => e.stopPropagation()} className="mt-3 w-full h-10 bg-[#3180F7] active:scale-[0.98] text-white text-[13px] font-semibold rounded-xl transition-transform flex items-center justify-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="white" opacity="0.3"/><path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              안전결제하기
             </button>
           </div>
         </div>
