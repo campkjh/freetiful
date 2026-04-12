@@ -24,8 +24,11 @@ export default function OnboardingPage() {
     e.preventDefault();
     if (!name.trim() || phone.replace(/\D/g, '').length < 10) return;
     setLoading(true);
-    // Simulate API call
     await new Promise((r) => setTimeout(r, 800));
+    // 사용자 정보 저장
+    const existing = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
+    localStorage.setItem('freetiful-user', JSON.stringify({ ...existing, name: name.trim(), phone }));
+    localStorage.setItem('freetiful-logged-in', 'true');
     setLoading(false);
     router.push('/main');
   };

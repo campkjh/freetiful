@@ -106,15 +106,21 @@ const UPCOMING_SCHEDULES = [
   { id: '2', proName: '성연채', category: '축가', date: '4.10 (금)', time: '14:30', location: '그랜드 웨딩홀', proImage: '/images/성연채/20161016_161406_IMG_5921.avif' },
 ];
 
-const MOCK_USER = {
-  name: '김정훈',
-  email: 'hong@gmail.com',
-  image: '/images/mc-characters.png',
-  linkedAccounts: ['kakao', 'google'],
-  points: 1500,
-  coupons: 2,
-  role: 'general',
-};
+function getUserFromStorage() {
+  if (typeof window === 'undefined') return { name: '사용자', email: '', image: '', linkedAccounts: [], points: 0, coupons: 0, role: 'general' };
+  try {
+    const stored = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
+    return {
+      name: stored.name || '사용자',
+      email: stored.email || '',
+      image: stored.image || '',
+      linkedAccounts: stored.provider ? [stored.provider] : [],
+      points: 1500,
+      coupons: 2,
+      role: localStorage.getItem('userRole') || 'general',
+    };
+  } catch { return { name: '사용자', email: '', image: '', linkedAccounts: [], points: 0, coupons: 0, role: 'general' }; }
+}
 
 /* ─── Pro (사회자) Icons ─── */
 const ProIconRevenue = () => (
@@ -272,7 +278,8 @@ const MENU_SECTIONS = [
 ];
 
 export default function MyPage() {
-  const user = MOCK_USER;
+  const [user, setUser] = useState(getUserFromStorage());
+  useEffect(() => { setUser(getUserFromStorage()); }, []);
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
   const [isPro, setIsPro] = useState(false);
@@ -299,7 +306,9 @@ export default function MyPage() {
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem('freetiful-logged-in');
+    localStorage.removeItem('freetiful-user');
+    localStorage.removeItem('userRole');
     router.push('/login');
   };
 

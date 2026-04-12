@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 const schema = z.object({
   email: z.string().email('올바른 이메일을 입력해주세요'),
@@ -19,36 +19,47 @@ function buildOAuthUrl(base: string, params: Record<string, string>) {
 }
 
 export default function LoginPage() {
-  const { emailLogin } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
+  // 테스트 로그인 (백엔드 없이)
+  const handleTestLogin = (provider: string) => {
+    setLoading(true);
+    localStorage.setItem('freetiful-logged-in', 'true');
+    localStorage.setItem('freetiful-user', JSON.stringify({
+      name: '',
+      email: '',
+      provider,
+      image: '',
+      createdAt: Date.now(),
+    }));
+    localStorage.setItem('userRole', 'general');
+    setTimeout(() => {
+      router.push('/onboarding');
+    }, 500);
+  };
+
   const onSubmit = async (data: FormData) => {
     setLoading(true);
-    await emailLogin(data.email, data.password);
-    setLoading(false);
+    localStorage.setItem('freetiful-logged-in', 'true');
+    localStorage.setItem('freetiful-user', JSON.stringify({
+      name: '',
+      email: data.email,
+      provider: 'email',
+      image: '',
+      createdAt: Date.now(),
+    }));
+    localStorage.setItem('userRole', 'general');
+    setTimeout(() => {
+      router.push('/onboarding');
+    }, 500);
   };
 
-  const handleKakao = () => {
-    window.location.href = buildOAuthUrl('https://kauth.kakao.com/oauth/authorize', {
-      client_id: process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID!,
-      redirect_uri: `${window.location.origin}/auth/kakao/callback`,
-      response_type: 'code',
-    });
-  };
-
-  const handleNaver = () => {
-    const state = Math.random().toString(36).substring(2);
-    sessionStorage.setItem('naver_state', state);
-    window.location.href = buildOAuthUrl('https://nid.naver.com/oauth2.0/authorize', {
-      response_type: 'code',
-      client_id: process.env.NEXT_PUBLIC_NAVER_CLIENT_ID!,
-      redirect_uri: `${window.location.origin}/auth/naver/callback`,
-      state,
-    });
-  };
+  const handleKakao = () => handleTestLogin('kakao');
+  const handleNaver = () => handleTestLogin('naver');
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -75,12 +86,12 @@ export default function LoginPage() {
             네이버로 계속하기
           </button>
 
-          <button className="w-full flex items-center justify-center gap-3 bg-white text-gray-700 border border-gray-200 font-semibold py-3.5 px-4 rounded-xl hover:bg-gray-50 transition-colors">
+          <button onClick={() => handleTestLogin('google')} className="w-full flex items-center justify-center gap-3 bg-white text-gray-700 border border-gray-200 font-semibold py-3.5 px-4 rounded-xl hover:bg-gray-50 transition-colors">
             <GoogleIcon />
             Google로 계속하기
           </button>
 
-          <button className="w-full flex items-center justify-center gap-3 bg-black text-white font-semibold py-3.5 px-4 rounded-xl hover:bg-gray-900 transition-colors">
+          <button onClick={() => handleTestLogin('apple')} className="w-full flex items-center justify-center gap-3 bg-black text-white font-semibold py-3.5 px-4 rounded-xl hover:bg-gray-900 transition-colors">
             <AppleIcon />
             Apple로 계속하기
           </button>
