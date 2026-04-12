@@ -79,6 +79,9 @@ const FOREIGN_LANG_PRO_IDS = Object.keys(PRO_LANGUAGES);
 const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
 const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주'];
 
+// 축가/연주 가능 사회자 (현재 데이터에 별도 카테고리 없어서 ID로 매핑)
+const SINGER_PRO_IDS = ['9', '18', '20', '30', '34', '38'];
+
 const PAGE_SIZE = 12;
 
 function ProsListContent() {
@@ -129,9 +132,11 @@ function ProsListContent() {
     const q = searchQuery.trim().toLowerCase();
     let results = MOCK_PROS.filter((p) => {
       if (isForeignFilter && !FOREIGN_LANG_PRO_IDS.includes(p.id)) return false;
-      if (categoryParam && categoryParam !== '외국어사회자' && p.category !== categoryParam && p.role !== categoryParam) return false;
+      if (categoryParam === '축가·연주' && !SINGER_PRO_IDS.includes(p.id)) return false;
+      if (categoryParam && categoryParam !== '외국어사회자' && categoryParam !== '축가·연주' && p.category !== categoryParam && p.role !== categoryParam) return false;
       if (selectedLang !== '전체' && !(PRO_LANGUAGES[p.id]?.includes(selectedLang))) return false;
-      if (selectedType !== '전체' && p.role !== selectedType && p.category !== selectedType) return false;
+      if (selectedType === '축가/연주' && !SINGER_PRO_IDS.includes(p.id)) return false;
+      if (selectedType !== '전체' && selectedType !== '축가/연주' && p.role !== selectedType && p.category !== selectedType) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !p.category.toLowerCase().includes(q)) return false;
       if (selectedRegion !== '전체' && p.region !== selectedRegion && p.region !== '전국') return false;
       if (p.price < priceRange.min || p.price > priceRange.max) return false;
@@ -480,7 +485,7 @@ function ProsListContent() {
             </div>
             <p className="text-gray-400 text-[14px] mb-1">해당 조건의 전문가가 없습니다</p>
             <button
-              onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); }}
+              onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); setSelectedLang('전체'); setSelectedType('전체'); }}
               className="text-primary-500 text-[13px] font-semibold mt-2"
             >
               필터 초기화
