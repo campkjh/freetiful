@@ -232,9 +232,11 @@ function QuotePage() {
 
   const timeDisplay = timeStart && timeEnd ? `${timeStart} ~ ${timeEnd}` : timeStart || '';
 
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
   const handleSubmitClick = () => {
     if (localStorage.getItem('freetiful-logged-in') !== 'true') {
-      router.push('/my');
+      setShowLoginModal(true);
       return;
     }
     setShowConfirmModal(true);
@@ -880,6 +882,29 @@ function QuotePage() {
                 {surveyStep < SURVEY_QUESTIONS.length - 1 ? '다음' : '완료'}
               </motion.button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Login Modal */}
+      <AnimatePresence>
+        {showLoginModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40" onClick={() => setShowLoginModal(false)}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} className="bg-white w-full max-w-md rounded-t-3xl px-6 pt-6 pb-8" onClick={(e) => e.stopPropagation()}>
+              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-5" />
+              <h2 className="text-[20px] font-bold text-gray-900 text-center mb-1">로그인이 필요합니다</h2>
+              <p className="text-[14px] text-gray-500 text-center mb-6">견적 요청을 보내려면 로그인해주세요</p>
+              <div className="space-y-2.5">
+                {[
+                  { provider: 'kakao', label: '카카오로 계속하기', cls: 'bg-[#FEE500] text-[#191919]' },
+                  { provider: 'naver', label: '네이버로 계속하기', cls: 'bg-[#03C75A] text-white' },
+                  { provider: 'google', label: 'Google로 계속하기', cls: 'bg-white text-gray-700 border border-gray-200' },
+                ].map(({ provider, label, cls }) => (
+                  <button key={provider} onClick={() => { localStorage.setItem('freetiful-logged-in', 'true'); localStorage.setItem('freetiful-user', JSON.stringify({ name: '', provider, createdAt: Date.now() })); localStorage.setItem('userRole', 'general'); window.location.href = '/onboarding'; }} className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform`}>{label}</button>
+                ))}
+              </div>
+              <button onClick={() => setShowLoginModal(false)} className="w-full mt-4 text-[14px] text-gray-400 font-medium py-2 text-center">나중에 하기</button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

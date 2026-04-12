@@ -402,6 +402,7 @@ export default function ProDetailPage() {
   const [purchaseModal, setPurchaseModal] = useState(false);
   const [reviewsModal, setReviewsModal] = useState(false);
   const [phoneModal, setPhoneModal] = useState(false);
+  const [loginModal, setLoginModal] = useState(false);
   const [reviewMenu, setReviewMenu] = useState<string | null>(null);
 
   const descRef = useRef<HTMLDivElement>(null);
@@ -1227,7 +1228,7 @@ export default function ProDetailPage() {
             )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
-                onClick={() => { setShowTooltip(false); if (localStorage.getItem('freetiful-logged-in') !== 'true') { router.push('/my'); return; } router.push(`/chat/${pro.id}`); }}
+                onClick={() => { setShowTooltip(false); if (localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; } router.push(`/chat/${pro.id}`); }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
               >
                 문의하기
@@ -1416,6 +1417,26 @@ export default function ProDetailPage() {
       )}
 
       {/* Premium animations */}
+      {/* Login Modal */}
+      {loginModal && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40" onClick={() => setLoginModal(false)}>
+          <div className="bg-white w-full max-w-md rounded-t-3xl px-6 pt-6 pb-8 animate-[slideUp_0.3s_ease]" onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-5" />
+            <h2 className="text-[20px] font-bold text-gray-900 text-center mb-1">로그인이 필요합니다</h2>
+            <p className="text-[14px] text-gray-500 text-center mb-6">이 기능을 사용하려면 로그인해주세요</p>
+            <div className="space-y-2.5">
+              {['kakao', 'naver', 'google'].map((p) => (
+                <button key={p} onClick={() => { localStorage.setItem('freetiful-logged-in', 'true'); localStorage.setItem('freetiful-user', JSON.stringify({ name: '', provider: p, createdAt: Date.now() })); localStorage.setItem('userRole', 'general'); window.location.href = '/onboarding'; }}
+                  className={`w-full flex items-center justify-center gap-3 font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform ${p === 'kakao' ? 'bg-[#FEE500] text-[#191919]' : p === 'naver' ? 'bg-[#03C75A] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                >{p === 'kakao' ? '카카오로 계속하기' : p === 'naver' ? '네이버로 계속하기' : 'Google로 계속하기'}</button>
+              ))}
+            </div>
+            <button onClick={() => setLoginModal(false)} className="w-full mt-4 text-[14px] text-gray-400 font-medium py-2 text-center">나중에 하기</button>
+          </div>
+          <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+        </div>
+      )}
+
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes modalFade {
           0% { opacity: 0; }
