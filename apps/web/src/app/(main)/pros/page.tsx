@@ -68,8 +68,16 @@ const PRICE_RANGES = [
   { label: '50만원 이상', min: 500000, max: Infinity },
 ];
 
-// 외국어 가능 사회자 ID
-const FOREIGN_LANG_PRO_IDS = ['25', '5', '15', '23', '1', '2', '36', '39', '35', '28', '32', '3', '22', '13', '10'];
+// 외국어 가능 사회자 ID + 언어 매핑
+const PRO_LANGUAGES: Record<string, string[]> = {
+  '25': ['영어'], '5': ['영어'], '15': ['영어'], '23': ['영어'],
+  '1': ['영어'], '2': ['영어'], '36': ['영어'], '39': ['영어'],
+  '35': ['일본어'], '28': ['일본어'], '32': ['일본어'], '3': ['일본어'],
+  '22': ['중국어'], '13': ['중국어'], '10': ['중국어'],
+};
+const FOREIGN_LANG_PRO_IDS = Object.keys(PRO_LANGUAGES);
+const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
+const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주'];
 
 const PAGE_SIZE = 12;
 
@@ -83,7 +91,9 @@ function ProsListContent() {
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('pudding_rank');
   const [showFilter, setShowFilter] = useState(false);
-  const [selectedPrice, setSelectedPrice] = useState(0); // index into PRICE_RANGES
+  const [selectedPrice, setSelectedPrice] = useState(0);
+  const [selectedLang, setSelectedLang] = useState('전체');
+  const [selectedType, setSelectedType] = useState('전체');
   const [page, setPage] = useState(1);
   const [scrolled, setScrolled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -91,7 +101,7 @@ function ProsListContent() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setPage(1); }, [selectedRegion, sortBy, selectedPrice, searchQuery]);
+  useEffect(() => { setPage(1); }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType]);
 
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
@@ -120,6 +130,8 @@ function ProsListContent() {
     let results = MOCK_PROS.filter((p) => {
       if (isForeignFilter && !FOREIGN_LANG_PRO_IDS.includes(p.id)) return false;
       if (categoryParam && categoryParam !== '외국어사회자' && p.category !== categoryParam && p.role !== categoryParam) return false;
+      if (selectedLang !== '전체' && !(PRO_LANGUAGES[p.id]?.includes(selectedLang))) return false;
+      if (selectedType !== '전체' && p.role !== selectedType && p.category !== selectedType) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !p.category.toLowerCase().includes(q)) return false;
       if (selectedRegion !== '전체' && p.region !== selectedRegion && p.region !== '전국') return false;
       if (p.price < priceRange.min || p.price > priceRange.max) return false;
@@ -148,12 +160,12 @@ function ProsListContent() {
     }
 
     return results;
-  }, [selectedRegion, sortBy, selectedPrice, searchQuery]);
+  }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType, isForeignFilter, categoryParam]);
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;
-  const hasActiveFilters = selectedRegion !== '전체' || selectedPrice !== 0;
-  const activeFilterCount = (selectedRegion !== '전체' ? 1 : 0) + (selectedPrice !== 0 ? 1 : 0);
+  const hasActiveFilters = selectedRegion !== '전체' || selectedPrice !== 0 || selectedLang !== '전체' || selectedType !== '전체';
+  const activeFilterCount = (selectedRegion !== '전체' ? 1 : 0) + (selectedPrice !== 0 ? 1 : 0) + (selectedLang !== '전체' ? 1 : 0) + (selectedType !== '전체' ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-white" style={{ letterSpacing: '-0.02em' }}>
@@ -316,12 +328,52 @@ function ProsListContent() {
                     </div>
                   </div>
 
+                  {/* MC Type */}
+                  <div>
+                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">전문가 유형</p>
+                    <div className="flex flex-wrap gap-2">
+                      {MC_TYPES.map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setSelectedType(t)}
+                          className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition-all active:scale-95 ${
+                            selectedType === t
+                              ? 'bg-[#2B313D] text-white'
+                              : 'bg-white text-gray-500 border border-gray-200'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Language */}
+                  <div>
+                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">외국어</p>
+                    <div className="flex flex-wrap gap-2">
+                      {LANGUAGES.map(lang => (
+                        <button
+                          key={lang}
+                          onClick={() => setSelectedLang(lang)}
+                          className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition-all active:scale-95 ${
+                            selectedLang === lang
+                              ? 'bg-[#2B313D] text-white'
+                              : 'bg-white text-gray-500 border border-gray-200'
+                          }`}
+                        >
+                          {lang}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Reset + Apply */}
                   {hasActiveFilters && (
                     <motion.button
                       initial={{ opacity: 0, y: -5 }}
                       animate={{ opacity: 1, y: 0 }}
-                      onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); }}
+                      onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); setSelectedLang('전체'); setSelectedType('전체'); }}
                       className="text-[12px] text-red-500 font-medium flex items-center gap-1"
                     >
                       <X size={12} />
