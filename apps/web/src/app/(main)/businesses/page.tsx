@@ -140,10 +140,13 @@ const MOCK_RANK_ITEMS: RankItem[] = [
 // ─── Page ──────────────────────────────────────────────────
 export default function BusinessListPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState('경기');
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 300); return () => clearTimeout(t); }, []);
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);
@@ -180,6 +183,33 @@ export default function BusinessListPage() {
   };
 
   const totalActiveFilters = Object.values(filters).reduce((sum, set) => sum + set.size, 0);
+
+  if (loading) {
+    return (
+      <div className="bg-white min-h-screen pb-20">
+        <div className="h-[52px] px-4 flex items-center gap-3">
+          <div className="skeleton w-6 h-6 rounded" />
+          <div className="skeleton h-5 w-24 rounded" />
+        </div>
+        <div className="px-4 py-2 flex gap-2">
+          {[1,2,3,4,5].map(i => <div key={i} className="skeleton h-8 w-16 rounded-full shrink-0" />)}
+        </div>
+        <div className="px-4 mt-4 space-y-4">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="flex gap-3">
+              <div className="skeleton w-[100px] h-[100px] rounded-xl shrink-0" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="skeleton h-4 w-20 rounded" />
+                <div className="skeleton h-5 w-full rounded" />
+                <div className="skeleton h-3 w-32 rounded" />
+                <div className="skeleton h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white min-h-screen pb-20" style={{ letterSpacing: '-0.02em' }}>
