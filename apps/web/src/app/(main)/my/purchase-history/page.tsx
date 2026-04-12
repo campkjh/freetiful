@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Calendar } from 'lucide-react';
 
@@ -21,10 +21,12 @@ const MOCK_PURCHASES = [
 
 export default function PurchaseHistoryPage() {
   const router = useRouter();
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => { window.scrollTo(0, 0); setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
   const [filter, setFilter] = useState<Status>('all');
 
-  const filtered = MOCK_PURCHASES.filter((p) => filter === 'all' || p.status === filter);
+  const purchases = useMemo(() => hasDemoData ? MOCK_PURCHASES : [], [hasDemoData]);
+  const filtered = purchases.filter((p) => filter === 'all' || p.status === filter);
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>

@@ -115,6 +115,8 @@ export default function QuotesPage() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const hasDemo = localStorage.getItem('freetiful-has-demo-data') === 'true';
+    if (!hasDemo) return;
     const stored = localStorage.getItem('pro-quotes');
     if (stored) {
       try { setQuotes(JSON.parse(stored)); } catch { setQuotes(INITIAL_QUOTES); localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES)); }

@@ -94,8 +94,10 @@ export default function ReviewsPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
+  const [hasDemoData, setHasDemoData] = useState(false);
 
   useEffect(() => {
+    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
     const stored = localStorage.getItem('pro-review-replies');
     if (stored) {
       try { setSavedReplies(JSON.parse(stored)); } catch { /* ignore */ }
@@ -112,10 +114,11 @@ export default function ReviewsPage() {
     setReplyTexts((prev) => ({ ...prev, [reviewId]: '' }));
   }
 
-  const avgRating = (REVIEWS.reduce((s, r) => s + r.rating, 0) / REVIEWS.length).toFixed(1);
+  const reviews = hasDemoData ? REVIEWS : [];
+  const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : '0.0';
   const avgScores: Record<string, number> = {};
   CATEGORY_LABELS.forEach((cat) => {
-    avgScores[cat] = Number((REVIEWS.reduce((s, r) => s + (r.scores[cat] || 0), 0) / REVIEWS.length).toFixed(1));
+    avgScores[cat] = reviews.length > 0 ? Number((reviews.reduce((s, r) => s + (r.scores[cat] || 0), 0) / reviews.length).toFixed(1)) : 0;
   });
 
   return (
@@ -146,7 +149,7 @@ export default function ReviewsPage() {
                   <SmallStarIcon key={s} filled={s <= Math.round(Number(avgRating))} />
                 ))}
               </div>
-              <p className="text-[11px] text-gray-400 mt-0.5">총 {REVIEWS.length}개 리뷰</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">총 {reviews.length}개 리뷰</p>
             </div>
           </div>
 
@@ -171,11 +174,11 @@ export default function ReviewsPage() {
       >
         <h2 className="text-base font-bold text-gray-900 mb-4">전체 리뷰</h2>
 
-        {REVIEWS.map((review, idx) => (
+        {reviews.map((review, idx) => (
           <motion.div
             key={review.id}
             variants={fadeUp}
-            className={`py-4 ${idx < REVIEWS.length - 1 ? 'border-b border-gray-100' : ''}`}
+            className={`py-4 ${idx < reviews.length - 1 ? 'border-b border-gray-100' : ''}`}
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-2">

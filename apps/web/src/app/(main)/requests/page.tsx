@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 type TabType = '전체' | '다수' | '단일' | '보관';
 
@@ -97,8 +97,11 @@ const PAGE_SIZE = 10;
 export default function RequestsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('전체');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
 
-  const filtered = MOCK_REQUESTS.filter((r) => {
+  const requests = hasDemoData ? MOCK_REQUESTS : [];
+  const filtered = requests.filter((r) => {
     if (activeTab === '전체') return true;
     if (activeTab === '다수') return r.type === '다수문의';
     if (activeTab === '단일') return r.type === '단일문의';
@@ -107,10 +110,10 @@ export default function RequestsPage() {
   });
 
   const counts = {
-    전체: MOCK_REQUESTS.length,
-    다수: MOCK_REQUESTS.filter(r => r.type === '다수문의').length,
-    단일: MOCK_REQUESTS.filter(r => r.type === '단일문의').length,
-    보관: MOCK_REQUESTS.filter(r => r.type === '보관').length,
+    전체: requests.length,
+    다수: requests.filter(r => r.type === '다수문의').length,
+    단일: requests.filter(r => r.type === '단일문의').length,
+    보관: requests.filter(r => r.type === '보관').length,
   };
 
   const visible = filtered.slice(0, visibleCount);

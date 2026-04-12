@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Clock, MapPin, Phone, MessageCircle, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -42,7 +42,9 @@ function getRefundPolicy(eventDate: string, price: number) {
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const bookingData = MOCK_BOOKINGS[id];
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
+  const bookingData = hasDemoData ? MOCK_BOOKINGS[id] : undefined;
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');

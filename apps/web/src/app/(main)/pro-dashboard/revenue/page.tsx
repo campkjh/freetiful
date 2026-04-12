@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -74,10 +75,15 @@ function formatDate(iso: string) {
 }
 
 export default function RevenuePage() {
-  const maxAmount = Math.max(...MONTHLY_DATA.map((d) => d.amount));
-  const totalRevenue = TRANSACTIONS.reduce((s, t) => s + t.amount, 0);
-  const settledAmount = TRANSACTIONS.filter((t) => t.status === 'settled').reduce((s, t) => s + t.amount, 0);
-  const pendingAmount = TRANSACTIONS.filter((t) => t.status === 'pending').reduce((s, t) => s + t.amount, 0);
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
+
+  const transactions = hasDemoData ? TRANSACTIONS : [];
+  const monthlyData = hasDemoData ? MONTHLY_DATA : [];
+  const maxAmount = monthlyData.length > 0 ? Math.max(...monthlyData.map((d) => d.amount)) : 1;
+  const totalRevenue = transactions.reduce((s, t) => s + t.amount, 0);
+  const settledAmount = transactions.filter((t) => t.status === 'settled').reduce((s, t) => s + t.amount, 0);
+  const pendingAmount = transactions.filter((t) => t.status === 'pending').reduce((s, t) => s + t.amount, 0);
 
   return (
     <div className="bg-gray-50 min-h-screen pb-28">
@@ -116,8 +122,8 @@ export default function RevenuePage() {
         <h2 className="text-base font-bold text-gray-900 mb-4">월별 매출 추이</h2>
         <div className="bg-white rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
           <div className="flex items-end gap-3 h-40">
-            {MONTHLY_DATA.map((d, i) => {
-              const isCurrentMonth = i === MONTHLY_DATA.length - 1;
+            {monthlyData.map((d, i) => {
+              const isCurrentMonth = i === monthlyData.length - 1;
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <span className="text-[10px] font-bold text-gray-500">{formatCurrency(d.amount).replace('₩', '')}</span>
@@ -148,11 +154,11 @@ export default function RevenuePage() {
       >
         <h2 className="text-base font-bold text-gray-900 mb-4">최근 거래 내역</h2>
         <motion.div variants={stagger} initial="hidden" animate="show">
-          {TRANSACTIONS.map((tx, idx) => (
+          {transactions.map((tx, idx) => (
             <motion.div
               key={tx.id}
               variants={fadeUp}
-              className={`py-4 flex items-center justify-between ${idx < TRANSACTIONS.length - 1 ? 'border-b border-gray-100' : ''}`}
+              className={`py-4 flex items-center justify-between ${idx < transactions.length - 1 ? 'border-b border-gray-100' : ''}`}
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center">

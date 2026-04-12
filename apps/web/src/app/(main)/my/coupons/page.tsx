@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Clock } from 'lucide-react';
 
@@ -12,11 +12,13 @@ const MOCK_COUPONS = [
 
 export default function CouponsPage() {
   const router = useRouter();
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => { window.scrollTo(0, 0); setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
   const [couponCode, setCouponCode] = useState('');
 
-  const available = MOCK_COUPONS.filter((c) => !c.isUsed);
-  const used = MOCK_COUPONS.filter((c) => c.isUsed);
+  const coupons = useMemo(() => hasDemoData ? MOCK_COUPONS : [], [hasDemoData]);
+  const available = coupons.filter((c) => !c.isUsed);
+  const used = coupons.filter((c) => c.isUsed);
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
@@ -57,6 +59,11 @@ export default function CouponsPage() {
       {/* Available */}
       <div className="px-4 py-4">
         <p className="text-[12px] font-bold text-gray-400 mb-3">사용 가능 ({available.length})</p>
+        {available.length === 0 && used.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-400 text-sm">보유 쿠폰이 없습니다</p>
+          </div>
+        )}
         <div className="space-y-3">
           {available.map((coupon) => (
             <div

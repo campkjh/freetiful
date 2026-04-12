@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Clock, Users, User, MessageCircle, ChevronRight } from 'lucide-react';
@@ -18,9 +18,12 @@ const MOCK_INQUIRIES = [
 export default function InquiriesPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
 
-  const filtered = MOCK_INQUIRIES.filter((inq) => filter === 'all' || inq.type === filter);
-  const pendingCount = MOCK_INQUIRIES.filter((i) => i.status === 'pending').length;
+  const inquiries = hasDemoData ? MOCK_INQUIRIES : [];
+  const filtered = inquiries.filter((inq) => filter === 'all' || inq.type === filter);
+  const pendingCount = inquiries.filter((i) => i.status === 'pending').length;
 
   return (
     <div className="bg-gray-50 min-h-screen">

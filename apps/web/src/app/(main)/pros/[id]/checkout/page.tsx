@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -60,6 +60,16 @@ export default function CheckoutPage() {
   const slots = searchParams.get('slots')?.split(',') || ['11:30'];
   const day = searchParams.get('day') || '14';
   const month = searchParams.get('month') || '4';
+
+  const [bookerInfo, setBookerInfo] = useState('');
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
+      const name = u.name || '';
+      const phone = u.phone || '';
+      setBookerInfo(name && phone ? `${name} / ${phone}` : name || phone || '');
+    } catch { /* ignore */ }
+  }, []);
 
   const [payMethod, setPayMethod] = useState('bank');
   const [maxDiscount, setMaxDiscount] = useState(true);
@@ -124,7 +134,7 @@ export default function CheckoutPage() {
           <div className="flex items-center justify-between py-3">
             <div>
               <p className="text-[12px] text-gray-400 mb-0.5">예약자</p>
-              <p className="text-[14px] font-medium text-gray-900">김정훈 / 010-9433-5674</p>
+              <p className="text-[14px] font-medium text-gray-900">{bookerInfo}</p>
             </div>
             <button className="px-3 h-[30px] border border-gray-200 rounded-lg text-[12px] font-medium text-gray-700">변경</button>
           </div>

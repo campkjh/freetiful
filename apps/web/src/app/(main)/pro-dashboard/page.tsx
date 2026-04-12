@@ -234,23 +234,28 @@ export default function ProDashboardPage() {
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
   const [puddingCount, setPuddingCount] = useState(0);
+  const [hasDemoData, setHasDemoData] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const storedName = localStorage.getItem('proRegister_name') || '프로';
     setName(storedName);
 
-    const stored = localStorage.getItem('pro-quotes');
-    if (stored) {
-      try {
-        setQuotes(JSON.parse(stored));
-      } catch {
+    const hasDemo = localStorage.getItem('freetiful-has-demo-data') === 'true';
+    setHasDemoData(hasDemo);
+    if (hasDemo) {
+      const stored = localStorage.getItem('pro-quotes');
+      if (stored) {
+        try {
+          setQuotes(JSON.parse(stored));
+        } catch {
+          setQuotes(INITIAL_QUOTES);
+          localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES));
+        }
+      } else {
         setQuotes(INITIAL_QUOTES);
         localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES));
       }
-    } else {
-      setQuotes(INITIAL_QUOTES);
-      localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES));
     }
 
     const storedReplies = localStorage.getItem('pro-review-replies');
@@ -518,7 +523,7 @@ export default function ProDashboardPage() {
         </div>
 
         <div className="relative">
-          {UPCOMING_EVENTS.map((ev, i) => (
+          {(hasDemoData ? UPCOMING_EVENTS : []).map((ev, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 16 }}
@@ -568,7 +573,7 @@ export default function ProDashboardPage() {
           </Link>
         </div>
         <div className="space-y-4">
-          {RECENT_REVIEWS.map((review, i) => (
+          {(hasDemoData ? RECENT_REVIEWS : []).map((review, i) => (
             <motion.div
               key={review.id}
               initial={{ opacity: 0, y: 16 }}

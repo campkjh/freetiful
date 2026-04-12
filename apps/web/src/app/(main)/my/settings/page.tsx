@@ -47,8 +47,8 @@ const SOCIAL_ACCOUNTS = [
 export default function SettingsPage() {
   const router = useRouter();
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  const [name, setName] = useState('김정훈');
-  const [phone, setPhone] = useState('010-9433-5674');
+  const [name, setName] = useState(() => { try { return JSON.parse(localStorage.getItem('freetiful-user') || '{}').name || ''; } catch { return ''; } });
+  const [phone, setPhone] = useState(() => { try { return JSON.parse(localStorage.getItem('freetiful-user') || '{}').phone || ''; } catch { return ''; } });
   const [images, setImages] = useState(MOCK_IMAGES);
   const [showBankForm, setShowBankForm] = useState(false);
   const [bank, setBank] = useState('');

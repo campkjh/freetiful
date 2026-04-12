@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -19,7 +19,10 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 
 export default function PaymentHistoryPage() {
   const router = useRouter();
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => { window.scrollTo(0, 0); setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
+
+  const payments = hasDemoData ? MOCK_PAYMENTS : [];
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
@@ -37,7 +40,11 @@ export default function PaymentHistoryPage() {
       <div className="h-1.5 bg-gray-50" />
 
       <div className="px-4 py-4 space-y-3">
-        {MOCK_PAYMENTS.map((p) => {
+        {payments.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-gray-400 text-sm">결제 내역이 없습니다</p>
+          </div>
+        ) : payments.map((p) => {
           const status = STATUS_MAP[p.status] || STATUS_MAP.pending;
           return (
             <div
@@ -73,3 +80,4 @@ export default function PaymentHistoryPage() {
     </div>
   );
 }
+

@@ -82,7 +82,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
-    if (loggedIn) setItems(MOCK_NOTIFICATIONS);
+    if (loggedIn && localStorage.getItem('freetiful-has-demo-data') === 'true') setItems(MOCK_NOTIFICATIONS);
   }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
