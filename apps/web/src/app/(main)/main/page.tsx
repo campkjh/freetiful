@@ -564,13 +564,13 @@ const MOBILE_CATEGORY_TABS = ['모두', '결혼식사회자', '관공서 행사'
 const EVENT_PACKAGES = [
   { name: '라이브커머스', tags: ['온라인마켓', '이벤트진행'], image: '/images/Group 1707482240.png' },
   { name: '공식행사', tags: ['기업소통', '전문사회자'], image: '/images/Group 1707482241.png' },
-  { name: '결혼식', tags: ['웨딩MC', '결혼식사회'], image: '/images/Group 1707482242.png' },
-  { name: '컨퍼런스', tags: ['세미나', '전문진행'], image: '/images/Group 1707482243.png' },
-  { name: '체육대회', tags: ['체육행사', '운동회'], image: '/images/Group 1707482244.png' },
-  { name: '팀빌딩', tags: ['팀워크', '조직활성화'], image: '/images/Group 1707482245.png' },
-  { name: '레크리에이션', tags: ['팀미션', '게임사회자'], image: '/images/Group 1707482246.png' },
-  { name: '기업 PT', tags: ['프레젠테이션', '전문진행'], image: '/images/Group 1707482247.png' },
-  { name: '송년회', tags: ['송년행사', '감사이벤트'], image: '/images/Group 1707482248.png' },
+  { name: '송년회', tags: ['송년행사', '감사이벤트'], image: '/images/Group 1707482242.png' },
+  { name: '통번역', tags: ['동시통역', '외국어MC'], image: '/images/Group 1707482243.png' },
+  { name: '기업 PT', tags: ['프레젠테이션', '전문진행'], image: '/images/Group 1707482244.png' },
+  { name: '레크리에이션', tags: ['팀미션', '게임사회자'], image: '/images/Group 1707482245.png' },
+  { name: '팀빌딩', tags: ['팀워크', '조직활성화'], image: '/images/Group 1707482246.png' },
+  { name: '체육대회', tags: ['체육행사', '운동회'], image: '/images/Group 1707482247.png' },
+  { name: '워크숍', tags: ['교육행사', '세미나'], image: '/images/Group 1707482248.png' },
 ];
 
 
