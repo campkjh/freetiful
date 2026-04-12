@@ -12,6 +12,43 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+/* ─── Kakao Map ──────────────────────────────────────────── */
+declare global { interface Window { kakao?: any; } }
+
+function BizKakaoMap() {
+  const mapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const initMap = () => {
+      if (!window.kakao?.maps || !mapRef.current) return;
+      window.kakao.maps.load(() => {
+        const map = new window.kakao.maps.Map(mapRef.current, {
+          center: new window.kakao.maps.LatLng(37.5715, 126.9918), // 종로3가 근처
+          level: 3,
+        });
+        // 주소로 검색
+        const ps = new window.kakao.maps.services.Places();
+        ps.keywordSearch(COMPANY_INFO.address.split(' ').slice(0, 3).join(' '), (data: any[], status: string) => {
+          if (status === window.kakao.maps.services.Status.OK && data[0]) {
+            const pos = new window.kakao.maps.LatLng(data[0].y, data[0].x);
+            map.setCenter(pos);
+            new window.kakao.maps.Marker({ map, position: pos });
+          }
+        });
+      });
+    };
+    const existing = document.querySelector('script[src*="dapi.kakao.com/v2/maps"]');
+    if (existing) { if (window.kakao?.maps) initMap(); else existing.addEventListener('load', initMap); }
+    else {
+      const s = document.createElement('script');
+      s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=dca1b472188890116c81a55eff590885&libraries=services&autoload=false';
+      s.async = true;
+      s.onload = initMap;
+      document.head.appendChild(s);
+    }
+  }, []);
+  return <div ref={mapRef} className="w-full h-full" />;
+}
+
 /* ─── Scroll-Reveal ───────────────────────────────────────── */
 function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -662,8 +699,8 @@ export default function BizPage() {
         </div>
       </section>
 
-      {/* ═══ 핵심서비스 (간소화) ═══════════════════════════════ */}
-      <section id="핵심서비스" className="py-28 bg-gray-50/60">
+      {/* ═══ 핵심서비스 섹션 삭제됨 ═══════════════════════════════ */}
+      <section id="핵심서비스" className="hidden">
         <div className="mx-auto max-w-[1100px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">CORE SERVICES</p></Reveal>
           <Reveal delay={100}>
@@ -962,11 +999,8 @@ export default function BizPage() {
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">오시는길</h2></Reveal>
 
           <Reveal delay={200}>
-            <div className="mt-12 w-full h-[280px] border border-gray-100 rounded-2xl bg-gray-50 flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                <p className="text-[13px] text-gray-300">지도 영역</p>
-              </div>
+            <div className="mt-12 w-full h-[300px] border border-gray-100 rounded-2xl overflow-hidden">
+              <BizKakaoMap />
             </div>
           </Reveal>
 
