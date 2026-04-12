@@ -58,8 +58,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const lastScrollY = useRef(0);
 
   useEffect(() => {
+    const isLoggedIn = localStorage.getItem('freetiful-logged-in');
+    if (isLoggedIn !== 'true') {
+      router.replace('/login');
+      return;
+    }
     setIsPro(localStorage.getItem('userRole') === 'pro');
-  }, [pathname]);
+  }, [pathname, router]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';
