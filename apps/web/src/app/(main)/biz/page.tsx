@@ -780,72 +780,42 @@ export default function BizPage() {
           })()}
           </div>{/* hidden 끝 */}
 
-          {/* 홍보 영상 2개 교차 배치 */}
-          <div className="mt-24">
+          {/* 홍보 영상 */}
+          <div className="mt-16">
             <Reveal delay={100}>
-              <p className="text-[11px] font-bold tracking-[0.4em] text-gray-300">PROMOTION VIDEO</p>
-              <p className="mt-2 mb-12 text-[20px] font-bold text-gray-900">프리티풀을 영상으로 만나보세요</p>
+              <p className="text-[11px] font-bold tracking-[0.4em] text-gray-300 text-center">PROMOTION VIDEO</p>
+              <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900 text-center">프리티풀을 영상으로 만나보세요</p>
             </Reveal>
 
-            {/* 영상 1 - 플랫폼 홍보영상 (좌→우 페이드인) */}
-            <Reveal delay={200}>
-              <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                <div className="w-full md:w-[55%] rounded-2xl overflow-hidden shadow-2xl border border-gray-100 bg-black"
-                  style={{ animation: 'none' }}
-                >
-                  {(() => {
-                    const vid1 = useReveal();
-                    return (
-                      <div
-                        ref={vid1.ref}
-                        className={`transition-all duration-1000 ease-out ${vid1.visible ? 'translate-x-0 opacity-100' : '-translate-x-16 opacity-0'}`}
-                      >
-                        <video className="w-full aspect-video" controls playsInline preload="none" muted>
-                          <source src="/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4" type="video/mp4" />
-                        </video>
-                      </div>
-                    );
-                  })()}
+            <div className="space-y-6">
+              {/* 영상 1 — 플랫폼 */}
+              <Reveal delay={200}>
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                  <video className="w-full aspect-video bg-black" controls playsInline preload="none" muted poster="">
+                    <source src="/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4" type="video/mp4" />
+                  </video>
+                  <div className="p-4">
+                    <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-violet-500 bg-violet-50 rounded-full mb-2">PLATFORM</span>
+                    <h4 className="text-[16px] font-bold text-gray-900">프리티풀 플랫폼 소개</h4>
+                    <p className="mt-1 text-[13px] text-gray-400 leading-relaxed">KBS·SBS·MBC 방송사 출신 검증된 진행자, 전국 1,000여 명과 함께하는 매칭 플랫폼</p>
+                  </div>
                 </div>
-                <div className="flex-1 md:pl-2">
-                  <span className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-violet-500 bg-violet-50 rounded-full mb-4">PLATFORM</span>
-                  <h4 className="text-[22px] font-black text-gray-900 leading-snug">프리티풀<br />플랫폼 소개</h4>
-                  <p className="mt-3 text-[13px] leading-[1.8] text-gray-400">
-                    KBS·SBS·MBC 방송사 출신 검증된 진행자,<br />
-                    전국 1,000여 명과 함께하는 매칭 플랫폼.
-                  </p>
-                </div>
-              </div>
-            </Reveal>
+              </Reveal>
 
-            {/* 영상 2 - 어플리케이션 홍보영상 (우→좌 페이드인) */}
-            <Reveal delay={200}>
-              <div className="mt-16 flex flex-col md:flex-row-reverse items-center gap-8 md:gap-12">
-                <div className="w-full md:w-[55%] rounded-2xl overflow-hidden shadow-2xl border border-gray-100 bg-black">
-                  {(() => {
-                    const vid2 = useReveal();
-                    return (
-                      <div
-                        ref={vid2.ref}
-                        className={`transition-all duration-1000 ease-out ${vid2.visible ? 'translate-x-0 opacity-100' : 'translate-x-16 opacity-0'}`}
-                      >
-                        <video className="w-full aspect-video" controls playsInline preload="none" muted>
-                          <source src="/images/KakaoTalk_Video_2026-04-08-23-05-41.mp4" type="video/mp4" />
-                        </video>
-                      </div>
-                    );
-                  })()}
+              {/* 영상 2 — 어플리케이션 */}
+              <Reveal delay={300}>
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                  <video className="w-full aspect-video bg-black" controls playsInline preload="none" muted poster="">
+                    <source src="/images/KakaoTalk_Video_2026-04-08-23-05-41.mp4" type="video/mp4" />
+                  </video>
+                  <div className="p-4">
+                    <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-[#3180F7] bg-blue-50 rounded-full mb-2">APPLICATION</span>
+                    <h4 className="text-[16px] font-bold text-gray-900">프리티풀 어플리케이션 소개</h4>
+                    <p className="mt-1 text-[13px] text-gray-400 leading-relaxed">검증된 사회자를 직관적으로 비교하고, 실시간 소통으로 간편하게 매칭하세요</p>
+                  </div>
                 </div>
-                <div className="flex-1 md:pr-2 md:text-right">
-                  <span className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-blue-500 bg-blue-50 rounded-full mb-4">APPLICATION</span>
-                  <h4 className="text-[22px] font-black text-gray-900 leading-snug">프리티풀<br />어플리케이션 소개</h4>
-                  <p className="mt-3 text-[13px] leading-[1.8] text-gray-400">
-                    검증된 사회자를 직관적으로 비교하고,<br />
-                    실시간 소통으로 간편하게 매칭하세요.
-                  </p>
-                </div>
-              </div>
-            </Reveal>
+              </Reveal>
+            </div>
           </div>
 
           {/* 서비스 소개 스크린 */}
