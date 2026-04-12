@@ -275,7 +275,8 @@ export default function BizPage() {
     if (!el) return;
     const ob = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        if (entry.isIntersecting && !sessionStorage.getItem('biz-overlay-shown')) {
+          sessionStorage.setItem('biz-overlay-shown', '1');
           setReceptionFullscreen(true);
           setReceptionExiting(false);
           setTimeout(() => {
