@@ -184,7 +184,7 @@ export default function ClientsPage() {
               : 'max-w-[1200px] w-full h-[60px] px-6 bg-transparent'
           }`}
         >
-          <Link href="/main" className="transition-all duration-700">
+          <Link href="/biz" className="transition-all duration-700">
             <Image
               src="/images/logo-prettyful.svg"
               alt="Freetiful"
