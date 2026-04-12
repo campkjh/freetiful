@@ -5,10 +5,55 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const PRO_NAMES: Record<string, { name: string; image: string }> = {
+  '1': { name: '강도현', image: '/images/강도현/10000133881772850005043.avif' },
+  '2': { name: '김동현', image: '/images/김동현/10000365351773046135169.avif' },
+  '3': { name: '김민지', image: '/images/김민지/IMG_06781773894450803.avif' },
+  '4': { name: '김솔', image: '/images/김솔/IMG_23601771788594274.avif' },
+  '5': { name: '김유석', image: '/images/김유석/10000029811773033474612.avif' },
+  '6': { name: '김재성', image: '/images/김재성/10000602271772960706687.avif' },
+  '7': { name: '김진아', image: '/images/김진아/IMG_53011772965035335.avif' },
+  '8': { name: '김호중', image: '/images/김호중/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif' },
+  '9': { name: '나연지', image: '/images/나연지/Facetune_10-02-2026-21-07-511772438130235.avif' },
+  '10': { name: '노유재', image: '/images/노유재/10000016211774440274171.avif' },
+  '11': { name: '도준석', image: '/images/도준석/1-1231772850030951.avif' },
+  '12': { name: '문정은', image: '/images/문정은/IMG_27221772621229571.avif' },
+  '13': { name: '박상설', image: '/images/박상설/10000077391773050357628.avif' },
+  '14': { name: '박은결', image: '/images/박은결/IMG_02661773035503788.avif' },
+  '15': { name: '박인애', image: '/images/박인애/IMG_0196.avif' },
+  '16': { name: '박주은', image: '/images/박주은/IMG_01621772973118334.avif' },
+  '17': { name: '배유정', image: '/images/배유정/IMG_21541773026472716.avif' },
+  '18': { name: '성연채', image: '/images/성연채/20161016_161406_IMG_5921.avif' },
+  '19': { name: '송지은', image: '/images/송지은/DE397232-C3A6-4FD0-80C8-0251D66A66AF1772092441240.avif' },
+  '20': { name: '유하늘', image: '/images/유하늘/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif' },
+  '21': { name: '유하영', image: '/images/유하영/22712e20f03327c2843673c063c881f432f6af591772967031477.avif' },
+  '22': { name: '이강문', image: '/images/이강문/10000353831773035180593.avif' },
+  '23': { name: '이승진', image: '/images/이승진/IMG_46511771924269213.avif' },
+  '24': { name: '이용석', image: '/images/이용석/10001176941772847263491.avif' },
+  '25': { name: '이우영', image: '/images/이우영/2-11772248201484.avif' },
+  '26': { name: '이원영', image: '/images/이원영/1-1231772531708677.avif' },
+  '27': { name: '이재원', image: '/images/이재원/17230390916981773388202648.avif' },
+  '28': { name: '이한나', image: '/images/이한나/IMG_002209_01772081523241.avif' },
+  '29': { name: '임하람', image: '/images/임하람/10000118841772968813129.avif' },
+  '30': { name: '장윤영', image: '/images/장윤영/IMG_27051772976548211.avif' },
+  '31': { name: '전해별', image: '/images/전해별/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif' },
+  '32': { name: '전혜인', image: '/images/전혜인/IMG_19181773027236141.avif' },
+  '33': { name: '정미정', image: '/images/정미정/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif' },
+  '34': { name: '정애란', image: '/images/정애란/IMG_2920.avif' },
+  '35': { name: '정이현', image: '/images/정이현/44561772622988798.avif' },
+  '36': { name: '조하늘', image: '/images/조하늘/IMG_27041773036338469.avif' },
+  '37': { name: '최진선', image: '/images/최진선/10001059551772371340253.avif' },
+  '38': { name: '한가람', image: '/images/한가람/IMG_34281772111635068.avif' },
+  '39': { name: '함현지', image: '/images/함현지/11773004544652.avif' },
+  '40': { name: '허수빈', image: '/images/허수빈/IMG_01991772961130928.avif' },
+  '41': { name: '홍현미', image: '/images/홍현미/IMG_12201772513865121.avif' },
+};
+
 export default function CheckoutPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const proInfo = PRO_NAMES[id || ''] || { name: '사회자', image: '' };
 
   const planName = searchParams.get('plan') || 'Premium 패키지';
   const price = Number(searchParams.get('price') || '450000');
@@ -64,10 +109,10 @@ export default function CheckoutPage() {
           <p className="text-[12px] text-gray-400 mb-2">선택 서비스</p>
           <div className="flex gap-3 mb-4">
             <div className="w-[80px] h-[80px] rounded-xl bg-gray-100 shrink-0 overflow-hidden">
-              <img src={`https://i.pravatar.cc/160?img=45`} alt="" className="w-full h-full object-cover" />
+              <img src={proInfo.image} alt={proInfo.name} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-bold text-gray-900">사회자 전해별</p>
+              <p className="text-[14px] font-bold text-gray-900">사회자 {proInfo.name}</p>
               <p className="text-[12px] text-gray-500 mt-0.5">{planName}</p>
               <p className="text-[15px] font-bold text-gray-900 mt-1">{price.toLocaleString()}원 <span className="text-[12px] font-normal text-gray-400 ml-1">1개</span></p>
             </div>
