@@ -511,10 +511,6 @@ export default function ProDetailPage() {
   };
 
   const handlePurchase = () => {
-    if (localStorage.getItem('freetiful-logged-in') !== 'true') {
-      router.push('/my');
-      return;
-    }
     router.push(`/pros/${pro.id}/booking`);
   };
 
