@@ -268,14 +268,14 @@ export default function PricingPage() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
+                    <div className="space-y-2">
                       <input
                         type="text"
                         value={newOption}
                         onChange={(e) => setNewOption(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addCustomOption()}
                         placeholder="옵션명을 입력하세요"
-                        className="flex-1 h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
+                        className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                       />
                       <input
                         type="number"
@@ -283,7 +283,7 @@ export default function PricingPage() {
                         onChange={(e) => setNewOptionPrice(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addCustomOption()}
                         placeholder="가격 (원)"
-                        className="w-[120px] h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
+                        className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                       />
                     </div>
                     <motion.button
