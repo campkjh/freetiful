@@ -84,9 +84,36 @@ const SINGER_PRO_IDS = ['9', '18', '20', '30', '34', '38'];
 
 const PAGE_SIZE = 12;
 
+// localStorage에서 등록된 사회자 데이터 가져오기
+function getRegisteredPro(): typeof MOCK_PROS[0] | null {
+  if (typeof window === 'undefined') return null;
+  const isApproved = localStorage.getItem('proRegistrationComplete');
+  if (isApproved !== 'true' && isApproved !== 'approved') return null;
+  const name = localStorage.getItem('proRegister_name');
+  if (!name) return null;
+  const photos = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
+  const regions = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
+  return {
+    id: 'my-pro',
+    name,
+    category: localStorage.getItem('proRegister_category') || 'MC',
+    role: localStorage.getItem('proRegister_category') || '사회자',
+    region: regions[0] || '전국',
+    rating: 5.0,
+    reviews: 0,
+    puddingRank: 0,
+    image: photos[0] || '',
+    intro: localStorage.getItem('proRegister_intro') || '프리티풀 인증 전문가',
+    price: 450000,
+    experience: parseInt(localStorage.getItem('proRegister_careerYears') || '1'),
+  };
+}
+
 function ProsListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const registeredPro = getRegisteredPro();
+  const ALL_PROS = registeredPro ? [registeredPro, ...MOCK_PROS] : MOCK_PROS;
   const initialRegion = searchParams.get('region') || '전체';
   const categoryParam = searchParams.get('category') || '';
   const isForeignFilter = categoryParam === '외국어사회자';
@@ -134,7 +161,7 @@ function ProsListContent() {
   const filtered = useMemo(() => {
     const priceRange = PRICE_RANGES[selectedPrice];
     const q = searchQuery.trim().toLowerCase();
-    let results = MOCK_PROS.filter((p) => {
+    let results = ALL_PROS.filter((p) => {
       if (selectedLang !== '전체' && !(PRO_LANGUAGES[p.id]?.includes(selectedLang))) return false;
       if (selectedType === '축가/연주' && !SINGER_PRO_IDS.includes(p.id)) return false;
       if (selectedType !== '전체' && selectedType !== '축가/연주' && p.role !== selectedType && p.category !== selectedType) return false;

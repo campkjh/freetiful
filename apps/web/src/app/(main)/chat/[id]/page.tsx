@@ -832,10 +832,19 @@ function renderTextWithMentions(text: string) {
   });
 }
 
+// 사회자 모드용 고객 데이터
+const CLIENTS: Record<string, { id: string; name: string; username: string; profileImageUrl: string; isActive: boolean; lastSeen?: string }> = {
+  'c1': { id: 'client-1', name: '홍**', username: 'client1', profileImageUrl: '', isActive: true },
+  'c2': { id: 'client-2', name: '김**', username: 'client2', profileImageUrl: '', isActive: false, lastSeen: '30분 전' },
+  'c3': { id: 'client-3', name: '이**', username: 'client3', profileImageUrl: '', isActive: true },
+  'c4': { id: 'client-4', name: '박**', username: 'client4', profileImageUrl: '', isActive: false, lastSeen: '2시간 전' },
+};
+
 export default function ChatRoomPage() {
   const { id: roomId } = useParams<{ id: string }>();
   const router = useRouter();
-  const pro = PROS[roomId] || PROS['1'];
+  const isPro = typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro';
+  const pro = isPro ? (CLIENTS[roomId] || CLIENTS['c1']) : (PROS[roomId] || PROS['1']);
 
   const [messages, setMessages] = useState<Message[]>(() => makeMockMessages(pro.id, pro.name));
   const [input, setInput] = useState('');
