@@ -619,6 +619,24 @@ export default function MyPage() {
         </button>
       </div>
 
+      {/* 테스트: 데모 데이터 로드/삭제 */}
+      {isLoggedIn && (
+        <div className="px-4 pb-2 flex gap-2">
+          <button
+            onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); window.location.reload(); }}
+            className="flex-1 py-2.5 rounded-xl border-2 border-dashed border-blue-200 text-[12px] font-medium text-blue-400 active:scale-[0.98] transition-transform"
+          >
+            [테스트] 데모 데이터 로드
+          </button>
+          <button
+            onClick={() => { localStorage.removeItem('freetiful-has-demo-data'); window.location.reload(); }}
+            className="flex-1 py-2.5 rounded-xl border-2 border-dashed border-red-200 text-[12px] font-medium text-red-400 active:scale-[0.98] transition-transform"
+          >
+            [테스트] 데모 데이터 삭제
+          </button>
+        </div>
+      )}
+
       {/* App version */}
       <div className="px-4 pt-2 pb-4 text-center">
         <p className="text-[11px] text-gray-300">Freetiful v1.0.0</p>
