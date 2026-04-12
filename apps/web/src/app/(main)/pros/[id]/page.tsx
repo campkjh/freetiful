@@ -787,6 +787,34 @@ export default function ProDetailPage() {
             ))}
           </ul>
 
+          {/* Custom options from localStorage (if pro registered them) */}
+          {typeof window !== 'undefined' && (() => {
+            try {
+              const stored = localStorage.getItem('proRegister_customOptions');
+              if (!stored) return null;
+              const customOptions = JSON.parse(stored);
+              const planOptions = customOptions[plan.id];
+              if (!planOptions || planOptions.length === 0) return null;
+              return (
+                <div className="mt-4 pt-3 border-t border-gray-100">
+                  <p className="text-[12px] font-bold text-amber-600 mb-2">추가 옵션</p>
+                  <ul className="space-y-1 text-[14px] text-gray-700 leading-relaxed">
+                    {planOptions.map((opt: {name: string, price: number} | string, i: number) => {
+                      const name = typeof opt === 'string' ? opt : opt.name;
+                      const price = typeof opt === 'string' ? 0 : opt.price;
+                      return (
+                        <li key={i} className="flex items-center justify-between">
+                          <span>+ {name}</span>
+                          {price > 0 && <span className="text-[13px] font-semibold text-gray-500">{price.toLocaleString()}원</span>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            } catch { return null; }
+          })()}
+
         </div>
       </div>
 

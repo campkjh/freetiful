@@ -142,13 +142,14 @@ export default function PhotosPage() {
       };
       reader.readAsDataURL(imageFiles[0]);
     } else {
-      // 여러 장: 전부 읽어서 바로 추가
-      imageFiles.forEach(file => {
+      // Multiple files: read all, then add at once
+      const promises = imageFiles.map(file => new Promise<string>((resolve) => {
         const reader = new FileReader();
-        reader.onloadend = () => {
-          setPhotos(prev => [...prev, reader.result as string]);
-        };
+        reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
+      }));
+      Promise.all(promises).then(results => {
+        setPhotos(prev => [...prev, ...results]);
       });
     }
     e.target.value = '';

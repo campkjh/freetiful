@@ -88,7 +88,8 @@ export default function ChatListPage() {
     const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
     setIsPro(localStorage.getItem('userRole') === 'pro');
-    if (loggedIn) setRooms(MOCK_ROOMS);
+    const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
+    if (loggedIn && hasDemoData) setRooms(MOCK_ROOMS);
   }, []);
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -606,6 +607,14 @@ export default function ChatListPage() {
             </svg>
             <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
             {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">전문가 찾아보기</Link>}
+            {isLoggedIn && !search && activeTab === '전체' && rooms.length === 0 && (
+              <button
+                onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setRooms(MOCK_ROOMS); }}
+                className="mt-3 text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors block mx-auto"
+              >
+                데모 데이터 로드
+              </button>
+            )}
           </div>
         ) : renderChatList(false)}
       </div>

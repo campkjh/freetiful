@@ -36,15 +36,31 @@ export default function PricingPage() {
     }
     return {};
   });
-  const [customOptions, setCustomOptions] = useState<Record<string, string[]>>(() => {
+  const [customOptions, setCustomOptions] = useState<Record<string, {name: string, price: number}[]>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('proRegister_customOptions');
-      return saved ? JSON.parse(saved) : { premium: [], superior: [], enterprise: [] };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Migration: convert old string[] format to {name, price}[] format
+        const migrated: Record<string, {name: string, price: number}[]> = {};
+        for (const key of Object.keys(parsed)) {
+          if (Array.isArray(parsed[key])) {
+            migrated[key] = parsed[key].map((item: string | {name: string, price: number}) =>
+              typeof item === 'string' ? { name: item, price: 0 } : item
+            );
+          } else {
+            migrated[key] = [];
+          }
+        }
+        return migrated;
+      }
+      return { premium: [], superior: [], enterprise: [] };
     }
     return { premium: [], superior: [], enterprise: [] };
   });
   const [activeTab, setActiveTab] = useState('premium');
   const [newOption, setNewOption] = useState('');
+  const [newOptionPrice, setNewOptionPrice] = useState('');
 
   useEffect(() => { localStorage.setItem('proRegister_enabledPlans', JSON.stringify([...enabledPlans])); }, [enabledPlans]);
   useEffect(() => { localStorage.setItem('proRegister_prices', JSON.stringify(prices)); }, [prices]);
@@ -61,11 +77,13 @@ export default function PricingPage() {
 
   const addCustomOption = () => {
     if (!newOption.trim()) return;
+    const price = parseInt(newOptionPrice) || 0;
     setCustomOptions(prev => ({
       ...prev,
-      [activeTab]: [...(prev[activeTab] || []), newOption.trim()],
+      [activeTab]: [...(prev[activeTab] || []), { name: newOption.trim(), price }],
     }));
     setNewOption('');
+    setNewOptionPrice('');
   };
 
   const removeCustomOption = (planId: string, index: number) => {
@@ -238,7 +256,10 @@ export default function PricingPage() {
                           <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center">
                             <span className="text-[10px] text-amber-600 font-bold">+</span>
                           </div>
-                          <span className="text-[14px] text-gray-700 flex-1">{opt}</span>
+                          <span className="text-[14px] text-gray-700 flex-1">{opt.name}</span>
+                          {opt.price > 0 && (
+                            <span className="text-[13px] font-semibold text-gray-500">{opt.price.toLocaleString()}원</span>
+                          )}
                           <motion.button whileTap={{ scale: 0.85 }} onClick={() => removeCustomOption(activeTab, i)}>
                             <X size={14} className="text-gray-300" />
                           </motion.button>
@@ -246,15 +267,25 @@ export default function PricingPage() {
                       ))}
                     </div>
                   )}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={newOption}
-                      onChange={(e) => setNewOption(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addCustomOption()}
-                      placeholder="옵션명을 입력하세요"
-                      className="flex-1 h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
-                    />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newOption}
+                        onChange={(e) => setNewOption(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addCustomOption()}
+                        placeholder="옵션명을 입력하세요"
+                        className="flex-1 h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
+                      />
+                      <input
+                        type="number"
+                        value={newOptionPrice}
+                        onChange={(e) => setNewOptionPrice(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addCustomOption()}
+                        placeholder="가격 (원)"
+                        className="w-[120px] h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
+                      />
+                    </div>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={addCustomOption}
@@ -263,7 +294,7 @@ export default function PricingPage() {
                         color: newOption.trim() ? '#FFFFFF' : '#9CA3AF',
                       }}
                       transition={{ duration: 0.2 }}
-                      className="shrink-0 h-11 px-4 rounded-xl text-[14px] font-bold"
+                      className="w-full h-11 rounded-xl text-[14px] font-bold"
                     >
                       추가
                     </motion.button>

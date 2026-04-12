@@ -144,6 +144,11 @@ const ProIconWon = () => (
 );
 
 function ProScheduleView() {
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => {
+    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
+  }, []);
+  const bookings = hasDemoData ? PRO_MOCK_BOOKINGS : [];
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -160,9 +165,9 @@ function ProScheduleView() {
       <div className="px-4 py-4">
         <div className="flex gap-2">
           {[
-            { label: '확정', count: PRO_MOCK_BOOKINGS.filter(b => b.status === 'confirmed').length, color: '#22C55E' },
-            { label: '대기', count: PRO_MOCK_BOOKINGS.filter(b => b.status === 'pending').length, color: '#F59E0B' },
-            { label: '완료', count: PRO_MOCK_BOOKINGS.filter(b => b.status === 'completed').length, color: '#9CA3AF' },
+            { label: '확정', count: bookings.filter(b => b.status === 'confirmed').length, color: '#22C55E' },
+            { label: '대기', count: bookings.filter(b => b.status === 'pending').length, color: '#F59E0B' },
+            { label: '완료', count: bookings.filter(b => b.status === 'completed').length, color: '#9CA3AF' },
           ].map(s => (
             <div key={s.label} className="flex-1 bg-gray-50 rounded-xl py-3 text-center">
               <p className="text-[20px] font-bold" style={{ color: s.color }}>{s.count}</p>
@@ -182,7 +187,24 @@ function ProScheduleView() {
 
       {/* Booking Cards */}
       <div className="px-4 space-y-3 pb-24">
-        {PRO_MOCK_BOOKINGS.map(booking => {
+        {bookings.length === 0 && (
+          <div className="flex flex-col items-center py-16 text-gray-400">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mb-3">
+              <rect x="3" y="4" width="18" height="18" rx="3" fill="#E5E7EB"/>
+              <rect x="3" y="4" width="18" height="7" rx="3" fill="#9CA3AF"/>
+              <rect x="7" y="2" width="2.5" height="4" rx="1.25" fill="#D1D5DB"/>
+              <rect x="14.5" y="2" width="2.5" height="4" rx="1.25" fill="#D1D5DB"/>
+            </svg>
+            <p className="text-[14px]">예약된 행사가 없습니다</p>
+            <button
+              onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setHasDemoData(true); }}
+              className="mt-3 text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors"
+            >
+              데모 데이터 로드
+            </button>
+          </div>
+        )}
+        {bookings.map(booking => {
           const status = PRO_STATUS_MAP[booking.status];
           const dateObj = new Date(booking.date);
           const dateLabel = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 (${DAYS_KR[dateObj.getDay()]})`;
@@ -299,15 +321,20 @@ export default function SchedulePage() {
     if (diff < -50 && hasPrevWeek) { setSlideDirection(-1); setWeekOffset((p) => p - 1); }
   };
 
+  const [hasDemoData, setHasDemoData] = useState(false);
+  useEffect(() => {
+    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
+  }, []);
+
   const schedulesByDate = useMemo(() => {
-    if (!isLoggedIn) return {};
+    if (!isLoggedIn || !hasDemoData) return {};
     const map: Record<string, ScheduleItem[]> = {};
     MOCK_SCHEDULES.forEach(s => {
       if (!map[s.date]) map[s.date] = [];
       map[s.date].push(s);
     });
     return map;
-  }, [isLoggedIn]);
+  }, [isLoggedIn, hasDemoData]);
 
   const selectedSchedules = selectedDate ? (schedulesByDate[selectedDate] ?? []) : [];
 
@@ -325,12 +352,12 @@ export default function SchedulePage() {
 
   // List view: all schedules for current month sorted
   const monthSchedules = useMemo(() => {
-    if (!isLoggedIn) return [];
+    if (!isLoggedIn || !hasDemoData) return [];
     const prefix = `${year}-${String(month).padStart(2, '0')}`;
     return MOCK_SCHEDULES
       .filter(s => s.date.startsWith(prefix))
       .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-  }, [year, month, isLoggedIn]);
+  }, [year, month, isLoggedIn, hasDemoData]);
 
   // Stats
   const confirmedCount = monthSchedules.filter(s => s.status === 'confirmed').length;
@@ -507,6 +534,14 @@ export default function SchedulePage() {
                   <path d="M9 15l2 2 4-4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <p className="text-[14px]">이 날에는 일정이 없습니다</p>
+                {isLoggedIn && !hasDemoData && (
+                  <button
+                    onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setHasDemoData(true); }}
+                    className="mt-3 text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors"
+                  >
+                    데모 데이터 로드
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -566,6 +601,14 @@ export default function SchedulePage() {
                 <path d="M9 15l2 2 4-4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <p className="text-[14px]">이번 달 일정이 없습니다</p>
+              {isLoggedIn && !hasDemoData && (
+                <button
+                  onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setHasDemoData(true); }}
+                  className="mt-3 text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors"
+                >
+                  데모 데이터 로드
+                </button>
+              )}
             </div>
           )}
         </div>

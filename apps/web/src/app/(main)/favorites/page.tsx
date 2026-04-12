@@ -45,8 +45,11 @@ export default function FavoritesPage() {
     const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
     if (!loggedIn) return;
-    setFavPros(MOCK_FAVORITE_PROS);
-    setFavBiz(MOCK_FAVORITE_BIZ);
+    const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
+    if (hasDemoData) {
+      setFavPros(MOCK_FAVORITE_PROS);
+      setFavBiz(MOCK_FAVORITE_BIZ);
+    }
   }, []);
 
   // Sync favorites from localStorage
@@ -223,7 +226,19 @@ export default function FavoritesPage() {
               ))}
             </div>
           ) : (
-            <EmptyState message={isLoggedIn ? "찜한 전문가가 없습니다" : "로그인 후 찜한 전문가를 확인하세요"} linkText={isLoggedIn ? "전문가 찾아보기" : "로그인하기"} linkHref={isLoggedIn ? "/pros" : "/"} />
+            <>
+              <EmptyState message={isLoggedIn ? "찜한 전문가가 없습니다" : "로그인 후 찜한 전문가를 확인하세요"} linkText={isLoggedIn ? "전문가 찾아보기" : "로그인하기"} linkHref={isLoggedIn ? "/pros" : "/"} />
+              {isLoggedIn && favPros.length === 0 && (
+                <div className="flex justify-center -mt-16 pb-8">
+                  <button
+                    onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setFavPros(MOCK_FAVORITE_PROS); setFavBiz(MOCK_FAVORITE_BIZ); }}
+                    className="text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors"
+                  >
+                    데모 데이터 로드
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

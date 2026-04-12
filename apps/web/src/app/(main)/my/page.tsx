@@ -529,7 +529,7 @@ export default function MyPage() {
       </div>
 
       {/* Upcoming Schedules */}
-      {isLoggedIn && UPCOMING_SCHEDULES.length > 0 && (
+      {isLoggedIn && typeof window !== 'undefined' && localStorage.getItem('freetiful-has-demo-data') === 'true' && UPCOMING_SCHEDULES.length > 0 && (
         <div className="px-4 pt-2 pb-1" style={{ animation: 'myFadeUp 0.5s ease 0.15s both' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[12px] font-bold text-gray-400">다가오는 일정</p>
