@@ -153,6 +153,16 @@ const PARTNER_LOGOS = [
   'zO55rSFFBt8SWtnaLX8pZ4KB6WlImBmSYRCCEAteo5NEAPrOKqtDmSGRDk2EXZUmiyPhdFCOKnkaCZ2BstnHa-h_Xz49IZDf1_R7H4gVSBEzRF4gZkgC6riVGwIDJnBd_Y7JbT_454w-PswxOT1OVw.svg',
 ];
 
+const PARTNER_SVG_LOGOS = [
+  'Frame 1707490594.svg', 'Frame 1707490595.svg', 'Frame 1707490596.svg',
+  'Frame 1707490598.svg', 'Frame 1707490599.svg', 'Frame 1707490618.svg',
+  'Frame 1707490619.svg', 'Frame 1707490620.svg', 'Frame 1707490621.svg',
+  'Frame 1707490622.svg', 'Frame 1707490623.svg', 'Frame 1707490624.svg',
+  'Frame 1707490625.svg', 'Frame 1707490626.svg', 'Frame 1707490627.svg',
+  'Frame 1707490628.svg', 'Frame 1707490629.svg', 'Frame 1707490630.svg',
+  'Frame 1707490631.svg', 'Frame 1707490632.svg',
+];
+
 /* ─── Page ─────────────────────────────────────────────────── */
 export default function ClientsPage() {
   const [scrollY, setScrollY] = useState(0);
@@ -309,13 +319,29 @@ export default function ClientsPage() {
             <p className="mt-3 text-[15px] text-gray-400 max-w-[500px]">프리티풀과 함께 성장하는 기업들입니다</p>
           </Reveal>
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 mt-12">
+          {/* 파트너사 SVG 로고 */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 mt-12">
+            {PARTNER_SVG_LOGOS.map((logo, i) => (
+              <Reveal key={logo} delay={i * 20}>
+                <div className="group bg-white border border-gray-100 rounded-2xl p-6 flex items-center justify-center h-24 transition-all duration-300 hover:border-gray-200 hover:shadow-md">
+                  <img
+                    src={`/images/partners/${encodeURIComponent(logo)}`}
+                    alt="파트너사 로고"
+                    className="max-h-12 max-w-full object-contain opacity-70 group-hover:opacity-100 transition-opacity duration-300"
+                  />
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          {/* 기업 로고 */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 mt-8">
             {PARTNER_LOGOS.map((logo, i) => (
-              <Reveal key={logo} delay={i * 15}>
+              <Reveal key={logo} delay={i * 10}>
                 <div className="group bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-center h-20 transition-all duration-300 hover:border-gray-200 hover:shadow-md">
                   <img
                     src={`/images/company-logos/${logo}`}
-                    alt="파트너사 로고"
+                    alt="기업 로고"
                     className="max-h-10 max-w-full object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300"
                   />
                 </div>
