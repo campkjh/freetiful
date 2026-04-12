@@ -140,13 +140,13 @@ const MOCK_RANK_ITEMS: RankItem[] = [
 // ─── Page ──────────────────────────────────────────────────
 export default function BusinessListPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-biz') : true);
   const [selectedRegion, setSelectedRegion] = useState('경기');
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 300); return () => clearTimeout(t); }, []);
+  useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-biz', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);

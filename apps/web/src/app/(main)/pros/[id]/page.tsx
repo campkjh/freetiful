@@ -529,8 +529,8 @@ export default function ProDetailPage() {
     }
   };
 
-  const [loading, setLoading] = useState(true);
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 300); return () => clearTimeout(t); }, []);
+  const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-pro-detail') : true);
+  useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-pro-detail', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
 
   if (loading) {
     return (
