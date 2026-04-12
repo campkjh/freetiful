@@ -214,15 +214,12 @@ const PRO_MENU_SECTIONS = [
     title: '프로필 관리',
     items: [
       { href: '/my/pro-edit', icon: ProIconProfile, label: '프로필 수정' },
-      { href: '/my/portfolio', icon: ProIconPortfolio, label: '포트폴리오 관리' },
-      { href: '/my/pro-faq', icon: ProIconFAQ, label: 'FAQ 관리' },
     ],
   },
   {
     title: '푸딩',
     items: [
-      { href: '/my/pudding-charge', icon: ProIconPudding, label: '푸딩 충전' },
-      { href: '/my/pudding-history', icon: IconHistory, label: '푸딩 사용 내역' },
+      { href: '/my/pudding-history', icon: ProIconPudding, label: '푸딩 내역' },
       { href: '/my/pudding-ranking', icon: ProIconRanking, label: '랭킹 보기' },
     ],
   },
@@ -230,14 +227,13 @@ const PRO_MENU_SECTIONS = [
     title: '고객센터',
     items: [
       { href: 'tel:02-1234-5678', icon: ProIconPhone, label: '전화문의' },
-      { href: 'mailto:support@freetiful.com', icon: ProIconEmail, label: '이메일문의' },
     ],
   },
   {
     title: '기타',
     items: [
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
-      { href: '#', icon: ProIconSwitch, label: '[테스트] 일반유저 전환', action: 'switchToGeneral' },
+      { href: '#', icon: ProIconSwitch, label: '일반유저 전환', action: 'switchToGeneral' },
     ],
   },
 ];
