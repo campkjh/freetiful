@@ -68,12 +68,17 @@ const PRICE_RANGES = [
   { label: '50만원 이상', min: 500000, max: Infinity },
 ];
 
+// 외국어 가능 사회자 ID
+const FOREIGN_LANG_PRO_IDS = ['25', '5', '15', '23', '1', '2', '36', '39', '35', '28', '32', '3', '22', '13', '10'];
+
 const PAGE_SIZE = 12;
 
 function ProsListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialRegion = searchParams.get('region') || '전체';
+  const categoryParam = searchParams.get('category') || '';
+  const isForeignFilter = categoryParam === '외국어사회자';
 
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('pudding_rank');
@@ -113,6 +118,8 @@ function ProsListContent() {
     const priceRange = PRICE_RANGES[selectedPrice];
     const q = searchQuery.trim().toLowerCase();
     let results = MOCK_PROS.filter((p) => {
+      if (isForeignFilter && !FOREIGN_LANG_PRO_IDS.includes(p.id)) return false;
+      if (categoryParam && categoryParam !== '외국어사회자' && p.category !== categoryParam && p.role !== categoryParam) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !p.category.toLowerCase().includes(q)) return false;
       if (selectedRegion !== '전체' && p.region !== selectedRegion && p.region !== '전국') return false;
       if (p.price < priceRange.min || p.price > priceRange.max) return false;
@@ -188,9 +195,9 @@ function ProsListContent() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="text-[18px] font-bold text-gray-900"
+                className="text-[18px] font-bold text-gray-900 truncate"
               >
-                사회자
+                {isForeignFilter ? '외국어 사회자' : categoryParam || '사회자'}
               </motion.h1>
             )}
           </AnimatePresence>
