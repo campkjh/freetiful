@@ -926,9 +926,9 @@ export default function BizPage() {
           <div className="mt-12 grid gap-3 md:grid-cols-2">
             {[
               { icon: <FileText className="h-5 w-5" />, title: '회사소개서', desc: 'PDF', action: () => window.open('/images/2025 프리티풀 회사소개서.pdf', '_blank') },
-              { icon: <Download className="h-5 w-5" />, title: 'CI 가이드라인', desc: 'ZIP · 12.8MB', action: () => toast('준비 중입니다') },
-              { icon: <FileText className="h-5 w-5" />, title: '서비스 이용가이드', desc: 'PDF · 3.1MB', action: () => toast('준비 중입니다') },
-              { icon: <Briefcase className="h-5 w-5" />, title: '파트너 제안서', desc: 'PDF · 4.7MB', action: () => toast('준비 중입니다') },
+              { icon: <Download className="h-5 w-5" />, title: 'CI 가이드라인', desc: 'ZIP · 12.8MB', action: () => toast('곧 제공될 예정입니다') },
+              { icon: <FileText className="h-5 w-5" />, title: '서비스 이용가이드', desc: 'PDF · 3.1MB', action: () => toast('곧 제공될 예정입니다') },
+              { icon: <Briefcase className="h-5 w-5" />, title: '파트너 제안서', desc: 'PDF · 4.7MB', action: () => toast('곧 제공될 예정입니다') },
               { icon: <Shield className="h-5 w-5" />, title: '개인정보처리방침', desc: '', action: () => setShowPrivacy(true) },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 80}>

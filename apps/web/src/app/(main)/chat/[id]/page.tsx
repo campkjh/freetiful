@@ -1248,10 +1248,10 @@ export default function ChatRoomPage() {
   const ATTACH_ITEMS = [
     { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => cameraInputRef.current?.click() },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
-    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('이모티콘 기능 준비 중', { icon: '😊' }); } },
+    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
     { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
     { icon: <MapPin size={24} className="text-white" />, bg: 'bg-slate-700', label: '위치', action: handleLocationSend },
-    { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('오디오 기능 준비 중', { icon: '🎵' }); } },
+    { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
   ];
 
   // 멘션 필터링된 리스트
@@ -1318,7 +1318,7 @@ export default function ChatRoomPage() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
                 <div className="absolute right-0 top-[56px] z-50 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 overflow-hidden min-w-[180px] animate-[scaleIn_0.2s_ease-out]">
-                  <button onClick={() => { toast('대화 검색 준비 중', { icon: '🔍' }); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full">
+                  <button onClick={() => { toast('곧 제공될 예정입니다', { icon: '🔍' }); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full">
                     <Search size={16} className="text-gray-500" /> 대화 내용 검색
                   </button>
                   <button onClick={() => { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
