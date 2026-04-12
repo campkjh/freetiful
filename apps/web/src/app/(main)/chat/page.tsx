@@ -78,7 +78,7 @@ function makePreviewMessages(room: ChatRoom) {
 
 type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 
-type ProChatFilter = '전체' | '견적문의' | '예약확정';
+type ProFilterTab = '전체' | '읽음' | '안 읽음' | '견적문의' | '예약확정' | '숨김';
 
 const PRO_MOCK_ROOMS: ChatRoom[] = [
   { id: 'c1', otherUser: { id: 'client-1', name: '홍**', role: '고객', profileImageUrl: '' }, lastMessage: '결혼식 견적 문의드립니다', lastMessageAt: '2026-04-11', unreadCount: 2, isPinned: false, isArchived: false },
@@ -99,7 +99,7 @@ const ClientAvatar = ({ name }: { name: string }) => (
 export default function ChatListPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
-  const [proChatFilter, setProChatFilter] = useState<ProChatFilter>('전체');
+  const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
   useEffect(() => {
     const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
@@ -127,9 +127,11 @@ export default function ChatListPage() {
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const longPressTriggered = useRef(false);
 
+  const currentTab = isPro ? proActiveTab : activeTab;
+
   const filtered = rooms.filter((r) => {
     // 숨김 탭에서는 숨겨진 채팅만, 다른 탭에서는 숨겨진 채팅 제외
-    if (activeTab === '숨김') {
+    if (currentTab === '숨김') {
       if (!r.isHidden) return false;
     } else {
       if (r.isHidden) return false;
@@ -137,6 +139,16 @@ export default function ChatListPage() {
     if (search) {
       const q = search.toLowerCase();
       if (!r.otherUser.name.toLowerCase().includes(q) && !r.lastMessage.toLowerCase().includes(q)) return false;
+    }
+    if (isPro) {
+      switch (proActiveTab) {
+        case '읽음': return r.unreadCount === 0;
+        case '안 읽음': return r.unreadCount > 0;
+        case '견적문의': return r.lastMessage.includes('견적') || r.lastMessage.includes('문의');
+        case '예약확정': return r.lastMessage.includes('확정') || r.lastMessage.includes('진행');
+        case '숨김': return true;
+        default: return true;
+      }
     }
     switch (activeTab) {
       case '읽음': return r.unreadCount === 0 && !r.isArchived;
@@ -242,6 +254,7 @@ export default function ChatListPage() {
   const [pcInput, setPcInput] = useState('');
 
   const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관', '숨김'];
+  const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '견적문의', '예약확정', '숨김'];
 
   const pcSelectedData = pcSelectedRoom ? rooms.find((r) => r.id === pcSelectedRoom) : null;
 
@@ -386,21 +399,6 @@ export default function ChatListPage() {
         <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
           <div className="px-5 pt-6 pb-3">
             <h1 className="text-[20px] font-extrabold text-gray-900 mb-3">{isPro ? '고객 문의' : '채팅'}</h1>
-            {isPro && (
-              <div className="flex gap-1.5 mb-3">
-                {(['전체', '견적문의', '예약확정'] as ProChatFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setProChatFilter(f)}
-                    className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-                      proChatFilter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            )}
             <div className="relative mb-3">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -411,19 +409,32 @@ export default function ChatListPage() {
                 className="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-gray-300"
               />
             </div>
-            <div className="flex gap-1.5">
-              {TABS.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-                    activeTab === tab ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+            <LayoutGroup id="pc-tabs">
+              <div className="flex gap-1.5 flex-wrap">
+                {(isPro ? PRO_TABS : TABS).map((tab) => {
+                  const active = isPro ? proActiveTab === tab : activeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
+                      className={`relative px-3 py-1.5 rounded-full text-[12px] font-medium isolate transition-colors ${
+                        active ? 'text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="pc-tab-indicator"
+                          className="absolute inset-0 bg-gray-900 rounded-full"
+                          style={{ zIndex: -1 }}
+                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <span className="relative">{tab}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </LayoutGroup>
           </div>
           <div className="flex-1 overflow-y-auto">
             {sorted.length === 0 ? (
@@ -561,29 +572,22 @@ export default function ChatListPage() {
               </motion.div>
             )}
           </AnimatePresence>
-          {isPro && (
-            <div className="flex gap-2 mb-2">
-              {(['전체', '견적문의', '예약확정'] as ProChatFilter[]).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setProChatFilter(f)}
-                  className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all ${
-                    proChatFilter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          )}
           <LayoutGroup id="mobile-tabs">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
-              {TABS.map((tab) => {
-                const active = activeTab === tab;
+              {(isPro ? PRO_TABS : TABS).map((tab) => {
+                const active = isPro ? proActiveTab === tab : activeTab === tab;
                 return (
                   <button
                     key={tab}
-                    onClick={() => { setActiveTab(tab); setEditMode(false); setSelectedIds(new Set()); }}
+                    onClick={() => {
+                      if (isPro) {
+                        setProActiveTab(tab as ProFilterTab);
+                      } else {
+                        setActiveTab(tab as FilterTab);
+                      }
+                      setEditMode(false);
+                      setSelectedIds(new Set());
+                    }}
                     className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate transition-colors active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
                   >
                     {active && (

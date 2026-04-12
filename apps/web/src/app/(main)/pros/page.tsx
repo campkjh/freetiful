@@ -88,10 +88,11 @@ const PAGE_SIZE = 12;
 function getRegisteredPro(): typeof MOCK_PROS[0] | null {
   if (typeof window === 'undefined') return null;
   const isApproved = localStorage.getItem('proRegistrationComplete');
-  if (isApproved !== 'true' && isApproved !== 'approved') return null;
+  if (isApproved !== 'true' && isApproved !== 'approved' && isApproved !== 'pending') return null;
   const name = localStorage.getItem('proRegister_name');
   if (!name) return null;
   const photos = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
+  const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
   const regions = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
   return {
     id: 'my-pro',
@@ -102,7 +103,7 @@ function getRegisteredPro(): typeof MOCK_PROS[0] | null {
     rating: 5.0,
     reviews: 0,
     puddingRank: 0,
-    image: photos[0] || '',
+    image: photos[mainPhotoIndex] || photos[0] || '',
     intro: localStorage.getItem('proRegister_intro') || '프리티풀 인증 전문가',
     price: 450000,
     experience: parseInt(localStorage.getItem('proRegister_careerYears') || '1'),

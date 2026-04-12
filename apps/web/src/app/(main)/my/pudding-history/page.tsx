@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, TrendingUp, TrendingDown, Gift, Zap, Star } from 'lucide-react';
+import { getPudding, getPuddingHistory, initWelcomePudding, type PuddingTransaction as StoredPuddingTransaction } from '@/lib/pudding';
 
 interface PuddingTransaction {
   id: string;
@@ -40,11 +41,35 @@ function formatDate(ts: number): string {
 
 export default function PuddingHistoryPage() {
   const router = useRouter();
-  const [totalPudding, setTotalPudding] = useState(320);
-  const [transactions] = useState(MOCK_TRANSACTIONS);
+  const [totalPudding, setTotalPudding] = useState(0);
+  const [transactions, setTransactions] = useState<PuddingTransaction[]>(MOCK_TRANSACTIONS);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Initialize welcome pudding if needed
+    initWelcomePudding();
+    // Read from localStorage
+    const storedPudding = getPudding();
+    const storedHistory = getPuddingHistory();
+    if (storedPudding > 0) {
+      setTotalPudding(storedPudding);
+    } else {
+      // Fallback to mock total if no stored data
+      const mockTotal = MOCK_TRANSACTIONS.reduce((sum, tx) => sum + tx.amount, 0);
+      setTotalPudding(mockTotal);
+    }
+    if (storedHistory.length > 0) {
+      // Merge stored history with mock for display
+      const convertedHistory: PuddingTransaction[] = storedHistory.map((tx) => ({
+        id: tx.id,
+        type: tx.amount > 0 ? 'earn' as const : 'use' as const,
+        description: tx.description,
+        amount: tx.amount,
+        createdAt: tx.createdAt,
+        category: tx.category,
+      }));
+      setTransactions([...convertedHistory, ...MOCK_TRANSACTIONS]);
+    }
   }, []);
 
   return (

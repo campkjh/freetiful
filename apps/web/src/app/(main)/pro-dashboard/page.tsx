@@ -233,6 +233,7 @@ export default function ProDashboardPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
+  const [puddingCount, setPuddingCount] = useState(0);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -256,6 +257,12 @@ export default function ProDashboardPage() {
     if (storedReplies) {
       try { setSavedReplies(JSON.parse(storedReplies)); } catch { /* ignore */ }
     }
+
+    // Read pudding count from localStorage
+    try {
+      const storedPudding = localStorage.getItem('freetiful-pudding');
+      setPuddingCount(storedPudding ? Number(storedPudding) : 0);
+    } catch { /* ignore */ }
   }, []);
 
   // Close context menu on outside click
@@ -372,6 +379,7 @@ export default function ProDashboardPage() {
           { icon: <img src="/images/이번달 매출.svg" alt="" width={24} height={24} />, label: '이번달 매출', value: '₩2,400,000', bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
           { icon: <img src="/images/프로필 조회.svg" alt="" width={24} height={24} />, label: '프로필 조회', value: '328회', bg: 'bg-purple-50', href: '/pro-dashboard/views' },
           { icon: <img src="/images/평균 평점.svg" alt="" width={24} height={24} />, label: '평균 평점', value: '4.8', bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
+          { icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#F59E0B" /><circle cx="12" cy="12" r="7" fill="#FBBF24" /><text x="12" y="16" textAnchor="middle" fill="#92400E" fontSize="11" fontWeight="bold">P</text></svg>, label: '보유 푸딩', value: `${puddingCount.toLocaleString()}개`, bg: 'bg-amber-50', href: '/my/pudding-history' },
         ].map((stat, i) => (
           <motion.div key={i} variants={fadeUp}>
             <Link href={stat.href}>
