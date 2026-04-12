@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 /* ─── Detailed SVG Icons (multi-layered, flat-color, premium) ─── */
 
@@ -220,6 +222,7 @@ function todayString() {
 /* ─── Component ─── */
 
 export default function ProDashboardPage() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
@@ -272,6 +275,9 @@ export default function ProDashboardPage() {
     const updated = quotes.map((q) => (q.id === id ? { ...q, status: 'accepted' as const } : q));
     saveQuotes(updated);
     setConfirmAccept(null);
+    // 채팅방으로 이동하여 견적서 발송
+    toast.success('수락되었습니다. 채팅에서 견적서를 발송해주세요.');
+    setTimeout(() => router.push('/chat/c1'), 500);
   }
 
   function handleReject() {

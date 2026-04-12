@@ -862,6 +862,12 @@ export default function ChatRoomPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [quotePlan, setQuotePlan] = useState<'premium' | 'superior' | 'enterprise'>('premium');
+  const [quoteEventName, setQuoteEventName] = useState('');
+  const [quoteEventDate, setQuoteEventDate] = useState('');
+  const [quoteEventTime, setQuoteEventTime] = useState('');
+  const [quoteMemo, setQuoteMemo] = useState('');
   const [voicePlayProgress, setVoicePlayProgress] = useState<Record<string, number>>({});
   const [pinnedMessage, setPinnedMessage] = useState<{ id: string; name: string; content: string } | null>(null);
   const [partialCopyMsg, setPartialCopyMsg] = useState<Message | null>(null);
@@ -1254,6 +1260,40 @@ export default function ChatRoomPage() {
 
   const isMine = (msg: Message) => msg.senderId === MY_ID;
 
+  const PLAN_DATA: Record<string, { label: string; price: number; items: string[] }> = {
+    premium: { label: 'Premium', price: 450000, items: ['사회 진행', '사전 미팅'] },
+    superior: { label: 'Superior', price: 800000, items: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'] },
+    enterprise: { label: 'Enterprise', price: 1700000, items: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'] },
+  };
+
+  const handleSendQuote = () => {
+    const plan = PLAN_DATA[quotePlan];
+    const quoteMsg: Message = {
+      id: `s-quote-${Date.now()}`,
+      senderId: 'system',
+      content: '견적서 발송',
+      type: 'system',
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      system: {
+        kind: 'quote',
+        plan: quotePlan,
+        eventName: quoteEventName || '행사 진행',
+        amount: plan.price,
+        eventDate: quoteEventDate,
+        eventTime: quoteEventTime,
+        items: plan.items,
+      },
+    };
+    setMessages(prev => [...prev, quoteMsg]);
+    setShowQuoteModal(false);
+    setQuoteEventName('');
+    setQuoteEventDate('');
+    setQuoteEventTime('');
+    setQuoteMemo('');
+    toast.success('견적서가 발송되었습니다');
+  };
+
   const ATTACH_ITEMS = [
     { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => cameraInputRef.current?.click() },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
@@ -1261,6 +1301,7 @@ export default function ChatRoomPage() {
     { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
     { icon: <MapPin size={24} className="text-white" />, bg: 'bg-slate-700', label: '위치', action: handleLocationSend },
     { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
+    ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
   ];
 
   // 멘션 필터링된 리스트
@@ -1676,6 +1717,87 @@ export default function ChatRoomPage() {
                 </div>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── 견적서 작성 모달 (사회자 전용) ─── */}
+      {showQuoteModal && (
+        <div className="fixed inset-0 z-[100] flex items-end bg-black/40" onClick={() => setShowQuoteModal(false)}>
+          <div className="bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} style={{ animation: 'sheetUp 0.3s ease' }}>
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+            <h2 className="text-[18px] font-bold text-gray-900 mb-4">견적서 작성</h2>
+
+            {/* 플랜 선택 */}
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">플랜 선택</p>
+            <div className="flex gap-2 mb-4">
+              {(['premium', 'superior', 'enterprise'] as const).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setQuotePlan(p)}
+                  className={`flex-1 py-3 rounded-xl text-[13px] font-bold transition-colors ${
+                    quotePlan === p ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {PLAN_DATA[p].label}
+                  <span className="block text-[11px] font-medium mt-0.5 opacity-70">{(PLAN_DATA[p].price / 10000).toFixed(0)}만원</span>
+                </button>
+              ))}
+            </div>
+
+            {/* 포함 서비스 */}
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">포함 서비스</p>
+            <div className="bg-gray-50 rounded-xl p-3 mb-4 space-y-1">
+              {PLAN_DATA[quotePlan].items.map((item, i) => (
+                <div key={i} className="flex items-center gap-2 text-[13px] text-gray-600">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#3180F7]" />
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            {/* 행사 정보 */}
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">행사 정보</p>
+            <div className="space-y-2 mb-4">
+              <input
+                type="text"
+                value={quoteEventName}
+                onChange={(e) => setQuoteEventName(e.target.value)}
+                placeholder="행사명 (예: 결혼식 사회)"
+                className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] transition-colors"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={quoteEventDate}
+                  onChange={(e) => setQuoteEventDate(e.target.value)}
+                  className="flex-1 h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] transition-colors"
+                />
+                <input
+                  type="time"
+                  value={quoteEventTime}
+                  onChange={(e) => setQuoteEventTime(e.target.value)}
+                  className="w-[130px] h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] transition-colors"
+                />
+              </div>
+              <textarea
+                value={quoteMemo}
+                onChange={(e) => setQuoteMemo(e.target.value)}
+                placeholder="추가 메모 (선택)"
+                className="w-full h-20 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[16px] outline-none focus:border-[#3180F7] resize-none transition-colors"
+              />
+            </div>
+
+            {/* 발송 버튼 */}
+            <button
+              onClick={handleSendQuote}
+              disabled={!quoteEventName.trim()}
+              className={`w-full h-12 rounded-xl font-bold text-[15px] transition-colors ${
+                quoteEventName.trim() ? 'bg-[#3180F7] text-white active:scale-[0.98]' : 'bg-gray-100 text-gray-400'
+              }`}
+            >
+              견적서 발송
+            </button>
           </div>
         </div>
       )}
