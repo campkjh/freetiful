@@ -7,6 +7,11 @@ import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
 import { getPoints } from '@/lib/points';
 
 /* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
+// 이미지 기반 아이콘 헬퍼
+const ImgIcon = ({ src }: { src: string }) => (
+  <img src={src} alt="" width={20} height={20} className="shrink-0" style={{ objectFit: 'contain' }} />
+);
+
 const IconCard = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
     <rect x="2" y="5" width="20" height="14" rx="3" fill="#3B82F6"/>
@@ -242,33 +247,33 @@ const MENU_SECTIONS = [
   {
     title: '나의 활동',
     items: [
-      { href: '/my/purchase-history', icon: IconCard, label: '구매 내역' },
+      { href: '/my/purchase-history', icon: () => <ImgIcon src="/images/구매 내역.svg" />, label: '구매 내역' },
       { href: '/my/payment-history', icon: IconHistory, label: '결제/환불 내역' },
-      { href: '/my/points', icon: IconWallet, label: '포인트', badge: '' },
-      { href: '/my/coupons', icon: IconTicket, label: '쿠폰', badge: '2장' },
+      { href: '/my/points', icon: () => <ImgIcon src="/images/포인트.svg" />, label: '포인트', badge: '' },
+      { href: '/my/coupons', icon: () => <ImgIcon src="/images/쿠폰.svg" />, label: '쿠폰', badge: '2장' },
     ],
   },
   {
     title: '설정',
     items: [
-      { href: '/my/settings', icon: IconSettings, label: '프로필 설정' },
-      { href: '/my/notifications', icon: IconBell, label: '알림 설정' },
+      { href: '/my/settings', icon: () => <ImgIcon src="/images/프로필 설정.svg" />, label: '프로필 설정' },
+      { href: '/my/notifications', icon: () => <ImgIcon src="/images/알림 설정.svg" />, label: '알림 설정' },
     ],
   },
   {
     title: '고객지원',
     items: [
-      { href: '/my/support', icon: IconHeadphones, label: '고객센터' },
-      { href: '/my/faq', icon: IconHelp, label: 'FAQ' },
-      { href: '/my/announcements', icon: IconMegaphone, label: '공지사항' },
+      { href: '/my/support', icon: () => <ImgIcon src="/images/고객센터.svg" />, label: '고객센터' },
+      { href: '/my/faq', icon: () => <ImgIcon src="/images/FAQ.svg" />, label: 'FAQ' },
+      { href: '/my/announcements', icon: () => <ImgIcon src="/images/공지사항.svg" />, label: '공지사항' },
     ],
   },
   {
     title: '기타',
     items: [
-      { href: '/my/invite', icon: IconUsers, label: '친구 초대', badge: '500P 적립' },
+      { href: '/my/invite', icon: () => <ImgIcon src="/images/친구초대.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
-      { href: '/pro-register/terms', icon: IconBriefcase, label: '파트너 신청', action: 'partner' },
+      { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/의뢰 아이콘.svg" />, label: '파트너 신청', action: 'partner' },
       { href: '/main', icon: IconUser, label: '일반회원 전환', action: 'general' },
     ],
   },
