@@ -511,7 +511,7 @@ export default function BizPage() {
             <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-400">FREELANCER MC MATCHING PLATFORM</p>
           </Reveal>
           <Reveal delay={200}>
-            <h1 className="text-[40px] font-black leading-[1.1] tracking-tight md:text-[72px]">
+            <h1 className="text-[40px] font-bold leading-[1.1] tracking-tight md:text-[72px]">
               <span className="text-gray-900">소중한 시간을</span><br />
               <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">아름다운 순간으로</span>
             </h1>
@@ -607,7 +607,7 @@ export default function BizPage() {
         <div className="mx-auto max-w-[1100px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">ABOUT US</p></Reveal>
           <Reveal delay={100}>
-            <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
+            <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
               프리티풀을<br />소개합니다
             </h2>
           </Reveal>
@@ -635,7 +635,7 @@ export default function BizPage() {
               <Reveal key={i} delay={i * 100}>
                 <div className="border border-gray-100 rounded-2xl bg-white p-5 transition-all hover:border-gray-200 hover:shadow-sm">
                   <div className="flex items-center gap-2 text-gray-300 mb-3">{s.icon}<span className="text-[10px] tracking-wider font-medium">{s.label}</span></div>
-                  <p className="text-[28px] font-black text-gray-900">
+                  <p className="text-[28px] font-bold text-gray-900">
                     <CountUp target={s.num} suffix={s.suffix} />
                   </p>
                 </div>
@@ -707,7 +707,7 @@ export default function BizPage() {
           <div className="hidden">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">CORE SERVICES</p></Reveal>
           <Reveal delay={100}>
-            <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
+            <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
               마이크가 필요한<br />모든 순간, 프리티풀
             </h2>
           </Reveal>
@@ -895,13 +895,13 @@ export default function BizPage() {
       <section id="연혁" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">MILESTONES</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black tracking-tight">성장의 발자취</h2></Reveal>
+          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold tracking-tight">성장의 발자취</h2></Reveal>
 
           <div className="mt-14 space-y-6">
             {HISTORY.map((h, hi) => (
               <Reveal key={h.year} delay={hi * 120}>
                 <div className="flex items-start gap-8 border-l-2 border-blue-500 pl-8 py-3 transition-all hover:pl-10">
-                  <span className="text-[36px] font-black text-blue-100 shrink-0 w-[80px]">{h.year}</span>
+                  <span className="text-[36px] font-bold text-blue-100 shrink-0 w-[80px]">{h.year}</span>
                   <div className="space-y-3 pt-2">
                     {h.events.map((event, i) => (
                       <div key={i} className="flex items-center gap-3">
@@ -927,7 +927,7 @@ export default function BizPage() {
             ].map((p, i) => (
               <Reveal key={i} delay={i * 100}>
                 <div className="flex items-start gap-6 border border-gray-100 rounded-2xl p-6 transition-all hover:border-gray-200 hover:shadow-sm">
-                  <span className="text-[32px] font-black text-blue-100">{p.phase}</span>
+                  <span className="text-[32px] font-bold text-blue-100">{p.phase}</span>
                   <div>
                     <h3 className="text-[16px] font-bold text-gray-900">{p.title}</h3>
                     <p className="mt-1 text-[13px] text-gray-400">{p.desc}</p>
@@ -943,7 +943,7 @@ export default function BizPage() {
       <section id="자료실" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[1000px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">RESOURCES</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">자료실</h2></Reveal>
+          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">자료실</h2></Reveal>
 
           <div className="mt-12 grid gap-3 md:grid-cols-2">
             {[
@@ -970,7 +970,7 @@ export default function BizPage() {
       <section id="오시는길" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">LOCATION</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">오시는길</h2></Reveal>
+          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">오시는길</h2></Reveal>
 
           <Reveal delay={200}>
             <div className="mt-12 w-full h-[300px] border border-gray-100 rounded-2xl overflow-hidden">
@@ -1033,7 +1033,7 @@ export default function BizPage() {
             <div className="flex-1 text-center md:text-left">
               <Reveal delay={100}>
                 <p className="text-[11px] font-bold tracking-[0.4em] text-blue-400 mb-3">CONTACT US</p>
-                <h2 className="text-[32px] font-black tracking-tight leading-[1.2] md:text-[40px]">
+                <h2 className="text-[32px] font-bold tracking-tight leading-[1.2] md:text-[40px]">
                   당신의 특별한 순간,<br />
                   <span className="text-blue-500">프리티풀</span>과 함께하세요
                 </h2>
@@ -1077,7 +1077,7 @@ export default function BizPage() {
       <section id="문의폼" className="py-28 bg-gray-50/60">
         <div id="문의" className="mx-auto max-w-[600px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">INQUIRY FORM</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">기업 문의</h2></Reveal>
+          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">기업 문의</h2></Reveal>
 
           <Reveal delay={200}>
             <form onSubmit={handleInquiry} className="mt-10 space-y-3">
@@ -1125,7 +1125,7 @@ export default function BizPage() {
         <div className="mx-auto max-w-[1000px] px-6">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[16px] font-black text-gray-900">Freetiful <span className="text-gray-300 font-normal text-[12px]">for Business</span></p>
+              <p className="text-[16px] font-bold text-gray-900">Freetiful <span className="text-gray-300 font-normal text-[12px]">for Business</span></p>
               <p className="mt-1 text-[11px] text-gray-300">{COMPANY_INFO.name} | 대표 {COMPANY_INFO.ceo} | T {COMPANY_INFO.phone} | E {COMPANY_INFO.email}</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful Inc. All rights reserved.</p>
             </div>
@@ -1253,7 +1253,7 @@ export default function BizPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowPrivacy(false)}>
           <div className="relative w-full max-w-[700px] max-h-[80vh] overflow-auto bg-white rounded-2xl border border-gray-100 p-8 shadow-xl animate-[scaleIn_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowPrivacy(false)} className="absolute top-4 right-4 text-gray-300 hover:text-gray-600 transition-colors"><X className="h-5 w-5" /></button>
-            <h2 className="text-[22px] font-black text-gray-900 mb-6">개인정보처리방침</h2>
+            <h2 className="text-[22px] font-bold text-gray-900 mb-6">개인정보처리방침</h2>
             <div className="space-y-4 text-[13px] leading-[1.8] text-gray-500">
               <p><strong className="text-gray-800">제1조 (목적)</strong><br />주식회사 프리티풀(이하 &quot;회사&quot;)은 개인정보 보호법 제30조에 따라 정보주체의 개인정보를 보호하고 이와 관련한 고충을 신속하고 원활하게 처리할 수 있도록 하기 위하여 다음과 같이 개인정보 처리방침을 수립·공개합니다.</p>
               <p><strong className="text-gray-800">제2조 (수집하는 개인정보)</strong><br />필수항목: 이메일, 비밀번호 / 선택항목: 이름, 연락처, 프로필 사진 / 자동수집: 접속 IP, 접속 일시, 서비스 이용기록</p>
