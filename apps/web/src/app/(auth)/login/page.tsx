@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/hooks/useAuth';
+import toast from 'react-hot-toast';
 
 const schema = z.object({
   email: z.string().email('올바른 이메일을 입력해주세요'),
@@ -13,53 +14,76 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-function buildOAuthUrl(base: string, params: Record<string, string>) {
-  const query = new URLSearchParams(params).toString();
-  return `${base}?${query}`;
-}
-
 export default function LoginPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { emailLogin } = useAuth();
+
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
-  // 테스트 로그인 (백엔드 없이)
-  const handleTestLogin = (provider: string) => {
-    setLoading(true);
-    localStorage.setItem('freetiful-logged-in', 'true');
-    localStorage.setItem('freetiful-user', JSON.stringify({
-      name: '',
-      email: '',
-      provider,
-      image: '',
-      createdAt: Date.now(),
-    }));
-    localStorage.setItem('userRole', 'general');
-    setTimeout(() => {
-      router.push('/onboarding');
-    }, 500);
-  };
+  const [isSignup, setIsSignup] = useState(false);
+  const { emailRegister } = useAuth();
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
-    localStorage.setItem('freetiful-logged-in', 'true');
-    localStorage.setItem('freetiful-user', JSON.stringify({
-      name: '',
-      email: data.email,
-      provider: 'email',
-      image: '',
-      createdAt: Date.now(),
-    }));
-    localStorage.setItem('userRole', 'general');
-    setTimeout(() => {
-      router.push('/onboarding');
-    }, 500);
+    try {
+      if (isSignup) {
+        // 회원가입 모드
+        await emailRegister({ email: data.email, password: data.password, name: '' });
+      } else {
+        // 로그인 시도 → 실패 시 자동 회원가입
+        try {
+          await emailLogin(data.email, data.password);
+        } catch {
+          // 계정이 없으면 자동 회원가입
+          toast('계정을 새로 생성합니다', { icon: '✨' });
+          await emailRegister({ email: data.email, password: data.password, name: '' });
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleKakao = () => handleTestLogin('kakao');
-  const handleNaver = () => handleTestLogin('naver');
+  const handleSocialLogin = (provider: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const redirectUri = `${origin}/auth/${provider}/callback`;
+
+    const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID || 'dca1b472188890116c81a55eff590885';
+    const NAVER_KEY = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID || 'R4WM7ZyC8hHuE_O7qLdy';
+
+    if (provider === 'kakao') {
+      window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
+    } else if (provider === 'naver') {
+      const state = Math.random().toString(36).substring(7);
+      sessionStorage.setItem('naver_state', state);
+      window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`;
+    } else {
+      // Google/Apple — OAuth 미설정 시 테스트 로그인
+      handleTestLogin(provider);
+    }
+  };
+
+  // Fallback test login for providers not yet configured
+  const handleTestLogin = async (provider: string) => {
+    setLoading(true);
+    try {
+      // Register as email user with provider-based test account
+      const testEmail = `test_${provider}_${Date.now()}@freetiful.com`;
+      await import('@/lib/api/auth.api').then(({ authApi }) =>
+        authApi.emailRegister({ email: testEmail, password: 'Test1234!', name: `${provider} 테스트` })
+      ).then((data) => {
+        const { useAuthStore } = require('@/lib/store/auth.store');
+        useAuthStore.getState().setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
+        window.location.href = '/onboarding';
+      });
+    } catch {
+      toast.error('로그인에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -71,7 +95,8 @@ export default function LoginPage() {
 
         <div className="space-y-3 mb-6">
           <button
-            onClick={handleKakao}
+            onClick={() => handleSocialLogin('kakao')}
+            disabled={loading}
             className="w-full flex items-center justify-center gap-3 bg-[#FEE500] text-[#191919] font-semibold py-3.5 px-4 rounded-xl hover:bg-[#F5DC00] transition-colors"
           >
             <KakaoIcon />
@@ -79,19 +104,28 @@ export default function LoginPage() {
           </button>
 
           <button
-            onClick={handleNaver}
+            onClick={() => handleSocialLogin('naver')}
+            disabled={loading}
             className="w-full flex items-center justify-center gap-3 bg-[#03C75A] text-white font-semibold py-3.5 px-4 rounded-xl hover:bg-[#02B350] transition-colors"
           >
             <NaverIcon />
             네이버로 계속하기
           </button>
 
-          <button onClick={() => handleTestLogin('google')} className="w-full flex items-center justify-center gap-3 bg-white text-gray-700 border border-gray-200 font-semibold py-3.5 px-4 rounded-xl hover:bg-gray-50 transition-colors">
+          <button
+            onClick={() => handleSocialLogin('google')}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 bg-white text-gray-700 border border-gray-200 font-semibold py-3.5 px-4 rounded-xl hover:bg-gray-50 transition-colors"
+          >
             <GoogleIcon />
             Google로 계속하기
           </button>
 
-          <button onClick={() => handleTestLogin('apple')} className="w-full flex items-center justify-center gap-3 bg-black text-white font-semibold py-3.5 px-4 rounded-xl hover:bg-gray-900 transition-colors">
+          <button
+            onClick={() => handleSocialLogin('apple')}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 bg-black text-white font-semibold py-3.5 px-4 rounded-xl hover:bg-gray-900 transition-colors"
+          >
             <AppleIcon />
             Apple로 계속하기
           </button>
@@ -103,24 +137,43 @@ export default function LoginPage() {
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
+        {/* 로그인 / 회원가입 탭 */}
+        <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
+          <button
+            type="button"
+            onClick={() => setIsSignup(false)}
+            className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-all ${!isSignup ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'}`}
+          >
+            로그인
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsSignup(true)}
+            className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-all ${isSignup ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'}`}
+          >
+            회원가입
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           <div>
             <input {...register('email')} type="email" placeholder="이메일" className="input" autoComplete="email" />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
           <div>
-            <input {...register('password')} type="password" placeholder="비밀번호" className="input" autoComplete="current-password" />
+            <input {...register('password')} type="password" placeholder="비밀번호" className="input" autoComplete={isSignup ? 'new-password' : 'current-password'} />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
           </div>
           <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? '로그인 중...' : '로그인'}
+            {loading ? (isSignup ? '가입 중...' : '로그인 중...') : (isSignup ? '이메일로 가입하기' : '이메일로 로그인')}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          계정이 없으신가요?{' '}
-          <Link href="/signup" className="text-primary-500 font-semibold">회원가입</Link>
-        </div>
+        {!isSignup && (
+          <p className="mt-3 text-center text-[11px] text-gray-400">
+            계정이 없으면 자동으로 회원가입됩니다
+          </p>
+        )}
       </div>
 
       <div className="px-6 pb-8 text-center text-xs text-gray-400 space-x-3">

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Search, X, Star, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 
 const MOCK_PROS = [
   { id: '1', name: '강도현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 117, image: '/images/강도현/10000133881772850005043.avif', intro: '신뢰감 있는 보이스의 현직 아나운서', price: 500000 },
@@ -73,10 +75,14 @@ function clearRecentSearches() {
 
 export default function SearchPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [apiResults, setApiResults] = useState<ProListItem[]>([]);
+  const [isApiSearching, setIsApiSearching] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setRecentSearches(getRecentSearches());
@@ -85,7 +91,22 @@ export default function SearchPage() {
 
   const q = query.trim().toLowerCase();
 
-  const results = q.length > 0
+  // Debounced API search
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (q.length === 0) { setApiResults([]); return; }
+    searchTimerRef.current = setTimeout(() => {
+      setIsApiSearching(true);
+      discoveryApi.getProList({ search: q })
+        .then((res) => { setApiResults(res.data || []); })
+        .catch(() => { /* fallback to local filter */ })
+        .finally(() => setIsApiSearching(false));
+    }, 300);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [q]);
+
+  // Use API results if available, otherwise fall back to local mock filter
+  const localResults = q.length > 0
     ? MOCK_PROS.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
@@ -94,6 +115,21 @@ export default function SearchPage() {
           p.region.includes(q)
       )
     : [];
+
+  const results = apiResults.length > 0
+    ? apiResults.map((p) => ({
+        id: p.id,
+        name: p.name,
+        category: 'MC',
+        role: '사회자',
+        region: '',
+        rating: p.avgRating,
+        reviews: p.reviewCount,
+        image: p.profileImageUrl || p.images?.[0] || '',
+        intro: p.shortIntro,
+        price: p.basePrice,
+      }))
+    : localResults;
 
   const handleSearch = () => {
     if (q.length > 0) {

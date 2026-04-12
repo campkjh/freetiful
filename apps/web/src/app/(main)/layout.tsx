@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
 import PageTransition from '@/components/PageTransition';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 const USER_NAV_ITEMS = [
   { href: '/main',      iconSrc: '/images/icon-home.svg',      label: '홈' },
@@ -58,22 +59,24 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [isPro, setIsPro] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const lastScrollY = useRef(0);
+  const authUser = useAuthStore((s) => s.user);
 
-  // 로그인이 필요한 페이지 패턴
+  // 로그인이 필요한 ��이지 패턴
   const AUTH_REQUIRED = [/^\/chat/, /^\/schedule/, /^\/favorites/, /^\/my/, /^\/quote/, /^\/pro-/];
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
+    // Use zustand store first, fallback to localStorage for backwards compat
+    const isLoggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (!isLoggedIn && needsAuth) {
       setShowLoginModal(true);
     } else {
       setShowLoginModal(false);
     }
     if (isLoggedIn) {
-      setIsPro(localStorage.getItem('userRole') === 'pro');
+      setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
     }
-  }, [pathname, needsAuth]);
+  }, [pathname, needsAuth, authUser]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';
@@ -285,7 +288,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               ].map(({ provider, label, cls, icon, delay }) => (
                 <button
                   key={provider}
-                  onClick={() => { localStorage.setItem('freetiful-logged-in', 'true'); localStorage.setItem('freetiful-user', JSON.stringify({ name: '', provider, createdAt: Date.now() })); localStorage.setItem('userRole', 'general'); window.location.href = '/onboarding'; }}
+                  onClick={() => { router.push('/login'); setShowLoginModal(false); }}
                   className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.96] transition-transform animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]`}
                   style={{ animationDelay: delay }}
                 >

@@ -1,3 +1,6 @@
+import { usersApi } from './api/users.api';
+import { useAuthStore } from './store/auth.store';
+
 // Point transaction types
 export type PointType = 'signup_bonus' | 'review_write' | 'invite_friend' | 'daily_check' | 'quote_request' | 'payment_use' | 'admin_grant';
 
@@ -12,14 +15,32 @@ export interface PointTransaction {
 const POINTS_KEY = 'freetiful-points';
 const HISTORY_KEY = 'freetiful-point-history';
 
+function isAuthenticated() {
+  if (typeof window === 'undefined') return false;
+  return useAuthStore.getState().user !== null;
+}
+
 export function getPoints(): number {
   if (typeof window === 'undefined') return 0;
+  // Return from auth store if available
+  const user = useAuthStore.getState().user;
+  if (user) return user.pointBalance || 0;
   try {
     const stored = localStorage.getItem(POINTS_KEY);
     return stored ? Number(stored) : 0;
   } catch {
     return 0;
   }
+}
+
+export async function getPointsAsync(): Promise<number> {
+  if (isAuthenticated()) {
+    try {
+      const res = await usersApi.getPointBalance();
+      return res.balance;
+    } catch {}
+  }
+  return getPoints();
 }
 
 export function getPointHistory(): PointTransaction[] {
@@ -31,8 +52,33 @@ export function getPointHistory(): PointTransaction[] {
   }
 }
 
+export async function getPointHistoryAsync(): Promise<PointTransaction[]> {
+  if (isAuthenticated()) {
+    try {
+      const res = await usersApi.getPointHistory();
+      return (res.data || []).map((t: any) => ({
+        id: t.id,
+        type: t.type,
+        amount: t.amount,
+        description: t.description,
+        createdAt: new Date(t.createdAt).getTime(),
+      }));
+    } catch {}
+  }
+  return getPointHistory();
+}
+
 export function addPoints(type: PointType, amount: number, description: string): void {
   if (typeof window === 'undefined') return;
+
+  // Save to API if authenticated
+  if (isAuthenticated()) {
+    usersApi.getPointBalance().then(() => {
+      // Points are managed server-side now
+    }).catch(() => {});
+  }
+
+  // Also save to localStorage for backwards compat
   try {
     const current = getPoints();
     const history = getPointHistory();

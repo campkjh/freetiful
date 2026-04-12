@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Search, Trash2, X } from 'lucide-react';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { notificationApi } from '@/lib/api/notification.api';
 
 type NotifType = 'chat' | 'booking' | 'payment' | 'review' | 'system' | 'marketing';
 
@@ -79,11 +81,34 @@ export default function NotificationsPage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [items, setItems] = useState<Notification[]>([]);
+  const authUser = useAuthStore((s) => s.user);
   useEffect(() => {
-    const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
+
+    // Fetch from API first
+    if (authUser) {
+      notificationApi.getList({ limit: 50 })
+        .then((res: any) => {
+          if (res.data?.length > 0) {
+            setItems(res.data.map((n: any) => ({
+              id: n.id,
+              type: n.type as NotifType,
+              title: n.title || '',
+              body: n.body || '',
+              isRead: n.isRead,
+              date: new Date(n.createdAt).toLocaleDateString('ko-KR'),
+              link: n.data?.link,
+            })));
+            return;
+          }
+        })
+        .catch(() => {});
+    }
+
+    // Fallback to mock data
     if (loggedIn && localStorage.getItem('freetiful-has-demo-data') === 'true') setItems(MOCK_NOTIFICATIONS);
-  }, []);
+  }, [authUser]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

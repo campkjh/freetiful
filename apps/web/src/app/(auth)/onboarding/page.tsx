@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { initSignupBonus } from '@/lib/points';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { usersApi } from '@/lib/api/users.api';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -21,12 +23,23 @@ export default function OnboardingPage() {
     setPhone(formatPhone(e.target.value));
   };
 
+  const authUser = useAuthStore((s) => s.user);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || phone.replace(/\D/g, '').length < 10) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    // 사용자 정보 저장
+
+    // Update profile via API if authenticated
+    if (authUser) {
+      try {
+        const updated = await usersApi.updateProfile({ name: name.trim(), phone: phone.replace(/\D/g, '') });
+        useAuthStore.getState().setUser({ ...authUser, name: updated.name, phone: updated.phone } as any);
+        // Signup bonus is handled by initSignupBonus() below via localStorage
+      } catch {}
+    }
+
+    // Also save to localStorage for backwards compat
     const existing = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
     localStorage.setItem('freetiful-user', JSON.stringify({ ...existing, name: name.trim(), phone }));
     localStorage.setItem('freetiful-logged-in', 'true');

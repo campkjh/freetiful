@@ -1,10 +1,13 @@
+import { apiClient } from './api/client';
+import { useAuthStore } from './store/auth.store';
+
 // Pudding transaction types
 export type PuddingType = 'welcome' | 'charge' | 'boost' | 'promo' | 'bonus' | 'review' | 'admin_grant';
 
 export interface PuddingTransaction {
   id: string;
   type: PuddingType;
-  amount: number; // positive = earn, negative = use
+  amount: number;
   description: string;
   createdAt: number;
   category: string;
@@ -12,6 +15,11 @@ export interface PuddingTransaction {
 
 const PUDDING_KEY = 'freetiful-pudding';
 const HISTORY_KEY = 'freetiful-pudding-history';
+
+function isAuthenticated() {
+  if (typeof window === 'undefined') return false;
+  return useAuthStore.getState().user !== null;
+}
 
 export function getPudding(): number {
   if (typeof window === 'undefined') return 0;
@@ -23,6 +31,16 @@ export function getPudding(): number {
   }
 }
 
+export async function getPuddingAsync(): Promise<number> {
+  if (isAuthenticated()) {
+    try {
+      const res = await apiClient.get('/api/v1/pro/pudding');
+      return res.data?.puddingCount || 0;
+    } catch {}
+  }
+  return getPudding();
+}
+
 export function getPuddingHistory(): PuddingTransaction[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -30,6 +48,23 @@ export function getPuddingHistory(): PuddingTransaction[] {
   } catch {
     return [];
   }
+}
+
+export async function getPuddingHistoryAsync(): Promise<PuddingTransaction[]> {
+  if (isAuthenticated()) {
+    try {
+      const res = await apiClient.get('/api/v1/pro/pudding');
+      return (res.data?.transactions || []).map((t: any) => ({
+        id: t.id,
+        type: t.reason || t.type,
+        amount: t.amount,
+        description: t.reason,
+        createdAt: new Date(t.createdAt).getTime(),
+        category: t.reason || 'earn',
+      }));
+    } catch {}
+  }
+  return getPuddingHistory();
 }
 
 export function addPudding(type: PuddingType, amount: number, description: string, category?: string): void {

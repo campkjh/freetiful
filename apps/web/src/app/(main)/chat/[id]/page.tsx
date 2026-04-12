@@ -12,8 +12,10 @@ import {
   AlarmClock, Sparkles, Star, RefreshCw, XCircle, Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { useChatStore } from '@/lib/store/chat.store';
 
-const MY_ID = 'user-1';
+const MY_ID_FALLBACK = 'user-1';
 
 const PROS: Record<string, { id: string; name: string; username: string; profileImageUrl: string; isActive: boolean; lastSeen?: string }> = {
   '1': { id: 'pro-1', name: '이우영', username: 'wooyoung_mc', profileImageUrl: '/images/이우영/2-11772248201484.avif', isActive: true },
@@ -358,7 +360,7 @@ function NaverMapPreview({ lat, lng, mine }: { lat: number; lng: number; mine: b
   );
 }
 
-function makeMockMessages(proId: string, proName: string): Message[] {
+function makeMockMessages(proId: string, proName: string, MY_ID: string = MY_ID_FALLBACK): Message[] {
   const now = Date.now();
   const D = 24 * 3600000;
   // 시점 기준: 최초 문의 ~ 9일 전, 본식은 오늘로부터 5일 후
@@ -843,7 +845,10 @@ const CLIENTS: Record<string, { id: string; name: string; username: string; prof
 export default function ChatRoomPage() {
   const { id: roomId } = useParams<{ id: string }>();
   const router = useRouter();
-  const isPro = typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro';
+  const authUser = useAuthStore((s) => s.user);
+  const MY_ID = authUser?.id || MY_ID_FALLBACK;
+  const { connect, disconnect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
+  const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
   const pro = isPro ? (CLIENTS[roomId] || CLIENTS['c1']) : (PROS[roomId] || PROS['1']);
 
   const [messages, setMessages] = useState<Message[]>(() => makeMockMessages(pro.id, pro.name));
@@ -859,6 +864,30 @@ export default function ChatRoomPage() {
     { id: pro.id, name: pro.name, username: pro.username },
     ...Object.values(PROS).filter((p) => p.id !== pro.id).slice(0, 4),
   ]);
+
+  // Connect to WebSocket when authenticated
+  useEffect(() => {
+    if (!authUser) return;
+    connect();
+    joinRoom(roomId);
+    return () => { leaveRoom(); };
+  }, [authUser, roomId]);
+
+  // Sync WebSocket messages with local state
+  useEffect(() => {
+    if (wsMessages.length === 0) return;
+    const mapped: Message[] = wsMessages.map((m) => ({
+      id: m.id,
+      senderId: m.senderId,
+      content: m.content || '',
+      type: m.type as Message['type'],
+      createdAt: m.createdAt,
+      isRead: m.isRead,
+      replyTo: m.replyTo ? { id: m.replyTo.id, name: m.replyTo.senderId, content: m.replyTo.content || '' } : null,
+      reaction: null,
+    }));
+    setMessages(mapped);
+  }, [wsMessages]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
@@ -890,6 +919,22 @@ export default function ChatRoomPage() {
 
   const handleSend = useCallback(() => {
     if (!input.trim()) return;
+
+    // Send via WebSocket if authenticated
+    if (authUser) {
+      wsSendMessage({
+        type: 'text',
+        content: input.trim(),
+        replyToId: replyTo?.id,
+      });
+      setInput('');
+      setReplyTo(null);
+      setMentionQuery(null);
+      inputRef.current?.focus();
+      return;
+    }
+
+    // Fallback: local-only message for demo
     const newMsg: Message = {
       id: Date.now().toString(),
       senderId: MY_ID,
@@ -906,11 +951,10 @@ export default function ChatRoomPage() {
     setMentionQuery(null);
     inputRef.current?.focus();
 
-    // 새 메시지 플래그 제거
     setTimeout(() => {
       setMessages((prev) => prev.map((m) => m.id === newMsg.id ? { ...m, isNew: false } : m));
     }, 700);
-  }, [input, replyTo]);
+  }, [input, replyTo, authUser, wsSendMessage, MY_ID]);
 
   // 입력 변경 + 멘션 감지
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

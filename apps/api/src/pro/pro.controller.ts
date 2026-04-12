@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -17,8 +18,6 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagg
 import { ProService } from './pro.service';
 
 @ApiTags('pro')
-@ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
 @Controller('pro')
 export class ProController {
   constructor(private readonly proService: ProService) {}
@@ -26,6 +25,8 @@ export class ProController {
   // ─── Profile Images ──────────────────────────────────────────────────────
 
   @Post('profile/images')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @ApiOperation({ summary: '프로필 이미지 업로드 (WebP 변환 + 얼굴 인식)' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
@@ -54,24 +55,32 @@ export class ProController {
   }
 
   @Get('profile/images')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @ApiOperation({ summary: '프로필 이미지 목록 조회' })
   getImages(@Req() req) {
     return this.proService.getImages(req.user.id);
   }
 
   @Delete('profile/images/:id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @ApiOperation({ summary: '프로필 이미지 삭제' })
   deleteImage(@Req() req, @Param('id') id: string) {
     return this.proService.deleteImage(req.user.id, id);
   }
 
   @Put('profile/images/reorder')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @ApiOperation({ summary: '프로필 이미지 순서 변경' })
   reorderImages(@Req() req, @Body('ids') ids: string[]) {
     return this.proService.reorderImages(req.user.id, ids);
   }
 
   @Put('profile/images/:id/adjust')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @ApiOperation({ summary: '프로필 이미지 보정 (밝기/대비/채도/자르기)' })
   adjustImage(
     @Req() req,
@@ -88,5 +97,33 @@ export class ProController {
     },
   ) {
     return this.proService.adjustImage(req.user.id, id, body);
+  }
+
+  // ─── Schedule ─────────────────────────────────────────────────────────────
+
+  @Get('schedule')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 스케줄 조회 (월별)' })
+  getSchedule(@Req() req, @Query('month') month: string) {
+    return this.proService.getSchedule(req.user.id, month);
+  }
+
+  @Put('schedule/:date')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '스케줄 날짜 업데이트' })
+  updateScheduleDate(
+    @Req() req,
+    @Param('date') date: string,
+    @Body() body: { status: 'available' | 'unavailable' | 'booked'; eventTitle?: string; eventLocation?: string },
+  ) {
+    return this.proService.updateScheduleDate(req.user.id, date, body);
+  }
+
+  @Get(':proProfileId/booked-dates')
+  @ApiOperation({ summary: '전문가 예약된 날짜 조회 (공개)' })
+  getBookedDates(@Param('proProfileId') proProfileId: string) {
+    return this.proService.getBookedDates(proProfileId);
   }
 }

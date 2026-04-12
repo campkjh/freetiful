@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { quotationApi } from '@/lib/api/quotation.api';
 
 /* ─── Icons ─── */
 
@@ -105,6 +107,7 @@ const modalSheet = {
 };
 
 export default function QuotesPage() {
+  const authUser = useAuthStore((s) => s.user);
   const [tab, setTab] = useState<'pending' | 'accepted' | 'rejected'>('pending');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
@@ -125,6 +128,27 @@ export default function QuotesPage() {
       localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES));
     }
   }, []);
+
+  // Fetch quotes from API when authenticated
+  useEffect(() => {
+    if (!authUser) return;
+    quotationApi.getForPro()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setQuotes(data.map((q: any) => ({
+            id: q.id,
+            clientName: q.clientName || q.userName || '고객',
+            eventType: q.eventType || q.title || '',
+            eventDate: q.eventDate || '',
+            plan: q.plan || 'Premium',
+            budget: q.budget || (q.amount ? `₩${Number(q.amount).toLocaleString()}` : ''),
+            status: q.status || 'pending',
+            rejectionReason: q.rejectionReason,
+          })));
+        }
+      })
+      .catch(() => { /* fallback to local data */ });
+  }, [authUser]);
 
   useEffect(() => {
     if (!contextMenu) return;

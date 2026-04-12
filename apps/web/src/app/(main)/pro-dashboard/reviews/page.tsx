@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { reviewApi } from '@/lib/api/review.api';
 
 /* ─── Icons ─── */
 
@@ -91,10 +93,12 @@ const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const fadeUp = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
 
 export default function ReviewsPage() {
+  const authUser = useAuthStore((s) => s.user);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
   const [hasDemoData, setHasDemoData] = useState(false);
+  const [apiReviews, setApiReviews] = useState<Review[]>([]);
 
   useEffect(() => {
     setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
@@ -103,6 +107,27 @@ export default function ReviewsPage() {
       try { setSavedReplies(JSON.parse(stored)); } catch { /* ignore */ }
     }
   }, []);
+
+  // Fetch reviews from API when authenticated
+  useEffect(() => {
+    if (!authUser) return;
+    reviewApi.getMine()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setApiReviews(data.map((r: any) => ({
+            id: r.id,
+            author: r.author || r.userName || '익명',
+            rating: r.ratingSatisfaction || r.rating || 0,
+            text: r.comment || r.text || '',
+            date: r.createdAt ? new Date(r.createdAt).toISOString().slice(0, 10) : '',
+            badge: r.badge || '개인',
+            orderRange: r.orderRange || '',
+            scores: r.scores || {},
+          })));
+        }
+      })
+      .catch(() => { /* fallback to local data */ });
+  }, [authUser]);
 
   function saveReply(reviewId: string) {
     const text = replyTexts[reviewId];
@@ -114,7 +139,7 @@ export default function ReviewsPage() {
     setReplyTexts((prev) => ({ ...prev, [reviewId]: '' }));
   }
 
-  const reviews = hasDemoData ? REVIEWS : [];
+  const reviews = apiReviews.length > 0 ? apiReviews : (hasDemoData ? REVIEWS : []);
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : '0.0';
   const avgScores: Record<string, number> = {};
   CATEGORY_LABELS.forEach((cat) => {

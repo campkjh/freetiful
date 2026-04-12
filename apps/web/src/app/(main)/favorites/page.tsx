@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Heart, Star, MapPin, Building2, Trash2 } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { favoriteApi } from '@/lib/api/favorite.api';
 
 type Tab = 'service' | 'portfolio' | 'recent';
 type ProCategory = '전체' | '사회자' | '쇼호스트' | '축가';
@@ -73,14 +75,38 @@ export default function FavoritesPage() {
   const [bizCategory, setBizCategory] = useState<BizCategory>('전체');
   const [favPros, setFavPros] = useState<typeof MOCK_FAVORITE_PROS>([]);
   const [favBiz, setFavBiz] = useState<typeof MOCK_FAVORITE_BIZ>([]);
+  const authUser = useAuthStore((s) => s.user);
 
-  // Login check + load favorites from localStorage
+  // Login check + load favorites
   useEffect(() => {
-    const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
     if (!loggedIn) return;
 
-    // Load favorites from localStorage (primary source)
+    // Try fetching from API first
+    if (authUser) {
+      favoriteApi.getList({ limit: 50 })
+        .then((res: any) => {
+          if (res.data?.length > 0) {
+            setFavPros(res.data.map((f: any) => ({
+              id: f.proProfile?.id || f.proProfileId,
+              name: f.proProfile?.user?.name || '',
+              category: '사회자',
+              badge: '',
+              intro: f.proProfile?.shortIntro || '',
+              rating: Number(f.proProfile?.avgRating || 0),
+              reviews: f.proProfile?.reviewCount || 0,
+              image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
+              price: f.proProfile?.services?.[0]?.basePrice || 450000,
+              subName: `사회자 ${f.proProfile?.user?.name || ''}`,
+            })));
+            return;
+          }
+        })
+        .catch(() => {});
+    }
+
+    // Fallback: Load favorites from localStorage
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
       if (stored.length > 0) {
@@ -96,7 +122,7 @@ export default function FavoritesPage() {
     if (hasDemoData) {
       setFavBiz(MOCK_FAVORITE_BIZ);
     }
-  }, []);
+  }, [authUser]);
   const [recentPros, setRecentPros] = useState<typeof ALL_PROS>([]);
   const [scrolled, setScrolled] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);

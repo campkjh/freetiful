@@ -6,6 +6,7 @@ import { ChevronLeft, Check, Send, Star, ChevronDown, Search } from 'lucide-reac
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { addPoints } from '@/lib/points';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 const stepVariants = {
   initial: { opacity: 0, x: 40 },
@@ -150,6 +151,7 @@ export default function QuotePageWrapper() {
 
 function QuotePage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const params = useSearchParams();
   const isEvent = params.get('mode') === 'event';
   const postcodeLoaded = useDaumPostcode();
@@ -236,7 +238,7 @@ function QuotePage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleSubmitClick = () => {
-    if (localStorage.getItem('freetiful-logged-in') !== 'true') {
+    if (authUser === null && localStorage.getItem('freetiful-logged-in') !== 'true') {
       setShowLoginModal(true);
       return;
     }

@@ -146,6 +146,94 @@ export class ProService {
     });
   }
 
+  // ─── Schedule ────────────────────────────────────────────────────────────
+
+  async getSchedule(userId: string, month: string) {
+    const profile = await this.getProfileByUserId(userId);
+
+    // Parse YYYY-MM to date range
+    const [year, mon] = month.split('-').map(Number);
+    const startDate = new Date(year, mon - 1, 1);
+    const endDate = new Date(year, mon, 0); // last day of month
+
+    const schedules = await this.prisma.proSchedule.findMany({
+      where: {
+        proProfileId: profile.id,
+        date: { gte: startDate, lte: endDate },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    return schedules.map((s) => {
+      let eventTitle: string | null = null;
+      let eventLocation: string | null = null;
+      if (s.note) {
+        try {
+          const parsed = JSON.parse(s.note);
+          eventTitle = parsed.eventTitle ?? null;
+          eventLocation = parsed.eventLocation ?? null;
+        } catch {
+          // note is plain text, treat as eventTitle
+          eventTitle = s.note;
+        }
+      }
+      return {
+        date: s.date.toISOString().split('T')[0],
+        status: s.status,
+        eventTitle,
+        eventLocation,
+      };
+    });
+  }
+
+  async updateScheduleDate(
+    userId: string,
+    date: string,
+    data: { status: 'available' | 'unavailable' | 'booked'; eventTitle?: string; eventLocation?: string },
+  ) {
+    const profile = await this.getProfileByUserId(userId);
+    const dateObj = new Date(date + 'T00:00:00Z');
+
+    const note =
+      data.eventTitle || data.eventLocation
+        ? JSON.stringify({ eventTitle: data.eventTitle ?? null, eventLocation: data.eventLocation ?? null })
+        : null;
+
+    const schedule = await this.prisma.proSchedule.upsert({
+      where: {
+        proProfileId_date: {
+          proProfileId: profile.id,
+          date: dateObj,
+        },
+      },
+      update: {
+        status: data.status,
+        note,
+      },
+      create: {
+        proProfileId: profile.id,
+        date: dateObj,
+        status: data.status,
+        note,
+        source: 'manual',
+      },
+    });
+
+    return schedule;
+  }
+
+  async getBookedDates(proProfileId: string) {
+    const schedules = await this.prisma.proSchedule.findMany({
+      where: {
+        proProfileId,
+        status: 'booked',
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    return schedules.map((s) => s.date.toISOString().split('T')[0]);
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private async getProfileByUserId(userId: string) {

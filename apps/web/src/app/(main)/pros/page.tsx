@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Star, MapPin, ChevronDown, Search, SlidersHorizontal, X, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Suspense } from 'react';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 
 const MOCK_PROS = [
   { id: '1', name: '강도현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 117, puddingRank: 1, image: '/images/강도현/10000133881772850005043.avif', intro: '신뢰감 있는 보이스의 현직 아나운서', price: 450000, experience: 14 },
@@ -113,8 +115,36 @@ function getRegisteredPro(): typeof MOCK_PROS[0] | null {
 function ProsListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const authUser = useAuthStore((s) => s.user);
   const registeredPro = getRegisteredPro();
-  const ALL_PROS = registeredPro ? [registeredPro, ...MOCK_PROS] : MOCK_PROS;
+  const [apiPros, setApiPros] = useState<typeof MOCK_PROS | null>(null);
+
+  useEffect(() => {
+    discoveryApi.getProList({ limit: 41 })
+      .then((res) => {
+        if (res?.data && res.data.length > 0) {
+          const mapped = res.data.map((p: ProListItem, idx: number) => ({
+            id: p.id,
+            name: p.name,
+            category: 'MC',
+            role: '사회자',
+            region: '전국',
+            rating: p.avgRating || 4.5,
+            reviews: p.reviewCount || 0,
+            puddingRank: idx + 1,
+            image: p.profileImageUrl || p.images?.[0] || '',
+            intro: p.shortIntro || '',
+            price: p.basePrice || 450000,
+            experience: p.careerYears || 1,
+          }));
+          setApiPros(mapped);
+        }
+      })
+      .catch(() => { /* fallback to mock data */ });
+  }, [authUser]);
+
+  const basePros = apiPros || MOCK_PROS;
+  const ALL_PROS = registeredPro ? [registeredPro, ...basePros] : basePros;
   const initialRegion = searchParams.get('region') || '전체';
   const categoryParam = searchParams.get('category') || '';
   const isForeignFilter = categoryParam === '외국어사회자';

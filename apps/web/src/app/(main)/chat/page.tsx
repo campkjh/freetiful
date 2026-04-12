@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { useChatStore } from '@/lib/store/chat.store';
 
 // ─── 더미 데이터 ────────────────────────────────────────────────
 
@@ -100,18 +102,52 @@ export default function ChatListPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
+  const authUser = useAuthStore((s) => s.user);
+  const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
+
   useEffect(() => {
-    const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
-    setIsPro(localStorage.getItem('userRole') === 'pro');
-    const role = localStorage.getItem('userRole');
+    setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
+
+    // Connect to WebSocket and fetch real rooms if authenticated via API
+    if (authUser) {
+      connect();
+      fetchRooms().then(() => {
+        // If API returns rooms, use them; otherwise fall back to mock data
+        const storeRooms = useChatStore.getState().rooms;
+        if (storeRooms.length > 0) {
+          setRooms(storeRooms.map((r) => ({
+            id: r.id,
+            otherUser: {
+              id: r.otherUser.id,
+              name: r.otherUser.name,
+              role: '사회자',
+              profileImageUrl: r.otherUser.profileImageUrl || '',
+            },
+            lastMessage: r.lastMessage?.content || '',
+            lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
+            unreadCount: r.unreadCount,
+            isPinned: false,
+            isArchived: false,
+            isHidden: false,
+          })));
+          return;
+        }
+      }).catch(() => {});
+    }
+
+    // Fallback to mock data
+    const role = authUser?.role || localStorage.getItem('userRole');
     const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
     if (loggedIn && role === 'pro') {
       setRooms(PRO_MOCK_ROOMS);
     } else if (loggedIn && hasDemoData) {
       setRooms(MOCK_ROOMS);
     }
-  }, []);
+
+    return () => { disconnect(); };
+  }, [authUser]);
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');

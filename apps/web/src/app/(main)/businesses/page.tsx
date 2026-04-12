@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ChevronLeft, ChevronDown, ChevronUp, SlidersHorizontal, Heart, X, MapPin, ArrowUp } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiClient } from '@/lib/api/client';
 
 // ─── Types ─────────────────────────────────────────────────
 interface RankItem {
@@ -145,6 +146,35 @@ export default function BusinessListPage() {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [rankItems, setRankItems] = useState<RankItem[]>(MOCK_RANK_ITEMS);
+
+  // Fetch businesses from API
+  useEffect(() => {
+    apiClient.get('/api/v1/business')
+      .then((res) => {
+        const data = res.data;
+        const items = Array.isArray(data) ? data : data?.items;
+        if (Array.isArray(items) && items.length > 0) {
+          setRankItems(items.map((b: any, i: number) => ({
+            id: b.id || String(i),
+            rank: b.rank || i + 1,
+            title: b.title || b.name || '',
+            region: b.region || '',
+            clinic: b.clinic || b.businessName || '',
+            rating: b.rating ?? 0,
+            reviewCount: b.reviewCount ?? 0,
+            originalPrice: b.originalPrice,
+            discountPercent: b.discountPercent,
+            finalPrice: b.finalPrice ?? b.price ?? 0,
+            hasAppPay: b.hasAppPay ?? false,
+            hasAppBooking: b.hasAppBooking ?? false,
+            image: b.image || b.imageUrl || `https://i.pravatar.cc/400?img=${i + 45}`,
+            verifiedBadge: b.verifiedBadge,
+          })));
+        }
+      })
+      .catch(() => { /* fallback to MOCK_RANK_ITEMS */ });
+  }, []);
 
   useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-biz', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
 
@@ -423,7 +453,7 @@ export default function BusinessListPage() {
 
       {/* ─── Rank Items ─── */}
       <div className="divide-y divide-gray-50">
-        {MOCK_RANK_ITEMS.map((item) => (
+        {rankItems.map((item) => (
           <Link
             key={item.id}
             href={`/businesses/${item.id}`}

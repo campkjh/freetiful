@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Minus, Plus, ChevronDown, HelpCircle, Info, X, MapPin, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 // ─── Helpers ───────────────────────────────────────────────
 function getDaysOfWeek(year: number, month: number, holidays: Record<string, string>) {
@@ -98,6 +99,7 @@ const PRO_NAMES: Record<string, { name: string; image: string }> = {
 export default function BookingPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const proInfo = PRO_NAMES[id || ''] || { name: '사회자', image: '' };
 
   const now = new Date();
@@ -186,7 +188,7 @@ export default function BookingPage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleBook = () => {
-    if (localStorage.getItem('freetiful-logged-in') !== 'true') {
+    if (!(authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true')) {
       setShowLoginModal(true);
       return;
     }
@@ -647,7 +649,7 @@ export default function BookingPage() {
                   onClick={() => {
                     localStorage.setItem('freetiful-logged-in', 'true');
                     localStorage.setItem('freetiful-user', JSON.stringify({ name: '', provider, createdAt: Date.now() }));
-                    localStorage.setItem('userRole', 'general');
+                    localStorage.setItem('userRole', authUser?.role || 'general');
                     setShowLoginModal(false);
                     window.location.href = '/onboarding';
                   }}

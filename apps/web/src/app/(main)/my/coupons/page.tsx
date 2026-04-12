@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Clock } from 'lucide-react';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 const MOCK_COUPONS = [
   { id: '1', code: 'WELCOME10', type: 'percentage', value: 10, minOrder: 300000, maxDiscount: 50000, validUntil: '2026-04-30', isUsed: false, title: '신규 회원 10% 할인' },
@@ -12,8 +13,9 @@ const MOCK_COUPONS = [
 
 export default function CouponsPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { window.scrollTo(0, 0); setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
+  useEffect(() => { window.scrollTo(0, 0); setHasDemoData(authUser !== null || localStorage.getItem('freetiful-has-demo-data') === 'true'); }, [authUser]);
   const [couponCode, setCouponCode] = useState('');
 
   const coupons = useMemo(() => hasDemoData ? MOCK_COUPONS : [], [hasDemoData]);

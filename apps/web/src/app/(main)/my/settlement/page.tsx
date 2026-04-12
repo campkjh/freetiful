@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, CheckCircle, Clock } from 'lucide-react';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { apiClient } from '@/lib/api/client';
 
 interface SettlementRecord {
   id: string;
@@ -22,11 +24,27 @@ const MOCK_SETTLEMENTS: SettlementRecord[] = [
 
 export default function SettlementPage() {
   const router = useRouter();
-  const [settlements] = useState(MOCK_SETTLEMENTS);
+  const authUser = useAuthStore((s) => s.user);
+  const [settlements, setSettlements] = useState(MOCK_SETTLEMENTS);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+    apiClient.get('/api/v1/payment', { params: { status: 'completed' } })
+      .then((res) => {
+        const data = res.data;
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: SettlementRecord[] = data.map((p: any, idx: number) => ({
+            id: p.id || `s${idx + 1}`,
+            month: p.month || p.settlementMonth || '',
+            amount: p.amount || 0,
+            status: p.status === 'completed' || p.status === '정산완료' ? '정산완료' as const : '정산예정' as const,
+            date: p.date || p.settlementDate || '',
+          }));
+          setSettlements(mapped);
+        }
+      })
+      .catch(() => { /* fallback to mock data */ });
+  }, [authUser]);
 
   const totalSettled = settlements
     .filter(s => s.status === '정산완료')

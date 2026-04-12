@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { quotationApi } from '@/lib/api/quotation.api';
+import { reviewApi } from '@/lib/api/review.api';
+import { apiClient } from '@/lib/api/client';
 
 /* ─── Detailed SVG Icons (multi-layered, flat-color, premium) ─── */
 
@@ -223,6 +227,7 @@ function todayString() {
 
 export default function ProDashboardPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const [name, setName] = useState('');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
@@ -235,6 +240,11 @@ export default function ProDashboardPage() {
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
   const [puddingCount, setPuddingCount] = useState(0);
   const [hasDemoData, setHasDemoData] = useState(false);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [avgRating, setAvgRating] = useState('4.8');
+  const [monthlyRevenue, setMonthlyRevenue] = useState(2400000);
+  const [lastMonthRevenue, setLastMonthRevenue] = useState(1800000);
+  const [profileViews, setProfileViews] = useState(328);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -269,6 +279,58 @@ export default function ProDashboardPage() {
       setPuddingCount(storedPudding ? Number(storedPudding) : 0);
     } catch { /* ignore */ }
   }, []);
+
+  // Fetch dashboard data from API when authenticated
+  useEffect(() => {
+    if (!authUser) return;
+    quotationApi.getDashboard()
+      .then((data) => {
+        if (data?.quotes && Array.isArray(data.quotes)) {
+          setQuotes(data.quotes);
+        }
+        if (data?.name) setName(data.name);
+      })
+      .catch(() => { /* fallback to localStorage data */ });
+  }, [authUser]);
+
+  // Fetch review stats
+  useEffect(() => {
+    if (!authUser) return;
+    reviewApi.getMine({ page: 1, limit: 1 })
+      .then((data: any) => {
+        if (data?.total != null) setReviewCount(data.total);
+        if (data?.avgRating != null) setAvgRating(String(data.avgRating));
+        if (Array.isArray(data) && data.length > 0) {
+          setReviewCount(data.length);
+          const avg = (data.reduce((s: number, r: any) => s + (r.ratingSatisfaction || r.rating || 0), 0) / data.length).toFixed(1);
+          setAvgRating(avg);
+        }
+      })
+      .catch(() => { /* fallback */ });
+  }, [authUser]);
+
+  // Fetch pudding from API
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get('/api/v1/pro/pudding')
+      .then((res) => {
+        if (res.data?.balance != null) setPuddingCount(res.data.balance);
+      })
+      .catch(() => { /* fallback */ });
+  }, [authUser]);
+
+  // Fetch revenue stats
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get('/api/v1/pro/revenue')
+      .then((res) => {
+        const d = res.data;
+        if (d?.thisMonth != null) setMonthlyRevenue(d.thisMonth);
+        if (d?.lastMonth != null) setLastMonthRevenue(d.lastMonth);
+        if (d?.profileViews != null) setProfileViews(d.profileViews);
+      })
+      .catch(() => { /* fallback */ });
+  }, [authUser]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -337,8 +399,8 @@ export default function ProDashboardPage() {
 
   const pendingQuotes = quotes.filter((q) => q.status === 'pending');
 
-  const thisMonth = 2400000;
-  const lastMonth = 1800000;
+  const thisMonth = monthlyRevenue;
+  const lastMonth = lastMonthRevenue;
   const maxRevenue = Math.max(thisMonth, lastMonth);
 
   return (
@@ -381,9 +443,9 @@ export default function ProDashboardPage() {
       >
         {[
           { icon: <img src="/images/새 견적요청.svg" alt="" width={24} height={24} />, label: '새 견적요청', value: `${pendingQuotes.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/quotes' },
-          { icon: <img src="/images/이번달 매출.svg" alt="" width={24} height={24} />, label: '이번달 매출', value: '₩2,400,000', bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
-          { icon: <img src="/images/프로필 조회.svg" alt="" width={24} height={24} />, label: '프로필 조회', value: '328회', bg: 'bg-purple-50', href: '/pro-dashboard/views' },
-          { icon: <img src="/images/평균 평점.svg" alt="" width={24} height={24} />, label: '평균 평점', value: '4.8', bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
+          { icon: <img src="/images/이번달 매출.svg" alt="" width={24} height={24} />, label: '이번달 매출', value: `₩${monthlyRevenue.toLocaleString()}`, bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
+          { icon: <img src="/images/프로필 조회.svg" alt="" width={24} height={24} />, label: '프로필 조회', value: `${profileViews}회`, bg: 'bg-purple-50', href: '/pro-dashboard/views' },
+          { icon: <img src="/images/평균 평점.svg" alt="" width={24} height={24} />, label: '평균 평점', value: avgRating, bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
           { icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#F59E0B" /><circle cx="12" cy="12" r="7" fill="#FBBF24" /><text x="12" y="16" textAnchor="middle" fill="#92400E" fontSize="11" fontWeight="bold">P</text></svg>, label: '보유 푸딩', value: `${puddingCount.toLocaleString()}개`, bg: 'bg-amber-50', href: '/my/pudding-history' },
         ].map((stat, i) => (
           <motion.div key={i} variants={fadeUp}>

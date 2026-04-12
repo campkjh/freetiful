@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, TrendingUp, TrendingDown, Gift, Zap, Star } from 'lucide-react';
-import { getPudding, getPuddingHistory, initWelcomePudding, type PuddingTransaction as StoredPuddingTransaction } from '@/lib/pudding';
+import { getPudding, getPuddingHistory, initWelcomePudding, getPuddingHistoryAsync, type PuddingTransaction as StoredPuddingTransaction } from '@/lib/pudding';
 
 interface PuddingTransaction {
   id: string;
@@ -48,27 +48,51 @@ export default function PuddingHistoryPage() {
     window.scrollTo(0, 0);
     // Initialize welcome pudding if needed
     initWelcomePudding();
-    // Read from localStorage
-    const storedPudding = getPudding();
-    const storedHistory = getPuddingHistory();
-    if (storedPudding > 0) {
-      setTotalPudding(storedPudding);
-    } else {
-      // Fallback to mock total if no stored data
-      const mockTotal = MOCK_TRANSACTIONS.reduce((sum, tx) => sum + tx.amount, 0);
-      setTotalPudding(mockTotal);
-    }
-    if (storedHistory.length > 0) {
-      // Merge stored history with mock for display
-      const convertedHistory: PuddingTransaction[] = storedHistory.map((tx) => ({
-        id: tx.id,
-        type: tx.amount > 0 ? 'earn' as const : 'use' as const,
-        description: tx.description,
-        amount: tx.amount,
-        createdAt: tx.createdAt,
-        category: tx.category,
-      }));
-      setTransactions([...convertedHistory, ...MOCK_TRANSACTIONS]);
+
+    // Try API first, then fall back to localStorage/mock
+    getPuddingHistoryAsync()
+      .then((apiHistory) => {
+        if (apiHistory && apiHistory.length > 0) {
+          const converted: PuddingTransaction[] = apiHistory.map((tx) => ({
+            id: tx.id,
+            type: tx.amount > 0 ? 'earn' as const : 'use' as const,
+            description: tx.description,
+            amount: tx.amount,
+            createdAt: tx.createdAt,
+            category: tx.category,
+          }));
+          setTransactions(converted);
+          const total = converted.reduce((sum, tx) => sum + tx.amount, 0);
+          setTotalPudding(total);
+          return;
+        }
+        // Fall back to localStorage
+        loadLocalData();
+      })
+      .catch(() => {
+        loadLocalData();
+      });
+
+    function loadLocalData() {
+      const storedPudding = getPudding();
+      const storedHistory = getPuddingHistory();
+      if (storedPudding > 0) {
+        setTotalPudding(storedPudding);
+      } else {
+        const mockTotal = MOCK_TRANSACTIONS.reduce((sum, tx) => sum + tx.amount, 0);
+        setTotalPudding(mockTotal);
+      }
+      if (storedHistory.length > 0) {
+        const convertedHistory: PuddingTransaction[] = storedHistory.map((tx) => ({
+          id: tx.id,
+          type: tx.amount > 0 ? 'earn' as const : 'use' as const,
+          description: tx.description,
+          amount: tx.amount,
+          createdAt: tx.createdAt,
+          category: tx.category,
+        }));
+        setTransactions([...convertedHistory, ...MOCK_TRANSACTIONS]);
+      }
     }
   }, []);
 

@@ -6,6 +6,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { discoveryApi } from '@/lib/api/discovery.api';
+import { favoriteApi } from '@/lib/api/favorite.api';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -428,6 +431,24 @@ export default function ProDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const proData = id && PRO_MAP[id] ? PRO_MAP[id] : null;
+  const [apiRating, setApiRating] = useState<number | null>(null);
+  const [apiReviewCount, setApiReviewCount] = useState<number | null>(null);
+  const [apiProfileViews, setApiProfileViews] = useState<number | null>(null);
+
+  // API에서 실제 평점/리뷰수 가져오기
+  useEffect(() => {
+    if (!id) return;
+    discoveryApi.getProList({ search: proData?.name, limit: 1 })
+      .then((res) => {
+        const found = res.data?.[0];
+        if (found) {
+          setApiRating(found.avgRating);
+          setApiReviewCount(found.reviewCount);
+        }
+      })
+      .catch(() => {});
+  }, [id, proData?.name]);
+
   const pro = proData ? {
     ...MOCK_PRO,
     id: id || MOCK_PRO.id,
@@ -436,8 +457,8 @@ export default function ProDetailPage() {
     mainImage: proData.images[0] || proData.image,
     images: proData.images,
     title: `사회자 ${proData.name}`,
-    rating: parseFloat((4.8 + (parseInt(id || '1') % 3) * 0.1).toFixed(1)),
-    reviewCount: 15 + (parseInt(id || '1') * 7) % 200,
+    rating: apiRating ?? proData.price / 100000,
+    reviewCount: apiReviewCount ?? 0,
     youtubeId: proData.youtubeId || undefined,
     youtubeVideos: proData.youtubeId ? [{ id: proData.youtubeId, title: `${proData.name} 사회자 진행 영상` }] : [],
     description: `안녕하세요. 사회자 ${proData.name}입니다.\n\n${proData.intro}\n\n${proData.career ? `주요 경력:\n• ${proData.career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`,
@@ -450,12 +471,20 @@ export default function ProDetailPage() {
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const authUser = useAuthStore((s) => s.user);
   const [isFavorited, setIsFavorited] = useState(() => {
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
       return stored.includes(id);
     } catch { return false; }
   });
+
+  // Check favorite status from API
+  useEffect(() => {
+    if (authUser && id) {
+      favoriteApi.check(id).then((res) => setIsFavorited(res.isFavorited)).catch(() => {});
+    }
+  }, [authUser, id]);
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
@@ -562,6 +591,10 @@ export default function ProDetailPage() {
     setIsFavorited((v) => {
       const newVal = !v;
       toast(v ? '찜 해제' : '찜 목록에 추가됨', { icon: v ? '💙' : '❤️' });
+      // Sync to API
+      if (authUser) {
+        favoriteApi.toggle(pro.id).catch(() => {});
+      }
       try {
         const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
         if (newVal) {

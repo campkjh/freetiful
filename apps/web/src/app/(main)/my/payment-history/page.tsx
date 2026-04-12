@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { apiClient } from '@/lib/api/client';
 
 const MOCK_PAYMENTS = [
   { id: '1', title: '웨딩 MC 패키지', proName: '김민준 MC', amount: 500000, status: 'completed', date: '2026-03-20', method: '카카오페이' },
@@ -19,10 +21,35 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 
 export default function PaymentHistoryPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { window.scrollTo(0, 0); setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
+  const [apiPayments, setApiPayments] = useState<typeof MOCK_PAYMENTS | null>(null);
 
-  const payments = hasDemoData ? MOCK_PAYMENTS : [];
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
+    if (authUser) {
+      apiClient.get('/api/v1/payment', { params: { limit: 50 } })
+        .then((res) => {
+          const data = res.data?.data || [];
+          if (data.length > 0) {
+            setApiPayments(data.map((p: any) => ({
+              id: p.id,
+              title: p.description || '결제',
+              proName: p.quotation?.proProfile?.user?.name || '',
+              amount: p.amount,
+              status: p.status,
+              date: new Date(p.createdAt).toLocaleDateString('ko-KR'),
+              method: p.paymentMethod || '',
+              refundAmount: p.refundAmount,
+            })));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [authUser]);
+
+  const payments = apiPayments || (hasDemoData ? MOCK_PAYMENTS : []);
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>

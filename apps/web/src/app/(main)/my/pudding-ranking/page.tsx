@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Crown, Medal } from 'lucide-react';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { apiClient } from '@/lib/api/client';
 
 interface RankEntry {
   rank: number;
@@ -33,30 +35,46 @@ function getRankColor(rank: number) {
 
 export default function PuddingRankingPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const [ranking, setRanking] = useState<RankEntry[]>([]);
   const [myRank, setMyRank] = useState(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    // Mark current user (simulate)
-    const userName = (() => {
-      try {
-        const stored = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
-        return stored.name || '';
-      } catch { return ''; }
-    })();
-    const updated = MOCK_RANKING.map(entry => ({
-      ...entry,
-      isCurrentUser: entry.name === userName,
-    }));
-    // If user not in top 10, add them
-    const found = updated.find(e => e.isCurrentUser);
-    if (!found && userName) {
-      updated.push({ rank: 15, name: userName, pudding: 320, isCurrentUser: true });
-    }
-    setRanking(updated);
-    setMyRank(found ? found.rank : 15);
-  }, []);
+
+    // Try to fetch from API first
+    apiClient.get('/api/v1/pro/pudding/rank')
+      .then((res) => {
+        const data = res.data;
+        if (Array.isArray(data) && data.length > 0) {
+          return data.map((entry: any, idx: number) => ({
+            rank: entry.rank || idx + 1,
+            name: entry.name || '',
+            pudding: entry.pudding || entry.puddingCount || 0,
+          }));
+        }
+        return null;
+      })
+      .catch(() => null)
+      .then((apiData) => {
+        const source: RankEntry[] = apiData || MOCK_RANKING;
+        const userName = (() => {
+          try {
+            return authUser?.name || JSON.parse(localStorage.getItem('freetiful-user') || '{}').name || '';
+          } catch { return ''; }
+        })();
+        const updated = source.map(entry => ({
+          ...entry,
+          isCurrentUser: entry.name === userName,
+        }));
+        const found = updated.find(e => e.isCurrentUser);
+        if (!found && userName) {
+          updated.push({ rank: 15, name: userName, pudding: 320, isCurrentUser: true });
+        }
+        setRanking(updated);
+        setMyRank(found ? found.rank : 15);
+      });
+  }, [authUser]);
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>

@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Calendar, List, MapPin, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { scheduleApi } from '@/lib/api/schedule.api';
 
 const DAYS_KR = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -144,11 +146,37 @@ const ProIconWon = () => (
 );
 
 function ProScheduleView() {
+  const authUser = useAuthStore((s) => s.user);
   const [hasDemoData, setHasDemoData] = useState(false);
+  const [apiBookings, setApiBookings] = useState<ProBooking[] | null>(null);
   useEffect(() => {
     setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
   }, []);
-  const bookings = hasDemoData ? PRO_MOCK_BOOKINGS : [];
+  useEffect(() => {
+    if (!authUser) return;
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    scheduleApi.getMySchedule(month)
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: ProBooking[] = data.map((b: any) => ({
+            id: b.id,
+            clientName: b.clientName || b.title || '',
+            eventType: b.eventType || b.category || '',
+            date: b.date,
+            time: b.time || '',
+            venue: b.venue || b.location || '',
+            plan: b.plan || '스탠다드',
+            paymentStatus: b.paymentStatus || '대기',
+            amount: b.amount || '0',
+            status: b.status || 'pending',
+          }));
+          setApiBookings(mapped);
+        }
+      })
+      .catch(() => { /* fallback to mock data */ });
+  }, [authUser]);
+  const bookings = apiBookings || (hasDemoData ? PRO_MOCK_BOOKINGS : []);
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -267,12 +295,26 @@ function ProScheduleView() {
 }
 
 export default function SchedulePage() {
+  const authUser = useAuthStore((s) => s.user);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
+  const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>([]);
   useEffect(() => {
-    setIsLoggedIn(localStorage.getItem('freetiful-logged-in') === 'true');
-    setIsPro(localStorage.getItem('userRole') === 'pro');
-  }, []);
+    setIsLoggedIn(authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true');
+    setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
+  }, [authUser]);
+
+  // Fetch schedule from API when authenticated
+  useEffect(() => {
+    if (!authUser) return;
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    scheduleApi.getMySchedule(month)
+      .then((data) => {
+        if (Array.isArray(data)) setApiSchedules(data);
+      })
+      .catch(() => { /* fallback to mock data */ });
+  }, [authUser]);
 
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -327,14 +369,15 @@ export default function SchedulePage() {
   }, []);
 
   const schedulesByDate = useMemo(() => {
-    if (!isLoggedIn || !hasDemoData) return {};
+    if (!isLoggedIn || (!hasDemoData && apiSchedules.length === 0)) return {};
+    const source = apiSchedules.length > 0 ? apiSchedules : MOCK_SCHEDULES;
     const map: Record<string, ScheduleItem[]> = {};
-    MOCK_SCHEDULES.forEach(s => {
+    source.forEach(s => {
       if (!map[s.date]) map[s.date] = [];
       map[s.date].push(s);
     });
     return map;
-  }, [isLoggedIn, hasDemoData]);
+  }, [isLoggedIn, hasDemoData, apiSchedules]);
 
   const selectedSchedules = selectedDate ? (schedulesByDate[selectedDate] ?? []) : [];
 
@@ -352,12 +395,13 @@ export default function SchedulePage() {
 
   // List view: all schedules for current month sorted
   const monthSchedules = useMemo(() => {
-    if (!isLoggedIn || !hasDemoData) return [];
+    if (!isLoggedIn || (!hasDemoData && apiSchedules.length === 0)) return [];
+    const source = apiSchedules.length > 0 ? apiSchedules : MOCK_SCHEDULES;
     const prefix = `${year}-${String(month).padStart(2, '0')}`;
-    return MOCK_SCHEDULES
+    return source
       .filter(s => s.date.startsWith(prefix))
       .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-  }, [year, month, isLoggedIn, hasDemoData]);
+  }, [year, month, isLoggedIn, hasDemoData, apiSchedules]);
 
   // Stats
   const confirmedCount = monthSchedules.filter(s => s.status === 'confirmed').length;

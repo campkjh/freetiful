@@ -5,6 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, MoreHorizontal, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { reviewApi } from '@/lib/api/review.api';
+import { apiClient } from '@/lib/api/client';
 
 const BRAND = '#3180F7';
 
@@ -31,18 +34,64 @@ const REVIEWS = [
 export default function ReviewsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [userReviews, setUserReviews] = useState<typeof REVIEWS>([]);
+  const [canWriteReview, setCanWriteReview] = useState(false);
+  const [apiReviews, setApiReviews] = useState<typeof REVIEWS | null>(null);
 
+  // API에서 리뷰 가져오기
   useEffect(() => {
+    if (!id) return;
+    reviewApi.getByPro(id, { limit: 50 })
+      .then((res: any) => {
+        if (res.data?.length > 0) {
+          setApiReviews(res.data.map((r: any) => ({
+            id: r.id,
+            name: r.isAnonymous ? '익명' : (r.reviewer?.name?.slice(0, 1) + '**' + '****') || '고객',
+            rating: r.avgRating || 0,
+            date: new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }),
+            scores: {
+              경력: r.ratingExperience || 0,
+              만족도: r.ratingSatisfaction || 0,
+              구성력: r.ratingComposition || 0,
+              위트: r.ratingWit || 0,
+              발성: r.ratingVoice || 0,
+              이미지: r.ratingAppearance || 0,
+            },
+            content: r.comment || '',
+            workDays: 0,
+            orderRange: '',
+            badge: '',
+            proReply: r.proReply ? { date: new Date(r.proReplyAt || r.updatedAt).toLocaleDateString('ko-KR'), content: r.proReply } : undefined,
+          })));
+        }
+      })
+      .catch(() => {});
+
+    // 결제 완료 건이 있는지 확인 (리뷰 작성 권한)
+    if (authUser) {
+      apiClient.get('/api/v1/payment', { params: { limit: 100 } })
+        .then((res) => {
+          const payments = res.data?.data || [];
+          // 이 프로와 결제 완료된 건이 있는지 확인
+          const hasCompletedPayment = payments.some((p: any) =>
+            p.status === 'completed' && !p.reviewId
+          );
+          setCanWriteReview(hasCompletedPayment);
+        })
+        .catch(() => {});
+    }
+
+    // localStorage fallback
     try {
       const stored = JSON.parse(localStorage.getItem('freetiful-reviews') || '[]');
       const proReviews = stored.filter((r: any) => r.proId === id);
       setUserReviews(proReviews);
     } catch {}
-  }, [id]);
+  }, [id, authUser]);
 
-  const allReviews = [...userReviews, ...REVIEWS];
+  const allReviews = [...userReviews, ...(apiReviews || REVIEWS)];
 
   return (
     <div className="bg-white min-h-screen pb-10" style={{ letterSpacing: '-0.02em' }}>
@@ -85,16 +134,24 @@ export default function ReviewsPage() {
 
       {/* Review List */}
       <div className="px-4 divide-y divide-gray-100">
-        {/* Write Review Button */}
-        <div className="px-4 py-3">
-          <Link
-            href={`/pros/${id}/reviews/write`}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-[#3180F7] text-white rounded-xl font-bold text-[14px] active:scale-[0.98] transition-transform"
-          >
-            <Pencil size={14} />
-            리뷰 작성하기
-          </Link>
-        </div>
+        {/* Write Review Button — 결제 완료 건이 있는 경우만 표시 */}
+        {canWriteReview ? (
+          <div className="px-4 py-3">
+            <Link
+              href={`/pros/${id}/reviews/write`}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#3180F7] text-white rounded-xl font-bold text-[14px] active:scale-[0.98] transition-transform"
+            >
+              <Pencil size={14} />
+              리뷰 작성하기
+            </Link>
+          </div>
+        ) : authUser ? (
+          <div className="px-4 py-3">
+            <div className="w-full flex items-center justify-center gap-2 py-3 bg-gray-100 text-gray-400 rounded-xl font-bold text-[14px]">
+              행사 완료 후 리뷰를 작성할 수 있습니다
+            </div>
+          </div>
+        ) : null}
 
         {allReviews.map((review) => (
           <div key={review.id} className="py-5 relative">

@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
+import { apiClient } from '@/lib/api/client';
 
 const PRO_NAMES: Record<string, { name: string; image: string }> = {
   '1': { name: '강도현', image: '/images/강도현/10000133881772850005043.avif' },
@@ -61,15 +64,15 @@ export default function CheckoutPage() {
   const day = searchParams.get('day') || '14';
   const month = searchParams.get('month') || '4';
 
+  const authUser = useAuthStore((s) => s.user);
   const [bookerInfo, setBookerInfo] = useState('');
   useEffect(() => {
     try {
-      const u = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
-      const name = u.name || '';
-      const phone = u.phone || '';
+      const name = authUser?.name || JSON.parse(localStorage.getItem('freetiful-user') || '{}').name || '';
+      const phone = authUser?.phone || JSON.parse(localStorage.getItem('freetiful-user') || '{}').phone || '';
       setBookerInfo(name && phone ? `${name} / ${phone}` : name || phone || '');
     } catch { /* ignore */ }
-  }, []);
+  }, [authUser]);
 
   const [payMethod, setPayMethod] = useState('bank');
   const [maxDiscount, setMaxDiscount] = useState(true);
@@ -85,10 +88,62 @@ export default function CheckoutPage() {
   const discountAmount = maxDiscount ? pointAmount : 0;
   const finalPrice = price - discountAmount - couponAmount;
 
-  const handlePayment = () => {
+  const [payLoading, setPayLoading] = useState(false);
+
+  const handlePayment = async () => {
     if (!agreedCancel) { toast.error('취소/환불 규정에 동의해주세요'); return; }
-    toast.success('결제가 완료되었습니다!');
-    setTimeout(() => router.push(`/pros/${id}`), 1500);
+    if (!agreedPrivacy) { toast.error('개인정보 수집에 동의해주세요'); return; }
+
+    setPayLoading(true);
+    try {
+      const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+      if (!clientKey) {
+        toast.error('결제 설정이 필요합니다');
+        setPayLoading(false);
+        return;
+      }
+
+      // 1. 주문 생성 (백엔드)
+      const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const orderName = `${proInfo.name} 사회자 - ${planName}`;
+
+      try {
+        await apiClient.post('/api/v1/payment/order', {
+          orderId,
+          amount: finalPrice,
+          orderName,
+          proProfileId: id,
+        });
+      } catch {
+        // 백엔드 없어도 결제 진행 가능
+      }
+
+      // 2. 토스페이먼츠 위젯 호출
+      const tossPayments = await loadTossPayments(clientKey);
+      const payment = tossPayments.payment({ customerKey: authUser?.id || `guest_${Date.now()}` });
+
+      await (payment.requestPayment as any)({
+        method: payMethod === 'card' ? 'CARD' : payMethod === 'bank' ? 'TRANSFER' : 'EASY_PAY',
+        amount: { currency: 'KRW', value: finalPrice },
+        orderId,
+        orderName,
+        customerName: authUser?.name || bookerInfo.split('/')[0]?.trim() || '고객',
+        customerEmail: authUser?.email || undefined,
+        successUrl: `${window.location.origin}/payment/success?proId=${id}`,
+        failUrl: `${window.location.origin}/payment/fail`,
+        ...(payMethod === 'kakaopay' ? { easyPay: { provider: 'KAKAOPAY' } } :
+           payMethod === 'npay' ? { easyPay: { provider: 'NAVERPAY' } } :
+           payMethod === 'tosspay' ? { easyPay: { provider: 'TOSSPAY' } } : {}),
+      });
+    } catch (e: any) {
+      if (e?.code === 'USER_CANCEL') {
+        toast('결제가 취소되었습니다', { icon: '🔙' });
+      } else {
+        toast.error(e?.message || '결제 중 오류가 발생했습니다');
+      }
+    } finally {
+      setPayLoading(false);
+    }
   };
 
   const PAY_METHODS = [
@@ -357,9 +412,15 @@ export default function CheckoutPage() {
         </div>
         <button
           onClick={handlePayment}
-          className="w-full h-[52px] rounded-2xl text-[16px] font-bold text-white bg-[#3180F7] active:scale-[0.98] transition-transform"
+          disabled={payLoading}
+          className="w-full h-[52px] rounded-2xl text-[16px] font-bold text-white bg-[#3180F7] active:scale-[0.98] transition-transform disabled:opacity-60"
         >
-          결제하기
+          {payLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              결제 진행 중...
+            </span>
+          ) : `${finalPrice.toLocaleString()}원 결제하기`}
         </button>
       </div>
     </div>

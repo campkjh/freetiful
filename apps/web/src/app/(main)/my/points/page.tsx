@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Info, Gift, Star, Users, CalendarCheck, FileText, CreditCard, ShieldCheck } from 'lucide-react';
-import { getPoints, getPointHistory, type PointType, type PointTransaction } from '@/lib/points';
+import { getPoints, getPointHistory, getPointsAsync, getPointHistoryAsync, type PointType, type PointTransaction } from '@/lib/points';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 const TYPE_CONFIG: Record<PointType, { icon: typeof Gift; color: string; label: string }> = {
   signup_bonus: { icon: Gift, color: '#10B981', label: '가입 보너스' },
@@ -29,11 +30,17 @@ export default function PointsPage() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [history, setHistory] = useState<PointTransaction[]>([]);
 
+  const authUser = useAuthStore((s) => s.user);
+
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Immediate from localStorage
     setTotalPoints(getPoints());
     setHistory(getPointHistory());
-  }, []);
+    // Then fetch from API
+    getPointsAsync().then(setTotalPoints).catch(() => {});
+    getPointHistoryAsync().then(setHistory).catch(() => {});
+  }, [authUser]);
 
   // Group transactions by year
   const grouped = history.reduce<Record<string, PointTransaction[]>>((acc, tx) => {

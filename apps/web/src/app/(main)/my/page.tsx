@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
 import { getPoints } from '@/lib/points';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { usersApi } from '@/lib/api/users.api';
 
 /* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
 // 이미지 기반 아이콘 헬퍼
@@ -274,7 +277,7 @@ const MENU_SECTIONS = [
       { href: '/my/invite', icon: () => <ImgIcon src="/images/친구초대.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
       { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/파트너스 신청.svg" />, label: '파트너 신청', action: 'partner' },
-      { href: '/main', icon: IconUser, label: '일반회원 전환', action: 'general' },
+      { href: '#', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/일반회원 전환.svg" />, label: '프로유저 전환', action: 'switchToPro' },
     ],
   },
 ];
@@ -282,11 +285,8 @@ const MENU_SECTIONS = [
 export default function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState({ name: '게스트', email: '', image: '', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
-  useEffect(() => {
-    const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
-    setIsLoggedIn(loggedIn);
-    if (loggedIn) setUser(getUserFromStorage());
-  }, []);
+  const authUser = useAuthStore((s) => s.user);
+  const { logout: authLogout } = useAuth();
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
   const [isPro, setIsPro] = useState(false);
@@ -294,38 +294,79 @@ export default function MyPage() {
   const [favoritesCount, setFavoritesCount] = useState(0);
 
   useEffect(() => {
+    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    setIsLoggedIn(loggedIn);
+
+    if (authUser) {
+      // Use real API data
+      setUser({
+        name: authUser.name || '게스트',
+        email: authUser.email || '',
+        image: authUser.profileImageUrl || '',
+        linkedAccounts: [],
+        points: authUser.pointBalance || 0,
+        coupons: 0,
+        role: authUser.role,
+      });
+      setIsPro(authUser.role === 'pro');
+      // Fetch point balance from API
+      usersApi.getPointBalance().then((res) => {
+        setUser((prev) => ({ ...prev, points: res.balance }));
+      }).catch(() => {});
+    } else if (loggedIn) {
+      setUser(getUserFromStorage());
+    }
+  }, [authUser]);
+
+  useEffect(() => {
     if (!isLoggedIn) return;
     setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
-    setIsPro(localStorage.getItem('userRole') === 'pro');
-    // Dynamic coupon count
+    if (!authUser) setIsPro(localStorage.getItem('userRole') === 'pro');
     try {
       const coupons = JSON.parse(localStorage.getItem('freetiful-coupons') || '[]');
       setCouponCount(Array.isArray(coupons) ? coupons.length : 0);
     } catch { setCouponCount(0); }
-    // Dynamic favorites count
     try {
       const favs = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
       setFavoritesCount(Array.isArray(favs) ? favs.length : 0);
     } catch { setFavoritesCount(0); }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, authUser]);
 
   const handlePartnerApply = () => {
     const alreadyRegistered = localStorage.getItem('proRegistrationComplete') === 'true';
     if (alreadyRegistered) {
-      localStorage.setItem('userRole', 'pro');
-      window.location.reload();
+      if (authUser) {
+        usersApi.switchRole('pro').then(() => {
+          useAuthStore.getState().setUser({ ...authUser, role: 'pro' as any });
+          window.location.reload();
+        }).catch(() => {});
+      } else {
+        localStorage.setItem('userRole', 'pro');
+        window.location.reload();
+      }
     } else {
       router.push('/pro-register/terms');
     }
   };
 
   const handleGeneralMode = () => {
-    localStorage.setItem('userRole', 'general');
-    router.push('/main');
-    window.location.reload();
+    if (authUser) {
+      usersApi.switchRole('general').then(() => {
+        useAuthStore.getState().setUser({ ...authUser, role: 'general' as any });
+        router.push('/main');
+        window.location.reload();
+      }).catch(() => {});
+    } else {
+      localStorage.setItem('userRole', 'general');
+      router.push('/main');
+      window.location.reload();
+    }
   };
 
   const handleLogout = () => {
+    if (authUser) {
+      authLogout();
+    }
     localStorage.removeItem('freetiful-logged-in');
     localStorage.removeItem('freetiful-user');
     localStorage.removeItem('userRole');
@@ -333,8 +374,15 @@ export default function MyPage() {
   };
 
   const handleSwitchToGeneral = () => {
-    localStorage.setItem('userRole', 'general');
-    window.location.reload();
+    if (authUser) {
+      usersApi.switchRole('general').then(() => {
+        useAuthStore.getState().setUser({ ...authUser, role: 'general' as any });
+        window.location.reload();
+      }).catch(() => {});
+    } else {
+      localStorage.setItem('userRole', 'general');
+      window.location.reload();
+    }
   };
 
   if (isPro) {
@@ -461,7 +509,24 @@ export default function MyPage() {
         </div>
       </div>
 
-      {/* Profile */}
+      {/* Profile — 로그인 안 되었으면 로그인 유도 */}
+      {!isLoggedIn ? (
+        <div className="px-4 pb-4 pt-2" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
+          <div className="rounded-2xl bg-gray-50 p-5 text-center">
+            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
+                <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" />
+              </svg>
+            </div>
+            <p className="text-[16px] font-bold text-gray-900 mb-1">로그인이 필요합니다</p>
+            <p className="text-[13px] text-gray-400 mb-4">로그인하고 다양한 서비스를 이용해보세요</p>
+            <Link href="/login" className="inline-block bg-gray-900 text-white font-semibold text-[14px] px-6 py-2.5 rounded-xl active:scale-[0.97] transition-transform">
+              로그인 / 회원가입
+            </Link>
+          </div>
+        </div>
+      ) : (
       <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
         <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
           <div className="relative">
@@ -541,6 +606,7 @@ export default function MyPage() {
           </Link>
         </div>
       </div>
+      )}
 
       {/* Upcoming Schedules */}
       {isLoggedIn && typeof window !== 'undefined' && localStorage.getItem('freetiful-has-demo-data') === 'true' && UPCOMING_SCHEDULES.length > 0 && (
@@ -612,9 +678,12 @@ export default function MyPage() {
               </>
             );
 
-            if (action === 'general') {
+            if (action === 'switchToPro') {
+              // 프로 권한이 있는 경우에만 표시
+              const hasProRights = (typeof window !== 'undefined' && localStorage.getItem('proRegistrationComplete') === 'true') || authUser?.role === 'pro';
+              if (!hasProRights) return null;
               return (
-                <button key={label} onClick={handleGeneralMode} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
+                <button key={label} onClick={handlePartnerApply} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
                   {inner}
                 </button>
               );

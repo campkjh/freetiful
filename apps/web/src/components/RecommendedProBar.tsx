@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
+import { discoveryApi, type RecommendedPro } from '@/lib/api/discovery.api';
 
 // 알약 부모의 사이즈를 측정해서 SVG로 라운드 사각형(알약) 윤곽선을 그리고
 // 그 path를 따라 짧은 흰색 stroke가 흘러가는 효과 (Web Animations API)
@@ -76,32 +77,33 @@ function PillBorderTrain() {
   );
 }
 
-const DAILY_PROS = [
+type Phase = 'init' | 'circleIn' | 'expanding' | 'expanded' | 'collapsing' | 'closed';
+
+// Fallback data in case API is unreachable
+const FALLBACK_PROS = [
   { id: '15', name: '박인애', image: '/images/박인애/IMG_0196.avif' },
   { id: '23', name: '이승진', image: '/images/이승진/IMG_46511771924269213.avif' },
   { id: '12', name: '문정은', image: '/images/문정은/IMG_27221772621229571.avif' },
-  { id: '35', name: '정이현', image: '/images/정이현/44561772622988798.avif' },
-  { id: '24', name: '이용석', image: '/images/이용석/10001176941772847263491.avif' },
-  { id: '5', name: '김유석', image: '/images/김유석/10000029811773033474612.avif' },
-  { id: '9', name: '나연지', image: '/images/나연지/Facetune_10-02-2026-21-07-511772438130235.avif' },
   { id: '31', name: '전해별', image: '/images/전해별/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif' },
-  { id: '34', name: '정애란', image: '/images/정애란/IMG_2920.avif' },
-  { id: '25', name: '이우영', image: '/images/이우영/2-11772248201484.avif' },
-  { id: '1', name: '강도현', image: '/images/강도현/10000133881772850005043.avif' },
-  { id: '18', name: '성연채', image: '/images/성연채/20161016_161406_IMG_5921.avif' },
-  { id: '37', name: '최진선', image: '/images/최진선/10001059551772371340253.avif' },
-  { id: '13', name: '박상설', image: '/images/박상설/10000077391773050357628.avif' },
 ];
-
-// 날짜 기반으로 매일 다른 사회자 선택
-const todayIndex = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) % DAILY_PROS.length;
-const RECOMMENDED = { ...DAILY_PROS[todayIndex], title: '오늘의 추천 전문가' };
-
-type Phase = 'init' | 'circleIn' | 'expanding' | 'expanded' | 'collapsing' | 'closed';
 
 export default function RecommendedProBar() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('init');
+  const [recommended, setRecommended] = useState<{ id: string; name: string; image: string } | null>(null);
+
+  // Fetch daily recommendation from API
+  useEffect(() => {
+    discoveryApi.getDailyRecommendation()
+      .then((data) => {
+        if (data) setRecommended({ id: data.id, name: data.name, image: data.image });
+      })
+      .catch(() => {
+        // Fallback to local rotation
+        const idx = Math.floor(Date.now() / 86400000) % FALLBACK_PROS.length;
+        setRecommended(FALLBACK_PROS[idx]);
+      });
+  }, []);
 
   useEffect(() => {
     // init(scale 0) → circleIn(scale 1, 원형 등장) → expanding(원→알약) → expanded
@@ -115,7 +117,7 @@ export default function RecommendedProBar() {
     };
   }, []);
 
-  if (phase === 'closed') return null;
+  if (phase === 'closed' || !recommended) return null;
 
   const isPillPhase = phase === 'expanding' || phase === 'expanded';
 
@@ -128,7 +130,7 @@ export default function RecommendedProBar() {
 
   const handleClick = () => {
     if (phase !== 'expanded') return;
-    router.push(`/pros/${RECOMMENDED.id}`);
+    router.push(`/pros/${recommended.id}`);
   };
 
   // 등장 애니메이션 - scale 0 → 1.1 → 1 바운스 + 모션블러
@@ -173,8 +175,8 @@ export default function RecommendedProBar() {
           {/* 좌측 - 원형 프로필 */}
           <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-700 shrink-0">
             <img
-              src={RECOMMENDED.image}
-              alt={RECOMMENDED.name}
+              src={recommended.image}
+              alt={recommended.name}
               draggable={false}
               className="w-full h-full object-cover"
             />
@@ -192,10 +194,10 @@ export default function RecommendedProBar() {
               }}
             >
               <p className="text-[10px] font-semibold text-white/60 leading-tight">
-                사회자 {RECOMMENDED.name}
+                사회자 {recommended.name}
               </p>
               <p className="text-[14px] font-bold text-white leading-tight">
-                {RECOMMENDED.title}
+                오늘의 추천 전문가
               </p>
             </div>
           )}

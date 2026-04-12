@@ -1,7 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, TrendingUp, Trophy, Info } from 'lucide-react';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { apiClient } from '@/lib/api/client';
 
 const EARNING_RULES = [
   { action: '1:1 견적 답변', pudding: '+3', icon: '💬' },
@@ -31,6 +34,51 @@ const MOCK_RANKING = [
 
 export default function PuddingPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
+  const [balance, setBalance] = useState(45);
+  const [myRank, setMyRank] = useState(1);
+  const [history, setHistory] = useState(MOCK_HISTORY);
+  const [ranking, setRanking] = useState(MOCK_RANKING);
+
+  // Fetch pudding balance & history
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get('/api/v1/pro/pudding')
+      .then((res) => {
+        const d = res.data;
+        if (d?.balance != null) setBalance(d.balance);
+        if (d?.rank != null) setMyRank(d.rank);
+        if (Array.isArray(d?.transactions) && d.transactions.length > 0) {
+          setHistory(d.transactions.map((t: any, i: number) => ({
+            id: t.id || String(i),
+            reason: t.reason || t.description || '',
+            amount: t.amount ?? 0,
+            date: t.date || (t.createdAt ? new Date(t.createdAt).toISOString().slice(0, 16).replace('T', ' ') : ''),
+            balance: t.balance ?? 0,
+          })));
+        }
+      })
+      .catch(() => { /* fallback to mock */ });
+  }, [authUser]);
+
+  // Fetch pudding ranking
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get('/api/v1/pro/pudding/rank')
+      .then((res) => {
+        const d = res.data;
+        if (Array.isArray(d) && d.length > 0) {
+          setRanking(d.map((r: any, i: number) => ({
+            rank: r.rank || i + 1,
+            name: r.name || '익명',
+            pudding: r.pudding ?? r.score ?? 0,
+            image: r.image || r.profileImage || `https://i.pravatar.cc/150?img=${i + 1}`,
+            isMe: r.isMe ?? false,
+          })));
+        }
+      })
+      .catch(() => { /* fallback to mock */ });
+  }, [authUser]);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -45,9 +93,9 @@ export default function PuddingPage() {
       <div className="bg-gradient-to-r from-yellow-400 to-orange-400 mx-4 mt-4 rounded-2xl p-5 text-white">
         <p className="text-xs opacity-80">내 푸딩</p>
         <div className="flex items-end justify-between mt-1">
-          <p className="text-4xl font-black">45</p>
+          <p className="text-4xl font-black">{balance}</p>
           <div className="text-right">
-            <p className="text-lg font-bold">🥇 1위</p>
+            <p className="text-lg font-bold">{myRank <= 3 ? `${['🥇','🥈','🥉'][myRank - 1]} ${myRank}위` : `${myRank}위`}</p>
             <p className="text-[10px] opacity-70">매일 00시 랭킹 갱신</p>
           </div>
         </div>
@@ -68,7 +116,7 @@ export default function PuddingPage() {
           <Trophy size={14} className="text-yellow-500" /> 오늘의 랭킹
         </h3>
         <div className="card overflow-hidden">
-          {MOCK_RANKING.map((r) => (
+          {ranking.map((r) => (
             <div key={r.rank} className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 ${
               r.isMe ? 'bg-primary-50' : ''
             }`}>
@@ -107,7 +155,7 @@ export default function PuddingPage() {
       <div className="px-4 mt-5 mb-8">
         <h3 className="text-sm font-bold text-gray-900 mb-3">획득 내역</h3>
         <div className="card">
-          {MOCK_HISTORY.map((item) => (
+          {history.map((item) => (
             <div key={item.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                 item.amount > 0 ? 'bg-green-50' : 'bg-red-50'

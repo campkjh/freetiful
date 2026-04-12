@@ -1,16 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Lock, Link2, Wallet } from 'lucide-react';
-import ImageUploader from '@/components/ui/ImageUploader';
-
-const MOCK_IMAGES = [
-  { id: 'img-1', imageUrl: '/images/mc-characters.png', displayOrder: 0, hasFace: true, isPrimary: true },
-  { id: 'img-2', imageUrl: '/images/박인애/IMG_7549.avif', displayOrder: 1, hasFace: true, isPrimary: false },
-  { id: 'img-3', imageUrl: '/images/이승진/IMG_75131771924219656.avif', displayOrder: 2, hasFace: true, isPrimary: false },
-  { id: 'img-4', imageUrl: '/images/전해별/IMG_92281772850158117.avif', displayOrder: 3, hasFace: false, isPrimary: false },
-];
+import { ChevronLeft, Lock, Link2, Wallet, Camera } from 'lucide-react';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { usersApi } from '@/lib/api/users.api';
+import toast from 'react-hot-toast';
 
 // 소셜 로그인 아이콘
 const KakaoIcon = () => (
@@ -37,24 +32,95 @@ const NaverIcon = () => (
   </svg>
 );
 
-const SOCIAL_ACCOUNTS = [
-  { name: '카카오', connected: true, bg: 'bg-[#FEE500]', icon: <KakaoIcon /> },
-  { name: 'Google', connected: true, bg: 'bg-white border border-gray-200', icon: <GoogleIcon /> },
-  { name: 'Apple', connected: false, bg: 'bg-gray-900', icon: <AppleIcon /> },
-  { name: '네이버', connected: false, bg: 'bg-[#03C75A]', icon: <NaverIcon /> },
+const SOCIAL_PROVIDERS = [
+  { key: 'kakao', name: '카카오', bg: 'bg-[#FEE500]', icon: <KakaoIcon /> },
+  { key: 'google', name: 'Google', bg: 'bg-white border border-gray-200', icon: <GoogleIcon /> },
+  { key: 'apple', name: 'Apple', bg: 'bg-gray-900', icon: <AppleIcon /> },
+  { key: 'naver', name: '네이버', bg: 'bg-[#03C75A]', icon: <NaverIcon /> },
 ];
 
 export default function SettingsPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { window.scrollTo(0, 0); }, []);
-  const [name, setName] = useState(() => { try { return JSON.parse(localStorage.getItem('freetiful-user') || '{}').name || ''; } catch { return ''; } });
-  const [phone, setPhone] = useState(() => { try { return JSON.parse(localStorage.getItem('freetiful-user') || '{}').phone || ''; } catch { return ''; } });
-  const [images, setImages] = useState(MOCK_IMAGES);
+
+  const [name, setName] = useState(() => authUser?.name || '');
+  const [phone, setPhone] = useState(() => authUser?.phone || '');
+  const [profileImage, setProfileImage] = useState(() => authUser?.profileImageUrl || '');
+  const [saving, setSaving] = useState(false);
+
+  // 연결된 소셜 계정 (localStorage에서 로그인 provider 확인)
+  const [connectedProviders, setConnectedProviders] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
+      if (stored.provider) {
+        setConnectedProviders(new Set([stored.provider]));
+      }
+    } catch {}
+    // authUser가 있으면 이메일 기반이면 email, 아니면 provider
+    if (authUser?.email) {
+      // API에서 연결된 provider 목록을 가져올 수 있으면 좋지만, 일단 기본 표시
+      setConnectedProviders((prev) => new Set([...prev, 'email']));
+    }
+  }, [authUser]);
+
+  // Refund account state
   const [showBankForm, setShowBankForm] = useState(false);
   const [bank, setBank] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountHolder, setAccountHolder] = useState('');
   const [savedAccount, setSavedAccount] = useState<{ bank: string; number: string; holder: string } | null>(null);
+
+  // 프로필 사진 업로드
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('5MB 이하의 이미지만 업로드 가능합니다');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target?.result as string;
+      setProfileImage(url);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Save to localStorage
+      try {
+        const u = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
+        localStorage.setItem('freetiful-user', JSON.stringify({ ...u, name, phone }));
+      } catch {}
+      // Save to API
+      if (authUser) {
+        const updated = await usersApi.updateProfile({
+          name,
+          phone: phone.replace(/\D/g, ''),
+          ...(profileImage.startsWith('data:') ? {} : { profileImageUrl: profileImage }),
+        });
+        setUser(updated);
+      }
+      toast.success('저장되었습니다');
+    } catch {
+      toast.error('저장에 실패했습니다');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  };
 
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
@@ -66,15 +132,35 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ─── Profile Images ──────────────────────────────────────────── */}
-      <div className="px-4 py-6">
-        <ImageUploader
-          images={images}
-          onChange={setImages}
-          maxImages={10}
-          minImages={4}
-          requireFace
-        />
+      {/* ─── Profile Photo ──────────────────────────────────────────── */}
+      <div className="flex justify-center py-8">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100">
+            {profileImage ? (
+              <img src={profileImage} alt="프로필" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="4" fill="#D1D5DB" />
+                  <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#D1D5DB" />
+                </svg>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute bottom-0 right-0 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
+          >
+            <Camera size={14} className="text-white" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="hidden"
+          />
+        </div>
       </div>
 
       <div className="h-1.5 bg-gray-50" />
@@ -84,16 +170,22 @@ export default function SettingsPage() {
         <p className="text-[13px] font-bold text-gray-500">기본 정보</p>
         <div>
           <label className="block text-[13px] font-bold text-gray-700 mb-1.5">이름</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input text-[16px]" />
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input text-[16px]" placeholder="이름을 입력하세요" />
         </div>
         <div>
           <label className="block text-[13px] font-bold text-gray-700 mb-1.5">이메일</label>
-          <input type="email" value="campkjh@gmail.com" disabled className="input text-[16px] bg-gray-50 text-gray-400 cursor-not-allowed" />
+          <input type="email" value={authUser?.email || ''} disabled className="input text-[16px] bg-gray-50 text-gray-400 cursor-not-allowed" />
           <p className="text-[11px] text-gray-400 mt-1.5 flex items-center gap-1"><Lock size={10} /> 이메일은 변경할 수 없습니다</p>
         </div>
         <div>
           <label className="block text-[13px] font-bold text-gray-700 mb-1.5">전화번호</label>
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="input text-[16px]" />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            className="input text-[16px]"
+            placeholder="010-0000-0000"
+          />
         </div>
       </div>
 
@@ -102,26 +194,36 @@ export default function SettingsPage() {
       {/* ─── Linked Accounts ─────────────────────────────────────────── */}
       <div className="px-4 py-5 space-y-3">
         <p className="text-[13px] font-bold text-gray-500 flex items-center gap-1"><Link2 size={12} /> 연결된 계정</p>
-        {SOCIAL_ACCOUNTS.map((acc) => (
-          <div key={acc.name} className="flex items-center justify-between py-2.5">
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-full ${acc.bg} flex items-center justify-center`}>
-                {acc.icon}
+        {SOCIAL_PROVIDERS.map((acc) => {
+          const isConnected = connectedProviders.has(acc.key);
+          return (
+            <div key={acc.key} className="flex items-center justify-between py-2.5">
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full ${acc.bg} flex items-center justify-center`}>
+                  {acc.icon}
+                </div>
+                <div>
+                  <p className="text-[14px] font-semibold text-gray-900">{acc.name}</p>
+                  <p className="text-[11px] text-gray-400">{isConnected ? '연결됨' : '미연결'}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[14px] font-semibold text-gray-900">{acc.name}</p>
-                <p className="text-[11px] text-gray-400">{acc.connected ? '연결됨' : '미연결'}</p>
-              </div>
+              <button
+                onClick={() => {
+                  if (isConnected) {
+                    toast('소셜 계정 연결 해제는 고객센터에서 가능합니다', { icon: 'ℹ️' });
+                  } else {
+                    toast('추가 소셜 계정 연결은 준비 중입니다', { icon: '🔗' });
+                  }
+                }}
+                className={`text-[12px] font-bold px-4 py-2 rounded-full transition-colors active:scale-95 ${
+                  isConnected ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-gray-800'
+                }`}
+              >
+                {isConnected ? '연결됨' : '연결하기'}
+              </button>
             </div>
-            <button
-              className={`text-[12px] font-bold px-4 py-2 rounded-full transition-colors active:scale-95 ${
-                acc.connected ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-gray-800'
-              }`}
-            >
-              {acc.connected ? '연결 해제' : '연결하기'}
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="h-1.5 bg-gray-50" />
@@ -154,6 +256,7 @@ export default function SettingsPage() {
                   if (!bank || !accountNumber || !accountHolder) return;
                   setSavedAccount({ bank, number: accountNumber, holder: accountHolder });
                   setShowBankForm(false);
+                  toast.success('계좌가 등록되었습니다');
                 }}
                 className="flex-1 h-11 bg-gray-900 text-white font-bold rounded-xl text-[14px] active:scale-[0.98]"
               >
@@ -171,13 +274,39 @@ export default function SettingsPage() {
 
       {/* ─── Save ────────────────────────────────────────────────────── */}
       <div className="px-4 py-6">
-        <button className="w-full h-[52px] bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl active:scale-[0.98] transition-all">
-          저장하기
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full h-[52px] bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
+        >
+          {saving ? '저장 중...' : '저장하기'}
         </button>
       </div>
 
       <div className="px-4 pb-10 text-center">
-        <button className="text-[12px] text-gray-400 underline">회원 탈퇴</button>
+        <button
+          onClick={() => {
+            if (!confirm('정말 탈퇴하시겠습니까?\n탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.')) return;
+            if (!confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+            if (authUser) {
+              usersApi.deleteAccount()
+                .then(() => {
+                  useAuthStore.getState().logout();
+                  localStorage.clear();
+                  toast.success('회원 탈퇴가 완료되었습니다');
+                  router.push('/');
+                })
+                .catch(() => toast.error('탈퇴 처리에 실패했습니다'));
+            } else {
+              localStorage.clear();
+              toast.success('회원 탈퇴가 완료되었습니다');
+              router.push('/');
+            }
+          }}
+          className="text-[13px] text-red-400 font-medium"
+        >
+          회원 탈퇴
+        </button>
       </div>
     </div>
   );

@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff, Check } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { emailRegister } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,9 +31,11 @@ export default function SignupPage() {
     e.preventDefault();
     if (!canSubmit) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    router.push('/onboarding');
+    try {
+      await emailRegister({ email, password, name: '' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

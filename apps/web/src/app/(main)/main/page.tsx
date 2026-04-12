@@ -7,6 +7,9 @@ import toast from 'react-hot-toast';
 import { motion, LayoutGroup } from 'framer-motion';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { discoveryApi } from '@/lib/api/discovery.api';
+import { favoriteApi } from '@/lib/api/favorite.api';
 
 /* ─── Scroll Reveal Hook ──────────────────────────────────── */
 function useReveal(threshold = 0.15) {
@@ -659,6 +662,40 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
 }
 
 export default function HomePage() {
+  const authUser = useAuthStore((s) => s.user);
+  const [apiPros, setApiPros] = useState<typeof MOCK_PROS | null>(null);
+
+  // Fetch pro list from API
+  useEffect(() => {
+    discoveryApi.getProList({ limit: 41, sort: 'rating' })
+      .then((res) => {
+        if (res.data?.length > 0) {
+          setApiPros(res.data.map((p: any, i: number) => ({
+            id: p.id,
+            name: p.name,
+            category: 'MC',
+            role: '사회자',
+            region: '전국',
+            rating: p.avgRating,
+            reviews: p.reviewCount,
+            pudding: i + 1,
+            image: p.images?.[0] || p.profileImageUrl || '',
+            images: p.images || [],
+            intro: p.shortIntro || '',
+            price: p.basePrice || 450000,
+            experience: p.careerYears || 0,
+            tags: p.isFeatured ? ['인기', '추천'] : ['전국가능'],
+            available: true,
+            youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Use API data if available, otherwise mock
+  const prosData = apiPros || MOCK_PROS;
+
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
@@ -728,9 +765,13 @@ export default function HomePage() {
       } catch {}
       return next;
     });
+    // Sync to API if authenticated
+    if (authUser) {
+      favoriteApi.toggle(proId).catch(() => {});
+    }
     // Trigger fly animation when adding to favorites
     if (isAdding) {
-      const pro = MOCK_PROS.find((p) => p.id === proId);
+      const pro = prosData.find((p) => p.id === proId);
       if (pro) {
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         triggerFavoriteAnimation({

@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Camera, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { addPoints } from '@/lib/points';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { reviewApi } from '@/lib/api/review.api';
 
 const BRAND = '#3180F7';
 
@@ -62,6 +64,27 @@ function MiniStars({ value, onChange, label }: { value: number; onChange: (v: nu
 export default function WriteReviewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // 결제 완료 건 확인 — 없으면 리뷰 작성 불가
+  useEffect(() => {
+    if (!authUser) {
+      setCheckingAuth(false);
+      return;
+    }
+    import('@/lib/api/client').then(({ apiClient }) => {
+      apiClient.get('/api/v1/payment', { params: { limit: 100 } })
+        .then((res) => {
+          const payments = res.data?.data || [];
+          const valid = payments.find((p: any) => p.status === 'completed' && !p.reviewId);
+          if (valid) setPaymentId(valid.id);
+        })
+        .catch(() => {})
+        .finally(() => setCheckingAuth(false));
+    });
+  }, [authUser]);
 
   const [overallRating, setOverallRating] = useState(0);
   const [scores, setScores] = useState<Record<string, number>>(
@@ -117,11 +140,56 @@ export default function WriteReviewPage() {
     existing.unshift(review);
     localStorage.setItem('freetiful-reviews', JSON.stringify(existing));
 
+    // Save to API if authenticated
+    if (authUser) {
+      try {
+        await reviewApi.create({
+          proProfileId: id || '',
+          paymentId: paymentId || '',
+          ratingSatisfaction: scores['만족도'] || overallRating,
+          ratingComposition: scores['구성력'] || 0,
+          ratingExperience: scores['경력'] || 0,
+          ratingAppearance: scores['이미지'] || 0,
+          ratingVoice: scores['발성'] || 0,
+          ratingWit: scores['위트'] || 0,
+          comment: content.trim(),
+          isAnonymous: true,
+        });
+      } catch { /* fallback to localStorage only */ }
+    }
+
     await new Promise(r => setTimeout(r, 1000));
     addPoints('review_write', 500, '리뷰 작성 적립');
     setSubmitting(false);
     setShowSuccess(true);
   };
+
+  // 로딩 중
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="w-6 h-6 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // 결제 완료 건 없으면 접근 차단
+  if (authUser && !paymentId) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-8">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" fill="#D1D5DB"/>
+          </svg>
+        </div>
+        <p className="text-[17px] font-bold text-gray-900 mb-1">리뷰 작성 불가</p>
+        <p className="text-[14px] text-gray-400 text-center mb-6">이 사회자와 행사를 진행하고<br/>결제가 완료된 후 리뷰를 작성할 수 있습니다.</p>
+        <button onClick={() => router.back()} className="bg-gray-900 text-white font-semibold text-[14px] px-6 py-3 rounded-xl">
+          돌아가기
+        </button>
+      </div>
+    );
+  }
 
   // Success page
   if (showSuccess) {
