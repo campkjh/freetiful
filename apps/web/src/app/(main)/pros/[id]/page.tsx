@@ -349,17 +349,19 @@ function CompanyLogoCarousel() {
   const [logos, setLogos] = useState<string[]>([]);
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('proRegister_selectedCategories');
+      // companyLogos 또는 selectedCategories에서 읽기
+      const saved = localStorage.getItem('proRegister_companyLogos') || localStorage.getItem('proRegister_selectedCategories');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) setLogos(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string' && parsed[0].startsWith('/images/')) {
+          setLogos(parsed);
+        }
       }
     } catch {}
   }, []);
 
   if (logos.length === 0) return null;
 
-  // 로고를 3번 반복해서 무한 스크롤 효과
   const repeated = [...logos, ...logos, ...logos];
 
   return (
@@ -373,7 +375,7 @@ function CompanyLogoCarousel() {
       >
         {repeated.map((logo, i) => (
           <div key={i} className="shrink-0 h-[28px] w-[72px] flex items-center justify-center opacity-40 grayscale">
-            <img src={logo} alt="" className="max-h-full max-w-full object-contain" />
+            <img src={encodeURI(logo)} alt="" className="max-h-full max-w-full object-contain" />
           </div>
         ))}
       </div>
