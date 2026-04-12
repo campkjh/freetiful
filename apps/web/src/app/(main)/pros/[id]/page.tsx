@@ -511,6 +511,10 @@ export default function ProDetailPage() {
   };
 
   const handlePurchase = () => {
+    if (localStorage.getItem('freetiful-logged-in') !== 'true') {
+      router.push('/my');
+      return;
+    }
     router.push(`/pros/${pro.id}/booking`);
   };
 
@@ -527,6 +531,32 @@ export default function ProDetailPage() {
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
+
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 300); return () => clearTimeout(t); }, []);
+
+  if (loading) {
+    return (
+      <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
+        {/* Gallery skeleton */}
+        <div className="skeleton" style={{ width: '100%', aspectRatio: '1/1', borderRadius: 0 }} />
+        {/* Info skeleton */}
+        <div className="px-4 pt-4">
+          <div className="skeleton mb-2" style={{ width: 60, height: 20, borderRadius: 10 }} />
+          <div className="skeleton mb-2" style={{ width: '80%', height: 22 }} />
+          <div className="skeleton mb-3" style={{ width: '50%', height: 14 }} />
+          <div className="skeleton mb-2" style={{ width: '60%', height: 28 }} />
+          <div className="flex gap-2 mt-4 mb-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="skeleton" style={{ width: 70, height: 32, borderRadius: 16 }} />
+            ))}
+          </div>
+          <div className="skeleton mb-2" style={{ width: '100%', height: 100 }} />
+          <div className="skeleton mb-2" style={{ width: '100%', height: 100 }} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
@@ -1201,7 +1231,7 @@ export default function ProDetailPage() {
             )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
-                onClick={() => { setShowTooltip(false); router.push(`/chat/${pro.id}`); }}
+                onClick={() => { setShowTooltip(false); if (localStorage.getItem('freetiful-logged-in') !== 'true') { router.push('/my'); return; } router.push(`/chat/${pro.id}`); }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
               >
                 문의하기

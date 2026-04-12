@@ -233,6 +233,10 @@ function QuotePage() {
   const timeDisplay = timeStart && timeEnd ? `${timeStart} ~ ${timeEnd}` : timeStart || '';
 
   const handleSubmitClick = () => {
+    if (localStorage.getItem('freetiful-logged-in') !== 'true') {
+      router.push('/my');
+      return;
+    }
     setShowConfirmModal(true);
   };
 

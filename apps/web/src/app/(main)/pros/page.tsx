@@ -173,6 +173,41 @@ function ProsListContent() {
   const hasActiveFilters = selectedRegion !== '전체' || selectedPrice !== 0 || selectedLang !== '전체' || selectedType !== '전체';
   const activeFilterCount = (selectedRegion !== '전체' ? 1 : 0) + (selectedPrice !== 0 ? 1 : 0) + (selectedLang !== '전체' ? 1 : 0) + (selectedType !== '전체' ? 1 : 0);
 
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 300); return () => clearTimeout(t); }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white px-4 pt-14" style={{ letterSpacing: '-0.02em' }}>
+        {/* Header skeleton */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="skeleton" style={{ width: 24, height: 24 }} />
+          <div className="skeleton" style={{ width: 80, height: 20 }} />
+        </div>
+        {/* Filter chips skeleton */}
+        <div className="flex gap-2 mb-5">
+          {[50, 70, 50, 50, 50].map((w, i) => (
+            <div key={i} className="skeleton" style={{ width: w, height: 32, borderRadius: 16 }} />
+          ))}
+        </div>
+        {/* List item skeletons */}
+        <div className="space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex gap-3">
+              <div className="skeleton shrink-0" style={{ width: 100, height: 100, borderRadius: 12 }} />
+              <div className="flex-1 py-1">
+                <div className="skeleton mb-2" style={{ width: '60%', height: 16 }} />
+                <div className="skeleton mb-2" style={{ width: '80%', height: 12 }} />
+                <div className="skeleton mb-2" style={{ width: '40%', height: 12 }} />
+                <div className="skeleton" style={{ width: '30%', height: 14 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}

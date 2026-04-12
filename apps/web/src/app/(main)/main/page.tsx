@@ -761,6 +761,42 @@ export default function HomePage() {
 
   const onlinePros = MOCK_PROS.filter((p) => p.id in PRO_ONLINE_STATUS).slice(0, 20);
 
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setLoading(false), 300); return () => clearTimeout(t); }, []);
+
+  if (loading) {
+    return (
+      <div className="bg-white min-h-screen w-full px-4 pt-16">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="skeleton" style={{ width: 100, height: 28 }} />
+          <div className="flex gap-2">
+            <div className="skeleton" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+            <div className="skeleton" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+          </div>
+        </div>
+        {/* Banner skeleton */}
+        <div className="skeleton mb-6" style={{ width: '100%', height: 160 }} />
+        {/* Category chips skeleton */}
+        <div className="flex gap-2 mb-6">
+          {[80, 60, 70, 90].map((w, i) => (
+            <div key={i} className="skeleton" style={{ width: w, height: 36, borderRadius: 18 }} />
+          ))}
+        </div>
+        {/* Card skeletons */}
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i}>
+              <div className="skeleton mb-2" style={{ width: '100%', height: 180 }} />
+              <div className="skeleton mb-1" style={{ width: '70%', height: 14 }} />
+              <div className="skeleton" style={{ width: '50%', height: 12 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white min-h-screen w-full">
       {/* ─── Mobile Header (Fixed, single row: logo + search + bell) ── */}

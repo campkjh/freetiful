@@ -112,6 +112,8 @@ export default function BookingPage() {
   const [extraQty, setExtraQty] = useState<Record<string, number>>(
     Object.fromEntries(EXTRA_OPTIONS.map((o) => [o.id, 0]))
   );
+  const [showPlanSelector, setShowPlanSelector] = useState(false);
+  const optionSectionRef = useRef<HTMLDivElement>(null);
   const [venueAddress, setVenueAddress] = useState('');
   const [venueDetail, setVenueDetail] = useState('');
   const [showMapSearch, setShowMapSearch] = useState(false);
@@ -182,6 +184,10 @@ export default function BookingPage() {
   };
 
   const handleBook = () => {
+    if (localStorage.getItem('freetiful-logged-in') !== 'true') {
+      router.push('/my');
+      return;
+    }
     if (selectedSlots.length === 0) {
       toast.error('희망 시간을 선택해주세요');
       return;
@@ -212,11 +218,36 @@ export default function BookingPage() {
       </div>
 
       {/* ─── Option Card ─── */}
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-4" ref={optionSectionRef}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-[14px] font-bold text-gray-900">옵션 선택</span>
-          <button className="px-3 h-[30px] rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700">변경</button>
+          <button
+            onClick={() => setShowPlanSelector((v) => !v)}
+            className="px-3 h-[30px] rounded-lg border border-gray-200 text-[12px] font-medium text-gray-700 active:bg-gray-50 transition-colors"
+          >
+            변경
+          </button>
         </div>
+
+        {/* Plan selector */}
+        {showPlanSelector && (
+          <div className="mb-3 space-y-2">
+            {PLAN_OPTIONS.map((plan) => (
+              <button
+                key={plan.id}
+                onClick={() => { setSelectedOption(plan); setShowPlanSelector(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
+                  selectedOption.id === plan.id
+                    ? 'border-[#3180F7] bg-[#EAF3FF]'
+                    : 'border-gray-200 bg-white active:bg-gray-50'
+                }`}
+              >
+                <span className={`text-[14px] font-medium ${selectedOption.id === plan.id ? 'text-[#3180F7] font-bold' : 'text-gray-700'}`}>{plan.name}</span>
+                <span className={`text-[14px] font-bold ${selectedOption.id === plan.id ? 'text-[#3180F7]' : 'text-gray-900'}`}>{plan.finalPrice.toLocaleString()}원</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="border border-gray-200 rounded-2xl p-4">
           {/* 프로필 + 정보 */}
