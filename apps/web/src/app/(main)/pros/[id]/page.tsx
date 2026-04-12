@@ -763,7 +763,7 @@ export default function ProDetailPage() {
             </div>
             {pro.isPrime && (
               <span className="flex items-center gap-1 bg-[#3180F7]/10 text-[#3180F7] text-[11px] font-bold px-2.5 py-1 rounded-full">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 1l2.39 3.17L18 3.48l.69 3.61 3.17 2.39L20.52 13l1.34 3.43-3.17 2.39L18 22.43l-3.61-.69L12 23l-2.39-3.17L6 20.52l-.69-3.61L2.14 14.52 3.48 11 2.14 7.57l3.17-2.39L6 1.57l3.61.69L12 1z" fill="#3180F7"/><path d="M8.5 12.5l2.5 2.5 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <img src={encodeURI('/images/인증 전문가.svg')} alt="" width={14} height={14} className="shrink-0" />
                 인증 전문가
               </span>
             )}
