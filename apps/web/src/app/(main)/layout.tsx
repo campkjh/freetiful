@@ -288,7 +288,21 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               ].map(({ provider, label, cls, icon, delay }) => (
                 <button
                   key={provider}
-                  onClick={() => { router.push('/login'); setShowLoginModal(false); }}
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                    const KAKAO_KEY = 'dca1b472188890116c81a55eff590885';
+                    const NAVER_KEY = 'R4WM7ZyC8hHuE_O7qLdy';
+                    if (provider === 'kakao') {
+                      window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/kakao/callback')}&response_type=code`;
+                    } else if (provider === 'naver') {
+                      const state = Math.random().toString(36).substring(7);
+                      sessionStorage.setItem('naver_state', state);
+                      window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/naver/callback')}&response_type=code&state=${state}`;
+                    } else {
+                      router.push('/login');
+                    }
+                  }}
                   className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.96] transition-transform animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]`}
                   style={{ animationDelay: delay }}
                 >

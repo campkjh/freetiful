@@ -350,8 +350,21 @@ export default function BizPage() {
       return;
     }
     setSending(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    toast.success('문의가 접수되었습니다. 1~2영업일 내 연락드리겠습니다.');
+
+    // mailto로 문의 메일 발송
+    const subject = encodeURIComponent(`[Biz 문의] ${inquiry.type || '기업 문의'} - ${inquiry.company || '회사명 미입력'}`);
+    const body = encodeURIComponent(
+      `회사명: ${inquiry.company || '-'}\n` +
+      `담당자: ${inquiry.name}\n` +
+      `연락처: ${inquiry.phone}\n` +
+      `이메일: ${inquiry.email || '-'}\n` +
+      `문의 유형: ${inquiry.type || '-'}\n\n` +
+      `문의 내용:\n${inquiry.message}`
+    );
+    window.location.href = `mailto:support@freetiful.com?subject=${subject}&body=${body}`;
+
+    await new Promise((r) => setTimeout(r, 500));
+    toast.success('이메일 앱이 열립니다. 문의를 보내주세요!');
     setInquiry({ company: '', name: '', phone: '', email: '', type: '', message: '' });
     setSending(false);
   }
