@@ -701,8 +701,10 @@ export default function BizPage() {
       </section>
 
       {/* ═══ 핵심서비스 섹션 삭제됨 ═══════════════════════════════ */}
-      <section id="핵심서비스" className="hidden">
+      <section id="핵심서비스" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[1100px] px-6">
+          {/* CORE SERVICES 타이틀 + 카드 숨김 */}
+          <div className="hidden">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">CORE SERVICES</p></Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
@@ -776,6 +778,7 @@ export default function BizPage() {
               </div>
             );
           })()}
+          </div>{/* hidden 끝 */}
 
           {/* 홍보 영상 2개 교차 배치 */}
           <div className="mt-24">
