@@ -560,7 +560,7 @@ export default function ProDashboardPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7 + i * 0.08 }}
-              className="border-b border-gray-100 pb-4 last:border-0"
+              className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm"
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-2">

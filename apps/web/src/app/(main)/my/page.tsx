@@ -250,7 +250,7 @@ const MENU_SECTIONS = [
       { href: '/my/purchase-history', icon: () => <ImgIcon src="/images/구매 내역.svg" />, label: '구매 내역' },
       { href: '/my/payment-history', icon: IconHistory, label: '결제/환불 내역' },
       { href: '/my/points', icon: () => <ImgIcon src="/images/포인트.svg" />, label: '포인트', badge: '' },
-      { href: '/my/coupons', icon: () => <ImgIcon src="/images/쿠폰.svg" />, label: '쿠폰', badge: '2장' },
+      { href: '/my/coupons', icon: () => <ImgIcon src="/images/쿠폰.svg" />, label: '쿠폰' },
     ],
   },
   {
@@ -290,11 +290,23 @@ export default function MyPage() {
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
   const [isPro, setIsPro] = useState(false);
+  const [couponCount, setCouponCount] = useState(0);
+  const [favoritesCount, setFavoritesCount] = useState(0);
 
   useEffect(() => {
     if (!isLoggedIn) return;
     setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
     setIsPro(localStorage.getItem('userRole') === 'pro');
+    // Dynamic coupon count
+    try {
+      const coupons = JSON.parse(localStorage.getItem('freetiful-coupons') || '[]');
+      setCouponCount(Array.isArray(coupons) ? coupons.length : 0);
+    } catch { setCouponCount(0); }
+    // Dynamic favorites count
+    try {
+      const favs = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+      setFavoritesCount(Array.isArray(favs) ? favs.length : 0);
+    } catch { setFavoritesCount(0); }
   }, [isLoggedIn]);
 
   const handlePartnerApply = () => {
@@ -519,12 +531,12 @@ export default function MyPage() {
           </Link>
           <div className="w-px bg-gray-100" />
           <Link href="/my/coupons" className="flex-1 py-2 text-center">
-            <p className="text-[17px] font-bold text-gray-900">{user.coupons}</p>
+            <p className="text-[17px] font-bold text-gray-900">{couponCount}</p>
             <p className="text-[11px] text-gray-400 mt-0.5">쿠폰</p>
           </Link>
           <div className="w-px bg-gray-100" />
           <Link href="/favorites" className="flex-1 py-2 text-center">
-            <p className="text-[17px] font-bold text-gray-900">3</p>
+            <p className="text-[17px] font-bold text-gray-900">{favoritesCount}</p>
             <p className="text-[11px] text-gray-400 mt-0.5">찜</p>
           </Link>
         </div>
@@ -563,6 +575,33 @@ export default function MyPage() {
             <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
           </div>
           {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
+            // Partner registration conditional logic
+            if (action === 'partner') {
+              const regStatus = typeof window !== 'undefined' ? localStorage.getItem('proRegistrationComplete') : null;
+              // If approved, hide entirely
+              if (regStatus === 'true' || regStatus === 'approved') return null;
+              // If pending, show disabled with badge
+              if (regStatus === 'pending') {
+                return (
+                  <div key={label} className="flex items-center gap-3 px-4 py-2.5 w-full opacity-50 cursor-not-allowed">
+                    <Icon />
+                    <span className="flex-1 text-[14px] text-gray-400">{label}</span>
+                    <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full bg-blue-500">심사 중</span>
+                    <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                  </div>
+                );
+              }
+              // Not submitted, show normally
+              return (
+                <button key={label} onClick={handlePartnerApply} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
+                  <Icon />
+                  <span className="flex-1 text-[14px] text-gray-900">{label}</span>
+                  {badge && <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#2B313D' }}>{badge}</span>}
+                  <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                </button>
+              );
+            }
+
             const displayBadge = label === '포인트' ? `${user.points.toLocaleString()}P` : badge;
             const inner = (
               <>
@@ -573,13 +612,6 @@ export default function MyPage() {
               </>
             );
 
-            if (action === 'partner') {
-              return (
-                <button key={label} onClick={handlePartnerApply} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
-                  {inner}
-                </button>
-              );
-            }
             if (action === 'general') {
               return (
                 <button key={label} onClick={handleGeneralMode} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
