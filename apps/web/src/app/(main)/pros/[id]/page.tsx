@@ -705,7 +705,10 @@ export default function ProDetailPage() {
               <p className="text-[18px] font-bold text-gray-900">사회자 {pro.name}</p>
             </div>
             {pro.isPrime && (
-              <img src="/images/partners-badge.svg" alt="Partners" className="h-[24px]" />
+              <span className="flex items-center gap-1 bg-[#3180F7]/10 text-[#3180F7] text-[11px] font-bold px-2.5 py-1 rounded-full">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="#3180F7"/><path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                인증 전문가
+              </span>
             )}
           </div>
         </Reveal>
