@@ -91,12 +91,16 @@ function ProsListContent() {
   const categoryParam = searchParams.get('category') || '';
   const isForeignFilter = categoryParam === '외국어사회자';
 
+  // 카테고리 파라미터에 따라 초기 필터 설정
+  const initialType = categoryParam === '축가·연주' ? '축가/연주' : categoryParam === '쇼호스트' ? '쇼호스트' : '전체';
+  const initialLang = isForeignFilter ? '전체' : '전체'; // 외국어사회자는 별도 처리
+
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('pudding_rank');
-  const [showFilter, setShowFilter] = useState(false);
+  const [showFilter, setShowFilter] = useState(!!categoryParam);
   const [selectedPrice, setSelectedPrice] = useState(0);
-  const [selectedLang, setSelectedLang] = useState('전체');
-  const [selectedType, setSelectedType] = useState('전체');
+  const [selectedLang, setSelectedLang] = useState(isForeignFilter ? '영어' : '전체');
+  const [selectedType, setSelectedType] = useState(initialType);
   const [page, setPage] = useState(1);
   const [scrolled, setScrolled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -131,9 +135,6 @@ function ProsListContent() {
     const priceRange = PRICE_RANGES[selectedPrice];
     const q = searchQuery.trim().toLowerCase();
     let results = MOCK_PROS.filter((p) => {
-      if (isForeignFilter && !FOREIGN_LANG_PRO_IDS.includes(p.id)) return false;
-      if (categoryParam === '축가·연주' && !SINGER_PRO_IDS.includes(p.id)) return false;
-      if (categoryParam && categoryParam !== '외국어사회자' && categoryParam !== '축가·연주' && p.category !== categoryParam && p.role !== categoryParam) return false;
       if (selectedLang !== '전체' && !(PRO_LANGUAGES[p.id]?.includes(selectedLang))) return false;
       if (selectedType === '축가/연주' && !SINGER_PRO_IDS.includes(p.id)) return false;
       if (selectedType !== '전체' && selectedType !== '축가/연주' && p.role !== selectedType && p.category !== selectedType) return false;
@@ -165,7 +166,7 @@ function ProsListContent() {
     }
 
     return results;
-  }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType, isForeignFilter, categoryParam]);
+  }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType]);
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;
@@ -214,7 +215,7 @@ function ProsListContent() {
                 exit={{ opacity: 0 }}
                 className="text-[18px] font-bold text-gray-900 truncate"
               >
-                {isForeignFilter ? '외국어 사회자' : categoryParam || '사회자'}
+                {selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
               </motion.h1>
             )}
           </AnimatePresence>
