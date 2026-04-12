@@ -60,7 +60,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const isLoggedIn = localStorage.getItem('freetiful-logged-in');
     if (isLoggedIn !== 'true') {
-      router.replace('/login');
+      router.replace('/');
       return;
     }
     setIsPro(localStorage.getItem('userRole') === 'pro');
