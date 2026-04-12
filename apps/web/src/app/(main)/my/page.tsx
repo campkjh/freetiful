@@ -210,35 +210,35 @@ const PRO_MENU_SECTIONS = [
   {
     title: '수익 관리',
     items: [
-      { href: '/my/revenue', icon: ProIconRevenue, label: '매출 내역' },
-      { href: '/my/settlement', icon: ProIconSettle, label: '정산 내역' },
-      { href: '/my/bank', icon: ProIconBank, label: '계좌 관리' },
+      { href: '/my/revenue', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/매출 내역.svg" />, label: '매출 내역' },
+      { href: '/my/settlement', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/정산 내역.svg" />, label: '정산 내역' },
+      { href: '/my/bank', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/계좌 관리.svg" />, label: '계좌 관리' },
     ],
   },
   {
     title: '프로필 관리',
     items: [
-      { href: '/my/pro-edit', icon: ProIconProfile, label: '프로필 수정' },
+      { href: '/my/pro-edit', icon: () => <ImgIcon src="/images/프로필 설정.svg" />, label: '프로필 수정' },
     ],
   },
   {
     title: '푸딩',
     items: [
-      { href: '/my/pudding-history', icon: ProIconPudding, label: '푸딩 내역' },
-      { href: '/my/pudding-ranking', icon: ProIconRanking, label: '랭킹 보기' },
+      { href: '/my/pudding-history', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/푸딩 내역.svg" />, label: '푸딩 내역' },
+      { href: '/my/pudding-ranking', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/랭킹 보기.svg" />, label: '랭킹 보기' },
     ],
   },
   {
     title: '고객센터',
     items: [
-      { href: 'tel:02-1234-5678', icon: ProIconPhone, label: '전화문의' },
+      { href: 'tel:02-1234-5678', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/전화문의.svg" />, label: '전화문의' },
     ],
   },
   {
     title: '기타',
     items: [
-      { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
-      { href: '#', icon: ProIconSwitch, label: '일반유저 전환', action: 'switchToGeneral' },
+      { href: '/my/terms', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/약관 및 정책.svg" />, label: '약관 및 정책' },
+      { href: '#', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/일반회원 전환.svg" />, label: '일반유저 전환', action: 'switchToGeneral' },
     ],
   },
 ];
