@@ -362,10 +362,10 @@ export default function ProDashboardPage() {
         className="px-4 mt-5 grid grid-cols-2 gap-3"
       >
         {[
-          { icon: <DocumentDetailedIcon />, label: '새 견적요청', value: `${pendingQuotes.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/quotes' },
-          { icon: <MoneyDetailedIcon />, label: '이번달 매출', value: '₩2,400,000', bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
-          { icon: <EyeDetailedIcon />, label: '프로필 조회', value: '328회', bg: 'bg-purple-50', href: '/pro-dashboard/views' },
-          { icon: <StarDetailedIcon />, label: '평균 평점', value: '4.8', bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
+          { icon: <img src="/images/새 견적요청.svg" alt="" width={24} height={24} />, label: '새 견적요청', value: `${pendingQuotes.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/quotes' },
+          { icon: <img src="/images/이번달 매출.svg" alt="" width={24} height={24} />, label: '이번달 매출', value: '₩2,400,000', bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
+          { icon: <img src="/images/프로필 조회.svg" alt="" width={24} height={24} />, label: '프로필 조회', value: '328회', bg: 'bg-purple-50', href: '/pro-dashboard/views' },
+          { icon: <img src="/images/평균 평점.svg" alt="" width={24} height={24} />, label: '평균 평점', value: '4.8', bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
         ].map((stat, i) => (
           <motion.div key={i} variants={fadeUp}>
             <Link href={stat.href}>
