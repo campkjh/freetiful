@@ -296,72 +296,27 @@ export default function ClientsPage() {
         </div>
       </section>
 
-      {/* ═══ Client Grid ═══════════════════════════════════════ */}
+      {/* ═══ Partner Logo Grid ═══════════════════════════════════ */}
       <section className="py-24 bg-gray-50/60">
         <div className="mx-auto max-w-[1100px] px-6">
           <Reveal>
             <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">PARTNERS</p>
           </Reveal>
           <Reveal delay={100}>
-            <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">주요 고객사</h2>
+            <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">파트너사</h2>
+          </Reveal>
+          <Reveal delay={200}>
+            <p className="mt-3 text-[15px] text-gray-400 max-w-[500px]">프리티풀과 함께 성장하는 기업들입니다</p>
           </Reveal>
 
-          {/* Category Tabs */}
-          <Reveal delay={150}>
-            <div className="flex flex-wrap gap-2 mt-10 mb-10">
-              {CLIENT_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`px-4 py-2 text-[13px] font-medium rounded-full transition-all ${
-                    activeCategory === cat.id
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          </Reveal>
-
-          {/* Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {filteredClients.map((client, i) => (
-              <Reveal key={`${activeCategory}-${client.name}`} delay={i * 40}>
-                <div className="group bg-white border border-gray-100 rounded-2xl p-5 text-center transition-all duration-300 hover:border-gray-200 hover:shadow-md h-full flex flex-col items-center justify-center">
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${client.color} flex items-center justify-center mb-3 transition-transform duration-300 group-hover:scale-110 shadow-sm`}>
-                    <span className="text-[16px] font-black text-white leading-none">
-                      {client.name.charAt(0)}
-                    </span>
-                  </div>
-                  <p className="text-[14px] font-bold text-gray-900">{client.name}</p>
-                  <p className="mt-1 text-[11px] text-gray-400">{client.desc}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ Partner Logos ═══════════════════════════════════════ */}
-      <section className="py-16 bg-gray-50">
-        <div className="mx-auto max-w-[1100px] px-6">
-          <Reveal>
-            <div className="text-center mb-10">
-              <p className="text-[12px] font-bold tracking-widest text-blue-500 uppercase">Our Partners</p>
-              <h2 className="mt-2 text-[28px] font-bold text-gray-900">함께하는 파트너사</h2>
-              <p className="mt-2 text-[14px] text-gray-400">프리티풀과 함께 성장하는 기업들입니다</p>
-            </div>
-          </Reveal>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 mt-12">
             {PARTNER_LOGOS.map((logo, i) => (
-              <Reveal key={logo} delay={i * 20}>
-                <div className="bg-white border border-gray-100 rounded-xl p-3 flex items-center justify-center h-16 transition-all hover:shadow-md hover:border-gray-200">
+              <Reveal key={logo} delay={i * 15}>
+                <div className="group bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-center h-20 transition-all duration-300 hover:border-gray-200 hover:shadow-md">
                   <img
                     src={`/images/company-logos/${logo}`}
                     alt="파트너사 로고"
-                    className="max-h-8 max-w-full object-contain opacity-70 hover:opacity-100 transition-opacity"
+                    className="max-h-10 max-w-full object-contain opacity-60 group-hover:opacity-100 transition-opacity duration-300"
                   />
                 </div>
               </Reveal>
