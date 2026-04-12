@@ -120,22 +120,37 @@ export default function PhotosPage() {
     fileInputRef.current?.click();
   };
 
+  const [pendingFiles, setPendingFiles] = useState<string[]>([]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
-    if (!file.type.startsWith('image/')) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setCropImage(reader.result as string);
-      setCropFor('new');
-      setCrop({ x: 0, y: 0 });
-      setZoom(1);
-      setAspect(1);
-      setFaceError('');
-    };
-    reader.readAsDataURL(file);
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    // 1장이면 바로 크롭, 여러 장이면 크롭 없이 바로 추가
+    if (imageFiles.length === 1) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCropImage(reader.result as string);
+        setCropFor('new');
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+        setAspect(1);
+        setFaceError('');
+      };
+      reader.readAsDataURL(imageFiles[0]);
+    } else {
+      // 여러 장: 전부 읽어서 바로 추가
+      imageFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPhotos(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
     e.target.value = '';
   };
 
@@ -201,7 +216,7 @@ export default function PhotosPage() {
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
-      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+      <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
 
       {/* Header — fixed */}
       <div className="shrink-0 px-6 pt-4 pb-4 relative z-10">
