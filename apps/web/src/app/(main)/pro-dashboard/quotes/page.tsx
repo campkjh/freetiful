@@ -46,14 +46,7 @@ const CloseIcon = () => (
 );
 
 const EmptyIcon = () => (
-  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-    <rect x="8" y="4" width="32" height="40" rx="5" fill="#E5E7EB" />
-    <rect x="14" y="12" width="20" height="3" rx="1.5" fill="#D1D5DB" />
-    <rect x="14" y="19" width="14" height="3" rx="1.5" fill="#D1D5DB" />
-    <rect x="14" y="26" width="18" height="3" rx="1.5" fill="#D1D5DB" />
-    <path d="M30 4H35C37.76 4 40 6.24 40 9V4H30Z" fill="#D1D5DB" />
-    <path d="M30 4V10C30 11.1 30.9 12 32 12H40L30 4Z" fill="#F3F4F6" />
-  </svg>
+  <img src="/images/새 견적요청.svg" alt="" width={48} height={48} className="shrink-0" />
 );
 
 /* ─── Types ─── */

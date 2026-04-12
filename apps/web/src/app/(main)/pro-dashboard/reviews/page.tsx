@@ -22,10 +22,7 @@ const SmallStarIcon = ({ filled = true }: { filled?: boolean }) => (
 );
 
 const BigStarIcon = () => (
-  <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-    <path d="M18 3L22.09 11.26L31 12.77L24.5 19.09L26.18 27.97L18 23.67L9.82 27.97L11.5 19.09L5 12.77L13.91 11.26L18 3Z" fill="#FACC15" />
-    <path d="M18 3L22.09 11.26L31 12.77L24.5 19.09L26.18 27.97L18 23.67V3Z" fill="#EAB308" />
-  </svg>
+  <img src="/images/평균 평점.svg" alt="" width={36} height={36} className="shrink-0" />
 );
 
 const ReplyIcon = () => (

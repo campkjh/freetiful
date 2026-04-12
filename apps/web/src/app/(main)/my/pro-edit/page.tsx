@@ -123,7 +123,8 @@ export default function ProEditPage() {
     setMainPhotoIndex(parseInt(ls('proRegister_mainPhotoIndex', '0')) || 0);
     setSelectedCompanyLogos(lsJson('proRegister_companyLogos', []));
     setLanguages(lsJson('proRegister_languages', []));
-    setAwards(ls('proRegister_awards'));
+    const savedAwards = lsJson('proRegister_awards', []);
+    setAwards(Array.isArray(savedAwards) ? savedAwards.map((a: any) => typeof a === 'string' ? a : a.text || '').join('\n') : ls('proRegister_awards'));
     setVideoUrl(ls('proRegister_videoUrl'));
     setFaqItems(lsJson('proRegister_faq', []));
   }, []);

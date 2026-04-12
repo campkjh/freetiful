@@ -39,12 +39,7 @@ const ClockIcon = () => (
 );
 
 const MoneyBagIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-    <path d="M8 4L10 2L12 4" stroke="#3180F7" strokeWidth="1.5" strokeLinecap="round" />
-    <path d="M5 8C5 8 4 10 4 13C4 16 7 18 10 18C13 18 16 16 16 13C16 10 15 8 15 8H5Z" fill="#3180F7" />
-    <path d="M5 8C5 8 4 10 4 13C4 16 7 18 10 18V8H5Z" fill="#60A5FA" />
-    <text x="10" y="14.5" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="bold">W</text>
-  </svg>
+  <img src="/images/이번달 매출.svg" alt="" width={20} height={20} className="shrink-0" />
 );
 
 /* ─── Data ─── */

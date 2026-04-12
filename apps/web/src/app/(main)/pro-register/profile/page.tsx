@@ -1127,6 +1127,17 @@ export default function ProfilePage() {
               <motion.button
                 onClick={() => {
                   localStorage.setItem('proRegistrationComplete', 'pending');
+                  // 프로필 데이터 저장
+                  localStorage.setItem('proRegister_intro', intro);
+                  localStorage.setItem('proRegister_careerYears', careerYears);
+                  localStorage.setItem('proRegister_awards', JSON.stringify(awardList));
+                  localStorage.setItem('proRegister_companyLogos', JSON.stringify(selectedCategories));
+                  localStorage.setItem('proRegister_languages', JSON.stringify(selectedLanguages));
+                  localStorage.setItem('proRegister_videoUrl', videos.length > 0 ? videos[0] : '');
+                  localStorage.setItem('proRegister_faq', JSON.stringify(
+                    Object.entries(faqContents).map(([key, val]) => ({ q: key, a: val }))
+                  ));
+                  localStorage.setItem('proRegister_description', description);
                   setShowConfirm(false);
                   setShowSuccess(true);
                 }}

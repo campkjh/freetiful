@@ -12,13 +12,7 @@ const BackIcon = () => (
 );
 
 const EyeIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-    <path d="M14 7C7 7 2 14 2 14C2 14 7 21 14 21C21 21 26 14 26 14C26 14 21 7 14 7Z" fill="#A78BFA" />
-    <path d="M14 7C7 7 2 14 2 14C2 14 7 21 14 21V7Z" fill="#C4B5FD" />
-    <circle cx="14" cy="14" r="5" fill="#fff" />
-    <circle cx="14" cy="14" r="3" fill="#7C3AED" />
-    <circle cx="12.5" cy="12.5" r="1" fill="#fff" opacity="0.8" />
-  </svg>
+  <img src="/images/프로필 조회.svg" alt="" width={28} height={28} className="shrink-0" />
 );
 
 const UsersIcon = () => (
