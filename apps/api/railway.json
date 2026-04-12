@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "dockerfilePath": "apps/api/Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "node dist/main",
+    "healthcheckPath": "/api/v1/discovery/recommendation/daily",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
