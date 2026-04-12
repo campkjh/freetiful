@@ -213,7 +213,7 @@ const PRO_MENU_SECTIONS = [
   {
     title: '프로필 관리',
     items: [
-      { href: '/my/settings', icon: ProIconProfile, label: '프로필 수정' },
+      { href: '/my/pro-edit', icon: ProIconProfile, label: '프로필 수정' },
       { href: '/my/portfolio', icon: ProIconPortfolio, label: '포트폴리오 관리' },
       { href: '/my/pro-faq', icon: ProIconFAQ, label: 'FAQ 관리' },
     ],
