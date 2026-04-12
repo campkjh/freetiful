@@ -605,53 +605,64 @@ export default function BizPage() {
             ))}
           </div>
 
-          {/* 우리가 만드는 가치 (3 Values) */}
+          {/* 프리티풀 전문가들과 함께한 기업 */}
           <Reveal delay={100}>
-            <p className="mt-20 text-[11px] font-bold tracking-[0.4em] text-blue-500">OUR VALUE</p>
-            <h3 className="mt-3 text-[28px] font-black tracking-tight">우리가 만드는 가치</h3>
-          </Reveal>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {[
-              { icon: <Shield className="h-6 w-6" />, title: '검증 시스템', desc: '좋은 진행자는 운이 아니라 시스템에서 나옵니다. 프리티풀은 모든 진행자를 직접 검토하고 검증합니다. 누구나 등록할 수 있는 열린 플랫폼과는 다릅니다.', color: 'bg-blue-50 text-blue-500' },
-              { icon: <Award className="h-6 w-6" />, title: '맞춤 연결', desc: '진행자의 품격은 곧 고객의 브랜드가 됩니다. 고객의 니즈, 행사 성격을 파악하여 단순 섭외가 아닌 맞춤 연결을 추구합니다.', color: 'bg-violet-50 text-violet-500' },
-              { icon: <Heart className="h-6 w-6" />, title: '진행자 생태계', desc: '흩어져 있던 재능, 프리티풀이 모읍니다. 진행자라는 직업의 전문성을 인정하고, 안심하고 일하며 성장할 수 있는 환경을 만듭니다.', color: 'bg-rose-50 text-rose-500' },
-            ].map((item, i) => (
-              <Reveal key={i} delay={i * 100}>
-                <div className="group border border-gray-100 rounded-2xl p-6 transition-all duration-300 hover:border-gray-200 hover:shadow-sm">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${item.color} transition-transform duration-300 group-hover:scale-110`}>{item.icon}</div>
-                  <h3 className="mt-4 text-[17px] font-bold text-gray-900">{item.title}</h3>
-                  <p className="mt-2 text-[13px] leading-[1.8] text-gray-400">{item.desc}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          {/* 기업 정보 테이블 */}
-          <Reveal delay={100}>
-            <div className="mt-16 border border-gray-100 rounded-2xl overflow-hidden">
-              {[
-                ['회사명', COMPANY_INFO.name],
-                ['영문명', COMPANY_INFO.nameEn],
-                ['대표이사', COMPANY_INFO.ceo],
-                ['설립', COMPANY_INFO.established],
-                ['사업분야', COMPANY_INFO.business],
-                ['등록 전문가', COMPANY_INFO.experts],
-                ['주소', COMPANY_INFO.address],
-                ['대표전화', COMPANY_INFO.phone],
-                ['이메일', COMPANY_INFO.email],
-                ['웹사이트', COMPANY_INFO.website],
-              ].map(([label, value], i) => (
-                <div key={label} className={`flex px-6 py-4 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-                  <span className="text-[13px] font-semibold text-gray-400 w-[90px] shrink-0">{label}</span>
-                  <span className="text-[13px] text-gray-700">{value}</span>
-                </div>
-              ))}
+            <div className="mt-20">
+              <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">OUR PARTNERS</p>
+              <h3 className="mt-3 text-[28px] font-bold tracking-tight">프리티풀 전문가들과<br />함께한 기업</h3>
             </div>
           </Reveal>
+          <div className="mt-10 space-y-3 overflow-hidden -mx-6">
+            {[0,1,2,3,4,5].map((row) => {
+              const allLogos = [
+                '/images/기업로고/ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg',
+                '/images/기업로고/BRqtD2yZxxRP08TEpNXXNlHvXxtA9Dck7kO4rNAiyud7WyX1EudEU0Y7XpRaIi0eGipOIqU1iZRx06TjD87Bu_8PuSHC-vYi2expOi_ie9INQgZ_8lkfsq7WCiYGssRZvARyM-hmOKkZEOhr4vxl6Q.svg',
+                '/images/기업로고/BzBaSlPhUQvUgTbep2YBg19b6coNL8iXPJp-BBD6f4z-rfsdylm8zOJnrkRmUWdJoQgJIDNuh7LnNaUeJ_B8Q32S11shONnXjdlQTFLz_5LSzLoW5D7pmuYXc99y6tWUOByfVz00-KNaJ9YAXRk2Eg.svg',
+                '/images/기업로고/CTCL5r-2Lrik1gBj6n7B0qyIP13vlZUsO_9YpcjuK8Hr8gUiNH33HhuUpwYDmywHYEBZencD5-2p_cJIfunWiqJXR16H5tsIW3hL6qiUK4o3afLmSrpCAf85-c-TDMmsTZRiKr9kWrRUGmMuKFNXlQ.svg',
+                '/images/기업로고/D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg',
+                '/images/기업로고/EL-GmGKqmm_1_UI1I1HmCwdRis9GIdUfq0tBhZlKnvvB51kv2Wn0hFOfrApbJwh68wKSsYejtF7VN4Htuk2beb2mBOKIBpIM7NphrfKxnZWtfymCW5185hIVDb5q1_GmhJPNTV4GXIWat2Uw7SUHcw.svg',
+                '/images/기업로고/FIN9iKw1Cdlcw0qdsLudvODTjrdndKbpbhu2rrzXy_MHd5LgMZBsbXaErtn_kNzWxM6iTiR7rJlKDcOV0TJ5UO7kwpWLap2PqskFK8q7Lb4kbHzAlpLii3vrpXzQbKneH9d2GEmKXMNl6VrkeepcXQ.svg',
+                '/images/기업로고/Fbc3OBO5lnF_aljwIte4mbdQIFVsutSyv5oZ3_JZ5vZ5_Ez_Se0pe47JqRTjOZBqtlFGxYQXYzlG820nGt_M4of6r_OTf2hzjBGAa4UbekunDcLTFOXnG8Moc_cIMDhrABFn_g42rUoQk6FTMBErqg.svg',
+                '/images/기업로고/Fbe6yAmPhTGyBpbFnJrzWROlvct5aNx2TBIUKqyiunO_iZdfvBKbFzh7FVPmqRQpeRfEKA-pz-QeTLTsfVj7NxKMy8mEN8NUKbf9r0p4VlGyHGibJqXQKEBS-4NE0QWMgj4CvofMTvCYXMovp3WWNg.svg',
+                '/images/기업로고/GwHvDSCNafSHnRiZNqDMJOvThTG4_8QJgEFMZC3jlpTg_e_IMR2WWQcB4W641zxOwU219ER8opVMfaK8uhdrl-F69hJn02bChdq-cAheQjLEjDthTLEr4gaXwc4V8ZDNYdfj319zkwONKucgD_G05w.svg',
+                '/images/기업로고/Kl7O19oIwFHCfL2QV05oLVVoL684vmbcbpFHyQCiQRiYr7Dgb18bXQM9qY__l0rm0dlPJKRTqAcwaqRcmvg_m0mVOvVfkrcdjER-1QOvtudPOP8len_6uFgfriIGYpYVBjmCyJ0RAHKe7JjZ1soeWw.svg',
+                '/images/기업로고/N_7oK9jBqgd4o6MM1imyAIM0lZK2Rsr_oc9HDG8WRllhnrld37ChFRXkVZA5aMK-PSrkr9Y9LBrKuF0mQCMGP09WApahFXbjqTh-Rpw7fYqHkc2f7CKt7xCTc2OG0y1e1LPxvAqnwH4XOpxyWIyMMg.svg',
+                '/images/기업로고/PV5QhQJrjCNrlEkK4HE-Myx-FNqaklavtwzZAzm_tVkUiX5U0kp-Ujm4vqKipQmsZj86CgDo_HVBtEEFgMCWIyrR7zWurNboYJJdW60duDKqWBF0ci_KpyXJ2-goGoXSB2_RmNotjMlducSl0kt_aA.svg',
+                '/images/기업로고/Qqb24ODKcfgDz0dpJRti2CqDr9MThAod9YacFPOKifdbjvhBkviT1LgksZ5bxp92WDj3AsUa0h214Ln6fv3ejj1UxiP4hJfpPfq_u5Ae217Thzzkv3FqP9hDDBDGaNNBHJ1ypWViORlHmkucr_Elng.svg',
+                '/images/기업로고/RDynDFYidWJ6Plgi-NOQnlBIMy3xfHiR0zgdLhyrv0PKCdBdstgmskNWU9s6MZ9iKGqbCRe8kK1zELijChT4yyIT285FNArduGoMzOK6nr3Jia0qu7Prqzk2awOznbMlKYQyxTaA_eSLDVRDyQFZpg.svg',
+                '/images/기업로고/0kIrqSx6FQ6AZtryR8Rii4lXBGrvITgNfRhhiLfi2aVr-Uqg1l5bOMa4Vi3THlnZYVns6hi5Y75mBhXXS4r6dBfKvn1HPMRq10Gh8NrRBcZE0Pd7zOeDm9WYfDEvAaCZSVD12nCLfeJdkz9WXPnZ3w.svg',
+                '/images/기업로고/1GPWKc37T7Qz08E07p9sDg0F4rYPxg_qbmh5CSSxrdDTQoy6hCl6k-UgoySwKANqEm0jCWiZjyMqaLUxX31_3RyRiW1yQ2L5zYtA6WzN7s5Zxy31rQSDGIotP0yP2rU6jhAVfxvxFl__q_NPEuRKAg.svg',
+                '/images/기업로고/4nJH1a9BfVA9ilPdwu120VbDd-ERloXHcOus1u88Xhvpql-0zhgPSW9dj3zZKGKlGVEfqJwFPQLWwtXGYmft8KGikSA2N0n3yojcWKfrmKWyZ3dLtYmBFcKkeTn8CDL7HarNcbkEmB8AYP76lHFDTg.svg',
+                '/images/기업로고/5bZLn7_cvlKQnqzT0_0hMSHeq0y1K-YgT4X40IT9qxQClHZTU3fHCuuIyI7JSjm7MmtDrWs1KBx7VtHyTk4rrbhhAhWa-EpxfAJwkoVV9vrn7DLNFlXNy6zNfET5B7ohb0ULDDwO99agnC9QOW7lKA.svg',
+                '/images/기업로고/7JPcHcbSryZEH9UhI0PnkdfR30SZvvoSyV7ynaBncTLEwBYWfUrG4IdzrpmjvAKS2a06vY7ReLjl6MGktfk6NaRQrN-tHBcs3GbLIDJ4x5s_O4NXZYGeNFUdkjS5iJJidsmP7fXHqWo7RlGL9mbNgg.svg',
+                '/images/기업로고/7K5Bmcq7qiQ6Eud7OD2A2hTmRHTxkShb8lmf3EVD4alegph6WnxOEzfOYxM0LDCXkfT_vVZ9_Hjk_XXaRJlTsMPB9epfyN8kUFonEnB4GTiHlonXo_oKqJs4AR9MJhtmsVX8j90IdFvH1Ujko6XLOQ.svg',
+                '/images/기업로고/8iC8ebMvPPfZeTUkj9VBmsrPUw4lPJp9ITlR115EWv0ULvgo-S_CtNWa2TNlKwzqNS_KGPNo6xFnF_UxcRLylG-HIYXXoRmhDQUjoZvi8kTTM3-1l5hd558xNYS5PlZxUCI3j1XXJbcotsBxfHIeNQ.svg',
+                '/images/기업로고/SRrqBgHlAil9jg2n7I4SZkLRwUcDf3bN51-iBsr1XI6-4a52MvSjP0EHo3CZVsDIXLkpG2FF-yj5P50n6D37IdfQdt-VN7OqAuH4QnmjXnD76Tomw6YDwsCJzUz29pBTReqT3XzKyXDg1V7bUd7ESQ.svg',
+                '/images/기업로고/U4btAF6fKzlMyx9V0YciDz02RYAMbqpypTkUZjxYxE2LTOl9GYED7b76bOg8IXDfq16Er1Lc9ugCJpjWkovcWHgVfqHBd_TvxltZBFYmSSV1m8QMnkoIHR6Tywr3rwxBl48dWmnpOcgI9H9TeSFsow.svg',
+              ];
+              // 각 줄마다 다른 시작 위치 + 방향
+              const start = row * 4;
+              const rowLogos = [...allLogos.slice(start), ...allLogos.slice(0, start)];
+              const repeated = [...rowLogos, ...rowLogos];
+              const direction = row % 2 === 0 ? 'normal' : 'reverse';
+              const speed = 30 + row * 5;
+              return (
+                <div key={row} className="flex items-center gap-6" style={{ width: 'max-content', animation: `bizLogoScroll ${speed}s linear infinite ${direction}` }}>
+                  {repeated.map((logo, i) => (
+                    <div key={i} className="shrink-0 h-[32px] w-[80px] flex items-center justify-center opacity-30 grayscale hover:opacity-80 hover:grayscale-0 transition-all duration-300">
+                      <img src={encodeURI(logo)} alt="" className="max-h-full max-w-full object-contain" />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            <style>{`@keyframes bizLogoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
+          </div>
+
         </div>
       </section>
 
-      {/* ═══ 핵심서비스 ═══════════════════════════════════════ */}
+      {/* ═══ 핵심서비스 (간소화) ═══════════════════════════════ */}
       <section id="핵심서비스" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[1100px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">CORE SERVICES</p></Reveal>
