@@ -4,15 +4,11 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy monorepo root files
-COPY package.json package-lock.json ./
-COPY packages/types ./packages/types
+# Copy everything (Railway uploads from project root)
+COPY . .
 
-# Copy API package
-COPY apps/api ./apps/api
-
-# Install all dependencies
-RUN npm install --workspace=apps/api --include-workspace-root
+# Install dependencies
+RUN npm install
 
 # Generate Prisma client
 RUN cd apps/api && npx prisma generate
