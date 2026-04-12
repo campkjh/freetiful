@@ -45,6 +45,7 @@ const HIDE_FOOTER_PATTERNS = [
   /^\/favorites$/,
   /^\/schedule$/,
   /^\/my$/,
+  /^\/pro-dashboard/,
 ];
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -149,7 +150,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </main>
 
       {/* ─── Footer ────────────────────────────────────────────────── */}
-      {!hideNav && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && <Footer />}
+      {!hideNav && !isPro && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && <Footer />}
 
       {/* ─── 추천 전문가 플로팅 (모바일 네비 위, 일반유저만) ──────── */}
       {!hideNav && !isPro && <RecommendedProBar />}

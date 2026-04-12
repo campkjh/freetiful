@@ -80,6 +80,22 @@ type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 
 type ProChatFilter = '전체' | '견적문의' | '예약확정';
 
+const PRO_MOCK_ROOMS: ChatRoom[] = [
+  { id: 'c1', otherUser: { id: 'client-1', name: '홍**', role: '고객', profileImageUrl: '' }, lastMessage: '결혼식 견적 문의드립니다', lastMessageAt: '2026-04-11', unreadCount: 2, isPinned: false, isArchived: false },
+  { id: 'c2', otherUser: { id: 'client-2', name: '김**', role: '고객', profileImageUrl: '' }, lastMessage: '4월 19일 가능하신가요?', lastMessageAt: '2026-04-10', unreadCount: 1, isPinned: false, isArchived: false },
+  { id: 'c3', otherUser: { id: 'client-3', name: '이**', role: '고객', profileImageUrl: '' }, lastMessage: '견적서 확인했습니다. 진행할게요!', lastMessageAt: '2026-04-09', unreadCount: 0, isPinned: true, isArchived: false },
+  { id: 'c4', otherUser: { id: 'client-4', name: '박**', role: '고객', profileImageUrl: '' }, lastMessage: '돌잔치 MC 가능하신지 문의드립니다', lastMessageAt: '2026-04-08', unreadCount: 0, isPinned: false, isArchived: false },
+];
+
+const ClientAvatar = ({ name }: { name: string }) => (
+  <div className="w-[48px] h-[48px] rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
+      <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" />
+    </svg>
+  </div>
+);
+
 export default function ChatListPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
@@ -88,8 +104,13 @@ export default function ChatListPage() {
     const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
     setIsPro(localStorage.getItem('userRole') === 'pro');
+    const role = localStorage.getItem('userRole');
     const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
-    if (loggedIn && hasDemoData) setRooms(MOCK_ROOMS);
+    if (loggedIn && role === 'pro') {
+      setRooms(PRO_MOCK_ROOMS);
+    } else if (loggedIn && hasDemoData) {
+      setRooms(MOCK_ROOMS);
+    }
   }, []);
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -289,10 +310,15 @@ export default function ChatListPage() {
                     )}
                   </AnimatePresence>
                   {isPC ? (
-                    <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
+                    room.otherUser.profileImageUrl
+                      ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
+                      : <ClientAvatar name={room.otherUser.name} />
                   ) : (
                     <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
-                      <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-full object-cover" />
+                      {room.otherUser.profileImageUrl
+                        ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-full object-cover" />
+                        : <ClientAvatar name={room.otherUser.name} />
+                      }
                     </Link>
                   )}
                   {isPC ? (
@@ -417,7 +443,10 @@ export default function ChatListPage() {
           {pcSelectedData ? (
             <>
               <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
-                <img src={pcSelectedData.otherUser.profileImageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+                {pcSelectedData.otherUser.profileImageUrl
+                  ? <img src={pcSelectedData.otherUser.profileImageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  : <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#9CA3AF" /><path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" /></svg></div>
+                }
                 <div>
                   <p className="text-[15px] font-bold text-gray-900">{pcSelectedData.otherUser.role} {pcSelectedData.otherUser.name}님</p>
                   <p className="text-[12px] text-gray-400">마지막 메시지: {pcSelectedData.lastMessageAt}</p>
@@ -436,7 +465,10 @@ export default function ChatListPage() {
                     </div>
                   </div>
                   <div className="flex gap-2.5">
-                    <img src={pcSelectedData.otherUser.profileImageUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" />
+                    {pcSelectedData.otherUser.profileImageUrl
+                      ? <img src={pcSelectedData.otherUser.profileImageUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" />
+                      : <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0 mt-0.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#9CA3AF" /><path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" /></svg></div>
+                    }
                     <div>
                       <p className="text-[12px] text-gray-500 mb-1">{pcSelectedData.otherUser.name}</p>
                       <div className="bg-white border border-gray-200 px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[400px] shadow-sm">
@@ -609,7 +641,7 @@ export default function ChatListPage() {
             {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">전문가 찾아보기</Link>}
             {isLoggedIn && !search && activeTab === '전체' && rooms.length === 0 && (
               <button
-                onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setRooms(MOCK_ROOMS); }}
+                onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setRooms(isPro ? PRO_MOCK_ROOMS : MOCK_ROOMS); }}
                 className="mt-3 text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors block mx-auto"
               >
                 데모 데이터 로드
@@ -672,7 +704,10 @@ export default function ChatListPage() {
           >
             {/* 미리보기 헤더 */}
             <div className="px-5 pt-5 pb-3 bg-white border-b border-gray-100 flex items-center gap-3 shrink-0">
-              <img src={previewRoom.otherUser.profileImageUrl} alt="" draggable={false} className="w-10 h-10 rounded-full object-cover" />
+              {previewRoom.otherUser.profileImageUrl
+                ? <img src={previewRoom.otherUser.profileImageUrl} alt="" draggable={false} className="w-10 h-10 rounded-full object-cover" />
+                : <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#9CA3AF" /><path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" /></svg></div>
+              }
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-bold text-gray-900 truncate">{previewRoom.otherUser.role} {previewRoom.otherUser.name}님</p>
                 <div className="flex items-center gap-1 mt-0.5">

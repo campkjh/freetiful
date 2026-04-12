@@ -349,7 +349,7 @@ export default function QuotesPage() {
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-5">
                     <textarea value={customReason} onChange={(e) => setCustomReason(e.target.value)}
                       placeholder="거절 사유를 입력해주세요..."
-                      className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] resize-none h-24" />
+                      className="w-full border border-gray-200 rounded-xl p-3 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] resize-none h-24" />
                   </motion.div>
                 )}
                 <motion.button whileTap={{ scale: 0.97 }} onClick={handleReject}

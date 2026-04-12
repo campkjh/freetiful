@@ -400,7 +400,7 @@ export default function ProDashboardPage() {
           )}
         </div>
 
-        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-0">
+        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
           <AnimatePresence mode="popLayout">
             {pendingQuotes.length === 0 && (
               <motion.div
@@ -420,7 +420,7 @@ export default function ProDashboardPage() {
                 onPointerDown={(e) => handlePointerDown(quote.id, e)}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
-                className={`py-4 select-none ${idx < pendingQuotes.length - 1 ? 'border-b border-gray-100' : ''}`}
+                className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm select-none mb-3 last:mb-0"
               >
                 {/* Top row */}
                 <div className="flex items-center justify-between mb-2">
@@ -607,7 +607,7 @@ export default function ProDashboardPage() {
                         value={replyTexts[review.id] || ''}
                         onChange={(e) => setReplyTexts((prev) => ({ ...prev, [review.id]: e.target.value }))}
                         placeholder="답글을 입력하세요..."
-                        className="w-full border border-gray-200 rounded-lg p-2.5 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-16"
+                        className="w-full border border-gray-200 rounded-lg p-2.5 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-16"
                       />
                       <div className="flex gap-2 mt-1.5">
                         <motion.button
@@ -790,7 +790,7 @@ export default function ProDashboardPage() {
                       value={customReason}
                       onChange={(e) => setCustomReason(e.target.value)}
                       placeholder="거절 사유를 입력해주세요..."
-                      className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-24"
+                      className="w-full border border-gray-200 rounded-xl p-3 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-24"
                     />
                   </motion.div>
                 )}

@@ -230,7 +230,7 @@ export default function ReviewsPage() {
                         value={replyTexts[review.id] || ''}
                         onChange={(e) => setReplyTexts((prev) => ({ ...prev, [review.id]: e.target.value }))}
                         placeholder="답글을 입력하세요..."
-                        className="w-full border border-gray-200 rounded-lg p-2.5 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-20"
+                        className="w-full border border-gray-200 rounded-lg p-2.5 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-20"
                       />
                       <div className="flex gap-2 mt-1.5">
                         <motion.button

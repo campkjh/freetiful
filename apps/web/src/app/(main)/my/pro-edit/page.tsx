@@ -246,7 +246,7 @@ export default function ProEditPage() {
               value={phone}
               onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
               placeholder="010-0000-0000"
-              className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[15px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+              className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
             />
           </div>
 
@@ -282,7 +282,7 @@ export default function ProEditPage() {
             onChange={(e) => { if (e.target.value.length <= 50) setIntro(e.target.value); }}
             maxLength={50}
             placeholder="한줄로 자신을 소개해주세요"
-            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[15px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
           />
           <p className="text-right text-[11px] text-gray-400 mt-1">{intro.length}/50</p>
         </div>
@@ -471,7 +471,7 @@ export default function ProEditPage() {
           onChange={(e) => setAwards(e.target.value)}
           placeholder="수상 이력을 자유롭게 입력해주세요"
           rows={3}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[14px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all resize-none"
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all resize-none"
         />
       </Section>
 
@@ -483,7 +483,7 @@ export default function ProEditPage() {
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
             placeholder="YouTube 링크를 입력해주세요"
-            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[14px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
           />
           {videoUrl && videoUrl.includes('youtu') && (
             <div className="mt-3 rounded-xl overflow-hidden bg-gray-100 aspect-video">
@@ -519,14 +519,14 @@ export default function ProEditPage() {
                 value={item.q}
                 onChange={(e) => updateFaqItem(index, 'q', e.target.value)}
                 placeholder="질문을 입력하세요"
-                className="w-full text-[14px] font-bold text-gray-900 outline-none border-b border-gray-100 pb-2 pr-6"
+                className="w-full text-[16px] font-bold text-gray-900 outline-none border-b border-gray-100 pb-2 pr-6"
               />
               <textarea
                 value={item.a}
                 onChange={(e) => updateFaqItem(index, 'a', e.target.value)}
                 placeholder="답변을 입력하세요"
                 rows={2}
-                className="w-full text-[13px] text-gray-600 outline-none resize-none"
+                className="w-full text-[16px] text-gray-600 outline-none resize-none"
               />
             </motion.div>
           ))}
