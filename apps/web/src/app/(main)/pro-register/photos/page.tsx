@@ -120,17 +120,15 @@ export default function PhotosPage() {
     fileInputRef.current?.click();
   };
 
-  const [pendingFiles, setPendingFiles] = useState<string[]>([]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imageFiles.length === 0) return;
 
-    // 1장이면 바로 크롭, 여러 장이면 크롭 없이 바로 추가
     if (imageFiles.length === 1) {
+      // 1장: 크롭 모달
       const reader = new FileReader();
       reader.onloadend = () => {
         setCropImage(reader.result as string);
@@ -142,15 +140,25 @@ export default function PhotosPage() {
       };
       reader.readAsDataURL(imageFiles[0]);
     } else {
-      // Multiple files: read all, then add at once
-      const promises = imageFiles.map(file => new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      }));
-      Promise.all(promises).then(results => {
+      // 여러 장: 순차적으로 읽어서 한번에 추가
+      const readFile = (file: File): Promise<string> =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject();
+          reader.readAsDataURL(file);
+        });
+
+      try {
+        const results: string[] = [];
+        for (const file of imageFiles) {
+          const data = await readFile(file);
+          results.push(data);
+        }
         setPhotos(prev => [...prev, ...results]);
-      });
+      } catch {
+        // 읽기 실패 무시
+      }
     }
     e.target.value = '';
   };
