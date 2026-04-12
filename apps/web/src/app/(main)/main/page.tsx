@@ -944,7 +944,7 @@ export default function HomePage() {
 
         {/* 4. Icon category grid (2 rows x 4 cols) */}
         <div className="px-[10px] pb-2 pt-1">
-          <div className="bg-white rounded-2xl py-2 px-1 grid grid-cols-4 gap-y-2 gap-x-1" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+          <div className="py-2 px-1 grid grid-cols-4 gap-y-2 gap-x-1">
             {[
               { name: '외국어사회자', img: '/images/cat-foreign-mc.png', href: '/pros?category=외국어사회자' },
               { name: '웨딩홀', img: '/images/cat-wedding-hall.png', href: '/businesses?category=웨딩홀' },
