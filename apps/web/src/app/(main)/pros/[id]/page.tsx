@@ -345,6 +345,43 @@ function ScoreBars() {
   );
 }
 
+function CompanyLogoCarousel() {
+  const [logos, setLogos] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('proRegister_selectedCategories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setLogos(parsed);
+      }
+    } catch {}
+  }, []);
+
+  if (logos.length === 0) return null;
+
+  // 로고를 3번 반복해서 무한 스크롤 효과
+  const repeated = [...logos, ...logos, ...logos];
+
+  return (
+    <div className="overflow-hidden mb-4 -mx-2.5 px-2.5">
+      <div
+        className="flex items-center gap-5"
+        style={{
+          width: 'max-content',
+          animation: `logoScroll ${logos.length * 3}s linear infinite`,
+        }}
+      >
+        {repeated.map((logo, i) => (
+          <div key={i} className="shrink-0 h-[28px] w-[72px] flex items-center justify-center opacity-40 grayscale">
+            <img src={logo} alt="" className="max-h-full max-w-full object-contain" />
+          </div>
+        ))}
+      </div>
+      <style>{`@keyframes logoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-${logos.length * 92}px); } }`}</style>
+    </div>
+  );
+}
+
 function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   return (
     <div className="flex items-center gap-0" style={{ fontSize: size }}>
@@ -739,6 +776,9 @@ export default function ProDetailPage() {
             <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
           </div>
         </Reveal>
+
+        {/* ─── 기업 로고 캐러셀 ─── */}
+        <CompanyLogoCarousel />
 
         {/* ─── Plan Tabs ─── */}
         <div className="flex border-b border-gray-200 -mx-2.5 relative">
