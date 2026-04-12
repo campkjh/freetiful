@@ -157,11 +157,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       {/* ─── Mobile Bottom Nav Gradient Blur ───────────────────── */}
       {!hideNav && (
-        <div className="lg:hidden fixed left-0 right-0 bottom-0 h-24 z-40 pointer-events-none"
+        <div className="lg:hidden fixed left-0 right-0 bottom-0 h-28 z-40 pointer-events-none"
           style={{
-            background: 'linear-gradient(to top, rgba(255,255,255,0.95) 30%, rgba(255,255,255,0.5) 70%, transparent)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
+            background: 'linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.92) 35%, rgba(255,255,255,0.5) 65%, rgba(255,255,255,0) 100%)',
           }}
         />
       )}
