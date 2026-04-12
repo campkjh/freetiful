@@ -273,7 +273,7 @@ const MENU_SECTIONS = [
     items: [
       { href: '/my/invite', icon: () => <ImgIcon src="/images/친구초대.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
-      { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/의뢰 아이콘.svg" />, label: '파트너 신청', action: 'partner' },
+      { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/파트너스 신청.svg" />, label: '파트너 신청', action: 'partner' },
       { href: '/main', icon: IconUser, label: '일반회원 전환', action: 'general' },
     ],
   },
