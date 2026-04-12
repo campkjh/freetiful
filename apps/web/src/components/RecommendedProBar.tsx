@@ -81,10 +81,10 @@ type Phase = 'init' | 'circleIn' | 'expanding' | 'expanded' | 'collapsing' | 'cl
 
 // Fallback data in case API is unreachable
 const FALLBACK_PROS = [
-  { id: '15', name: '박인애', image: '/images/박인애/IMG_0196.avif' },
-  { id: '23', name: '이승진', image: '/images/이승진/IMG_46511771924269213.avif' },
-  { id: '12', name: '문정은', image: '/images/문정은/IMG_27221772621229571.avif' },
-  { id: '31', name: '전해별', image: '/images/전해별/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif' },
+  { id: '15', name: '박인애', image: '/images/pro-15/IMG_0196.avif' },
+  { id: '23', name: '이승진', image: '/images/pro-23/IMG_46511771924269213.avif' },
+  { id: '12', name: '문정은', image: '/images/pro-12/IMG_27221772621229571.avif' },
+  { id: '31', name: '전해별', image: '/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif' },
 ];
 
 export default function RecommendedProBar() {

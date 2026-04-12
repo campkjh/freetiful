@@ -23,7 +23,7 @@ interface ChatRoom {
 const MOCK_ROOMS: ChatRoom[] = [
   {
     id: '1',
-    otherUser: { id: 'pro-1', name: '이우영', role: '사회자', profileImageUrl: '/images/이우영/2-11772248201484.avif' },
+    otherUser: { id: 'pro-1', name: '이우영', role: '사회자', profileImageUrl: '/images/pro-25/2-11772248201484.avif' },
     lastMessage: '견적 정보를 보냈습니다.',
     lastMessageAt: '2026-03-26',
     unreadCount: 0,
@@ -32,7 +32,7 @@ const MOCK_ROOMS: ChatRoom[] = [
   },
   {
     id: '2',
-    otherUser: { id: 'pro-2', name: '이승진', role: '사회자', profileImageUrl: '/images/이승진/IMG_46511771924269213.avif' },
+    otherUser: { id: 'pro-2', name: '이승진', role: '사회자', profileImageUrl: '/images/pro-23/IMG_46511771924269213.avif' },
     lastMessage: '견적 정보를 보냈습니다.',
     lastMessageAt: '2026-03-26',
     unreadCount: 0,
@@ -41,7 +41,7 @@ const MOCK_ROOMS: ChatRoom[] = [
   },
   {
     id: '3',
-    otherUser: { id: 'pro-3', name: '박인애', role: '사회자', profileImageUrl: '/images/박인애/IMG_0196.avif' },
+    otherUser: { id: 'pro-3', name: '박인애', role: '사회자', profileImageUrl: '/images/pro-15/IMG_0196.avif' },
     lastMessage: '네, 4월 5일 결혼식 MC 가능합니다.',
     lastMessageAt: '2026-03-25',
     unreadCount: 3,
@@ -50,7 +50,7 @@ const MOCK_ROOMS: ChatRoom[] = [
   },
   {
     id: '4',
-    otherUser: { id: 'pro-4', name: '전해별', role: '사회자', profileImageUrl: '/images/전해별/IMG_73341772850094485.avif' },
+    otherUser: { id: 'pro-4', name: '전해별', role: '사회자', profileImageUrl: '/images/pro-31/IMG_73341772850094485.avif' },
     lastMessage: '견적서를 보내드렸습니다. 확인 부탁드립니다 😊',
     lastMessageAt: '2026-03-24',
     unreadCount: 1,
@@ -59,7 +59,7 @@ const MOCK_ROOMS: ChatRoom[] = [
   },
   {
     id: '5',
-    otherUser: { id: 'pro-5', name: '정이현', role: '사회자', profileImageUrl: '/images/정이현/44561772622988798.avif' },
+    otherUser: { id: 'pro-5', name: '정이현', role: '사회자', profileImageUrl: '/images/pro-35/44561772622988798.avif' },
     lastMessage: '축가 3곡 기본이고, 추가 곡은 곡당 5만원입니다.',
     lastMessageAt: '2026-03-20',
     unreadCount: 0,

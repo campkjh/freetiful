@@ -111,8 +111,8 @@ const IconUser = () => (
 );
 
 const UPCOMING_SCHEDULES = [
-  { id: '1', proName: '박인애', category: 'MC', date: '4.10 (금)', time: '14:00', location: '그랜드 웨딩홀', proImage: '/images/박인애/IMG_0196.avif' },
-  { id: '2', proName: '성연채', category: '축가', date: '4.10 (금)', time: '14:30', location: '그랜드 웨딩홀', proImage: '/images/성연채/20161016_161406_IMG_5921.avif' },
+  { id: '1', proName: '박인애', category: 'MC', date: '4.10 (금)', time: '14:00', location: '그랜드 웨딩홀', proImage: '/images/pro-15/IMG_0196.avif' },
+  { id: '2', proName: '성연채', category: '축가', date: '4.10 (금)', time: '14:30', location: '그랜드 웨딩홀', proImage: '/images/pro-18/20161016_161406_IMG_5921.avif' },
 ];
 
 function getUserFromStorage() {
@@ -213,9 +213,9 @@ const PRO_MENU_SECTIONS = [
   {
     title: '수익 관리',
     items: [
-      { href: '/my/revenue', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/매출 내역.svg" />, label: '매출 내역' },
-      { href: '/my/settlement', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/정산 내역.svg" />, label: '정산 내역' },
-      { href: '/my/bank', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/계좌 관리.svg" />, label: '계좌 관리' },
+      { href: '/my/revenue', icon: () => <ImgIcon src="/images/pro-mypage-icons/매출 내역.svg" />, label: '매출 내역' },
+      { href: '/my/settlement', icon: () => <ImgIcon src="/images/pro-mypage-icons/정산 내역.svg" />, label: '정산 내역' },
+      { href: '/my/bank', icon: () => <ImgIcon src="/images/pro-mypage-icons/계좌 관리.svg" />, label: '계좌 관리' },
     ],
   },
   {
@@ -227,21 +227,21 @@ const PRO_MENU_SECTIONS = [
   {
     title: '푸딩',
     items: [
-      { href: '/my/pudding-history', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/푸딩 내역.svg" />, label: '푸딩 내역' },
-      { href: '/my/pudding-ranking', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/랭킹 보기.svg" />, label: '랭킹 보기' },
+      { href: '/my/pudding-history', icon: () => <ImgIcon src="/images/pro-mypage-icons/푸딩 내역.svg" />, label: '푸딩 내역' },
+      { href: '/my/pudding-ranking', icon: () => <ImgIcon src="/images/pro-mypage-icons/랭킹 보기.svg" />, label: '랭킹 보기' },
     ],
   },
   {
     title: '고객센터',
     items: [
-      { href: 'tel:02-1234-5678', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/전화문의.svg" />, label: '전화문의' },
+      { href: 'tel:02-1234-5678', icon: () => <ImgIcon src="/images/pro-mypage-icons/전화문의.svg" />, label: '전화문의' },
     ],
   },
   {
     title: '기타',
     items: [
-      { href: '/my/terms', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/약관 및 정책.svg" />, label: '약관 및 정책' },
-      { href: '#', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/일반회원 전환.svg" />, label: '일반유저 전환', action: 'switchToGeneral' },
+      { href: '/my/terms', icon: () => <ImgIcon src="/images/pro-mypage-icons/약관 및 정책.svg" />, label: '약관 및 정책' },
+      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/일반회원 전환.svg" />, label: '일반유저 전환', action: 'switchToGeneral' },
     ],
   },
 ];
@@ -277,7 +277,7 @@ const MENU_SECTIONS = [
       { href: '/my/invite', icon: () => <ImgIcon src="/images/친구초대.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
       { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/파트너스 신청.svg" />, label: '파트너 신청', action: 'partner' },
-      { href: '#', icon: () => <ImgIcon src="/images/사회자 마이페이지 아이콘/일반회원 전환.svg" />, label: '프로유저 전환', action: 'switchToPro' },
+      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/일반회원 전환.svg" />, label: '프로유저 전환', action: 'switchToPro' },
     ],
   },
 ];
