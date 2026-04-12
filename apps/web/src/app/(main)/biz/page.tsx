@@ -682,7 +682,7 @@ export default function BizPage() {
               const rowLogos = [...allLogos.slice(start), ...allLogos.slice(0, start)];
               const repeated = [...rowLogos, ...rowLogos];
               const direction = row % 2 === 0 ? 'normal' : 'reverse';
-              const speed = 30 + row * 5;
+              const speed = 80 + row * 10;
               return (
                 <div key={row} className="flex items-center gap-6" style={{ width: 'max-content', animation: `bizLogoScroll ${speed}s linear infinite ${direction}` }}>
                   {repeated.map((logo, i) => (
