@@ -233,6 +233,10 @@ export default function BizPage() {
   const [activeSection, setActiveSection] = useState('회사소개');
   const [inquiry, setInquiry] = useState({ company: '', name: '', phone: '', email: '', type: '', message: '' });
   const [sending, setSending] = useState(false);
+
+  const openInquiryMail = () => {
+    window.location.href = 'mailto:support@freetiful.com?subject=' + encodeURIComponent('[Freetiful Biz] 기업 문의') + '&body=' + encodeURIComponent('안녕하세요, Freetiful 기업 서비스에 대해 문의드립니다.\n\n회사명:\n담당자명:\n연락처:\n\n문의 내용:\n');
+  };
   const [scrollY, setScrollY] = useState(0);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [bizNavExpanding, setBizNavExpanding] = useState(false);
@@ -487,7 +491,7 @@ export default function BizPage() {
             {/* 하단 문의 버튼 */}
             <div className="px-6 pb-8">
               <button
-                onClick={() => { scrollTo('문의폼'); setMobileMenuOpen(false); }}
+                onClick={() => { openInquiryMail(); setMobileMenuOpen(false); }}
                 className="w-full py-3 bg-gray-900 text-white text-[14px] font-bold rounded-full active:scale-95 transition-transform"
               >
                 문의하기
@@ -537,7 +541,7 @@ export default function BizPage() {
           </Reveal>
           <Reveal delay={600}>
             <div className="mt-10 flex justify-center gap-3">
-              <button onClick={() => scrollTo('문의')} className="bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
+              <button onClick={openInquiryMail} className="bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
                 기업 문의하기
               </button>
               <button onClick={() => scrollTo('핵심서비스')} className="border border-gray-200 bg-white/80 backdrop-blur px-8 py-3.5 text-[14px] font-bold text-gray-500 rounded-full transition-all hover:border-gray-300 hover:text-gray-800 hover:bg-white">
@@ -1060,7 +1064,7 @@ export default function BizPage() {
               <Reveal delay={300}>
                 <div className="mt-8 flex justify-center md:justify-start">
                   <button
-                    onClick={() => scrollTo('문의폼')}
+                    onClick={openInquiryMail}
                     className="group relative px-10 py-4 text-[16px] font-bold text-white rounded-full overflow-hidden transition-all duration-300 active:scale-95"
                     style={{ background: 'linear-gradient(135deg, #3B82F6, #2563EB, #1D4ED8)' }}
                   >
