@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Check, Send, Star, ChevronDown, Search } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { addPoints } from '@/lib/points';
 
 const stepVariants = {
   initial: { opacity: 0, x: 40 },
@@ -267,6 +268,7 @@ function QuotePage() {
     await new Promise((r) => setTimeout(r, 1500));
     setSending(false);
     localStorage.setItem('freetiful-quote-submitted', 'true');
+    addPoints('quote_request', 200, '견적 요청 적립');
     toast.success(isEvent ? '행사 견적 요청이 접수되었습니다.' : `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.`);
     router.push('/main');
   };

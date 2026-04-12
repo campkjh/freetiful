@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { initSignupBonus } from '@/lib/points';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function OnboardingPage() {
     localStorage.setItem('freetiful-user', JSON.stringify({ ...existing, name: name.trim(), phone }));
     localStorage.setItem('freetiful-logged-in', 'true');
     setLoading(false);
+    initSignupBonus();
     router.push('/main');
   };
 

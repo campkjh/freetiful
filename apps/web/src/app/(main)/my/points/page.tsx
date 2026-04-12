@@ -1,17 +1,47 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Info } from 'lucide-react';
+import { ChevronLeft, Info, Gift, Star, Users, CalendarCheck, FileText, CreditCard, ShieldCheck } from 'lucide-react';
+import { getPoints, getPointHistory, type PointType, type PointTransaction } from '@/lib/points';
 
-const MOCK_TRANSACTIONS = [
-  { id: '1', type: 'earn', reason: '신규 가입 포인트', amount: 5000, date: '2. 9.', expiry: '2026.05.10까지 사용 가능', label: '적립' },
-];
+const TYPE_CONFIG: Record<PointType, { icon: typeof Gift; color: string; label: string }> = {
+  signup_bonus: { icon: Gift, color: '#10B981', label: '가입 보너스' },
+  review_write: { icon: Star, color: '#F59E0B', label: '리뷰 적립' },
+  invite_friend: { icon: Users, color: '#8B5CF6', label: '친구 초대' },
+  daily_check: { icon: CalendarCheck, color: '#3B82F6', label: '출석 체크' },
+  quote_request: { icon: FileText, color: '#06B6D4', label: '견적 요청' },
+  payment_use: { icon: CreditCard, color: '#EF4444', label: '포인트 사용' },
+  admin_grant: { icon: ShieldCheck, color: '#6366F1', label: '관리자 지급' },
+};
+
+function formatDate(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}. ${d.getDate()}.`;
+}
+
+function formatYear(ts: number): string {
+  return `${new Date(ts).getFullYear()}년`;
+}
 
 export default function PointsPage() {
   const router = useRouter();
-  useEffect(() => { window.scrollTo(0, 0); }, []);
-  const totalPoints = 5000;
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [history, setHistory] = useState<PointTransaction[]>([]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    setTotalPoints(getPoints());
+    setHistory(getPointHistory());
+  }, []);
+
+  // Group transactions by year
+  const grouped = history.reduce<Record<string, PointTransaction[]>>((acc, tx) => {
+    const year = formatYear(tx.createdAt);
+    if (!acc[year]) acc[year] = [];
+    acc[year].push(tx);
+    return acc;
+  }, {});
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
@@ -38,30 +68,59 @@ export default function PointsPage() {
       {/* Divider */}
       <div className="h-px bg-gray-200" />
 
-      {/* 사용 내역 */}
+      {/* Transaction History */}
       <div className="px-4 pt-5">
         <p className="text-[16px] font-bold text-gray-900 mb-4">사용 내역</p>
 
-        <p className="text-[14px] font-bold text-gray-500 mb-4">2026년</p>
-
-        {MOCK_TRANSACTIONS.map((tx) => (
-          <div key={tx.id} className="pb-4 border-b border-gray-100">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[15px] font-bold text-gray-900">{tx.reason}</p>
-                <p className="text-[13px] text-gray-400 mt-1">
-                  {tx.date}<span className="mx-1.5 text-gray-300">|</span>{tx.expiry}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[16px] font-bold" style={{ color: '#E8590C' }}>
-                  + {tx.amount.toLocaleString()} P
-                </p>
-                <p className="text-[13px] text-gray-400 mt-0.5">{tx.label}</p>
-              </div>
-            </div>
+        {history.length === 0 ? (
+          <div className="flex flex-col items-center py-16 text-gray-400">
+            <Gift size={40} className="mb-3 text-gray-300" />
+            <p className="text-[14px]">포인트 내역이 없습니다</p>
+            <p className="text-[13px] mt-1">활동을 통해 포인트를 적립해보세요!</p>
           </div>
-        ))}
+        ) : (
+          Object.entries(grouped).map(([year, txs]) => (
+            <div key={year}>
+              <p className="text-[14px] font-bold text-gray-500 mb-4">{year}</p>
+              {txs.map((tx) => {
+                const config = TYPE_CONFIG[tx.type];
+                const IconComp = config.icon;
+                const isPositive = tx.amount > 0;
+                return (
+                  <div key={tx.id} className="pb-4 mb-4 border-b border-gray-100">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                          style={{ backgroundColor: `${config.color}15` }}
+                        >
+                          <IconComp size={16} style={{ color: config.color }} />
+                        </div>
+                        <div>
+                          <p className="text-[15px] font-bold text-gray-900">{tx.description}</p>
+                          <p className="text-[13px] text-gray-400 mt-1">
+                            {formatDate(tx.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className="text-[16px] font-bold"
+                          style={{ color: isPositive ? '#E8590C' : '#6B7280' }}
+                        >
+                          {isPositive ? '+' : ''} {tx.amount.toLocaleString()} P
+                        </p>
+                        <p className="text-[13px] text-gray-400 mt-0.5">
+                          {isPositive ? '적립' : '사용'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

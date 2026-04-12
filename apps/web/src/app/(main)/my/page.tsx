@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
+import { getPoints } from '@/lib/points';
 
 /* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
 const IconCard = () => (
@@ -115,7 +116,7 @@ function getUserFromStorage() {
       email: stored.email || '',
       image: stored.image || '',
       linkedAccounts: stored.provider ? [stored.provider] : [],
-      points: 1500,
+      points: getPoints(),
       coupons: 2,
       role: localStorage.getItem('userRole') || 'general',
     };
@@ -247,7 +248,7 @@ const MENU_SECTIONS = [
     items: [
       { href: '/my/purchase-history', icon: IconCard, label: '구매 내역' },
       { href: '/my/payment-history', icon: IconHistory, label: '결제/환불 내역' },
-      { href: '/my/points', icon: IconWallet, label: '포인트', badge: '1,500P' },
+      { href: '/my/points', icon: IconWallet, label: '포인트', badge: '' },
       { href: '/my/coupons', icon: IconTicket, label: '쿠폰', badge: '2장' },
     ],
   },
@@ -561,11 +562,12 @@ export default function MyPage() {
             <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
           </div>
           {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
+            const displayBadge = label === '포인트' ? `${user.points.toLocaleString()}P` : badge;
             const inner = (
               <>
                 <Icon />
                 <span className="flex-1 text-[14px] text-gray-900">{label}</span>
-                {badge && <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#2B313D' }}>{badge}</span>}
+                {displayBadge && <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#2B313D' }}>{displayBadge}</span>}
                 <ChevronRight size={16} className="text-gray-300 shrink-0" />
               </>
             );

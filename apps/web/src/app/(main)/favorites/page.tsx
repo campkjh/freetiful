@@ -21,15 +21,49 @@ const MOCK_FAVORITE_BIZ = [
   { id: '3', name: '라벨드레스', category: '드레스', image: 'https://images.unsplash.com/photo-1594552072238-b8a33785b261?w=400&h=400&fit=crop', address: '서울 청담동', rating: 5.0, reviews: 67, price: 800000 },
 ];
 
-// 최근 본 전문가용 전체 목록
-const ALL_PROS = [
-  { id: '15', name: '박인애', category: 'MC', badge: 'premium', intro: '13년 생방송 뉴스 진행으로 다져진 품격있는 사회자', rating: 4.9, reviews: 134, image: '/images/박인애/IMG_0196.avif', price: 550000, subName: '사회자 박인애' },
-  { id: '23', name: '이승진', category: 'MC', badge: 'premium', intro: '따뜻하고 깔끔한 진행의 사회자', rating: 4.8, reviews: 211, image: '/images/이승진/IMG_46511771924269213.avif', price: 500000, subName: '사회자 이승진' },
-  { id: '31', name: '전해별', category: 'MC', badge: '', intro: '탄탄한 발성의 아나운서가 여러분을 빛내 드리겠습니다', rating: 4.8, reviews: 133, image: '/images/전해별/IMG_73341772850094485.avif', price: 500000, subName: '사회자 전해별' },
-  { id: '35', name: '정이현', category: 'MC', badge: 'premium', intro: '정이현 사회자입니다', rating: 5.0, reviews: 34, image: '/images/정이현/44561772622988798.avif', price: 600000, subName: '사회자 정이현' },
-  { id: '38', name: '한가람', category: 'MC', badge: '', intro: '고급스럽고 따뜻한 보이스 사회자 한가람 입니다', rating: 4.7, reviews: 66, image: '/images/한가람/IMG_34281772111635068.avif', price: 550000, subName: '사회자 한가람' },
-  { id: '2', name: '김동현', category: 'MC', badge: 'premium', intro: '안녕하세요 MC 김동현 입니다', rating: 4.7, reviews: 165, image: '/images/김동현/10000365351773046135169.avif', price: 400000, subName: '사회자 김동현' },
-  { id: '5', name: '김유석', category: 'MC', badge: 'premium', intro: '최고의 진행자 아나운서 김유석입니다', rating: 4.7, reviews: 65, image: '/images/김유석/10000029811773033474612.avif', price: 550000, subName: '사회자 김유석' },
+// Complete pro data for favorites + recent lookup
+const ALL_PROS: { id: string; name: string; category: string; badge: string; intro: string; rating: number; reviews: number; image: string; price: number; subName: string }[] = [
+  { id: '1', name: '강도현', category: '사회자', badge: '', intro: '신뢰감 있는 보이스로 현직 아나운서', rating: 4.6, reviews: 117, image: '/images/강도현/10000133881772850005043.avif', price: 450000, subName: '사회자 강도현' },
+  { id: '2', name: '김동현', category: '사회자', badge: '', intro: '안녕하세요 MC 김동현 입니다', rating: 4.7, reviews: 165, image: '/images/김동현/10000365351773046135169.avif', price: 450000, subName: '사회자 김동현' },
+  { id: '3', name: '김민지', category: '사회자', badge: '', intro: '꼼꼼하고 부드러운 진행', rating: 4.8, reviews: 96, image: '/images/김민지/IMG_06781773894450803.avif', price: 450000, subName: '사회자 김민지' },
+  { id: '4', name: '김솔', category: '사회자', badge: '', intro: '자연스럽고 편안한 분위기의 웨딩 전문 MC', rating: 4.7, reviews: 36, image: '/images/김솔/IMG_23601771788594274.avif', price: 450000, subName: '사회자 김솔' },
+  { id: '5', name: '김유석', category: '사회자', badge: '', intro: '최고의 진행자 아나운서 김유석입니다', rating: 4.7, reviews: 65, image: '/images/김유석/10000029811773033474612.avif', price: 450000, subName: '사회자 김유석' },
+  { id: '6', name: '김재성', category: '사회자', badge: '', intro: '순간을 기억으로 만드는 사회자', rating: 4.5, reviews: 235, image: '/images/김재성/10000602271772960706687.avif', price: 450000, subName: '사회자 김재성' },
+  { id: '7', name: '김진아', category: '사회자', badge: '', intro: '아나운서 김진아입니다', rating: 4.6, reviews: 170, image: '/images/김진아/IMG_53011772965035335.avif', price: 450000, subName: '사회자 김진아' },
+  { id: '8', name: '김호중', category: '사회자', badge: '', intro: '기획에서 진행까지, 무대를 완성하다', rating: 4.6, reviews: 232, image: '/images/김호중/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif', price: 450000, subName: '사회자 김호중' },
+  { id: '9', name: '나연지', category: '사회자', badge: '', intro: '공식행사 전문 MC', rating: 4.9, reviews: 239, image: '/images/나연지/Facetune_10-02-2026-21-07-511772438130235.avif', price: 450000, subName: '사회자 나연지' },
+  { id: '10', name: '노유재', category: '사회자', badge: '', intro: '무대에서 다진 표현력과 방송에서 쌓은 전달력', rating: 4.7, reviews: 197, image: '/images/노유재/10000016211774440274171.avif', price: 450000, subName: '사회자 노유재' },
+  { id: '11', name: '도준석', category: '사회자', badge: '', intro: '격 있는 사회자입니다', rating: 4.8, reviews: 163, image: '/images/도준석/1-1231772850030951.avif', price: 450000, subName: '사회자 도준석' },
+  { id: '12', name: '문정은', category: '사회자', badge: '', intro: '품격있고 고급스러운 진행 + 편안함', rating: 5.0, reviews: 242, image: '/images/문정은/0913 문정은5705 복사1772621245459.avif', price: 450000, subName: '사회자 문정은' },
+  { id: '13', name: '박상설', category: '사회자', badge: '', intro: '10년 경력, 2000번의 행사 경력', rating: 4.9, reviews: 43, image: '/images/박상설/10000077391773050357628.avif', price: 450000, subName: '사회자 박상설' },
+  { id: '14', name: '박은결', category: '사회자', badge: '', intro: '아나운서 사회자 박은결입니다', rating: 4.6, reviews: 156, image: '/images/박은결/IMG_02661773035503788.avif', price: 450000, subName: '사회자 박은결' },
+  { id: '15', name: '박인애', category: '사회자', badge: '', intro: '13년 생방송 뉴스 진행으로 다져진 품격있는 사회자', rating: 4.6, reviews: 119, image: '/images/박인애/IMG_0196.avif', price: 450000, subName: '사회자 박인애' },
+  { id: '16', name: '박주은', category: '사회자', badge: '', intro: 'SBS Sports 아나운서', rating: 4.8, reviews: 225, image: '/images/박주은/IMG_01621772973118334.avif', price: 450000, subName: '사회자 박주은' },
+  { id: '17', name: '배유정', category: '사회자', badge: '', intro: '믿고 맏기는 행사입니다!', rating: 4.8, reviews: 92, image: '/images/배유정/IMG_21541773026472716.avif', price: 450000, subName: '사회자 배유정' },
+  { id: '18', name: '성연채', category: '사회자', badge: '', intro: '따뜻하고 다정한 아나운서 성연채입니다', rating: 4.7, reviews: 241, image: '/images/성연채/20161016_161406_IMG_5921.avif', price: 450000, subName: '사회자 성연채' },
+  { id: '19', name: '송지은', category: '사회자', badge: '', intro: '믿고 맡기는 아나운서', rating: 4.8, reviews: 86, image: '/images/송지은/DE397232-C3A6-4FD0-80C8-0251D66A66AF1772092441240.avif', price: 450000, subName: '사회자 송지은' },
+  { id: '20', name: '유하늘', category: '사회자', badge: '', intro: '따뜻하고 사랑스러운 분위기의 결혼식 전문 사회자', rating: 4.9, reviews: 34, image: '/images/유하늘/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif', price: 450000, subName: '사회자 유하늘' },
+  { id: '21', name: '유하영', category: '사회자', badge: '', intro: 'KBS 캐스터 유하영 입니다', rating: 4.6, reviews: 54, image: '/images/유하영/22712e20f03327c2843673c063c881f432f6af591772967031477.avif', price: 450000, subName: '사회자 유하영' },
+  { id: '22', name: '이강문', category: '사회자', badge: '', intro: '10년베테랑사회자의 안정적인진행!', rating: 4.6, reviews: 210, image: '/images/이강문/10000353831773035180593.avif', price: 450000, subName: '사회자 이강문' },
+  { id: '23', name: '이승진', category: '사회자', badge: '', intro: '따뜻하고 깔끔한 진행의 사회자 이승진 입니다', rating: 4.8, reviews: 133, image: '/images/이승진/IMG_46511771924269213.avif', price: 450000, subName: '사회자 이승진' },
+  { id: '24', name: '이용석', category: '사회자', badge: '', intro: '1000회 이상의 결혼식사회, 공식행사, 방송진행', rating: 4.9, reviews: 117, image: '/images/이용석/10001176941772847263491.avif', price: 450000, subName: '사회자 이용석' },
+  { id: '25', name: '이우영', category: '사회자', badge: '', intro: '현직 아나운서의 고품격 진행', rating: 4.7, reviews: 222, image: '/images/이우영/2-11772248201484.avif', price: 450000, subName: '사회자 이우영' },
+  { id: '26', name: '이원영', category: '사회자', badge: '', intro: 'KBS 춘천방송총국 기상캐스터', rating: 4.5, reviews: 94, image: '/images/이원영/1-1231772531708677.avif', price: 450000, subName: '사회자 이원영' },
+  { id: '27', name: '이재원', category: '사회자', badge: '', intro: '영어MC / 영어아나운서 이재원', rating: 4.9, reviews: 24, image: '/images/이재원/17230390916981773388202648.avif', price: 450000, subName: '사회자 이재원' },
+  { id: '28', name: '이한나', category: '사회자', badge: '', intro: '생방송 4년차, 현직 아나운서 이한나', rating: 4.6, reviews: 68, image: '/images/이한나/IMG_002209_01772081523241.avif', price: 450000, subName: '사회자 이한나' },
+  { id: '29', name: '임하람', category: '사회자', badge: '', intro: '남들과 다른 특별한 예식을 진행해드립니다', rating: 4.8, reviews: 166, image: '/images/임하람/10000118841772968813129.avif', price: 450000, subName: '사회자 임하람' },
+  { id: '30', name: '장윤영', category: '사회자', badge: '', intro: '아나운서 장윤영입니다', rating: 4.8, reviews: 225, image: '/images/장윤영/IMG_27051772976548211.avif', price: 450000, subName: '사회자 장윤영' },
+  { id: '31', name: '전해별', category: '사회자', badge: '', intro: '탄탄한 발성의 아나운서가 여러분을 빛내 드리겠습니다', rating: 4.5, reviews: 201, image: '/images/전해별/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif', price: 450000, subName: '사회자 전해별' },
+  { id: '32', name: '전혜인', category: '사회자', badge: '', intro: '믿고 맡기는 아나운서 전혜인', rating: 5.0, reviews: 152, image: '/images/전혜인/IMG_19181773027236141.avif', price: 450000, subName: '사회자 전혜인' },
+  { id: '33', name: '정미정', category: '사회자', badge: '', intro: '경력 13년차 아나운서 및 사회자', rating: 4.7, reviews: 48, image: '/images/정미정/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif', price: 450000, subName: '사회자 정미정' },
+  { id: '34', name: '정애란', category: '사회자', badge: '', intro: '임기응변에 강한 따뜻한 목소리', rating: 4.9, reviews: 226, image: '/images/정애란/IMG_2920.avif', price: 450000, subName: '사회자 정애란' },
+  { id: '35', name: '정이현', category: '사회자', badge: '', intro: '정이현 사회자입니다', rating: 4.8, reviews: 129, image: '/images/정이현/44561772622988798.avif', price: 450000, subName: '사회자 정이현' },
+  { id: '36', name: '조하늘', category: '사회자', badge: '', intro: '아나돌: 아이돌 같은 아나운서 조하늘', rating: 4.9, reviews: 152, image: '/images/조하늘/IMG_27041773036338469.avif', price: 450000, subName: '사회자 조하늘' },
+  { id: '37', name: '최진선', category: '사회자', badge: '', intro: '최진선', rating: 4.9, reviews: 204, image: '/images/최진선/10001059551772371340253.avif', price: 450000, subName: '사회자 최진선' },
+  { id: '38', name: '한가람', category: '사회자', badge: '', intro: '고급스럽고 따뜻한 보이스 사회자 한가람 입니다', rating: 4.7, reviews: 62, image: '/images/한가람/IMG_34281772111635068.avif', price: 450000, subName: '사회자 한가람' },
+  { id: '39', name: '함현지', category: '사회자', badge: '', intro: '깔끔하고 격식있는 진행, 함현지입니다', rating: 4.6, reviews: 115, image: '/images/함현지/11773004544652.avif', price: 450000, subName: '사회자 함현지' },
+  { id: '40', name: '허수빈', category: '사회자', badge: '', intro: '순간을 놓치지 않는 센스와 따뜻한 진행', rating: 5.0, reviews: 97, image: '/images/허수빈/IMG_01991772961130928.avif', price: 450000, subName: '사회자 허수빈' },
+  { id: '41', name: '홍현미', category: '사회자', badge: '', intro: '정부|기업 공식행사 전문아나운서의 고급스러운 진행', rating: 4.7, reviews: 222, image: '/images/홍현미/IMG_12201772513865121.avif', price: 450000, subName: '사회자 홍현미' },
 ];
 
 export default function FavoritesPage() {
@@ -40,33 +74,29 @@ export default function FavoritesPage() {
   const [favPros, setFavPros] = useState<typeof MOCK_FAVORITE_PROS>([]);
   const [favBiz, setFavBiz] = useState<typeof MOCK_FAVORITE_BIZ>([]);
 
-  // Login check
+  // Login check + load favorites from localStorage
   useEffect(() => {
     const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
     if (!loggedIn) return;
-    const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
-    if (hasDemoData) {
-      setFavPros(MOCK_FAVORITE_PROS);
-      setFavBiz(MOCK_FAVORITE_BIZ);
-    }
-  }, []);
 
-  // Sync favorites from localStorage
-  useEffect(() => {
-    if (!isLoggedIn) return;
+    // Load favorites from localStorage (primary source)
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
       if (stored.length > 0) {
-        // Merge: keep mock pros that are in localStorage, plus add any ALL_PROS entries from localStorage
-        const allKnown = [...MOCK_FAVORITE_PROS, ...ALL_PROS];
-        const merged = stored
-          .map((id) => allKnown.find((p) => p.id === id))
-          .filter(Boolean) as typeof MOCK_FAVORITE_PROS;
-        if (merged.length > 0) setFavPros(merged);
+        const mapped = stored
+          .map((id) => ALL_PROS.find((p) => p.id === id))
+          .filter(Boolean) as typeof ALL_PROS;
+        setFavPros(mapped);
       }
     } catch {}
-  }, [isLoggedIn]);
+
+    // Load demo biz data if available
+    const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
+    if (hasDemoData) {
+      setFavBiz(MOCK_FAVORITE_BIZ);
+    }
+  }, []);
   const [recentPros, setRecentPros] = useState<typeof ALL_PROS>([]);
   const [scrolled, setScrolled] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);

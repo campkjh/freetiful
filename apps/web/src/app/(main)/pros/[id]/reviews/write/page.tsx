@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Camera, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { addPoints } from '@/lib/points';
 
 const BRAND = '#3180F7';
 
@@ -117,6 +118,7 @@ export default function WriteReviewPage() {
     localStorage.setItem('freetiful-reviews', JSON.stringify(existing));
 
     await new Promise(r => setTimeout(r, 1000));
+    addPoints('review_write', 500, '리뷰 작성 적립');
     setSubmitting(false);
     setShowSuccess(true);
   };
