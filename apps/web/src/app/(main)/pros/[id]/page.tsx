@@ -131,9 +131,9 @@ const MOCK_PRO = {
   rating: 4.9,
   reviewCount: 79,
   plans: [
-    { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사, 영상 1시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 1시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
-    { id: 'superior', label: 'Superior', price: 450000, duration: '2시간', title: '행사, 영상 2시간 진행', desc: ['행사 및 홍보영상 등 각종 영상 콘텐츠\n 2시간 진행', '영상의 경우, 헤어메이크업 별도 추가'], workDays: 20, revisions: 1 },
-    { id: 'enterprise', label: 'Enterprise', price: 450000, duration: '6시간', title: '6시간 행사 및 촬영 (풀타임)', desc: ['행사 및 영상 진행 6시간 이상 진행', '행사 규모에 따라 조정될 수 있습니다.\n 문의 부탁드립니다'], workDays: 20, revisions: 1 },
+    { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사 1시간 진행', desc: ['사회 진행', '사전 미팅'], workDays: 14, revisions: 1 },
+    { id: 'superior', label: 'Superior', price: 800000, duration: '2시간', title: '행사 2시간 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'], workDays: 14, revisions: 2 },
+    { id: 'enterprise', label: 'Enterprise', price: 1700000, duration: '6시간', title: '6시간 풀타임 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'], workDays: 14, revisions: 3 },
   ],
   description: `안녕하세요. 아나운서 전해별입니다.
 
@@ -675,15 +675,6 @@ export default function ProDetailPage() {
             />
           </div>
         )}
-
-        {/* Play button with pulse */}
-        <button
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
-          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
-        >
-          <span className="absolute inset-0 rounded-full" style={{ animation: 'playPulse 2.4s ease-out infinite' }} />
-          <Play size={20} className="text-white fill-white ml-0.5 relative z-10" />
-        </button>
 
         {/* Page indicator */}
         <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[12px] font-medium px-2.5 py-1 rounded-full backdrop-blur-sm">
