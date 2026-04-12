@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Search, Trash2, X } from 'lucide-react';
@@ -77,7 +77,13 @@ const MOCK_NOTIFICATIONS: Notification[] = [
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [items, setItems] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [items, setItems] = useState<Notification[]>([]);
+  useEffect(() => {
+    const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
+    setIsLoggedIn(loggedIn);
+    if (loggedIn) setItems(MOCK_NOTIFICATIONS);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

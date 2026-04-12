@@ -33,14 +33,25 @@ const ALL_PROS = [
 ];
 
 export default function FavoritesPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('service');
   const [proCategory, setProCategory] = useState<ProCategory>('전체');
   const [bizCategory, setBizCategory] = useState<BizCategory>('전체');
-  const [favPros, setFavPros] = useState(MOCK_FAVORITE_PROS);
-  const [favBiz, setFavBiz] = useState(MOCK_FAVORITE_BIZ);
+  const [favPros, setFavPros] = useState<typeof MOCK_FAVORITE_PROS>([]);
+  const [favBiz, setFavBiz] = useState<typeof MOCK_FAVORITE_BIZ>([]);
+
+  // Login check
+  useEffect(() => {
+    const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
+    setIsLoggedIn(loggedIn);
+    if (!loggedIn) return;
+    setFavPros(MOCK_FAVORITE_PROS);
+    setFavBiz(MOCK_FAVORITE_BIZ);
+  }, []);
 
   // Sync favorites from localStorage
   useEffect(() => {
+    if (!isLoggedIn) return;
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
       if (stored.length > 0) {
@@ -52,7 +63,7 @@ export default function FavoritesPage() {
         if (merged.length > 0) setFavPros(merged);
       }
     } catch {}
-  }, []);
+  }, [isLoggedIn]);
   const [recentPros, setRecentPros] = useState<typeof ALL_PROS>([]);
   const [scrolled, setScrolled] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -212,7 +223,7 @@ export default function FavoritesPage() {
               ))}
             </div>
           ) : (
-            <EmptyState message="찜한 전문가가 없습니다" linkText="전문가 찾아보기" linkHref="/pros" />
+            <EmptyState message={isLoggedIn ? "찜한 전문가가 없습니다" : "로그인 후 찜한 전문가를 확인하세요"} linkText={isLoggedIn ? "전문가 찾아보기" : "로그인하기"} linkHref={isLoggedIn ? "/pros" : "/"} />
           )}
         </div>
       )}

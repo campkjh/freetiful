@@ -81,11 +81,17 @@ type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 type ProChatFilter = '전체' | '견적문의' | '예약확정';
 
 export default function ChatListPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [proChatFilter, setProChatFilter] = useState<ProChatFilter>('전체');
-  useEffect(() => { setIsPro(localStorage.getItem('userRole') === 'pro'); }, []);
+  useEffect(() => {
+    const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
+    setIsLoggedIn(loggedIn);
+    setIsPro(localStorage.getItem('userRole') === 'pro');
+    if (loggedIn) setRooms(MOCK_ROOMS);
+  }, []);
 
-  const [rooms, setRooms] = useState<ChatRoom[]>(MOCK_ROOMS);
+  const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -598,7 +604,7 @@ export default function ChatListPage() {
               <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
               <circle cx="8.5" cy="12" r="1.2" fill="white"/><circle cx="11.5" cy="12" r="1.2" fill="white"/><circle cx="14.5" cy="12" r="1.2" fill="white"/>
             </svg>
-            <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
+            <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
             {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">전문가 찾아보기</Link>}
           </div>
         ) : renderChatList(false)}

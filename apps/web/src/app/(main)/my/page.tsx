@@ -278,16 +278,22 @@ const MENU_SECTIONS = [
 ];
 
 export default function MyPage() {
-  const [user, setUser] = useState(getUserFromStorage());
-  useEffect(() => { setUser(getUserFromStorage()); }, []);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState({ name: '게스트', email: '', image: '', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
+  useEffect(() => {
+    const loggedIn = localStorage.getItem('freetiful-logged-in') === 'true';
+    setIsLoggedIn(loggedIn);
+    if (loggedIn) setUser(getUserFromStorage());
+  }, []);
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
   const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
     setIsPro(localStorage.getItem('userRole') === 'pro');
-  }, []);
+  }, [isLoggedIn]);
 
   const handlePartnerApply = () => {
     const alreadyRegistered = localStorage.getItem('proRegistrationComplete') === 'true';
@@ -523,7 +529,7 @@ export default function MyPage() {
       </div>
 
       {/* Upcoming Schedules */}
-      {UPCOMING_SCHEDULES.length > 0 && (
+      {isLoggedIn && UPCOMING_SCHEDULES.length > 0 && (
         <div className="px-4 pt-2 pb-1" style={{ animation: 'myFadeUp 0.5s ease 0.15s both' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[12px] font-bold text-gray-400">다가오는 일정</p>

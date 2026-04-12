@@ -245,8 +245,12 @@ function ProScheduleView() {
 }
 
 export default function SchedulePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
-  useEffect(() => { setIsPro(localStorage.getItem('userRole') === 'pro'); }, []);
+  useEffect(() => {
+    setIsLoggedIn(localStorage.getItem('freetiful-logged-in') === 'true');
+    setIsPro(localStorage.getItem('userRole') === 'pro');
+  }, []);
 
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -296,13 +300,14 @@ export default function SchedulePage() {
   };
 
   const schedulesByDate = useMemo(() => {
+    if (!isLoggedIn) return {};
     const map: Record<string, ScheduleItem[]> = {};
     MOCK_SCHEDULES.forEach(s => {
       if (!map[s.date]) map[s.date] = [];
       map[s.date].push(s);
     });
     return map;
-  }, []);
+  }, [isLoggedIn]);
 
   const selectedSchedules = selectedDate ? (schedulesByDate[selectedDate] ?? []) : [];
 
@@ -320,17 +325,18 @@ export default function SchedulePage() {
 
   // List view: all schedules for current month sorted
   const monthSchedules = useMemo(() => {
+    if (!isLoggedIn) return [];
     const prefix = `${year}-${String(month).padStart(2, '0')}`;
     return MOCK_SCHEDULES
       .filter(s => s.date.startsWith(prefix))
       .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-  }, [year, month]);
+  }, [year, month, isLoggedIn]);
 
   // Stats
   const confirmedCount = monthSchedules.filter(s => s.status === 'confirmed').length;
   const pendingCount = monthSchedules.filter(s => s.status === 'pending').length;
 
-  if (isPro) return <ProScheduleView />;
+  if (isPro && isLoggedIn) return <ProScheduleView />;
 
   return (
     <div className="min-h-screen bg-white">
