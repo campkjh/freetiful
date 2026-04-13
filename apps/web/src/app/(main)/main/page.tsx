@@ -1053,175 +1053,145 @@ export default function HomePage() {
 
       </div>
 
-      {/* ─── Desktop Hero (Toss-style, matches mobile) ──────────────── */}
+      {/* ─── Desktop Hero (2-column layout matching screenshot) ──────── */}
       <div className="hidden lg:block bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-4xl mx-auto px-8 pt-16 pb-12 text-center">
-          {/* Title */}
-          <Reveal>
-          <h2 className="text-[36px] font-bold text-gray-900 leading-tight tracking-tight mb-3">
-            당신의 특별한 날,<br />
-            <span className="text-[#3180F7]">완벽한 전문가</span>를 만나세요
-          </h2>
-          </Reveal>
-          <Reveal delay={100}>
-          <p className="text-[16px] text-gray-500 mb-8">
-            결혼식부터 기업행사까지 프리미엄 전문가 플랫폼 프리티풀
-          </p>
-          </Reveal>
+        <div className="max-w-[1280px] mx-auto px-8 pt-12 pb-10">
 
-          {/* Search Bar */}
-          <Reveal delay={200}>
-          <div className="max-w-xl mx-auto mb-10">
-            <div
-              onClick={() => router.push('/pros')}
-              className="flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-5 py-3.5 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer"
-            >
-              <Search size={20} className="text-gray-400 shrink-0" />
-              <span className="text-[15px] text-gray-400">어떤 전문가를 찾으시나요?</span>
-            </div>
-          </div>
-
-          </Reveal>
-
-          {/* Category Pills */}
-          <Reveal delay={250}>
-          <div className="flex flex-wrap justify-center gap-2.5 mb-10">
-            {['결혼식사회자', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스', '축가', '쇼호스트'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => router.push(`/pros?category=${encodeURIComponent(tab)}`)}
-                className="text-[14px] font-medium px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-[#2B313D] hover:text-white hover:border-[#2B313D] transition-all duration-200 shadow-sm"
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-          </Reveal>
-
-          {/* CTA Cards (same as mobile) */}
-          <Reveal delay={300}>
-          <div className="flex justify-center gap-4 mb-10 max-w-2xl mx-auto">
-            {/* 전문결혼식 사회자 찾기 */}
-            <Link
-              href="/quote?mode=wedding"
-              className="group relative flex-1 h-[140px] rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
-            >
-              <video
-                src="/images/reference-video-1775801211148.mp4#t=0.5"
-                autoPlay muted loop playsInline preload="metadata"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-              <span className="absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-bold text-white bg-[#2B313D]">빠른무료견적</span>
-              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
-                <div>
-                  <span className="text-[18px] font-bold text-white block leading-tight">전문결혼식</span>
-                  <span className="text-[18px] font-bold text-white block leading-tight">사회자 찾기</span>
+          {/* Row 1: Title (left) + Banner (right) */}
+          <div className="flex gap-10 items-start mb-8">
+            {/* Left: Title + Subtitle + Search + Pills */}
+            <div className="flex-1 pt-4">
+              <Reveal>
+                <h2 className="text-[38px] font-bold text-gray-900 leading-[1.2] tracking-tight mb-3">
+                  당신의 특별한 날,<br />
+                  <span className="text-[#3180F7]">완벽한 전문가</span>를 만나세요
+                </h2>
+              </Reveal>
+              <Reveal delay={100}>
+                <p className="text-[16px] text-gray-500 mb-7">
+                  결혼식부터 기업행사까지 프리미엄 전문가 플랫폼 프리티풀
+                </p>
+              </Reveal>
+              <Reveal delay={200}>
+                <div className="max-w-[480px] mb-7">
+                  <div
+                    onClick={() => router.push('/search')}
+                    className="flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-5 py-3.5 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer"
+                  >
+                    <Search size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-[15px] text-gray-400">어떤 전문가를 찾으시나요?</span>
+                  </div>
                 </div>
-                <ChevronRight size={22} className="text-white/80 shrink-0" />
-              </div>
-            </Link>
-
-            {/* 전문 행사 사회자 찾기 */}
-            <Link
-              href="/quote?mode=event"
-              className="group relative flex-1 h-[140px] rounded-2xl border border-gray-200 bg-white flex items-center gap-5 px-5 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden"
-            >
-              {/* Biz 태그 */}
-              <span className="absolute top-3 right-3 z-20 bg-[#3180F7] text-white text-[10px] font-bold px-3 py-1 rounded-full">Biz</span>
-
-              <video
-                src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.5"
-                autoPlay muted loop playsInline preload="metadata"
-                className="w-[120px] h-[120px] object-cover rounded-2xl shrink-0 relative z-10"
-              />
-              <div className="relative z-10">
-                <span className="text-[22px] font-bold text-[#2B313D] block leading-tight">전문 행사</span>
-                <span className="text-[22px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
-              </div>
-
-              {/* 기업 로고 캐러셀 (카드 하단, 영상 위 z-index) */}
-              <div className="absolute bottom-2 left-0 right-0 h-[24px] overflow-hidden z-20">
-                <div className="flex items-center gap-8 opacity-[0.12] grayscale" style={{ width: 'max-content', animation: 'cardLogoScroll 40s linear infinite' }}>
-                  {[
-                    'ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg',
-                    'D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg',
-                    'BRqtD2yZxxRP08TEpNXXNlHvXxtA9Dck7kO4rNAiyud7WyX1EudEU0Y7XpRaIi0eGipOIqU1iZRx06TjD87Bu_8PuSHC-vYi2expOi_ie9INQgZ_8lkfsq7WCiYGssRZvARyM-hmOKkZEOhr4vxl6Q.svg',
-                    'CTCL5r-2Lrik1gBj6n7B0qyIP13vlZUsO_9YpcjuK8Hr8gUiNH33HhuUpwYDmywHYEBZencD5-2p_cJIfunWiqJXR16H5tsIW3hL6qiUK4o3afLmSrpCAf85-c-TDMmsTZRiKr9kWrRUGmMuKFNXlQ.svg',
-                    'EL-GmGKqmm_1_UI1I1HmCwdRis9GIdUfq0tBhZlKnvvB51kv2Wn0hFOfrApbJwh68wKSsYejtF7VN4Htuk2beb2mBOKIBpIM7NphrfKxnZWtfymCW5185hIVDb5q1_GmhJPNTV4GXIWat2Uw7SUHcw.svg',
-                    'FIN9iKw1Cdlcw0qdsLudvODTjrdndKbpbhu2rrzXy_MHd5LgMZBsbXaErtn_kNzWxM6iTiR7rJlKDcOV0TJ5UO7kwpWLap2PqskFK8q7Lb4kbHzAlpLii3vrpXzQbKneH9d2GEmKXMNl6VrkeepcXQ.svg',
-                    'GwHvDSCNafSHnRiZNqDMJOvThTG4_8QJgEFMZC3jlpTg_e_IMR2WWQcB4W641zxOwU219ER8opVMfaK8uhdrl-F69hJn02bChdq-cAheQjLEjDthTLEr4gaXwc4V8ZDNYdfj319zkwONKucgD_G05w.svg',
-                    'Kl7O19oIwFHCfL2QV05oLVVoL684vmbcbpFHyQCiQRiYr7Dgb18bXQM9qY__l0rm0dlPJKRTqAcwaqRcmvg_m0mVOvVfkrcdjER-1QOvtudPOP8len_6uFgfriIGYpYVBjmCyJ0RAHKe7JjZ1soeWw.svg',
-                    'N_7oK9jBqgd4o6MM1imyAIM0lZK2Rsr_oc9HDG8WRllhnrld37ChFRXkVZA5aMK-PSrkr9Y9LBrKuF0mQCMGP09WApahFXbjqTh-Rpw7fYqHkc2f7CKt7xCTc2OG0y1e1LPxvAqnwH4XOpxyWIyMMg.svg',
-                    'PV5QhQJrjCNrlEkK4HE-Myx-FNqaklavtwzZAzm_tVkUiX5U0kp-Ujm4vqKipQmsZj86CgDo_HVBtEEFgMCWIyrR7zWurNboYJJdW60duDKqWBF0ci_KpyXJ2-goGoXSB2_RmNotjMlducSl0kt_aA.svg',
-                  ].flatMap(l => [l]).concat([
-                    'ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg',
-                    'D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg',
-                    'BRqtD2yZxxRP08TEpNXXNlHvXxtA9Dck7kO4rNAiyud7WyX1EudEU0Y7XpRaIi0eGipOIqU1iZRx06TjD87Bu_8PuSHC-vYi2expOi_ie9INQgZ_8lkfsq7WCiYGssRZvARyM-hmOKkZEOhr4vxl6Q.svg',
-                    'CTCL5r-2Lrik1gBj6n7B0qyIP13vlZUsO_9YpcjuK8Hr8gUiNH33HhuUpwYDmywHYEBZencD5-2p_cJIfunWiqJXR16H5tsIW3hL6qiUK4o3afLmSrpCAf85-c-TDMmsTZRiKr9kWrRUGmMuKFNXlQ.svg',
-                    'EL-GmGKqmm_1_UI1I1HmCwdRis9GIdUfq0tBhZlKnvvB51kv2Wn0hFOfrApbJwh68wKSsYejtF7VN4Htuk2beb2mBOKIBpIM7NphrfKxnZWtfymCW5185hIVDb5q1_GmhJPNTV4GXIWat2Uw7SUHcw.svg',
-                    'FIN9iKw1Cdlcw0qdsLudvODTjrdndKbpbhu2rrzXy_MHd5LgMZBsbXaErtn_kNzWxM6iTiR7rJlKDcOV0TJ5UO7kwpWLap2PqskFK8q7Lb4kbHzAlpLii3vrpXzQbKneH9d2GEmKXMNl6VrkeepcXQ.svg',
-                    'GwHvDSCNafSHnRiZNqDMJOvThTG4_8QJgEFMZC3jlpTg_e_IMR2WWQcB4W641zxOwU219ER8opVMfaK8uhdrl-F69hJn02bChdq-cAheQjLEjDthTLEr4gaXwc4V8ZDNYdfj319zkwONKucgD_G05w.svg',
-                    'Kl7O19oIwFHCfL2QV05oLVVoL684vmbcbpFHyQCiQRiYr7Dgb18bXQM9qY__l0rm0dlPJKRTqAcwaqRcmvg_m0mVOvVfkrcdjER-1QOvtudPOP8len_6uFgfriIGYpYVBjmCyJ0RAHKe7JjZ1soeWw.svg',
-                    'N_7oK9jBqgd4o6MM1imyAIM0lZK2Rsr_oc9HDG8WRllhnrld37ChFRXkVZA5aMK-PSrkr9Y9LBrKuF0mQCMGP09WApahFXbjqTh-Rpw7fYqHkc2f7CKt7xCTc2OG0y1e1LPxvAqnwH4XOpxyWIyMMg.svg',
-                    'PV5QhQJrjCNrlEkK4HE-Myx-FNqaklavtwzZAzm_tVkUiX5U0kp-Ujm4vqKipQmsZj86CgDo_HVBtEEFgMCWIyrR7zWurNboYJJdW60duDKqWBF0ci_KpyXJ2-goGoXSB2_RmNotjMlducSl0kt_aA.svg',
-                  ]).map((f, i) => (
-                    <img key={i} src={`/images/company-logos/${f}`} alt="" className="h-[18px] w-auto object-contain shrink-0" />
+              </Reveal>
+              <Reveal delay={250}>
+                <div className="flex flex-wrap gap-2.5">
+                  {['결혼식사회자', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스', '축가', '쇼호스트'].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => router.push(`/pros?category=${encodeURIComponent(tab)}`)}
+                      className="text-[14px] font-medium px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-[#2B313D] hover:text-white hover:border-[#2B313D] transition-all duration-200 shadow-sm"
+                    >
+                      {tab}
+                    </button>
                   ))}
                 </div>
-              </div>
-              <style>{`@keyframes cardLogoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }`}</style>
-            </Link>
-          </div>
-          </Reveal>
+              </Reveal>
+            </div>
 
-          {/* Icon Category Grid */}
-          <div className="grid grid-cols-8 gap-4 max-w-3xl mx-auto mb-10">
-            {[
-              { name: '외국어사회자', img: '/images/cat-foreign-mc.png', href: '/pros?category=외국어사회자' },
-              { name: '웨딩홀', img: '/images/cat-wedding-hall.png', href: '/businesses?category=웨딩홀' },
-              { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
-              { name: '피부과', img: '/images/cat-derma.png', href: '/businesses?category=피부과' },
-              { name: '드레스', img: '/images/cat-dress.png', href: '/businesses?category=드레스' },
-              { name: '헤메샵', img: '/images/cat-hair-makeup.png', href: '/businesses?category=헤메샵' },
-              { name: '스냅·영상', img: '/images/cat-snap-video.png', href: '/businesses?category=스냅·영상' },
-              { name: '축가·연주', img: '/images/cat-singer.png', href: '/pros?category=축가·연주' },
-            ].map((item) => (
-              <Link key={item.name} href={item.href} className="flex flex-col items-center gap-1.5 group">
-                <div className="w-[56px] h-[56px] flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform duration-200">
-                  <img src={item.img} alt={item.name} className="w-full h-full object-contain" />
-                </div>
-                <span className="text-[12px] font-medium text-gray-600 group-hover:text-gray-900 transition-colors text-center leading-tight">{item.name}</span>
-              </Link>
-            ))}
-          </div>
-
-          {/* Banner */}
-          <div className="max-w-3xl mx-auto">
-            <div className="relative w-full overflow-hidden rounded-2xl" style={{ aspectRatio: '1170/300' }}>
-              <div className="flex transition-transform duration-500 ease-out h-full"
-                style={{ width: `${BANNERS.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / BANNERS.length)}%)` }}
-              >
-                {BANNERS.map((b, i) => (
-                  <div key={i} className="h-full shrink-0" style={{ width: `${100 / BANNERS.length}%` }}>
-                    {b.image ? (
-                      <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
-                    ) : (
-                      <div className={`w-full h-full ${b.bgColor} flex items-center px-6`}>
-                        <div>
-                          <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
-                          <p className="text-white text-[20px] font-bold mt-1">{b.subtitle}</p>
-                        </div>
+            {/* Right: Banner */}
+            <Reveal delay={300}>
+              <div className="w-[420px] shrink-0">
+                <div className="relative w-full overflow-hidden rounded-2xl" style={{ aspectRatio: '420/280' }}>
+                  <div className="flex transition-transform duration-500 ease-out h-full"
+                    style={{ width: `${BANNERS.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / BANNERS.length)}%)` }}
+                  >
+                    {BANNERS.map((b, i) => (
+                      <div key={i} className="h-full shrink-0" style={{ width: `${100 / BANNERS.length}%` }}>
+                        {b.image ? (
+                          <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
+                        ) : (
+                          <div className={`w-full h-full ${b.bgColor} flex items-center px-6`}>
+                            <div>
+                              <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
+                              <p className="text-white text-[20px] font-bold mt-1">{b.subtitle}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
+                  <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
+                    {bannerIdx + 1} / {BANNERS.length}
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+
+          {/* Row 2: CTA Cards (2) + Icon Grid (8) — all in one row */}
+          <Reveal delay={350}>
+            <div className="flex items-start gap-4">
+              {/* 전문결혼식 사회자 찾기 */}
+              <Link
+                href="/quote?mode=wedding"
+                className="group relative w-[200px] h-[130px] rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shrink-0"
+              >
+                <video src="/images/reference-video-1775801211148.mp4#t=0.5" autoPlay muted loop playsInline preload="metadata" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                <span className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold text-white bg-[#2B313D]">빠른무료견적</span>
+                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                  <div>
+                    <span className="text-[15px] font-bold text-white block leading-tight">전문결혼식</span>
+                    <span className="text-[15px] font-bold text-white block leading-tight">사회자 찾기</span>
+                  </div>
+                  <ChevronRight size={18} className="text-white/80 shrink-0" />
+                </div>
+              </Link>
+
+              {/* 전문 행사 사회자 찾기 */}
+              <Link
+                href="/quote?mode=event"
+                className="group relative w-[200px] h-[130px] rounded-2xl border border-gray-200 bg-white flex items-center gap-3 px-4 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden shrink-0"
+              >
+                <span className="absolute top-2.5 right-2.5 z-20 bg-[#3180F7] text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full">Biz</span>
+                <video src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.5" autoPlay muted loop playsInline preload="metadata" className="w-[80px] h-[80px] object-cover rounded-xl shrink-0 relative z-10" />
+                <div className="relative z-10">
+                  <span className="text-[15px] font-bold text-[#2B313D] block leading-tight">전문 행사</span>
+                  <span className="text-[15px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
+                </div>
+                <div className="absolute bottom-1.5 left-0 right-0 h-[18px] overflow-hidden z-20">
+                  <div className="flex items-center gap-6 opacity-[0.1] grayscale" style={{ width: 'max-content', animation: 'cardLogoScroll 35s linear infinite' }}>
+                    {['ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg','D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg','CTCL5r-2Lrik1gBj6n7B0qyIP13vlZUsO_9YpcjuK8Hr8gUiNH33HhuUpwYDmywHYEBZencD5-2p_cJIfunWiqJXR16H5tsIW3hL6qiUK4o3afLmSrpCAf85-c-TDMmsTZRiKr9kWrRUGmMuKFNXlQ.svg','EL-GmGKqmm_1_UI1I1HmCwdRis9GIdUfq0tBhZlKnvvB51kv2Wn0hFOfrApbJwh68wKSsYejtF7VN4Htuk2beb2mBOKIBpIM7NphrfKxnZWtfymCW5185hIVDb5q1_GmhJPNTV4GXIWat2Uw7SUHcw.svg','FIN9iKw1Cdlcw0qdsLudvODTjrdndKbpbhu2rrzXy_MHd5LgMZBsbXaErtn_kNzWxM6iTiR7rJlKDcOV0TJ5UO7kwpWLap2PqskFK8q7Lb4kbHzAlpLii3vrpXzQbKneH9d2GEmKXMNl6VrkeepcXQ.svg','GwHvDSCNafSHnRiZNqDMJOvThTG4_8QJgEFMZC3jlpTg_e_IMR2WWQcB4W641zxOwU219ER8opVMfaK8uhdrl-F69hJn02bChdq-cAheQjLEjDthTLEr4gaXwc4V8ZDNYdfj319zkwONKucgD_G05w.svg','ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg','D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg','CTCL5r-2Lrik1gBj6n7B0qyIP13vlZUsO_9YpcjuK8Hr8gUiNH33HhuUpwYDmywHYEBZencD5-2p_cJIfunWiqJXR16H5tsIW3hL6qiUK4o3afLmSrpCAf85-c-TDMmsTZRiKr9kWrRUGmMuKFNXlQ.svg','EL-GmGKqmm_1_UI1I1HmCwdRis9GIdUfq0tBhZlKnvvB51kv2Wn0hFOfrApbJwh68wKSsYejtF7VN4Htuk2beb2mBOKIBpIM7NphrfKxnZWtfymCW5185hIVDb5q1_GmhJPNTV4GXIWat2Uw7SUHcw.svg'].map((f, i) => (
+                      <img key={i} src={`/images/company-logos/${f}`} alt="" className="h-[14px] w-auto object-contain shrink-0" />
+                    ))}
+                  </div>
+                </div>
+                <style>{`@keyframes cardLogoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
+              </Link>
+
+              {/* Icon Category Grid (8 items) */}
+              <div className="flex-1 grid grid-cols-8 gap-2">
+                {[
+                  { name: '외국어사회자', img: '/images/cat-foreign-mc.png', href: '/pros?category=외국어사회자' },
+                  { name: '웨딩홀', img: '/images/cat-wedding-hall.png', href: '/businesses?category=웨딩홀' },
+                  { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
+                  { name: '피부과', img: '/images/cat-derma.png', href: '/businesses?category=피부과' },
+                  { name: '드레스', img: '/images/cat-dress.png', href: '/businesses?category=드레스' },
+                  { name: '헤메샵', img: '/images/cat-hair-makeup.png', href: '/businesses?category=헤메샵' },
+                  { name: '스냅·영상', img: '/images/cat-snap-video.png', href: '/businesses?category=스냅·영상' },
+                  { name: '축가·연주', img: '/images/cat-singer.png', href: '/pros?category=축가·연주' },
+                ].map((item) => (
+                  <Link key={item.name} href={item.href} className="flex flex-col items-center gap-1 group">
+                    <div className="w-[52px] h-[52px] flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                      <img src={item.img} alt={item.name} className="w-full h-full object-contain" />
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-500 group-hover:text-gray-900 transition-colors text-center leading-tight">{item.name}</span>
+                  </Link>
                 ))}
               </div>
-              <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
-                {bannerIdx + 1} / {BANNERS.length}
-              </div>
             </div>
-          </div>
+          </Reveal>
+
         </div>
       </div>
 
