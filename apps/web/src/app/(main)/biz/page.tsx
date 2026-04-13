@@ -874,7 +874,7 @@ export default function BizPage() {
               <Reveal delay={200}>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                   <video className="w-full aspect-video bg-black" controls playsInline preload="metadata" muted>
-                    <source src="/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4" type="video/mp4" />
+                    <source src="/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4#t=0.5" type="video/mp4" />
                   </video>
                   <div className="p-4">
                     <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-violet-500 bg-violet-50 rounded-full mb-2">PLATFORM</span>
@@ -888,7 +888,7 @@ export default function BizPage() {
               <Reveal delay={300}>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                   <video className="w-full aspect-video bg-black" controls playsInline preload="metadata" muted>
-                    <source src="/images/KakaoTalk_Video_2026-04-13-10-12-55.mp4" type="video/mp4" />
+                    <source src="/images/KakaoTalk_Video_2026-04-13-10-12-55.mp4#t=0.5" type="video/mp4" />
                   </video>
                   <div className="p-4">
                     <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-[#3180F7] bg-blue-50 rounded-full mb-2">APPLICATION</span>
@@ -931,7 +931,7 @@ export default function BizPage() {
           <Reveal delay={300}>
             <div className="mt-16 rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10 bg-black">
               <video className="w-full aspect-video" controls playsInline preload="metadata" muted>
-                <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
+                <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4#t=0.5" type="video/mp4" />
               </video>
             </div>
           </Reveal>
@@ -963,7 +963,7 @@ export default function BizPage() {
             <Image src="/images/group-1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[150px] brightness-0 invert opacity-50 mt-8" />
             <div className="mt-10 w-full rounded-xl overflow-hidden bg-black">
               <video ref={receptionVideoRef} className="w-full aspect-video" autoPlay muted playsInline controls preload="metadata">
-                <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
+                <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4#t=0.5" type="video/mp4" />
               </video>
             </div>
           </div>

@@ -150,11 +150,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               return (
                 <div key={href} className="relative">
                   {isBiz && showBizBubble && (
-                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-10 animate-[bizBubbleIn_0.6s_cubic-bezier(0.34,1.56,0.64,1)_both]">
-                      <div className="bg-[#3180F7] text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg shadow-md">
-                        기업행사는 프리티풀에서
+                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap z-10 animate-[bizBubbleIn_0.6s_cubic-bezier(0.34,1.56,0.64,1)_0.3s_both]">
+                      <div className="absolute left-1/2 -translate-x-1/2 -top-1.5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-[#3180F7]" />
+                      <div className="bg-[#3180F7] text-white text-[12px] font-bold px-4 py-2 rounded-xl shadow-lg">
+                        품격 높은 전문 행사 사회자 찾기
                       </div>
-                      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#3180F7]" />
                     </div>
                   )}
                   <Link

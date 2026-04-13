@@ -914,7 +914,7 @@ export default function HomePage() {
                 muted
                 loop
                 playsInline
-                preload="none"
+                preload="metadata"
                 className="w-full h-full object-cover bg-gray-800"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
@@ -939,7 +939,7 @@ export default function HomePage() {
                 muted
                 loop
                 playsInline
-                preload="none"
+                preload="metadata"
                 className="w-20 h-20 object-cover shrink-0 rounded-xl bg-gray-100"
                 style={{ transition: 'opacity 0.2s ease' }}
                 onTimeUpdate={(e) => {
@@ -1098,23 +1098,45 @@ export default function HomePage() {
           </div>
           </Reveal>
 
-          {/* CTA Buttons */}
+          {/* CTA Cards (same as mobile) */}
           <Reveal delay={300}>
-          <div className="flex justify-center gap-3 mb-10">
-            <button
-              onClick={() => router.push('/pros?category=결혼식사회자')}
-              className="group relative px-7 py-3.5 bg-gradient-to-r from-[#2B313D] to-[#3d4555] text-white text-[15px] font-bold rounded-2xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden"
+          <div className="flex justify-center gap-4 mb-10 max-w-2xl mx-auto">
+            {/* 전문결혼식 사회자 찾기 */}
+            <Link
+              href="/quote?mode=wedding"
+              className="group relative flex-1 h-[140px] rounded-2xl overflow-hidden shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
             >
-              <span className="relative z-10">전문 결혼식 사회자 찾기</span>
-              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-            </button>
-            <button
-              onClick={() => router.push('/pros?category=기업행사')}
-              className="group relative px-7 py-3.5 bg-gradient-to-r from-[#3180F7] to-[#2563EB] text-white text-[15px] font-bold rounded-2xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden"
+              <video
+                src="/images/reference-video-1775801211148.mp4#t=0.5"
+                autoPlay muted loop playsInline preload="metadata"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+              <span className="absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-bold text-white bg-[#2B313D]">빠른무료견적</span>
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+                <div>
+                  <span className="text-[18px] font-bold text-white block leading-tight">전문결혼식</span>
+                  <span className="text-[18px] font-bold text-white block leading-tight">사회자 찾기</span>
+                </div>
+                <ChevronRight size={22} className="text-white/80 shrink-0" />
+              </div>
+            </Link>
+
+            {/* 전문 행사 사회자 찾기 */}
+            <Link
+              href="/quote?mode=event"
+              className="group relative flex-1 h-[140px] rounded-2xl border border-gray-200 bg-white flex items-center justify-center gap-4 px-6 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden"
             >
-              <span className="relative z-10">전문 행사 사회자 찾기</span>
-              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-            </button>
+              <video
+                src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.5"
+                autoPlay muted loop playsInline preload="metadata"
+                className="w-24 h-24 object-cover rounded-xl shrink-0"
+              />
+              <div>
+                <span className="text-[18px] font-bold text-[#2B313D] block leading-tight">전문 행사</span>
+                <span className="text-[18px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
+              </div>
+            </Link>
           </div>
           </Reveal>
 
