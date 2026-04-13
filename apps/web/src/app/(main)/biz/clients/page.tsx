@@ -154,13 +154,13 @@ const PARTNER_LOGOS = [
 ];
 
 const PARTNER_SVG_LOGOS = [
-  'Frame 1707490594.svg', 'Frame 1707490595.svg', 'Frame 1707490596.svg',
-  'Frame 1707490598.svg', 'Frame 1707490599.svg', 'Frame 1707490618.svg',
-  'Frame 1707490619.svg', 'Frame 1707490620.svg', 'Frame 1707490621.svg',
-  'Frame 1707490622.svg', 'Frame 1707490623.svg', 'Frame 1707490624.svg',
-  'Frame 1707490625.svg', 'Frame 1707490626.svg', 'Frame 1707490627.svg',
-  'Frame 1707490628.svg', 'Frame 1707490629.svg', 'Frame 1707490630.svg',
-  'Frame 1707490631.svg', 'Frame 1707490632.svg',
+  'frame-1707490594.svg', 'frame-1707490595.svg', 'frame-1707490596.svg',
+  'frame-1707490598.svg', 'frame-1707490599.svg', 'frame-1707490618.svg',
+  'frame-1707490619.svg', 'frame-1707490620.svg', 'frame-1707490621.svg',
+  'frame-1707490622.svg', 'frame-1707490623.svg', 'frame-1707490624.svg',
+  'frame-1707490625.svg', 'frame-1707490626.svg', 'frame-1707490627.svg',
+  'frame-1707490628.svg', 'frame-1707490629.svg', 'frame-1707490630.svg',
+  'frame-1707490631.svg', 'frame-1707490632.svg',
 ];
 
 /* ─── Page ─────────────────────────────────────────────────── */

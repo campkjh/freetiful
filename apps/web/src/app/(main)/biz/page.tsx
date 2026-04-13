@@ -768,7 +768,7 @@ export default function BizPage() {
                     <div className="flex items-center justify-center gap-2 border-x border-gray-100">
                       {/* 경쟁사 로고 (은은한 블러) */}
                       <div className="relative w-[48px] h-[28px] filter blur-[2px] opacity-50">
-                        <Image src="/images/Group 1707481883.png" alt="" width={48} height={28} className="w-full h-full object-contain" />
+                        <Image src="/images/group-1707481883.png" alt="" width={48} height={28} className="w-full h-full object-contain" />
                       </div>
                       <span className="text-[12px] font-bold text-gray-400">일반 플랫폼</span>
                     </div>
@@ -850,17 +850,17 @@ export default function BizPage() {
       <section ref={receptionRef} className="relative overflow-hidden bg-[#0a0a0a] text-white">
         {/* 배경 이미지 (옅게) */}
         <div className="absolute inset-0">
-          <Image src="/images/IMG_8838 1.png" alt="" fill className="object-cover opacity-20" />
+          <Image src="/images/img-8838-1.png" alt="" fill className="object-cover opacity-20" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
         </div>
 
         <div className="relative z-10 mx-auto max-w-[1100px] px-6 py-32">
           <div className="flex flex-col items-center gap-10">
             <Reveal>
-              <Image src="/images/Frame 1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[300px] md:w-[400px] brightness-0 invert opacity-90" />
+              <Image src="/images/frame-1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[300px] md:w-[400px] brightness-0 invert opacity-90" />
             </Reveal>
             <Reveal delay={300}>
-              <Image src="/images/Group 1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[160px] md:w-[200px] brightness-0 invert opacity-50" />
+              <Image src="/images/group-1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[160px] md:w-[200px] brightness-0 invert opacity-50" />
             </Reveal>
           </div>
           <Reveal delay={300}>
@@ -890,12 +890,12 @@ export default function BizPage() {
           }}
         >
           <div className="absolute inset-0">
-            <Image src="/images/IMG_8838 1.png" alt="" fill className="object-cover opacity-20" />
+            <Image src="/images/img-8838-1.png" alt="" fill className="object-cover opacity-20" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
           </div>
           <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-10">
-            <Image src="/images/Frame 1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[280px] brightness-0 invert opacity-90" />
-            <Image src="/images/Group 1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[150px] brightness-0 invert opacity-50 mt-8" />
+            <Image src="/images/frame-1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[280px] brightness-0 invert opacity-90" />
+            <Image src="/images/group-1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[150px] brightness-0 invert opacity-50 mt-8" />
             <div className="mt-10 w-full rounded-xl overflow-hidden bg-black">
               <video ref={receptionVideoRef} className="w-full aspect-video" autoPlay muted playsInline controls>
                 <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />

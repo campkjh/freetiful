@@ -822,7 +822,7 @@ export default function ProDetailPage() {
             </div>
             {pro.isPrime && (
               <span className="flex items-center gap-1 bg-[#3180F7]/10 text-[#3180F7] text-[11px] font-bold px-2.5 py-1 rounded-full">
-                <img src={encodeURI('/images/인증 전문가.svg')} alt="" width={14} height={14} className="shrink-0" />
+                <img src="/images/verified-pro.svg" alt="" width={14} height={14} className="shrink-0" />
                 인증 전문가
               </span>
             )}
