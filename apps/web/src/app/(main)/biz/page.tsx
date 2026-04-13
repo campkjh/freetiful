@@ -213,13 +213,13 @@ function TiltedRow({ images, direction = 'left', speed = 35 }: { images: string[
       {tripled.map((src, i) => (
         <div
           key={`${src}-${i}`}
-          className="flex-shrink-0 w-[180px] h-[240px] md:w-[220px] md:h-[290px] rounded-xl overflow-hidden"
+          className="flex-shrink-0 w-[120px] h-[120px] md:w-[150px] md:h-[150px] rounded-full overflow-hidden border-2 border-white/60 shadow-lg"
         >
           <Image
             src={src}
             alt="Expert"
-            width={220}
-            height={290}
+            width={150}
+            height={150}
             className="w-full h-full object-cover"
           />
         </div>

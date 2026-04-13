@@ -154,13 +154,13 @@ const PARTNER_LOGOS = [
 ];
 
 const PARTNER_SVG_LOGOS = [
-  'frame-1707490594.svg', 'frame-1707490595.svg', 'frame-1707490596.svg',
-  'frame-1707490598.svg', 'frame-1707490599.svg', 'frame-1707490618.svg',
-  'frame-1707490619.svg', 'frame-1707490620.svg', 'frame-1707490621.svg',
-  'frame-1707490622.svg', 'frame-1707490623.svg', 'frame-1707490624.svg',
-  'frame-1707490625.svg', 'frame-1707490626.svg', 'frame-1707490627.svg',
-  'frame-1707490628.svg', 'frame-1707490629.svg', 'frame-1707490630.svg',
-  'frame-1707490631.svg', 'frame-1707490632.svg',
+  'Frame-1707490594.svg', 'Frame-1707490595.svg', 'Frame-1707490596.svg',
+  'Frame-1707490598.svg', 'Frame-1707490599.svg', 'Frame-1707490618.svg',
+  'Frame-1707490619.svg', 'Frame-1707490620.svg', 'Frame-1707490621.svg',
+  'Frame-1707490622.svg', 'Frame-1707490623.svg', 'Frame-1707490624.svg',
+  'Frame-1707490625.svg', 'Frame-1707490626.svg', 'Frame-1707490627.svg',
+  'Frame-1707490628.svg', 'Frame-1707490629.svg', 'Frame-1707490630.svg',
+  'Frame-1707490631.svg', 'Frame-1707490632.svg',
 ];
 
 /* ─── Page ─────────────────────────────────────────────────── */
@@ -325,7 +325,7 @@ export default function ClientsPage() {
               <Reveal key={logo} delay={i * 20}>
                 <div className="group bg-white border border-gray-100 rounded-2xl p-6 flex items-center justify-center h-24 transition-all duration-300 hover:border-gray-200 hover:shadow-md">
                   <img
-                    src={`/images/partners/${encodeURIComponent(logo)}`}
+                    src={`/images/partners/${logo}`}
                     alt="파트너사 로고"
                     className="max-h-12 max-w-full object-contain opacity-70 group-hover:opacity-100 transition-opacity duration-300"
                   />
