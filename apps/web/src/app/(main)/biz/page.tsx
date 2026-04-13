@@ -1029,7 +1029,6 @@ export default function BizPage() {
 
           <div className="mt-12 grid gap-3 md:grid-cols-2">
             {[
-              { icon: <FileText className="h-5 w-5" />, title: '회사소개서', desc: 'PDF', file: '/images/freetiful-company-profile-2025.pdf' },
               { icon: <Download className="h-5 w-5" />, title: 'CI', desc: 'SVG', file: '/images/CI.svg' },
               { icon: <Download className="h-5 w-5" />, title: 'BI 가이드라인', desc: 'PDF', file: '/images/freetiful_bi.pdf' },
               { icon: <FileText className="h-5 w-5" />, title: '서비스 이용가이드', desc: '준비 중', file: '' },
