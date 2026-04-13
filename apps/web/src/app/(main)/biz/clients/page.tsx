@@ -335,7 +335,10 @@ export default function ClientsPage() {
           </div>
 
           {/* 기업 로고 */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 mt-8">
+          <Reveal delay={100}>
+            <h3 className="mt-16 mb-6 text-[22px] font-bold text-gray-900">프리티풀 전문가들과 함께한 기업</h3>
+          </Reveal>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
             {PARTNER_LOGOS.map((logo, i) => (
               <Reveal key={logo} delay={i * 10}>
                 <div className="group bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-center h-20 transition-all duration-300 hover:border-gray-200 hover:shadow-md">
