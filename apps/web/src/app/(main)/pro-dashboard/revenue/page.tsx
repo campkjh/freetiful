@@ -40,7 +40,7 @@ const ClockIcon = () => (
 );
 
 const MoneyBagIcon = () => (
-  <img src="/images/이번달 매출.svg" alt="" width={20} height={20} className="shrink-0" />
+  <img src="/images/monthly-revenue.svg" alt="" width={20} height={20} className="shrink-0" />
 );
 
 /* ─── Data ─── */

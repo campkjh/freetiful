@@ -138,14 +138,14 @@ const EXPERT_IMAGES_ROW1 = Array.from({ length: 11 }, (_, i) => `/images/Group $
 const EXPERT_IMAGES_ROW2 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482293 + i}.png`);
 
 const INTRO_IMAGES = [
-  '/images/소개이미지1.png',
-  '/images/소개ios2.png',
-  '/images/소개ios3.png',
-  '/images/소개ios5.png',
-  '/images/소개ios6.png',
-  '/images/소개ios7.png',
-  '/images/소개ios8.png',
-  '/images/소개ios9.png',
+  '/images/intro-1.png',
+  '/images/intro-ios2.png',
+  '/images/intro-ios3.png',
+  '/images/intro-ios5.png',
+  '/images/intro-ios6.png',
+  '/images/intro-ios7.png',
+  '/images/intro-ios8.png',
+  '/images/intro-ios9.png',
 ];
 
 function AppScreenMarquee({ images, speed = 40 }: { images: string[]; speed?: number }) {
@@ -1204,10 +1204,10 @@ export default function BizPage() {
               {/* 네비 아이템들 */}
               <div className="flex-1 flex items-center justify-around overflow-hidden">
                 {[
-                  { id: '회사소개', iconSrc: '/images/회사소개.svg', label: '회사소개' },
-                  { id: '핵심서비스', iconSrc: '/images/서비스.svg', label: '서비스' },
-                  { id: '자료실', iconSrc: '/images/자료실.svg', label: '자료실' },
-                  { id: '문의', iconSrc: '/images/문의.svg', label: '문의' },
+                  { id: '회사소개', iconSrc: '/images/company-intro.svg', label: '회사소개' },
+                  { id: '핵심서비스', iconSrc: '/images/service.svg', label: '서비스' },
+                  { id: '자료실', iconSrc: '/images/resources.svg', label: '자료실' },
+                  { id: '문의', iconSrc: '/images/inquiry.svg', label: '문의' },
                 ].map((item, idx) => (
                   <button
                     key={item.id}

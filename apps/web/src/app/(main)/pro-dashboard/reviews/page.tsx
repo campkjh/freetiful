@@ -24,7 +24,7 @@ const SmallStarIcon = ({ filled = true }: { filled?: boolean }) => (
 );
 
 const BigStarIcon = () => (
-  <img src="/images/평균 평점.svg" alt="" width={36} height={36} className="shrink-0" />
+  <img src="/images/avg-rating.svg" alt="" width={36} height={36} className="shrink-0" />
 );
 
 const ReplyIcon = () => (

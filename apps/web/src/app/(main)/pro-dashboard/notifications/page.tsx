@@ -138,7 +138,7 @@ export default function NotificationsPage() {
             {notifications.length === 0 ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-16 text-center">
                 <div className="flex justify-center mb-3">
-                  <img src="/images/알림 설정.svg" alt="" width={48} height={48} className="shrink-0" />
+                  <img src="/images/notification-settings.svg" alt="" width={48} height={48} className="shrink-0" />
                 </div>
                 <p className="text-sm text-gray-400">알림이 없습니다</p>
               </motion.div>

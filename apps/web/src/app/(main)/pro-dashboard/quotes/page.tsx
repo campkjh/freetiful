@@ -48,7 +48,7 @@ const CloseIcon = () => (
 );
 
 const EmptyIcon = () => (
-  <img src="/images/새 견적요청.svg" alt="" width={48} height={48} className="shrink-0" />
+  <img src="/images/new-quote.svg" alt="" width={48} height={48} className="shrink-0" />
 );
 
 /* ─── Types ─── */

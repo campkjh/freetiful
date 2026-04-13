@@ -12,7 +12,7 @@ const BackIcon = () => (
 );
 
 const EyeIcon = () => (
-  <img src="/images/프로필 조회.svg" alt="" width={28} height={28} className="shrink-0" />
+  <img src="/images/profile-views.svg" alt="" width={28} height={28} className="shrink-0" />
 );
 
 const UsersIcon = () => (
