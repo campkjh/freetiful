@@ -654,7 +654,7 @@ export default function ProDetailPage() {
   }
 
   return (
-    <div className="bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white pb-24 lg:max-w-5xl lg:mx-auto lg:px-8" style={{ letterSpacing: '-0.02em' }}>
       {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
       <div
         className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
@@ -714,7 +714,7 @@ export default function ProDetailPage() {
       {/* ─── Image Gallery with swipe ─── */}
       <div
         ref={galleryRef}
-        className="relative w-full aspect-square bg-gray-100 overflow-hidden"
+        className="relative w-full aspect-square lg:aspect-auto lg:h-[500px] bg-gray-100 overflow-hidden"
         onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
         onTouchEnd={(e) => {
           if (touchStartX.current === null) return;
@@ -840,9 +840,15 @@ export default function ProDetailPage() {
 
         {/* ─── 기업 로고 캐러셀 ─── */}
         <CompanyLogoCarousel proId={pro.id} />
+      </div>
+      {/* Close px-2.5 pt-4 div, start 2-column layout */}
+
+      <div className="lg:flex lg:gap-8 lg:items-start">
+      {/* ─── Plan/Booking section (right column on desktop) ─── */}
+      <div className="px-2.5 lg:px-0 lg:w-1/3 lg:order-2 lg:sticky lg:top-20 lg:mt-4 lg:bg-white lg:rounded-2xl lg:border lg:border-gray-100 lg:shadow-sm lg:p-5">
 
         {/* ─── Plan Tabs ─── */}
-        <div className="flex border-b border-gray-200 -mx-2.5 relative">
+        <div className="flex border-b border-gray-200 -mx-2.5 lg:mx-0 relative">
           {pro.plans.map((p, i) => (
             <button
               key={p.id}
@@ -918,9 +924,13 @@ export default function ProDetailPage() {
 
         </div>
       </div>
+      {/* ─── End Plan/Booking right column ─── */}
+
+      {/* ─── Left column: Description, Info, Reviews (on desktop) ─── */}
+      <div className="lg:w-2/3 lg:order-1">
 
       {/* ─── Divider ─── */}
-      <div className="h-2 bg-gray-50" />
+      <div className="h-2 bg-gray-50 lg:hidden" />
 
       {/* ─── Section Tabs (Sticky below header) ─── */}
       <div className="sticky top-[60px] z-30 bg-white border-b border-gray-200">
@@ -1301,6 +1311,11 @@ export default function ProDetailPage() {
           ))}
         </div>
       </div>
+
+      </div>
+      {/* ─── End left column ─── */}
+      </div>
+      {/* ─── End lg:flex 2-column wrapper ─── */}
 
       {/* ─── Bottom Fixed Bar ─── */}
       <div

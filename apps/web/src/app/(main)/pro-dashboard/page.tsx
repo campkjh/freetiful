@@ -404,7 +404,7 @@ export default function ProDashboardPage() {
   const maxRevenue = Math.max(thisMonth, lastMonth);
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-28">
+    <div className="bg-gray-50 min-h-screen pb-28 max-w-5xl mx-auto lg:px-8">
       {/* ── Header ── */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="px-5 pt-12 pb-4 flex items-center justify-between">
@@ -439,7 +439,7 @@ export default function ProDashboardPage() {
         variants={stagger}
         initial="hidden"
         animate="show"
-        className="px-4 mt-5 grid grid-cols-2 gap-3"
+        className="px-4 mt-5 grid grid-cols-2 lg:grid-cols-5 gap-3"
       >
         {[
           { icon: <img src="/images/new-quote.svg" alt="" width={24} height={24} />, label: '새 견적요청', value: `${pendingQuotes.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/quotes' },
@@ -481,13 +481,13 @@ export default function ProDashboardPage() {
           )}
         </div>
 
-        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
+        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
           <AnimatePresence mode="popLayout">
             {pendingQuotes.length === 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="py-10 text-center"
+                className="py-10 text-center lg:col-span-2"
               >
                 <p className="text-sm text-gray-400">대기 중인 견적 요청이 없습니다</p>
               </motion.div>
@@ -501,7 +501,7 @@ export default function ProDashboardPage() {
                 onPointerDown={(e) => handlePointerDown(quote.id, e)}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
-                className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm select-none mb-3 last:mb-0"
+                className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm select-none mb-3 last:mb-0 lg:mb-0"
               >
                 {/* Top row */}
                 <div className="flex items-center justify-between mb-2">
@@ -634,7 +634,7 @@ export default function ProDashboardPage() {
             전체보기 <ChevronRightIcon />
           </Link>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
           {(hasDemoData ? RECENT_REVIEWS : []).map((review, i) => (
             <motion.div
               key={review.id}

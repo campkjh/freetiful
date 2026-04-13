@@ -388,7 +388,7 @@ export default function MyPage() {
   if (isPro) {
     const proMockStats = { revenue: '2,400,000', reviews: 48, pudding: 320 };
     return (
-      <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
+      <div className="bg-white min-h-screen pb-24 lg:max-w-2xl lg:mx-auto lg:px-8" style={{ letterSpacing: '-0.02em' }}>
         {/* Header */}
         <div className="sticky top-0 z-20 bg-white px-4">
           <div className="h-[52px] flex items-center">
@@ -454,6 +454,7 @@ export default function MyPage() {
             <div className="px-4 pt-3 pb-0.5">
               <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
             </div>
+            <div className="lg:grid lg:grid-cols-2 lg:gap-1">
             {section.items.map(({ href, icon: Icon, label, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
               const inner = (
                 <>
@@ -476,6 +477,7 @@ export default function MyPage() {
                 </Link>
               );
             })}
+            </div>
           </div>
         ))}
 
@@ -501,7 +503,7 @@ export default function MyPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white min-h-screen pb-24 lg:max-w-2xl lg:mx-auto lg:px-8" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white px-4">
         <div className="h-[52px] flex items-center">
@@ -649,6 +651,7 @@ export default function MyPage() {
           <div className="px-4 pt-3 pb-0.5">
             <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
           </div>
+          <div className="lg:grid lg:grid-cols-2 lg:gap-1">
           {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
             // Partner registration conditional logic
             if (action === 'partner') {
@@ -703,6 +706,7 @@ export default function MyPage() {
               </Link>
             );
           })}
+          </div>
         </div>
       ))}
 

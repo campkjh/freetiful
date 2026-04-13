@@ -267,10 +267,10 @@ function ProsListContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white" style={{ letterSpacing: '-0.02em' }}>
+    <div className="min-h-screen bg-white lg:max-w-7xl lg:mx-auto" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white">
-        <div className="h-[52px] flex items-center px-4 gap-3">
+        <div className="h-[52px] flex items-center px-4 lg:px-8 gap-3">
           <button onClick={() => router.back()} className="p-1 -ml-2 shrink-0 active:scale-90 transition-transform">
             <ChevronLeft size={24} className="text-gray-800" />
           </button>
@@ -282,7 +282,7 @@ function ProsListContent() {
                 animate={{ opacity: 1, width: '100%' }}
                 exit={{ opacity: 0, width: 0 }}
                 transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5 ml-1"
+                className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5 ml-1 lg:max-w-xl lg:mx-auto"
               >
                 <Search size={16} className="text-gray-400 shrink-0" />
                 <input
@@ -322,7 +322,7 @@ function ProsListContent() {
 
         {/* Region filter chips + Filter button */}
         <div className="border-b border-gray-100">
-          <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide items-center">
+          <div className="px-4 lg:px-8 py-2 flex gap-2 lg:gap-3 overflow-x-auto scrollbar-hide items-center">
             {/* Filter toggle */}
             <button
               onClick={() => setShowFilter(!showFilter)}
@@ -487,7 +487,7 @@ function ProsListContent() {
       </div>
 
       {/* Result count + sort dropdown */}
-      <div className="px-4 py-3 flex items-center justify-between bg-white">
+      <div className="px-4 lg:px-8 py-3 flex items-center justify-between bg-white">
         <p className="text-[13px] text-gray-500">
           전문가 <span className="font-bold text-gray-900">{filtered.length}</span>명
         </p>
@@ -506,7 +506,7 @@ function ProsListContent() {
       <div ref={listRef}>
         {filtered.length > 0 ? (
           <div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 lg:divide-y-0 lg:grid lg:grid-cols-4 lg:gap-4 lg:px-8 lg:pt-4">
               <AnimatePresence mode="popLayout">
                 {paginatedPros.map((pro, i) => (
                   <motion.div
@@ -517,14 +517,14 @@ function ProsListContent() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.3, delay: i < PAGE_SIZE ? i * 0.03 : 0 }}
                   >
-                    <div className="px-4 py-3">
-                      <div className="flex gap-3">
-                        <Link href={`/pros/${pro.id}`} className="shrink-0">
-                          <div className="w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100">
+                    <div className="px-4 py-3 lg:px-0 lg:py-0">
+                      <div className="flex gap-3 lg:flex-col lg:gap-0">
+                        <Link href={`/pros/${pro.id}`} className="shrink-0 lg:w-full">
+                          <div className="w-[105px] h-[140px] lg:w-full lg:h-auto lg:aspect-[3/4] rounded-lg overflow-hidden bg-gray-100">
                             <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
                           </div>
                         </Link>
-                        <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="flex-1 min-w-0 flex flex-col lg:mt-2">
                           <Link href={`/pros/${pro.id}`} className="flex-1">
                             <p className="text-[16px] font-bold text-gray-900">{pro.role} {pro.name}</p>
                             <div className="flex items-center gap-0.5 mt-1">
@@ -545,7 +545,7 @@ function ProsListContent() {
 
             {/* Load More */}
             {hasMore && (
-              <div className="px-4 pb-6 pt-2">
+              <div className="px-4 lg:px-8 pb-6 pt-2 lg:col-span-4">
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setPage(p => p + 1)}
@@ -561,7 +561,7 @@ function ProsListContent() {
             )}
 
             {!hasMore && filtered.length > PAGE_SIZE && (
-              <p className="text-center text-[13px] text-gray-400 py-6">
+              <p className="text-center text-[13px] text-gray-400 py-6 lg:col-span-4">
                 모든 전문가를 확인했습니다
               </p>
             )}

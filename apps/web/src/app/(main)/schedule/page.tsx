@@ -178,7 +178,7 @@ function ProScheduleView() {
   }, [authUser]);
   const bookings = apiBookings || (hasDemoData ? PRO_MOCK_BOOKINGS : []);
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white lg:max-w-4xl lg:mx-auto lg:px-8">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between px-4 h-14">
@@ -214,7 +214,7 @@ function ProScheduleView() {
       </div>
 
       {/* Booking Cards */}
-      <div className="px-4 space-y-3 pb-24">
+      <div className="px-4 space-y-3 pb-24 lg:grid lg:grid-cols-2 lg:gap-4">
         {bookings.length === 0 && (
           <div className="flex flex-col items-center py-16 text-gray-400">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mb-3">
@@ -410,7 +410,7 @@ export default function SchedulePage() {
   if (isPro && isLoggedIn) return <ProScheduleView />;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white lg:max-w-4xl lg:mx-auto lg:px-8">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between px-4 h-14">
@@ -447,7 +447,7 @@ export default function SchedulePage() {
         <>
           {/* Weekly Day Picker (swipeable) */}
           <div
-            className="px-4 border-b border-gray-100 py-3 overflow-hidden"
+            className="px-4 border-b border-gray-100 py-3 overflow-hidden lg:max-w-3xl lg:mx-auto"
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
@@ -527,7 +527,7 @@ export default function SchedulePage() {
           {/* Selected Date Detail */}
           <div className="min-h-[200px]">
             {selectedSchedules.length > 0 ? (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-gray-100 lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:p-4">
                 {selectedSchedules.map(s => {
                   const status = STATUS_MAP[s.status];
                   const dateObj = new Date(s.date);
@@ -594,7 +594,7 @@ export default function SchedulePage() {
         /* List View */
         <div className="min-h-[200px]">
           {monthSchedules.length > 0 ? (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 lg:divide-y-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:p-4">
               {monthSchedules.map(s => {
                 const status = STATUS_MAP[s.status];
                 const dateObj = new Date(s.date);

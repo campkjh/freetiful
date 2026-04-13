@@ -190,7 +190,7 @@ export default function FavoritesPage() {
   ];
 
   return (
-    <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white min-h-screen lg:max-w-4xl lg:mx-auto lg:px-8" style={{ letterSpacing: '-0.02em' }}>
       {/* Header - sticky */}
       <div ref={headerRef} className="sticky top-0 z-20 bg-white border-b border-gray-100" style={{ willChange: 'contents' }}>
         <div className="h-[52px] flex items-center px-4 gap-3">
@@ -276,7 +276,7 @@ export default function FavoritesPage() {
       {activeTab === 'service' && (
         <div className="bg-white">
           {filteredPros.length > 0 ? (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 lg:divide-y-0 lg:grid lg:grid-cols-3 lg:gap-4 lg:p-4">
               {filteredPros.map((pro) => (
                 <ProCard key={pro.id} pro={pro} onRemove={removePro} />
               ))}
@@ -303,7 +303,7 @@ export default function FavoritesPage() {
       {activeTab === 'portfolio' && (
         <div className="bg-white">
           {filteredBiz.length > 0 ? (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 lg:divide-y-0 lg:grid lg:grid-cols-3 lg:gap-4 lg:p-4">
               {filteredBiz.map((biz) => (
                 <div key={biz.id} className="px-4 py-3">
                   <div className="flex gap-3">
@@ -350,7 +350,7 @@ export default function FavoritesPage() {
       {activeTab === 'recent' && (
         <div className="bg-white">
           {recentPros.length > 0 ? (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 lg:divide-y-0 lg:grid lg:grid-cols-4 lg:gap-4 lg:p-4">
               {recentPros.map((pro) => (
                 <SwipeToDelete key={pro.id} onDelete={() => {
                   setRecentPros((prev) => prev.filter((p) => p.id !== pro.id));
