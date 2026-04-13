@@ -609,8 +609,8 @@ export default function BizPage() {
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[40px] font-bold leading-[1.1] tracking-tight md:text-[72px]">
-              <span className="text-gray-900">소중한 시간을</span><br />
-              <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">아름다운 순간으로</span>
+              <span className="text-gray-900">검증된 전문 진행자로</span><br />
+              <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">기업행사의 품격을 높이다</span>
             </h1>
           </Reveal>
           <Reveal delay={400}>
@@ -873,7 +873,7 @@ export default function BizPage() {
               {/* 영상 1 — 플랫폼 */}
               <Reveal delay={200}>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                  <video className="w-full aspect-video bg-black" controls playsInline preload="none" muted poster="">
+                  <video className="w-full aspect-video bg-black" controls playsInline preload="metadata" muted>
                     <source src="/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4" type="video/mp4" />
                   </video>
                   <div className="p-4">
@@ -887,7 +887,7 @@ export default function BizPage() {
               {/* 영상 2 — 어플리케이션 */}
               <Reveal delay={300}>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                  <video className="w-full aspect-video bg-black" controls playsInline preload="none" muted poster="">
+                  <video className="w-full aspect-video bg-black" controls playsInline preload="metadata" muted>
                     <source src="/images/KakaoTalk_Video_2026-04-13-10-12-55.mp4" type="video/mp4" />
                   </video>
                   <div className="p-4">
@@ -930,7 +930,7 @@ export default function BizPage() {
           </div>
           <Reveal delay={300}>
             <div className="mt-16 rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10 bg-black">
-              <video className="w-full aspect-video" controls playsInline preload="none">
+              <video className="w-full aspect-video" controls playsInline preload="metadata" muted>
                 <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
               </video>
             </div>
@@ -962,7 +962,7 @@ export default function BizPage() {
             <Image src="/images/frame-1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[280px] brightness-0 invert opacity-90" />
             <Image src="/images/group-1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[150px] brightness-0 invert opacity-50 mt-8" />
             <div className="mt-10 w-full rounded-xl overflow-hidden bg-black">
-              <video ref={receptionVideoRef} className="w-full aspect-video" autoPlay muted playsInline controls>
+              <video ref={receptionVideoRef} className="w-full aspect-video" autoPlay muted playsInline controls preload="metadata">
                 <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4" type="video/mp4" />
               </video>
             </div>

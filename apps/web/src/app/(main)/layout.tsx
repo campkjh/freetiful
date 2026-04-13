@@ -58,8 +58,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [bizCollapsing, setBizCollapsing] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
+  const [showBizBubble, setShowBizBubble] = useState(true);
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
+
+  // Auto-hide biz speech bubble after 5 seconds
+  useEffect(() => {
+    const t = setTimeout(() => setShowBizBubble(false), 5000);
+    return () => clearTimeout(t);
+  }, []);
 
   // 로그인이 필요한 ��이지 패턴
   const AUTH_REQUIRED = [/^\/chat/, /^\/schedule/, /^\/favorites/, /^\/my/, /^\/quote/, /^\/pro-/];
@@ -113,6 +121,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       } else {
         setNavVisible(true);
       }
+      setHeaderScrolled(currentY > 80);
       lastScrollY.current = currentY;
     };
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -121,11 +130,17 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-surface-50">
-      {/* ─── Desktop Top Navigation (Glass) ──────────────────────────── */}
-      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 glass border-b border-gray-100/50`}>
-        <div className="max-w-7xl mx-auto px-8 h-[72px] flex items-center justify-between">
-          <Link href={homeHref} className="text-[22px] font-black text-primary-500 tracking-tight">
-            Freetiful
+      {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
+      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50`}>
+        <div
+          className={`mx-auto h-[72px] flex items-center justify-between transition-all duration-500 ease-out ${
+            headerScrolled
+              ? 'max-w-[700px] mt-2 px-6 rounded-full backdrop-blur-xl bg-white/70 shadow-lg border border-gray-200/50'
+              : 'max-w-7xl px-8 glass border-b border-gray-100/50'
+          }`}
+        >
+          <Link href={homeHref}>
+            <Image src="/images/logo-prettyful.svg" alt="Freetiful" width={120} height={32} />
           </Link>
 
           <nav className="flex items-center gap-1">
@@ -133,23 +148,39 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
               const isBiz = href === '/biz';
               return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full text-[14px] font-medium ${
-                    active
-                      ? 'text-gray-900 bg-gray-100/80 font-bold'
-                      : 'text-gray-500 hover:text-gray-800 hover:bg-surface-100/80'
-                  }`}
-                  style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-                >
-                  <Image src={iconSrc} alt={label} width={18} height={18} className={active ? 'opacity-100' : 'opacity-60'} />
-                  {label}
-                </Link>
+                <div key={href} className="relative">
+                  {isBiz && showBizBubble && (
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap z-10 animate-[bizBubbleIn_0.6s_cubic-bezier(0.34,1.56,0.64,1)_both]">
+                      <div className="bg-[#3180F7] text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg shadow-md">
+                        기업행사는 프리티풀에서
+                      </div>
+                      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#3180F7]" />
+                    </div>
+                  )}
+                  <Link
+                    href={href}
+                    className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full text-[14px] font-medium ${
+                      active
+                        ? 'text-gray-900 bg-gray-100/80 font-bold'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-surface-100/80'
+                    }`}
+                    style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                  >
+                    <Image src={iconSrc} alt={label} width={18} height={18} className={active ? 'opacity-100' : 'opacity-60'} />
+                    {label}
+                  </Link>
+                </div>
               );
             })}
           </nav>
         </div>
+        <style>{`
+          @keyframes bizBubbleIn {
+            0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
+            50% { opacity: 1; transform: translateX(-50%) translateY(-4px) scale(1.02); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+          }
+        `}</style>
       </header>
 
       {/* ─── Content ─────────────────────────────────────────────────── */}

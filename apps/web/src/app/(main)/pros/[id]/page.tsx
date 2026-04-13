@@ -845,7 +845,7 @@ export default function ProDetailPage() {
 
       <div className="lg:flex lg:gap-8 lg:items-start">
       {/* ─── Plan/Booking section (right column on desktop) ─── */}
-      <div className="px-2.5 lg:px-0 lg:w-1/3 lg:order-2 lg:sticky lg:top-20 lg:mt-4 lg:bg-white lg:rounded-2xl lg:border lg:border-gray-100 lg:shadow-sm lg:p-5">
+      <div className="px-2.5 lg:px-0 lg:w-1/3 lg:order-2 lg:sticky lg:top-20 lg:mt-4 lg:bg-white lg:rounded-2xl lg:border lg:border-gray-100 lg:shadow-sm lg:p-6">
 
         {/* ─── Plan Tabs ─── */}
         <div className="flex border-b border-gray-200 -mx-2.5 lg:mx-0 relative">
@@ -853,7 +853,7 @@ export default function ProDetailPage() {
             <button
               key={p.id}
               onClick={() => setActivePlan(i)}
-              className={`flex-1 py-3 text-[14px] font-bold relative transition-colors duration-300 ${
+              className={`flex-1 py-4 text-[14px] font-bold relative transition-colors duration-300 ${
                 activePlan === i ? 'text-[#3180F7]' : 'text-gray-300 hover:text-gray-500'
               }`}
             >
@@ -872,7 +872,7 @@ export default function ProDetailPage() {
         </div>
 
         {/* ─── Plan Content ─── */}
-        <div className="py-5">
+        <div className="py-5 lg:py-6 lg:space-y-4">
           {/* Price */}
           <div className="flex items-baseline gap-1.5">
             <span className="text-[28px] font-bold text-gray-900 tabular-nums">
@@ -883,12 +883,12 @@ export default function ProDetailPage() {
           <p className="text-[12px] text-gray-400 mt-1">결제 시 수수료 10%(VAT포함)가 추가돼요.</p>
 
           {/* Service title */}
-          <div className="mt-6 mb-3">
+          <div className="mt-6 lg:mt-0 mb-3">
             <h3 className="text-[17px] font-bold text-gray-900">{plan.title}</h3>
           </div>
 
           {/* Description */}
-          <ul className="space-y-1 text-[14px] text-gray-700 leading-relaxed">
+          <ul className="space-y-1 lg:space-y-2 text-[14px] text-gray-700 leading-relaxed">
             {plan.desc.map((line, i) => (
               <li key={i} className="whitespace-pre-line">{i === 0 ? '- ' : '* '}{line}</li>
             ))}

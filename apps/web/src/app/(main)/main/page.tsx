@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin, Gift } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, LayoutGroup } from 'framer-motion';
@@ -662,6 +663,7 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [apiPros, setApiPros] = useState<typeof MOCK_PROS | null>(null);
 
@@ -969,7 +971,14 @@ export default function HomePage() {
             return (
               <button
                 key={tab}
-                onClick={() => setSelectedMobileTab(tab)}
+                onClick={() => {
+                  setSelectedMobileTab(tab);
+                  if (tab === '행사 맞춤의뢰') {
+                    router.push('/quote');
+                  } else {
+                    router.push(`/pros?category=${encodeURIComponent(tab)}`);
+                  }
+                }}
                 className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-[12px] transition-all duration-300 active:scale-95 ${
                   active
                     ? 'bg-[#2B313D] text-white shadow-[0_2px_8px_rgba(43,49,61,0.2)]'
@@ -1044,62 +1053,88 @@ export default function HomePage() {
 
       </div>
 
-      {/* ─── Desktop Hero ────────────────────────────────────────────── */}
-      <div className="hidden lg:block bg-white border-b border-gray-100/50">
-        <div className="max-w-7xl mx-auto px-8 py-20">
-          <div className="flex items-center justify-between gap-16">
-            <div className="flex-1 max-w-xl">
-              <p className="eyebrow mb-4">WEDDING PROFESSIONALS</p>
-              <h2 className="headline mb-5">
-                당신의 특별한 날,<br />
-                <span className="text-primary-500">완벽한 전문가</span>를 만나세요
-              </h2>
-              <p className="text-[16px] text-gray-500 mb-10 leading-relaxed max-w-[50ch]">
-                웨딩 MC, 축가 가수, 쇼호스트까지<br />
-                AI 매칭으로 딱 맞는 전문가를 추천받으세요
-              </p>
-              <div className="flex gap-3">
-                <Link href="/match" className="btn-primary w-auto inline-flex items-center gap-2 px-8">
-                  견적 요청하기 <ArrowRight size={18} />
-                </Link>
-                <Link href="/pros" className="btn-outline w-auto px-8">
-                  전문가 둘러보기
-                </Link>
-              </div>
-            </div>
-            {/* Hero visual — Stack Banner */}
-            <div className="flex-1 max-w-lg">
-              <StackBanner banners={BANNERS} />
+      {/* ─── Desktop Hero (Toss-style, matches mobile) ──────────────── */}
+      <div className="hidden lg:block bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-4xl mx-auto px-8 pt-16 pb-12 text-center">
+          {/* Title */}
+          <h2 className="text-[36px] font-bold text-gray-900 leading-tight tracking-tight mb-3">
+            당신의 특별한 날,<br />
+            <span className="text-[#3180F7]">완벽한 전문가</span>를 만나세요
+          </h2>
+          <p className="text-[16px] text-gray-500 mb-8">
+            웨딩 MC, 축가 가수, 쇼호스트까지 AI 매칭으로 딱 맞는 전문가를 추천받으세요
+          </p>
+
+          {/* Search Bar */}
+          <div className="max-w-xl mx-auto mb-10">
+            <div
+              onClick={() => router.push('/pros')}
+              className="flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-5 py-3.5 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer"
+            >
+              <Search size={20} className="text-gray-400 shrink-0" />
+              <span className="text-[15px] text-gray-400">어떤 전문가를 찾으시나요?</span>
             </div>
           </div>
 
-          {/* ─── Category Icons ─────────────────────────────────────── */}
-          <div className="flex items-start justify-between mt-14 gap-2">
-            {HERO_CATEGORIES.map((cat) => (
-              <Link
-                key={cat.name}
-                href={cat.name === '전체보기' ? '/pros' : `/pros?category=${encodeURIComponent(cat.name)}`}
-                className="flex flex-col items-center gap-2 group w-[90px]"
+          {/* Category Pills */}
+          <div className="flex flex-wrap justify-center gap-2.5 mb-10">
+            {['결혼식사회자', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스', '축가', '쇼호스트'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => router.push(`/pros?category=${encodeURIComponent(tab)}`)}
+                className="text-[14px] font-medium px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-[#2B313D] hover:text-white hover:border-[#2B313D] transition-all duration-200 shadow-sm"
               >
-                <div className="relative">
-                  {cat.badge && (
-                    <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 z-10 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                      cat.badge === 'Best'
-                        ? 'bg-red-500 text-white'
-                        : 'bg-white text-red-500 border border-red-400'
-                    }`}>
-                      {cat.badge}
-                    </span>
-                  )}
-                  <div className="w-14 h-14 rounded-2xl bg-surface-50 flex items-center justify-center text-[28px] group-hover:bg-surface-100 group-hover:scale-105 transition-all duration-200">
-                    {cat.emoji}
-                  </div>
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Icon Category Grid */}
+          <div className="grid grid-cols-8 gap-4 max-w-3xl mx-auto mb-10">
+            {[
+              { name: '외국어사회자', img: '/images/cat-foreign-mc.png', href: '/pros?category=외국어사회자' },
+              { name: '웨딩홀', img: '/images/cat-wedding-hall.png', href: '/businesses?category=웨딩홀' },
+              { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
+              { name: '피부과', img: '/images/cat-derma.png', href: '/businesses?category=피부과' },
+              { name: '드레스', img: '/images/cat-dress.png', href: '/businesses?category=드레스' },
+              { name: '헤메샵', img: '/images/cat-hair-makeup.png', href: '/businesses?category=헤메샵' },
+              { name: '스냅·영상', img: '/images/cat-snap-video.png', href: '/businesses?category=스냅·영상' },
+              { name: '축가·연주', img: '/images/cat-singer.png', href: '/pros?category=축가·연주' },
+            ].map((item) => (
+              <Link key={item.name} href={item.href} className="flex flex-col items-center gap-1.5 group">
+                <div className="w-[56px] h-[56px] flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform duration-200">
+                  <img src={item.img} alt={item.name} className="w-full h-full object-contain" />
                 </div>
-                <span className="text-[13px] text-gray-700 font-medium text-center leading-tight group-hover:text-gray-900 transition-colors">
-                  {cat.name}
-                </span>
+                <span className="text-[12px] font-medium text-gray-600 group-hover:text-gray-900 transition-colors text-center leading-tight">{item.name}</span>
               </Link>
             ))}
+          </div>
+
+          {/* Banner */}
+          <div className="max-w-3xl mx-auto">
+            <div className="relative w-full overflow-hidden rounded-2xl" style={{ aspectRatio: '1170/300' }}>
+              <div className="flex transition-transform duration-500 ease-out h-full"
+                style={{ width: `${BANNERS.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / BANNERS.length)}%)` }}
+              >
+                {BANNERS.map((b, i) => (
+                  <div key={i} className="h-full shrink-0" style={{ width: `${100 / BANNERS.length}%` }}>
+                    {b.image ? (
+                      <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
+                    ) : (
+                      <div className={`w-full h-full ${b.bgColor} flex items-center px-6`}>
+                        <div>
+                          <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
+                          <p className="text-white text-[20px] font-bold mt-1">{b.subtitle}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
+                {bannerIdx + 1} / {BANNERS.length}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1496,7 +1531,7 @@ export default function HomePage() {
                   <span className="relative">전체</span>
                 </button>
                 {BIZ_CATEGORIES.slice(1).map((cat) => (
-                  <button key={cat} onClick={() => setSelectedBizCat(selectedBizCat === cat ? null : cat)} className={`relative isolate chip ${selectedBizCat === cat ? 'text-white' : 'chip-inactive'}`}>
+                  <button key={cat} onClick={() => { setSelectedBizCat(selectedBizCat === cat ? null : cat); router.push(`/businesses?category=${encodeURIComponent(cat)}`); }} className={`relative isolate chip ${selectedBizCat === cat ? 'text-white' : 'chip-inactive'}`}>
                     {selectedBizCat === cat && <motion.span layoutId="biz-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                     <span className="relative">{cat}</span>
                   </button>
@@ -1520,22 +1555,33 @@ export default function HomePage() {
         <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 7. 행사 맞춤의뢰 (Mobile only)                              */}
+        {/* 7. 행사 맞춤의뢰                                              */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <section className="lg:hidden">
+        <section>
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="section-title">행사 맞춤의뢰</h3>
-              <p className="section-subtitle mt-1">프리티풀의 완벽한 행사 인프라</p>
+              <p className="section-subtitle mt-1">원하는 조건을 입력하면 맞춤 전문가를 추천해드립니다</p>
             </div>
-            <Link href="/match" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
+            <Link href="/quote" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
               전체보기 <ChevronRight size={16} />
             </Link>
           </div>
 
+          {/* CTA Card (Desktop) */}
+          <div className="hidden lg:flex items-center justify-between bg-gradient-to-r from-blue-50 to-white border border-blue-100 rounded-2xl p-8 mb-6">
+            <div>
+              <h4 className="text-[20px] font-bold text-gray-900 mb-2">맞춤 전문가 추천받기</h4>
+              <p className="text-[15px] text-gray-500 leading-relaxed">행사 유형, 날짜, 예산을 입력하면<br />딱 맞는 전문가를 추천해드려요</p>
+            </div>
+            <Link href="/quote" className="shrink-0 inline-flex items-center gap-2 bg-[#3180F7] text-white text-[15px] font-semibold px-8 py-3.5 rounded-xl hover:bg-[#2468d8] transition-colors duration-200 shadow-sm">
+              의뢰하기 <ArrowRight size={18} />
+            </Link>
+          </div>
+
           {/* Package Cards Grid */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 lg:grid-cols-4 lg:gap-4">
             {EVENT_PACKAGES.map((pkg) => (
               <Link
                 key={pkg.name}
