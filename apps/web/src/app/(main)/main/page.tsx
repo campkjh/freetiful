@@ -1100,8 +1100,8 @@ export default function HomePage() {
 
             {/* Right: Banner */}
             <Reveal delay={300}>
-              <div className="w-[420px] shrink-0">
-                <div className="relative w-full overflow-hidden rounded-2xl" style={{ aspectRatio: '420/280' }}>
+              <div className="w-[460px] shrink-0">
+                <div className="relative w-full overflow-hidden rounded-2xl" style={{ aspectRatio: '1170/300' }}>
                   <div className="flex transition-transform duration-500 ease-out h-full"
                     style={{ width: `${BANNERS.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / BANNERS.length)}%)` }}
                   >
@@ -1130,7 +1130,7 @@ export default function HomePage() {
 
           {/* Row 2: CTA Cards (2) + Icon Grid (8) — all in one row */}
           <Reveal delay={350}>
-            <div className="flex items-start gap-4">
+            <div className="flex items-center gap-4">
               {/* 전문결혼식 사회자 찾기 */}
               <Link
                 href="/quote?mode=wedding"
