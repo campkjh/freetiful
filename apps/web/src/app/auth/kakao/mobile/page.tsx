@@ -52,7 +52,7 @@ function KakaoMobileInner() {
         }
 
         setAuth(loginData.user, loginData.tokens.accessToken, loginData.tokens.refreshToken);
-        router.replace('/home');
+        router.replace('/main');
       } catch (e: any) {
         console.error('[kakao-mobile]', e);
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);
