@@ -63,11 +63,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
 
-  // Auto-hide biz speech bubble after 5 seconds
-  useEffect(() => {
-    const t = setTimeout(() => setShowBizBubble(false), 5000);
-    return () => clearTimeout(t);
-  }, []);
+  // Biz bubble stays visible (no auto-hide)
 
   // 로그인이 필요한 ��이지 패턴
   const AUTH_REQUIRED = [/^\/chat/, /^\/schedule/, /^\/favorites/, /^\/my/, /^\/quote/, /^\/pro-/];
@@ -150,11 +146,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               return (
                 <div key={href} className="relative">
                   {isBiz && showBizBubble && (
-                    <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 whitespace-nowrap z-10 animate-[bizBubbleIn_0.6s_cubic-bezier(0.34,1.56,0.64,1)_0.3s_both]">
-                      {/* 꼬리 (위쪽) */}
-                      <div className="absolute left-1/2 -translate-x-1/2 -top-[6px] w-3 h-3 bg-white rotate-45 shadow-sm" />
+                    <div className="absolute top-full mt-4 left-1/2 -translate-x-1/2 whitespace-nowrap z-10 animate-[bizBubbleIn_0.6s_cubic-bezier(0.34,1.56,0.64,1)_0.3s_both]">
                       {/* 말풍선 본체 */}
-                      <div className="relative bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.12)] px-5 py-3">
+                      <div className="relative bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.12)] px-5 py-3.5">
+                        {/* 꼬리 (위쪽 삼각형) */}
+                        <div className="absolute left-1/2 -translate-x-1/2 -top-[8px] w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[8px] border-b-white" style={{ filter: 'drop-shadow(0 -2px 2px rgba(0,0,0,0.06))' }} />
                         <p className="text-[14px] font-bold text-[#3180F7]">품격 높은 전문 행사 사회자 찾기</p>
                       </div>
                     </div>
