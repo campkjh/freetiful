@@ -69,7 +69,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     // Use zustand store first, fallback to localStorage for backwards compat
     const isLoggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (!isLoggedIn && needsAuth) {
-      setShowLoginModal(true);
+      // iOS 앱이면 네이티브 sheet 호출, 웹이면 기존 웹 모달
+      const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
+      if (iosBridge) {
+        iosBridge.postMessage({});
+        setShowLoginModal(false);
+      } else {
+        setShowLoginModal(true);
+      }
     } else {
       setShowLoginModal(false);
     }
