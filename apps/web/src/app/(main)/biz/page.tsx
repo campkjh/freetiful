@@ -134,8 +134,21 @@ const COMPANY_INFO = {
 const NAV_SECTIONS = ['회사소개', '핵심서비스', '연혁', '자료실', '오시는길', '문의'];
 
 /* ─── Expert Marquee Images ──────────────────────────────── */
-const EXPERT_IMAGES_ROW1 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482282 + i}.png`);
-const EXPERT_IMAGES_ROW2 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482293 + i}.png`);
+const EXPERT_IMAGES_ROW1 = [
+  '/images/pro-15/IMG_0196.avif', '/images/pro-23/IMG_46511771924269213.avif', '/images/pro-12/IMG_27221772621229571.avif',
+  '/images/pro-31/IMG_73341772850094485.avif', '/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif',
+  '/images/pro-25/2-11772248201484.avif', '/images/pro-01/10000133881772850005043.avif',
+  '/images/pro-18/20161016_161406_IMG_5921.avif', '/images/pro-05/10000029811773033474612.avif',
+  '/images/pro-34/IMG_2920.avif', '/images/pro-24/10001176941772847263491.avif',
+];
+const EXPERT_IMAGES_ROW2 = [
+  '/images/pro-07/IMG_53011772965035335.avif', '/images/pro-03/IMG_06781773894450803.avif',
+  '/images/pro-22/10000353831773035180593.avif', '/images/pro-10/10000016211774440274171.avif',
+  '/images/pro-28/IMG_002209_01772081523241.avif', '/images/pro-36/IMG_27041773036338469.avif',
+  '/images/pro-14/IMG_02661773035503788.avif', '/images/pro-38/IMG_34281772111635068.avif',
+  '/images/pro-04/IMG_23601771788594274.avif', '/images/pro-41/IMG_12201772513865121.avif',
+  '/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif',
+];
 
 const INTRO_IMAGES = [
   '/images/intro-1.png',
