@@ -521,9 +521,18 @@ export default function MyPage() {
             </div>
             <p className="text-[16px] font-bold text-gray-900 mb-1">로그인이 필요합니다</p>
             <p className="text-[13px] text-gray-400 mb-4">로그인하고 다양한 서비스를 이용해보세요</p>
-            <Link href="/login" className="inline-block bg-gray-900 text-white font-semibold text-[14px] px-6 py-2.5 rounded-xl active:scale-[0.97] transition-transform">
+            <button
+              onClick={() => {
+                // iOS WKWebView: 네이티브 로그인 sheet 호출
+                const handler = (window as any).webkit?.messageHandlers?.showNativeLogin;
+                if (handler) { handler.postMessage({}); return; }
+                // 일반 브라우저: 기존 /login 페이지로
+                window.location.href = '/login';
+              }}
+              className="inline-block bg-gray-900 text-white font-semibold text-[14px] px-6 py-2.5 rounded-xl active:scale-[0.97] transition-transform"
+            >
               로그인 / 회원가입
-            </Link>
+            </button>
           </div>
         </div>
       ) : (
