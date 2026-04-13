@@ -1140,9 +1140,9 @@ export default function HomePage() {
                 <span className="text-[22px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
               </div>
 
-              {/* 기업 로고 캐러셀 (카드 상단 흐르는 배경) */}
-              <div className="absolute top-2 left-0 right-0 h-[24px] overflow-hidden">
-                <div className="flex items-center gap-8 opacity-[0.15] grayscale" style={{ width: 'max-content', animation: 'cardLogoScroll 40s linear infinite' }}>
+              {/* 기업 로고 캐러셀 (카드 하단, 영상 위 z-index) */}
+              <div className="absolute bottom-2 left-0 right-0 h-[24px] overflow-hidden z-20">
+                <div className="flex items-center gap-8 opacity-[0.12] grayscale" style={{ width: 'max-content', animation: 'cardLogoScroll 40s linear infinite' }}>
                   {[
                     'ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg',
                     'D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg',
