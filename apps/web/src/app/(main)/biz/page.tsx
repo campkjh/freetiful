@@ -252,6 +252,7 @@ export default function BizPage() {
   };
   const [scrollY, setScrollY] = useState(0);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [previewFile, setPreviewFile] = useState<string | null>(null);
   const [bizNavExpanding, setBizNavExpanding] = useState(false);
   const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -977,19 +978,29 @@ export default function BizPage() {
 
           <div className="mt-12 grid gap-3 md:grid-cols-2">
             {[
-              { icon: <FileText className="h-5 w-5" />, title: '회사소개서', desc: 'PDF', action: () => window.open('/images/freetiful-company-profile-2025.pdf', '_blank') },
-              { icon: <Download className="h-5 w-5" />, title: 'CI 가이드라인', desc: 'ZIP · 12.8MB', action: () => toast('곧 제공될 예정입니다') },
-              { icon: <FileText className="h-5 w-5" />, title: '서비스 이용가이드', desc: 'PDF · 3.1MB', action: () => toast('곧 제공될 예정입니다') },
-              { icon: <Briefcase className="h-5 w-5" />, title: '파트너 제안서', desc: 'PDF · 4.7MB', action: () => toast('곧 제공될 예정입니다') },
-              { icon: <Shield className="h-5 w-5" />, title: '개인정보처리방침', desc: '', action: () => setShowPrivacy(true) },
+              { icon: <FileText className="h-5 w-5" />, title: '회사소개서', desc: 'PDF', file: '/images/freetiful-company-profile-2025.pdf' },
+              { icon: <Download className="h-5 w-5" />, title: 'CI', desc: 'SVG', file: '/images/CI.svg' },
+              { icon: <Download className="h-5 w-5" />, title: 'BI 가이드라인', desc: 'PDF', file: '/images/freetiful_bi.pdf' },
+              { icon: <FileText className="h-5 w-5" />, title: '서비스 이용가이드', desc: '준비 중', file: '' },
+              { icon: <Briefcase className="h-5 w-5" />, title: '파트너 제안서', desc: '준비 중', file: '' },
+              { icon: <Shield className="h-5 w-5" />, title: '개인정보처리방침', desc: '', file: 'privacy' },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 80}>
-                <button onClick={item.action} className="group flex w-full items-center gap-4 bg-white border border-gray-100 rounded-2xl p-5 text-left transition-all hover:border-gray-200 hover:shadow-sm">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 transition-transform group-hover:scale-110">{item.icon}</div>
-                  <div className="flex-1"><p className="text-[15px] font-bold text-gray-900">{item.title}</p></div>
-                  {item.desc && <span className="text-[11px] text-gray-300">{item.desc}</span>}
-                  <ChevronRight className="h-4 w-4 text-gray-200 transition-transform group-hover:translate-x-1" />
-                </button>
+                <div className="group relative">
+                  <button
+                    onClick={() => {
+                      if (item.file === 'privacy') { setShowPrivacy(true); return; }
+                      if (!item.file) { toast('곧 제공될 예정입니다'); return; }
+                      setPreviewFile(item.file);
+                    }}
+                    className="flex w-full items-center gap-4 bg-white border border-gray-100 rounded-2xl p-5 text-left transition-all hover:border-gray-200 hover:shadow-sm"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 transition-transform group-hover:scale-110">{item.icon}</div>
+                    <div className="flex-1"><p className="text-[15px] font-bold text-gray-900">{item.title}</p></div>
+                    {item.desc && <span className="text-[11px] text-gray-300">{item.desc}</span>}
+                    <ChevronRight className="h-4 w-4 text-gray-200 transition-transform group-hover:translate-x-1" />
+                  </button>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -1277,6 +1288,41 @@ export default function BizPage() {
           100% { opacity: 1; }
         }
       `}} />
+
+      {/* ═══ 파일 미리보기 모달 ═══════════════════════════════ */}
+      {previewFile && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setPreviewFile(null)}>
+          <div className="relative w-full max-w-[900px] max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden animate-[scaleIn_0.2s_ease-out] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <p className="text-[16px] font-bold text-gray-900">{previewFile.split('/').pop()}</p>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewFile}
+                  download
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-[13px] font-bold rounded-lg hover:bg-gray-800 active:scale-95 transition-all"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  다운로드
+                </a>
+                <button onClick={() => setPreviewFile(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <X className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+            {/* 미리보기 */}
+            <div className="flex-1 overflow-auto bg-gray-50 p-4 flex items-center justify-center min-h-[400px]">
+              {previewFile.endsWith('.svg') ? (
+                <img src={previewFile} alt="CI" className="max-w-full max-h-[70vh] object-contain" />
+              ) : previewFile.endsWith('.pdf') ? (
+                <iframe src={previewFile} className="w-full h-[70vh] border-0 rounded-lg" />
+              ) : (
+                <img src={previewFile} alt="Preview" className="max-w-full max-h-[70vh] object-contain" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══ 개인정보처리방침 모달 ═══════════════════════════ */}
       {showPrivacy && (
