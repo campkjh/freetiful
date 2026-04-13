@@ -823,7 +823,7 @@ export default function BizPage() {
               <Reveal delay={300}>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                   <video className="w-full aspect-video bg-black" controls playsInline preload="none" muted poster="">
-                    <source src="/images/KakaoTalk_Video_2026-04-08-23-05-41.mp4" type="video/mp4" />
+                    <source src="/images/KakaoTalk_Video_2026-04-13-10-12-55.mp4" type="video/mp4" />
                   </video>
                   <div className="p-4">
                     <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-[#3180F7] bg-blue-50 rounded-full mb-2">APPLICATION</span>
