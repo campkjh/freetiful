@@ -200,36 +200,45 @@ export default function CeoPage() {
             <div className="flex-1">
               <Reveal delay={200}>
                 <h2 className="text-[28px] font-black tracking-tight md:text-[34px] leading-[1.3]">
-                  <span className="text-gray-900">&ldquo;소중한 순간을</span><br />
-                  <Highlight color="#BFDBFE" delay={400}>가장 아름답게 만드는 연결</Highlight>&rdquo;
+                  <span className="text-gray-900">&ldquo;</span>
+                  <Highlight color="#BFDBFE" delay={400}>검증되지 않은 사람은 연결하지 않는다</Highlight>
+                  <span className="text-gray-900">&rdquo;</span>
                 </h2>
               </Reveal>
               <Reveal delay={300}>
                 <div className="mt-8 space-y-5 text-[15px] leading-[1.85] text-gray-500">
                   <p>
-                    안녕하세요, 프리티풀 대표 서나웅입니다.
+                    안녕하세요. 프리티풀 대표이사 서나웅입니다.
                   </p>
                   <p>
-                    누군가의 결혼식, 기업의 중요한 행사, 인생에서 가장 특별한 순간 — 이 모든 자리에는
-                    그 순간을 빛나게 만드는 &lsquo;사람&rsquo;이 있습니다. 프리티풀은 그런 전문 진행자와
-                    고객을 가장 정확하게 연결하는 플랫폼입니다.
+                    여러분의 결혼식, 기업 행사, 공식 의전, 그리고 인생의 중요한 순간들.
+                    특별한 자리에는 언제나 그 순간의 품격과 분위기를 완성하는 사람이 있습니다.
+                    프리티풀은 바로 그 가치를 누구보다 잘 알기에,
+                    <Highlight color="#FDE68A" delay={200}> 전문 진행자와 고객을 가장 정확하고 신뢰도 높게 연결하는 플랫폼</Highlight>을
+                    만들고 있습니다.
                   </p>
                   <p>
-                    저는 이 사업을 시작하면서 한 가지 원칙을 세웠습니다.
-                    <Highlight color="#FDE68A" delay={200}><strong className="text-gray-800"> &ldquo;검증되지 않은 것은 연결하지 않는다.&rdquo;</strong></Highlight>
-                    KBS, SBS, MBC 등 방송사 출신의 검증된 아나운서, MC, 쇼호스트만을 엄선하여
-                    전국 1,000여 명의 전문 진행자 네트워크를 구축했습니다.
+                    프리티풀은 KBS, SBS, MBC 등 주요 방송사 출신을 비롯해, 풍부한 현장 경험과 전문성을 갖춘
+                    아나운서, MC, 쇼호스트를 엄선하여 <strong className="text-gray-800">전국 1,000여 명의 전문 진행자 네트워크</strong>를
+                    구축해왔습니다.
                   </p>
                   <p>
-                    프리티풀은 단순한 매칭 서비스를 넘어, <Highlight color="#D1FAE5" delay={300}>고객의 소중한 순간을 함께 설계하는
-                    파트너</Highlight>가 되고자 합니다. AI 기반 맞춤 매칭 시스템과 체계적인 품질 관리를 통해
-                    모든 행사가 성공적으로 진행될 수 있도록 최선을 다하겠습니다.
+                    이를 바탕으로 고객의 소중한 시간을 가장 아름다운 순간으로 완성하고,
+                    프리랜서 진행자들이 더욱 안정적으로 성장할 수 있는 환경을 조성해
+                    <Highlight color="#D1FAE5" delay={300}> 모두가 함께 성장하는 건강한 생태계</Highlight>를 만들어가고자 합니다.
                   </p>
                   <p>
-                    앞으로도 프리랜서 진행자가 안정적으로 성장할 수 있는 생태계를 만들고,
-                    고객에게는 <Highlight color="#FDE68A" delay={400}>신뢰할 수 있는 최고의 서비스를 제공하는 프리티풀</Highlight>이 되겠습니다.
+                    단순히 사람을 연결하는 것을 넘어, 고객이 원하는 분위기와 목적에 가장 적합한
+                    검증된 진행자를 제안하는 것, 그것이 프리티풀의 역할이라고 믿습니다.
+                  </p>
+                  <p>
+                    앞으로도 체계적인 품질 관리 시스템을 바탕으로, 고객이 행사진행의 모든 순간을
+                    <Highlight color="#FDE68A" delay={400}> 믿고 맡길 수 있는 최고의 서비스</Highlight>를 제공하겠습니다.
                   </p>
                   <p className="text-gray-400">감사합니다.</p>
+                  <p className="text-gray-700 font-bold pt-2">
+                    여러분의 소중한 시간을 아름다운 순간으로. 프리티풀.
+                  </p>
                 </div>
               </Reveal>
               <Reveal delay={400}>
