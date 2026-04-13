@@ -150,6 +150,18 @@ export class AuthService {
     });
   }
 
+  async kakaoNativeLogin(accessToken: string) {
+    const { data: kakaoUser } = await axios.get('https://kapi.kakao.com/v2/user/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return this.socialLogin(AuthProvider.kakao, {
+      providerUserId: String(kakaoUser.id),
+      providerEmail: kakaoUser.kakao_account?.email,
+      name: kakaoUser.kakao_account?.profile?.nickname,
+      profileImageUrl: kakaoUser.kakao_account?.profile?.profile_image_url,
+    });
+  }
+
   async googleLogin(idToken: string) {
     const { data } = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
     return this.socialLogin(AuthProvider.google, {

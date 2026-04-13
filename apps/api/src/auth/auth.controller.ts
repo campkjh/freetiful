@@ -13,6 +13,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import {
   KakaoLoginDto,
+  KakaoNativeLoginDto,
   GoogleLoginDto,
   NaverLoginDto,
   AppleLoginDto,
@@ -29,9 +30,16 @@ export class AuthController {
   constructor(private auth: AuthService) {}
 
   @Post('login/kakao')
-  @ApiOperation({ summary: 'Kakao social login' })
+  @ApiOperation({ summary: 'Kakao social login (web — authorization code)' })
   kakaoLogin(@Body() dto: KakaoLoginDto) {
     return this.auth.kakaoLogin(dto.code);
+  }
+
+  @Post('login/kakao/native')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Kakao social login (iOS/Android native SDK — access token)' })
+  kakaoNativeLogin(@Body() dto: KakaoNativeLoginDto) {
+    return this.auth.kakaoNativeLogin(dto.accessToken);
   }
 
   @Post('login/google')

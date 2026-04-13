@@ -8,6 +8,26 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
 import toast from 'react-hot-toast';
 
+// Native bridge types injected by iOS WKWebView / Android WebView
+declare global {
+  interface Window {
+    webkit?: {
+      messageHandlers?: {
+        kakaoLogin?: { postMessage: (msg: object) => void };
+        naverLogin?: { postMessage: (msg: object) => void };
+        appleLogin?: { postMessage: (msg: object) => void };
+        googleLogin?: { postMessage: (msg: object) => void };
+      };
+    };
+    FreetifulAndroid?: {
+      kakaoLogin?: () => void;
+      naverLogin?: () => void;
+      appleLogin?: () => void;
+      googleLogin?: () => void;
+    };
+  }
+}
+
 const schema = z.object({
   email: z.string().email('올바른 이메일을 입력해주세요'),
   password: z.string().min(1, '비밀번호를 입력해주세요'),
@@ -52,6 +72,18 @@ export default function LoginPage() {
 
     const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID || 'dca1b472188890116c81a55eff590885';
     const NAVER_KEY = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID || 'R4WM7ZyC8hHuE_O7qLdy';
+
+    // iOS WKWebView / Android WebView: bridge to native SDK for app-to-app auto login
+    const iosBridge = typeof window !== 'undefined' ? window.webkit?.messageHandlers : undefined;
+    const androidBridge = typeof window !== 'undefined' ? window.FreetifulAndroid : undefined;
+    if (provider === 'kakao' && iosBridge?.kakaoLogin) {
+      iosBridge.kakaoLogin.postMessage({});
+      return;
+    }
+    if (provider === 'kakao' && androidBridge?.kakaoLogin) {
+      androidBridge.kakaoLogin();
+      return;
+    }
 
     if (provider === 'kakao') {
       window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;

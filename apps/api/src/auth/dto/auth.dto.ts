@@ -8,6 +8,13 @@ export class KakaoLoginDto {
   code: string;
 }
 
+export class KakaoNativeLoginDto {
+  @ApiProperty({ description: 'Kakao access token from iOS/Android native SDK' })
+  @IsString()
+  @IsNotEmpty()
+  accessToken: string;
+}
+
 export class GoogleLoginDto {
   @ApiProperty()
   @IsString()
