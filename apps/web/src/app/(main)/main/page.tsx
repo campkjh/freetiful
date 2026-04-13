@@ -1125,16 +1125,16 @@ export default function HomePage() {
             {/* 전문 행사 사회자 찾기 */}
             <Link
               href="/quote?mode=event"
-              className="group relative flex-1 h-[140px] rounded-2xl border border-gray-200 bg-white flex items-center justify-center gap-4 px-6 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden"
+              className="group relative flex-1 h-[140px] rounded-2xl border border-gray-200 bg-white flex items-center gap-5 px-5 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden"
             >
               <video
                 src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.5"
                 autoPlay muted loop playsInline preload="metadata"
-                className="w-24 h-24 object-cover rounded-xl shrink-0"
+                className="w-[120px] h-[120px] object-cover rounded-2xl shrink-0"
               />
               <div>
-                <span className="text-[18px] font-bold text-[#2B313D] block leading-tight">전문 행사</span>
-                <span className="text-[18px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
+                <span className="text-[22px] font-bold text-[#2B313D] block leading-tight">전문 행사</span>
+                <span className="text-[22px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
               </div>
             </Link>
           </div>
