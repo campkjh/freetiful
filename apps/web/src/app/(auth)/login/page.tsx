@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,6 +37,26 @@ type FormData = z.infer<typeof schema>;
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { emailLogin } = useAuth();
+
+  // ──────── DIAGNOSTIC (임시) ────────
+  const [diag, setDiag] = useState<string>('');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent;
+    const hasWebkit = !!(window as any).webkit;
+    const handlers = (window as any).webkit?.messageHandlers;
+    const kakaoHandler = !!handlers?.kakaoLogin;
+    const androidBridge = !!(window as any).FreetifulAndroid;
+    const lines = [
+      `UA: ${ua.substring(0, 60)}`,
+      `webkit: ${hasWebkit ? 'YES' : 'NO'}`,
+      `messageHandlers: ${handlers ? 'YES' : 'NO'}`,
+      `kakaoLogin handler: ${kakaoHandler ? 'YES ✓' : 'NO ✗'}`,
+      `Android bridge: ${androidBridge ? 'YES' : 'NO'}`,
+    ];
+    setDiag(lines.join('\n'));
+  }, []);
+  // ───────────────────────────────────
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -119,7 +139,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="flex-1 flex flex-col justify-center px-6 py-12 max-w-md mx-auto w-full">
+      {/* DIAGNOSTIC — 임시 디버그 창 */}
+      <pre className="fixed top-0 left-0 right-0 bg-yellow-100 text-xs p-2 z-50 whitespace-pre-wrap break-all">
+        {diag}
+      </pre>
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 max-w-md mx-auto w-full pt-32">
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-black text-primary-500 tracking-tight">Freetiful</h1>
           <p className="mt-2 text-gray-500 text-sm">나의 특별한 행사를 완성하는 전문가</p>
