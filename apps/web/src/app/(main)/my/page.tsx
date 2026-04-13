@@ -221,7 +221,7 @@ const PRO_MENU_SECTIONS = [
   {
     title: '프로필 관리',
     items: [
-      { href: '/my/pro-edit', icon: () => <ImgIcon src="/images/프로필 설정.svg" />, label: '프로필 수정' },
+      { href: '/my/pro-edit', icon: () => <ImgIcon src="/images/profile-settings.svg" />, label: '프로필 수정' },
     ],
   },
   {
@@ -250,33 +250,33 @@ const MENU_SECTIONS = [
   {
     title: '나의 활동',
     items: [
-      { href: '/my/purchase-history', icon: () => <ImgIcon src="/images/구매 내역.svg" />, label: '구매 내역' },
+      { href: '/my/purchase-history', icon: () => <ImgIcon src="/images/purchase-history.svg" />, label: '구매 내역' },
       { href: '/my/payment-history', icon: IconHistory, label: '결제/환불 내역' },
-      { href: '/my/points', icon: () => <ImgIcon src="/images/포인트.svg" />, label: '포인트', badge: '' },
-      { href: '/my/coupons', icon: () => <ImgIcon src="/images/쿠폰.svg" />, label: '쿠폰' },
+      { href: '/my/points', icon: () => <ImgIcon src="/images/point.svg" />, label: '포인트', badge: '' },
+      { href: '/my/coupons', icon: () => <ImgIcon src="/images/coupon.svg" />, label: '쿠폰' },
     ],
   },
   {
     title: '설정',
     items: [
-      { href: '/my/settings', icon: () => <ImgIcon src="/images/프로필 설정.svg" />, label: '프로필 설정' },
-      { href: '/my/notifications', icon: () => <ImgIcon src="/images/알림 설정.svg" />, label: '알림 설정' },
+      { href: '/my/settings', icon: () => <ImgIcon src="/images/profile-settings.svg" />, label: '프로필 설정' },
+      { href: '/my/notifications', icon: () => <ImgIcon src="/images/notification-settings.svg" />, label: '알림 설정' },
     ],
   },
   {
     title: '고객지원',
     items: [
-      { href: '/my/support', icon: () => <ImgIcon src="/images/고객센터.svg" />, label: '고객센터' },
-      { href: '/my/faq', icon: () => <ImgIcon src="/images/FAQ.svg" />, label: 'FAQ' },
-      { href: '/my/announcements', icon: () => <ImgIcon src="/images/공지사항.svg" />, label: '공지사항' },
+      { href: '/my/support', icon: () => <ImgIcon src="/images/support.svg" />, label: '고객센터' },
+      { href: '/my/faq', icon: () => <ImgIcon src="/images/faq-icon.svg" />, label: 'FAQ' },
+      { href: '/my/announcements', icon: () => <ImgIcon src="/images/announcements.svg" />, label: '공지사항' },
     ],
   },
   {
     title: '기타',
     items: [
-      { href: '/my/invite', icon: () => <ImgIcon src="/images/친구초대.svg" />, label: '친구 초대', badge: '500P 적립' },
+      { href: '/my/invite', icon: () => <ImgIcon src="/images/invite-friend.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
-      { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/파트너스 신청.svg" />, label: '파트너 신청', action: 'partner' },
+      { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/partners-apply.svg" />, label: '파트너 신청', action: 'partner' },
       { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/일반회원 전환.svg" />, label: '프로유저 전환', action: 'switchToPro' },
     ],
   },

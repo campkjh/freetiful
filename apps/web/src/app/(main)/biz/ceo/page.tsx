@@ -275,27 +275,27 @@ export default function CeoPage() {
               },
               {
                 name: '신동혁', role: '최고운영책임자', badge: 'COO',
-                image: '/images/신동혁 이사.png',
+                image: '/images/director-shin-dh.png',
                 career: ['40건 이상 사업·서비스 기획 및 운영, 행안부 공유누리 포털 등 컨설팅', '(前)(재)홍합밸리 센터장·사외이사, 구 지경부 IT멘토 위촉'],
               },
               {
                 name: '김명옥', role: '최고재무책임자', badge: 'CFO',
-                image: '/images/김명옥 이사.png',
+                image: '/images/director-kim-mo.png',
                 career: ['(現)세무회계 재무전문 사무장', '재무관리 경력 35년'],
               },
               {
                 name: '김정훈', role: '최고기술책임자', badge: 'CTO',
-                image: '/images/김정훈 이사.png',
+                image: '/images/director-kim-jh.png',
                 career: ['reddot award 수상2회, gooddesign 수상1회', '앱 개발 40건 이상, 전주창조경제혁신센터 앱개발 자문의원'],
               },
               {
                 name: '임하람', role: '최고마케팅책임자', badge: 'CMO',
-                image: '/images/임하람 이사.png',
+                image: '/images/director-lim-hr.png',
                 career: ['SNS 총 팔로워 5만명', '바이럴 영상 총 조회수 1억회 이상'],
               },
               {
                 name: '김수연', role: '최고인재책임자', badge: 'CPO',
-                image: '/images/김수연 이사.png',
+                image: '/images/director-kim-sy.png',
                 career: ['(前)인천국제공항 아나운서, 경력 11년차 아나운서', '(現)한국여성사회자협회장'],
               },
             ].map((person, i) => (
