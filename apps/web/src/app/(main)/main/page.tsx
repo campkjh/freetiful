@@ -1057,15 +1057,20 @@ export default function HomePage() {
       <div className="hidden lg:block bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-4xl mx-auto px-8 pt-16 pb-12 text-center">
           {/* Title */}
+          <Reveal>
           <h2 className="text-[36px] font-bold text-gray-900 leading-tight tracking-tight mb-3">
             당신의 특별한 날,<br />
             <span className="text-[#3180F7]">완벽한 전문가</span>를 만나세요
           </h2>
+          </Reveal>
+          <Reveal delay={100}>
           <p className="text-[16px] text-gray-500 mb-8">
-            웨딩 MC, 축가 가수, 쇼호스트까지 AI 매칭으로 딱 맞는 전문가를 추천받으세요
+            결혼식부터 기업행사까지 프리미엄 전문가 플랫폼 프리티풀
           </p>
+          </Reveal>
 
           {/* Search Bar */}
+          <Reveal delay={200}>
           <div className="max-w-xl mx-auto mb-10">
             <div
               onClick={() => router.push('/pros')}
@@ -1076,7 +1081,10 @@ export default function HomePage() {
             </div>
           </div>
 
+          </Reveal>
+
           {/* Category Pills */}
+          <Reveal delay={250}>
           <div className="flex flex-wrap justify-center gap-2.5 mb-10">
             {['결혼식사회자', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스', '축가', '쇼호스트'].map((tab) => (
               <button
@@ -1088,6 +1096,27 @@ export default function HomePage() {
               </button>
             ))}
           </div>
+          </Reveal>
+
+          {/* CTA Buttons */}
+          <Reveal delay={300}>
+          <div className="flex justify-center gap-3 mb-10">
+            <button
+              onClick={() => router.push('/pros?category=결혼식사회자')}
+              className="group relative px-7 py-3.5 bg-gradient-to-r from-[#2B313D] to-[#3d4555] text-white text-[15px] font-bold rounded-2xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden"
+            >
+              <span className="relative z-10">전문 결혼식 사회자 찾기</span>
+              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            </button>
+            <button
+              onClick={() => router.push('/pros?category=기업행사')}
+              className="group relative px-7 py-3.5 bg-gradient-to-r from-[#3180F7] to-[#2563EB] text-white text-[15px] font-bold rounded-2xl hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 overflow-hidden"
+            >
+              <span className="relative z-10">전문 행사 사회자 찾기</span>
+              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            </button>
+          </div>
+          </Reveal>
 
           {/* Icon Category Grid */}
           <div className="grid grid-cols-8 gap-4 max-w-3xl mx-auto mb-10">
@@ -1581,7 +1610,7 @@ export default function HomePage() {
           </div>
 
           {/* Package Cards Grid */}
-          <div className="grid grid-cols-3 gap-2 lg:grid-cols-4 lg:gap-4">
+          <div className="grid grid-cols-3 gap-2 lg:grid-cols-6 lg:gap-4">
             {EVENT_PACKAGES.map((pkg) => (
               <Link
                 key={pkg.name}
