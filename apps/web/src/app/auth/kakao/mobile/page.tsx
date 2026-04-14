@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api/auth.api';
+import { usersApi } from '@/lib/api/users.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 
 /**
@@ -32,11 +33,16 @@ function KakaoMobileInner() {
   useEffect(() => {
     const kakaoId = params.get('kakaoId');
     const nickname = params.get('nickname') || '카카오 사용자';
+    const profileImageUrl = params.get('profileImageUrl') || '';
+    const realEmail = params.get('email') || '';
 
     if (!kakaoId) {
       setStatus('잘못된 요청입니다 (kakaoId 없음).');
       return;
     }
+
+    // 실제 SNS 이메일을 localStorage에 저장 (UI 표시용)
+    if (realEmail) localStorage.setItem("freetiful-real-email", realEmail); else localStorage.removeItem("freetiful-real-email");
 
     (async () => {
       try {
@@ -52,7 +58,19 @@ function KakaoMobileInner() {
         }
 
         setAuth(loginData.user, loginData.tokens.accessToken, loginData.tokens.refreshToken);
-        router.replace('/main');
+
+        // 프로필 이미지 업데이트 (카카오 제공)
+        if (profileImageUrl) {
+          try {
+            const updated = await usersApi.updateProfile({ profileImageUrl });
+            setAuth(updated, loginData.tokens.accessToken, loginData.tokens.refreshToken);
+          } catch (imgErr) {
+            console.warn('[kakao-mobile] 프로필 이미지 업데이트 실패', imgErr);
+          }
+        }
+
+        // 홈(/main)으로 이동 — 전체 새로고침으로 Zustand 상태 확실히 반영
+        window.location.replace("/main");
       } catch (e: any) {
         console.error('[kakao-mobile]', e);
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);

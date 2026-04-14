@@ -1,0 +1,47 @@
+import { PrismaClient, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+
+const prisma = new PrismaClient();
+
+const ADMIN = {
+  email: 'admin@freetiful.com',
+  password: 'Freetiful2026!',
+  name: '어드민',
+};
+
+async function main() {
+  const existing = await prisma.user.findUnique({ where: { email: ADMIN.email } });
+  if (existing) {
+    console.log(`⏭  ${ADMIN.email} already exists (id: ${existing.id})`);
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(ADMIN.password, 12);
+
+  const user = await prisma.user.create({
+    data: {
+      name: ADMIN.name,
+      email: ADMIN.email,
+      role: UserRole.admin,
+      referralCode: Math.random().toString(36).substring(2, 10).toUpperCase(),
+      authProviders: {
+        create: {
+          provider: 'email',
+          providerUserId: ADMIN.email,
+          providerEmail: ADMIN.email,
+          accessToken: passwordHash,
+        },
+      },
+      notificationSettings: { create: {} },
+    },
+  });
+
+  console.log(`✅ Admin created`);
+  console.log(`   id:       ${user.id}`);
+  console.log(`   email:    ${ADMIN.email}`);
+  console.log(`   password: ${ADMIN.password}`);
+}
+
+main()
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api/auth.api';
+import { usersApi } from '@/lib/api/users.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 
 function deriveCredentials(googleId: string) {
@@ -21,10 +22,13 @@ function GoogleMobileInner() {
   useEffect(() => {
     const googleId = params.get('googleId');
     const name = params.get('name') || '구글 사용자';
+    const profileImageUrl = params.get('profileImageUrl') || '';
+    const realEmail = params.get('email') || '';
     if (!googleId) {
       setStatus('잘못된 요청입니다.');
       return;
     }
+    if (realEmail) localStorage.setItem("freetiful-real-email", realEmail); else localStorage.removeItem("freetiful-real-email");
 
     (async () => {
       try {
@@ -38,7 +42,13 @@ function GoogleMobileInner() {
           data = await authApi.emailRegister({ email, password, name });
         }
         setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
-        router.replace('/main');
+        if (profileImageUrl) {
+          try {
+            const updated = await usersApi.updateProfile({ profileImageUrl });
+            setAuth(updated, data.tokens.accessToken, data.tokens.refreshToken);
+          } catch (e) { console.warn('[google-mobile] image 업데이트 실패', e); }
+        }
+        window.location.replace("/main");
       } catch (e: any) {
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);
       }

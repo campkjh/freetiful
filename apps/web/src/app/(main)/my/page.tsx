@@ -276,7 +276,7 @@ const MENU_SECTIONS = [
     items: [
       { href: '/my/invite', icon: () => <ImgIcon src="/images/invite-friend.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
-      { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/partners-badge.svg" />, label: '파트너 신청', action: 'partner' },
+      { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/partners-apply.svg" />, label: '파트너 신청', action: 'partner' },
       { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/일반회원 전환.svg" />, label: '프로유저 전환', action: 'switchToPro' },
     ],
   },
@@ -284,7 +284,7 @@ const MENU_SECTIONS = [
 
 export default function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState({ name: '게스트', email: '', image: '', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
+  const [user, setUser] = useState({ name: '게스트', email: '', image: '/images/default-profile.svg', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
   const authUser = useAuthStore((s) => s.user);
   const { logout: authLogout } = useAuth();
   const router = useRouter();
@@ -302,7 +302,7 @@ export default function MyPage() {
       setUser({
         name: authUser.name || '게스트',
         email: authUser.email || '',
-        image: authUser.profileImageUrl || '',
+        image: authUser.profileImageUrl || '/images/default-profile.svg',
         linkedAccounts: [],
         points: authUser.pointBalance || 0,
         coupons: 0,
@@ -363,14 +363,29 @@ export default function MyPage() {
     }
   };
 
-  const handleLogout = () => {
+  // 실제 SNS 이메일 우선, 없으면 shim 이메일. 20자 초과 시 truncate.
+  const displayEmail = (() => {
+    let e = user.email || '';
+    if (typeof window !== 'undefined') {
+      const realEmail = localStorage.getItem('freetiful-real-email');
+      if (realEmail) e = realEmail;
+    }
+    return e.length > 20 ? e.slice(0, 20) + '...' : e;
+  })();
+
+  // 로그아웃 확인 모달
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const handleLogout = () => setShowLogoutConfirm(true);
+  const executeLogout = () => {
+    setShowLogoutConfirm(false);
     if (authUser) {
       authLogout();
     }
     localStorage.removeItem('freetiful-logged-in');
     localStorage.removeItem('freetiful-user');
     localStorage.removeItem('userRole');
-    router.push('/');
+    localStorage.removeItem('freetiful-real-email');
+    router.push('/main');
   };
 
   const handleSwitchToGeneral = () => {
@@ -401,7 +416,7 @@ export default function MyPage() {
         <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
           <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
             <div className="relative">
-              <img src={user.image} alt={user.name} className="w-[56px] h-[56px] rounded-full object-cover" />
+              <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
               <div className="absolute -bottom-0.5 -right-0.5 bg-blue-500 rounded-full flex items-center justify-center" style={{ width: 20, height: 20 }}>
                 <svg width={10} height={10} viewBox="0 0 24 24" fill="none">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
@@ -413,7 +428,7 @@ export default function MyPage() {
                 <p className="text-[17px] font-bold text-gray-900">사회자 {user.name}</p>
                 <span className="text-[10px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded" style={{ lineHeight: 1.2 }}>PRO</span>
               </div>
-              <p className="text-[13px] text-gray-400 mt-0.5">{user.email}</p>
+              <p className="text-[13px] text-gray-400 mt-0.5">{displayEmail}</p>
             </div>
             <ChevronRight size={20} className="text-gray-300 shrink-0" />
           </Link>
@@ -529,7 +544,7 @@ export default function MyPage() {
                 const handler = (window as any).webkit?.messageHandlers?.showNativeLogin;
                 if (handler) { handler.postMessage({}); return; }
                 // 일반 브라우저: 기존 /login 페이지로
-                window.location.href = '/login';
+                window.location.href = '/main';
               }}
               className="inline-block bg-gray-900 text-white font-semibold text-[14px] px-6 py-2.5 rounded-xl active:scale-[0.97] transition-transform"
             >
@@ -541,7 +556,7 @@ export default function MyPage() {
       <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
         <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
           <div className="relative">
-            <img src={user.image} alt={user.name} className="w-[56px] h-[56px] rounded-full object-cover" />
+            <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
             <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5">
               <div className="w-4.5 h-4.5 bg-[#2B313D] rounded-full flex items-center justify-center" style={{ width: 18, height: 18 }}>
                 <Star size={9} className="text-white fill-white" />
@@ -572,7 +587,7 @@ export default function MyPage() {
                 </span>
               )}
             </div>
-            <p className="text-[13px] text-gray-400 mt-0.5">{user.email}</p>
+            <p className="text-[13px] text-gray-400 mt-0.5">{displayEmail}</p>
           </div>
           <ChevronRight size={20} className="text-gray-300 shrink-0" />
         </Link>
@@ -700,6 +715,23 @@ export default function MyPage() {
                 </button>
               );
             }
+            // 미로그인 상태에서 메뉴 항목 클릭 시 → 네이티브 로그인 팝업 (또는 웹 모달)
+            if (!isLoggedIn) {
+              return (
+                <button
+                  key={label}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
+                    if (iosBridge) { iosBridge.postMessage({}); return; }
+                    window.location.href = '/main';
+                  }}
+                  className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors"
+                >
+                  {inner}
+                </button>
+              );
+            }
             return (
               <Link key={label} href={href} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition-colors">
                 {inner}
@@ -765,6 +797,38 @@ export default function MyPage() {
           to { opacity: 1; transform: translateY(0); }
         }
       `}} />
+
+      {/* ─── 로그아웃 확인 모달 ─────────────────────────────────────── */}
+      {showLogoutConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center px-6"
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[16px] font-bold text-gray-900 text-center mb-5">
+              로그아웃 하시겠어요?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform"
+              >
+                아니오
+              </button>
+              <button
+                onClick={executeLogout}
+                className="flex-1 py-3 rounded-xl bg-gray-900 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+              >
+                예
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -70,24 +70,21 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
-    // Use zustand store first, fallback to localStorage for backwards compat
     const isLoggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (!isLoggedIn && needsAuth) {
-      // iOS 앱이면 네이티브 sheet 호출, 웹이면 기존 웹 모달
+      // 인증 필요 페이지 접근 차단 — 무조건 /main(홈) 으로 이동
+      router.replace('/main');
+      // iOS면 네이티브 sheet 추가로 호출 (웹 브라우저는 그냥 /main에 머무름)
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {
         iosBridge.postMessage({});
-        setShowLoginModal(false);
-      } else {
-        setShowLoginModal(true);
       }
-    } else {
-      setShowLoginModal(false);
     }
+    setShowLoginModal(false);
     if (isLoggedIn) {
       setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
     }
-  }, [pathname, needsAuth, authUser]);
+  }, [pathname, needsAuth, authUser, router]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';
@@ -336,7 +333,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       sessionStorage.setItem('naver_state', state);
                       window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/naver/callback')}&response_type=code&state=${state}`;
                     } else {
-                      router.push('/login');
+                      router.push('/main');
                     }
                   }}
                   className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.96] transition-transform animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]`}

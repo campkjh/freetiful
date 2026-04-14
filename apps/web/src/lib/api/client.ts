@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth.store';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Same-origin 사용 — Next.js rewrites가 /api/* → NEXT_PUBLIC_API_URL (Railway)로 프록시.
+// 이렇게 하면 CORS 없이 freetiful.com 내부에서 모든 API 호출 가능.
+const API_BASE = '';
 
 export const apiClient = axios.create({
   baseURL: API_BASE,
@@ -38,7 +40,7 @@ apiClient.interceptors.response.use(
     try {
       const store = useAuthStore.getState();
       // Bypass apiClient to avoid recursive 401 loops
-      const res = await axios.post(`${API_BASE}/api/v1/auth/refresh`, { refreshToken: store.refreshToken });
+      const res = await axios.post(`/api/v1/auth/refresh`, { refreshToken: store.refreshToken });
       const { accessToken } = res.data.tokens;
       store.setTokens(accessToken, store.refreshToken!);
       failedQueue.forEach((q) => q.resolve(accessToken));
@@ -47,7 +49,7 @@ apiClient.interceptors.response.use(
     } catch (e) {
       failedQueue.forEach((q) => q.reject(e));
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      window.location.href = '/main';
       return Promise.reject(e);
     } finally {
       failedQueue = [];

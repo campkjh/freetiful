@@ -21,10 +21,12 @@ function AppleMobileInner() {
   useEffect(() => {
     const appleUserId = params.get('appleUserId');
     const fullName = params.get('fullName') || 'Apple 사용자';
+    const realEmail = params.get('email') || '';
     if (!appleUserId) {
       setStatus('잘못된 요청입니다.');
       return;
     }
+    if (realEmail) localStorage.setItem("freetiful-real-email", realEmail); else localStorage.removeItem("freetiful-real-email");
 
     (async () => {
       try {
@@ -38,7 +40,7 @@ function AppleMobileInner() {
           data = await authApi.emailRegister({ email, password, name: fullName });
         }
         setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
-        router.replace('/main');
+        window.location.replace("/main");
       } catch (e: any) {
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);
       }

@@ -7,6 +7,7 @@ import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin, Gift
 import toast from 'react-hot-toast';
 import { motion, LayoutGroup } from 'framer-motion';
 import StackBanner from '@/components/home/StackBanner';
+import PullToRefresh from '@/components/PullToRefresh';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
@@ -841,6 +842,7 @@ export default function HomePage() {
   }
 
   return (
+    <PullToRefresh onRefresh={() => { window.location.reload(); }}>
     <div className="bg-white min-h-screen w-full">
       {/* ─── Mobile Header (Fixed, single row: logo + search + bell) ── */}
       <div
@@ -1695,5 +1697,6 @@ export default function HomePage() {
       </div>
 
     </div>
+    </PullToRefresh>
   );
 }

@@ -57,7 +57,7 @@ export function useAuth() {
         if (refreshToken) await authApi.logout(refreshToken);
       } finally {
         storeLogout();
-        router.push('/login');
+        router.push('/main');
       }
     },
   };
