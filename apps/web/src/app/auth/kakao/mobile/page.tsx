@@ -66,7 +66,7 @@ function KakaoMobileInner() {
         }
 
         // 홈(/main)으로 이동 — 전체 새로고침으로 Zustand 상태 확실히 반영
-        setTimeout(() => { window.location.href = '/main'; }, 100);
+        window.location.replace("/main");
       } catch (e: any) {
         console.error('[kakao-mobile]', e);
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);

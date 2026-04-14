@@ -46,7 +46,7 @@ function NaverMobileInner() {
             setAuth(updated, data.tokens.accessToken, data.tokens.refreshToken);
           } catch (e) { console.warn('[naver-mobile] image 업데이트 실패', e); }
         }
-        setTimeout(() => { window.location.href = '/main'; }, 100);
+        window.location.replace("/main");
       } catch (e: any) {
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);
       }
