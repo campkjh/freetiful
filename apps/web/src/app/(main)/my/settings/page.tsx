@@ -51,21 +51,42 @@ export default function SettingsPage() {
   const [profileImage, setProfileImage] = useState(() => authUser?.profileImageUrl || '');
   const [saving, setSaving] = useState(false);
 
-  // 연결된 소셜 계정 (localStorage에서 로그인 provider 확인)
+  // 연결된 소셜 계정 감지 — email prefix 기반 (kakao_*, naver_*, google_*, apple_*)
   const [connectedProviders, setConnectedProviders] = useState<Set<string>>(new Set());
   useEffect(() => {
+    const providers = new Set<string>();
     try {
       const stored = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
-      if (stored.provider) {
-        setConnectedProviders(new Set([stored.provider]));
-      }
+      if (stored.provider) providers.add(stored.provider);
     } catch {}
-    // authUser가 있으면 이메일 기반이면 email, 아니면 provider
-    if (authUser?.email) {
-      // API에서 연결된 provider 목록을 가져올 수 있으면 좋지만, 일단 기본 표시
-      setConnectedProviders((prev) => new Set([...prev, 'email']));
-    }
+    const email = authUser?.email || '';
+    if (email.startsWith('kakao_')) providers.add('kakao');
+    else if (email.startsWith('naver_')) providers.add('naver');
+    else if (email.startsWith('google_')) providers.add('google');
+    else if (email.startsWith('apple_')) providers.add('apple');
+    setConnectedProviders(providers);
   }, [authUser]);
+
+  // 연결 끊기 처리 — SNS 유저는 연결 끊으면 계정 삭제 필요
+  const handleDisconnect = (providerName: string) => {
+    const yes = confirm(`${providerName} 연결을 끊으시겠어요?\n\n연결을 끊으면 계정을 삭제하셔야 합니다.`);
+    if (!yes) return;
+    // 회원 탈퇴 로직 실행
+    if (authUser) {
+      usersApi.deleteAccount()
+        .then(() => {
+          useAuthStore.getState().logout();
+          localStorage.clear();
+          toast.success('계정이 삭제되었습니다');
+          router.push('/');
+        })
+        .catch(() => toast.error('계정 삭제에 실패했습니다'));
+    } else {
+      localStorage.clear();
+      toast.success('계정이 삭제되었습니다');
+      router.push('/');
+    }
+  };
 
   // Refund account state
   const [showBankForm, setShowBankForm] = useState(false);
@@ -210,16 +231,16 @@ export default function SettingsPage() {
               <button
                 onClick={() => {
                   if (isConnected) {
-                    toast('소셜 계정 연결 해제는 고객센터에서 가능합니다', { icon: 'ℹ️' });
+                    handleDisconnect(acc.name);
                   } else {
                     toast('추가 소셜 계정 연결은 준비 중입니다', { icon: '🔗' });
                   }
                 }}
                 className={`text-[12px] font-bold px-4 py-2 rounded-full transition-colors active:scale-95 ${
-                  isConnected ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-gray-800'
+                  isConnected ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-gray-900 text-white hover:bg-gray-800'
                 }`}
               >
-                {isConnected ? '연결됨' : '연결하기'}
+                {isConnected ? '연결끊기' : '연결하기'}
               </button>
             </div>
           );
