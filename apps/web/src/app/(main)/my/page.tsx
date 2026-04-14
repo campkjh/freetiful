@@ -697,6 +697,23 @@ export default function MyPage() {
                 </button>
               );
             }
+            // 미로그인 상태에서 메뉴 항목 클릭 시 → 네이티브 로그인 팝업 (또는 웹 모달)
+            if (!isLoggedIn) {
+              return (
+                <button
+                  key={label}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
+                    if (iosBridge) { iosBridge.postMessage({}); return; }
+                    window.location.href = '/login';
+                  }}
+                  className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors"
+                >
+                  {inner}
+                </button>
+              );
+            }
             return (
               <Link key={label} href={href} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition-colors">
                 {inner}
