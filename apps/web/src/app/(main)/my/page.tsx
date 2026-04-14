@@ -363,6 +363,13 @@ export default function MyPage() {
     }
   };
 
+  // shim 이메일에서 ID 부분만 추출 (kakao_xxx@... → xxx)
+  const displayEmail = (() => {
+    const e = user.email || '';
+    const m = e.match(/^(kakao|naver|google|apple)_([^@]+)@/);
+    return m ? m[2] : e;
+  })();
+
   // 로그아웃 확인 모달
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const handleLogout = () => setShowLogoutConfirm(true);
@@ -417,7 +424,7 @@ export default function MyPage() {
                 <p className="text-[17px] font-bold text-gray-900">사회자 {user.name}</p>
                 <span className="text-[10px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded" style={{ lineHeight: 1.2 }}>PRO</span>
               </div>
-              <p className="text-[13px] text-gray-400 mt-0.5">{user.email}</p>
+              <p className="text-[13px] text-gray-400 mt-0.5">{displayEmail}</p>
             </div>
             <ChevronRight size={20} className="text-gray-300 shrink-0" />
           </Link>
@@ -574,7 +581,7 @@ export default function MyPage() {
                 </span>
               )}
             </div>
-            <p className="text-[13px] text-gray-400 mt-0.5">{user.email}</p>
+            <p className="text-[13px] text-gray-400 mt-0.5">{displayEmail}</p>
           </div>
           <ChevronRight size={20} className="text-gray-300 shrink-0" />
         </Link>
