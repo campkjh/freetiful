@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api/auth.api';
+import { usersApi } from '@/lib/api/users.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 
 function deriveCredentials(naverId: string) {
@@ -21,6 +22,7 @@ function NaverMobileInner() {
   useEffect(() => {
     const naverId = params.get('naverId');
     const name = params.get('name') || '네이버 사용자';
+    const profileImageUrl = params.get('profileImageUrl') || '';
     if (!naverId) {
       setStatus('잘못된 요청입니다.');
       return;
@@ -38,6 +40,12 @@ function NaverMobileInner() {
           data = await authApi.emailRegister({ email, password, name });
         }
         setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
+        if (profileImageUrl) {
+          try {
+            const updated = await usersApi.updateProfile({ profileImageUrl });
+            setAuth(updated, data.tokens.accessToken, data.tokens.refreshToken);
+          } catch (e) { console.warn('[naver-mobile] image 업데이트 실패', e); }
+        }
         setTimeout(() => { window.location.href = '/main'; }, 100);
       } catch (e: any) {
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);
