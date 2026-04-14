@@ -304,7 +304,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       sessionStorage.setItem('naver_state', state);
                       window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/naver/callback')}&response_type=code&state=${state}`;
                     } else {
-                      router.push('/login');
+                      router.push('/main');
                     }
                   }}
                   className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.96] transition-transform animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]`}

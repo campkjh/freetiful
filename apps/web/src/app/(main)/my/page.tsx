@@ -541,7 +541,7 @@ export default function MyPage() {
                 const handler = (window as any).webkit?.messageHandlers?.showNativeLogin;
                 if (handler) { handler.postMessage({}); return; }
                 // 일반 브라우저: 기존 /login 페이지로
-                window.location.href = '/login';
+                window.location.href = '/main';
               }}
               className="inline-block bg-gray-900 text-white font-semibold text-[14px] px-6 py-2.5 rounded-xl active:scale-[0.97] transition-transform"
             >
@@ -720,7 +720,7 @@ export default function MyPage() {
                     e.preventDefault();
                     const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
                     if (iosBridge) { iosBridge.postMessage({}); return; }
-                    window.location.href = '/login';
+                    window.location.href = '/main';
                   }}
                   className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors"
                 >

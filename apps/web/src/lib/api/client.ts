@@ -49,7 +49,7 @@ apiClient.interceptors.response.use(
     } catch (e) {
       failedQueue.forEach((q) => q.reject(e));
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      window.location.href = '/main';
       return Promise.reject(e);
     } finally {
       failedQueue = [];
