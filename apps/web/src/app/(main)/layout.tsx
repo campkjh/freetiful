@@ -69,6 +69,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     // Use zustand store first, fallback to localStorage for backwards compat
     const isLoggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (!isLoggedIn && needsAuth) {
+      // 인증 필요 페이지의 컨텐츠가 sheet 뒤에 노출되지 않도록 /main 으로 먼저 이동
+      router.replace('/main');
       // iOS 앱이면 네이티브 sheet 호출, 웹이면 기존 웹 모달
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {
@@ -83,7 +85,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     if (isLoggedIn) {
       setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
     }
-  }, [pathname, needsAuth, authUser]);
+  }, [pathname, needsAuth, authUser, router]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';
