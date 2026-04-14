@@ -68,17 +68,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const isLoggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (!isLoggedIn && needsAuth) {
-      // 인증 필요 페이지 접근 차단 — 먼저 /main 으로 보내고
+      // 인증 필요 페이지 접근 차단 — 무조건 /main(홈) 으로 이동
       router.replace('/main');
-      // iOS면 네이티브 sheet 호출 / 그 외는 /login 페이지로 이동
+      // iOS면 네이티브 sheet 추가로 호출 (웹 브라우저는 그냥 /main에 머무름)
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {
         iosBridge.postMessage({});
-      } else {
-        router.push('/login');
       }
     }
-    setShowLoginModal(false);  // 웹 모달은 사용하지 않음
+    setShowLoginModal(false);
     if (isLoggedIn) {
       setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
     }
