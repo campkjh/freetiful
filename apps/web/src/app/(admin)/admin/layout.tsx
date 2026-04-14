@@ -5,9 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/auth.store';
 
-// 어드민 권한을 가진 user id 목록 (여기에 추가)
-const ADMIN_USER_IDS = [
-  '9427b9b9-639b-4a9e-a5da-0458faf51609',
+// 어드민 권한을 가진 이메일 목록
+const ADMIN_EMAILS = [
+  'admin@freetiful.com',
 ];
 
 const TABS = [
@@ -24,17 +24,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const authUser = useAuthStore((s) => s.user);
   const [checked, setChecked] = useState(false);
 
+  const isLoginPage = pathname === '/admin/login';
+
   useEffect(() => {
-    if (!authUser) {
-      router.replace('/main');
+    if (isLoginPage) {
+      setChecked(true);
       return;
     }
-    if (!ADMIN_USER_IDS.includes(authUser.id)) {
-      router.replace('/main');
+    if (!authUser) {
+      router.replace('/admin/login');
+      return;
+    }
+    if (!authUser.email || !ADMIN_EMAILS.includes(authUser.email)) {
+      router.replace('/admin/login');
       return;
     }
     setChecked(true);
-  }, [authUser, router]);
+  }, [authUser, router, isLoginPage]);
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
 
   if (!checked) {
     return (
