@@ -363,7 +363,11 @@ export default function MyPage() {
     }
   };
 
-  const handleLogout = () => {
+  // 로그아웃 확인 모달
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const handleLogout = () => setShowLogoutConfirm(true);
+  const executeLogout = () => {
+    setShowLogoutConfirm(false);
     if (authUser) {
       authLogout();
     }
@@ -778,6 +782,38 @@ export default function MyPage() {
           to { opacity: 1; transform: translateY(0); }
         }
       `}} />
+
+      {/* ─── 로그아웃 확인 모달 ─────────────────────────────────────── */}
+      {showLogoutConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center px-6"
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[16px] font-bold text-gray-900 text-center mb-5">
+              로그아웃 하시겠어요?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform"
+              >
+                아니오
+              </button>
+              <button
+                onClick={executeLogout}
+                className="flex-1 py-3 rounded-xl bg-gray-900 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+              >
+                예
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
