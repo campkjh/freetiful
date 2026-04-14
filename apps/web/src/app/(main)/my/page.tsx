@@ -363,9 +363,13 @@ export default function MyPage() {
     }
   };
 
-  // 이메일이 20자 이상이면 뒤에 '...' 로 truncate
+  // 실제 SNS 이메일 우선, 없으면 shim 이메일. 20자 초과 시 truncate.
   const displayEmail = (() => {
-    const e = user.email || '';
+    let e = user.email || '';
+    if (typeof window !== 'undefined') {
+      const realEmail = localStorage.getItem('freetiful-real-email');
+      if (realEmail) e = realEmail;
+    }
     return e.length > 20 ? e.slice(0, 20) + '...' : e;
   })();
 

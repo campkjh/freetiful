@@ -23,10 +23,12 @@ function NaverMobileInner() {
     const naverId = params.get('naverId');
     const name = params.get('name') || '네이버 사용자';
     const profileImageUrl = params.get('profileImageUrl') || '';
+    const realEmail = params.get('email') || '';
     if (!naverId) {
       setStatus('잘못된 요청입니다.');
       return;
     }
+    if (realEmail) localStorage.setItem('freetiful-real-email', realEmail);
 
     (async () => {
       try {

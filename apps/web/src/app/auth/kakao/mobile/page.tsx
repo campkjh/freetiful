@@ -34,11 +34,15 @@ function KakaoMobileInner() {
     const kakaoId = params.get('kakaoId');
     const nickname = params.get('nickname') || '카카오 사용자';
     const profileImageUrl = params.get('profileImageUrl') || '';
+    const realEmail = params.get('email') || '';
 
     if (!kakaoId) {
       setStatus('잘못된 요청입니다 (kakaoId 없음).');
       return;
     }
+
+    // 실제 SNS 이메일을 localStorage에 저장 (UI 표시용)
+    if (realEmail) localStorage.setItem('freetiful-real-email', realEmail);
 
     (async () => {
       try {

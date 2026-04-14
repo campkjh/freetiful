@@ -21,10 +21,12 @@ function AppleMobileInner() {
   useEffect(() => {
     const appleUserId = params.get('appleUserId');
     const fullName = params.get('fullName') || 'Apple 사용자';
+    const realEmail = params.get('email') || '';
     if (!appleUserId) {
       setStatus('잘못된 요청입니다.');
       return;
     }
+    if (realEmail) localStorage.setItem('freetiful-real-email', realEmail);
 
     (async () => {
       try {

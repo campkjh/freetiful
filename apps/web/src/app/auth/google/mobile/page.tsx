@@ -23,10 +23,12 @@ function GoogleMobileInner() {
     const googleId = params.get('googleId');
     const name = params.get('name') || '구글 사용자';
     const profileImageUrl = params.get('profileImageUrl') || '';
+    const realEmail = params.get('email') || '';
     if (!googleId) {
       setStatus('잘못된 요청입니다.');
       return;
     }
+    if (realEmail) localStorage.setItem('freetiful-real-email', realEmail);
 
     (async () => {
       try {
