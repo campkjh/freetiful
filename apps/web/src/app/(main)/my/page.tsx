@@ -374,7 +374,7 @@ export default function MyPage() {
     localStorage.removeItem('freetiful-logged-in');
     localStorage.removeItem('freetiful-user');
     localStorage.removeItem('userRole');
-    router.push('/');
+    router.push('/main');
   };
 
   const handleSwitchToGeneral = () => {

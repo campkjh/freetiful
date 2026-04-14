@@ -78,7 +78,7 @@ export default function SettingsPage() {
           useAuthStore.getState().logout();
           localStorage.clear();
           toast.success('계정이 삭제되었습니다');
-          router.push('/');
+          router.push('/main');
         })
         .catch(() => toast.error('계정 삭제에 실패했습니다'));
     } else {
@@ -315,13 +315,13 @@ export default function SettingsPage() {
                   useAuthStore.getState().logout();
                   localStorage.clear();
                   toast.success('회원 탈퇴가 완료되었습니다');
-                  router.push('/');
+                  router.push('/main');
                 })
                 .catch(() => toast.error('탈퇴 처리에 실패했습니다'));
             } else {
               localStorage.clear();
               toast.success('회원 탈퇴가 완료되었습니다');
-              router.push('/');
+              router.push('/main');
             }
           }}
           className="text-[13px] text-red-400 font-medium"
