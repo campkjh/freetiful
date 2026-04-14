@@ -284,7 +284,7 @@ const MENU_SECTIONS = [
 
 export default function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState({ name: '게스트', email: '', image: '', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
+  const [user, setUser] = useState({ name: '게스트', email: '', image: '/images/default-profile.svg', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
   const authUser = useAuthStore((s) => s.user);
   const { logout: authLogout } = useAuth();
   const router = useRouter();
@@ -302,7 +302,7 @@ export default function MyPage() {
       setUser({
         name: authUser.name || '게스트',
         email: authUser.email || '',
-        image: authUser.profileImageUrl || '',
+        image: authUser.profileImageUrl || '/images/default-profile.svg',
         linkedAccounts: [],
         points: authUser.pointBalance || 0,
         coupons: 0,
@@ -401,7 +401,7 @@ export default function MyPage() {
         <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
           <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
             <div className="relative">
-              <img src={user.image} alt={user.name} className="w-[56px] h-[56px] rounded-full object-cover" />
+              <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
               <div className="absolute -bottom-0.5 -right-0.5 bg-blue-500 rounded-full flex items-center justify-center" style={{ width: 20, height: 20 }}>
                 <svg width={10} height={10} viewBox="0 0 24 24" fill="none">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
@@ -539,7 +539,7 @@ export default function MyPage() {
       <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
         <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
           <div className="relative">
-            <img src={user.image} alt={user.name} className="w-[56px] h-[56px] rounded-full object-cover" />
+            <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
             <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5">
               <div className="w-4.5 h-4.5 bg-[#2B313D] rounded-full flex items-center justify-center" style={{ width: 18, height: 18 }}>
                 <Star size={9} className="text-white fill-white" />
