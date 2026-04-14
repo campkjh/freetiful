@@ -384,6 +384,7 @@ export default function MyPage() {
     localStorage.removeItem('freetiful-logged-in');
     localStorage.removeItem('freetiful-user');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('freetiful-real-email');
     router.push('/main');
   };
 

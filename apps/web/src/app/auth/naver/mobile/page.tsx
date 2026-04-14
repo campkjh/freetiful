@@ -28,7 +28,7 @@ function NaverMobileInner() {
       setStatus('잘못된 요청입니다.');
       return;
     }
-    if (realEmail) localStorage.setItem('freetiful-real-email', realEmail);
+    if (realEmail) localStorage.setItem("freetiful-real-email", realEmail); else localStorage.removeItem("freetiful-real-email");
 
     (async () => {
       try {

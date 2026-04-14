@@ -42,7 +42,7 @@ function KakaoMobileInner() {
     }
 
     // 실제 SNS 이메일을 localStorage에 저장 (UI 표시용)
-    if (realEmail) localStorage.setItem('freetiful-real-email', realEmail);
+    if (realEmail) localStorage.setItem("freetiful-real-email", realEmail); else localStorage.removeItem("freetiful-real-email");
 
     (async () => {
       try {
