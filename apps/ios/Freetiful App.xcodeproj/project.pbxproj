@@ -1,0 +1,491 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FC4BEFF12F7CCE9D00EF5E98 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = FC4BEFF02F7CCE9D00EF5E98 /* FirebaseAnalytics */; };
+		FC7EEC252F303E1600AF3458 /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FC7EEC242F303E1600AF3458 /* KakaoSDKAuth */; };
+		FC7EEC272F303E1600AF3458 /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = FC7EEC262F303E1600AF3458 /* KakaoSDKUser */; };
+		FC7EEC5C2F307CD000AF3458 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = FC7EEC5B2F307CD000AF3458 /* Lottie */; };
+		FC84E6502F3C681900E96AF3 /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = FC84E64F2F3C681900E96AF3 /* OneSignalFramework */; };
+		FCD78D022F3AF3A400C3EA28 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = FCD78D012F3AF3A400C3EA28 /* GoogleSignIn */; };
+		FCD78D042F3AF3A400C3EA28 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FCD78D032F3AF3A400C3EA28 /* GoogleSignInSwift */; };
+		FCD78D242F3B098F00C3EA28 /* NaverThirdPartyLogin in Frameworks */ = {isa = PBXBuildFile; productRef = FCD78D232F3B098F00C3EA28 /* NaverThirdPartyLogin */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		FCB87AD32DDB04CD00707751 /* Freetiful App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Freetiful App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FCC27E132DB9FDCC00563728 /* Exceptions for "Freetiful App" folder in "Freetiful App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FCC27E002DB9FDCB00563728 /* Freetiful App */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		FCC27E032DB9FDCB00563728 /* Freetiful App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FCC27E132DB9FDCC00563728 /* Exceptions for "Freetiful App" folder in "Freetiful App" target */,
+			);
+			path = "Freetiful App";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FCC27DFE2DB9FDCB00563728 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCD78D042F3AF3A400C3EA28 /* GoogleSignInSwift in Frameworks */,
+				FC7EEC272F303E1600AF3458 /* KakaoSDKUser in Frameworks */,
+				FC4BEFF12F7CCE9D00EF5E98 /* FirebaseAnalytics in Frameworks */,
+				FC84E6502F3C681900E96AF3 /* OneSignalFramework in Frameworks */,
+				FCD78D022F3AF3A400C3EA28 /* GoogleSignIn in Frameworks */,
+				FC7EEC252F303E1600AF3458 /* KakaoSDKAuth in Frameworks */,
+				FCD78D242F3B098F00C3EA28 /* NaverThirdPartyLogin in Frameworks */,
+				FC7EEC5C2F307CD000AF3458 /* Lottie in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FC4BEFF22F7CCEB500EF5E98 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		FCC27DF82DB9FDCB00563728 = {
+			isa = PBXGroup;
+			children = (
+				FCC27E032DB9FDCB00563728 /* Freetiful App */,
+				FCB87AD32DDB04CD00707751 /* Freetiful App.app */,
+				FC4BEFF22F7CCEB500EF5E98 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FCC27E002DB9FDCB00563728 /* Freetiful App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FCC27E142DB9FDCC00563728 /* Build configuration list for PBXNativeTarget "Freetiful App" */;
+			buildPhases = (
+				FCC27DFD2DB9FDCB00563728 /* Sources */,
+				FCC27DFE2DB9FDCB00563728 /* Frameworks */,
+				FCC27DFF2DB9FDCB00563728 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				FCC27E032DB9FDCB00563728 /* Freetiful App */,
+			);
+			name = "Freetiful App";
+			packageProductDependencies = (
+				FC7EEC242F303E1600AF3458 /* KakaoSDKAuth */,
+				FC7EEC262F303E1600AF3458 /* KakaoSDKUser */,
+				FC7EEC5B2F307CD000AF3458 /* Lottie */,
+				FCD78D012F3AF3A400C3EA28 /* GoogleSignIn */,
+				FCD78D032F3AF3A400C3EA28 /* GoogleSignInSwift */,
+				FCD78D232F3B098F00C3EA28 /* NaverThirdPartyLogin */,
+				FC84E64F2F3C681900E96AF3 /* OneSignalFramework */,
+				FC4BEFF02F7CCE9D00EF5E98 /* FirebaseAnalytics */,
+			);
+			productName = "Freetiful App";
+			productReference = FCB87AD32DDB04CD00707751 /* Freetiful App.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FCC27DF92DB9FDCB00563728 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					FCC27E002DB9FDCB00563728 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+				};
+			};
+			buildConfigurationList = FCC27DFC2DB9FDCB00563728 /* Build configuration list for PBXProject "Freetiful App" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = FCC27DF82DB9FDCB00563728;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FC7EEC232F303E1600AF3458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
+				FC7EEC5A2F307CD000AF3458 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+				FCD78D002F3AF3A400C3EA28 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				FCD78D222F3B098F00C3EA28 /* XCRemoteSwiftPackageReference "naveridlogin-sdk-ios" */,
+				FC84E64E2F3C681900E96AF3 /* XCRemoteSwiftPackageReference "OneSignal-iOS-SDK" */,
+				FC4BEFEF2F7CCE9D00EF5E98 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FCC27DF82DB9FDCB00563728;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FCC27E002DB9FDCB00563728 /* Freetiful App */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FCC27DFF2DB9FDCB00563728 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FCC27DFD2DB9FDCB00563728 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FCC27E152DB9FDCC00563728 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = "Freetiful App/Freetiful App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = US45855997;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Freetiful App/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "프리티풀";
+				INFOPLIST_KEY_NSCameraUsageDescription = "프리티풀에서 원활한 서비스 이용을 위해서는 카메라 및 사진첩 접근 허용이 필요합니다.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UIStatusBarHidden = NO;
+				INFOPLIST_KEY_UIStatusBarStyle = "";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "freetiful-inc.Freetiful-App";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		FCC27E162DB9FDCC00563728 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = "Freetiful App/Freetiful App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = US45855997;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Freetiful App/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "프리티풀";
+				INFOPLIST_KEY_NSCameraUsageDescription = "프리티풀에서 원활한 서비스 이용을 위해서는 카메라 및 사진첩 접근 허용이 필요합니다.";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UIRequiresFullScreen = NO;
+				INFOPLIST_KEY_UIStatusBarHidden = NO;
+				INFOPLIST_KEY_UIStatusBarStyle = "";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "freetiful-inc.Freetiful-App";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		FCC27E172DB9FDCC00563728 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		FCC27E182DB9FDCC00563728 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FCC27DFC2DB9FDCB00563728 /* Build configuration list for PBXProject "Freetiful App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCC27E172DB9FDCC00563728 /* Debug */,
+				FCC27E182DB9FDCC00563728 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FCC27E142DB9FDCC00563728 /* Build configuration list for PBXNativeTarget "Freetiful App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCC27E152DB9FDCC00563728 /* Debug */,
+				FCC27E162DB9FDCC00563728 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FC4BEFEF2F7CCE9D00EF5E98 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.11.0;
+			};
+		};
+		FC7EEC232F303E1600AF3458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.27.2;
+			};
+		};
+		FC7EEC5A2F307CD000AF3458 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.6.0;
+			};
+		};
+		FC84E64E2F3C681900E96AF3 /* XCRemoteSwiftPackageReference "OneSignal-iOS-SDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/OneSignal/OneSignal-iOS-SDK";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.4.1;
+			};
+		};
+		FCD78D002F3AF3A400C3EA28 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
+		FCD78D222F3B098F00C3EA28 /* XCRemoteSwiftPackageReference "naveridlogin-sdk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/naver/naveridlogin-sdk-ios";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FC4BEFF02F7CCE9D00EF5E98 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC4BEFEF2F7CCE9D00EF5E98 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		FC7EEC242F303E1600AF3458 /* KakaoSDKAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC7EEC232F303E1600AF3458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDKAuth;
+		};
+		FC7EEC262F303E1600AF3458 /* KakaoSDKUser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC7EEC232F303E1600AF3458 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDKUser;
+		};
+		FC7EEC5B2F307CD000AF3458 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC7EEC5A2F307CD000AF3458 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		FC84E64F2F3C681900E96AF3 /* OneSignalFramework */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FC84E64E2F3C681900E96AF3 /* XCRemoteSwiftPackageReference "OneSignal-iOS-SDK" */;
+			productName = OneSignalFramework;
+		};
+		FCD78D012F3AF3A400C3EA28 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FCD78D002F3AF3A400C3EA28 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		FCD78D032F3AF3A400C3EA28 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FCD78D002F3AF3A400C3EA28 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		FCD78D232F3B098F00C3EA28 /* NaverThirdPartyLogin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FCD78D222F3B098F00C3EA28 /* XCRemoteSwiftPackageReference "naveridlogin-sdk-ios" */;
+			productName = NaverThirdPartyLogin;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = FCC27DF92DB9FDCB00563728 /* Project object */;
+}
