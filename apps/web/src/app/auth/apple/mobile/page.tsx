@@ -38,7 +38,7 @@ function AppleMobileInner() {
           data = await authApi.emailRegister({ email, password, name: fullName });
         }
         setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
-        router.replace('/main');
+        setTimeout(() => { window.location.href = '/main'; }, 100);
       } catch (e: any) {
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);
       }
