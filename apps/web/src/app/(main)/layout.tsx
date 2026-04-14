@@ -66,22 +66,19 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
-    // Use zustand store first, fallback to localStorage for backwards compat
     const isLoggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (!isLoggedIn && needsAuth) {
-      // 인증 필요 페이지의 컨텐츠가 sheet 뒤에 노출되지 않도록 /main 으로 먼저 이동
+      // 인증 필요 페이지 접근 차단 — 먼저 /main 으로 보내고
       router.replace('/main');
-      // iOS 앱이면 네이티브 sheet 호출, 웹이면 기존 웹 모달
+      // iOS면 네이티브 sheet 호출 / 그 외는 /login 페이지로 이동
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {
         iosBridge.postMessage({});
-        setShowLoginModal(false);
       } else {
-        setShowLoginModal(true);
+        router.push('/login');
       }
-    } else {
-      setShowLoginModal(false);
     }
+    setShowLoginModal(false);  // 웹 모달은 사용하지 않음
     if (isLoggedIn) {
       setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
     }
