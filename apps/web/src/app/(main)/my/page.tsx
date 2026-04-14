@@ -363,11 +363,10 @@ export default function MyPage() {
     }
   };
 
-  // shim 이메일에서 ID 부분만 추출 (kakao_xxx@... → xxx)
+  // 이메일이 20자 이상이면 뒤에 '...' 로 truncate
   const displayEmail = (() => {
     const e = user.email || '';
-    const m = e.match(/^(kakao|naver|google|apple)_([^@]+)@/);
-    return m ? m[2] : e;
+    return e.length > 20 ? e.slice(0, 20) + '...' : e;
   })();
 
   // 로그아웃 확인 모달
