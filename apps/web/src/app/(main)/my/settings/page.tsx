@@ -67,11 +67,11 @@ export default function SettingsPage() {
     setConnectedProviders(providers);
   }, [authUser]);
 
-  // 연결 끊기 처리 — SNS 유저는 연결 끊으면 계정 삭제 필요
-  const handleDisconnect = (providerName: string) => {
-    const yes = confirm(`${providerName} 연결을 끊으시겠어요?\n\n연결을 끊으면 계정을 삭제하셔야 합니다.`);
-    if (!yes) return;
-    // 회원 탈퇴 로직 실행
+  // 연결 끊기 확인 모달
+  const [disconnectTarget, setDisconnectTarget] = useState<string | null>(null);
+
+  const executeDisconnect = () => {
+    setDisconnectTarget(null);
     if (authUser) {
       usersApi.deleteAccount()
         .then(() => {
@@ -231,7 +231,7 @@ export default function SettingsPage() {
               <button
                 onClick={() => {
                   if (isConnected) {
-                    handleDisconnect(acc.name);
+                    setDisconnectTarget(acc.name);
                   } else {
                     toast('추가 소셜 계정 연결은 준비 중입니다', { icon: '🔗' });
                   }
@@ -329,6 +329,41 @@ export default function SettingsPage() {
           회원 탈퇴
         </button>
       </div>
+
+      {/* ─── 연결 끊기 확인 모달 ─────────────────────────────────────── */}
+      {disconnectTarget && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center px-6"
+          onClick={() => setDisconnectTarget(null)}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[16px] font-bold text-gray-900 text-center mb-2">
+              {disconnectTarget} 연결을 끊으시겠어요?
+            </p>
+            <p className="text-[13px] text-gray-500 text-center mb-5 leading-relaxed">
+              연결을 끊으면 계정을<br />삭제하셔야 합니다.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDisconnectTarget(null)}
+                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform"
+              >
+                아니오
+              </button>
+              <button
+                onClick={executeDisconnect}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+              >
+                예
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
