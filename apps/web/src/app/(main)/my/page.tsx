@@ -322,6 +322,23 @@ export default function MyPage() {
     if (!isLoggedIn) return;
     setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
     if (!authUser) setIsPro(localStorage.getItem('userRole') === 'pro');
+    // 서버의 proProfile.status를 신뢰 — 탈퇴/재가입 후 남아있는 stale localStorage 정리
+    if (authUser) {
+      usersApi.getProfile().then((u: any) => {
+        const status = u?.proProfile?.status;
+        if (status === 'approved') {
+          localStorage.setItem('proRegistrationComplete', 'true');
+          setProRegistrationPending(false);
+        } else if (status === 'pending') {
+          localStorage.setItem('proRegistrationComplete', 'pending');
+          setProRegistrationPending(true);
+        } else {
+          localStorage.removeItem('proRegistrationComplete');
+          Object.keys(localStorage).filter((k) => k.startsWith('proRegister_')).forEach((k) => localStorage.removeItem(k));
+          setProRegistrationPending(false);
+        }
+      }).catch(() => {});
+    }
     try {
       const coupons = JSON.parse(localStorage.getItem('freetiful-coupons') || '[]');
       setCouponCount(Array.isArray(coupons) ? coupons.length : 0);
@@ -385,6 +402,8 @@ export default function MyPage() {
     localStorage.removeItem('freetiful-user');
     localStorage.removeItem('userRole');
     localStorage.removeItem('freetiful-real-email');
+    localStorage.removeItem('proRegistrationComplete');
+    Object.keys(localStorage).filter((k) => k.startsWith('proRegister_')).forEach((k) => localStorage.removeItem(k));
     router.push('/main');
   };
 
