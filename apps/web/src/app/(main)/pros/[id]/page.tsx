@@ -452,16 +452,41 @@ function buildLocalStoragePro(user: any): any | null {
 export default function ProDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const proData = id && PRO_MAP[id] ? PRO_MAP[id] : null;
   const [apiRating, setApiRating] = useState<number | null>(null);
   const [apiReviewCount, setApiReviewCount] = useState<number | null>(null);
   const [apiProfileViews, setApiProfileViews] = useState<number | null>(null);
   const [dbPro, setDbPro] = useState<any>(null);
+  const [apiLoading, setApiLoading] = useState(true);
+  const [apiFailed, setApiFailed] = useState(false);
 
-  // API에서 실제 평점/리뷰수 가져오기
+  // API를 PRIMARY 소스로 사용 — 모든 id에 대해 먼저 getProDetail 호출
   useEffect(() => {
     if (!id) return;
-    discoveryApi.getProList({ search: proData?.name, limit: 1 })
+    // 'my-pro' sentinel: 로그인 사용자의 실제 proProfile이 있으면 UUID로 교체, 없으면 localStorage 데이터로 직접 구성
+    if (id === 'my-pro') {
+      setDbPro(buildLocalStoragePro(null));
+      setApiLoading(false);
+      return;
+    }
+    setApiLoading(true);
+    setApiFailed(false);
+    discoveryApi.getProDetail(id).then((res: any) => {
+      if (res) setDbPro(res);
+      else setApiFailed(true);
+    }).catch(() => {
+      setApiFailed(true);
+    }).finally(() => {
+      setApiLoading(false);
+    });
+  }, [id, router]);
+
+  // API 실패 시에만 사용할 legacy fallback (PRO_MAP: 숫자 ID 1..41)
+  const proData = apiFailed && id && PRO_MAP[id] ? PRO_MAP[id] : null;
+
+  // API 실패 & legacy fallback 사용 중일 때만 평점/리뷰 추가 조회
+  useEffect(() => {
+    if (!id || !proData) return;
+    discoveryApi.getProList({ search: proData.name, limit: 1 })
       .then((res) => {
         const found = res.data?.[0];
         if (found) {
@@ -470,21 +495,7 @@ export default function ProDetailPage() {
         }
       })
       .catch(() => {});
-  }, [id, proData?.name]);
-
-  // PRO_MAP에 없는 UUID는 DB에서 상세 조회
-  useEffect(() => {
-    if (!id || PRO_MAP[id]) return;
-    // 'my-pro' sentinel: 로그인 사용자의 실제 proProfile이 있으면 UUID로 교체, 없으면 localStorage 데이터로 직접 구성
-    if (id === 'my-pro') {
-      // 파트너 신청 직후 localStorage 기반 카드 — 로컬 데이터로 즉시 구성 (서버 호출 시 401 → 홈 리다이렉트 위험)
-      setDbPro(buildLocalStoragePro(null));
-      return;
-    }
-    discoveryApi.getProDetail(id).then((res: any) => {
-      if (res) setDbPro(res);
-    }).catch(() => {});
-  }, [id, router]);
+  }, [id, proData]);
 
   const dbProBuilt = dbPro ? (() => {
     const name = dbPro.user?.name || '전문가';
@@ -696,7 +707,7 @@ export default function ProDetailPage() {
   const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-pro-detail') : true);
   useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-pro-detail', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
 
-  if (loading) {
+  if (loading || apiLoading) {
     return (
       <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
         {/* Gallery skeleton */}

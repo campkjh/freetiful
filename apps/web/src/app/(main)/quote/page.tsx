@@ -7,6 +7,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { addPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 
 const stepVariants = {
   initial: { opacity: 0, x: 40 },
@@ -88,6 +89,7 @@ const TIME_SLOTS = [
   '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00',
 ];
 
+// Type reference only — do not use as data source. API data must be used instead.
 const MOCK_PROS = [
   { id: '15', name: '박인애', image: '/images/pro-15/IMG_0196.avif', rating: 4.9, reviews: 134, experience: 13, intro: '13년 생방송 뉴스 진행으로 다져진 품격있는 사회자', youtubeId: 'UIbfieXAT0U', recentReviews: ['품격있는 진행 감동이었어요', '뉴스 앵커 느낌의 안정감!', '하객분들이 정말 좋아하셨어요'] },
   { id: '23', name: '이승진', image: '/images/pro-23/IMG_46511771924269213.avif', rating: 4.8, reviews: 211, experience: 4, intro: '따뜻하고 깔끔한 진행의 사회자', youtubeId: 'Nqe3UioEV8E', recentReviews: ['따뜻한 진행 덕분에 울컥했어요', '깔끔하고 센스있는 진행!', '다시 부탁드리고 싶어요'] },
@@ -168,6 +170,35 @@ function QuotePage() {
   const [note, setNote] = useState('');
   const [moods, setMoods] = useState<Set<string>>(new Set());
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
+  const [featuredPros, setFeaturedPros] = useState<typeof MOCK_PROS | null>(null);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+
+  useEffect(() => {
+    setFeaturedLoading(true);
+    discoveryApi.getProList({ limit: 10, sort: 'rating' })
+      .then((res) => {
+        if (res?.data && res.data.length > 0) {
+          const mapped = res.data.map((p: ProListItem) => ({
+            id: p.id,
+            name: p.name,
+            image: p.profileImageUrl || p.images?.[0] || '',
+            rating: p.avgRating || 4.5,
+            reviews: p.reviewCount || 0,
+            experience: p.careerYears || 1,
+            intro: p.shortIntro || '',
+            youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1] || '',
+            recentReviews: [] as string[],
+          }));
+          setFeaturedPros(mapped);
+        } else {
+          setFeaturedPros([]);
+        }
+      })
+      .catch(() => { setFeaturedPros([]); })
+      .finally(() => setFeaturedLoading(false));
+  }, []);
+
+  const prosList = featuredPros || [];
   const [sending, setSending] = useState(false);
   const [nearbyVenues, setNearbyVenues] = useState<{ name: string; address: string; phone: string; distance: number; url: string }[]>([]);
   const [venuesLoading, setVenuesLoading] = useState(false);
@@ -607,17 +638,26 @@ function QuotePage() {
           <motion.div key="pros" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
             <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">사회자를 선택해주세요</motion.h2>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">여러 명을 선택하면 동시에 견적을 받을 수 있어요</motion.p>
-            <motion.div className="grid grid-cols-2 gap-3" variants={staggerContainer} initial="initial" animate="animate">
-              {MOCK_PROS.map((pro) => (
-                <motion.div key={pro.id} variants={staggerItem}>
-                  <ProSelectCard
-                    pro={pro}
-                    selected={selectedPros.has(pro.id)}
-                    onToggle={() => togglePro(pro.id)}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
+            {featuredLoading && prosList.length === 0 ? (
+              <div className="flex flex-col items-center py-20">
+                <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-primary-500 animate-spin mb-4" />
+                <p className="text-gray-400 text-[14px]">전문가를 불러오는 중...</p>
+              </div>
+            ) : prosList.length === 0 ? (
+              <div className="py-12 text-center text-gray-400 text-[14px]">등록된 전문가가 없습니다</div>
+            ) : (
+              <motion.div className="grid grid-cols-2 gap-3" variants={staggerContainer} initial="initial" animate="animate">
+                {prosList.map((pro) => (
+                  <motion.div key={pro.id} variants={staggerItem}>
+                    <ProSelectCard
+                      pro={pro}
+                      selected={selectedPros.has(pro.id)}
+                      onToggle={() => togglePro(pro.id)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
           </motion.div>
         )}
 
@@ -647,7 +687,7 @@ function QuotePage() {
                 <div className="pt-3 border-t border-gray-200">
                   <p className="text-[13px] text-gray-500 mb-2">선택한 사회자 ({selectedPros.size}명)</p>
                   <div className="flex flex-wrap gap-2">
-                    {MOCK_PROS.filter((p) => selectedPros.has(p.id)).map((p, i) => (
+                    {prosList.filter((p) => selectedPros.has(p.id)).map((p, i) => (
                       <motion.div key={p.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-2 bg-white rounded-full pl-1 pr-3 py-1 border border-gray-200">
                         <img src={p.image} alt={p.name} className="w-6 h-6 rounded-full object-cover" />
                         <span className="text-[12px] font-medium text-gray-700">{p.name}</span>

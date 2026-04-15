@@ -9,6 +9,7 @@ import { Suspense } from 'react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 
+// Type reference only — do not use as data source. API data must be used instead.
 const MOCK_PROS = [
   { id: '1', name: '강도현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 117, puddingRank: 1, image: '/images/pro-01/10000133881772850005043.avif', intro: '신뢰감 있는 보이스의 현직 아나운서', price: 450000, experience: 14 },
   { id: '2', name: '김동현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 165, puddingRank: 2, image: '/images/pro-02/10000365351773046135169.avif', intro: 'MC 김동현', price: 450000, experience: 8 },
@@ -118,8 +119,10 @@ function ProsListContent() {
   const authUser = useAuthStore((s) => s.user);
   const registeredPro = getRegisteredPro();
   const [apiPros, setApiPros] = useState<typeof MOCK_PROS | null>(null);
+  const [prosLoading, setProsLoading] = useState(true);
 
   useEffect(() => {
+    setProsLoading(true);
     discoveryApi.getProList({ limit: 100, sort: 'newest' })
       .then((res) => {
         if (res?.data && res.data.length > 0) {
@@ -138,12 +141,16 @@ function ProsListContent() {
             experience: p.careerYears || 1,
           }));
           setApiPros(mapped);
+        } else {
+          setApiPros([]);
         }
       })
-      .catch(() => { /* fallback to mock data */ });
+      .catch(() => { setApiPros([]); })
+      .finally(() => setProsLoading(false));
   }, [authUser]);
 
-  const basePros = apiPros || MOCK_PROS;
+  // API data only — empty fallback until loaded or on failure
+  const basePros = apiPros || [];
   const ALL_PROS = registeredPro ? [registeredPro, ...basePros] : basePros;
   const initialRegion = searchParams.get('region') || '전체';
   const categoryParam = searchParams.get('category') || '';
@@ -504,7 +511,12 @@ function ProsListContent() {
 
       {/* Pro List — 찜목록 스타일 (가로형 카드) */}
       <div ref={listRef}>
-        {filtered.length > 0 ? (
+        {prosLoading && basePros.length === 0 ? (
+          <div className="flex flex-col items-center py-20">
+            <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-primary-500 animate-spin mb-4" />
+            <p className="text-gray-400 text-[14px]">전문가를 불러오는 중...</p>
+          </div>
+        ) : filtered.length > 0 ? (
           <div>
             <div className="divide-y divide-gray-100 lg:divide-y-0 lg:grid lg:grid-cols-4 lg:gap-4 lg:px-8 lg:pt-4">
               <AnimatePresence mode="popLayout">
