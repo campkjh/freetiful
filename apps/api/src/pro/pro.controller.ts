@@ -40,6 +40,12 @@ export class ProController {
       careerYears?: number;
       awards?: string;
       youtubeUrl?: string;
+      detailHtml?: string;
+      photos?: string[];
+      mainPhotoIndex?: number;
+      services?: { title: string; description?: string; basePrice?: number }[];
+      faqs?: { question: string; answer: string }[];
+      languages?: string[];
     },
   ) {
     return this.proService.submitRegistration(req.user.id, body);

@@ -1142,6 +1142,26 @@ export default function ProfilePage() {
 
                   // 서버에 실제 proProfile 생성/업데이트 (status=pending)
                   try {
+                    const photos: string[] = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
+                    const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
+                    const enabledPlans: string[] = JSON.parse(localStorage.getItem('proRegister_enabledPlans') || '[]');
+                    const prices: Record<string, number> = JSON.parse(localStorage.getItem('proRegister_prices') || '{}');
+                    const PLAN_META: Record<string, { label: string; desc: string }> = {
+                      premium: { label: 'Premium', desc: '행사 1시간 진행' },
+                      superior: { label: 'Superior', desc: '행사 2시간 진행' },
+                      enterprise: { label: 'Enterprise', desc: '6시간 풀타임' },
+                    };
+                    const services = enabledPlans
+                      .map((id) => ({
+                        title: PLAN_META[id]?.label || id,
+                        description: PLAN_META[id]?.desc,
+                        basePrice: prices[id] ? Number(prices[id]) : undefined,
+                      }))
+                      .filter((s) => s.title);
+                    const faqs = Object.entries(faqContents)
+                      .filter(([q, a]) => q && a)
+                      .map(([question, answer]) => ({ question, answer }));
+
                     await prosApi.submitRegistration({
                       name: localStorage.getItem('proRegister_name') || undefined,
                       phone: localStorage.getItem('proRegister_phone') || undefined,
@@ -1151,6 +1171,12 @@ export default function ProfilePage() {
                       careerYears: careerYears ? parseInt(careerYears) || undefined : undefined,
                       awards: awardList.length > 0 ? awardList.map((a) => a.text).filter(Boolean).join('\n') : undefined,
                       youtubeUrl: videos[0] || undefined,
+                      detailHtml: description || undefined,
+                      photos: photos.length > 0 ? photos : undefined,
+                      mainPhotoIndex,
+                      services: services.length > 0 ? services : undefined,
+                      faqs: faqs.length > 0 ? faqs : undefined,
+                      languages: selectedLanguages.length > 0 ? selectedLanguages : undefined,
                     });
                   } catch (e) {
                     // 서버 저장 실패해도 로컬 제출 완료 플로우는 진행 (오프라인 대비)

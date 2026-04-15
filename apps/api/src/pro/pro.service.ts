@@ -249,6 +249,12 @@ export class ProService {
       careerYears?: number;
       awards?: string;
       youtubeUrl?: string;
+      detailHtml?: string;
+      photos?: string[]; // base64 data URLs
+      mainPhotoIndex?: number;
+      services?: { title: string; description?: string; basePrice?: number }[];
+      faqs?: { question: string; answer: string }[];
+      languages?: string[];
     },
   ) {
     if (data.name || data.phone) {
@@ -268,13 +274,125 @@ export class ProService {
       ...(data.careerYears !== undefined ? { careerYears: data.careerYears } : {}),
       ...(data.awards !== undefined ? { awards: data.awards } : {}),
       ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
+      ...(data.detailHtml !== undefined ? { detailHtml: data.detailHtml } : {}),
     };
 
-    return this.prisma.proProfile.upsert({
+    const profile = await this.prisma.proProfile.upsert({
       where: { userId },
       create: { userId, status: 'pending', ...fields },
       update: { status: 'pending', ...fields },
     });
+
+    // Photos: base64 data URL → webp on disk → ProProfileImage 재생성
+    if (Array.isArray(data.photos)) {
+      await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
+      const mainIdx = Math.max(0, Math.min(data.mainPhotoIndex ?? 0, data.photos.length - 1));
+      for (let i = 0; i < data.photos.length; i++) {
+        const url = data.photos[i];
+        try {
+          const processed = await this.savePhotoFromDataUrl(url);
+          if (!processed) continue;
+          await this.prisma.proProfileImage.create({
+            data: {
+              proProfileId: profile.id,
+              imageUrl: processed.path,
+              originalUrl: processed.originalPath,
+              displayOrder: i,
+              isPrimary: i === mainIdx,
+              hasFace: true,
+            },
+          });
+        } catch (e) {
+          // 개별 사진 저장 실패는 스킵
+          continue;
+        }
+      }
+    }
+
+    // Services: replace all
+    if (Array.isArray(data.services)) {
+      await this.prisma.proService.deleteMany({ where: { proProfileId: profile.id } });
+      for (let i = 0; i < data.services.length; i++) {
+        const s = data.services[i];
+        if (!s?.title) continue;
+        await this.prisma.proService.create({
+          data: {
+            proProfileId: profile.id,
+            title: s.title,
+            description: s.description ?? null,
+            basePrice: s.basePrice ?? null,
+            displayOrder: i,
+            isActive: true,
+          },
+        });
+      }
+    }
+
+    // FAQs: replace all
+    if (Array.isArray(data.faqs)) {
+      await this.prisma.proFaq.deleteMany({ where: { proProfileId: profile.id } });
+      for (let i = 0; i < data.faqs.length; i++) {
+        const f = data.faqs[i];
+        if (!f?.question || !f?.answer) continue;
+        await this.prisma.proFaq.create({
+          data: {
+            proProfileId: profile.id,
+            question: f.question,
+            answer: f.answer,
+            displayOrder: i,
+          },
+        });
+      }
+    }
+
+    // Languages: replace all
+    if (Array.isArray(data.languages)) {
+      await this.prisma.proLanguage.deleteMany({ where: { proProfileId: profile.id } });
+      for (const code of data.languages) {
+        if (!code) continue;
+        try {
+          await this.prisma.proLanguage.create({
+            data: { proProfileId: profile.id, languageCode: code },
+          });
+        } catch {
+          // unique conflict skip
+        }
+      }
+    }
+
+    return profile;
+  }
+
+  private async savePhotoFromDataUrl(dataUrl: string): Promise<{ path: string; originalPath: string } | null> {
+    const match = dataUrl.match(/^data:(image\/(jpeg|jpg|png|webp|heic|heif));base64,(.+)$/i);
+    if (!match) {
+      // 이미 URL이면 그대로 보존
+      if (/^https?:\/\//.test(dataUrl) || dataUrl.startsWith('/uploads/')) {
+        return { path: dataUrl, originalPath: dataUrl };
+      }
+      return null;
+    }
+    const mime = match[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : match[1].toLowerCase();
+    const buffer = Buffer.from(match[3], 'base64');
+    const fakeFile: Express.Multer.File = {
+      fieldname: 'file',
+      originalname: `upload.${match[2]}`,
+      encoding: '7bit',
+      mimetype: mime,
+      size: buffer.length,
+      buffer,
+      destination: '',
+      filename: '',
+      path: '',
+      stream: null as any,
+    };
+    const processed = await this.imageService.processImage(fakeFile, {
+      requireFace: false,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      quality: 85,
+    });
+    return { path: processed.path, originalPath: `/uploads/${processed.originalFilename}` };
   }
 
   private async getProfileByUserId(userId: string) {

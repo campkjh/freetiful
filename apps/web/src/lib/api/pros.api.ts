@@ -48,8 +48,14 @@ export const prosApi = {
     careerYears?: number;
     awards?: string;
     youtubeUrl?: string;
+    detailHtml?: string;
+    photos?: string[];
+    mainPhotoIndex?: number;
+    services?: { title: string; description?: string; basePrice?: number }[];
+    faqs?: { question: string; answer: string }[];
+    languages?: string[];
   }) =>
-    apiClient.post(`${BASE}/pro/register`, data).then((r) => r.data),
+    apiClient.post(`${BASE}/pro/register`, data, { timeout: 60000 }).then((r) => r.data),
 
   saveDraft: (data: Partial<ProProfile>) =>
     apiClient.post(`${BASE}/pro/profile/draft`, data).then((r) => r.data),
