@@ -48,10 +48,10 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex flex-col justify-center px-6 py-12 bg-white">
       <div className="w-full max-w-sm mx-auto">
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Freetiful</h1>
+          <img src="/images/freetiful-logo.svg" alt="Freetiful" className="mx-auto h-7" />
         </div>
 
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">로그인</h2>
+        <h2 className="text-[14px] font-medium text-[#4E8FFF] mb-8">로그인</h2>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
