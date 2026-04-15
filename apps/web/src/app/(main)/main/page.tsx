@@ -670,7 +670,7 @@ export default function HomePage() {
 
   // Fetch pro list from API
   useEffect(() => {
-    discoveryApi.getProList({ limit: 41, sort: 'rating' })
+    discoveryApi.getProList({ limit: 100, sort: 'rating' })
       .then((res) => {
         if (res.data?.length > 0) {
           setApiPros(res.data.map((p: any, i: number) => ({

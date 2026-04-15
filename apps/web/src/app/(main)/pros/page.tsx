@@ -120,7 +120,7 @@ function ProsListContent() {
   const [apiPros, setApiPros] = useState<typeof MOCK_PROS | null>(null);
 
   useEffect(() => {
-    discoveryApi.getProList({ limit: 41 })
+    discoveryApi.getProList({ limit: 100 })
       .then((res) => {
         if (res?.data && res.data.length > 0) {
           const mapped = res.data.map((p: ProListItem, idx: number) => ({
