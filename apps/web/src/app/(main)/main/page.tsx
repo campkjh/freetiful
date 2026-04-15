@@ -428,19 +428,24 @@ function OnlineProCard({ pro }: { pro: typeof MOCK_PROS[0] }) {
       <div className="relative w-[100px] h-[100px] shrink-0 my-3 z-10">
         {/* Stacked photos behind — fan out on hover */}
         <img
-          src={pro.images[2]}
+          src={pro.images[2] || '/images/default-profile.svg'}
           alt=""
+          loading="lazy"
+          onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
           className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[64px] group-hover:translate-y-[-12px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
         />
         <img
-          src={pro.images[1]}
+          src={pro.images[1] || '/images/default-profile.svg'}
           alt=""
+          loading="lazy"
+          onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
           className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[34px] group-hover:translate-y-[-18px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
         />
         {/* Main photo — stays in place */}
         <img
-          src={pro.images[0]}
+          src={pro.images[0] || '/images/default-profile.svg'}
           alt={pro.name}
+          onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
           className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-lg z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
         />
         {/* Online indicator */}
@@ -596,14 +601,14 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
       <div className="relative rounded-xl overflow-hidden">
         {/* Mobile: single 3:4 image */}
         <div className="lg:hidden" style={{ aspectRatio: '3 / 4' }}>
-          <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
+          <img src={pro.images[0] || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
         </div>
         {/* Desktop: 1+2 grid layout */}
         <div className="hidden lg:grid grid-cols-[1fr_0.5fr] gap-[2px] h-[220px]">
-          <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
+          <img src={pro.images[0] || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
           <div className="grid grid-rows-2 gap-[2px]">
-            <img src={pro.images[1]} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
-            <img src={pro.images[2]} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
+            <img src={pro.images[1] || '/images/default-profile.svg'} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
+            <img src={pro.images[2] || '/images/default-profile.svg'} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
           </div>
         </div>
         {/* YouTube 썸네일 이미지 (iframe 대신 — 성능 최적화) */}
@@ -1274,7 +1279,7 @@ export default function HomePage() {
                     className="shrink-0 w-[100px] flex flex-col items-center"
                   >
                     <div className="relative w-[84px] h-[112px] rounded-xl overflow-hidden">
-                      <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
+                      <img src={pro.image || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover" />
                       {isRecent(pro.viewedTime) && (
                         <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-red-500">
                           최근 본
@@ -1503,7 +1508,7 @@ export default function HomePage() {
                       style={{ animationDelay: `${(pageIdx * 4 + i) * 60}ms`, animationFillMode: 'forwards' }}
                     >
                       <div className="w-[88px] h-[112px] shrink-0 rounded-xl overflow-hidden">
-                        <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                        <img src={pro.images[0] || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                       </div>
                       <div className="flex-1 min-w-0 border-b border-gray-100 pb-3">
                         <div className="flex items-center gap-1.5">

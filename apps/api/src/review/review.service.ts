@@ -135,8 +135,12 @@ export class ReviewService {
         : r.reviewer,
     }));
 
+    const hasMore = skip + reviews.length < total;
+
     return {
       data: masked,
+      total,
+      hasMore,
       meta: {
         total,
         page,

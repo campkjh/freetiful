@@ -512,9 +512,10 @@ function ProsListContent() {
       {/* Pro List — 찜목록 스타일 (가로형 카드) */}
       <div ref={listRef}>
         {prosLoading && basePros.length === 0 ? (
-          <div className="flex flex-col items-center py-20">
-            <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-primary-500 animate-spin mb-4" />
-            <p className="text-gray-400 text-[14px]">전문가를 불러오는 중...</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 px-4 lg:px-8 py-4">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="animate-pulse bg-gray-200 rounded-xl aspect-[3/4]" />
+            ))}
           </div>
         ) : filtered.length > 0 ? (
           <div>
@@ -533,7 +534,7 @@ function ProsListContent() {
                       <div className="flex gap-3 lg:flex-col lg:gap-0">
                         <Link href={`/pros/${pro.id}`} className="shrink-0 lg:w-full">
                           <div className="w-[105px] h-[140px] lg:w-full lg:h-auto lg:aspect-[3/4] rounded-lg overflow-hidden bg-gray-100">
-                            <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
+                            <img src={pro.image || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover" />
                           </div>
                         </Link>
                         <div className="flex-1 min-w-0 flex flex-col lg:mt-2">

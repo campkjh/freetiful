@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
+import { reviewApi } from '@/lib/api/review.api';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -458,6 +459,60 @@ export default function ProDetailPage() {
   const [dbPro, setDbPro] = useState<any>(null);
   const [apiLoading, setApiLoading] = useState(true);
   const [apiFailed, setApiFailed] = useState(false);
+  const [apiReviews, setApiReviews] = useState<any[]>([]);
+
+  // 리뷰 API 조회 (proProfileId 기반) — dbPro가 로드된 후 실제 UUID로 호출
+  useEffect(() => {
+    const targetId = dbPro?.id || id;
+    if (!targetId || targetId === 'my-pro') return;
+    reviewApi.getByPro(targetId, { limit: 20 })
+      .then((res: any) => {
+        const list = res?.data || [];
+        if (list.length > 0) {
+          const mapped = list.map((r: any) => {
+            const rawName = r.isAnonymous ? '익명' : (r.reviewer?.name || '고객');
+            const maskedName = r.isAnonymous
+              ? '익명********'
+              : rawName.length > 0
+                ? rawName.slice(0, 1) + '********'
+                : '고객********';
+            const created = r.createdAt ? new Date(r.createdAt) : new Date();
+            const dateStr = `${String(created.getFullYear()).slice(2)}.${String(created.getMonth() + 1).padStart(2, '0')}.${String(created.getDate()).padStart(2, '0')}`;
+            return {
+              id: r.id,
+              name: maskedName,
+              rating: Number(r.avgRating) || 0,
+              date: dateStr,
+              scores: {
+                경력: Number(r.ratingExperience) || 0,
+                만족도: Number(r.ratingSatisfaction) || 0,
+                구성력: Number(r.ratingComposition) || 0,
+                위트: Number(r.ratingWit) || 0,
+                발성: Number(r.ratingVoice) || 0,
+                이미지: Number(r.ratingAppearance) || 0,
+              },
+              content: r.comment || '',
+              workDays: 1,
+              orderRange: '',
+              badge: '',
+              proReply: r.proReply
+                ? {
+                    date: r.proRepliedAt
+                      ? (() => {
+                          const d = new Date(r.proRepliedAt);
+                          return `${String(d.getFullYear()).slice(2)}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+                        })()
+                      : dateStr,
+                    content: r.proReply,
+                  }
+                : undefined,
+            };
+          });
+          setApiReviews(mapped);
+        }
+      })
+      .catch(() => {});
+  }, [id, dbPro?.id]);
 
   // API를 PRIMARY 소스로 사용 — 모든 id에 대해 먼저 getProDetail 호출
   useEffect(() => {
@@ -526,7 +581,7 @@ export default function ProDetailPage() {
     };
   })() : null;
 
-  const pro = dbProBuilt ? dbProBuilt : proData ? {
+  const proBase = dbProBuilt ? dbProBuilt : proData ? {
     ...MOCK_PRO,
     id: id || MOCK_PRO.id,
     name: proData.name,
@@ -542,6 +597,11 @@ export default function ProDetailPage() {
     plans: MOCK_PRO.plans.map((p: any) => ({ ...p, price: p.id === 'premium' ? 450000 : p.id === 'superior' ? 800000 : 1700000 })),
     expertStats: { ...MOCK_PRO.expertStats, totalDeals: proData.experience * 8 + 10 },
   } : { ...MOCK_PRO, id: id || MOCK_PRO.id };
+
+  // API 리뷰가 있으면 교체, 없으면 MOCK_PRO.reviews fallback 유지
+  const pro = apiReviews.length > 0
+    ? { ...proBase, reviews: apiReviews }
+    : proBase;
 
   const [activeImage, setActiveImage] = useState(0);
   const [activePlan, setActivePlan] = useState(1); // default deluxe
@@ -759,8 +819,9 @@ export default function ProDetailPage() {
           }}
         >
           <img
-            src={pro.images[0]}
+            src={pro.images[0] || '/images/default-profile.svg'}
             alt=""
+            onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
             className="w-10 h-10 rounded-xl object-cover shrink-0"
           />
           <div className="min-w-0 flex-1">
@@ -894,7 +955,7 @@ export default function ProDetailPage() {
         <Reveal>
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2.5">
-              <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-xl object-cover" />
+              <img src={pro.profileImage || '/images/default-profile.svg'} alt="" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-10 h-10 rounded-xl object-cover" />
               <p className="text-[18px] font-bold text-gray-900">사회자 {pro.name}</p>
             </div>
             {pro.isPrime && (
@@ -1168,7 +1229,7 @@ export default function ProDetailPage() {
         <h2 className="text-[20px] font-bold text-gray-900 mb-5">전문가 정보</h2>
 
         <div className="flex items-center gap-4 mb-5">
-          <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-xl object-cover" />
+          <img src={pro.profileImage || '/images/default-profile.svg'} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-[60px] h-[60px] rounded-xl object-cover" />
           <div className="flex-1">
             <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
@@ -1285,7 +1346,7 @@ export default function ProDetailPage() {
                 <div className="flex flex-wrap gap-1 mb-2.5">
                   {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).map(([key, val]) => (
                     <span key={key} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>
-                      {key} <span className="font-bold text-[#3180F7] ml-1">{val}</span>
+                      {key} <span className="font-bold text-[#3180F7] ml-1">{Number(val)}</span>
                     </span>
                   ))}
                 </div>

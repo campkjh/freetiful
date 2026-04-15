@@ -378,7 +378,7 @@ function ProCard({ pro, onRemove }: { pro: { id: string; name: string; category:
       <div className="flex gap-3">
         <Link href={`/pros/${pro.id}`} className="shrink-0">
           <div className="w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100">
-            <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
+            <img src={pro.image || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover" />
           </div>
         </Link>
         <div className="flex-1 min-w-0 flex flex-col">
