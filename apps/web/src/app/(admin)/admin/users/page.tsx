@@ -103,7 +103,7 @@ export default function AdminUsersPage() {
               <th className="px-3 py-2 text-left font-semibold">이름</th>
               <th className="px-3 py-2 text-left font-semibold">전화</th>
               <th className="px-3 py-2 text-left font-semibold">역할</th>
-              <th className="px-3 py-2 text-left font-semibold">상태</th>
+              <th className="px-3 py-2 text-left font-semibold">회원상태</th>
               <th className="px-3 py-2 text-left font-semibold">가입일</th>
               <th className="px-3 py-2 text-left font-semibold">액션</th>
             </tr>
