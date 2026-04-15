@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiClient } from '@/lib/api/client';
 
 interface User {
   id: string;
@@ -22,15 +22,14 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    let q = supabase
-      .from('users')
-      .select('id, email, name, phone, role, isBanned, isActive, createdAt')
-      .order('createdAt', { ascending: false })
-      .limit(200);
-    if (roleFilter !== 'all') q = q.eq('role', roleFilter);
-    const { data, error } = await q;
-    if (error) console.error(error);
-    setUsers((data as any) || []);
+    try {
+      const params = roleFilter !== 'all' ? { role: roleFilter } : {};
+      const res = await apiClient.get<User[]>('/api/v1/admin/users', { params });
+      setUsers(res.data);
+    } catch (e: any) {
+      console.error(e);
+      setUsers([]);
+    }
     setLoading(false);
   };
 
@@ -48,16 +47,22 @@ export default function AdminUsersPage() {
   });
 
   const updateRole = async (id: string, role: 'general' | 'pro') => {
-    const { error } = await supabase.from('users').update({ role }).eq('id', id);
-    if (error) return alert('업데이트 실패: ' + error.message);
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role } : u)));
+    try {
+      await apiClient.patch(`/api/v1/admin/users/${id}/role`, { role });
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role } : u)));
+    } catch (e: any) {
+      alert('업데이트 실패: ' + (e?.response?.data?.message ?? e.message));
+    }
   };
 
   const toggleBan = async (id: string, current: boolean) => {
     const next = !current;
-    const { error } = await supabase.from('users').update({ isBanned: next }).eq('id', id);
-    if (error) return alert('업데이트 실패: ' + error.message);
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, isBanned: next } : u)));
+    try {
+      await apiClient.patch(`/api/v1/admin/users/${id}/ban`, { isBanned: next });
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, isBanned: next } : u)));
+    } catch (e: any) {
+      alert('업데이트 실패: ' + (e?.response?.data?.message ?? e.message));
+    }
   };
 
   return (
