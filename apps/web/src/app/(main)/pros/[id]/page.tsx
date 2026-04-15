@@ -9,7 +9,6 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
-import { usersApi } from '@/lib/api/users.api';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -478,18 +477,8 @@ export default function ProDetailPage() {
     if (!id || PRO_MAP[id]) return;
     // 'my-pro' sentinel: 로그인 사용자의 실제 proProfile이 있으면 UUID로 교체, 없으면 localStorage 데이터로 직접 구성
     if (id === 'my-pro') {
-      usersApi.getProfile()
-        .then((u: any) => {
-          const realId = u?.proProfile?.id;
-          if (realId) {
-            router.replace(`/pros/${realId}`);
-          } else {
-            setDbPro(buildLocalStoragePro(u));
-          }
-        })
-        .catch(() => {
-          setDbPro(buildLocalStoragePro(null));
-        });
+      // 파트너 신청 직후 localStorage 기반 카드 — 로컬 데이터로 즉시 구성 (서버 호출 시 401 → 홈 리다이렉트 위험)
+      setDbPro(buildLocalStoragePro(null));
       return;
     }
     discoveryApi.getProDetail(id).then((res: any) => {
