@@ -1501,7 +1501,12 @@ export default function ProDetailPage() {
             )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
-                onClick={() => { setShowTooltip(false); if (localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; } router.push(`/chat/${pro.id}`); }}
+                onClick={() => {
+                  setShowTooltip(false);
+                  const isLoggedIn = authUser !== null || (typeof window !== 'undefined' && localStorage.getItem('freetiful-logged-in') === 'true');
+                  if (!isLoggedIn) { setLoginModal(true); return; }
+                  router.push(`/chat/${pro.id}`);
+                }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
               >
                 문의하기

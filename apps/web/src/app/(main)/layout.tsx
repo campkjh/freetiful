@@ -58,6 +58,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [bizCollapsing, setBizCollapsing] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showWebLoginModal, setShowWebLoginModal] = useState(false);
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const [showBizBubble, setShowBizBubble] = useState(true);
   const lastScrollY = useRef(0);
@@ -322,6 +323,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <button
                   key={provider}
                   onClick={() => {
+                    const isWeb = typeof window !== 'undefined' && !(window as any).webkit?.messageHandlers?.showNativeLogin;
+                    if (isWeb) {
+                      setShowLoginModal(false);
+                      setShowWebLoginModal(true);
+                      return;
+                    }
                     setShowLoginModal(false);
                     const origin = typeof window !== 'undefined' ? window.location.origin : '';
                     const KAKAO_KEY = 'dca1b472188890116c81a55eff590885';
@@ -352,6 +359,45 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             @keyframes loginFadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes loginSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
             @keyframes loginItemUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+          `}</style>
+        </div>
+      )}
+      {/* Web Social Login Guide Modal */}
+      {showWebLoginModal && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center px-4 animate-[loginFadeIn_0.2s_ease]"
+          onClick={() => setShowWebLoginModal(false)}
+        >
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className="relative bg-white w-full max-w-sm rounded-2xl px-6 pt-6 pb-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-[18px] font-bold text-gray-900 text-center mb-2">소셜 로그인 안내</h3>
+            <p className="text-[14px] text-gray-500 text-center leading-relaxed mb-5">
+              현재 웹에서는 소셜 로그인 준비중입니다.<br />
+              이메일로 간편 로그인/가입해주세요.
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  setShowWebLoginModal(false);
+                  router.push('/login');
+                }}
+                className="w-full bg-[#4E8FFF] hover:bg-[#3D7FEF] text-white font-semibold py-3 rounded-xl transition-colors"
+              >
+                이메일로 계속하기
+              </button>
+              <button
+                onClick={() => setShowWebLoginModal(false)}
+                className="w-full text-[14px] text-gray-400 font-medium py-2"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+          <style>{`
+            @keyframes loginFadeIn { from { opacity: 0; } to { opacity: 1; } }
           `}</style>
         </div>
       )}

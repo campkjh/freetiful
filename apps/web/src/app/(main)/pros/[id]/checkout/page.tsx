@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
 import { apiClient } from '@/lib/api/client';
+import { discoveryApi } from '@/lib/api/discovery.api';
 
 const PRO_NAMES: Record<string, { name: string; image: string }> = {
   '1': { name: '강도현', image: '/images/pro-01/10000133881772850005043.avif' },
@@ -56,7 +57,21 @@ export default function CheckoutPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const proInfo = PRO_NAMES[id || ''] || { name: '사회자', image: '' };
+  const fallbackInfo = PRO_NAMES[id || ''] || { name: '사회자', image: '' };
+  const [pro, setPro] = useState<any>(null);
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    discoveryApi
+      .getProDetail(id)
+      .then((data) => { if (alive) setPro(data); })
+      .catch(() => { /* fallback */ });
+    return () => { alive = false; };
+  }, [id]);
+  const proInfo = {
+    name: pro?.name || fallbackInfo.name,
+    image: pro?.images?.[0] || pro?.profileImageUrl || fallbackInfo.image,
+  };
 
   const planName = searchParams.get('plan') || 'Premium 패키지';
   const price = Number(searchParams.get('price') || '450000');
@@ -90,6 +105,19 @@ export default function CheckoutPage() {
   const finalPrice = price - discountAmount - couponAmount;
 
   const [payLoading, setPayLoading] = useState(false);
+  const [consented, setConsented] = useState(false);
+  const [buttonPulse, setButtonPulse] = useState(false);
+
+  const handleConsent = () => {
+    setAgreedCancel(true);
+    setAgreedPrivacy(true);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    setButtonPulse(true);
+    setTimeout(() => {
+      setConsented(true);
+      setTimeout(() => setButtonPulse(false), 500);
+    }, 150);
+  };
 
   const handlePayment = async () => {
     if (!agreedCancel) { toast.error('취소/환불 규정에 동의해주세요'); return; }
@@ -429,16 +457,25 @@ export default function CheckoutPage() {
           </div>
         </div>
         <button
-          onClick={handlePayment}
+          onClick={() => { if (!consented) { handleConsent(); } else { handlePayment(); } }}
           disabled={payLoading}
-          className="w-full h-[52px] rounded-2xl text-[16px] font-bold text-white bg-[#3180F7] active:scale-[0.98] transition-transform disabled:opacity-60"
+          style={{ transition: 'background 500ms ease-out, transform 500ms ease-out, box-shadow 500ms ease-out' }}
+          className={`w-full h-[52px] rounded-2xl text-[16px] font-bold text-white active:scale-[0.98] disabled:opacity-60 ${
+            consented
+              ? 'bg-gradient-to-r from-[#1E5FD1] to-[#2B6FE8] shadow-lg shadow-blue-500/30'
+              : 'bg-gradient-to-r from-[#3180F7] to-[#5A9BFF]'
+          } ${buttonPulse ? 'scale-[1.03]' : 'scale-100'}`}
         >
           {payLoading ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               결제 진행 중...
             </span>
-          ) : `${finalPrice.toLocaleString()}원 결제하기`}
+          ) : consented ? (
+            `${finalPrice.toLocaleString()}원 결제하기`
+          ) : (
+            '결제 내용에 동의합니다'
+          )}
         </button>
       </div>
     </div>

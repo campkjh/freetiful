@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { addPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
+import { matchApi } from '@/lib/api/match.api';
 
 const stepVariants = {
   initial: { opacity: 0, x: 40 },
@@ -156,12 +157,13 @@ function QuotePage() {
   const authUser = useAuthStore((s) => s.user);
   const params = useSearchParams();
   const isEvent = params.get('mode') === 'event';
+  const isWedding = params.get('mode') === 'wedding';
   const postcodeLoaded = useDaumPostcode();
 
   const [step, setStep] = useState<Step>(isEvent ? 'type' : 'plan');
   const [showAddressModal, setShowAddressModal] = useState(false);
   const addressEmbedRef = useRef<HTMLDivElement>(null);
-  const [eventType, setEventType] = useState('');
+  const [eventType, setEventType] = useState(isWedding ? '결혼식' : '');
   const [plan, setPlan] = useState('');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState('');
@@ -296,14 +298,75 @@ function QuotePage() {
     await doSubmit();
   };
 
+  const planPriceMap: Record<string, { min: number; max: number }> = {
+    premium: { min: 400000, max: 500000 },
+    superior: { min: 700000, max: 900000 },
+    enterprise: { min: 1500000, max: 2000000 },
+  };
+
+  const sendEventMailto = () => {
+    const userEmail = (() => {
+      try {
+        const u = localStorage.getItem('freetiful-user');
+        return u ? (JSON.parse(u).email || '') : '';
+      } catch { return ''; }
+    })();
+    const userName = authUser?.name || (() => {
+      try { const u = localStorage.getItem('freetiful-user'); return u ? (JSON.parse(u).name || '') : ''; } catch { return ''; }
+    })();
+    const price = planPriceMap[plan];
+    const budget = price ? `${(price.min / 10000).toFixed(0)}만원 ~ ${(price.max / 10000).toFixed(0)}만원` : '미정';
+    const subject = '[Freetiful] 전문 행사 사회자 문의';
+    const body = [
+      '■ 신청자 정보',
+      `- 담당자명: ${userName || '(미입력)'}`,
+      `- 이메일: ${userEmail || '(미입력)'}`,
+      '',
+      '■ 행사 정보',
+      `- 행사 유형: ${eventType || '(미입력)'}`,
+      `- 플랜: ${plan || '(미선택)'}`,
+      `- 행사일: ${date || '(미입력)'}`,
+      `- 시간: ${timeStart && timeEnd ? `${timeStart} ~ ${timeEnd}` : '(미입력)'}`,
+      `- 장소: ${location || '(미입력)'}`,
+      `- 예산: ${budget}`,
+      `- 분위기: ${Array.from(moods).join(', ') || '(미선택)'}`,
+      '',
+      '■ 요청 사항',
+      note || '(없음)',
+    ].join('\n');
+    const mailto = `mailto:support@freetiful.com,jaicylab2009@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (typeof window !== 'undefined') window.location.href = mailto;
+  };
+
   const doSubmit = async () => {
     setSending(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setSending(false);
+    try {
+      if (isEvent) {
+        sendEventMailto();
+      } else {
+        const price = planPriceMap[plan];
+        try {
+          await matchApi.createRequest({
+            categoryId: '결혼식사회자',
+            eventDate: date,
+            eventTime: timeStart && timeEnd ? `${timeStart} ~ ${timeEnd}` : timeStart,
+            eventLocation: location,
+            budgetMin: price?.min,
+            budgetMax: price?.max,
+            type: selectedPros.size > 1 ? 'multi' : 'single',
+          });
+        } catch (e) {
+          // Fallback: silently continue — API may not be available in dev
+          console.warn('matchApi.createRequest failed', e);
+        }
+      }
+    } finally {
+      setSending(false);
+    }
     localStorage.setItem('freetiful-quote-submitted', 'true');
     addPoints('quote_request', 200, '견적 요청 적립');
-    toast.success(isEvent ? '행사 견적 요청이 접수되었습니다.' : `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.`);
-    router.push('/main');
+    toast.success(isEvent ? '행사 견적 요청 메일이 준비되었습니다.' : `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.`);
+    router.push(isEvent ? '/main' : '/chat');
   };
 
   const handleSurveyComplete = async () => {

@@ -162,7 +162,7 @@ function ProsListContent() {
 
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('pudding_rank');
-  const [showFilter, setShowFilter] = useState(!!categoryParam);
+  const [showFilter, setShowFilter] = useState(false);
   const [selectedPrice, setSelectedPrice] = useState(0);
   const [selectedLang, setSelectedLang] = useState(isForeignFilter ? '영어' : '전체');
   const [selectedType, setSelectedType] = useState(initialType);
