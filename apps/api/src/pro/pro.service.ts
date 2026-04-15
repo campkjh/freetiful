@@ -284,28 +284,41 @@ export class ProService {
     });
 
     // Photos: base64 data URL → webp on disk → ProProfileImage 재생성
-    if (Array.isArray(data.photos)) {
-      await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
+    if (Array.isArray(data.photos) && data.photos.length > 0) {
       const mainIdx = Math.max(0, Math.min(data.mainPhotoIndex ?? 0, data.photos.length - 1));
+      const savedImages: { path: string; originalPath: string; index: number }[] = [];
+      const failures: { index: number; error: string }[] = [];
+
       for (let i = 0; i < data.photos.length; i++) {
-        const url = data.photos[i];
         try {
-          const processed = await this.savePhotoFromDataUrl(url);
-          if (!processed) continue;
-          await this.prisma.proProfileImage.create({
-            data: {
-              proProfileId: profile.id,
-              imageUrl: processed.path,
-              originalUrl: processed.originalPath,
-              displayOrder: i,
-              isPrimary: i === mainIdx,
-              hasFace: true,
-            },
-          });
-        } catch (e) {
-          // 개별 사진 저장 실패는 스킵
-          continue;
+          const processed = await this.savePhotoFromDataUrl(data.photos[i]);
+          if (processed) savedImages.push({ ...processed, index: i });
+          else failures.push({ index: i, error: 'invalid data URL' });
+        } catch (e: any) {
+          failures.push({ index: i, error: e?.message || String(e) });
         }
+      }
+
+      // 모든 사진 실패 시 에러로 터뜨려 프론트가 알림 표시
+      if (savedImages.length === 0) {
+        throw new BadRequestException(
+          `사진 업로드 실패 (${failures.length}장): ${failures.map((f) => f.error).join('; ')}`,
+        );
+      }
+
+      // 성공한 사진만 있을 때 기존 이미지 교체
+      await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
+      for (const img of savedImages) {
+        await this.prisma.proProfileImage.create({
+          data: {
+            proProfileId: profile.id,
+            imageUrl: img.path,
+            originalUrl: img.originalPath,
+            displayOrder: img.index,
+            isPrimary: img.index === mainIdx,
+            hasFace: true,
+          },
+        });
       }
     }
 

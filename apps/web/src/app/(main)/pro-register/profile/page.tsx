@@ -1141,6 +1141,8 @@ export default function ProfilePage() {
                   localStorage.setItem('proRegister_description', description);
 
                   // 서버에 실제 proProfile 생성/업데이트 (status=pending)
+                  let submitSucceeded = false;
+                  let submitError: any = null;
                   try {
                     const photos: string[] = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
                     const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
@@ -1178,12 +1180,18 @@ export default function ProfilePage() {
                       faqs: faqs.length > 0 ? faqs : undefined,
                       languages: selectedLanguages.length > 0 ? selectedLanguages : undefined,
                     });
-                  } catch (e) {
-                    // 서버 저장 실패해도 로컬 제출 완료 플로우는 진행 (오프라인 대비)
+                    submitSucceeded = true;
+                  } catch (e: any) {
+                    submitError = e;
                     console.error('submitRegistration failed', e);
                   }
                   setShowConfirm(false);
-                  setShowSuccess(true);
+                  if (submitSucceeded) {
+                    setShowSuccess(true);
+                  } else {
+                    const msg = submitError?.response?.data?.message || submitError?.message || '서버 저장 중 오류가 발생했습니다.';
+                    alert(`파트너 신청 서버 저장 실패: ${msg}\n\n다시 시도해주세요. 계속 실패하면 관리자에게 문의해 주세요.`);
+                  }
                 }}
                 className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base mb-3"
                 whileTap={{ scale: 0.97 }}
