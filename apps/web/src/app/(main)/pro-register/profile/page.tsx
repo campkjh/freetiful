@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon, CheckCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { prosApi } from '@/lib/api/pros.api';
 
 const COMPANY_LOGOS: string[] = [
   '/images/company-logos/ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg',
@@ -1125,9 +1126,9 @@ export default function ProfilePage() {
                 심사기간은 최대 7일이며, 결과는 알림으로 안내드립니다.
               </p>
               <motion.button
-                onClick={() => {
+                onClick={async () => {
+                  // localStorage 캐시 (UI 표시용)
                   localStorage.setItem('proRegistrationComplete', 'pending');
-                  // 프로필 데이터 저장
                   localStorage.setItem('proRegister_intro', intro);
                   localStorage.setItem('proRegister_careerYears', careerYears);
                   localStorage.setItem('proRegister_awards', JSON.stringify(awardList));
@@ -1138,6 +1139,23 @@ export default function ProfilePage() {
                     Object.entries(faqContents).map(([key, val]) => ({ q: key, a: val }))
                   ));
                   localStorage.setItem('proRegister_description', description);
+
+                  // 서버에 실제 proProfile 생성/업데이트 (status=pending)
+                  try {
+                    await prosApi.submitRegistration({
+                      name: localStorage.getItem('proRegister_name') || undefined,
+                      phone: localStorage.getItem('proRegister_phone') || undefined,
+                      gender: localStorage.getItem('proRegister_gender') || undefined,
+                      shortIntro: intro || undefined,
+                      mainExperience: localStorage.getItem('proRegister_career') || undefined,
+                      careerYears: careerYears ? parseInt(careerYears) || undefined : undefined,
+                      awards: awardList.length > 0 ? awardList.map((a) => a.text).filter(Boolean).join('\n') : undefined,
+                      youtubeUrl: videos[0] || undefined,
+                    });
+                  } catch (e) {
+                    // 서버 저장 실패해도 로컬 제출 완료 플로우는 진행 (오프라인 대비)
+                    console.error('submitRegistration failed', e);
+                  }
                   setShowConfirm(false);
                   setShowSuccess(true);
                 }}

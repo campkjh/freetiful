@@ -236,6 +236,47 @@ export class ProService {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
+  // ─── Registration Submission ─────────────────────────────────────────────
+
+  async submitRegistration(
+    userId: string,
+    data: {
+      name?: string;
+      phone?: string;
+      gender?: string;
+      shortIntro?: string;
+      mainExperience?: string;
+      careerYears?: number;
+      awards?: string;
+      youtubeUrl?: string;
+    },
+  ) {
+    if (data.name || data.phone) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(data.name ? { name: data.name } : {}),
+          ...(data.phone ? { phone: data.phone } : {}),
+        },
+      });
+    }
+
+    const fields = {
+      ...(data.gender !== undefined ? { gender: data.gender } : {}),
+      ...(data.shortIntro !== undefined ? { shortIntro: data.shortIntro } : {}),
+      ...(data.mainExperience !== undefined ? { mainExperience: data.mainExperience } : {}),
+      ...(data.careerYears !== undefined ? { careerYears: data.careerYears } : {}),
+      ...(data.awards !== undefined ? { awards: data.awards } : {}),
+      ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
+    };
+
+    return this.prisma.proProfile.upsert({
+      where: { userId },
+      create: { userId, status: 'pending', ...fields },
+      update: { status: 'pending', ...fields },
+    });
+  }
+
   private async getProfileByUserId(userId: string) {
     const profile = await this.prisma.proProfile.findUnique({
       where: { userId },

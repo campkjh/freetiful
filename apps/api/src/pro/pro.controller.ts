@@ -22,6 +22,29 @@ import { ProService } from './pro.service';
 export class ProController {
   constructor(private readonly proService: ProService) {}
 
+  // ─── Registration ────────────────────────────────────────────────────────
+
+  @Post('register')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '파트너 신청 제출 — proProfile 생성/업데이트 후 status=pending' })
+  submitRegistration(
+    @Req() req,
+    @Body()
+    body: {
+      name?: string;
+      phone?: string;
+      gender?: string;
+      shortIntro?: string;
+      mainExperience?: string;
+      careerYears?: number;
+      awards?: string;
+      youtubeUrl?: string;
+    },
+  ) {
+    return this.proService.submitRegistration(req.user.id, body);
+  }
+
   // ─── Profile Images ──────────────────────────────────────────────────────
 
   @Post('profile/images')

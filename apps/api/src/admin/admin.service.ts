@@ -58,4 +58,46 @@ export class AdminService {
       select: { id: true, isBanned: true },
     });
   }
+
+  async listProProfiles(requesterId: string, status?: string) {
+    await this.assertAdmin(requesterId);
+    return this.prisma.proProfile.findMany({
+      where: status ? { status: status as any } : {},
+      include: {
+        user: { select: { id: true, email: true, name: true, phone: true, profileImageUrl: true } },
+        images: { orderBy: { displayOrder: 'asc' }, take: 4 },
+      },
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      take: 200,
+    });
+  }
+
+  async updateProProfileStatus(
+    requesterId: string,
+    proProfileId: string,
+    status: 'approved' | 'rejected' | 'pending' | 'suspended' | 'draft',
+    rejectionReason?: string,
+  ) {
+    await this.assertAdmin(requesterId);
+    const data: any = { status };
+    if (status === 'approved') {
+      data.approvedAt = new Date();
+      data.rejectionReason = null;
+    }
+    if (status === 'rejected') {
+      data.rejectionReason = rejectionReason ?? null;
+    }
+    const updated = await this.prisma.proProfile.update({
+      where: { id: proProfileId },
+      data,
+      select: { id: true, userId: true, status: true },
+    });
+    if (status === 'approved') {
+      await this.prisma.user.update({
+        where: { id: updated.userId },
+        data: { role: UserRole.pro },
+      });
+    }
+    return updated;
+  }
 }

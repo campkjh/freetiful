@@ -36,4 +36,20 @@ export class AdminController {
     const userId = (req.user as any).id;
     return this.admin.updateUserBan(userId, id, body.isBanned);
   }
+
+  @Get('pros')
+  async listPros(@Req() req: Request, @Query('status') status?: string) {
+    const userId = (req.user as any).id;
+    return this.admin.listProProfiles(userId, status);
+  }
+
+  @Patch('pros/:id/status')
+  async updateProStatus(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: { status: 'approved' | 'rejected' | 'pending' | 'suspended' | 'draft'; rejectionReason?: string },
+  ) {
+    const userId = (req.user as any).id;
+    return this.admin.updateProProfileStatus(userId, id, body.status, body.rejectionReason);
+  }
 }
