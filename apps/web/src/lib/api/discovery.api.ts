@@ -40,7 +40,7 @@ export const discoveryApi = {
     page?: number;
     limit?: number;
     search?: string;
-    sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding';
+    sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding' | 'newest';
     gender?: string;
     featured?: boolean;
   }) =>

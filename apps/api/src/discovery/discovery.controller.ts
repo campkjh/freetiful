@@ -19,7 +19,7 @@ export class DiscoveryController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('search') search?: string,
-    @Query('sort') sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding',
+    @Query('sort') sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding' | 'newest',
     @Query('gender') gender?: string,
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,

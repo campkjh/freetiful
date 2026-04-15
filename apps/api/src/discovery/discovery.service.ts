@@ -40,7 +40,7 @@ export class DiscoveryService {
     page?: number;
     limit?: number;
     search?: string;
-    sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding';
+    sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding' | 'newest';
     gender?: string;
     minPrice?: number;
     maxPrice?: number;
@@ -74,6 +74,7 @@ export class DiscoveryService {
       sort === 'reviews' ? { reviewCount: 'desc' as const }
       : sort === 'experience' ? { careerYears: 'desc' as const }
       : sort === 'pudding' ? { puddingCount: 'desc' as const }
+      : sort === 'newest' ? { approvedAt: 'desc' as const }
       : { avgRating: 'desc' as const };
 
     const [data, total] = await Promise.all([
