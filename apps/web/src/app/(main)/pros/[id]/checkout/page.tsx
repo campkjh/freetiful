@@ -81,6 +81,7 @@ export default function CheckoutPage() {
   const [checkNoConsult, setCheckNoConsult] = useState(false);
   const [checkPrevious, setCheckPrevious] = useState(false);
   const [showScheduleDetail, setShowScheduleDetail] = useState(false);
+  const [showPrivacyDetail, setShowPrivacyDetail] = useState(false);
   const [usePoints, setUsePoints] = useState(true);
 
   const pointAmount = 5000;
@@ -98,7 +99,7 @@ export default function CheckoutPage() {
     try {
       const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!clientKey) {
-        toast.error('결제 설정이 필요합니다');
+        alert('결제 설정이 필요합니다: NEXT_PUBLIC_TOSS_CLIENT_KEY 환경 변수 미설정. 관리자에게 문의해 주세요.');
         setPayLoading(false);
         return;
       }
@@ -349,7 +350,7 @@ export default function CheckoutPage() {
       <div className="px-4 pt-8">
         <h2 className="text-[17px] font-bold text-gray-900 mb-3">사회자에 전달할 내용</h2>
         <div className="border border-gray-200 rounded-2xl p-4 space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer">
+          <label className="flex items-center gap-3 cursor-pointer" onClick={() => setCheckNoConsult(!checkNoConsult)}>
             <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${checkNoConsult ? 'bg-[#2B313D] border-[#2B313D]' : 'border-gray-300'}`}>
               {checkNoConsult && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             </div>
@@ -385,18 +386,35 @@ export default function CheckoutPage() {
       </div>
 
       {/* ═══ 개인정보 동의 ═══ */}
-      <div className="px-4 pt-6 pb-4">
-        <div className="h-px bg-gray-100 mb-4" />
-        <button className="flex items-center justify-between w-full py-2">
-          <div>
-            <p className="text-[13px] text-gray-700">서비스 이용에 관한 개인정보 수집 동의</p>
-            <p className="text-[11px] text-gray-400">(개인정보 및 민감정보 수집 이용, 개인정보 제3자 제공 동의)</p>
-          </div>
-          <ChevronDown size={18} className="text-gray-400" />
-        </button>
-        <p className="text-[10px] text-gray-400 leading-relaxed mt-2">
-          프리티풀은 고객 편의를 위해 예약·앱에서결제 기능을 제공하며, 이 기능에 대해 전문가로부터 대가를 받지 않습니다. 거래의 당사자는 고객과 사회자이며, 프리티풀은 이를 중개하지 않습니다. 위 내용을 확인하였으며, 결제에 동의합니다.
-        </p>
+      <div className="px-4 pt-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-[17px] font-bold text-gray-900">서비스 이용 동의</h2>
+          <span className="text-[13px] font-bold text-[#3180F7]">필수</span>
+        </div>
+        <div className="border border-gray-200 rounded-2xl p-4">
+          <button
+            type="button"
+            onClick={() => setShowPrivacyDetail((v) => !v)}
+            className="flex items-center justify-between w-full"
+          >
+            <div className="text-left">
+              <p className="text-[13px] text-gray-700">서비스 이용에 관한 개인정보 수집 동의</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">(개인정보 및 민감정보 수집·이용, 개인정보 제3자 제공 동의)</p>
+            </div>
+            <ChevronDown size={18} className={`text-gray-400 shrink-0 ml-2 transition-transform ${showPrivacyDetail ? 'rotate-180' : ''}`} />
+          </button>
+          {showPrivacyDetail && (
+            <p className="text-[11px] text-gray-500 leading-relaxed mt-3 bg-gray-50 rounded-lg p-3">
+              프리티풀은 고객 편의를 위해 예약·결제 기능을 제공하며, 이 기능에 대해 전문가로부터 대가를 받지 않습니다. 거래의 당사자는 고객과 사회자이며, 프리티풀은 이를 중개하지 않습니다. 수집 항목: 이름·연락처·결제정보. 보유 기간: 관련 법령에 따른 보관 기간. 위 내용을 확인하였으며, 결제에 동의합니다.
+            </p>
+          )}
+          <label className="flex items-center gap-3 mt-4 cursor-pointer" onClick={() => setAgreedPrivacy(!agreedPrivacy)}>
+            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreedPrivacy ? 'bg-[#2B313D] border-[#2B313D]' : 'border-gray-300'}`}>
+              {agreedPrivacy && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+            <span className="text-[14px] text-gray-700">위 내용에 동의합니다</span>
+          </label>
+        </div>
       </div>
 
       {/* ═══ 하단 고정 ═══ */}
