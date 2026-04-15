@@ -34,11 +34,20 @@ export class AdminService {
 
   async updateUserRole(requesterId: string, userId: string, role: 'general' | 'pro') {
     await this.assertAdmin(requesterId);
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { role: role as UserRole },
       select: { id: true, role: true },
     });
+
+    if (role === 'pro') {
+      await this.prisma.proProfile.updateMany({
+        where: { userId, status: { in: ['draft', 'pending'] } },
+        data: { status: 'approved', approvedAt: new Date() },
+      });
+    }
+
+    return updated;
   }
 
   async updateUserBan(requesterId: string, userId: string, isBanned: boolean) {
