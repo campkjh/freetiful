@@ -111,6 +111,9 @@ export default function AdminProsPage() {
                     <button onClick={() => togglePublic(p.id, p.isPublic)} className="text-[12px] px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
                       {p.isPublic ? '비공개' : '공개'}
                     </button>
+                    <a href={`/pros/${p.id}`} target="_blank" rel="noreferrer" className="text-[12px] px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 inline-block">
+                      상세
+                    </a>
                   </td>
                 </tr>
               ))

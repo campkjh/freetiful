@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
+import { usersApi } from '@/lib/api/users.api';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -425,6 +426,28 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   );
 }
 
+// localStorage에 저장된 파트너 등록 데이터로 DB 응답 모양의 객체 생성 (미승인/DB 저장 전 상태용)
+function buildLocalStoragePro(user: any): any | null {
+  if (typeof window === 'undefined') return null;
+  const name = user?.name || localStorage.getItem('proRegister_name');
+  if (!name) return null;
+  const photos: string[] = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
+  const mainIdx = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
+  const ordered = photos.length > 0 ? [photos[mainIdx], ...photos.filter((_, i) => i !== mainIdx)] : [];
+  return {
+    id: 'my-pro',
+    user: { name, profileImageUrl: user?.profileImageUrl || ordered[0] || '' },
+    images: ordered.map((url) => ({ imageUrl: url })),
+    services: [],
+    avgRating: 5.0,
+    reviewCount: 0,
+    careerYears: parseInt(localStorage.getItem('proRegister_careerYears') || '1') || 1,
+    shortIntro: localStorage.getItem('proRegister_intro') || '',
+    mainExperience: localStorage.getItem('proRegister_career') || '',
+    youtubeUrl: localStorage.getItem('proRegister_youtubeUrl') || null,
+  };
+}
+
 // ─── Page ───────────────────────────────────────────────────
 
 export default function ProDetailPage() {
@@ -434,6 +457,7 @@ export default function ProDetailPage() {
   const [apiRating, setApiRating] = useState<number | null>(null);
   const [apiReviewCount, setApiReviewCount] = useState<number | null>(null);
   const [apiProfileViews, setApiProfileViews] = useState<number | null>(null);
+  const [dbPro, setDbPro] = useState<any>(null);
 
   // API에서 실제 평점/리뷰수 가져오기
   useEffect(() => {
@@ -449,7 +473,60 @@ export default function ProDetailPage() {
       .catch(() => {});
   }, [id, proData?.name]);
 
-  const pro = proData ? {
+  // PRO_MAP에 없는 UUID는 DB에서 상세 조회
+  useEffect(() => {
+    if (!id || PRO_MAP[id]) return;
+    // 'my-pro' sentinel: 로그인 사용자의 실제 proProfile이 있으면 UUID로 교체, 없으면 localStorage 데이터로 직접 구성
+    if (id === 'my-pro') {
+      usersApi.getProfile()
+        .then((u: any) => {
+          const realId = u?.proProfile?.id;
+          if (realId) {
+            router.replace(`/pros/${realId}`);
+          } else {
+            setDbPro(buildLocalStoragePro(u));
+          }
+        })
+        .catch(() => {
+          setDbPro(buildLocalStoragePro(null));
+        });
+      return;
+    }
+    discoveryApi.getProDetail(id).then((res: any) => {
+      if (res) setDbPro(res);
+    }).catch(() => {});
+  }, [id, router]);
+
+  const dbProBuilt = dbPro ? (() => {
+    const name = dbPro.user?.name || '전문가';
+    const profileImg = dbPro.user?.profileImageUrl || dbPro.images?.[0]?.imageUrl || '';
+    const imgs = (dbPro.images || []).map((i: any) => i.imageUrl).filter(Boolean);
+    const ytMatch = (dbPro.youtubeUrl || '').match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+    const youtubeId = ytMatch?.[1];
+    const experience = dbPro.careerYears || 1;
+    const careerLines = (dbPro.mainExperience || '').split(/[\n\/]/).map((s: string) => s.trim()).filter(Boolean);
+    return {
+      ...MOCK_PRO,
+      id: dbPro.id,
+      name,
+      profileImage: profileImg,
+      mainImage: imgs[0] || profileImg,
+      images: imgs.length > 0 ? imgs : [profileImg].filter(Boolean),
+      title: `사회자 ${name}`,
+      rating: Number(dbPro.avgRating) || 0,
+      reviewCount: dbPro.reviewCount || 0,
+      youtubeId,
+      youtubeVideos: youtubeId ? [{ id: youtubeId, title: `${name} 사회자 진행 영상` }] : [],
+      description: `안녕하세요. 사회자 ${name}입니다.\n\n${dbPro.shortIntro || ''}${careerLines.length > 0 ? `\n\n주요 경력:\n• ${careerLines.join('\n• ')}` : ''}`,
+      plans: MOCK_PRO.plans.map((p, idx) => {
+        const svc = dbPro.services?.[idx];
+        return svc ? { ...p, price: svc.basePrice || p.price, label: svc.name || p.label } : p;
+      }),
+      expertStats: { ...MOCK_PRO.expertStats, totalDeals: experience * 8 + 10 },
+    };
+  })() : null;
+
+  const pro = dbProBuilt ? dbProBuilt : proData ? {
     ...MOCK_PRO,
     id: id || MOCK_PRO.id,
     name: proData.name,
