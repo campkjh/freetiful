@@ -554,7 +554,7 @@ export default function ProDetailPage() {
 
   const dbProBuilt = dbPro ? (() => {
     const name = dbPro.user?.name || '전문가';
-    const profileImg = dbPro.user?.profileImageUrl || dbPro.images?.[0]?.imageUrl || '';
+    const profileImg = dbPro.images?.[0]?.imageUrl || dbPro.user?.profileImageUrl || '';
     const imgs = (dbPro.images || []).map((i: any) => i.imageUrl).filter(Boolean);
     const ytMatch = (dbPro.youtubeUrl || '').match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
     const youtubeId = ytMatch?.[1];

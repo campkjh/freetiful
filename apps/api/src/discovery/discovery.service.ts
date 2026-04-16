@@ -125,7 +125,7 @@ export class DiscoveryService {
         id: p.id,
         userId: p.userId,
         name: p.user.name,
-        profileImageUrl: p.user.profileImageUrl,
+        profileImageUrl: p.images[0]?.imageUrl || p.user.profileImageUrl,
         images: p.images.map((i) => i.imageUrl),
         shortIntro: p.shortIntro,
         mainExperience: p.mainExperience,
