@@ -468,24 +468,17 @@ export default function CheckoutPage() {
           </div>
         </div>
         <button
-          onClick={() => { if (!consented) { handleConsent(); } else { handlePayment(); } }}
+          onClick={handlePayment}
           disabled={payLoading}
-          style={{ transition: 'background 500ms ease-out, transform 500ms ease-out, box-shadow 500ms ease-out' }}
-          className={`w-full h-[52px] rounded-2xl text-[16px] font-bold text-white active:scale-[0.98] disabled:opacity-60 ${
-            consented
-              ? 'bg-gradient-to-r from-[#1E5FD1] to-[#2B6FE8] shadow-lg shadow-blue-500/30'
-              : 'bg-gradient-to-r from-[#3180F7] to-[#5A9BFF]'
-          } ${buttonPulse ? 'scale-[1.03]' : 'scale-100'}`}
+          className="w-full h-[52px] rounded-2xl text-[16px] font-bold text-white active:scale-[0.98] disabled:opacity-60 bg-gradient-to-r from-[#3180F7] to-[#5A9BFF] shadow-lg shadow-blue-500/30 transition-transform"
         >
           {payLoading ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               결제 진행 중...
             </span>
-          ) : consented ? (
-            `${finalPrice.toLocaleString()}원 결제하기`
           ) : (
-            '결제 내용에 동의합니다'
+            `${finalPrice.toLocaleString()}원 결제하기`
           )}
         </button>
       </div>
