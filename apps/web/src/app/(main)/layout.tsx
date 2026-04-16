@@ -110,11 +110,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const onScroll = () => {
       const currentY = window.scrollY;
-      if (currentY > lastScrollY.current && currentY > 80) {
-        setNavVisible(false);
-      } else {
-        setNavVisible(true);
-      }
+      // 하단 네비게이션은 항상 보이도록 유지 — 스크롤에 따라 숨김/표시하지 않음
       setHeaderScrolled(currentY > 80);
       lastScrollY.current = currentY;
     };
