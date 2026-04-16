@@ -23,14 +23,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const authUser = useAuthStore((s) => s.user);
   const [checked, setChecked] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   const isLoginPage = pathname === '/admin/login';
+
+  // zustand persist 하이드레이션 완료까지 대기 — 새로고침 시 첫 렌더에선 user=null 이라 바로 체크하면 /admin/login 로 튕김
+  useEffect(() => {
+    if (useAuthStore.persist.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
+    const unsub = useAuthStore.persist.onFinishHydration(() => setHydrated(true));
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (isLoginPage) {
       setChecked(true);
       return;
     }
+    if (!hydrated) return; // 하이드레이션 전엔 판단 보류
     if (!authUser) {
       router.replace('/admin/login');
       return;
@@ -40,7 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
     setChecked(true);
-  }, [authUser, router, isLoginPage]);
+  }, [authUser, router, isLoginPage, hydrated]);
 
   if (isLoginPage) {
     return <>{children}</>;
