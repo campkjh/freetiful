@@ -103,16 +103,15 @@ export default function AdminUsersPage() {
               <th className="px-3 py-2 text-left font-semibold">이름</th>
               <th className="px-3 py-2 text-left font-semibold">전화</th>
               <th className="px-3 py-2 text-left font-semibold">역할</th>
-              <th className="px-3 py-2 text-left font-semibold">회원상태</th>
               <th className="px-3 py-2 text-left font-semibold">가입일</th>
-              <th className="px-3 py-2 text-left font-semibold">액션</th>
+              <th className="px-3 py-2 text-left font-semibold">회원상태</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-400">불러오는 중...</td></tr>
+              <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">불러오는 중...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-400">유저 없음</td></tr>
+              <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">유저 없음</td></tr>
             ) : (
               filtered.map((u) => (
                 <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -129,21 +128,21 @@ export default function AdminUsersPage() {
                       <option value="pro">프로</option>
                     </select>
                   </td>
-                  <td className="px-3 py-2">
-                    {u.isBanned ? (
-                      <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded-full text-[11px]">밴</span>
-                    ) : (
-                      <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-[11px]">활성</span>
-                    )}
-                  </td>
                   <td className="px-3 py-2 text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
                   <td className="px-3 py-2">
-                    <button
-                      onClick={() => toggleBan(u.id, u.isBanned)}
-                      className="text-[12px] px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
-                    >
-                      {u.isBanned ? '밴 해제' : '밴'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {u.isBanned ? (
+                        <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded-full text-[11px]">밴</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-[11px]">활성</span>
+                      )}
+                      <button
+                        onClick={() => toggleBan(u.id, u.isBanned)}
+                        className="text-[12px] px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
+                      >
+                        {u.isBanned ? '밴 해제' : '밴'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
