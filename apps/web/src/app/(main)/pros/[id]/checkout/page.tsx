@@ -89,7 +89,6 @@ export default function CheckoutPage() {
     } catch { /* ignore */ }
   }, [authUser]);
 
-  const [payMethod, setPayMethod] = useState('bank');
   const [maxDiscount, setMaxDiscount] = useState(true);
   const [agreedCancel, setAgreedCancel] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
@@ -102,9 +101,44 @@ export default function CheckoutPage() {
   const pointAmount = 5000;
   const couponAmount = 0;
   const discountAmount = maxDiscount ? pointAmount : 0;
-  const finalPrice = price - discountAmount - couponAmount;
+  // Toss 최소 결제 금액 100원 보장 — 할인으로 음수가 되지 않도록 clamp
+  const finalPrice = Math.max(100, price - discountAmount - couponAmount);
 
   const [payLoading, setPayLoading] = useState(false);
+  const widgetsRef = useRef<any>(null);
+  const [widgetsReady, setWidgetsReady] = useState(false);
+
+  // Toss 결제위젯 초기화 (gck_ 키는 widgets API 전용)
+  useEffect(() => {
+    const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+    if (!clientKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const tossPayments = await loadTossPayments(clientKey);
+        const customerKey = authUser?.id || `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const widgets = (tossPayments as any).widgets({ customerKey });
+        if (cancelled) return;
+        widgetsRef.current = widgets;
+        await widgets.setAmount({ currency: 'KRW', value: finalPrice });
+        await Promise.all([
+          widgets.renderPaymentMethods({ selector: '#toss-payment-methods', variantKey: 'DEFAULT' }),
+          widgets.renderAgreement({ selector: '#toss-agreement', variantKey: 'AGREEMENT' }),
+        ]);
+        setWidgetsReady(true);
+      } catch (e) {
+        console.error('[toss widgets init]', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authUser?.id]);
+
+  // 금액 변경 시 위젯 setAmount 재호출
+  useEffect(() => {
+    if (widgetsRef.current && widgetsReady) {
+      widgetsRef.current.setAmount({ currency: 'KRW', value: finalPrice }).catch(() => {});
+    }
+  }, [finalPrice, widgetsReady]);
   const [consented, setConsented] = useState(false);
   const [buttonPulse, setButtonPulse] = useState(false);
 
@@ -147,22 +181,19 @@ export default function CheckoutPage() {
         // 백엔드 없어도 결제 진행 가능
       }
 
-      // 2. 토스페이먼츠 위젯 호출
-      const tossPayments = await loadTossPayments(clientKey);
-      const payment = tossPayments.payment({ customerKey: authUser?.id || `guest_${Date.now()}` });
-
-      await (payment.requestPayment as any)({
-        method: payMethod === 'card' ? 'CARD' : payMethod === 'bank' ? 'TRANSFER' : 'EASY_PAY',
-        amount: { currency: 'KRW', value: finalPrice },
+      // 2. 토스 위젯으로 결제 요청 — 결제수단/약관은 렌더링된 위젯이 담당
+      if (!widgetsRef.current) {
+        alert('결제 위젯 초기화 중입니다. 잠시 후 다시 시도해 주세요.');
+        setPayLoading(false);
+        return;
+      }
+      await widgetsRef.current.requestPayment({
         orderId,
         orderName,
         customerName: authUser?.name || bookerInfo.split('/')[0]?.trim() || '고객',
         customerEmail: authUser?.email || undefined,
         successUrl: `${window.location.origin}/payment/success?proId=${id}`,
         failUrl: `${window.location.origin}/payment/fail`,
-        ...(payMethod === 'kakaopay' ? { easyPay: { provider: 'KAKAOPAY' } } :
-           payMethod === 'npay' ? { easyPay: { provider: 'NAVERPAY' } } :
-           payMethod === 'tosspay' ? { easyPay: { provider: 'TOSSPAY' } } : {}),
       });
     } catch (e: any) {
       if (e?.code === 'USER_CANCEL') {
@@ -175,13 +206,6 @@ export default function CheckoutPage() {
     }
   };
 
-  const PAY_METHODS = [
-    { id: 'bank', label: '퀵계좌이체', badge: '0.3% 즉시할인' },
-    { id: 'card', label: '신용·체크카드' },
-    { id: 'npay', label: 'N pay', icon: '🟢' },
-    { id: 'kakaopay', label: 'kakao pay', icon: '🟡' },
-    { id: 'tosspay', label: 'toss pay', badge: '혜택', icon: '🔵' },
-  ];
 
   return (
     <div className="bg-white min-h-screen pb-36" style={{ letterSpacing: '-0.02em' }}>
@@ -309,31 +333,10 @@ export default function CheckoutPage() {
           <span className="text-[13px] font-bold text-[#3180F7]">필수</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {PAY_METHODS.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setPayMethod(m.id)}
-              className={`relative h-[52px] rounded-xl border text-[13px] font-medium flex items-center justify-center transition-all active:scale-95 ${
-                payMethod === m.id
-                  ? 'border-gray-900 text-gray-900 bg-white'
-                  : 'border-gray-200 text-gray-600 bg-white'
-              }`}
-            >
-              {m.badge && (
-                <span className="absolute -top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#3180F7] text-white">{m.badge}</span>
-              )}
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="bg-gray-50 rounded-xl p-3 mt-3">
-          <p className="text-[12px] font-bold text-gray-700">퀵계좌이체 안내</p>
-          <p className="text-[11px] text-gray-500 mt-1">• 결제 금액 상관 없이 0.3% 즉시 할인</p>
-        </div>
-        <p className="text-[11px] text-gray-500 mt-2">퀵계좌이체 · 결제 시 0.3% 즉시할인</p>
-        <p className="text-[11px] text-gray-500">신용카드 무이자 할부 안내 &gt;</p>
+        {/* Toss 결제위젯: 결제수단 UI 가 여기에 렌더링됨 */}
+        <div id="toss-payment-methods" />
+        {/* Toss 약관 위젯 */}
+        <div id="toss-agreement" className="mt-3" />
       </div>
 
       {/* ═══ 결제 금액 ═══ */}
