@@ -786,9 +786,9 @@ model Review {
   proRepliedAt        DateTime?
   createdAt           DateTime @default(now())
 
-  payment    Payment    @relation(fields: [paymentId], references: [id])
-  reviewer   User       @relation(fields: [reviewerId], references: [id])
-  proProfile ProProfile @relation(fields: [proProfileId], references: [id])
+  payment    Payment    @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  reviewer   User       @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
   reports    ReviewReport[]
 
   @@map("reviews")
