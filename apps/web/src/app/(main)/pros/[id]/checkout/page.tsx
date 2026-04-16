@@ -196,10 +196,16 @@ export default function CheckoutPage() {
         failUrl: `${window.location.origin}/payment/fail`,
       });
     } catch (e: any) {
-      if (e?.code === 'USER_CANCEL') {
+      // 상세 로그 (Toss 는 code + message 포함)
+      console.error('[toss requestPayment]', e);
+      const code = e?.code;
+      const message = e?.message || '결제 중 오류가 발생했습니다';
+      if (code === 'USER_CANCEL') {
         toast('결제가 취소되었습니다', { icon: '🔙' });
+      } else if (code) {
+        alert(`결제 실패\n[${code}] ${message}`);
       } else {
-        toast.error(e?.message || '결제 중 오류가 발생했습니다');
+        toast.error(message);
       }
     } finally {
       setPayLoading(false);
