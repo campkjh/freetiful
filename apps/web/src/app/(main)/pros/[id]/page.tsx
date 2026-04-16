@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
+import { reviewApi } from '@/lib/api/review.api';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -452,16 +453,95 @@ function buildLocalStoragePro(user: any): any | null {
 export default function ProDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const proData = id && PRO_MAP[id] ? PRO_MAP[id] : null;
   const [apiRating, setApiRating] = useState<number | null>(null);
   const [apiReviewCount, setApiReviewCount] = useState<number | null>(null);
   const [apiProfileViews, setApiProfileViews] = useState<number | null>(null);
   const [dbPro, setDbPro] = useState<any>(null);
+  const [apiLoading, setApiLoading] = useState(true);
+  const [apiFailed, setApiFailed] = useState(false);
+  const [apiReviews, setApiReviews] = useState<any[]>([]);
 
-  // API에서 실제 평점/리뷰수 가져오기
+  // 리뷰 API 조회 (proProfileId 기반) — dbPro가 로드된 후 실제 UUID로 호출
+  useEffect(() => {
+    const targetId = dbPro?.id || id;
+    if (!targetId || targetId === 'my-pro') return;
+    reviewApi.getByPro(targetId, { limit: 20 })
+      .then((res: any) => {
+        const list = res?.data || [];
+        if (list.length > 0) {
+          const mapped = list.map((r: any) => {
+            const rawName = r.isAnonymous ? '익명' : (r.reviewer?.name || '고객');
+            const maskedName = r.isAnonymous
+              ? '익명********'
+              : rawName.length > 0
+                ? rawName.slice(0, 1) + '********'
+                : '고객********';
+            const created = r.createdAt ? new Date(r.createdAt) : new Date();
+            const dateStr = `${String(created.getFullYear()).slice(2)}.${String(created.getMonth() + 1).padStart(2, '0')}.${String(created.getDate()).padStart(2, '0')}`;
+            return {
+              id: r.id,
+              name: maskedName,
+              rating: Number(r.avgRating) || 0,
+              date: dateStr,
+              scores: {
+                경력: Number(r.ratingExperience) || 0,
+                만족도: Number(r.ratingSatisfaction) || 0,
+                구성력: Number(r.ratingComposition) || 0,
+                위트: Number(r.ratingWit) || 0,
+                발성: Number(r.ratingVoice) || 0,
+                이미지: Number(r.ratingAppearance) || 0,
+              },
+              content: r.comment || '',
+              workDays: 1,
+              orderRange: '',
+              badge: '',
+              proReply: r.proReply
+                ? {
+                    date: r.proRepliedAt
+                      ? (() => {
+                          const d = new Date(r.proRepliedAt);
+                          return `${String(d.getFullYear()).slice(2)}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+                        })()
+                      : dateStr,
+                    content: r.proReply,
+                  }
+                : undefined,
+            };
+          });
+          setApiReviews(mapped);
+        }
+      })
+      .catch(() => {});
+  }, [id, dbPro?.id]);
+
+  // API를 PRIMARY 소스로 사용 — 모든 id에 대해 먼저 getProDetail 호출
   useEffect(() => {
     if (!id) return;
-    discoveryApi.getProList({ search: proData?.name, limit: 1 })
+    // 'my-pro' sentinel: 로그인 사용자의 실제 proProfile이 있으면 UUID로 교체, 없으면 localStorage 데이터로 직접 구성
+    if (id === 'my-pro') {
+      setDbPro(buildLocalStoragePro(null));
+      setApiLoading(false);
+      return;
+    }
+    setApiLoading(true);
+    setApiFailed(false);
+    discoveryApi.getProDetail(id).then((res: any) => {
+      if (res) setDbPro(res);
+      else setApiFailed(true);
+    }).catch(() => {
+      setApiFailed(true);
+    }).finally(() => {
+      setApiLoading(false);
+    });
+  }, [id, router]);
+
+  // API 실패 시에만 사용할 legacy fallback (PRO_MAP: 숫자 ID 1..41)
+  const proData = apiFailed && id && PRO_MAP[id] ? PRO_MAP[id] : null;
+
+  // API 실패 & legacy fallback 사용 중일 때만 평점/리뷰 추가 조회
+  useEffect(() => {
+    if (!id || !proData) return;
+    discoveryApi.getProList({ search: proData.name, limit: 1 })
       .then((res) => {
         const found = res.data?.[0];
         if (found) {
@@ -470,21 +550,7 @@ export default function ProDetailPage() {
         }
       })
       .catch(() => {});
-  }, [id, proData?.name]);
-
-  // PRO_MAP에 없는 UUID는 DB에서 상세 조회
-  useEffect(() => {
-    if (!id || PRO_MAP[id]) return;
-    // 'my-pro' sentinel: 로그인 사용자의 실제 proProfile이 있으면 UUID로 교체, 없으면 localStorage 데이터로 직접 구성
-    if (id === 'my-pro') {
-      // 파트너 신청 직후 localStorage 기반 카드 — 로컬 데이터로 즉시 구성 (서버 호출 시 401 → 홈 리다이렉트 위험)
-      setDbPro(buildLocalStoragePro(null));
-      return;
-    }
-    discoveryApi.getProDetail(id).then((res: any) => {
-      if (res) setDbPro(res);
-    }).catch(() => {});
-  }, [id, router]);
+  }, [id, proData]);
 
   const dbProBuilt = dbPro ? (() => {
     const name = dbPro.user?.name || '전문가';
@@ -560,7 +626,7 @@ export default function ProDetailPage() {
     };
   })() : null;
 
-  const pro = dbProBuilt ? dbProBuilt : proData ? {
+  const proBase = dbProBuilt ? dbProBuilt : proData ? {
     ...MOCK_PRO,
     id: id || MOCK_PRO.id,
     name: proData.name,
@@ -576,6 +642,11 @@ export default function ProDetailPage() {
     plans: MOCK_PRO.plans.map((p: any) => ({ ...p, price: p.id === 'premium' ? 450000 : p.id === 'superior' ? 800000 : 1700000 })),
     expertStats: { ...MOCK_PRO.expertStats, totalDeals: proData.experience * 8 + 10 },
   } : { ...MOCK_PRO, id: id || MOCK_PRO.id };
+
+  // API 리뷰가 있으면 교체, 없으면 MOCK_PRO.reviews fallback 유지
+  const pro = apiReviews.length > 0
+    ? { ...proBase, reviews: apiReviews }
+    : proBase;
 
   const [activeImage, setActiveImage] = useState(0);
   const [activePlan, setActivePlan] = useState(1); // default deluxe
@@ -741,7 +812,7 @@ export default function ProDetailPage() {
   const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-pro-detail') : true);
   useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-pro-detail', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
 
-  if (loading) {
+  if (loading || apiLoading) {
     return (
       <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
         {/* Gallery skeleton */}
@@ -793,8 +864,9 @@ export default function ProDetailPage() {
           }}
         >
           <img
-            src={pro.images[0]}
+            src={pro.images[0] || '/images/default-profile.svg'}
             alt=""
+            onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
             className="w-10 h-10 rounded-xl object-cover shrink-0"
           />
           <div className="min-w-0 flex-1">
@@ -928,7 +1000,7 @@ export default function ProDetailPage() {
         <Reveal>
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2.5">
-              <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-xl object-cover" />
+              <img src={pro.profileImage || '/images/default-profile.svg'} alt="" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-10 h-10 rounded-xl object-cover" />
               <p className="text-[18px] font-bold text-gray-900">사회자 {pro.name}</p>
             </div>
             {pro.isPrime && (
@@ -1202,7 +1274,7 @@ export default function ProDetailPage() {
         <h2 className="text-[20px] font-bold text-gray-900 mb-5">전문가 정보</h2>
 
         <div className="flex items-center gap-4 mb-5">
-          <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-xl object-cover" />
+          <img src={pro.profileImage || '/images/default-profile.svg'} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-[60px] h-[60px] rounded-xl object-cover" />
           <div className="flex-1">
             <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
@@ -1474,7 +1546,12 @@ export default function ProDetailPage() {
             )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
-                onClick={() => { setShowTooltip(false); if (localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; } router.push(`/chat/${pro.id}`); }}
+                onClick={() => {
+                  setShowTooltip(false);
+                  const isLoggedIn = authUser !== null || (typeof window !== 'undefined' && localStorage.getItem('freetiful-logged-in') === 'true');
+                  if (!isLoggedIn) { setLoginModal(true); return; }
+                  router.push(`/chat/${pro.id}`);
+                }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
               >
                 문의하기

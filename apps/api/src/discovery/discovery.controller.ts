@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Header, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { DiscoveryService } from './discovery.service';
 
@@ -8,12 +8,14 @@ export class DiscoveryController {
   constructor(private discovery: DiscoveryService) {}
 
   @Get('recommendation/daily')
+  @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
   @ApiOperation({ summary: '오늘의 추천 전문가' })
   getDailyRecommendation() {
     return this.discovery.getDailyRecommendation();
   }
 
   @Get('pros')
+  @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
   @ApiOperation({ summary: '전문가 목록 (검색, 필터, 정렬)' })
   getProList(
     @Query('page') page?: number,
@@ -29,6 +31,7 @@ export class DiscoveryController {
   }
 
   @Get('pros/:id')
+  @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
   @ApiOperation({ summary: '전문가 상세 조회' })
   getProDetail(@Param('id') id: string) {
     return this.discovery.getProDetail(id);

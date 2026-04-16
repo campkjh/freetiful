@@ -334,6 +334,12 @@ model ProProfile {
   puddingRankings       PuddingRanking[]
   chatRooms             ChatRoom[]
 
+  // Indexes for discovery list sorting/filtering. Applied via `prisma db push`
+  // on next deploy (no migration file needed for now).
+  @@index([status, avgRating])
+  @@index([status, reviewCount])
+  @@index([status, careerYears])
+  @@index([status, approvedAt])
   @@map("pro_profiles")
 }
 

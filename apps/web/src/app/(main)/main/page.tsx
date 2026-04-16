@@ -245,6 +245,7 @@ function Logo({ className }: { className?: string }) {
   );
 }
 
+// Type reference only — do not use as data source. API data must be used instead.
 const MOCK_PROS = [
   { id: '1', name: '강도현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 117, pudding: 1, image: '/images/pro-01/10000133881772850005043.avif', images: ['/images/pro-01/10000133881772850005043.avif', '/images/pro-01/10000269161772850296005.avif', '/images/pro-01/55111772850244842.avif', '/images/pro-01/9041772850314846.avif'], intro: '신뢰감 있는 보이스로 현직 아나운서,레크,운동회,쇼호스트 모두 가능한 남자!', price: 450000, experience: 14, tags: ['전국가능', '우아한', '위트있는'], available: false },
   { id: '2', name: '김동현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 165, pudding: 2, image: '/images/pro-02/10000365351773046135169.avif', images: ['/images/pro-02/10000365351773046135169.avif', '/images/pro-02/10000795161773046194452.avif', '/images/pro-02/10000855971773046164403.avif', '/images/pro-02/10000864531773046178640.avif'], intro: '안녕하세요 MC 김동현 입니다 :)', price: 450000, experience: 8, tags: ['서울/경기', '감동적인', '유머러스한'], available: true },
@@ -427,19 +428,24 @@ function OnlineProCard({ pro }: { pro: typeof MOCK_PROS[0] }) {
       <div className="relative w-[100px] h-[100px] shrink-0 my-3 z-10">
         {/* Stacked photos behind — fan out on hover */}
         <img
-          src={pro.images[2]}
+          src={pro.images[2] || '/images/default-profile.svg'}
           alt=""
+          loading="lazy"
+          onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
           className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[64px] group-hover:translate-y-[-12px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
         />
         <img
-          src={pro.images[1]}
+          src={pro.images[1] || '/images/default-profile.svg'}
           alt=""
+          loading="lazy"
+          onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
           className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[34px] group-hover:translate-y-[-18px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
         />
         {/* Main photo — stays in place */}
         <img
-          src={pro.images[0]}
+          src={pro.images[0] || '/images/default-profile.svg'}
           alt={pro.name}
+          onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
           className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-lg z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
         />
         {/* Online indicator */}
@@ -595,14 +601,14 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
       <div className="relative rounded-xl overflow-hidden">
         {/* Mobile: single 3:4 image */}
         <div className="lg:hidden" style={{ aspectRatio: '3 / 4' }}>
-          <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
+          <img src={pro.images[0] || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
         </div>
         {/* Desktop: 1+2 grid layout */}
         <div className="hidden lg:grid grid-cols-[1fr_0.5fr] gap-[2px] h-[220px]">
-          <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
+          <img src={pro.images[0] || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
           <div className="grid grid-rows-2 gap-[2px]">
-            <img src={pro.images[1]} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
-            <img src={pro.images[2]} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
+            <img src={pro.images[1] || '/images/default-profile.svg'} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
+            <img src={pro.images[2] || '/images/default-profile.svg'} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
           </div>
         </div>
         {/* YouTube 썸네일 이미지 (iframe 대신 — 성능 최적화) */}
@@ -667,9 +673,11 @@ export default function HomePage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [apiPros, setApiPros] = useState<typeof MOCK_PROS | null>(null);
+  const [prosLoading, setProsLoading] = useState(true);
 
   // Fetch pro list from API
   useEffect(() => {
+    setProsLoading(true);
     discoveryApi.getProList({ limit: 100, sort: 'newest' })
       .then((res) => {
         if (res.data?.length > 0) {
@@ -691,13 +699,16 @@ export default function HomePage() {
             available: true,
             youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
           })));
+        } else {
+          setApiPros([]);
         }
       })
-      .catch(() => {});
+      .catch(() => { setApiPros([]); })
+      .finally(() => setProsLoading(false));
   }, []);
 
-  // Use API data if available, otherwise mock
-  const prosData = apiPros || MOCK_PROS;
+  // Use API data only — empty array fallback until data loads or on failure
+  const prosData = apiPros || [];
 
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
@@ -786,24 +797,24 @@ export default function HomePage() {
     }
   };
 
-  const languagePros = MOCK_PROS.filter((p) => {
+  const languagePros = prosData.filter((p) => {
     if (!LANGUAGE_PROS_IDS.includes(p.id)) return false;
     if (!selectedLang) return true;
     return PRO_LANGUAGES[p.id]?.includes(selectedLang);
   });
 
-  const eventPros = MOCK_PROS.filter((p) => {
+  const eventPros = prosData.filter((p) => {
     if (!EVENT_SPECIALIST_IDS.includes(p.id)) return false;
     if (!selectedEventType) return true;
     return EVENT_SPECIALIST[p.id] === selectedEventType;
   });
 
-  const regionPros = MOCK_PROS.filter((p) => {
+  const regionPros = prosData.filter((p) => {
     if (!selectedRegion) return true;
     return p.region === selectedRegion || p.region === '전국';
   });
 
-  const onlinePros = MOCK_PROS.filter((p) => p.id in PRO_ONLINE_STATUS).slice(0, 20);
+  const onlinePros = prosData.filter((p) => p.id in PRO_ONLINE_STATUS).slice(0, 20);
 
   const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-main') : true);
   useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-main', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
@@ -1243,7 +1254,7 @@ export default function HomePage() {
         {viewedPros.length > 0 && (() => {
           const viewedProData = viewedPros
             .map((v) => {
-              const pro = MOCK_PROS.find((p) => p.id === v.id);
+              const pro = prosData.find((p) => p.id === v.id);
               return pro ? { ...pro, viewedTime: v.time } : null;
             })
             .filter(Boolean) as (typeof MOCK_PROS[0] & { viewedTime: number })[];
@@ -1268,7 +1279,7 @@ export default function HomePage() {
                     className="shrink-0 w-[100px] flex flex-col items-center"
                   >
                     <div className="relative w-[84px] h-[112px] rounded-xl overflow-hidden">
-                      <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
+                      <img src={pro.image || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover" />
                       {isRecent(pro.viewedTime) && (
                         <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-red-500">
                           최근 본
@@ -1349,11 +1360,11 @@ export default function HomePage() {
 
           {/* Mobile: Pill-shaped 3:4 photos with rank badges (top 3) */}
           <div className="lg:hidden grid grid-cols-3 gap-x-3 py-4">
-            {[
-              { pro: MOCK_PROS[1], border: '#D1D5DB', trophy: '/images/group-1707482188.svg', offset: true },
-              { pro: MOCK_PROS[0], border: '#FBBF24', trophy: '/images/group-1707482189.svg', offset: false },
-              { pro: MOCK_PROS[2], border: '#CD7F32', trophy: '/images/group-1707482190.svg', offset: true },
-            ].map(({ pro, border, trophy, offset }) => (
+            {(prosData.length >= 3 ? [
+              { pro: prosData[1], border: '#D1D5DB', trophy: '/images/group-1707482188.svg', offset: true },
+              { pro: prosData[0], border: '#FBBF24', trophy: '/images/group-1707482189.svg', offset: false },
+              { pro: prosData[2], border: '#CD7F32', trophy: '/images/group-1707482190.svg', offset: true },
+            ] : []).map(({ pro, border, trophy, offset }) => (
               <Link key={pro.id} href={`/pros/${pro.id}`} className={`flex flex-col items-center ${offset ? 'mt-5' : ''}`}>
                 <div className="relative w-full aspect-[3/4]">
                   <img
@@ -1375,7 +1386,7 @@ export default function HomePage() {
             ref={rankScrollRef}
             className="hidden lg:flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
           >
-            {MOCK_PROS.slice(0, 5).map((pro, i) => (
+            {prosData.slice(0, 5).map((pro, i) => (
               <Link
                 key={pro.id}
                 href={`/pros/${pro.id}`}
@@ -1425,13 +1436,27 @@ export default function HomePage() {
             </div>
           </Reveal>
           {/* Mobile: 3×3 grid, Desktop: 5×2 grid */}
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
-            {MOCK_PROS.slice(0, 10).map((pro, i) => (
-              <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
-                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
-              </div>
-            ))}
-          </div>
+          {prosLoading && prosData.length === 0 ? (
+            <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="w-full aspect-[3/4] rounded-lg bg-gray-100" />
+                  <div className="h-3 w-2/3 bg-gray-100 rounded mt-2" />
+                  <div className="h-3 w-1/2 bg-gray-100 rounded mt-1" />
+                </div>
+              ))}
+            </div>
+          ) : prosData.length === 0 ? (
+            <div className="py-12 text-center text-gray-400 text-[14px]">등록된 전문가가 없습니다</div>
+          ) : (
+            <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
+              {prosData.slice(0, 10).map((pro, i) => (
+                <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
+                  <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
+                </div>
+              ))}
+            </div>
+          )}
         </section>
         <div className="my-6 border-t border-gray-100" />
 
@@ -1483,7 +1508,7 @@ export default function HomePage() {
                       style={{ animationDelay: `${(pageIdx * 4 + i) * 60}ms`, animationFillMode: 'forwards' }}
                     >
                       <div className="w-[88px] h-[112px] shrink-0 rounded-xl overflow-hidden">
-                        <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                        <img src={pro.images[0] || '/images/default-profile.svg'} alt={pro.name} loading="lazy" onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                       </div>
                       <div className="flex-1 min-w-0 border-b border-gray-100 pb-3">
                         <div className="flex items-center gap-1.5">

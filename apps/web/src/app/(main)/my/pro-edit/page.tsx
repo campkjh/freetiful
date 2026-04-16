@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { prosApi } from '@/lib/api/pros.api';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 /* ─── Constants ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
@@ -107,27 +109,72 @@ export default function ProEditPage() {
   const [toast, setToast] = useState('');
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showCareerSheet, setShowCareerSheet] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const authUser = useAuthStore((s) => s.user);
 
-  /* ── Load from localStorage ── */
+  /* ── Load (API first, localStorage fallback) ── */
   useEffect(() => {
     window.scrollTo(0, 0);
-    setName(ls('proRegister_name'));
-    setPhone(ls('proRegister_phone'));
-    setGender(ls('proRegister_gender'));
-    setCategory(ls('proRegister_category'));
-    setIntro(ls('proRegister_intro'));
-    setCareerYears(parseInt(ls('proRegister_careerYears', '1')) || 1);
-    setSelectedCategories(lsJson('proRegister_selectedCategories', []));
-    setSelectedRegions(lsJson('proRegister_selectedRegions', []));
-    setPhotos(lsJson('proRegister_photos', []));
-    setMainPhotoIndex(parseInt(ls('proRegister_mainPhotoIndex', '0')) || 0);
-    setSelectedCompanyLogos(lsJson('proRegister_companyLogos', []));
-    setLanguages(lsJson('proRegister_languages', []));
-    const savedAwards = lsJson('proRegister_awards', []);
-    setAwards(Array.isArray(savedAwards) ? savedAwards.map((a: any) => typeof a === 'string' ? a : a.text || '').join('\n') : ls('proRegister_awards'));
-    setVideoUrl(ls('proRegister_videoUrl'));
-    setFaqItems(lsJson('proRegister_faq', []));
-  }, []);
+
+    // Always prefill from localStorage synchronously so UI shows something
+    const loadFromLocal = () => {
+      setName(ls('proRegister_name'));
+      setPhone(ls('proRegister_phone'));
+      setGender(ls('proRegister_gender'));
+      setCategory(ls('proRegister_category'));
+      setIntro(ls('proRegister_intro'));
+      setCareerYears(parseInt(ls('proRegister_careerYears', '1')) || 1);
+      setSelectedCategories(lsJson('proRegister_selectedCategories', []));
+      setSelectedRegions(lsJson('proRegister_selectedRegions', []));
+      setPhotos(lsJson('proRegister_photos', []));
+      setMainPhotoIndex(parseInt(ls('proRegister_mainPhotoIndex', '0')) || 0);
+      setSelectedCompanyLogos(lsJson('proRegister_companyLogos', []));
+      setLanguages(lsJson('proRegister_languages', []));
+      const savedAwards = lsJson('proRegister_awards', []);
+      setAwards(Array.isArray(savedAwards) ? savedAwards.map((a: any) => typeof a === 'string' ? a : a.text || '').join('\n') : ls('proRegister_awards'));
+      setVideoUrl(ls('proRegister_videoUrl'));
+      setFaqItems(lsJson('proRegister_faq', []));
+    };
+
+    loadFromLocal();
+
+    // Non-authenticated users: localStorage only
+    if (!authUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Authenticated: fetch from API and override
+    prosApi.getMyProfile()
+      .then((p: any) => {
+        if (!p) return;
+        if (p.user?.name || p.name) setName(p.user?.name || p.name);
+        if (p.user?.phone || p.phone) setPhone(p.user?.phone || p.phone);
+        if (p.gender) setGender(p.gender);
+        if (p.shortIntro) setIntro(p.shortIntro);
+        if (p.mainExperience) setCategory(p.mainExperience);
+        if (p.careerYears) setCareerYears(p.careerYears);
+        if (p.youtubeUrl) setVideoUrl(p.youtubeUrl);
+        if (p.awards) setAwards(typeof p.awards === 'string' ? p.awards : Array.isArray(p.awards) ? p.awards.join('\n') : '');
+        if (Array.isArray(p.languages)) setLanguages(p.languages);
+        if (Array.isArray(p.images) && p.images.length > 0) {
+          const imgs = p.images.map((i: any) => typeof i === 'string' ? i : i.imageUrl).filter(Boolean);
+          if (imgs.length > 0) setPhotos(imgs);
+          const mainIdx = p.images.findIndex((i: any) => i.isMain);
+          if (mainIdx >= 0) setMainPhotoIndex(mainIdx);
+        }
+        if (Array.isArray(p.faqs)) {
+          setFaqItems(p.faqs.map((f: any) => ({ q: f.question || '', a: f.answer || '' })));
+        }
+        if (Array.isArray(p.categories)) setSelectedCategories(p.categories);
+        if (Array.isArray(p.regions)) setSelectedRegions(p.regions);
+      })
+      .catch(() => {
+        // API failure: keep localStorage values
+      })
+      .finally(() => setIsLoading(false));
+  }, [authUser]);
 
   /* ── Formatters ── */
   const formatPhoneNumber = (value: string) => {
@@ -175,8 +222,8 @@ export default function ProEditPage() {
   };
   const removeFaqItem = (index: number) => setFaqItems(prev => prev.filter((_, i) => i !== index));
 
-  /* ── Save ── */
-  const handleSave = () => {
+  /* ── Save (always localStorage; API when authenticated) ── */
+  const saveToLocalStorage = () => {
     localStorage.setItem('proRegister_name', name);
     localStorage.setItem('proRegister_phone', phone);
     localStorage.setItem('proRegister_gender', gender);
@@ -192,9 +239,39 @@ export default function ProEditPage() {
     localStorage.setItem('proRegister_awards', awards);
     localStorage.setItem('proRegister_videoUrl', videoUrl);
     localStorage.setItem('proRegister_faq', JSON.stringify(faqItems));
+  };
 
-    setToast('저장되었습니다');
-    setTimeout(() => setToast(''), 2500);
+  const handleSave = async () => {
+    // Always persist locally as fallback
+    saveToLocalStorage();
+
+    if (!authUser) {
+      setToast('저장되었습니다 (로컬)');
+      setTimeout(() => setToast(''), 2500);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await prosApi.updateProfile({
+        name,
+        shortIntro: intro,
+        mainExperience: category,
+        careerYears,
+        youtubeUrl: videoUrl || null,
+        awards,
+        languages,
+        faqs: faqItems
+          .filter((f) => f.q.trim() || f.a.trim())
+          .map((f) => ({ question: f.q, answer: f.a })),
+      } as any);
+      setToast('저장되었습니다');
+    } catch (err: any) {
+      setToast(err?.response?.data?.message || '저장에 실패했습니다');
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setToast(''), 2500);
+    }
   };
 
   return (
@@ -546,9 +623,10 @@ export default function ProEditPage() {
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleSave}
-          className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2668d8] text-white font-bold rounded-2xl text-[15px] transition-colors active:scale-[0.98]"
+          disabled={isSaving || isLoading}
+          className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2668d8] text-white font-bold rounded-2xl text-[15px] transition-colors active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          저장하기
+          {isSaving ? '저장 중...' : isLoading ? '불러오는 중...' : '저장하기'}
         </motion.button>
       </div>
 

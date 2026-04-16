@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 
+// Type reference only — do not use as data source. API data must be used instead.
 const MOCK_PROS = [
   { id: '1', name: '강도현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 117, image: '/images/pro-01/10000133881772850005043.avif', intro: '신뢰감 있는 보이스의 현직 아나운서', price: 500000 },
   { id: '2', name: '김동현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 165, image: '/images/pro-02/10000365351773046135169.avif', intro: 'MC 김동현', price: 400000 },
@@ -105,31 +106,19 @@ export default function SearchPage() {
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, [q]);
 
-  // Use API results if available, otherwise fall back to local mock filter
-  const localResults = q.length > 0
-    ? MOCK_PROS.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.intro.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q) ||
-          p.region.includes(q)
-      )
-    : [];
-
-  const results = apiResults.length > 0
-    ? apiResults.map((p) => ({
-        id: p.id,
-        name: p.name,
-        category: 'MC',
-        role: '사회자',
-        region: '',
-        rating: p.avgRating,
-        reviews: p.reviewCount,
-        image: p.profileImageUrl || p.images?.[0] || '',
-        intro: p.shortIntro,
-        price: p.basePrice,
-      }))
-    : localResults;
+  // Use API results only — no MOCK fallback
+  const results = apiResults.map((p) => ({
+    id: p.id,
+    name: p.name,
+    category: 'MC',
+    role: '사회자',
+    region: '',
+    rating: p.avgRating,
+    reviews: p.reviewCount,
+    image: p.profileImageUrl || p.images?.[0] || '',
+    intro: p.shortIntro,
+    price: p.basePrice,
+  }));
 
   const handleSearch = () => {
     if (q.length > 0) {
@@ -183,7 +172,12 @@ export default function SearchPage() {
       <div className="pb-24">
         {/* Live results or searched results */}
         {q.length > 0 ? (
-          results.length > 0 ? (
+          isApiSearching && results.length === 0 ? (
+            <div className="flex flex-col items-center py-20">
+              <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-primary-500 animate-spin mb-4" />
+              <p className="text-gray-400 text-[14px]">검색 중...</p>
+            </div>
+          ) : results.length > 0 ? (
             <div>
               <p className="px-4 py-3 text-[13px] text-gray-500">
                 검색결과 <span className="font-bold text-gray-900">{results.length}</span>명
@@ -222,7 +216,7 @@ export default function SearchPage() {
               <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-gray-100">
                 <Search size={28} className="text-gray-300" />
               </div>
-              <p className="text-gray-400 text-[14px]">&ldquo;{query}&rdquo;에 대한 검색 결과가 없습니다</p>
+              <p className="text-gray-400 text-[14px]">검색 결과가 없습니다</p>
             </div>
           )
         ) : (

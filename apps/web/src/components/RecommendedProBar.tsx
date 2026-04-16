@@ -175,9 +175,10 @@ export default function RecommendedProBar() {
           {/* 좌측 - 원형 프로필 */}
           <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-700 shrink-0">
             <img
-              src={recommended.image}
+              src={recommended.image || '/images/default-profile.svg'}
               alt={recommended.name}
               draggable={false}
+              onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
               className="w-full h-full object-cover"
             />
           </div>

@@ -15,6 +15,83 @@ export class ProService {
     private imageService: ImageService,
   ) {}
 
+  // ─── Profile (My) ────────────────────────────────────────────────────────
+
+  async getProfile(userId: string) {
+    let profile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      include: {
+        images: { orderBy: { displayOrder: 'asc' } },
+        services: { orderBy: { displayOrder: 'asc' } },
+        faqs: { orderBy: { displayOrder: 'asc' } },
+        categories: { include: { category: true } },
+      },
+    });
+
+    if (!profile) {
+      await this.prisma.proProfile.create({
+        data: { userId, status: 'draft' },
+      });
+      profile = await this.prisma.proProfile.findUnique({
+        where: { userId },
+        include: {
+          images: { orderBy: { displayOrder: 'asc' } },
+          services: { orderBy: { displayOrder: 'asc' } },
+          faqs: { orderBy: { displayOrder: 'asc' } },
+          categories: { include: { category: true } },
+        },
+      });
+    }
+
+    return profile;
+  }
+
+  async createProfile(userId: string) {
+    const existing = await this.prisma.proProfile.findUnique({ where: { userId } });
+    if (existing) return existing;
+    return this.prisma.proProfile.create({
+      data: { userId, status: 'draft' },
+    });
+  }
+
+  async updateProfile(
+    userId: string,
+    data: {
+      shortIntro?: string;
+      mainExperience?: string;
+      careerYears?: number;
+      awards?: string;
+      detailHtml?: string;
+      youtubeUrl?: string;
+      gender?: string;
+      isNationwide?: boolean;
+    },
+  ) {
+    const existing = await this.prisma.proProfile.findUnique({ where: { userId } });
+
+    const fields = {
+      ...(data.shortIntro !== undefined ? { shortIntro: data.shortIntro } : {}),
+      ...(data.mainExperience !== undefined ? { mainExperience: data.mainExperience } : {}),
+      ...(data.careerYears !== undefined ? { careerYears: data.careerYears } : {}),
+      ...(data.awards !== undefined ? { awards: data.awards } : {}),
+      ...(data.detailHtml !== undefined ? { detailHtml: data.detailHtml } : {}),
+      ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
+      ...(data.gender !== undefined ? { gender: data.gender } : {}),
+      ...(data.isNationwide !== undefined ? { isNationwide: data.isNationwide } : {}),
+    };
+
+    if (!existing) {
+      return this.prisma.proProfile.create({
+        data: { userId, status: 'draft', ...fields },
+      });
+    }
+
+    return this.prisma.proProfile.update({
+      where: { userId },
+      data: fields,
+    });
+  }
+
   // ─── Profile Images ──────────────────────────────────────────────────────
 
   async uploadImage(

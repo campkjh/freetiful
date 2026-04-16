@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Minus, Plus, ChevronDown, HelpCircle, Info, X, MapPin, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { discoveryApi } from '@/lib/api/discovery.api';
+import { scheduleApi } from '@/lib/api/schedule.api';
 
 // ─── Helpers ───────────────────────────────────────────────
 function getDaysOfWeek(year: number, month: number, holidays: Record<string, string>) {
@@ -100,13 +102,73 @@ export default function BookingPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const proInfo = PRO_NAMES[id || ''] || { name: '사회자', image: '' };
+  const fallbackInfo = PRO_NAMES[id || ''] || { name: '사회자', image: '' };
+
+  // ─── Real API data ───────────────────────────────────────
+  const [pro, setPro] = useState<any>(null);
+  const [loadingPro, setLoadingPro] = useState(true);
+  const [bookedDates, setBookedDates] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    setLoadingPro(true);
+    discoveryApi
+      .getProDetail(id)
+      .then((data) => { if (alive) setPro(data); })
+      .catch(() => { /* fallback to local data */ })
+      .finally(() => { if (alive) setLoadingPro(false); });
+    scheduleApi
+      .getBookedDates(id)
+      .then((data: any) => {
+        const arr = Array.isArray(data) ? data : data?.dates || [];
+        if (alive) setBookedDates(arr);
+      })
+      .catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, [id]);
+
+  const proInfo = {
+    name: pro?.name || fallbackInfo.name,
+    image: pro?.images?.[0] || pro?.profileImageUrl || fallbackInfo.image,
+  };
+
+  // Prefer API plans/services if available
+  const plans = useMemo(() => {
+    if (pro?.plans && Array.isArray(pro.plans) && pro.plans.length > 0) {
+      return pro.plans.map((p: any, idx: number) => ({
+        id: p.id || `plan-${idx}`,
+        name: p.name || p.title || `플랜 ${idx + 1}`,
+        originalPrice: p.originalPrice || p.price || 0,
+        discountPercent: p.discountPercent || 0,
+        finalPrice: p.finalPrice || p.price || 0,
+      }));
+    }
+    if (pro?.services && Array.isArray(pro.services) && pro.services.length > 0) {
+      return pro.services.map((s: any, idx: number) => ({
+        id: s.id || `svc-${idx}`,
+        name: s.name || s.title || `서비스 ${idx + 1}`,
+        originalPrice: s.price || 0,
+        discountPercent: 0,
+        finalPrice: s.price || 0,
+      }));
+    }
+    return PLAN_OPTIONS;
+  }, [pro]);
 
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
   const [currentYear] = useState(now.getFullYear());
   const [selectedDay, setSelectedDay] = useState<number | null>(now.getDate());
   const [selectedOption, setSelectedOption] = useState(PLAN_OPTIONS[0]);
+
+  // Sync selectedOption when API plans load
+  useEffect(() => {
+    if (plans && plans.length > 0 && plans[0]?.id !== selectedOption?.id) {
+      setSelectedOption(plans[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plans]);
   const [quantity, setQuantity] = useState(1);
   const [showDetail, setShowDetail] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
@@ -236,7 +298,7 @@ export default function BookingPage() {
         {/* Plan selector */}
         {showPlanSelector && (
           <div className="mb-3 space-y-2">
-            {PLAN_OPTIONS.map((plan) => (
+            {plans.map((plan: any) => (
               <button
                 key={plan.id}
                 onClick={() => { setSelectedOption(plan); setShowPlanSelector(false); }}
@@ -255,19 +317,30 @@ export default function BookingPage() {
 
         <div className="border border-gray-200 rounded-2xl p-4">
           {/* 프로필 + 정보 */}
-          <div className="flex gap-3">
-            <div className="w-[72px] h-[72px] rounded-xl overflow-hidden bg-gray-100 shrink-0">
-              <img src={proInfo.image} alt={proInfo.name} className="w-full h-full object-cover" />
+          {loadingPro ? (
+            <div className="flex gap-3 animate-pulse">
+              <div className="w-[72px] h-[72px] rounded-xl bg-gray-100 shrink-0" />
+              <div className="flex-1 min-w-0 space-y-2 py-1">
+                <div className="h-4 bg-gray-100 rounded w-1/3" />
+                <div className="h-3 bg-gray-100 rounded w-1/4" />
+                <div className="h-5 bg-gray-100 rounded w-1/2 mt-2" />
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[15px] font-bold text-gray-900">사회자 {proInfo.name}</p>
-              <p className="text-[12px] text-gray-500 mt-0.5">{selectedOption.name}</p>
-              <p className="text-[17px] font-bold text-gray-900 mt-1">
-                {selectedOption.finalPrice.toLocaleString()}원
-                <span className="text-[12px] font-normal text-gray-400 ml-1.5">1개</span>
-              </p>
+          ) : (
+            <div className="flex gap-3">
+              <div className="w-[72px] h-[72px] rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                <img src={proInfo.image} alt={proInfo.name} className="w-full h-full object-cover" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-bold text-gray-900">사회자 {proInfo.name}</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">{selectedOption.name}</p>
+                <p className="text-[17px] font-bold text-gray-900 mt-1">
+                  {selectedOption.finalPrice.toLocaleString()}원
+                  <span className="text-[12px] font-normal text-gray-400 ml-1.5">1개</span>
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           <button
             onClick={() => setShowDetail(!showDetail)}
@@ -507,11 +580,14 @@ export default function BookingPage() {
             {visibleDays.map((d, i) => {
               const selected = selectedDay === d.day;
               const isRed = d.dayOfWeek === '일' || d.isHoliday;
+              const dateKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
+              const isBooked = bookedDates.includes(dateKey);
+              const blocked = d.isPast || isBooked;
               return (
                 <button
                   key={`day-${i}`}
-                  onClick={() => !d.isPast && setSelectedDay(d.day)}
-                  disabled={d.isPast}
+                  onClick={() => !blocked && setSelectedDay(d.day)}
+                  disabled={blocked}
                   className="flex flex-col items-center"
                 >
                   <div
@@ -520,6 +596,8 @@ export default function BookingPage() {
                         ? 'bg-[#2B313D] text-white'
                         : d.isPast
                         ? 'text-gray-200'
+                        : isBooked
+                        ? 'text-gray-300 line-through'
                         : isRed
                         ? 'text-red-400'
                         : 'text-gray-900'
