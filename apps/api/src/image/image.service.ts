@@ -3,7 +3,7 @@ import * as sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { put as blobPut, del as blobDel } from '@vercel/blob';
 
 export interface ProcessedImage {
   filename: string;
@@ -38,58 +38,42 @@ export class ImageService {
   private readonly uploadDir = path.join(process.cwd(), 'uploads');
   private readonly publicPath = '/uploads';
 
-  // S3 (영구 저장소) — env 가 모두 설정돼 있으면 S3 사용, 아니면 로컬 디스크 (개발용)
-  private readonly s3Bucket = process.env.S3_BUCKET || '';
-  private readonly s3Region = process.env.AWS_REGION || '';
-  private readonly cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN || '';
-  private readonly useS3 = !!(this.s3Bucket && this.s3Region && process.env.AWS_ACCESS_KEY_ID);
-  private readonly s3Client: S3Client | null = this.useS3
-    ? new S3Client({
-        region: this.s3Region,
-        credentials: {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-        },
-      })
-    : null;
+  // Vercel Blob (영구 저장소) — BLOB_READ_WRITE_TOKEN 있으면 Blob 사용, 없으면 로컬 디스크 (개발용)
+  private readonly blobToken = process.env.BLOB_READ_WRITE_TOKEN || '';
+  private readonly useBlob = !!this.blobToken;
+
+  // 업로드한 URL 을 filename → fullUrl 로 매핑 (삭제 시 사용)
+  private readonly urlByKey = new Map<string, string>();
 
   async onModuleInit() {
-    if (!this.useS3) {
+    if (!this.useBlob) {
       await fs.mkdir(this.uploadDir, { recursive: true });
     }
   }
 
-  private buildPublicUrl(key: string): string {
-    if (this.useS3) {
-      // CloudFront 가 설정돼 있으면 그쪽으로, 아니면 S3 직접 URL
-      if (this.cloudfrontDomain) {
-        return `https://${this.cloudfrontDomain}/${key}`;
-      }
-      return `https://${this.s3Bucket}.s3.${this.s3Region}.amazonaws.com/${key}`;
+  private async uploadFile(key: string, buffer: Buffer, contentType: string): Promise<string> {
+    if (this.useBlob) {
+      const result = await blobPut(key, buffer, {
+        access: 'public',
+        token: this.blobToken,
+        contentType,
+        addRandomSuffix: false,
+        allowOverwrite: true,
+      });
+      this.urlByKey.set(key, result.url);
+      return result.url;
     }
+    await fs.writeFile(path.join(this.uploadDir, key), buffer);
     return `${this.publicPath}/${key}`;
   }
 
-  private async uploadFile(key: string, buffer: Buffer, contentType: string): Promise<void> {
-    if (this.useS3 && this.s3Client) {
-      await this.s3Client.send(
-        new PutObjectCommand({
-          Bucket: this.s3Bucket,
-          Key: key,
-          Body: buffer,
-          ContentType: contentType,
-          CacheControl: 'public, max-age=31536000, immutable',
-        }),
-      );
-    } else {
-      await fs.writeFile(path.join(this.uploadDir, key), buffer);
-    }
-  }
-
   private async deleteFileByKey(key: string): Promise<void> {
-    if (this.useS3 && this.s3Client) {
+    if (this.useBlob) {
+      const url = this.urlByKey.get(key);
+      if (!url) return; // URL 을 모르면 삭제 스킵
       try {
-        await this.s3Client.send(new DeleteObjectCommand({ Bucket: this.s3Bucket, Key: key }));
+        await blobDel(url, { token: this.blobToken });
+        this.urlByKey.delete(key);
       } catch {
         // ignore
       }
@@ -197,13 +181,11 @@ export class ImageService {
       .webp({ quality, effort: 4 })
       .toBuffer();
 
-    // S3 또는 로컬 디스크에 저장
-    await this.uploadFile(webpFilename, webpBuffer, 'image/webp');
-    await this.uploadFile(originalFilename, file.buffer, file.mimetype);
+    // Vercel Blob 또는 로컬 디스크에 저장 — URL 반환
+    const publicUrl = await this.uploadFile(webpFilename, webpBuffer, 'image/webp');
+    const originalUrl = await this.uploadFile(originalFilename, file.buffer, file.mimetype);
 
     const webpMeta = await sharp(webpBuffer).metadata();
-    const publicUrl = this.buildPublicUrl(webpFilename);
-    const originalUrl = this.buildPublicUrl(originalFilename);
 
     return {
       filename: webpFilename,
