@@ -48,7 +48,7 @@ export class DiscoveryService {
       id: selected.id,
       userId: selected.userId,
       name: selected.user.name,
-      image: selected.images[0]?.imageUrl || selected.user.profileImageUrl,
+      image: selected.images[0]?.imageUrl || null,
       shortIntro: selected.shortIntro,
       avgRating: Number(selected.avgRating),
       reviewCount: selected.reviewCount,
@@ -125,7 +125,8 @@ export class DiscoveryService {
         id: p.id,
         userId: p.userId,
         name: p.user.name,
-        profileImageUrl: p.images[0]?.imageUrl || p.user.profileImageUrl,
+        // 프로 카드/상세 썸네일은 파트너 신청 사진만 사용 — 카카오/SNS 사진은 /my 유저 헤더 전용
+        profileImageUrl: p.images[0]?.imageUrl || null,
         images: p.images.map((i) => i.imageUrl),
         shortIntro: p.shortIntro,
         mainExperience: p.mainExperience,
