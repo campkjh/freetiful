@@ -59,6 +59,17 @@ export class AdminService {
     });
   }
 
+  async hardDeleteUser(requesterId: string, userId: string) {
+    await this.assertAdmin(requesterId);
+    if (requesterId === userId) {
+      throw new ForbiddenException('자기 자신은 삭제할 수 없습니다');
+    }
+    // CASCADE FK 가 적용돼 있으면 user 삭제만 해도 관련 데이터 전부 정리됨
+    // (schema.prisma 의 onDelete: Cascade + Supabase SQL 로 FK 전환 완료 필요)
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { success: true };
+  }
+
   async listProProfiles(requesterId: string, status?: string) {
     await this.assertAdmin(requesterId);
     return this.prisma.proProfile.findMany({
