@@ -182,12 +182,17 @@ img:not([src]) {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
 
   body {
     @apply text-gray-900 bg-surface-50;
     letter-spacing: -0.01em;
     word-break: keep-all;
+    overflow-x: hidden;
+    max-width: 100vw;
+    overscroll-behavior-x: none;
   }
 
   /* Scrollbar hide */

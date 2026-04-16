@@ -817,7 +817,7 @@ export default function ProDetailPage() {
 
   if (loading || apiLoading) {
     return (
-      <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
+      <div className="bg-white min-h-screen overflow-x-hidden" style={{ letterSpacing: '-0.02em', maxWidth: '100vw' }}>
         {/* Gallery skeleton */}
         <div className="skeleton" style={{ width: '100%', aspectRatio: '1/1', borderRadius: 0 }} />
         {/* Info skeleton */}
@@ -839,7 +839,7 @@ export default function ProDetailPage() {
   }
 
   return (
-    <div className="bg-white pb-24 lg:max-w-5xl lg:mx-auto lg:px-8" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white pb-24 lg:max-w-5xl lg:mx-auto lg:px-8 overflow-x-hidden" style={{ letterSpacing: '-0.02em', maxWidth: '100vw' }}>
       {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
       <div
         className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
