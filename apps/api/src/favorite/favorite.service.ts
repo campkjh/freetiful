@@ -8,7 +8,7 @@ export class FavoriteService {
   async toggleFavorite(
     userId: string,
     proProfileId: string,
-  ): Promise<{ isFavorited: boolean }> {
+  ): Promise<{ isFavorited: boolean; puddingCount: number }> {
     const existing = await this.prisma.favorite.findUnique({
       where: {
         userId_targetType_targetId: {
@@ -20,19 +20,32 @@ export class FavoriteService {
     });
 
     if (existing) {
-      await this.prisma.favorite.delete({ where: { id: existing.id } });
-      return { isFavorited: false };
+      const [, updated] = await this.prisma.$transaction([
+        this.prisma.favorite.delete({ where: { id: existing.id } }),
+        this.prisma.proProfile.update({
+          where: { id: proProfileId },
+          data: { puddingCount: { decrement: 1 } },
+          select: { puddingCount: true },
+        }),
+      ]);
+      return { isFavorited: false, puddingCount: Math.max(0, updated.puddingCount) };
     }
 
-    await this.prisma.favorite.create({
-      data: {
-        userId,
-        targetType: 'pro',
-        targetId: proProfileId,
-      },
-    });
-
-    return { isFavorited: true };
+    const [, updated] = await this.prisma.$transaction([
+      this.prisma.favorite.create({
+        data: {
+          userId,
+          targetType: 'pro',
+          targetId: proProfileId,
+        },
+      }),
+      this.prisma.proProfile.update({
+        where: { id: proProfileId },
+        data: { puddingCount: { increment: 1 } },
+        select: { puddingCount: true },
+      }),
+    ]);
+    return { isFavorited: true, puddingCount: updated.puddingCount };
   }
 
   async getFavorites(userId: string, page: number, limit: number) {

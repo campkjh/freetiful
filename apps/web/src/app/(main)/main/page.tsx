@@ -652,17 +652,22 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
           ) : (
             <span className="text-[11px] text-gray-400">신규</span>
           )}
-          {/* 좋아요: 아이콘은 항상 표시. pudding>0 이면 빨간 채움+숫자, 0 이면 빈 하트만 */}
-          <div className="flex items-center gap-0.5">
-            {(pro.pudding ?? 0) > 0 ? (
-              <>
-                <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
-                <span className="text-[11px] text-gray-400">{pro.pudding}</span>
-              </>
+          {/* 좋아요: 클릭 시 토글. 내가 누른 상태면 채움, 아니면 빈 하트. 카운트 0 이면 숫자 숨김 */}
+          <button
+            type="button"
+            onClick={(e) => toggleFavorite(e, pro.id)}
+            className="flex items-center gap-0.5 active:scale-110 transition-transform"
+            aria-label="좋아요"
+          >
+            {favorites.has(pro.id) ? (
+              <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
             ) : (
               <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="#9CA3AF" strokeWidth="1.8"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z"/></svg>
             )}
-          </div>
+            {(pro.pudding ?? 0) > 0 && (
+              <span className="text-[11px] text-gray-400">{pro.pudding}</span>
+            )}
+          </button>
         </div>
         <div className="flex flex-wrap gap-1">
           <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
@@ -793,9 +798,18 @@ export default function HomePage() {
       } catch {}
       return next;
     });
-    // Sync to API if authenticated
+    // Sync to API if authenticated — 서버에서 받은 실제 puddingCount 로 카드 갱신
     if (authUser) {
-      favoriteApi.toggle(proId).catch(() => {});
+      favoriteApi.toggle(proId).then((res) => {
+        setApiPros((prev) => prev && prev.map((p) =>
+          p.id === proId ? { ...p, pudding: res.puddingCount } : p
+        ));
+      }).catch(() => {});
+    } else {
+      // 비로그인 시엔 낙관적으로 로컬 카운트만 ±1
+      setApiPros((prev) => prev && prev.map((p) =>
+        p.id === proId ? { ...p, pudding: Math.max(0, (p.pudding ?? 0) + (isAdding ? 1 : -1)) } : p
+      ));
     }
     // Trigger fly animation when adding to favorites
     if (isAdding) {
