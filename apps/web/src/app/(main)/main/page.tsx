@@ -796,18 +796,19 @@ export default function HomePage() {
       } catch {}
       return next;
     });
-    // Sync to API if authenticated — 서버에서 받은 실제 puddingCount 로 카드 갱신
+    // 일단 낙관적으로 로컬 카운트 ±1 (즉각 반응)
+    setApiPros((prev) => prev && prev.map((p) =>
+      p.id === proId ? { ...p, pudding: Math.max(0, (p.pudding ?? 0) + (isAdding ? 1 : -1)) } : p
+    ));
+    // 로그인 상태면 서버에도 기록 + 실제 카운트 받아서 재동기화
     if (authUser) {
-      favoriteApi.toggle(proId).then((res) => {
-        setApiPros((prev) => prev && prev.map((p) =>
-          p.id === proId ? { ...p, pudding: res.puddingCount } : p
-        ));
+      favoriteApi.toggle(proId).then((res: any) => {
+        if (typeof res?.puddingCount === 'number') {
+          setApiPros((prev) => prev && prev.map((p) =>
+            p.id === proId ? { ...p, pudding: res.puddingCount } : p
+          ));
+        }
       }).catch(() => {});
-    } else {
-      // 비로그인 시엔 낙관적으로 로컬 카운트만 ±1
-      setApiPros((prev) => prev && prev.map((p) =>
-        p.id === proId ? { ...p, pudding: Math.max(0, (p.pudding ?? 0) + (isAdding ? 1 : -1)) } : p
-      ));
     }
     // Trigger fly animation when adding to favorites
     if (isAdding) {
