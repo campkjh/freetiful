@@ -3,11 +3,13 @@ import * as sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 export interface ProcessedImage {
   filename: string;
   originalFilename: string;
   path: string;
+  originalPath: string;
   webpPath: string;
   width: number;
   height: number;
@@ -36,8 +38,68 @@ export class ImageService {
   private readonly uploadDir = path.join(process.cwd(), 'uploads');
   private readonly publicPath = '/uploads';
 
+  // S3 (영구 저장소) — env 가 모두 설정돼 있으면 S3 사용, 아니면 로컬 디스크 (개발용)
+  private readonly s3Bucket = process.env.S3_BUCKET || '';
+  private readonly s3Region = process.env.AWS_REGION || '';
+  private readonly cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN || '';
+  private readonly useS3 = !!(this.s3Bucket && this.s3Region && process.env.AWS_ACCESS_KEY_ID);
+  private readonly s3Client: S3Client | null = this.useS3
+    ? new S3Client({
+        region: this.s3Region,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+        },
+      })
+    : null;
+
   async onModuleInit() {
-    await fs.mkdir(this.uploadDir, { recursive: true });
+    if (!this.useS3) {
+      await fs.mkdir(this.uploadDir, { recursive: true });
+    }
+  }
+
+  private buildPublicUrl(key: string): string {
+    if (this.useS3) {
+      // CloudFront 가 설정돼 있으면 그쪽으로, 아니면 S3 직접 URL
+      if (this.cloudfrontDomain) {
+        return `https://${this.cloudfrontDomain}/${key}`;
+      }
+      return `https://${this.s3Bucket}.s3.${this.s3Region}.amazonaws.com/${key}`;
+    }
+    return `${this.publicPath}/${key}`;
+  }
+
+  private async uploadFile(key: string, buffer: Buffer, contentType: string): Promise<void> {
+    if (this.useS3 && this.s3Client) {
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: this.s3Bucket,
+          Key: key,
+          Body: buffer,
+          ContentType: contentType,
+          CacheControl: 'public, max-age=31536000, immutable',
+        }),
+      );
+    } else {
+      await fs.writeFile(path.join(this.uploadDir, key), buffer);
+    }
+  }
+
+  private async deleteFileByKey(key: string): Promise<void> {
+    if (this.useS3 && this.s3Client) {
+      try {
+        await this.s3Client.send(new DeleteObjectCommand({ Bucket: this.s3Bucket, Key: key }));
+      } catch {
+        // ignore
+      }
+    } else {
+      try {
+        await fs.unlink(path.join(this.uploadDir, key));
+      } catch {
+        // ignore
+      }
+    }
   }
 
   /**
@@ -135,19 +197,20 @@ export class ImageService {
       .webp({ quality, effort: 4 })
       .toBuffer();
 
-    const webpPath = path.join(this.uploadDir, webpFilename);
-    const origPath = path.join(this.uploadDir, originalFilename);
-
-    await fs.writeFile(webpPath, webpBuffer);
-    await fs.writeFile(origPath, file.buffer);
+    // S3 또는 로컬 디스크에 저장
+    await this.uploadFile(webpFilename, webpBuffer, 'image/webp');
+    await this.uploadFile(originalFilename, file.buffer, file.mimetype);
 
     const webpMeta = await sharp(webpBuffer).metadata();
+    const publicUrl = this.buildPublicUrl(webpFilename);
+    const originalUrl = this.buildPublicUrl(originalFilename);
 
     return {
       filename: webpFilename,
       originalFilename,
-      path: `${this.publicPath}/${webpFilename}`,
-      webpPath: `${this.publicPath}/${webpFilename}`,
+      path: publicUrl,
+      originalPath: originalUrl,
+      webpPath: publicUrl,
       width: webpMeta.width || 0,
       height: webpMeta.height || 0,
       size: webpBuffer.length,
@@ -241,12 +304,7 @@ export class ImageService {
    * Delete an image file from disk
    */
   async deleteFile(filename: string): Promise<void> {
-    const filePath = path.join(this.uploadDir, filename);
-    try {
-      await fs.unlink(filePath);
-    } catch {
-      // File might not exist, ignore
-    }
+    await this.deleteFileByKey(filename);
   }
 
   /**

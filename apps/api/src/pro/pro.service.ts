@@ -123,7 +123,7 @@ export class ProService {
       data: {
         proProfileId: profile.id,
         imageUrl: processed.path,
-        originalUrl: `/uploads/${processed.originalFilename}`,
+        originalUrl: processed.originalPath,
         displayOrder: count,
         hasFace: processed.hasFace,
         isPrimary: count === 0, // first image is primary
@@ -482,7 +482,7 @@ export class ProService {
       maxHeight: 1200,
       quality: 85,
     });
-    return { path: processed.path, originalPath: `/uploads/${processed.originalFilename}` };
+    return { path: processed.path, originalPath: processed.originalPath };
   }
 
   private async getProfileByUserId(userId: string) {
