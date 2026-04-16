@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Providers from './providers';
 import AppToaster from '@/components/AppToaster';
 import './globals.css';
@@ -13,6 +13,15 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     type: 'website',
   },
+};
+
+// 핀치 줌/더블탭 줌 비활성화 — 모바일에서 페이지가 자유롭게 확대축소되며 일그러지는 문제 방지
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  minimumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -654,7 +654,7 @@ export default function ProDetailPage() {
     const planCount = dbProBuilt?.plans?.length ?? (proData ? 3 : MOCK_PRO.plans.length);
     return planCount > 1 ? 1 : 0;
   });
-  const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
+  const [activeSection, setActiveSection] = useState<'desc' | 'info'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const authUser = useAuthStore((s) => s.user);
@@ -706,14 +706,13 @@ export default function ProDetailPage() {
 
   // Active section auto-tracking on scroll + header solid bg
   useEffect(() => {
-    const sections: Array<{ id: 'desc' | 'info' | 'reviews'; ref: React.RefObject<HTMLDivElement> }> = [
+    const sections: Array<{ id: 'desc' | 'info'; ref: React.RefObject<HTMLDivElement> }> = [
       { id: 'desc', ref: descRef },
       { id: 'info', ref: infoRef },
-      { id: 'reviews', ref: reviewsRef },
     ];
     const onScroll = () => {
       const scrollY = window.scrollY + 120;
-      let current: 'desc' | 'info' | 'reviews' = 'desc';
+      let current: 'desc' | 'info' = 'desc';
       sections.forEach(({ id, ref }) => {
         if (ref.current && ref.current.offsetTop <= scrollY) current = id;
       });
@@ -804,9 +803,9 @@ export default function ProDetailPage() {
     router.push(`/pros/${pro.id}/booking`);
   };
 
-  const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
+  const scrollToSection = (section: 'desc' | 'info') => {
     setActiveSection(section);
-    const target = section === 'desc' ? descRef.current : section === 'info' ? infoRef.current : reviewsRef.current;
+    const target = section === 'desc' ? descRef.current : infoRef.current;
     if (target) {
       const y = target.getBoundingClientRect().top + window.scrollY - 100;
       window.scrollTo({ top: y, behavior: 'smooth' });
@@ -1125,14 +1124,11 @@ export default function ProDetailPage() {
           {[
             { id: 'desc', label: '서비스 설명' },
             { id: 'info', label: '전문가 정보' },
-            { id: 'reviews', label: `리뷰 (${pro.reviewCount})` },
           ].map((tab) => {
-            const tabs = ['desc', 'info', 'reviews'];
-            const idx = tabs.indexOf(activeSection);
             return (
               <button
                 key={tab.id}
-                onClick={() => scrollToSection(tab.id as 'desc' | 'info' | 'reviews')}
+                onClick={() => scrollToSection(tab.id as 'desc' | 'info')}
                 className={`flex-1 py-4 text-[15px] font-semibold relative transition-colors duration-300 ${
                   activeSection === tab.id ? 'text-[#3180F7]' : 'text-gray-400 hover:text-gray-600'
                 }`}
@@ -1144,8 +1140,8 @@ export default function ProDetailPage() {
           <span
             className="absolute bottom-[-1px] h-[2px] bg-[#3180F7] transition-all duration-500"
             style={{
-              left: `${(['desc', 'info', 'reviews'].indexOf(activeSection) * 100) / 3}%`,
-              width: `${100 / 3}%`,
+              left: `${(['desc', 'info'].indexOf(activeSection) * 100) / 2}%`,
+              width: `${100 / 2}%`,
               transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
             }}
           />
@@ -1326,106 +1322,6 @@ export default function ProDetailPage() {
           </div>
         </div>
 
-      </div>
-
-      {/* ─── Divider ─── */}
-      <div className="h-2 bg-gray-50 mt-10" />
-
-      {/* ─── 리뷰 Section ─── */}
-      <div ref={reviewsRef} className="px-2.5 pt-6">
-        <h2 className="text-[20px] font-bold text-gray-900 mb-2">리뷰</h2>
-
-        <div className="flex items-center gap-2 mb-2">
-          <StarRating value={parseFloat(pro.rating.toFixed(1))} size={20} />
-          <span className="text-[24px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
-          <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
-        </div>
-
-        {/* Radar Chart */}
-        <RadarChart scores={[
-          { label: '경력', value: 5.0 },
-          { label: '만족도', value: 4.9 },
-          { label: '위트', value: 4.8 },
-          { label: '발성', value: 5.0 },
-          { label: '이미지', value: 4.9 },
-          { label: '구성력', value: 5.0 },
-        ]} />
-
-        {/* Score bars */}
-        <ScoreBars />
-
-
-        {/* Reviews list */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[16px] font-bold text-gray-900">전체 리뷰 {pro.reviewCount}건</h3>
-          <button><ChevronRight size={20} className="text-gray-400" /></button>
-        </div>
-
-        <div className="space-y-6">
-          {pro.reviews.map((review) => (
-            <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0 relative">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>
-                  <span className="text-[14px] text-gray-600">{review.name}</span>
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() => setReviewMenu(reviewMenu === review.id ? null : review.id)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                  >
-                    <span className="text-[16px] text-gray-400 leading-none">⋯</span>
-                  </button>
-                  {reviewMenu === review.id && (
-                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-20 min-w-[120px]">
-                      <button onClick={() => { toast('리뷰를 신고했습니다', { icon: '🚨' }); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">신고하기</button>
-                      <button onClick={() => { toast('리뷰를 차단했습니다', { icon: '🚫' }); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">차단하기</button>
-                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">복사하기</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <StarRating value={parseFloat(review.rating.toFixed(1))} size={14} />
-                <span className="text-[13px] font-bold text-gray-900">{review.rating.toFixed(1)}</span>
-                <span className="text-[12px] text-gray-300">|</span>
-                <span className="text-[12px] text-gray-400">{review.date}</span>
-              </div>
-              {(review as typeof review & { scores?: Record<string, number> }).scores && (
-                <div className="flex flex-wrap gap-1 mb-2.5">
-                  {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).map(([key, val]) => (
-                    <span key={key} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>
-                      {key} <span className="font-bold text-[#3180F7] ml-1">{String(val)}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
-              <p className="text-[12px] text-gray-400 mb-2">
-                행사일 : {review.workDays}일 | 주문 금액 : <span className="font-bold text-gray-600">{review.orderRange}</span>
-              </p>
-              {review.badge && (
-                <span className="inline-block text-[11px] text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{review.badge}</span>
-              )}
-              {review.proReply && (
-                <div className="mt-3 bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[13px] font-semibold text-gray-800">{pro.name}</span>
-                    <span className="text-[12px] text-gray-400">{review.proReply.date}</span>
-                  </div>
-                  <p className="text-[13px] leading-[1.7] text-gray-700 whitespace-pre-line">{review.proReply.content}</p>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={() => router.push(`/pros/${pro.id}/reviews`)}
-          className="w-full py-3.5 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all mt-5"
-        >
-          리뷰 전체보기
-        </button>
       </div>
 
       {/* ─── Expandable panels ─── */}
@@ -1698,46 +1594,6 @@ export default function ProDetailPage() {
               >
                 결제하기
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Reviews Full Modal ─── */}
-      {reviewsModal && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end justify-center"
-          onClick={() => setReviewsModal(false)}
-          style={{ animation: 'modalFade 0.3s ease-out' }}
-        >
-          <div
-            className="w-full max-w-lg bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto pb-safe"
-            onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between z-10">
-              <h3 className="text-[17px] font-bold text-gray-900">전체 리뷰 ({pro.reviewCount})</h3>
-              <button onClick={() => setReviewsModal(false)}>
-                <X size={22} className="text-gray-500" />
-              </button>
-            </div>
-            <div className="px-5 py-4 space-y-6">
-              {pro.reviews.map((review) => (
-                <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>
-                    <span className="text-[14px] text-gray-600">{review.name}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <StarRating value={parseFloat(review.rating.toFixed(1))} size={14} />
-                    <span className="text-[13px] font-bold text-gray-900">{review.rating.toFixed(1)}</span>
-                    <span className="text-[12px] text-gray-300">|</span>
-                    <span className="text-[12px] text-gray-400">{review.date}</span>
-                  </div>
-                  <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
-                  <p className="text-[12px] text-gray-400">행사일 : {review.workDays}일 | 주문 금액 : {review.orderRange}</p>
-                </div>
-              ))}
             </div>
           </div>
         </div>
