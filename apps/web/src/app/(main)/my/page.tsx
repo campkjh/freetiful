@@ -277,7 +277,7 @@ const MENU_SECTIONS = [
       { href: '/my/invite', icon: () => <ImgIcon src="/images/invite-friend.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
       { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/partners-apply.svg" />, label: '파트너 신청', action: 'partner' },
-      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/일반회원 전환.svg" />, label: '프로유저 전환', action: 'switchToPro' },
+      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/switch-role.svg" />, label: '프로유저 전환', action: 'switchToPro' },
     ],
   },
 ];
@@ -323,8 +323,14 @@ export default function MyPage() {
     setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
     if (!authUser) setIsPro(localStorage.getItem('userRole') === 'pro');
     // 서버의 proProfile.status를 신뢰 — 탈퇴/재가입 후 남아있는 stale localStorage 정리
+    // 어드민 승인 후 role 변경 반영을 위해 zustand authUser 도 최신화
     if (authUser) {
       usersApi.getProfile().then((u: any) => {
+        // role 변경 감지 시 store 업데이트 (어드민 승인 → 자동 반영)
+        if (u && u.role && u.role !== authUser.role) {
+          useAuthStore.getState().setUser({ ...authUser, ...u });
+          setIsPro(u.role === 'pro');
+        }
         const status = u?.proProfile?.status;
         if (status === 'approved') {
           localStorage.setItem('proRegistrationComplete', 'true');
@@ -725,8 +731,9 @@ export default function MyPage() {
             );
 
             if (action === 'switchToPro') {
-              // 프로 권한이 있는 경우에만 표시
-              const hasProRights = (typeof window !== 'undefined' && localStorage.getItem('proRegistrationComplete') === 'true') || authUser?.role === 'pro';
+              // 프로 권한 = 서버 role=pro OR 승인 완료 캐시
+              const approvedCache = typeof window !== 'undefined' && localStorage.getItem('proRegistrationComplete') === 'true';
+              const hasProRights = authUser?.role === 'pro' || approvedCache;
               if (!hasProRights) return null;
               return (
                 <button key={label} onClick={handlePartnerApply} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
