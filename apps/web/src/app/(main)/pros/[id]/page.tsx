@@ -649,7 +649,11 @@ export default function ProDetailPage() {
     : proBase;
 
   const [activeImage, setActiveImage] = useState(0);
-  const [activePlan, setActivePlan] = useState(1); // default deluxe
+  const [activePlan, setActivePlan] = useState(() => {
+    // plans가 1개뿐인 DB 프로는 index 0, 3개 이상이면 기존대로 1(Superior)
+    const planCount = dbProBuilt?.plans?.length ?? (proData ? 3 : MOCK_PRO.plans.length);
+    return planCount > 1 ? 1 : 0;
+  });
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -687,7 +691,7 @@ export default function ProDetailPage() {
   const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
-  const plan = pro.plans[activePlan];
+  const plan = pro.plans[activePlan] || pro.plans[0];
 
   // 방문 기록 저장
   useEffect(() => {
@@ -871,10 +875,10 @@ export default function ProDetailPage() {
           />
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-bold text-gray-900 truncate leading-tight">
-              <span className="text-[#3180F7]">{pro.plans[activePlan].label}</span> {pro.title}
+              <span className="text-[#3180F7]">{(pro.plans[activePlan] || pro.plans[0])?.label}</span> {pro.title}
             </p>
             <p className="text-[12px] leading-tight mt-0.5">
-              <span className="font-bold text-gray-900">{pro.plans[activePlan].price.toLocaleString()}원</span>
+              <span className="font-bold text-gray-900">{(pro.plans[activePlan] || pro.plans[0])?.price?.toLocaleString() || '0'}원</span>
               <span className="text-gray-400 ml-1">(VAT 포함)</span>
             </p>
           </div>
