@@ -358,14 +358,16 @@ export default function MyPage() {
   const handlePartnerApply = () => {
     const alreadyRegistered = localStorage.getItem('proRegistrationComplete') === 'true';
     if (alreadyRegistered) {
+      localStorage.setItem('userRole', 'pro');
       if (authUser) {
         usersApi.switchRole('pro').then(() => {
           useAuthStore.getState().setUser({ ...authUser, role: 'pro' as any });
-          window.location.reload();
-        }).catch(() => {});
+          window.location.href = '/pro-dashboard';
+        }).catch(() => {
+          window.location.href = '/pro-dashboard';
+        });
       } else {
-        localStorage.setItem('userRole', 'pro');
-        window.location.reload();
+        window.location.href = '/pro-dashboard';
       }
     } else {
       router.push('/pro-register/terms');
@@ -414,14 +416,18 @@ export default function MyPage() {
   };
 
   const handleSwitchToGeneral = () => {
+    // 레이아웃이 localStorage.userRole === 'pro' 로도 isPro 판정하므로 반드시 'general' 로 덮어써야 일반 네비게이션/화면으로 전환됨
+    localStorage.setItem('userRole', 'general');
     if (authUser) {
       usersApi.switchRole('general').then(() => {
         useAuthStore.getState().setUser({ ...authUser, role: 'general' as any });
-        window.location.reload();
-      }).catch(() => {});
+        window.location.href = '/main';
+      }).catch(() => {
+        // API 실패해도 클라이언트 상태로는 전환 시도
+        window.location.href = '/main';
+      });
     } else {
-      localStorage.setItem('userRole', 'general');
-      window.location.reload();
+      window.location.href = '/main';
     }
   };
 
