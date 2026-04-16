@@ -528,10 +528,6 @@ export default function MyPage() {
           <span className="text-[14px] text-gray-400">로그아웃</span>
         </button>
 
-        <div className="px-4 pt-2 pb-4 text-center">
-          <p className="text-[11px] text-gray-300">Freetiful v1.0.0</p>
-        </div>
-
         <style dangerouslySetInnerHTML={{ __html: `
           @keyframes myFadeUp {
             from { opacity: 0; transform: translateY(12px); }
@@ -774,11 +770,6 @@ export default function MyPage() {
         <LogOut size={18} className="text-gray-400 shrink-0" />
         <span className="text-[14px] text-gray-400">로그아웃</span>
       </button>
-
-      {/* App version */}
-      <div className="px-4 pt-2 pb-4 text-center">
-        <p className="text-[11px] text-gray-300">Freetiful v1.0.0</p>
-      </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes myFadeUp {
