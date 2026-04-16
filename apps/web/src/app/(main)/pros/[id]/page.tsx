@@ -563,18 +563,28 @@ export default function ProDetailPage() {
     const careerLines = (dbPro.mainExperience || '').split(/[\n\/]/).map((s: string) => s.trim()).filter(Boolean);
 
     // services → plans 매핑 (DB 서비스가 있으면 DB 기준, 없으면 기본 1개)
+    // DB 에 basePrice 가 null/0 이면 플랜 이름별 기본가 적용 (Premium 45만 / Superior 80만 / Enterprise 170만)
+    const DEFAULT_PRICE_BY_LABEL: Record<string, number> = {
+      Premium: 450000,
+      Superior: 800000,
+      Enterprise: 1700000,
+    };
     const dbServices: any[] = dbPro.services || [];
     const plans = dbServices.length > 0
-      ? dbServices.map((svc: any, i: number) => ({
-          id: svc.id || `plan-${i}`,
-          label: svc.title || `Plan ${i + 1}`,
-          price: svc.basePrice || 0,
-          duration: svc.description || '',
-          title: svc.title || '',
-          desc: svc.description ? [svc.description] : ['사회 진행'],
-          workDays: 14,
-          revisions: i + 1,
-        }))
+      ? dbServices.map((svc: any, i: number) => {
+          const label = svc.title || `Plan ${i + 1}`;
+          const price = svc.basePrice || DEFAULT_PRICE_BY_LABEL[label] || 0;
+          return {
+            id: svc.id || `plan-${i}`,
+            label,
+            price,
+            duration: svc.description || '',
+            title: svc.title || '',
+            desc: svc.description ? [svc.description] : ['사회 진행'],
+            workDays: 14,
+            revisions: i + 1,
+          };
+        })
       : [{ id: 'default', label: 'Premium', price: 450000, duration: '1시간', title: '행사 진행', desc: ['사회 진행', '사전 미팅'], workDays: 14, revisions: 1 }];
 
     // faqs → DB 기반
@@ -613,8 +623,9 @@ export default function ProDetailPage() {
       description,
       plans,
       expertStats: {
-        totalDeals: experience * 8 + 10,
-        satisfaction: 100,
+        // 리뷰가 없는 신규 프로는 거래/만족도 표시 0 처리 (신규 표시는 렌더에서 처리)
+        totalDeals: (dbPro.reviewCount || 0),
+        satisfaction: (dbPro.reviewCount || 0) > 0 ? 100 : 0,
         memberType: '개인',
         taxInvoice: '발행 가능',
         responseTime: '24시간 이내',
@@ -1016,12 +1027,18 @@ export default function ProDetailPage() {
           </div>
         </Reveal>
 
-        {/* Rating */}
+        {/* Rating — 리뷰 있을 때만 별점/수치, 없으면 '신규 전문가' */}
         <Reveal delay={100}>
           <div className="flex items-center gap-2 mb-4">
-            <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
-            <span className="text-[16px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
-            <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
+            {pro.reviewCount > 0 ? (
+              <>
+                <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
+                <span className="text-[16px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
+                <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
+              </>
+            ) : (
+              <span className="text-[13px] text-gray-400">신규 전문가 · 아직 리뷰가 없어요</span>
+            )}
           </div>
         </Reveal>
 
@@ -1279,15 +1296,22 @@ export default function ProDetailPage() {
           <div className="flex-1">
             <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
-              <StarRating value={parseFloat(pro.rating.toFixed(1))} size={12} />
-              <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({pro.reviewCount + 3})</span>
+              {pro.reviewCount > 0 ? (
+                <>
+                  <StarRating value={parseFloat(pro.rating.toFixed(1))} size={12} />
+                  <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({pro.reviewCount})</span>
+                </>
+              ) : (
+                <span className="text-[12px] text-gray-400">신규 전문가</span>
+              )}
             </div>
             <p className="text-[11px] text-gray-400 mt-1">연락 가능 시간: {pro.expertStats.contactTime}</p>
             <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
           </div>
         </div>
 
-        {/* Stats grid */}
+        {/* Stats grid — 리뷰가 없는 신규 전문가는 거래/만족도 미표시 */}
+        {pro.reviewCount > 0 && (
         <div className="grid grid-cols-2 gap-2 mb-3">
           {/* 총 거래 건수 */}
           <div className="bg-gray-50 rounded-xl px-3 py-3">
@@ -1311,6 +1335,7 @@ export default function ProDetailPage() {
             <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.satisfaction}%</p>
           </div>
         </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-gray-50 rounded-xl px-3 py-3">
