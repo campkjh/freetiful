@@ -1169,7 +1169,8 @@ export default function ProfilePage() {
                       phone: localStorage.getItem('proRegister_phone') || undefined,
                       gender: localStorage.getItem('proRegister_gender') || undefined,
                       shortIntro: intro || undefined,
-                      mainExperience: localStorage.getItem('proRegister_career') || undefined,
+                      // profile/page 에는 '주요 경력' 텍스트 필드가 없음 → awardList 를 mainExperience 로 사용
+                      mainExperience: awardList.length > 0 ? awardList.map((a) => a.text).filter(Boolean).join(' / ') : undefined,
                       careerYears: careerYears ? parseInt(careerYears) || undefined : undefined,
                       awards: awardList.length > 0 ? awardList.map((a) => a.text).filter(Boolean).join('\n') : undefined,
                       youtubeUrl: videos[0] || undefined,

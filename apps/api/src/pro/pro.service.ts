@@ -399,55 +399,65 @@ export class ProService {
       }
     }
 
-    // Services: replace all
+    // Services / FAQs / Languages 는 각각 하나의 트랜잭션으로 delete+create 처리 (동시 재제출 race condition 방지)
     if (Array.isArray(data.services)) {
-      await this.prisma.proService.deleteMany({ where: { proProfileId: profile.id } });
-      for (let i = 0; i < data.services.length; i++) {
-        const s = data.services[i];
-        if (!s?.title) continue;
-        await this.prisma.proService.create({
-          data: {
-            proProfileId: profile.id,
-            title: s.title,
-            description: s.description ?? null,
-            basePrice: s.basePrice ?? null,
-            displayOrder: i,
-            isActive: true,
-          },
-        });
-      }
+      // 중복 타이틀 제거 (같은 title 은 마지막 것만 유지)
+      const seen = new Set<string>();
+      const unique = [...data.services].reverse().filter((s) => {
+        if (!s?.title || seen.has(s.title)) return false;
+        seen.add(s.title);
+        return true;
+      }).reverse();
+      await this.prisma.$transaction([
+        this.prisma.proService.deleteMany({ where: { proProfileId: profile.id } }),
+        ...unique.map((s, i) =>
+          this.prisma.proService.create({
+            data: {
+              proProfileId: profile.id,
+              title: s.title,
+              description: s.description ?? null,
+              basePrice: s.basePrice ?? null,
+              displayOrder: i,
+              isActive: true,
+            },
+          }),
+        ),
+      ]);
     }
 
-    // FAQs: replace all
     if (Array.isArray(data.faqs)) {
-      await this.prisma.proFaq.deleteMany({ where: { proProfileId: profile.id } });
-      for (let i = 0; i < data.faqs.length; i++) {
-        const f = data.faqs[i];
-        if (!f?.question || !f?.answer) continue;
-        await this.prisma.proFaq.create({
-          data: {
-            proProfileId: profile.id,
-            question: f.question,
-            answer: f.answer,
-            displayOrder: i,
-          },
-        });
-      }
+      // 중복 question 제거
+      const seen = new Set<string>();
+      const unique = data.faqs.filter((f) => {
+        if (!f?.question || !f?.answer || seen.has(f.question)) return false;
+        seen.add(f.question);
+        return true;
+      });
+      await this.prisma.$transaction([
+        this.prisma.proFaq.deleteMany({ where: { proProfileId: profile.id } }),
+        ...unique.map((f, i) =>
+          this.prisma.proFaq.create({
+            data: {
+              proProfileId: profile.id,
+              question: f.question,
+              answer: f.answer,
+              displayOrder: i,
+            },
+          }),
+        ),
+      ]);
     }
 
-    // Languages: replace all
     if (Array.isArray(data.languages)) {
-      await this.prisma.proLanguage.deleteMany({ where: { proProfileId: profile.id } });
-      for (const code of data.languages) {
-        if (!code) continue;
-        try {
-          await this.prisma.proLanguage.create({
+      const unique = Array.from(new Set(data.languages.filter(Boolean)));
+      await this.prisma.$transaction([
+        this.prisma.proLanguage.deleteMany({ where: { proProfileId: profile.id } }),
+        ...unique.map((code) =>
+          this.prisma.proLanguage.create({
             data: { proProfileId: profile.id, languageCode: code },
-          });
-        } catch {
-          // unique conflict skip
-        }
-      }
+          }),
+        ),
+      ]);
     }
 
     return profile;
