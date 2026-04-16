@@ -494,24 +494,69 @@ export default function ProDetailPage() {
     const youtubeId = ytMatch?.[1];
     const experience = dbPro.careerYears || 1;
     const careerLines = (dbPro.mainExperience || '').split(/[\n\/]/).map((s: string) => s.trim()).filter(Boolean);
+
+    // services → plans 매핑 (DB 서비스가 있으면 DB 기준, 없으면 기본 1개)
+    const dbServices: any[] = dbPro.services || [];
+    const plans = dbServices.length > 0
+      ? dbServices.map((svc: any, i: number) => ({
+          id: svc.id || `plan-${i}`,
+          label: svc.title || `Plan ${i + 1}`,
+          price: svc.basePrice || 0,
+          duration: svc.description || '',
+          title: svc.title || '',
+          desc: svc.description ? [svc.description] : ['사회 진행'],
+          workDays: 14,
+          revisions: i + 1,
+        }))
+      : [{ id: 'default', label: 'Premium', price: 450000, duration: '1시간', title: '행사 진행', desc: ['사회 진행', '사전 미팅'], workDays: 14, revisions: 1 }];
+
+    // faqs → DB 기반
+    const dbFaqs: any[] = dbPro.faqs || [];
+
+    // reviews → DB 기반
+    const dbReviews: any[] = (dbPro.reviews || []).map((r: any) => ({
+      id: r.id,
+      name: r.reviewer?.name?.slice(0, 2) + '********' || '익명',
+      rating: r.rating || 5.0,
+      date: r.createdAt ? new Date(r.createdAt).toLocaleDateString('ko-KR') : '',
+      scores: {},
+      content: r.content || '',
+      workDays: 0,
+      orderRange: '',
+    }));
+
+    // description: DB detailHtml 우선, 없으면 shortIntro+경력으로 구성
+    const description = dbPro.detailHtml
+      || `안녕하세요. 사회자 ${name}입니다.\n\n${dbPro.shortIntro || ''}${careerLines.length > 0 ? `\n\n주요 경력:\n• ${careerLines.join('\n• ')}` : ''}`;
+
     return {
       ...MOCK_PRO,
       id: dbPro.id,
       name,
+      level: '',
       profileImage: profileImg,
       mainImage: imgs[0] || profileImg,
       images: imgs.length > 0 ? imgs : [profileImg].filter(Boolean),
       title: `사회자 ${name}`,
+      isPrime: false,
       rating: Number(dbPro.avgRating) || 0,
       reviewCount: dbPro.reviewCount || 0,
       youtubeId,
       youtubeVideos: youtubeId ? [{ id: youtubeId, title: `${name} 사회자 진행 영상` }] : [],
-      description: `안녕하세요. 사회자 ${name}입니다.\n\n${dbPro.shortIntro || ''}${careerLines.length > 0 ? `\n\n주요 경력:\n• ${careerLines.join('\n• ')}` : ''}`,
-      plans: MOCK_PRO.plans.map((p, idx) => {
-        const svc = dbPro.services?.[idx];
-        return svc ? { ...p, price: svc.basePrice || p.price, label: svc.name || p.label } : p;
-      }),
-      expertStats: { ...MOCK_PRO.expertStats, totalDeals: experience * 8 + 10 },
+      description,
+      plans,
+      expertStats: {
+        totalDeals: experience * 8 + 10,
+        satisfaction: 100,
+        memberType: '개인',
+        taxInvoice: '발행 가능',
+        responseTime: '24시간 이내',
+        contactTime: '평일 10:00 ~ 18:00',
+      },
+      reviews: dbReviews.length > 0 ? dbReviews : [],
+      otherServices: [],
+      recommendedPros: [],
+      alsoViewed: [],
     };
   })() : null;
 
@@ -1274,7 +1319,7 @@ export default function ProDetailPage() {
                 <div className="flex flex-wrap gap-1 mb-2.5">
                   {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).map(([key, val]) => (
                     <span key={key} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>
-                      {key} <span className="font-bold text-[#3180F7] ml-1">{val}</span>
+                      {key} <span className="font-bold text-[#3180F7] ml-1">{String(val)}</span>
                     </span>
                   ))}
                 </div>
