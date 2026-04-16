@@ -14,6 +14,11 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${apiUrl}/api/:path*`,
       },
+      {
+        // 파트너 신청 시 업로드된 이미지(/uploads/*.webp 등)를 Railway API 서버에서 가져오기
+        source: '/uploads/:path*',
+        destination: `${apiUrl}/uploads/:path*`,
+      },
     ];
   },
 };
