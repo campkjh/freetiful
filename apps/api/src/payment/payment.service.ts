@@ -30,22 +30,23 @@ export class PaymentService {
   async createOrder(
     userId: string,
     data: {
-      quotationId: string;
+      quotationId?: string;
       amount: number;
       orderName: string;
       proProfileId: string;
     },
   ) {
-    const quotation = await this.prisma.quotation.findUnique({
-      where: { id: data.quotationId },
-    });
-
-    if (!quotation) {
-      throw new NotFoundException('견적서를 찾을 수 없습니다.');
-    }
-
-    if (quotation.userId !== userId) {
-      throw new ForbiddenException('본인의 견적서만 결제할 수 있습니다.');
+    // 견적서가 있는 경우에만 소유권 검증
+    if (data.quotationId) {
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { id: data.quotationId },
+      });
+      if (!quotation) {
+        throw new NotFoundException('견적서를 찾을 수 없습니다.');
+      }
+      if (quotation.userId !== userId) {
+        throw new ForbiddenException('본인의 견적서만 결제할 수 있습니다.');
+      }
     }
 
     const orderId = `ORDER-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -54,7 +55,7 @@ export class PaymentService {
       data: {
         userId,
         proProfileId: data.proProfileId,
-        quotationId: data.quotationId,
+        quotationId: data.quotationId ?? null,
         amount: data.amount,
         status: 'pending',
         pgProvider: 'tosspayments',

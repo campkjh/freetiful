@@ -166,22 +166,24 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 1. 주문 생성 (백엔드)
-      const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const orderName = `${proInfo.name} 사회자 - ${planName}`;
 
+      // 1. 주문 생성 — 서버가 orderId 발급 (DB 에 pending Payment 레코드 남김)
+      let orderId: string;
       try {
-        await apiClient.post('/api/v1/payment/order', {
-          orderId,
+        const { data: order } = await apiClient.post<{ orderId: string }>('/api/v1/payment/order', {
           amount: finalPrice,
           orderName,
           proProfileId: id,
         });
-      } catch {
-        // 백엔드 없어도 결제 진행 가능
+        orderId = order.orderId;
+      } catch (e: any) {
+        alert('주문 생성에 실패했습니다: ' + (e?.response?.data?.message || e?.message || '알 수 없는 오류'));
+        setPayLoading(false);
+        return;
       }
 
-      // 2. 토스 위젯으로 결제 요청 — 결제수단/약관은 렌더링된 위젯이 담당
+      // 2. 토스 위젯으로 결제 요청 — 서버 orderId 사용
       if (!widgetsRef.current) {
         alert('결제 위젯 초기화 중입니다. 잠시 후 다시 시도해 주세요.');
         setPayLoading(false);
