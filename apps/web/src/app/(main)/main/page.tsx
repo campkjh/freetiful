@@ -701,7 +701,9 @@ export default function HomePage() {
             region: '전국',
             rating: p.avgRating,
             reviews: p.reviewCount,
-            pudding: i + 1,
+            // 실제 받은 좋아요 수. puddingCount 가 없으면 0
+            pudding: p.puddingCount ?? 0,
+            puddingRank: i + 1,
             image: p.images?.[0] || p.profileImageUrl || '',
             images: p.images || [],
             intro: p.shortIntro || '',
