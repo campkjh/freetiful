@@ -13,19 +13,14 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   refunded: { label: '환불됨', color: 'bg-red-50 text-red-500' },
 };
 
-const MOCK_PURCHASES = [
-  { id: '1', proName: '김민준 MC', service: '웨딩 MC 패키지', amount: 500000, eventDate: '2026-04-05', status: 'upcoming', image: 'https://i.pravatar.cc/150?img=1', hasReview: false },
-  { id: '2', proName: '박준혁 가수', service: '웨딩 축가 3곡', amount: 300000, eventDate: '2026-03-15', status: 'completed', image: 'https://i.pravatar.cc/150?img=3', hasReview: true },
-  { id: '3', proName: '이서연 MC', service: '돌잔치 MC', amount: 400000, eventDate: '2026-02-28', status: 'completed', image: 'https://i.pravatar.cc/150?img=5', hasReview: false },
-];
+const MOCK_PURCHASES: { id: string; proName: string; service: string; amount: number; eventDate: string; status: string; image: string; hasReview: boolean }[] = [];
 
 export default function PurchaseHistoryPage() {
   const router = useRouter();
-  const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { window.scrollTo(0, 0); setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [filter, setFilter] = useState<Status>('all');
 
-  const purchases = useMemo(() => hasDemoData ? MOCK_PURCHASES : [], [hasDemoData]);
+  const purchases = useMemo(() => [] as typeof MOCK_PURCHASES, []);
   const filtered = purchases.filter((p) => filter === 'all' || p.status === filter);
 
   return (

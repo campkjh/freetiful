@@ -66,16 +66,7 @@ const typeIconMap: Record<NotifType, { icon: React.ReactNode }> = {
   )},
 };
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: '1', type: 'chat', title: '김민준 MC님의 새 메시지', body: '네, 4월 5일 결혼식 MC 가능합니다. 세부 사항 안내 드리겠습니다. 시간과 장소 알려주시면 맞춤 견적 보내드릴게요.', isRead: false, date: '5분 전', link: '/chat/1' },
-  { id: '2', type: 'payment', title: '결제 완료', body: '웨딩 MC 패키지 500,000원 결제가 완료되었습니다. 영수증은 결제내역에서 확인하실 수 있습니다.', isRead: false, date: '30분 전', link: '/my/payment-history' },
-  { id: '3', type: 'chat', title: '정하린 플로리스트님의 새 메시지', body: '부케 시안 보내드립니다 💐 확인 부탁드려요! 수정사항 있으시면 편하게 말씀해주세요.', isRead: false, date: '2시간 전', link: '/chat/5' },
-  { id: '4', type: 'review', title: '리뷰를 작성해주세요', body: '김민준 MC님과의 행사는 어떠셨나요? 소중한 후기를 남겨주시면 다른 분들께 큰 도움이 됩니다.', isRead: true, date: '1일 전' },
-  { id: '5', type: 'booking', title: '예약 확정', body: '4월 5일 김민준 MC님 예약이 확정되었습니다. 행사 당일 일정을 다시 한번 확인해 주세요.', isRead: true, date: '2일 전' },
-  { id: '6', type: 'system', title: '서비스 업데이트 안내', body: '채팅 기능이 개선되었습니다. 예약 메시지, 이모지 리액션 기능이 추가되었어요.', isRead: true, date: '3일 전', link: '/my/announcements' },
-  { id: '7', type: 'marketing', title: '오픈 기념 10% 할인 쿠폰 도착!', body: '첫 결제 시 사용 가능한 10% 할인 쿠폰이 발급되었습니다. 지금 바로 사용해보세요!', isRead: true, date: '5일 전', link: '/my/coupons' },
-  { id: '8', type: 'chat', title: '박준혁 가수님의 새 메시지', body: '축가 3곡 기본이고, 추가 곡은 곡당 5만원입니다. 곡 목록 보내드릴까요?', isRead: true, date: '6일 전', link: '/chat/3' },
-];
+const MOCK_NOTIFICATIONS: Notification[] = [];
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -106,8 +97,7 @@ export default function NotificationsPage() {
         .catch(() => {});
     }
 
-    // Fallback to mock data
-    if (loggedIn && localStorage.getItem('freetiful-has-demo-data') === 'true') setItems(MOCK_NOTIFICATIONS);
+    // No mock fallback
   }, [authUser]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);

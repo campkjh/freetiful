@@ -13,18 +13,7 @@ interface RankEntry {
   isCurrentUser?: boolean;
 }
 
-const MOCK_RANKING: RankEntry[] = [
-  { rank: 1, name: '박인애', pudding: 1280 },
-  { rank: 2, name: '성연채', pudding: 1050 },
-  { rank: 3, name: '이승진', pudding: 920 },
-  { rank: 4, name: '문정은', pudding: 850 },
-  { rank: 5, name: '김민지', pudding: 780 },
-  { rank: 6, name: '조하늘', pudding: 650 },
-  { rank: 7, name: '전혜인', pudding: 520 },
-  { rank: 8, name: '나연지', pudding: 450 },
-  { rank: 9, name: '정애란', pudding: 380 },
-  { rank: 10, name: '허수빈', pudding: 320 },
-];
+const MOCK_RANKING: RankEntry[] = [];
 
 function getRankColor(rank: number) {
   if (rank === 1) return { bg: '#FEF3C7', text: '#D97706', icon: '#F59E0B' };

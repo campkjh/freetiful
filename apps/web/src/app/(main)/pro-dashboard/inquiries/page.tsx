@@ -1,27 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Clock, Users, User, MessageCircle, ChevronRight } from 'lucide-react';
 
 type Filter = 'all' | 'multi' | 'single';
 
-const MOCK_INQUIRIES = [
-  { id: '1', type: 'multi' as const, userName: '홍길동', eventType: '결혼식', eventDate: '2026-04-20', budget: '50~80만원', message: '서울 강남 지역에서 진행할 결혼식 MC를 찾고 있습니다. 격식있으면서 유머있는 스타일을 원합니다.', receivedAt: '2분 전', status: 'pending' },
-  { id: '2', type: 'single' as const, userName: '이영희', eventType: '돌잔치', eventDate: '2026-05-01', budget: '30~50만원', message: '아이 돌잔치 MC 문의드립니다. 밝고 친근한 분위기로 진행해주실 분을 찾습니다.', receivedAt: '1시간 전', status: 'pending' },
-  { id: '3', type: 'multi' as const, userName: '박철수', eventType: '기업행사', eventDate: '2026-04-15', budget: '80~100만원', message: '회사 창립기념 행사 MC를 찾습니다. 프로페셔널한 진행 가능한 분 부탁드립니다.', receivedAt: '3시간 전', status: 'replied' },
-  { id: '4', type: 'single' as const, userName: '김수정', eventType: '결혼식', eventDate: '2026-05-10', budget: '50~80만원', message: '5월 야외 웨딩 MC 가능하신지 문의드립니다.', receivedAt: '어제', status: 'replied' },
-  { id: '5', type: 'multi' as const, userName: '정대호', eventType: '생신잔치', eventDate: '2026-04-25', budget: '30~50만원', message: '아버지 칠순 잔치 MC 부탁드려요.', receivedAt: '어제', status: 'declined' },
-];
+const MOCK_INQUIRIES: { id: string; type: 'multi' | 'single'; userName: string; eventType: string; eventDate: string; budget: string; message: string; receivedAt: string; status: string }[] = [];
 
 export default function InquiriesPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
-  const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
-
-  const inquiries = hasDemoData ? MOCK_INQUIRIES : [];
+  const inquiries = MOCK_INQUIRIES;
   const filtered = inquiries.filter((inq) => filter === 'all' || inq.type === filter);
   const pendingCount = inquiries.filter((i) => i.status === 'pending').length;
 

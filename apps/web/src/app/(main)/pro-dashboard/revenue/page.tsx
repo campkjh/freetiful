@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -45,22 +44,9 @@ const MoneyBagIcon = () => (
 
 /* ─── Data ─── */
 
-const MONTHLY_DATA = [
-  { month: '11월', amount: 1200000 },
-  { month: '12월', amount: 1500000 },
-  { month: '1월', amount: 1800000 },
-  { month: '2월', amount: 2100000 },
-  { month: '3월', amount: 1800000 },
-  { month: '4월', amount: 2400000 },
-];
+const MONTHLY_DATA: { month: string; amount: number }[] = [];
 
-const TRANSACTIONS = [
-  { id: 't1', client: '최**', event: '웨딩 MC', date: '2026-04-05', amount: 1800000, status: 'settled' as const },
-  { id: 't2', client: '장**', event: '돌잔치 MC', date: '2026-03-22', amount: 1200000, status: 'settled' as const },
-  { id: 't3', client: '서**', event: '기업행사', date: '2026-03-15', amount: 3500000, status: 'pending' as const },
-  { id: 't4', client: '김**', event: '웨딩 MC', date: '2026-03-08', amount: 2000000, status: 'settled' as const },
-  { id: 't5', client: '박**', event: '돌잔치 MC', date: '2026-02-28', amount: 900000, status: 'settled' as const },
-];
+const TRANSACTIONS: { id: string; client: string; event: string; date: string; amount: number; status: 'settled' | 'pending' }[] = [];
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const fadeUp = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
@@ -75,11 +61,8 @@ function formatDate(iso: string) {
 }
 
 export default function RevenuePage() {
-  const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
-
-  const transactions = hasDemoData ? TRANSACTIONS : [];
-  const monthlyData = hasDemoData ? MONTHLY_DATA : [];
+  const transactions = TRANSACTIONS;
+  const monthlyData = MONTHLY_DATA;
   const maxAmount = monthlyData.length > 0 ? Math.max(...monthlyData.map((d) => d.amount)) : 1;
   const totalRevenue = transactions.reduce((s, t) => s + t.amount, 0);
   const settledAmount = transactions.filter((t) => t.status === 'settled').reduce((s, t) => s + t.amount, 0);

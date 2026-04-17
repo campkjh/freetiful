@@ -50,38 +50,7 @@ interface Review {
 
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 
-const REVIEWS: Review[] = [
-  {
-    id: 'r1', author: '김**', rating: 5,
-    text: '정말 프로페셔널하시고, 분위기를 완벽하게 이끌어주셨어요. 하객분들 모두 만족하셨습니다! 다음에 또 기회가 되면 꼭 부탁드리고 싶습니다.',
-    date: '2026-04-05', badge: '개인', orderRange: '₩1,500,000 ~ ₩2,000,000',
-    scores: { 경력: 5, 만족도: 5, 구성력: 5, 위트: 4, 발성: 5, 이미지: 5 },
-  },
-  {
-    id: 'r2', author: '이**', rating: 5,
-    text: '아이 돌잔치를 정말 따뜻하고 감동적으로 진행해주셔서 감사합니다. 가족들 모두 행복했어요.',
-    date: '2026-03-29', badge: 'Biz', orderRange: '₩1,000,000 ~ ₩1,500,000',
-    scores: { 경력: 5, 만족도: 5, 구성력: 4, 위트: 5, 발성: 5, 이미지: 4 },
-  },
-  {
-    id: 'r3', author: '박**', rating: 4,
-    text: '전문적인 진행과 세심한 배려가 인상적이었습니다. 다음에도 부탁드릴게요.',
-    date: '2026-03-22', badge: '개인', orderRange: '₩1,000,000 ~ ₩1,500,000',
-    scores: { 경력: 4, 만족도: 4, 구성력: 4, 위트: 4, 발성: 5, 이미지: 4 },
-  },
-  {
-    id: 'r4', author: '정**', rating: 5,
-    text: '기업 세미나를 정말 깔끔하게 진행해주셨어요. 참석자분들 반응이 정말 좋았습니다.',
-    date: '2026-03-15', badge: '에이전시', orderRange: '₩3,000,000 ~ ₩3,500,000',
-    scores: { 경력: 5, 만족도: 5, 구성력: 5, 위트: 3, 발성: 5, 이미지: 5 },
-  },
-  {
-    id: 'r5', author: '한**', rating: 4,
-    text: '시간 약속을 잘 지켜주시고 사전 미팅도 꼼꼼하게 진행해주셨어요. 감사합니다.',
-    date: '2026-03-08', badge: '개인', orderRange: '₩1,500,000 ~ ₩2,000,000',
-    scores: { 경력: 4, 만족도: 5, 구성력: 4, 위트: 4, 발성: 4, 이미지: 5 },
-  },
-];
+const REVIEWS: Review[] = [];
 
 const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
   '개인': { bg: 'bg-emerald-50', text: 'text-emerald-600' },
@@ -97,11 +66,9 @@ export default function ReviewsPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
-  const [hasDemoData, setHasDemoData] = useState(false);
   const [apiReviews, setApiReviews] = useState<Review[]>([]);
 
   useEffect(() => {
-    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
     const stored = localStorage.getItem('pro-review-replies');
     if (stored) {
       try { setSavedReplies(JSON.parse(stored)); } catch { /* ignore */ }
@@ -139,7 +106,7 @@ export default function ReviewsPage() {
     setReplyTexts((prev) => ({ ...prev, [reviewId]: '' }));
   }
 
-  const reviews = apiReviews.length > 0 ? apiReviews : (hasDemoData ? REVIEWS : []);
+  const reviews = apiReviews.length > 0 ? apiReviews : [];
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : '0.0';
   const avgScores: Record<string, number> = {};
   CATEGORY_LABELS.forEach((cat) => {

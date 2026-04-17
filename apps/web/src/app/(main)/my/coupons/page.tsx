@@ -5,20 +5,15 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, Clock } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 
-const MOCK_COUPONS = [
-  { id: '1', code: 'WELCOME10', type: 'percentage', value: 10, minOrder: 300000, maxDiscount: 50000, validUntil: '2026-04-30', isUsed: false, title: '신규 회원 10% 할인' },
-  { id: '2', code: 'SPRING2026', type: 'fixed', value: 30000, minOrder: 500000, maxDiscount: 30000, validUntil: '2026-05-31', isUsed: false, title: '봄맞이 3만원 할인' },
-  { id: '3', code: 'FIRST50', type: 'percentage', value: 5, minOrder: 300000, maxDiscount: 20000, validUntil: '2026-02-28', isUsed: true, title: '첫 결제 5% 할인' },
-];
+const MOCK_COUPONS: { id: string; code: string; type: string; value: number; minOrder: number; maxDiscount: number; validUntil: string; isUsed: boolean; title: string }[] = [];
 
 export default function CouponsPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { window.scrollTo(0, 0); setHasDemoData(authUser !== null || localStorage.getItem('freetiful-has-demo-data') === 'true'); }, [authUser]);
+  useEffect(() => { window.scrollTo(0, 0); }, [authUser]);
   const [couponCode, setCouponCode] = useState('');
 
-  const coupons = useMemo(() => hasDemoData ? MOCK_COUPONS : [], [hasDemoData]);
+  const coupons = useMemo(() => [] as typeof MOCK_COUPONS, []);
   const available = coupons.filter((c) => !c.isUsed);
   const used = coupons.filter((c) => c.isUsed);
 

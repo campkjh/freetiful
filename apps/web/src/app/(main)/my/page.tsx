@@ -457,7 +457,7 @@ export default function MyPage() {
   };
 
   if (isPro) {
-    const proMockStats = { revenue: '2,400,000', reviews: 48, pudding: 320 };
+    const proMockStats = { revenue: '0', reviews: 0, pudding: 0 };
     return (
       <div className="bg-white min-h-screen pb-24 lg:max-w-2xl lg:mx-auto lg:px-8" style={{ letterSpacing: '-0.02em' }}>
         {/* Header */}

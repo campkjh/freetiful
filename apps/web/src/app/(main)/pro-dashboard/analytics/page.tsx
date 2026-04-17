@@ -6,21 +6,13 @@ import { ArrowLeft, Eye, Users, TrendingUp, MousePointer } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
 
-const MOCK_WEEKLY = [
-  { day: '월', views: 42 },
-  { day: '화', views: 58 },
-  { day: '수', views: 35 },
-  { day: '목', views: 67 },
-  { day: '금', views: 53 },
-  { day: '토', views: 89 },
-  { day: '일', views: 44 },
-];
+const MOCK_WEEKLY: { day: string; views: number }[] = [];
 
 export default function AnalyticsPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [stats, setStats] = useState<{ weeklyViews: number; weeklyInquiries: number; conversionRate: string } | null>(null);
-  const [weeklyData, setWeeklyData] = useState(MOCK_WEEKLY);
+  const [weeklyData, setWeeklyData] = useState<{ day: string; views: number }[]>([]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -37,7 +29,7 @@ export default function AnalyticsPage() {
       .catch(() => { /* fallback to mock */ });
   }, [authUser]);
 
-  const displayMaxViews = Math.max(...weeklyData.map((d) => d.views));
+  const displayMaxViews = weeklyData.length > 0 ? Math.max(...weeklyData.map((d) => d.views)) : 1;
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -103,12 +95,7 @@ export default function AnalyticsPage() {
       <div className="px-4 mt-5 mb-8">
         <h3 className="text-sm font-bold text-gray-900 mb-3">유입 경로</h3>
         <div className="card p-4 space-y-3">
-          {[
-            { source: '검색 (카테고리)', percent: 45, color: 'bg-primary-500' },
-            { source: '추천 전문가', percent: 25, color: 'bg-blue-500' },
-            { source: '링크 공유', percent: 18, color: 'bg-green-500' },
-            { source: '기타', percent: 12, color: 'bg-gray-400' },
-          ].map(({ source, percent, color }) => (
+          {([] as { source: string; percent: number; color: string }[]).map(({ source, percent, color }) => (
             <div key={source}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-gray-700">{source}</span>

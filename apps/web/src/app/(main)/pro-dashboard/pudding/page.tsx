@@ -15,30 +15,17 @@ const EARNING_RULES = [
   { action: '추천 유저 가입', pudding: '+8', icon: '👥' },
 ];
 
-const MOCK_HISTORY = [
-  { id: '1', reason: '1:1 견적 답변', amount: 3, date: '2026-03-25 14:30', balance: 45 },
-  { id: '2', reason: '매칭 성공', amount: 10, date: '2026-03-24 10:00', balance: 42 },
-  { id: '3', reason: '만점 리뷰', amount: 8, date: '2026-03-23 16:20', balance: 32 },
-  { id: '4', reason: '다중 견적 답변', amount: 2, date: '2026-03-23 09:15', balance: 24 },
-  { id: '5', reason: '일일 초기화 (TOP 3)', amount: -50, date: '2026-03-22 00:00', balance: 22 },
-  { id: '6', reason: '추천 유저 가입', amount: 8, date: '2026-03-21 12:00', balance: 72 },
-];
+const MOCK_HISTORY: { id: string; reason: string; amount: number; date: string; balance: number }[] = [];
 
-const MOCK_RANKING = [
-  { rank: 1, name: '김민준', pudding: 45, image: 'https://i.pravatar.cc/150?img=1', isMe: true },
-  { rank: 2, name: '이서연', pudding: 38, image: 'https://i.pravatar.cc/150?img=5', isMe: false },
-  { rank: 3, name: '박준혁', pudding: 35, image: 'https://i.pravatar.cc/150?img=3', isMe: false },
-  { rank: 4, name: '최지은', pudding: 28, image: 'https://i.pravatar.cc/150?img=9', isMe: false },
-  { rank: 5, name: '정대현', pudding: 22, image: 'https://i.pravatar.cc/150?img=11', isMe: false },
-];
+const MOCK_RANKING: { rank: number; name: string; pudding: number; image: string; isMe: boolean }[] = [];
 
 export default function PuddingPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [balance, setBalance] = useState(45);
   const [myRank, setMyRank] = useState(1);
-  const [history, setHistory] = useState(MOCK_HISTORY);
-  const [ranking, setRanking] = useState(MOCK_RANKING);
+  const [history, setHistory] = useState<typeof MOCK_HISTORY>([]);
+  const [ranking, setRanking] = useState<typeof MOCK_RANKING>([]);
 
   // Fetch pudding balance & history
   useEffect(() => {

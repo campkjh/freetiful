@@ -237,10 +237,10 @@ export default function ProDashboardPage() {
   const [puddingCount, setPuddingCount] = useState(0);
   const [hasDemoData, setHasDemoData] = useState(false);
   const [reviewCount, setReviewCount] = useState(0);
-  const [avgRating, setAvgRating] = useState('4.8');
-  const [monthlyRevenue, setMonthlyRevenue] = useState(2400000);
-  const [lastMonthRevenue, setLastMonthRevenue] = useState(1800000);
-  const [profileViews, setProfileViews] = useState(328);
+  const [avgRating, setAvgRating] = useState('0');
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [lastMonthRevenue, setLastMonthRevenue] = useState(0);
+  const [profileViews, setProfileViews] = useState(0);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {

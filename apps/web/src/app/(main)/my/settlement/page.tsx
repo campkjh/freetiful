@@ -14,18 +14,12 @@ interface SettlementRecord {
   date: string;
 }
 
-const MOCK_SETTLEMENTS: SettlementRecord[] = [
-  { id: 's1', month: '2026년 3월', amount: 2400000, status: '정산완료', date: '2026-04-10' },
-  { id: 's2', month: '2026년 2월', amount: 1800000, status: '정산완료', date: '2026-03-10' },
-  { id: 's3', month: '2026년 1월', amount: 2100000, status: '정산완료', date: '2026-02-10' },
-  { id: 's4', month: '2025년 12월', amount: 3200000, status: '정산완료', date: '2026-01-10' },
-  { id: 's5', month: '2026년 4월', amount: 1500000, status: '정산예정', date: '2026-05-10' },
-];
+const MOCK_SETTLEMENTS: SettlementRecord[] = [];
 
 export default function SettlementPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const [settlements, setSettlements] = useState(MOCK_SETTLEMENTS);
+  const [settlements, setSettlements] = useState<SettlementRecord[]>([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
