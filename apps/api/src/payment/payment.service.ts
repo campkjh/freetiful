@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 
@@ -17,6 +18,7 @@ export class PaymentService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private notificationService: NotificationService,
   ) {
     this.tossSecretKey = this.config.get<string>('TOSS_SECRET_KEY', '');
   }
@@ -160,6 +162,24 @@ export class PaymentService {
     } catch {
       // ProSchedule 없으면 무시 (eventDate 없이 결제한 경우)
     }
+
+    // 알림: 유저에게 결제 완료 알림
+    try {
+      await this.notificationService.createNotification(
+        payment.userId, 'payment', '결제가 완료되었습니다',
+        `${data.amount.toLocaleString()}원 결제가 정상 처리되었습니다.`,
+        { paymentId: payment.id },
+      );
+      // 전문가에게 새 예약 알림
+      const proProfile = await this.prisma.proProfile.findUnique({ where: { id: payment.proProfileId } });
+      if (proProfile) {
+        await this.notificationService.createNotification(
+          proProfile.userId, 'booking', '새로운 예약이 접수되었습니다',
+          `${data.amount.toLocaleString()}원 결제 완료. 예약을 확인해 주세요.`,
+          { paymentId: payment.id },
+        );
+      }
+    } catch { /* 알림 실패해도 결제는 성공 */ }
 
     return updatedPayment;
   }

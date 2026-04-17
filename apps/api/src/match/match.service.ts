@@ -5,10 +5,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class MatchService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   /** 사용자가 매칭 요청 생성 + 선택된 전문가에게 발송 */
   async createMatchRequest(
@@ -83,7 +87,7 @@ export class MatchService {
       },
     });
 
-    // 선택된 전문가들에게 매칭 요청 발송 (MatchDelivery 생성)
+    // 선택된 전문가들에게 매칭 요청 발송 (MatchDelivery 생성 + 알림)
     if (data.proProfileIds && data.proProfileIds.length > 0) {
       await this.prisma.matchDelivery.createMany({
         data: data.proProfileIds.map((proProfileId) => ({
@@ -92,6 +96,19 @@ export class MatchService {
         })),
         skipDuplicates: true,
       });
+      // 각 전문가에게 알림
+      for (const proProfileId of data.proProfileIds) {
+        try {
+          const proProfile = await this.prisma.proProfile.findUnique({ where: { id: proProfileId } });
+          if (proProfile) {
+            await this.notificationService.createNotification(
+              proProfile.userId, 'booking', '새로운 견적 요청이 도착했습니다',
+              `${data.categoryId} 관련 견적 요청을 확인해 주세요.`,
+              { matchRequestId: matchRequest.id },
+            );
+          }
+        } catch { /* 알림 실패 무시 */ }
+      }
     }
 
     return matchRequest;
