@@ -105,51 +105,51 @@ export default function ChatListPage() {
   const authUser = useAuthStore((s) => s.user);
   const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
 
+  const [rooms, setRooms] = useState<ChatRoom[]>([]);
+
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
     setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
 
-    // Connect to WebSocket and fetch real rooms if authenticated via API
+    if (!loggedIn) return;
+
+    // 로그인 상태: WebSocket 연결 + API 에서 채팅방 목록 조회
     if (authUser) {
       connect();
-      fetchRooms().then(() => {
-        // If API returns rooms, use them; otherwise fall back to mock data
-        const storeRooms = useChatStore.getState().rooms;
-        if (storeRooms.length > 0) {
-          setRooms(storeRooms.map((r) => ({
-            id: r.id,
-            otherUser: {
-              id: r.otherUser.id,
-              name: r.otherUser.name,
-              role: '사회자',
-              profileImageUrl: r.otherUser.profileImageUrl || '',
-            },
-            lastMessage: r.lastMessage?.content || '',
-            lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
-            unreadCount: r.unreadCount,
-            isPinned: false,
-            isArchived: false,
-            isHidden: false,
-          })));
-          return;
-        }
-      }).catch(() => {});
-    }
-
-    // Fallback to mock data
-    const role = authUser?.role || localStorage.getItem('userRole');
-    const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
-    if (loggedIn && role === 'pro') {
-      setRooms(PRO_MOCK_ROOMS);
-    } else if (loggedIn && hasDemoData) {
-      setRooms(MOCK_ROOMS);
+      fetchRooms()
+        .then(() => {
+          const storeRooms = useChatStore.getState().rooms;
+          if (storeRooms.length > 0) {
+            setRooms(storeRooms.map((r) => ({
+              id: r.id,
+              otherUser: {
+                id: r.otherUser.id,
+                name: r.otherUser.name,
+                role: '사회자',
+                profileImageUrl: r.otherUser.profileImageUrl || '',
+              },
+              lastMessage: r.lastMessage?.content || '',
+              lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
+              unreadCount: r.unreadCount,
+              isPinned: false,
+              isArchived: false,
+              isHidden: false,
+            })));
+          }
+          // API 방이 0개여도 mock 으로 안 빠짐 — 빈 목록 표시
+        })
+        .catch(() => {
+          // API 실패 시에만 mock 폴백 (데모 데이터가 켜져있을 때)
+          const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
+          const role = authUser?.role || localStorage.getItem('userRole');
+          if (role === 'pro') setRooms(PRO_MOCK_ROOMS);
+          else if (hasDemoData) setRooms(MOCK_ROOMS);
+        });
     }
 
     return () => { disconnect(); };
   }, [authUser]);
-
-  const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

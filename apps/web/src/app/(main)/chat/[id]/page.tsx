@@ -14,6 +14,7 @@ import {
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
+import { chatApi } from '@/lib/api/chat.api';
 
 const MY_ID_FALLBACK = 'user-1';
 
@@ -851,7 +852,7 @@ export default function ChatRoomPage() {
   const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
   const pro = isPro ? (CLIENTS[roomId] || CLIENTS['c1']) : (PROS[roomId] || PROS['1']);
 
-  const [messages, setMessages] = useState<Message[]>(() => makeMockMessages(pro.id, pro.name));
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [showAttach, setShowAttach] = useState(false);
   const [actionMenu, setActionMenu] = useState<{ id: string; x: number; y: number; mine: boolean } | null>(null);
@@ -865,28 +866,60 @@ export default function ChatRoomPage() {
     ...Object.values(PROS).filter((p) => p.id !== pro.id).slice(0, 4),
   ]);
 
-  // Connect to WebSocket when authenticated
+  // WebSocket 연결 + API 에서 기존 메시지 로드
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser || !roomId) return;
     connect();
     joinRoom(roomId);
+
+    // 기존 메시지 히스토리 로드
+    chatApi.getMessages(roomId, { limit: 50 })
+      .then((res: any) => {
+        const items = res?.data || res?.messages || (Array.isArray(res) ? res : []);
+        if (items.length > 0) {
+          const mapped: Message[] = items.map((m: any) => ({
+            id: m.id,
+            senderId: m.senderId,
+            content: m.content || '',
+            type: (m.type || 'text') as Message['type'],
+            createdAt: m.createdAt,
+            isRead: m.isRead ?? false,
+            replyTo: m.replyTo ? { id: m.replyTo.id, name: m.replyTo.senderId, content: m.replyTo.content || '' } : null,
+            reaction: null,
+          }));
+          setMessages(mapped);
+        }
+      })
+      .catch(() => {});
+
     return () => { leaveRoom(); };
   }, [authUser, roomId]);
 
-  // Sync WebSocket messages with local state
+  // WebSocket 실시간 메시지 수신 → 기존 목록에 추가 (replace 아님)
+  const prevWsCountRef = useRef(0);
   useEffect(() => {
-    if (wsMessages.length === 0) return;
-    const mapped: Message[] = wsMessages.map((m) => ({
+    if (wsMessages.length <= prevWsCountRef.current) {
+      prevWsCountRef.current = wsMessages.length;
+      return;
+    }
+    // 새로 추가된 메시지만 추출
+    const newMsgs = wsMessages.slice(prevWsCountRef.current);
+    prevWsCountRef.current = wsMessages.length;
+    const mapped: Message[] = newMsgs.map((m) => ({
       id: m.id,
       senderId: m.senderId,
       content: m.content || '',
-      type: m.type as Message['type'],
+      type: (m.type || 'text') as Message['type'],
       createdAt: m.createdAt,
-      isRead: m.isRead,
+      isRead: m.isRead ?? false,
       replyTo: m.replyTo ? { id: m.replyTo.id, name: m.replyTo.senderId, content: m.replyTo.content || '' } : null,
       reaction: null,
     }));
-    setMessages(mapped);
+    setMessages((prev) => {
+      const existingIds = new Set(prev.map((m) => m.id));
+      const truly = mapped.filter((m) => !existingIds.has(m.id));
+      return truly.length > 0 ? [...prev, ...truly] : prev;
+    });
   }, [wsMessages]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
