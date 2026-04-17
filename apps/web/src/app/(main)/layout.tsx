@@ -9,6 +9,7 @@ import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
 import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
+import toast from 'react-hot-toast';
 
 const USER_NAV_ITEMS = [
   { href: '/main',      iconSrc: '/images/icon-home.svg',      label: '홈' },
@@ -322,24 +323,49 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <button
                   key={provider}
                   onClick={() => {
-                    const isWeb = typeof window !== 'undefined' && !(window as any).webkit?.messageHandlers?.showNativeLogin;
-                    if (isWeb) {
-                      setShowLoginModal(false);
-                      setShowWebLoginModal(true);
-                      return;
-                    }
                     setShowLoginModal(false);
+                    const isNative = typeof window !== 'undefined' && !!(window as any).webkit?.messageHandlers?.kakaoLogin;
                     const origin = typeof window !== 'undefined' ? window.location.origin : '';
                     const KAKAO_KEY = 'dca1b472188890116c81a55eff590885';
                     const NAVER_KEY = 'R4WM7ZyC8hHuE_O7qLdy';
                     if (provider === 'kakao') {
-                      window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/kakao/callback')}&response_type=code`;
+                      if (isNative) {
+                        (window as any).webkit.messageHandlers.kakaoLogin.postMessage({});
+                      } else {
+                        window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/kakao/callback')}&response_type=code`;
+                      }
                     } else if (provider === 'naver') {
-                      const state = Math.random().toString(36).substring(7);
-                      sessionStorage.setItem('naver_state', state);
-                      window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/naver/callback')}&response_type=code&state=${state}`;
-                    } else {
-                      router.push('/main');
+                      if (isNative) {
+                        (window as any).webkit.messageHandlers.naverLogin?.postMessage({});
+                      } else {
+                        const state = Math.random().toString(36).substring(7);
+                        sessionStorage.setItem('naver_state', state);
+                        window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/naver/callback')}&response_type=code&state=${state}`;
+                      }
+                    } else if (provider === 'google') {
+                      if (isNative) {
+                        (window as any).webkit.messageHandlers.googleLogin?.postMessage({});
+                      } else {
+                        const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+                        if (GOOGLE_KEY) {
+                          const nonce = Math.random().toString(36).substring(2);
+                          window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/google/callback')}&response_type=id_token&scope=openid+email+profile&nonce=${nonce}`;
+                        } else {
+                          toast.error('Google 로그인 설정이 필요합니다');
+                        }
+                      }
+                    } else if (provider === 'apple') {
+                      if (isNative) {
+                        (window as any).webkit.messageHandlers.appleLogin?.postMessage({});
+                      } else {
+                        const APPLE_KEY = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID || '';
+                        if (APPLE_KEY) {
+                          const state = Math.random().toString(36).substring(2);
+                          window.location.href = `https://appleid.apple.com/auth/authorize?client_id=${APPLE_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/apple/callback')}&response_type=code+id_token&response_mode=fragment&scope=name+email&state=${state}`;
+                        } else {
+                          toast.error('Apple 로그인 설정이 필요합니다');
+                        }
+                      }
                     }
                   }}
                   className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.96] transition-transform animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]`}
