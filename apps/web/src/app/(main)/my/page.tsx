@@ -8,6 +8,7 @@ import { getPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
+import { apiClient } from '@/lib/api/client';
 
 /* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
 // 이미지 기반 아이콘 헬퍼
@@ -260,7 +261,7 @@ const MENU_SECTIONS = [
     title: '설정',
     items: [
       { href: '/my/settings', icon: () => <ImgIcon src="/images/profile-settings.svg" />, label: '프로필 설정' },
-      { href: '/my/notifications', icon: () => <ImgIcon src="/images/notification-settings.svg" />, label: '알림 설정' },
+      { href: '/my/notifications', icon: () => <ImgIcon src="/images/notification-settings.svg" />, label: '알림 설정', badge: 'notif' },
     ],
   },
   {
@@ -292,6 +293,30 @@ export default function MyPage() {
   const [isPro, setIsPro] = useState(false);
   const [couponCount, setCouponCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
+  const [upcomingSchedules, setUpcomingSchedules] = useState<any[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+  // 읽지 않은 알림 수 조회
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get<{ count: number }>('/api/v1/notification/unread-count')
+      .then((res) => setUnreadNotifCount(res.data?.count ?? 0))
+      .catch(() => {});
+  }, [authUser]);
+
+  // 다가오는 일정 — 결제 내역에서 완료/에스크로 상태인 것 조회
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get('/api/v1/payment', { params: { limit: 5 } })
+      .then((res: any) => {
+        const payments = res.data?.data || res.data || [];
+        const upcoming = payments.filter((p: any) =>
+          ['completed', 'escrowed'].includes(p.status)
+        );
+        setUpcomingSchedules(upcoming.slice(0, 3));
+      })
+      .catch(() => {});
+  }, [authUser]);
 
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
@@ -661,26 +686,25 @@ export default function MyPage() {
       </div>
       )}
 
-      {/* Upcoming Schedules */}
-      {isLoggedIn && typeof window !== 'undefined' && localStorage.getItem('freetiful-has-demo-data') === 'true' && UPCOMING_SCHEDULES.length > 0 && (
+      {/* 다가오는 일정 — 실데이터 (결제 완료된 예약) */}
+      {isLoggedIn && upcomingSchedules.length > 0 && (
         <div className="px-4 pt-2 pb-1" style={{ animation: 'myFadeUp 0.5s ease 0.15s both' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[12px] font-bold text-gray-400">다가오는 일정</p>
             <Link href="/schedule" className="text-[12px] text-gray-400">전체보기</Link>
           </div>
           <div className="space-y-2">
-            {UPCOMING_SCHEDULES.map((s) => (
-              <Link key={s.id} href={`/schedule/${s.id}`} className="flex items-center gap-2.5 border border-gray-100 active:bg-gray-50 transition-colors" style={{ padding: 5, borderRadius: 12 }}>
-                <img src={s.proImage} alt={s.proName} className="w-10 h-[52px] rounded-lg object-cover shrink-0" />
+            {upcomingSchedules.map((s: any) => (
+              <div key={s.id} className="flex items-center gap-2.5 border border-gray-100" style={{ padding: 5, borderRadius: 12 }}>
+                <div className="w-10 h-[52px] rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                  <span className="text-[14px] font-bold text-blue-500">{new Date(s.createdAt).getDate()}</span>
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-bold text-gray-900">{s.category} {s.proName}</p>
-                  <div className="flex gap-1.5 mt-1.5">
-                    <span className="px-2 py-0.5 bg-gray-50 text-[11px] font-medium text-gray-600" style={{ borderRadius: 6 }}>{s.date} {s.time}</span>
-                    <span className="px-2 py-0.5 bg-gray-50 text-[11px] font-medium text-gray-600" style={{ borderRadius: 6 }}>{s.location}</span>
-                  </div>
+                  <p className="text-[14px] font-bold text-gray-900">{s.status === 'completed' ? '예약 확정' : s.status === 'escrowed' ? '진행 예정' : '결제 완료'}</p>
+                  <p className="text-[12px] text-gray-500 mt-0.5">{s.amount?.toLocaleString()}원 · {new Date(s.createdAt).toLocaleDateString('ko-KR')}</p>
                 </div>
                 <ChevronRight size={16} className="text-gray-300 shrink-0" />
-              </Link>
+              </div>
             ))}
           </div>
         </div>
@@ -722,7 +746,7 @@ export default function MyPage() {
               );
             }
 
-            const displayBadge = label === '포인트' ? `${user.points.toLocaleString()}P` : badge;
+            const displayBadge = label === '포인트' ? `${user.points.toLocaleString()}P` : badge === 'notif' ? (unreadNotifCount > 0 ? `${unreadNotifCount}` : undefined) : badge;
             const inner = (
               <>
                 <Icon />
