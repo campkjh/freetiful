@@ -346,12 +346,14 @@ export default function ProDashboardPage() {
   }
 
   function handleAccept(id: string) {
+    // 로컬 상태 즉시 업데이트 + API 호출
     const updated = quotes.map((q) => (q.id === id ? { ...q, status: 'accepted' as const } : q));
     saveQuotes(updated);
     setConfirmAccept(null);
-    // 채팅방으로 이동하여 견적서 발송
+    quotationApi.updateStatus(id, 'accepted').catch(() => {});
     toast.success('수락되었습니다. 채팅에서 견적서를 발송해주세요.');
-    setTimeout(() => router.push('/chat/c1'), 500);
+    // 채팅방이 있으면 해당 방으로, 없으면 채팅 목록으로
+    setTimeout(() => router.push('/chat'), 500);
   }
 
   function handleReject() {
@@ -361,9 +363,11 @@ export default function ProDashboardPage() {
       q.id === rejectTarget ? { ...q, status: 'rejected' as const, rejectionReason: reason } : q,
     );
     saveQuotes(updated);
+    quotationApi.updateStatus(rejectTarget, 'cancelled').catch(() => {});
     setRejectTarget(null);
     setSelectedReason('');
     setCustomReason('');
+    toast.success('거절 처리되었습니다.');
   }
 
   function handleArchive(id: string) {
