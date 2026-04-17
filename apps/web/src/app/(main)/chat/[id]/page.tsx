@@ -850,7 +850,28 @@ export default function ChatRoomPage() {
   const MY_ID = authUser?.id || MY_ID_FALLBACK;
   const { connect, disconnect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
   const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
-  const pro = isPro ? (CLIENTS[roomId] || CLIENTS['c1']) : (PROS[roomId] || PROS['1']);
+
+  // 상대방 정보: API 에서 채팅방 조회 → otherUser, 폴백은 하드코딩 PROS/CLIENTS
+  const [otherUser, setOtherUser] = useState<{ id: string; name: string; username: string; profileImageUrl: string; isActive: boolean; lastSeen?: string }>(
+    isPro ? (CLIENTS[roomId] || CLIENTS['c1']) : (PROS[roomId] || PROS['1'])
+  );
+  useEffect(() => {
+    if (!authUser || !roomId) return;
+    chatApi.getRoom(roomId)
+      .then((room: any) => {
+        if (room?.otherUser) {
+          setOtherUser({
+            id: room.otherUser.id,
+            name: room.otherUser.name || '상대방',
+            username: room.otherUser.name || '',
+            profileImageUrl: room.otherUser.profileImageUrl || '',
+            isActive: true,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [authUser, roomId]);
+  const pro = otherUser;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
