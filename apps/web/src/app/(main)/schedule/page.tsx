@@ -32,17 +32,7 @@ interface ScheduleItem {
   status: 'confirmed' | 'pending' | 'completed';
 }
 
-const MOCK_SCHEDULES: ScheduleItem[] = [
-  { id: '1', date: '2026-04-10', title: '결혼식 MC', category: 'MC', proName: '박인애', proImage: '/images/pro-15/IMG_0196.avif', time: '14:00 - 16:00', location: '그랜드 웨딩홀', status: 'confirmed' },
-  { id: '2', date: '2026-04-10', title: '축가 공연', category: '축가', proName: '성연채', proImage: '/images/pro-23/IMG_46511771924269213.avif', time: '14:30 - 15:00', location: '그랜드 웨딩홀', status: 'confirmed' },
-  { id: '3', date: '2026-04-15', title: '웨딩 촬영', category: '스튜디오', proName: '조하늘', proImage: '/images/pro-31/IMG_73341772850094485.avif', time: '10:00 - 13:00', location: '강남 스튜디오', status: 'pending' },
-  { id: '4', date: '2026-04-18', title: '드레스 피팅', category: '드레스', proName: '김진아', proImage: '/images/pro-15/IMG_0196.avif', time: '15:00 - 17:00', location: '청담 쇼룸', status: 'pending' },
-  { id: '5', date: '2026-04-22', title: '헤어 메이크업 리허설', category: '헤메샵', proName: '유하영', proImage: '/images/pro-02/10000365351773046135169.avif', time: '11:00 - 13:00', location: '압구정 살롱', status: 'pending' },
-  { id: '6', date: '2026-04-05', title: '웨딩홀 투어', category: '웨딩홀', proName: '함현지', proImage: '/images/pro-15/IMG_0196.avif', time: '14:00 - 15:30', location: '청담동', status: 'completed' },
-  { id: '7', date: '2026-04-03', title: 'MC 미팅', category: 'MC', proName: '문정은', proImage: '/images/pro-15/IMG_0196.avif', time: '16:00 - 17:00', location: '카페', status: 'completed' },
-  { id: '8', date: '2026-05-01', title: '본식 MC', category: 'MC', proName: '박인애', proImage: '/images/pro-15/IMG_0196.avif', time: '12:00 - 14:00', location: '그랜드 웨딩홀', status: 'confirmed' },
-  { id: '9', date: '2026-05-01', title: '본식 축가', category: '축가', proName: '성연채', proImage: '/images/pro-23/IMG_46511771924269213.avif', time: '12:30 - 13:00', location: '그랜드 웨딩홀', status: 'confirmed' },
-];
+const MOCK_SCHEDULES: ScheduleItem[] = [];
 
 const STATUS_MAP = {
   confirmed: { label: '확정', color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -104,12 +94,7 @@ interface ProBooking {
   status: 'confirmed' | 'pending' | 'completed';
 }
 
-const PRO_MOCK_BOOKINGS: ProBooking[] = [
-  { id: 'pb1', clientName: '김정훈', eventType: '결혼식 MC', date: '2026-04-10', time: '14:00 - 16:00', venue: '그랜드 웨딩홀', plan: '프리미엄', paymentStatus: '결제완료', amount: '800,000', status: 'confirmed' },
-  { id: 'pb2', clientName: '이수진', eventType: '결혼식 MC', date: '2026-04-18', time: '12:00 - 14:00', venue: '더 채플 하우스', plan: '스탠다드', paymentStatus: '대기', amount: '600,000', status: 'pending' },
-  { id: 'pb3', clientName: '박민서', eventType: '돌잔치 MC', date: '2026-04-22', time: '11:00 - 12:30', venue: '리츠칼튼 서울', plan: '베이직', paymentStatus: '결제완료', amount: '500,000', status: 'confirmed' },
-  { id: 'pb4', clientName: '최현우', eventType: '결혼식 MC', date: '2026-05-01', time: '13:00 - 15:00', venue: '반포 JW메리어트', plan: '프리미엄', paymentStatus: '대기', amount: '800,000', status: 'pending' },
-];
+const PRO_MOCK_BOOKINGS: ProBooking[] = [];
 
 const PRO_STATUS_MAP = {
   confirmed: { label: '확정', textColor: 'text-green-700', bgColor: 'bg-green-50' },

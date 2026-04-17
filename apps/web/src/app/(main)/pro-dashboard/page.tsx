@@ -135,11 +135,7 @@ interface Quote {
 
 /* ─── Mock Data ─── */
 
-const INITIAL_QUOTES: Quote[] = [
-  { id: 'q1', clientName: '홍**', eventType: '결혼식', eventDate: '2026-05-17', plan: 'Premium', budget: '₩1,800,000', status: 'pending' },
-  { id: 'q2', clientName: '김**', eventType: '돌잔치', eventDate: '2026-05-24', plan: 'Superior', budget: '₩1,200,000', status: 'pending' },
-  { id: 'q3', clientName: '박**', eventType: '기업행사', eventDate: '2026-06-01', plan: 'Enterprise', budget: '₩3,500,000', status: 'pending' },
-];
+const INITIAL_QUOTES: Quote[] = [];
 
 const UPCOMING_EVENTS = [
   { date: '4/19', day: '토', eventType: '웨딩 MC', client: '최**', venue: '시에나호텔 그랜드홀', time: '11:00', status: '확정' },

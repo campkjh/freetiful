@@ -53,49 +53,7 @@ const EXTRA_OPTIONS = [
 const MAX_SELECTIONS = 1;
 
 // 사회자 이름/사진 매핑
-const PRO_NAMES: Record<string, { name: string; image: string }> = {
-  '1': { name: '강도현', image: '/images/pro-01/10000133881772850005043.avif' },
-  '2': { name: '김동현', image: '/images/pro-02/10000365351773046135169.avif' },
-  '3': { name: '김민지', image: '/images/pro-03/IMG_06781773894450803.avif' },
-  '4': { name: '김솔', image: '/images/pro-04/IMG_23601771788594274.avif' },
-  '5': { name: '김유석', image: '/images/pro-05/10000029811773033474612.avif' },
-  '6': { name: '김재성', image: '/images/pro-06/10000602271772960706687.avif' },
-  '7': { name: '김진아', image: '/images/pro-07/IMG_53011772965035335.avif' },
-  '8': { name: '김호중', image: '/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif' },
-  '9': { name: '나연지', image: '/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif' },
-  '10': { name: '노유재', image: '/images/pro-10/10000016211774440274171.avif' },
-  '11': { name: '도준석', image: '/images/pro-11/1-1231772850030951.avif' },
-  '12': { name: '문정은', image: '/images/pro-12/IMG_27221772621229571.avif' },
-  '13': { name: '박상설', image: '/images/pro-13/10000077391773050357628.avif' },
-  '14': { name: '박은결', image: '/images/pro-14/IMG_02661773035503788.avif' },
-  '15': { name: '박인애', image: '/images/pro-15/IMG_0196.avif' },
-  '16': { name: '박주은', image: '/images/pro-16/IMG_01621772973118334.avif' },
-  '17': { name: '배유정', image: '/images/pro-17/IMG_21541773026472716.avif' },
-  '18': { name: '성연채', image: '/images/pro-18/20161016_161406_IMG_5921.avif' },
-  '19': { name: '송지은', image: '/images/pro-19/DE397232-C3A6-4FD0-80C8-0251D66A66AF1772092441240.avif' },
-  '20': { name: '유하늘', image: '/images/pro-20/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif' },
-  '21': { name: '유하영', image: '/images/pro-21/22712e20f03327c2843673c063c881f432f6af591772967031477.avif' },
-  '22': { name: '이강문', image: '/images/pro-22/10000353831773035180593.avif' },
-  '23': { name: '이승진', image: '/images/pro-23/IMG_46511771924269213.avif' },
-  '24': { name: '이용석', image: '/images/pro-24/10001176941772847263491.avif' },
-  '25': { name: '이우영', image: '/images/pro-25/2-11772248201484.avif' },
-  '26': { name: '이원영', image: '/images/pro-26/1-1231772531708677.avif' },
-  '27': { name: '이재원', image: '/images/pro-27/17230390916981773388202648.avif' },
-  '28': { name: '이한나', image: '/images/pro-28/IMG_002209_01772081523241.avif' },
-  '29': { name: '임하람', image: '/images/pro-29/10000118841772968813129.avif' },
-  '30': { name: '장윤영', image: '/images/pro-30/IMG_27051772976548211.avif' },
-  '31': { name: '전해별', image: '/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif' },
-  '32': { name: '전혜인', image: '/images/pro-32/IMG_19181773027236141.avif' },
-  '33': { name: '정미정', image: '/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif' },
-  '34': { name: '정애란', image: '/images/pro-34/IMG_2920.avif' },
-  '35': { name: '정이현', image: '/images/pro-35/44561772622988798.avif' },
-  '36': { name: '조하늘', image: '/images/pro-36/IMG_27041773036338469.avif' },
-  '37': { name: '최진선', image: '/images/pro-37/10001059551772371340253.avif' },
-  '38': { name: '한가람', image: '/images/pro-38/IMG_34281772111635068.avif' },
-  '39': { name: '함현지', image: '/images/pro-39/11773004544652.avif' },
-  '40': { name: '허수빈', image: '/images/pro-40/IMG_01991772961130928.avif' },
-  '41': { name: '홍현미', image: '/images/pro-41/IMG_12201772513865121.avif' },
-};
+const PRO_NAMES: Record<string, { name: string; image: string }> = {};
 
 // ─── Page ──────────────────────────────────────────────────
 export default function BookingPage() {

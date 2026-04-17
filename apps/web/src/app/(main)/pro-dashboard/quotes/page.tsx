@@ -64,13 +64,7 @@ interface Quote {
   rejectionReason?: string;
 }
 
-const INITIAL_QUOTES: Quote[] = [
-  { id: 'q1', clientName: '홍**', eventType: '결혼식', eventDate: '2026-05-17', plan: 'Premium', budget: '₩1,800,000', status: 'pending' },
-  { id: 'q2', clientName: '김**', eventType: '돌잔치', eventDate: '2026-05-24', plan: 'Superior', budget: '₩1,200,000', status: 'pending' },
-  { id: 'q3', clientName: '박**', eventType: '기업행사', eventDate: '2026-06-01', plan: 'Enterprise', budget: '₩3,500,000', status: 'pending' },
-  { id: 'q4', clientName: '이**', eventType: '결혼식', eventDate: '2026-06-14', plan: 'Premium', budget: '₩2,000,000', status: 'accepted' },
-  { id: 'q5', clientName: '최**', eventType: '돌잔치', eventDate: '2026-04-05', plan: 'Superior', budget: '₩900,000', status: 'rejected', rejectionReason: '일정 불가' },
-];
+const INITIAL_QUOTES: Quote[] = [];
 
 const REJECTION_REASONS = ['일정 불가', '지역 불가', '금액 불일치', '전문 분야 불일치', '기타'];
 

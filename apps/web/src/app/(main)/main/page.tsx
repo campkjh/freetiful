@@ -245,50 +245,8 @@ function Logo({ className }: { className?: string }) {
   );
 }
 
-// Type reference only — do not use as data source. API data must be used instead.
-const MOCK_PROS = [
-  { id: '1', name: '강도현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 117, pudding: 1, image: '/images/pro-01/10000133881772850005043.avif', images: ['/images/pro-01/10000133881772850005043.avif', '/images/pro-01/10000269161772850296005.avif', '/images/pro-01/55111772850244842.avif', '/images/pro-01/9041772850314846.avif'], intro: '신뢰감 있는 보이스로 현직 아나운서,레크,운동회,쇼호스트 모두 가능한 남자!', price: 450000, experience: 14, tags: ['전국가능', '우아한', '위트있는'], available: false },
-  { id: '2', name: '김동현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 165, pudding: 2, image: '/images/pro-02/10000365351773046135169.avif', images: ['/images/pro-02/10000365351773046135169.avif', '/images/pro-02/10000795161773046194452.avif', '/images/pro-02/10000855971773046164403.avif', '/images/pro-02/10000864531773046178640.avif'], intro: '안녕하세요 MC 김동현 입니다 :)', price: 450000, experience: 8, tags: ['서울/경기', '감동적인', '유머러스한'], available: true },
-  { id: '3', name: '김민지', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.8, reviews: 96, pudding: 3, image: '/images/pro-03/IMG_06781773894450803.avif', images: ['/images/pro-03/IMG_06781773894450803.avif', '/images/pro-03/IMG_17531773894460574.avif', '/images/pro-03/IMG_44861773894475916.avif', '/images/pro-03/IMG_96081773894468666.avif'], intro: '꼼꼼하고 부드러운 진행', price: 450000, experience: 4, tags: ['전국가능', '섬세한', '전문적인'], available: true },
-  { id: '4', name: '김솔', category: 'MC', role: '사회자', region: '전국', rating: 4.7, reviews: 36, pudding: 4, image: '/images/pro-04/IMG_23601771788594274.avif', images: ['/images/pro-04/IMG_23601771788594274.avif', '/images/pro-04/IMG_31471771788581868.avif', '/images/pro-04/IMG_33241771788569381.avif', '/images/pro-04/IMG_44921771788602280.avif'], intro: '자연스럽고 편안한 분위기의 웨딩 전문 MC', price: 450000, experience: 8, tags: ['서울/경기', '격식있는', '유쾌한'], available: true },
-  { id: '5', name: '김유석', category: 'MC', role: '사회자', region: '전국', rating: 4.7, reviews: 65, pudding: 5, image: '/images/pro-05/10000029811773033474612.avif', images: ['/images/pro-05/10000029811773033474612.avif', '/images/pro-05/10000044951773033401063.avif', '/images/pro-05/10000135061773033420087.avif', '/images/pro-05/10000263401773033544287.avif'], intro: '최고의 진행자 아나운서 김유석입니다.', price: 450000, experience: 8, tags: ['전국가능', '따뜻한', '차분한'], available: true, youtubeId: '6R7r1tbMbTY' },
-  { id: '6', name: '김재성', category: 'MC', role: '사회자', region: '충청', rating: 4.5, reviews: 235, pudding: 6, image: '/images/pro-06/10000602271772960706687.avif', images: ['/images/pro-06/10000602271772960706687.avif', '/images/pro-06/10000625401772960688608.avif', '/images/pro-06/10000653321772960487396.avif', '/images/pro-06/10000666071772960530192.avif'], intro: '순간을 기억으로 만드는 사회자', price: 450000, experience: 7, tags: ['경상권', '에너지넘치는', '위트있는'], available: true },
-  { id: '7', name: '김진아', category: 'MC', role: '사회자', region: '경상', rating: 4.6, reviews: 170, pudding: 7, image: '/images/pro-07/IMG_53011772965035335.avif', images: ['/images/pro-07/IMG_53011772965035335.avif', '/images/pro-07/IMG_61401772965618286.avif', '/images/pro-07/IMG_66501772965804174.avif', '/images/pro-07/IMG_78451772965478053.avif'], intro: '아나운서 김진아입니다', price: 450000, experience: 6, tags: ['서울/경기', '프리미엄', '세련된'], available: true },
-  { id: '8', name: '김호중', category: 'MC', role: '사회자', region: '전라', rating: 4.6, reviews: 232, pudding: 8, image: '/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif', images: ['/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif', '/images/pro-08/10E595A9-B36C-4A54-BE94-F6AFAA258E7D1773045761972.avif', '/images/pro-08/8CAA6337-E752-4EDF-8B1D-86C32DDCB5811773045691817.avif', '/images/pro-08/IMG_06101773045870594.avif'], intro: '🎤 “기획에서 진행까지, 무대를 완성하다.”', price: 450000, experience: 12, tags: ['서울/경기', '밝은', '에너지넘치는'], available: true },
-  { id: '9', name: '나연지', category: 'MC', role: '사회자', region: '강원', rating: 4.9, reviews: 239, pudding: 9, image: '/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif', images: ['/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif', '/images/pro-09/Facetune_26-12-2025-23-11-081772438046927.avif', '/images/pro-09/Facetune_26-12-2025-23-47-461772438096422.avif', '/images/pro-09/Facetune_28-12-2025-16-00-271772438073263.avif'], intro: '공식행사 전문 MC', price: 450000, experience: 3, tags: ['충청권', '친근한', '안정적인'], available: true, youtubeId: 'Hue7ZLJM7oo' },
-  { id: '10', name: '노유재', category: 'MC', role: '사회자', region: '제주', rating: 4.7, reviews: 197, pudding: 10, image: '/images/pro-10/10000016211774440274171.avif', images: ['/images/pro-10/10000016211774440274171.avif', '/images/pro-10/10000080011774440452164.avif', '/images/pro-10/10000086141774440497085.avif', '/images/pro-10/10000096111774440365370.avif'], intro: '무대에서 다진 표현력과 방송에서 쌓은 전달력으로 신뢰와 감동이 공존하는 진행을 완성합니다.', price: 450000, experience: 16, tags: ['전국가능', '베테랑', '감동적인'], available: true },
-  { id: '11', name: '도준석', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.8, reviews: 163, pudding: 11, image: '/images/pro-11/1-1231772850030951.avif', images: ['/images/pro-11/1-1231772850030951.avif', '/images/pro-11/3-1231772850058559.avif', '/images/pro-11/IMG_02501772849985994.avif', '/images/pro-11/IMG_35941772850008495.avif'], intro: '‘격’ 있는 사회자입니다.', price: 450000, experience: 2, tags: ['서울/경기', '깔끔한', '아나운서출신'], available: true, youtubeId: '72RX9prME4I' },
-  { id: '12', name: '문정은', category: 'MC', role: '사회자', region: '서울/경기', rating: 5.0, reviews: 242, pudding: 12, image: '/images/pro-12/0913 문정은5705 복사1772621245459.avif', images: ['/images/pro-12/0913 문정은5705 복사1772621245459.avif', '/images/pro-12/IMG_27221772621229571.avif', '/images/pro-12/IMG_31821772621337651.avif', '/images/pro-12/IMG_61001772621448507.avif'], intro: '신랑신부님 맞춤! 품격있고 고급스러운 진행 + 편안함 한 스푼🩵🤍', price: 450000, experience: 10, tags: ['전라권', '다정한', '유머러스한'], available: true, youtubeId: 'D5Mx42ArNOY' },
-  { id: '13', name: '박상설', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.9, reviews: 43, pudding: 13, image: '/images/pro-13/10000077391773050357628.avif', images: ['/images/pro-13/10000077391773050357628.avif', '/images/pro-13/10000119741773050332437.avif', '/images/pro-13/10000152851773050374131.avif', '/images/pro-13/10000345831773050337824.avif'], intro: '10년 경력, 2000번의 행사 경력으로 함께하겠습니다.', price: 450000, experience: 10, tags: ['서울/경기', '전문적인', '격식있는'], available: true, youtubeId: 'P04peAmLV7c' },
-  { id: '14', name: '박은결', category: 'MC', role: '사회자', region: '전국', rating: 4.6, reviews: 156, pudding: 14, image: '/images/pro-14/IMG_02661773035503788.avif', images: ['/images/pro-14/IMG_02661773035503788.avif', '/images/pro-14/IMG_25661773035575396.avif', '/images/pro-14/IMG_31641773035613744.avif', '/images/pro-14/IMG_74881773035596478.avif'], intro: '안녕하세요! 아나운서 사회자 박은결입니다', price: 450000, experience: 9, tags: ['전국가능', '국제행사전문', '프로페셔널'], available: true },
-  { id: '15', name: '박인애', category: 'MC', role: '사회자', region: '전국', rating: 4.6, reviews: 119, pudding: 15, image: '/images/pro-15/IMG_0196.avif', images: ['/images/pro-15/IMG_0196.avif', '/images/pro-15/IMG_7549.avif', '/images/pro-15/IMG_7552.avif', '/images/pro-15/IMG_8517.avif'], intro: '13년 생방송 뉴스 진행으로 다져진 품격있는 사회자', price: 450000, experience: 13, tags: ['서울/경기', '돌잔치전문', '따뜻한'], available: true, youtubeId: 'UIbfieXAT0U' },
-  { id: '16', name: '박주은', category: 'MC', role: '사회자', region: '충청', rating: 4.8, reviews: 225, pudding: 16, image: '/images/pro-16/IMG_01621772973118334.avif', images: ['/images/pro-16/IMG_01621772973118334.avif', '/images/pro-16/IMG_83991772973146317.avif', '/images/pro-16/IMG_98851772973174980.avif', '/images/pro-16/IMG_98891772973162789.avif'], intro: 'SBS Sports 아나운서', price: 450000, experience: 4, tags: ['전국가능', '방송인출신', '전문적인'], available: true, youtubeId: '_207ch4oFnU' },
-  { id: '17', name: '배유정', category: 'MC', role: '사회자', region: '경상', rating: 4.8, reviews: 92, pudding: 17, image: '/images/pro-17/IMG_21541773026472716.avif', images: ['/images/pro-17/IMG_21541773026472716.avif', '/images/pro-17/IMG_25041773026570198.avif', '/images/pro-17/IMG_30041773026515891.avif', '/images/pro-17/IMG_54931773026493813.avif'], intro: '안녕하십니까, 믿고 맏기는 행사입니다!', price: 450000, experience: 4, tags: ['전국가능', '우아한', '위트있는'], available: true },
-  { id: '18', name: '성연채', category: 'MC', role: '사회자', region: '전라', rating: 4.7, reviews: 241, pudding: 18, image: '/images/pro-18/20161016_161406_IMG_5921.avif', images: ['/images/pro-18/20161016_161406_IMG_5921.avif', '/images/pro-18/20161121_141359_IMG_6072.avif', '/images/pro-18/20180311_161359_IMG_8925.avif', '/images/pro-18/20180406_135859_IMG_9103.avif'], intro: '따뜻하고 다정한 아나운서 성연채입니다😊', price: 450000, experience: 10, tags: ['서울/경기', '감동적인', '유머러스한'], available: true, youtubeId: '6YEw574Gvg8' },
-  { id: '19', name: '송지은', category: 'MC', role: '사회자', region: '강원', rating: 4.8, reviews: 86, pudding: 19, image: '/images/pro-19/DE397232-C3A6-4FD0-80C8-0251D66A66AF1772092441240.avif', images: ['/images/pro-19/DE397232-C3A6-4FD0-80C8-0251D66A66AF1772092441240.avif', '/images/pro-19/IMG_60741772092494350.avif', '/images/pro-19/IMG_70171772092524815.avif', '/images/pro-19/IMG_86861772092348488.avif'], intro: '믿고 맡기는 아나운서', price: 450000, experience: 10, tags: ['전국가능', '섬세한', '전문적인'], available: true },
-  { id: '20', name: '유하늘', category: 'MC', role: '사회자', region: '제주', rating: 4.9, reviews: 34, pudding: 20, image: '/images/pro-20/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif', images: ['/images/pro-20/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif', '/images/pro-20/IMG_05351773030634574.avif', '/images/pro-20/IMG_06591773030512344.avif', '/images/pro-20/IMG_50451773030183819.avif'], intro: '고품격✨ 따뜻하고 사랑스러운 분위기의 결혼식 전문 사회자', price: 450000, experience: 4, tags: ['서울/경기', '격식있는', '유쾌한'], available: true },
-  { id: '21', name: '유하영', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 54, pudding: 21, image: '/images/pro-21/22712e20f03327c2843673c063c881f432f6af591772967031477.avif', images: ['/images/pro-21/22712e20f03327c2843673c063c881f432f6af591772967031477.avif', '/images/pro-21/IMG_40271772967046036.avif', '/images/pro-21/IMG_40281772967049484.avif', '/images/pro-21/ffaed956fca024b38fedcd45a4369470deb4f0621772967038190.avif'], intro: '안녕하세요:) KBS 캐스터 유하영 입니다', price: 450000, experience: 9, tags: ['전국가능', '따뜻한', '차분한'], available: true },
-  { id: '22', name: '이강문', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 210, pudding: 22, image: '/images/pro-22/10000353831773035180593.avif', images: ['/images/pro-22/10000353831773035180593.avif', '/images/pro-22/10000353841773035166256.avif', '/images/pro-22/10000353851773035190777.avif', '/images/pro-22/10000529141773035412786.avif'], intro: '10년베테랑사회자의 안정적인진행!', price: 450000, experience: 11, tags: ['경상권', '에너지넘치는', '위트있는'], available: true },
-  { id: '23', name: '이승진', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.8, reviews: 133, pudding: 23, image: '/images/pro-23/IMG_46511771924269213.avif', images: ['/images/pro-23/IMG_46511771924269213.avif', '/images/pro-23/IMG_46591771924566302.avif', '/images/pro-23/IMG_75131771924219656.avif', '/images/pro-23/IMG_96001771924190664.avif'], intro: '따뜻하고 깔끔한 진행의 사회자 이승진 입니다 :)', price: 450000, experience: 4, tags: ['서울/경기', '프리미엄', '세련된'], available: true, youtubeId: 'Nqe3UioEV8E' },
-  { id: '24', name: '이용석', category: 'MC', role: '사회자', region: '전국', rating: 4.9, reviews: 117, pudding: 24, image: '/images/pro-24/10001176941772847263491.avif', images: ['/images/pro-24/10001176941772847263491.avif', '/images/pro-24/10001176951772847270433.avif', '/images/pro-24/10001176961772847283258.avif', '/images/pro-24/10001176971772847277083.avif'], intro: '-1000회 이상의 결혼식사회, 공식행사, 방송진행 -정확한 톤, 명확한 전달, 자연스러운 여운. 그 균형을 지키는 사회자. 영상으로 확인하세요', price: 450000, experience: 11, tags: ['서울/경기', '밝은', '에너지넘치는'], available: true, youtubeId: 'nZhdGrZaBKU' },
-  { id: '25', name: '이우영', category: 'MC', role: '사회자', region: '전국', rating: 4.7, reviews: 222, pudding: 25, image: '/images/pro-25/2-11772248201484.avif', images: ['/images/pro-25/2-11772248201484.avif', '/images/pro-25/20260214_이우영240591772248144830.avif', '/images/pro-25/20260214_이우영240991772248153914.avif', '/images/pro-25/IMG_58821772248170290.avif'], intro: '현직 아나운서의 고품격 진행', price: 450000, experience: 8, tags: ['충청권', '친근한', '안정적인'], available: true, youtubeId: 'plGBzTNsdiM' },
-  { id: '26', name: '이원영', category: 'MC', role: '사회자', region: '충청', rating: 4.5, reviews: 94, pudding: 26, image: '/images/pro-26/1-1231772531708677.avif', images: ['/images/pro-26/1-1231772531708677.avif', '/images/pro-26/IMG_27231772531852387.avif', '/images/pro-26/IMG_27981772531758751.avif', '/images/pro-26/IMG_77151772531739607.avif'], intro: 'KBS 춘천방송총국 기상캐스터', price: 450000, experience: 6, tags: ['전국가능', '베테랑', '감동적인'], available: true },
-  { id: '27', name: '이재원', category: 'MC', role: '사회자', region: '경상', rating: 4.9, reviews: 24, pudding: 27, image: '/images/pro-27/17230390916981773388202648.avif', images: ['/images/pro-27/17230390916981773388202648.avif', '/images/pro-27/17366775813661773388237802.avif', '/images/pro-27/BeautyPlus_20230513204551113_save1773388309713.avif', '/images/pro-27/BeautyPlus_20251027213240149_save1773388163389.avif'], intro: '영어MC / 영어아나운서 이재원 (Jay - KOR/ENG Bilingual MC)', price: 450000, experience: 11, tags: ['서울/경기', '깔끔한', '아나운서출신'], available: true, youtubeId: 'oXBGQziegWc' },
-  { id: '28', name: '이한나', category: 'MC', role: '사회자', region: '전라', rating: 4.6, reviews: 68, pudding: 28, image: '/images/pro-28/IMG_002209_01772081523241.avif', images: ['/images/pro-28/IMG_002209_01772081523241.avif', '/images/pro-28/IMG_004350_01772081494500.avif', '/images/pro-28/IMG_010628_01772081478994.avif', '/images/pro-28/IMG_08631772081467465.avif'], intro: '생방송 4년차, 현직 아나운서 이한나', price: 450000, experience: 4, tags: ['전라권', '다정한', '유머러스한'], available: false, youtubeId: 'v1Rz8N2AV28' },
-  { id: '29', name: '임하람', category: 'MC', role: '사회자', region: '강원', rating: 4.8, reviews: 166, pudding: 29, image: '/images/pro-29/10000118841772968813129.avif', images: ['/images/pro-29/10000118841772968813129.avif', '/images/pro-29/10000118851772968842632.avif', '/images/pro-29/10000118861772968791354.avif', '/images/pro-29/10000292381772968967622.avif'], intro: '남들과 다른 특별한 예식을 진행해드립니다😆', price: 450000, experience: 8, tags: ['서울/경기', '전문적인', '격식있는'], available: true },
-  { id: '30', name: '장윤영', category: 'MC', role: '사회자', region: '제주', rating: 4.8, reviews: 225, pudding: 30, image: '/images/pro-30/IMG_27051772976548211.avif', images: ['/images/pro-30/IMG_27051772976548211.avif', '/images/pro-30/IMG_27831772976505642.avif', '/images/pro-30/IMG_55911772976529887.avif', '/images/pro-30/IMG_55941772976566963.avif'], intro: '아나운서 장윤영입니다 :)', price: 450000, experience: 1, tags: ['전국가능', '국제행사전문', '프로페셔널'], available: true },
-  { id: '31', name: '전해별', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.5, reviews: 201, pudding: 31, image: '/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif', images: ['/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif', '/images/pro-31/IMG_73341772850094485.avif', '/images/pro-31/IMG_73391772850088429.avif', '/images/pro-31/IMG_92281772850158117.avif'], intro: '탄탄한 발성의 아나운서가 여러분을 빛내 드리겠습니다.', price: 450000, experience: 10, tags: ['서울/경기', '돌잔치전문', '따뜻한'], available: true, youtubeId: 'Aooj1e0Wu2I' },
-  { id: '32', name: '전혜인', category: 'MC', role: '사회자', region: '서울/경기', rating: 5.0, reviews: 152, pudding: 32, image: '/images/pro-32/IMG_19181773027236141.avif', images: ['/images/pro-32/IMG_19181773027236141.avif', '/images/pro-32/IMG_19191773027254756.avif', '/images/pro-32/IMG_19201773027246152.avif', '/images/pro-32/IMG_49261773027106589.avif'], intro: '믿고 맡기는 아나운서 전혜인', price: 450000, experience: 3, tags: ['전국가능', '방송인출신', '전문적인'], available: true },
-  { id: '33', name: '정미정', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 48, pudding: 33, image: '/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif', images: ['/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif', '/images/pro-33/0cbe948eaed4fdb569f7e202960cc01a2dc22ff91772100447466.avif', '/images/pro-33/b555d5e83d7c070d5ca01b128f83700c4ca14fb31772100454325.avif', '/images/pro-33/d948fd97def1925232dea1242b17fa5731f9931d1772100435120.avif'], intro: '다양한 방송 분야 및 현장에서 경험과 전문성을 다진  경력 "1n"년차 아나운서 및 사회자', price: 450000, experience: 13, tags: ['전국가능', '우아한', '위트있는'], available: true },
-  { id: '34', name: '정애란', category: 'MC', role: '사회자', region: '전국', rating: 4.9, reviews: 226, pudding: 34, image: '/images/pro-34/IMG_2920.avif', images: ['/images/pro-34/IMG_2920.avif', '/images/pro-34/IMG_5670.avif', '/images/pro-34/IMG_5841.avif', '/images/pro-34/IMG_5842.avif'], intro: '임기응변에 강한 따뜻한 목소리', price: 450000, experience: 10, tags: ['서울/경기', '감동적인', '유머러스한'], available: true, youtubeId: 'uZCpxPN8I0Y' },
-  { id: '35', name: '정이현', category: 'MC', role: '사회자', region: '전국', rating: 4.8, reviews: 129, pudding: 35, image: '/images/pro-35/44561772622988798.avif', images: ['/images/pro-35/44561772622988798.avif', '/images/pro-35/44571772623001970.avif', '/images/pro-35/44611772622968203.avif', '/images/pro-35/56791772622891895.avif'], intro: '정이현사회자입니다', price: 450000, experience: 10, tags: ['전국가능', '섬세한', '전문적인'], available: true },
-  { id: '36', name: '조하늘', category: 'MC', role: '사회자', region: '충청', rating: 4.9, reviews: 152, pudding: 36, image: '/images/pro-36/IMG_27041773036338469.avif', images: ['/images/pro-36/IMG_27041773036338469.avif', '/images/pro-36/IMG_32021773036578352.avif', '/images/pro-36/IMG_42491773036546456.avif', '/images/pro-36/IMG_77011773036564503.avif'], intro: '아나돌: 아이돌 같은 아나운서 조하늘', price: 450000, experience: 5, tags: ['서울/경기', '격식있는', '유쾌한'], available: false },
-  { id: '37', name: '최진선', category: 'MC', role: '사회자', region: '경상', rating: 4.9, reviews: 204, pudding: 37, image: '/images/pro-37/10001059551772371340253.avif', images: ['/images/pro-37/10001059551772371340253.avif', '/images/pro-37/10001101721772371303174.avif', '/images/pro-37/10001101751772371254806.avif', '/images/pro-37/10001127141772371327596.avif'], intro: '최진선', price: 450000, experience: 5, tags: ['전국가능', '따뜻한', '차분한'], available: true },
-  { id: '38', name: '한가람', category: 'MC', role: '사회자', region: '전라', rating: 4.7, reviews: 62, pudding: 38, image: '/images/pro-38/IMG_34281772111635068.avif', images: ['/images/pro-38/IMG_34281772111635068.avif', '/images/pro-38/IMG_3429.avif', '/images/pro-38/IMG_3432.avif', '/images/pro-38/IMG_3433.avif'], intro: '고급스럽고 따뜻한 보이스 사회자 한가람 입니다☺️', price: 450000, experience: 8, tags: ['경상권', '에너지넘치는', '위트있는'], available: true, youtubeId: 'H-u5iHpbxds' },
-  { id: '39', name: '함현지', category: 'MC', role: '사회자', region: '강원', rating: 4.6, reviews: 115, pudding: 39, image: '/images/pro-39/11773004544652.avif', images: ['/images/pro-39/11773004544652.avif', '/images/pro-39/IMG_12081773004575812.avif', '/images/pro-39/IMG_68091773004557667.avif', '/images/pro-39/IMG_76701773004528766.avif'], intro: '깔끔하고 격식있는 진행, 함현지입니다.', price: 450000, experience: 4, tags: ['서울/경기', '프리미엄', '세련된'], available: true },
-  { id: '40', name: '허수빈', category: 'MC', role: '사회자', region: '제주', rating: 5.0, reviews: 97, pudding: 40, image: '/images/pro-40/IMG_01991772961130928.avif', images: ['/images/pro-40/IMG_01991772961130928.avif', '/images/pro-40/IMG_02001772961175115.avif', '/images/pro-40/IMG_02021772961211905.avif', '/images/pro-40/IMG_02031772961191961.avif'], intro: '순간을 놓치지 않는 센스와 따뜻한 진행으로, 결혼식의 분위기를 완성하는 전문 사회자 허수빈 입니다.', price: 450000, experience: 8, tags: ['서울/경기', '밝은', '에너지넘치는'], available: true },
-  { id: '41', name: '홍현미', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 222, pudding: 41, image: '/images/pro-41/IMG_12201772513865121.avif', images: ['/images/pro-41/IMG_12201772513865121.avif', '/images/pro-41/IMG_19021772514066029.avif', '/images/pro-41/IMG_57741772513914924.avif', '/images/pro-41/IMG_60161772513816986.avif'], intro: '정부|기업 공식행사 전문아나운서의 고급스러운 진행', price: 450000, experience: 10, tags: ['충청권', '친근한', '안정적인'], available: true },
-];
+// Mock data removed — API data only
+const MOCK_PROS: any[] = [];
 
 interface ReviewItem {
   nickname: string;
@@ -297,33 +255,7 @@ interface ReviewItem {
   text: string;
 }
 
-const RANK_REVIEWS: Record<string, ReviewItem[]> = {
-  '1': [
-    { nickname: '행복한신부', avatar: 'https://i.pravatar.cc/40?img=31', rating: 5.0, text: '우아하면서도 위트 있는 진행 덕분에 하객들이 모두 즐거워했어요' },
-    { nickname: '웨딩준비중', avatar: 'https://i.pravatar.cc/40?img=32', rating: 5.0, text: '격식과 유머의 밸런스가 완벽했어요. 다음에도 꼭 부탁드릴게요' },
-    { nickname: '예비신랑J', avatar: 'https://i.pravatar.cc/40?img=33', rating: 5.0, text: '사전 미팅부터 꼼꼼하게 준비해주셔서 감동이었습니다' },
-  ],
-  '2': [
-    { nickname: '봄날의신부', avatar: 'https://i.pravatar.cc/40?img=34', rating: 5.0, text: '감동과 웃음을 동시에, 이분 없으면 우리 결혼식 상상이 안 돼요' },
-    { nickname: '하객대표', avatar: 'https://i.pravatar.cc/40?img=35', rating: 4.9, text: '하객으로 갔는데 MC분이 너무 좋아서 연락처 받아왔어요' },
-    { nickname: '감동그자체', avatar: 'https://i.pravatar.cc/40?img=36', rating: 5.0, text: '부모님 감사 편지 낭독 때 온 하객이 울었어요. 진행력 최고' },
-  ],
-  '3': [
-    { nickname: '차분한예신', avatar: 'https://i.pravatar.cc/40?img=37', rating: 5.0, text: '섬세하게 챙겨주셔서 긴장 하나도 안 했어요. 최고의 MC!' },
-    { nickname: '후기남기기', avatar: 'https://i.pravatar.cc/40?img=38', rating: 4.8, text: '소통이 정말 빠르고 세심해요. 리허설도 꼼꼼하게 진행' },
-    { nickname: '행복한우리', avatar: 'https://i.pravatar.cc/40?img=39', rating: 5.0, text: '자연스러운 분위기 연출이 정말 프로페셔널했습니다' },
-  ],
-  '4': [
-    { nickname: '유쾌한커플', avatar: 'https://i.pravatar.cc/40?img=40', rating: 5.0, text: '격식도 있으면서 유쾌해서 분위기가 정말 좋았습니다' },
-    { nickname: '만족100', avatar: 'https://i.pravatar.cc/40?img=41', rating: 4.9, text: '이벤트 아이디어도 직접 제안해주시고 진행도 깔끔!' },
-    { nickname: '결혼축하', avatar: 'https://i.pravatar.cc/40?img=42', rating: 5.0, text: '친구 결혼식에서 보고 반해서 저도 바로 예약했어요' },
-  ],
-  '5': [
-    { nickname: '따뜻한하루', avatar: 'https://i.pravatar.cc/40?img=43', rating: 4.8, text: '따뜻한 목소리에 하객분들이 다 감동받으셨어요' },
-    { nickname: '소소한행복', avatar: 'https://i.pravatar.cc/40?img=44', rating: 4.9, text: '스몰웨딩이었는데 오히려 더 친밀한 진행이 좋았어요' },
-    { nickname: '웨딩후기', avatar: 'https://i.pravatar.cc/40?img=45', rating: 5.0, text: '목소리 톤이 정말 좋으세요. 편안한 분위기를 만들어주셨어요' },
-  ],
-};
+const RANK_REVIEWS: Record<string, ReviewItem[]> = {};
 
 function RotatingReview({ proId }: { proId: string }) {
   const reviews = RANK_REVIEWS[proId] ?? [];
@@ -360,25 +292,8 @@ function RotatingReview({ proId }: { proId: string }) {
   );
 }
 
-// Language map for foreign-language capable pros
-// 이름 → ID 매핑으로 언어 설정 (이우영=25, 김유석=5, 박인애=15, 이승진=23, 강도현=1, 김동현=2, 조하늘=36, 함현지=39, 정이현=35, 이한나=28, 전혜인=32, 김민지=3, 이강문=22, 박상설=13, 노유재=10)
-const PRO_LANGUAGES: Record<string, string[]> = {
-  '25': ['영어'],          // 이우영
-  '5': ['영어'],           // 김유석
-  '15': ['영어'],          // 박인애
-  '23': ['영어'],          // 이승진
-  '1': ['영어'],           // 강도현
-  '2': ['영어'],           // 김동현
-  '36': ['영어'],          // 조하늘
-  '39': ['영어'],          // 함현지
-  '35': ['일본어'],        // 정이현
-  '28': ['일본어'],        // 이한나
-  '32': ['일본어'],        // 전혜인
-  '3': ['일본어'],         // 김민지
-  '22': ['중국어'],        // 이강문
-  '13': ['중국어'],        // 박상설
-  '10': ['중국어'],        // 노유재
-};
+// Language map — emptied; will come from API
+const PRO_LANGUAGES: Record<string, string[]> = {};
 
 const LANGUAGE_PROS_IDS = Object.keys(PRO_LANGUAGES);
 const ALL_LANGUAGES = [...new Set(Object.values(PRO_LANGUAGES).flat())];
@@ -391,29 +306,13 @@ const LANGUAGE_FLAGS: Record<string, string> = {
   '베트남어': '/images/flag-vn.svg',
 };
 
-// Event-specialist pros (by id)
-const EVENT_SPECIALIST: Record<string, string> = {
-  '15': '돌잔치', '16': '돌잔치',
-  '34': '생신잔치',
-  '13': '기업행사', '11': '기업행사',
-  '18': '야외웨딩', '19': '리조트웨딩',
-  '26': '종교행사',
-  '29': '학교행사',
-  '27': '전통혼례',
-  '30': '상견례',
-  '6': '워크숍/MT',
-  '37': '축제/페스티벌',
-};
+// Event-specialist pros — emptied; will come from API
+const EVENT_SPECIALIST: Record<string, string> = {};
 const EVENT_SPECIALIST_IDS = Object.keys(EVENT_SPECIALIST);
 const ALL_EVENT_TYPES = [...new Set(Object.values(EVENT_SPECIALIST))];
 
-// Online status: minutes since last active (0 = currently online)
-const PRO_ONLINE_STATUS: Record<string, number> = {
-  '1': 0, '3': 0, '5': 3, '7': 0, '9': 0, '11': 2,
-  '13': 0, '15': 0, '17': 1, '19': 0, '21': 0, '23': 3,
-  '25': 0, '27': 0, '29': 2, '31': 0, '33': 0, '35': 0,
-  '37': 1, '39': 0, '41': 0,
-};
+// Online status — emptied; will come from API
+const PRO_ONLINE_STATUS: Record<string, number> = {};
 
 function OnlineProCard({ pro }: { pro: typeof MOCK_PROS[0] }) {
   const minutesAgo = PRO_ONLINE_STATUS[pro.id] ?? 0;
@@ -482,20 +381,7 @@ interface BusinessPartner {
 
 const BIZ_CATEGORIES = ['전체', '웨딩홀', '피부과', '스튜디오', '드레스', '헤메샵', '스냅영상'];
 
-const MOCK_BUSINESSES: BusinessPartner[] = [
-  { id: 'b1', category: '웨딩홀', name: '더채플앳청담', location: '서울 강남구', images: ['/images/65e031ea-8392-44b1-b301-3e1b7d072649.jpg'], tags: ['청담동 루프탑 채플', '연예인 웨딩홀'], originalPrice: 5000000, discountPercent: 40 },
-  { id: 'b2', category: '웨딩홀', name: '그랜드하얏트 서울', location: '서울 용산구', images: ['/images/2017_wedding_ybg_visual_img4.jpg'], tags: ['남산뷰 프리미엄 호텔', '대규모 하객 수용'], originalPrice: 8000000, discountPercent: 35 },
-  { id: 'b3', category: '피부과', name: '글로우업 피부과', location: '서울 신사동', images: ['/images/1675329650.jpg'], tags: ['신사동 웨딩피부 1위', '예신 필수 코스'], originalPrice: 1200000, discountPercent: 50 },
-  { id: 'b4', category: '피부과', name: '뉴페이스 클리닉', location: '서울 압구정', images: ['/images/79598_91056_5542.jpg'], tags: ['압구정 프리미엄 피부과', '1:1 맞춤 케어'], originalPrice: 1500000, discountPercent: 45 },
-  { id: 'b5', category: '스튜디오', name: '무드스튜디오', location: '서울 성수동', images: ['/images/1d2bf19650093.jpg'], tags: ['성수동 감성 스튜디오', '자연광 전문'], originalPrice: 2000000, discountPercent: 40 },
-  { id: 'b6', category: '스튜디오', name: '아뜰리에드서울', location: '서울 삼청동', images: ['/images/65e031ea-8392-44b1-b301-3e1b7d072649.jpg'], tags: ['삼청동 한옥 스튜디오', '클래식 웨딩 전문'], originalPrice: 2500000, discountPercent: 35 },
-  { id: 'b7', category: '드레스', name: '라비엔로즈', location: '서울 논현동', images: ['https://i.pravatar.cc/300?img=68', 'https://i.pravatar.cc/300?img=69', 'https://i.pravatar.cc/300?img=70'], tags: ['논현동 유럽 수입 드레스', '맞춤 제작 전문'], originalPrice: 3000000, discountPercent: 30 },
-  { id: 'b8', category: '드레스', name: '모니카블랑쉬', location: '서울 청담동', images: ['https://i.pravatar.cc/300?img=1', 'https://i.pravatar.cc/300?img=2', 'https://i.pravatar.cc/300?img=3'], tags: ['청담동 디자이너 드레스', '셀럽 단골샵'], originalPrice: 4000000, discountPercent: 25 },
-  { id: 'b9', category: '헤메샵', name: '블룸헤어메이크업', location: '서울 강남구', images: ['https://i.pravatar.cc/300?img=4', 'https://i.pravatar.cc/300?img=5', 'https://i.pravatar.cc/300?img=6'], tags: ['강남 본식 헤메 1위', '자연스러운 메이크업'], originalPrice: 800000, discountPercent: 40 },
-  { id: 'b10', category: '헤메샵', name: '뷰티하우스 제이', location: '서울 서초구', images: ['https://i.pravatar.cc/300?img=7', 'https://i.pravatar.cc/300?img=8', 'https://i.pravatar.cc/300?img=9'], tags: ['서초 셀럽 담당 헤메샵', '리터치 포함'], originalPrice: 1000000, discountPercent: 35 },
-  { id: 'b11', category: '스냅영상', name: '필름바이준', location: '서울 마포구', images: ['https://i.pravatar.cc/300?img=10', 'https://i.pravatar.cc/300?img=11', 'https://i.pravatar.cc/300?img=12'], tags: ['마포 시네마틱 웨딩 영상', '당일 편집 가능'], originalPrice: 1500000, discountPercent: 40 },
-  { id: 'b12', category: '스냅영상', name: '스냅바이유', location: '서울 합정동', images: ['https://i.pravatar.cc/300?img=13', 'https://i.pravatar.cc/300?img=14', 'https://i.pravatar.cc/300?img=15'], tags: ['합정 포토+영상 패키지', '자연스러운 촬영'], originalPrice: 1200000, discountPercent: 45 },
-];
+const MOCK_BUSINESSES: BusinessPartner[] = [];
 
 function BusinessCard({ biz }: { biz: BusinessPartner }) {
   // 가상의 리뷰 데이터 (나중에 실제 데이터로 교체)

@@ -20,53 +20,7 @@ interface ChatRoom {
   isHidden?: boolean;
 }
 
-const MOCK_ROOMS: ChatRoom[] = [
-  {
-    id: '1',
-    otherUser: { id: 'pro-1', name: '이우영', role: '사회자', profileImageUrl: '/images/pro-25/2-11772248201484.avif' },
-    lastMessage: '견적 정보를 보냈습니다.',
-    lastMessageAt: '2026-03-26',
-    unreadCount: 0,
-    isPinned: true,
-    isArchived: false,
-  },
-  {
-    id: '2',
-    otherUser: { id: 'pro-2', name: '이승진', role: '사회자', profileImageUrl: '/images/pro-23/IMG_46511771924269213.avif' },
-    lastMessage: '견적 정보를 보냈습니다.',
-    lastMessageAt: '2026-03-26',
-    unreadCount: 0,
-    isPinned: true,
-    isArchived: false,
-  },
-  {
-    id: '3',
-    otherUser: { id: 'pro-3', name: '박인애', role: '사회자', profileImageUrl: '/images/pro-15/IMG_0196.avif' },
-    lastMessage: '네, 4월 5일 결혼식 MC 가능합니다.',
-    lastMessageAt: '2026-03-25',
-    unreadCount: 3,
-    isPinned: false,
-    isArchived: false,
-  },
-  {
-    id: '4',
-    otherUser: { id: 'pro-4', name: '전해별', role: '사회자', profileImageUrl: '/images/pro-31/IMG_73341772850094485.avif' },
-    lastMessage: '견적서를 보내드렸습니다. 확인 부탁드립니다 😊',
-    lastMessageAt: '2026-03-24',
-    unreadCount: 1,
-    isPinned: false,
-    isArchived: false,
-  },
-  {
-    id: '5',
-    otherUser: { id: 'pro-5', name: '정이현', role: '사회자', profileImageUrl: '/images/pro-35/44561772622988798.avif' },
-    lastMessage: '축가 3곡 기본이고, 추가 곡은 곡당 5만원입니다.',
-    lastMessageAt: '2026-03-20',
-    unreadCount: 0,
-    isPinned: false,
-    isArchived: true,
-  },
-];
+const MOCK_ROOMS: ChatRoom[] = [];
 
 // 미리보기용 더미 메시지
 function makePreviewMessages(room: ChatRoom) {
@@ -82,12 +36,7 @@ type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 
 type ProFilterTab = '전체' | '읽음' | '안 읽음' | '견적문의' | '예약확정' | '숨김';
 
-const PRO_MOCK_ROOMS: ChatRoom[] = [
-  { id: 'c1', otherUser: { id: 'client-1', name: '홍**', role: '고객', profileImageUrl: '' }, lastMessage: '결혼식 견적 문의드립니다', lastMessageAt: '2026-04-11', unreadCount: 2, isPinned: false, isArchived: false },
-  { id: 'c2', otherUser: { id: 'client-2', name: '김**', role: '고객', profileImageUrl: '' }, lastMessage: '4월 19일 가능하신가요?', lastMessageAt: '2026-04-10', unreadCount: 1, isPinned: false, isArchived: false },
-  { id: 'c3', otherUser: { id: 'client-3', name: '이**', role: '고객', profileImageUrl: '' }, lastMessage: '견적서 확인했습니다. 진행할게요!', lastMessageAt: '2026-04-09', unreadCount: 0, isPinned: true, isArchived: false },
-  { id: 'c4', otherUser: { id: 'client-4', name: '박**', role: '고객', profileImageUrl: '' }, lastMessage: '돌잔치 MC 가능하신지 문의드립니다', lastMessageAt: '2026-04-08', unreadCount: 0, isPinned: false, isArchived: false },
-];
+const PRO_MOCK_ROOMS: ChatRoom[] = [];
 
 const ClientAvatar = ({ name }: { name: string }) => (
   <div className="w-[48px] h-[48px] rounded-full bg-gray-200 flex items-center justify-center shrink-0">
