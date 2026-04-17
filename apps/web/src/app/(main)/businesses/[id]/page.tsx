@@ -5,17 +5,33 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Share2, Heart, MapPin, Phone, Globe, Instagram, ExternalLink } from 'lucide-react';
 
 const MOCK_BIZ = {
-  id: '',
-  name: '',
-  category: '',
-  address: '',
-  addressDetail: '',
-  phone: '',
-  instagramUrl: '',
-  websiteUrl: '',
-  descriptionHtml: '',
-  images: [] as string[],
-  views: 0,
+  id: '1',
+  name: '시에나호텔 웨딩',
+  category: '웨딩홀',
+  address: '서울 강남구 역삼로 521',
+  addressDetail: '3층 그랜드볼룸',
+  phone: '02-1234-5678',
+  instagramUrl: 'https://instagram.com/siena_wedding',
+  websiteUrl: 'https://siena-wedding.co.kr',
+  descriptionHtml: `
+    <h3>시에나호텔 웨딩</h3>
+    <p>강남 중심부에 위치한 프리미엄 웨딩 전용 호텔입니다.</p>
+    <p>200명 수용 가능한 그랜드볼룸과 뷔페 서비스를 제공합니다.</p>
+    <h3>시설 안내</h3>
+    <ul>
+      <li>그랜드볼룸 (200명)</li>
+      <li>가든테라스 (야외식 가능)</li>
+      <li>신부 대기실 / 폐백실</li>
+      <li>전용 주차 100대</li>
+    </ul>
+  `,
+  images: [
+    'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1507504031003-b417219a0fde?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1478146059778-26028b07395a?w=600&h=400&fit=crop',
+  ],
+  views: 3420,
 };
 
 export default function BusinessDetailPage() {

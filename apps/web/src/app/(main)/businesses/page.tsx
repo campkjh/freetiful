@@ -46,7 +46,97 @@ const FILTER_GROUPS = [
   { key: 'recommend', label: '추천포인트', options: ['이벤트', '잔여타임', '긴버진로드', '높은천고', '역세권', '어두운홀', '신축홀', '단독홀', '주차편리'] },
 ];
 
-const MOCK_RANK_ITEMS: RankItem[] = [];
+const MOCK_RANK_ITEMS: RankItem[] = [
+  {
+    id: 'b1',
+    rank: 1,
+    title: '클레오르 진심 입술필러',
+    region: '경기 의정부역',
+    clinic: '클레오르의원-의정부점',
+    rating: 9.7,
+    reviewCount: 14,
+    originalPrice: 77000,
+    discountPercent: 44,
+    finalPrice: 42900,
+    hasAppPay: true,
+    hasAppBooking: true,
+    image: 'https://i.pravatar.cc/400?img=45',
+  },
+  {
+    id: 'b2',
+    rank: 2,
+    title: '필러',
+    region: '경기 의정부역',
+    clinic: '쏘울성형외과의원',
+    rating: 9.8,
+    reviewCount: 9,
+    originalPrice: 165000,
+    discountPercent: 40,
+    finalPrice: 99000,
+    hasAppPay: false,
+    hasAppBooking: true,
+    image: 'https://i.pravatar.cc/400?img=47',
+    verifiedBadge: '고객평가우수병원',
+  },
+  {
+    id: 'b3',
+    rank: 3,
+    title: '볼륨 가득 입술필러, 입술전체, 입술 입꼬리 리버스클리닉 분당',
+    region: '경기 서현역',
+    clinic: '리버스의원-분당점',
+    rating: 9.0,
+    reviewCount: 15,
+    finalPrice: 99000,
+    hasAppPay: true,
+    hasAppBooking: true,
+    image: 'https://i.pravatar.cc/400?img=48',
+  },
+  {
+    id: 'b4',
+    rank: 4,
+    title: '화수목 평일 한정 리버스 EVENT_보톡스 여드름관리 슈링크유니버스 볼뉴머 필러',
+    region: '경기 수원시청역',
+    clinic: '리버스의원-수원점',
+    rating: 8.7,
+    reviewCount: 3,
+    originalPrice: 50000,
+    discountPercent: 13,
+    finalPrice: 43500,
+    hasAppPay: true,
+    hasAppBooking: true,
+    image: 'https://i.pravatar.cc/400?img=50',
+  },
+  {
+    id: 'b5',
+    rank: 5,
+    title: '프리미엄 입술 필러 패키지',
+    region: '경기 성남역',
+    clinic: '뷰티클리닉-성남점',
+    rating: 9.2,
+    reviewCount: 28,
+    originalPrice: 120000,
+    discountPercent: 38,
+    finalPrice: 74400,
+    hasAppPay: true,
+    hasAppBooking: true,
+    image: 'https://i.pravatar.cc/400?img=52',
+  },
+  {
+    id: 'b6',
+    rank: 6,
+    title: '웨딩 촬영 프리미엄 패키지',
+    region: '경기 분당역',
+    clinic: '무드스튜디오-분당점',
+    rating: 9.5,
+    reviewCount: 42,
+    originalPrice: 2000000,
+    discountPercent: 35,
+    finalPrice: 1300000,
+    hasAppPay: true,
+    hasAppBooking: true,
+    image: 'https://i.pravatar.cc/400?img=55',
+  },
+];
 
 // ─── Page ──────────────────────────────────────────────────
 export default function BusinessListPage() {
@@ -56,7 +146,7 @@ export default function BusinessListPage() {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [rankItems, setRankItems] = useState<RankItem[]>([]);
+  const [rankItems, setRankItems] = useState<RankItem[]>(MOCK_RANK_ITEMS);
 
   // Fetch businesses from API
   useEffect(() => {
