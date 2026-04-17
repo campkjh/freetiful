@@ -12,6 +12,7 @@ export const quotationApi = {
     eventTime?: string;
     eventLocation?: string;
     validUntil?: string;
+    chatRoomId?: string;
   }) => apiClient.post(`${BASE}`, data).then((r) => r.data),
 
   getForPro: (params?: { page?: number; limit?: number }) =>

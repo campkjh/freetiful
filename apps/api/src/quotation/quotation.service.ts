@@ -27,6 +27,11 @@ export class QuotationService {
       matchDeliveryId?: string;
     },
   ) {
+    // 최소 견적 금액 30만원
+    if (data.amount < 300000) {
+      throw new BadRequestException('견적 금액은 최소 300,000원 이상이어야 합니다.');
+    }
+
     // 전문가 프로필 확인
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { id: proProfileId },
