@@ -97,8 +97,18 @@ export default function CheckoutPage() {
   const [showScheduleDetail, setShowScheduleDetail] = useState(false);
   const [showPrivacyDetail, setShowPrivacyDetail] = useState(false);
   const [usePoints, setUsePoints] = useState(true);
+  const [consented, setConsented] = useState(false);
 
-  const pointAmount = 5000;
+  // 실제 포인트 잔액 조회
+  const [pointBalance, setPointBalance] = useState(0);
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get<{ balance: number }>('/api/v1/users/points')
+      .then((res) => setPointBalance(res.data?.balance ?? 0))
+      .catch(() => {});
+  }, [authUser]);
+
+  const pointAmount = usePoints ? Math.min(pointBalance, price) : 0;
   const couponAmount = 0;
   const discountAmount = maxDiscount ? pointAmount : 0;
   // Toss 최소 결제 금액 100원 보장 — 할인으로 음수가 되지 않도록 clamp
@@ -139,21 +149,16 @@ export default function CheckoutPage() {
       widgetsRef.current.setAmount({ currency: 'KRW', value: finalPrice }).catch(() => {});
     }
   }, [finalPrice, widgetsReady]);
-  const [consented, setConsented] = useState(false);
-  const [buttonPulse, setButtonPulse] = useState(false);
-
-  const handleConsent = () => {
-    setAgreedCancel(true);
-    setAgreedPrivacy(true);
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    setButtonPulse(true);
-    setTimeout(() => {
-      setConsented(true);
-      setTimeout(() => setButtonPulse(false), 500);
-    }, 150);
-  };
 
   const handlePayment = async () => {
+    // 첫 클릭: 동의 처리 + 애니메이션 → 두 번째 클릭: 결제 진행
+    if (!consented) {
+      setAgreedCancel(true);
+      setAgreedPrivacy(true);
+      setConsented(true);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      return;
+    }
     if (!agreedCancel) { toast.error('취소/환불 규정에 동의해주세요'); return; }
     if (!agreedPrivacy) { toast.error('개인정보 수집에 동의해주세요'); return; }
 
@@ -318,16 +323,23 @@ export default function CheckoutPage() {
           </div>
 
           <div className="px-4 py-3 border-t border-gray-100">
-            <p className="text-[12px] text-gray-500 mb-2">포인트</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[12px] text-gray-500">포인트</p>
+              <span className="text-[11px] text-gray-400">잔액 {pointBalance.toLocaleString()}P</span>
+            </div>
             <div className="flex items-center justify-between px-3 h-[40px] border border-gray-200 rounded-xl">
               <span className="text-[13px] text-gray-700">사용</span>
-              {usePoints ? (
-                <button onClick={() => setUsePoints(false)} className="flex items-center gap-1 text-[14px] font-bold text-[#3180F7]">
-                  -{pointAmount.toLocaleString()} P
-                  <X size={14} className="text-gray-400" />
-                </button>
+              {pointBalance > 0 ? (
+                usePoints ? (
+                  <button onClick={() => setUsePoints(false)} className="flex items-center gap-1 text-[14px] font-bold text-[#3180F7]">
+                    -{pointAmount.toLocaleString()} P
+                    <X size={14} className="text-gray-400" />
+                  </button>
+                ) : (
+                  <button onClick={() => setUsePoints(true)} className="text-[13px] text-gray-400">적용하기</button>
+                )
               ) : (
-                <button onClick={() => setUsePoints(true)} className="text-[13px] text-gray-400">적용하기</button>
+                <span className="text-[13px] text-gray-300">사용 가능한 포인트가 없어요</span>
               )}
             </div>
           </div>
@@ -470,15 +482,21 @@ export default function CheckoutPage() {
         <button
           onClick={handlePayment}
           disabled={payLoading}
-          className="w-full h-[52px] rounded-2xl text-[16px] font-bold text-white active:scale-[0.98] disabled:opacity-60 bg-gradient-to-r from-[#3180F7] to-[#5A9BFF] shadow-lg shadow-blue-500/30 transition-transform"
+          className={`w-full h-[52px] rounded-2xl text-[16px] font-bold text-white active:scale-[0.98] disabled:opacity-60 transition-all duration-500 ${
+            consented
+              ? 'bg-gradient-to-r from-[#1E5FD1] to-[#2B6FE8] shadow-lg shadow-blue-500/40 scale-[1.02]'
+              : 'bg-gradient-to-r from-[#3180F7] to-[#5A9BFF] shadow-md'
+          }`}
         >
           {payLoading ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               결제 진행 중...
             </span>
-          ) : (
+          ) : consented ? (
             `${finalPrice.toLocaleString()}원 결제하기`
+          ) : (
+            '결제 내용에 동의합니다'
           )}
         </button>
       </div>
