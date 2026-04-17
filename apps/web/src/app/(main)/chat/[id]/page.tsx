@@ -539,7 +539,7 @@ function KakaoMapEmbed({ venue }: { venue: string }) {
 }
 
 // ─── 시스템 메시지 카드 ─────────────────────────────────────
-function SystemMessageCard({ msg }: { msg: Message }) {
+function SystemMessageCard({ msg, proId }: { msg: Message; proId?: string }) {
   const sys = msg.system;
   if (!sys) return null;
 
@@ -646,7 +646,19 @@ function SystemMessageCard({ msg }: { msg: Message }) {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="#3180F7" opacity="0.2"/><path d="M9 12l2 2 4-4" stroke="#3180F7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               <span className="text-[11px] text-[#3180F7] font-medium">프리티풀 구매안심보호</span>
             </div>
-            <button type="button" onClick={(e) => e.stopPropagation()} className="w-full h-10 bg-[#3180F7] active:scale-[0.98] text-white text-[13px] font-semibold rounded-xl transition-transform flex items-center justify-center gap-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                // 5-4: 안전결제 → checkout 페이지로 이동
+                const params = new URLSearchParams({
+                  plan: sys.title || `${sys.plan || 'premium'} 패키지`,
+                  price: String(sys.amount || 450000),
+                });
+                window.location.href = `/pros/${proId || 'unknown'}/checkout?${params.toString()}`;
+              }}
+              className="w-full h-10 bg-[#3180F7] active:scale-[0.98] text-white text-[13px] font-semibold rounded-xl transition-transform flex items-center justify-center gap-1.5"
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="white" opacity="0.3"/><path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               안전결제하기
             </button>
@@ -1565,7 +1577,7 @@ export default function ChatRoomPage() {
                       <span className="text-[11px] text-gray-400">{formatDateDivider(msg.createdAt)}</span>
                     </div>
                   )}
-                  <SystemMessageCard msg={msg} />
+                  <SystemMessageCard msg={msg} proId={pro.id} />
                 </div>
               );
             }
