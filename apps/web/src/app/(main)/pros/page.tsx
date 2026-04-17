@@ -85,7 +85,7 @@ const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주'];
 // 축가/연주 가능 사회자 (현재 데이터에 별도 카테고리 없어서 ID로 매핑)
 const SINGER_PRO_IDS = ['9', '18', '20', '30', '34', '38'];
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 50;
 
 // localStorage에서 등록된 사회자 데이터 가져오기
 function getRegisteredPro(): typeof MOCK_PROS[0] | null {

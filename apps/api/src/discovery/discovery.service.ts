@@ -7,7 +7,7 @@ export class DiscoveryService {
 
   // ─── In-memory response cache (60s TTL) ────────────────────────────────────
   private cache = new Map<string, { data: any; expires: number }>();
-  private CACHE_TTL = 60_000; // 60s
+  private CACHE_TTL = 300_000; // 5분
 
   private getCached<T>(key: string): T | null {
     const entry = this.cache.get(key);
@@ -150,6 +150,10 @@ export class DiscoveryService {
 
   /** 전문가 상세 */
   async getProDetail(proProfileId: string) {
+    const cacheKey = `proDetail:${proProfileId}`;
+    const cached = this.getCached<any>(cacheKey);
+    if (cached) return cached;
+
     const pro = await this.prisma.proProfile.findUnique({
       where: { id: proProfileId },
       include: {
@@ -167,15 +171,17 @@ export class DiscoveryService {
 
     if (!pro) return null;
 
-    // Increment views
-    await this.prisma.proProfile.update({
+    // Increment views (비동기, 캐시에 영향 안 줌)
+    this.prisma.proProfile.update({
       where: { id: proProfileId },
       data: { profileViews: { increment: 1 } },
-    });
+    }).catch(() => {});
 
-    return {
+    const result = {
       ...pro,
       avgRating: Number(pro.avgRating),
     };
+    this.setCached(cacheKey, result);
+    return result;
   }
 }

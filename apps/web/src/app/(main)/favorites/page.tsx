@@ -6,6 +6,7 @@ import { Heart, Star, MapPin, Building2, Trash2 } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { favoriteApi } from '@/lib/api/favorite.api';
+import { discoveryApi } from '@/lib/api/discovery.api';
 
 type Tab = 'service' | 'portfolio' | 'recent';
 type ProCategory = '전체' | '사회자' | '쇼호스트' | '축가';
@@ -83,39 +84,46 @@ export default function FavoritesPage() {
     setIsLoggedIn(loggedIn);
     if (!loggedIn) return;
 
-    // Try fetching from API first
+    // API 에서 찜 목록 가져오기 (로그인 시) — 응답: { items: [{ id, createdAt, proProfile }], total }
     if (authUser) {
       favoriteApi.getList({ limit: 50 })
         .then((res: any) => {
-          if (res.data?.length > 0) {
-            setFavPros(res.data.map((f: any) => ({
-              id: f.proProfile?.id || f.proProfileId,
+          const items = res?.items || res?.data || [];
+          if (items.length > 0) {
+            setFavPros(items.map((f: any) => ({
+              id: f.proProfile?.id || f.targetId || f.proProfileId,
               name: f.proProfile?.user?.name || '',
               category: '사회자',
               badge: '',
               intro: f.proProfile?.shortIntro || '',
               rating: Number(f.proProfile?.avgRating || 0),
               reviews: f.proProfile?.reviewCount || 0,
-              image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
+              image: f.proProfile?.images?.[0]?.imageUrl || '',
               price: f.proProfile?.services?.[0]?.basePrice || 450000,
               subName: `사회자 ${f.proProfile?.user?.name || ''}`,
             })));
-            return;
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          // API 실패 시 localStorage 폴백
+          loadFavoritesFromLocal();
+        });
+    } else {
+      // 비로그인 → localStorage 만
+      loadFavoritesFromLocal();
     }
 
-    // Fallback: Load favorites from localStorage
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      if (stored.length > 0) {
-        const mapped = stored
-          .map((id) => ALL_PROS.find((p) => p.id === id))
-          .filter(Boolean) as typeof ALL_PROS;
-        setFavPros(mapped);
-      }
-    } catch {}
+    function loadFavoritesFromLocal() {
+      try {
+        const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+        if (stored.length > 0) {
+          const mapped = stored
+            .map((id) => ALL_PROS.find((p) => p.id === id))
+            .filter(Boolean) as typeof ALL_PROS;
+          setFavPros(mapped);
+        }
+      } catch {}
+    }
 
     // Load demo biz data if available
     const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
@@ -141,13 +149,45 @@ export default function FavoritesPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // 최근 본 전문가: localStorage 의 viewed-pros ID 들을 API 데이터와 매칭
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('viewed-pros') || '[]') as { id: string; time: number }[];
-      const recent = stored
+      if (stored.length === 0) return;
+      // 먼저 MOCK 에서 찾고, 없으면 API 에서 찾기
+      const mockMatched = stored
         .map((v) => ALL_PROS.find((p) => p.id === v.id) || null)
         .filter(Boolean) as typeof ALL_PROS;
-      setRecentPros(recent);
+      if (mockMatched.length > 0) setRecentPros(mockMatched);
+      // API 프로 데이터에서도 매칭 (UUID 기반 실데이터)
+      discoveryApi.getProList({ limit: 100, sort: 'newest' })
+        .then((res) => {
+          if (!res?.data?.length) return;
+          const viewedIds = new Set(stored.map((v) => v.id));
+          const apiMatched = res.data
+            .filter((p: any) => viewedIds.has(p.id))
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              category: '사회자',
+              badge: '',
+              intro: p.shortIntro || '',
+              rating: Number(p.avgRating || 0),
+              reviews: p.reviewCount || 0,
+              image: p.images?.[0] || p.profileImageUrl || '',
+              price: p.basePrice || 450000,
+              subName: `사회자 ${p.name}`,
+            }));
+          if (apiMatched.length > 0) {
+            // MOCK + API 합치고 중복 제거
+            setRecentPros((prev) => {
+              const map = new Map(prev.map((p) => [p.id, p]));
+              apiMatched.forEach((p: any) => map.set(p.id, p));
+              return Array.from(map.values());
+            });
+          }
+        })
+        .catch(() => {});
     } catch {}
   }, []);
 
