@@ -66,19 +66,22 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   // Biz bubble stays visible (no auto-hide)
 
-  // 로그인이 필요한 ��이지 패턴
-  const AUTH_REQUIRED = [/^\/chat/, /^\/schedule/, /^\/favorites/, /^\/my/, /^\/quote/, /^\/pro-/];
+  // 로그인이 필요한 페이지 패턴
+  // /quote 는 제외 — 마지막 '요청보내기' 에서만 로그인 필요 (quote/page.tsx 에서 자체 처리)
+  // /pro-register 만 보호 (/pros/[id]/booking 등은 자체 모달로 처리)
+  const AUTH_REQUIRED = [/^\/chat/, /^\/schedule/, /^\/favorites/, /^\/my/, /^\/pro-register/, /^\/pro-dashboard/];
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
+    // zustand persist 하이드레이션 대기 (localStorage 폴백 포함)
     const isLoggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (!isLoggedIn && needsAuth) {
-      // 인증 필요 페이지 접근 차단 — 무조건 /main(홈) 으로 이동
-      router.replace('/main');
-      // iOS면 네이티브 sheet 추가로 호출 (웹 브라우저는 그냥 /main에 머무름)
+      // iOS면 네이티브 로그인 sheet, 웹이면 /main 리다이렉트
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {
         iosBridge.postMessage({});
+      } else {
+        router.replace('/main');
       }
     }
     setShowLoginModal(false);
