@@ -17,7 +17,17 @@ interface AuthenticatedSocket extends Socket {
 }
 
 @WebSocketGateway({
-  cors: { origin: ['http://localhost:3000', 'http://localhost:8081'], credentials: true },
+  cors: {
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:8081',
+      'https://freetiful.com',
+      'https://www.freetiful.com',
+      'https://freetiful.vercel.app',
+      ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
+    ],
+    credentials: true,
+  },
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {

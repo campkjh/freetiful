@@ -27,8 +27,8 @@ export default function CheckoutPage() {
     return () => { alive = false; };
   }, [id]);
   const proInfo = {
-    name: pro?.name || fallbackInfo.name,
-    image: pro?.images?.[0] || pro?.profileImageUrl || fallbackInfo.image,
+    name: pro?.user?.name || pro?.name || fallbackInfo.name,
+    image: pro?.images?.[0]?.imageUrl || pro?.user?.profileImageUrl || fallbackInfo.image,
   };
 
   const planName = searchParams.get('plan') || 'Premium 패키지';

@@ -58,7 +58,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const socket = io(
       (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000') + '/chat',
-      { auth: { token }, transports: ['websocket'] },
+      { auth: { token }, transports: ['websocket', 'polling'] },
     );
 
     socket.on('connect', () => set({ isConnected: true }));

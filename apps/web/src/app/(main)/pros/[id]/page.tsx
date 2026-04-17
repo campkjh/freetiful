@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
+import { chatApi } from '@/lib/api/chat.api';
 import { reviewApi } from '@/lib/api/review.api';
 
 // ─── Brand Color ────────────────────────────────────────────
@@ -1393,18 +1394,33 @@ export default function ProDetailPage() {
             )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowTooltip(false);
                   const isLoggedIn = authUser !== null || (typeof window !== 'undefined' && localStorage.getItem('freetiful-logged-in') === 'true');
                   if (!isLoggedIn) { setLoginModal(true); return; }
-                  router.push(`/chat/${pro.id}`);
+                  // 채팅방 생성 (또는 기존 방 반환) 후 이동
+                  try {
+                    const res: any = await chatApi.createRoom(pro.id);
+                    const roomId = res?.id || res?.data?.id;
+                    router.push(`/chat/${roomId}`);
+                  } catch {
+                    // 방 생성 실패 시 proId 로 폴백
+                    router.push(`/chat/${pro.id}`);
+                  }
                 }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
               >
                 문의하기
               </button>
               <button
-                onClick={handlePurchase}
+                onClick={() => {
+                  // 3번: 본인 프로 상품은 구매 불가
+                  if (authUser && dbPro?.userId === authUser.id) {
+                    toast.error('본인의 서비스는 구매할 수 없습니다.');
+                    return;
+                  }
+                  handlePurchase();
+                }}
                 className="flex-1 bg-[#3180F7] rounded-r-full text-[14px] font-bold text-white active:scale-[0.98] transition-transform"
               >
                 구매하기
