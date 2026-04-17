@@ -176,10 +176,12 @@ export default function CheckoutPage() {
       // 1. 주문 생성 — 서버가 orderId 발급 (DB 에 pending Payment 레코드 남김)
       let orderId: string;
       try {
+        const eventDate = day && month ? `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : undefined;
         const { data: order } = await apiClient.post<{ orderId: string }>('/api/v1/payment/order', {
           amount: finalPrice,
           orderName,
           proProfileId: id,
+          eventDate,
         });
         orderId = order.orderId;
       } catch (e: any) {

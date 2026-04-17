@@ -34,6 +34,7 @@ export class PaymentService {
       amount: number;
       orderName: string;
       proProfileId: string;
+      eventDate?: string;
     },
   ) {
     // 견적서가 있는 경우에만 소유권 검증
@@ -62,6 +63,21 @@ export class PaymentService {
         pgTransactionId: orderId,
       },
     });
+
+    // 행사일이 지정되면 ProSchedule 미리 생성 (pending 상태, 결제 완료 시 booked 로 전환)
+    if (data.eventDate) {
+      try {
+        await this.prisma.proSchedule.create({
+          data: {
+            proProfileId: data.proProfileId,
+            paymentId: payment.id,
+            date: new Date(data.eventDate),
+            status: 'unavailable',
+            note: JSON.stringify({ orderName: data.orderName, amount: data.amount }),
+          },
+        });
+      } catch { /* ignore */ }
+    }
 
     return {
       orderId,
@@ -135,20 +151,14 @@ export class PaymentService {
       });
     }
 
-    // 결제 완료 → ProSchedule 에 예약 등록 (전문가 승인 대기)
+    // 결제 완료 → 이미 생성된 ProSchedule 을 booked 로 전환 (createOrder 에서 미리 생성됨)
     try {
-      const eventDate = payment.createdAt; // 실제 행사일은 booking 시 전달받은 날짜 사용 (없으면 결제일)
-      await this.prisma.proSchedule.create({
-        data: {
-          proProfileId: payment.proProfileId,
-          paymentId: payment.id,
-          date: eventDate,
-          status: 'booked', // 결제 완료 = 예약 확정 대기
-          note: JSON.stringify({ orderName: data.orderId, amount: data.amount }),
-        },
+      await this.prisma.proSchedule.updateMany({
+        where: { paymentId: payment.id },
+        data: { status: 'booked' },
       });
     } catch {
-      // ProSchedule 생성 실패해도 결제 자체는 성공 처리
+      // ProSchedule 없으면 무시 (eventDate 없이 결제한 경우)
     }
 
     return updatedPayment;
