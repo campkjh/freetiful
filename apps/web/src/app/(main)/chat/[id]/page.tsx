@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { chatApi } from '@/lib/api/chat.api';
+import { quotationApi } from '@/lib/api/quotation.api';
 
 const MY_ID_FALLBACK = 'user-1';
 
@@ -1364,8 +1365,31 @@ export default function ChatRoomPage() {
     enterprise: { label: 'Enterprise', price: 1700000, items: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'] },
   };
 
-  const handleSendQuote = () => {
+  const handleSendQuote = async () => {
     const plan = PLAN_DATA[quotePlan];
+    // 5-1: 30만원 미만 견적 차단
+    if (plan.price < 300000) {
+      toast.error('견적 금액은 최소 300,000원 이상이어야 합니다.');
+      return;
+    }
+    // 5-2: API 로 견적서 생성
+    try {
+      // 상대방(유저) ID 추출 — pro 가 보내는 견적이므로 상대방이 userId
+      const targetUserId = pro.id;
+      await quotationApi.create({
+        userId: targetUserId,
+        amount: plan.price,
+        title: `${plan.label} 패키지`,
+        description: plan.items.join(', '),
+        eventDate: quoteEventDate || undefined,
+        eventTime: quoteEventTime || undefined,
+        chatRoomId: roomId,
+      });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '견적서 전송에 실패했습니다.');
+      return;
+    }
+    // 5-3: 채팅방에 시스템 메시지 표시 (로컬 + WebSocket)
     const quoteMsg: Message = {
       id: `s-quote-${Date.now()}`,
       senderId: 'system',
@@ -1384,6 +1408,22 @@ export default function ChatRoomPage() {
       },
     };
     setMessages(prev => [...prev, quoteMsg]);
+    // 5-4: 안전결제 안내 시스템 메시지
+    const paymentMsg: Message = {
+      id: `s-payment-${Date.now()}`,
+      senderId: 'system',
+      content: '안전결제',
+      type: 'system',
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      system: {
+        kind: 'payment_request',
+        amount: plan.price,
+        paymentType: 'deposit',
+        title: `${plan.label} 패키지 결제`,
+      },
+    };
+    setTimeout(() => setMessages(prev => [...prev, paymentMsg]), 500);
     setShowQuoteModal(false);
     setQuoteEventName('');
     setQuoteEventDate('');
