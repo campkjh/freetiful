@@ -549,7 +549,7 @@ export default function ProDetailPage() {
         totalDeals: (dbPro.reviewCount || 0),
         satisfaction: (dbPro.reviewCount || 0) > 0 ? 100 : 0,
         memberType: '개인',
-        taxInvoice: '발행 가능',
+        taxInvoice: dbPro.showPartnersLogo ? '발행 가능' : '발행 불가',
         responseTime: '24시간 이내',
         contactTime: '평일 10:00 ~ 18:00',
       },

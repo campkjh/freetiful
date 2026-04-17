@@ -332,6 +332,7 @@ export class ProService {
       services?: { title: string; description?: string; basePrice?: number }[];
       faqs?: { question: string; answer: string }[];
       languages?: string[];
+      taxInvoice?: boolean;
     },
   ) {
     if (data.name || data.phone) {
@@ -352,6 +353,7 @@ export class ProService {
       ...(data.awards !== undefined ? { awards: data.awards } : {}),
       ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
       ...(data.detailHtml !== undefined ? { detailHtml: data.detailHtml } : {}),
+      ...(data.taxInvoice !== undefined ? { showPartnersLogo: data.taxInvoice } : {}),
     };
 
     const profile = await this.prisma.proProfile.upsert({

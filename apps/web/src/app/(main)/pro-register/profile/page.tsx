@@ -143,6 +143,7 @@ export default function ProfilePage() {
   const [videoError, setVideoError] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [taxInvoice, setTaxInvoice] = useState(false);
   const [description, setDescription] = useState('');
   const [videos, setVideos] = useState<string[]>([]);
   const [videoInput, setVideoInput] = useState('');
@@ -1180,6 +1181,7 @@ export default function ProfilePage() {
                       services: services.length > 0 ? services : undefined,
                       faqs: faqs.length > 0 ? faqs : undefined,
                       languages: selectedLanguages.length > 0 ? selectedLanguages : undefined,
+                      taxInvoice: taxInvoice || undefined,
                     });
                     submitSucceeded = true;
                   } catch (e: any) {
