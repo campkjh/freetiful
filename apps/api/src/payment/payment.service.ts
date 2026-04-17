@@ -135,7 +135,63 @@ export class PaymentService {
       });
     }
 
+    // 결제 완료 → ProSchedule 에 예약 등록 (전문가 승인 대기)
+    try {
+      const eventDate = payment.createdAt; // 실제 행사일은 booking 시 전달받은 날짜 사용 (없으면 결제일)
+      await this.prisma.proSchedule.create({
+        data: {
+          proProfileId: payment.proProfileId,
+          paymentId: payment.id,
+          date: eventDate,
+          status: 'booked', // 결제 완료 = 예약 확정 대기
+          note: JSON.stringify({ orderName: data.orderId, amount: data.amount }),
+        },
+      });
+    } catch {
+      // ProSchedule 생성 실패해도 결제 자체는 성공 처리
+    }
+
     return updatedPayment;
+  }
+
+  /** 전문가: 예약 승낙 */
+  async acceptBooking(proUserId: string, paymentId: string) {
+    const profile = await this.prisma.proProfile.findUnique({ where: { userId: proUserId } });
+    if (!profile) throw new NotFoundException('프로 프로필을 찾을 수 없습니다.');
+
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment || payment.proProfileId !== profile.id) throw new ForbiddenException('본인의 예약만 처리할 수 있습니다.');
+
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: 'escrowed' }, // 전문가 승낙 → 에스크로 상태
+    });
+    await this.prisma.proSchedule.updateMany({
+      where: { paymentId },
+      data: { status: 'booked' },
+    });
+
+    return { success: true, status: 'escrowed' };
+  }
+
+  /** 전문가: 예약 거절 + 취소 사유 */
+  async rejectBooking(proUserId: string, paymentId: string, reason: string) {
+    const profile = await this.prisma.proProfile.findUnique({ where: { userId: proUserId } });
+    if (!profile) throw new NotFoundException('프로 프로필을 찾을 수 없습니다.');
+
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment || payment.proProfileId !== profile.id) throw new ForbiddenException('본인의 예약만 처리할 수 있습니다.');
+
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: 'refunded', refundReason: reason, refundedAt: new Date() },
+    });
+    await this.prisma.proSchedule.updateMany({
+      where: { paymentId },
+      data: { status: 'available' },
+    });
+
+    return { success: true, status: 'refunded', reason };
   }
 
   /** 결제 내역 목록 조회 */

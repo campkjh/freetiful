@@ -81,4 +81,26 @@ export class PaymentController {
   ) {
     return this.paymentService.cancelPayment(req.user.id, id, reason);
   }
+
+  /** 전문가: 예약 승낙 */
+  @Post(':id/accept')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '전문가가 예약 승낙' })
+  acceptBooking(@Request() req: any, @Param('id') id: string) {
+    return this.paymentService.acceptBooking(req.user.id, id);
+  }
+
+  /** 전문가: 예약 거절 + 사유 */
+  @Post(':id/reject')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '전문가가 예약 거절 (취소 사유 포함)' })
+  rejectBooking(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+  ) {
+    return this.paymentService.rejectBooking(req.user.id, id, reason);
+  }
 }
