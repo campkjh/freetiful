@@ -354,6 +354,7 @@ function QuotePage() {
             budgetMin: price?.min,
             budgetMax: price?.max,
             type: selectedPros.size > 1 ? 'multi' : 'single',
+            proProfileIds: Array.from(selectedPros),
           });
         } catch (e) {
           // Fallback: silently continue — API may not be available in dev

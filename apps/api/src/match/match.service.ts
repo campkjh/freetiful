@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MatchService {
   constructor(private prisma: PrismaService) {}
 
-  /** 사용자가 매칭 요청 생성 */
+  /** 사용자가 매칭 요청 생성 + 선택된 전문가에게 발송 */
   async createMatchRequest(
     userId: string,
     data: {
@@ -25,6 +25,7 @@ export class MatchService {
       styleOptionIds?: string[];
       personalityOptionIds?: string[];
       rawUserInput?: any;
+      proProfileIds?: string[];
     },
   ) {
     // 카테고리 확인
@@ -81,6 +82,17 @@ export class MatchService {
         personalities: { include: { personalityOption: true } },
       },
     });
+
+    // 선택된 전문가들에게 매칭 요청 발송 (MatchDelivery 생성)
+    if (data.proProfileIds && data.proProfileIds.length > 0) {
+      await this.prisma.matchDelivery.createMany({
+        data: data.proProfileIds.map((proProfileId) => ({
+          matchRequestId: matchRequest.id,
+          proProfileId,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     return matchRequest;
   }

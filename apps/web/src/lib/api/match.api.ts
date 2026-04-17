@@ -12,6 +12,7 @@ export const matchApi = {
     budgetMin?: number;
     budgetMax?: number;
     type?: 'multi' | 'single';
+    proProfileIds?: string[];
   }) => apiClient.post(`${BASE}/request`, data).then((r) => r.data),
 
   getMyRequests: () =>
