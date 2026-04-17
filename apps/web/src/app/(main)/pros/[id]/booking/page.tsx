@@ -36,11 +36,8 @@ const TIME_SLOTS = [
   '15:30', '16:00', '16:30', '17:00', '17:30', '18:00',
 ];
 
-const PLAN_OPTIONS = [
-  { id: 'opt1', name: 'Premium 패키지', originalPrice: 450000, discountPercent: 0, finalPrice: 450000 },
-  { id: 'opt2', name: 'Superior 패키지', originalPrice: 800000, discountPercent: 0, finalPrice: 800000 },
-  { id: 'opt3', name: 'Enterprise 패키지', originalPrice: 1700000, discountPercent: 0, finalPrice: 1700000 },
-];
+// API 서비스가 없는 프로일 때 기본 플랜 (폴백) — 프로가 서비스를 등록하면 이 목록은 무시됨
+const PLAN_OPTIONS: { id: string; name: string; originalPrice: number; discountPercent: number; finalPrice: number }[] = [];
 
 const EXTRA_OPTIONS = [
   { id: 'dist1', label: '출장비 (30km 이내)', price: 30000 },

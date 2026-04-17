@@ -552,10 +552,10 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
             <span className="text-[11px] text-gray-400">신규</span>
           )}
           {/* 좋아요: 하트는 버튼, 숫자는 항상 옆에 표시 */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
             <button
               type="button"
-              onClick={(e) => toggleFavorite(e, pro.id)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(e, pro.id); }}
               className="active:scale-110 transition-transform"
               aria-label="좋아요"
             >
