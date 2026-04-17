@@ -460,6 +460,7 @@ export default function ProDetailPage() {
   const [apiLoading, setApiLoading] = useState(true);
   const [apiFailed, setApiFailed] = useState(false);
   const [apiReviews, setApiReviews] = useState<any[]>([]);
+  const [recommendedList, setRecommendedList] = useState<any[]>([]);
 
   // 리뷰 API 조회 (proProfileId 기반) — dbPro가 로드된 후 실제 UUID로 호출
   useEffect(() => {
@@ -534,6 +535,31 @@ export default function ProDetailPage() {
       setApiLoading(false);
     });
   }, [id, router]);
+
+  // 인기 전문가 추천 (현재 프로 제외, 평점 높은 순 6명)
+  useEffect(() => {
+    if (!id) return;
+    discoveryApi.getProList({ limit: 20, sort: 'rating' })
+      .then((res) => {
+        if (!res?.data) return;
+        const others = res.data
+          .filter((p: any) => p.id !== id)
+          .slice(0, 6)
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            role: '사회자',
+            rating: p.avgRating || 0,
+            reviews: p.reviewCount || 0,
+            experience: p.careerYears || 1,
+            image: p.images?.[0] || p.profileImageUrl || '/images/default-profile.svg',
+            tags: ['전국가능'],
+            isPartner: true,
+          }));
+        setRecommendedList(others);
+      })
+      .catch(() => {});
+  }, [id]);
 
   // API 실패 시에만 사용할 legacy fallback (PRO_MAP: 숫자 ID 1..41)
   const proData = apiFailed && id && PRO_MAP[id] ? PRO_MAP[id] : null;
@@ -633,7 +659,7 @@ export default function ProDetailPage() {
       },
       reviews: dbReviews.length > 0 ? dbReviews : [],
       otherServices: [],
-      recommendedPros: [],
+      recommendedPros: recommendedList,
       alsoViewed: [],
     };
   })() : null;
