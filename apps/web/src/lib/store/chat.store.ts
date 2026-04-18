@@ -21,6 +21,9 @@ interface ChatState {
   hasMoreMessages: boolean;
   messageCursor: string | null;
 
+  // Per-room message cache
+  messageCache: Map<string, MessageItem[]>;
+
   // Typing indicator
   typingUsers: Map<string, boolean>;
 
@@ -50,6 +53,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messagesLoading: false,
   hasMoreMessages: false,
   messageCursor: null,
+  messageCache: new Map(),
   typingUsers: new Map(),
 
   connect: () => {
@@ -170,8 +174,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   joinRoom: (roomId) => {
-    const { socket } = get();
-    set({ currentRoomId: roomId, messages: [], messageCursor: null, hasMoreMessages: false });
+    const { socket, messageCache } = get();
+    const cached = messageCache.get(roomId) || [];
+    set({ currentRoomId: roomId, messages: cached, messageCursor: null, hasMoreMessages: false });
     socket?.emit('joinRoom', { roomId });
 
     // Reset unread in room list
@@ -181,8 +186,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   leaveRoom: () => {
-    const { socket, currentRoomId } = get();
-    if (currentRoomId) socket?.emit('leaveRoom', { roomId: currentRoomId });
+    const { socket, currentRoomId, messages, messageCache } = get();
+    if (currentRoomId) {
+      socket?.emit('leaveRoom', { roomId: currentRoomId });
+      if (messages.length > 0) {
+        messageCache.set(currentRoomId, messages);
+      }
+    }
     set({ currentRoomId: null, messages: [], typingUsers: new Map() });
   },
 

@@ -775,6 +775,16 @@ export default function ChatRoomPage() {
     let cancelled = false;
 
     async function loadRoom() {
+      // 채팅 목록 스토어에서 즉시 가져오기
+      const storeRoom = useChatStore.getState().rooms.find((r) => r.id === roomId);
+      if (storeRoom) {
+        setChatPartner({
+          id: storeRoom.otherUser.id,
+          name: storeRoom.otherUser.name,
+          profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-avatar.png',
+          isActive: (storeRoom.otherUser as any).isActive ?? true,
+        });
+      }
       try {
         const res = await chatApi.getRoom(roomId);
         if (cancelled) return;
@@ -791,6 +801,11 @@ export default function ChatRoomPage() {
     }
 
     async function loadMessages() {
+      // 스토어에 캐시된 메시지가 있으면 즉시 표시 + 백그라운드 갱신
+      const cachedMsgs = useChatStore.getState().messageCache.get(roomId);
+      if (cachedMsgs && cachedMsgs.length > 0) {
+        setMessages(cachedMsgs.map(mapApiMessage));
+      }
       try {
         const res = await chatApi.getMessages(roomId, { limit: 50 });
         if (cancelled) return;
