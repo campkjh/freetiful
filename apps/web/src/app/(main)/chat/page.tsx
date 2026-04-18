@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import Link from 'next/link';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
+
+const ChatRoomPage = lazy(() => import('./[id]/page'));
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -36,6 +38,7 @@ export default function ChatListPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
+  const [openRoomId, setOpenRoomId] = useState<string | null>(null);
   const authUser = useAuthStore((s) => s.user);
   const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
 
@@ -82,6 +85,15 @@ export default function ChatListPage() {
   const [search, setSearch] = useState('');
 
   // 롱프레스 액션 메뉴
+  // 뒤로가기 시 오버레이 닫기
+  useEffect(() => {
+    const onPop = () => {
+      if (window.location.pathname === '/chat') setOpenRoomId(null);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   const [actionMenu, setActionMenu] = useState<{ room: ChatRoom; x: number; y: number } | null>(null);
   // 미리보기 모달
   const [previewRoom, setPreviewRoom] = useState<ChatRoom | null>(null);
@@ -208,6 +220,17 @@ export default function ChatListPage() {
     if (longPressTriggered.current) {
       e.preventDefault();
       longPressTriggered.current = false;
+      return;
+    }
+    // 오버레이로 채팅 상세 열기 (Next.js 라우팅 안 거침)
+    e.preventDefault();
+    const href = (e.currentTarget as HTMLAnchorElement).getAttribute('href');
+    if (href) {
+      const roomId = href.split('/chat/')[1];
+      if (roomId) {
+        setOpenRoomId(roomId);
+        window.history.pushState(null, '', href);
+      }
     }
   };
 
@@ -709,6 +732,19 @@ export default function ChatListPage() {
           100% { opacity: 1; transform: scale(1); filter: blur(0); }
         }
       `}} />
+
+      {/* 채팅 상세 오버레이 (Next.js 라우팅 안 거침) */}
+      {openRoomId && (
+        <div className="fixed inset-0 z-50 bg-white" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-screen">
+              <div className="w-6 h-6 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+            </div>
+          }>
+            <ChatRoomPage />
+          </Suspense>
+        </div>
+      )}
     </>
   );
 }
