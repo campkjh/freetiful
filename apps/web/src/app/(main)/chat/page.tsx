@@ -36,6 +36,7 @@ export default function ChatListPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
+  const [roomsLoading, setRoomsLoading] = useState(true);
   const authUser = useAuthStore((s) => s.user);
   const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
 
@@ -44,7 +45,8 @@ export default function ChatListPage() {
     setIsLoggedIn(loggedIn);
     setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
 
-    // Connect to WebSocket and fetch real rooms if authenticated via API
+    if (!loggedIn || !authUser) { setRoomsLoading(false); }
+
     if (authUser) {
       connect();
       fetchRooms().then(() => {
@@ -68,7 +70,7 @@ export default function ChatListPage() {
           })));
           return;
         }
-      }).catch(() => {});
+      }).catch(() => {}).finally(() => setRoomsLoading(false));
     }
 
     return () => { disconnect(); };
@@ -557,7 +559,20 @@ export default function ChatListPage() {
             </div>
           )}
         </>
-        {sorted.length === 0 ? (
+        {roomsLoading && rooms.length === 0 ? (
+          <div className="space-y-0">
+            {[1,2,3,4,5].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3">
+                <div className="w-12 h-12 rounded-full bg-gray-100 animate-pulse shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
+                  <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + i * 10}%` }} />
+                </div>
+                <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
+              </div>
+            ))}
+          </div>
+        ) : sorted.length === 0 ? (
           <div className="text-center py-20">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto mb-4">
               <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
@@ -565,8 +580,6 @@ export default function ChatListPage() {
             </svg>
             <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
             {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">전문가 찾아보기</Link>}
-
-
           </div>
         ) : renderChatList(false)}
       </div>

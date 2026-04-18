@@ -86,6 +86,7 @@ export default function ChatRoomPage() {
   // ─── Core state (needed for instant render) ───
   const [chatPartner, setChatPartner] = useState<ChatPartner | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
   const [input, setInput] = useState('');
 
   // ─── Extra state (passed to ChatExtras) ───
@@ -142,23 +143,24 @@ export default function ChatRoomPage() {
     }
 
     async function loadMessages() {
-      // 캐시된 메시지 즉시 표시 (이미 매핑된 Message[])
       const cachedMsgs = useChatStore.getState().messageCache.get(roomId);
       if (cachedMsgs && cachedMsgs.length > 0) {
         setMessages(cachedMsgs as any);
-        // 백그라운드에서 최신 데이터 갱신
+        setMessagesLoading(false);
         chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
-          if (!cancelled) setMessages(res.data.data.map(mapApiMessage));
+          if (!cancelled) setMessages((res.data.data || []).map(mapApiMessage));
         }).catch(() => {});
         return;
       }
+      setMessagesLoading(true);
       try {
         const res = await chatApi.getMessages(roomId, { limit: 50 });
         if (cancelled) return;
-        console.log('Messages loaded:', res.data.data?.length, 'messages');
         setMessages((res.data.data || []).map(mapApiMessage));
       } catch (err) {
         console.error('Failed to load messages', err);
+      } finally {
+        if (!cancelled) setMessagesLoading(false);
       }
     }
 
@@ -389,25 +391,24 @@ export default function ChatRoomPage() {
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="max-w-[680px] mx-auto">
-          {messages.length === 0 && (
-            chatPartner ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <img src={chatPartner.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover mb-3" />
-                <p className="text-[15px] font-bold text-gray-900">{chatPartner.name}</p>
-                <p className="text-[13px] text-gray-400 mt-1">대화를 시작해보세요</p>
-              </div>
-            ) : (
-              <div className="space-y-4 pt-4">
-                {[1,2,3,4].map((i) => (
-                  <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : ''}`}>
-                    <div className={`flex items-end gap-2 ${i % 2 === 0 ? 'flex-row-reverse' : ''}`}>
-                      {i % 2 !== 0 && <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse shrink-0" />}
-                      <div className="rounded-2xl bg-gray-100 animate-pulse" style={{ width: `${120 + i * 30}px`, height: 36 }} />
-                    </div>
+          {messagesLoading && messages.length === 0 && (
+            <div className="space-y-4 pt-4">
+              {[1,2,3,4,5].map((i) => (
+                <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : ''}`}>
+                  <div className={`flex items-end gap-2 ${i % 2 === 0 ? 'flex-row-reverse' : ''}`}>
+                    {i % 2 !== 0 && <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse shrink-0" />}
+                    <div className="rounded-2xl bg-gray-100 animate-pulse" style={{ width: `${100 + i * 25}px`, height: 36 }} />
                   </div>
-                ))}
-              </div>
-            )
+                </div>
+              ))}
+            </div>
+          )}
+          {!messagesLoading && messages.length === 0 && chatPartner && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <img src={chatPartner.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover mb-3" />
+              <p className="text-[15px] font-bold text-gray-900">{chatPartner.name}</p>
+              <p className="text-[13px] text-gray-400 mt-1">대화를 시작해보세요</p>
+            </div>
           )}
           {messages.map((msg, i) => {
             const showDate = shouldShowDateDivider(messages, i);
