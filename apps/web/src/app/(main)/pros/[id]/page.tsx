@@ -331,6 +331,7 @@ export default function ProDetailPage() {
   const router = useRouter();
   const [pro, setPro] = useState<ProDetailData | null>(null);
   const [apiError, setApiError] = useState(false);
+  const [apiLoading, setApiLoading] = useState(true);
 
   // API에서 전문가 상세 데이터 가져오기
   useEffect(() => {
@@ -379,9 +380,11 @@ export default function ProDetailPage() {
           recommendedPros: [],
           alsoViewed: [],
         });
+        setApiLoading(false);
         return;
       } catch {
         setApiError(true);
+        setApiLoading(false);
         return;
       }
     }
@@ -635,8 +638,6 @@ export default function ProDetailPage() {
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
-
-  const [apiLoading, setApiLoading] = useState(true);
 
   // Error state: 전문가를 찾을 수 없습니다
   if (apiError) {
