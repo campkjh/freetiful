@@ -37,6 +37,20 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
   );
 }
 
+/* ─── Lazy Section ───────────────────────────────────────── */
+function LazySection({ children, height = 400 }: { children: React.ReactNode; height?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setShow(true); ob.disconnect(); } }, { rootMargin: '200px' });
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, []);
+  return <div ref={ref} style={show ? undefined : { minHeight: height }}>{show ? children : null}</div>;
+}
+
 /* ─── Count-Up Animation ─────────────────────────────────── */
 function CountUpText({ value, suffix = '' }: { value: number; suffix?: string }) {
   const { ref, visible } = useReveal(0.3);
@@ -888,6 +902,7 @@ export default function HomePage() {
           ))}
         </div>
 
+        <LazySection height={2000}>
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 0. 관심있는 전문가 (최근 본 전문가)                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
@@ -1154,6 +1169,7 @@ export default function HomePage() {
           </div>
         </section>
         <div className="my-6 border-t border-gray-100" />
+        </LazySection>
       </div>
 
     </div>
