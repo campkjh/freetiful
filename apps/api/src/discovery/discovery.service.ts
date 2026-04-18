@@ -1,9 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class DiscoveryService {
+export class DiscoveryService implements OnModuleInit {
+  private readonly logger = new Logger(DiscoveryService.name);
   constructor(private prisma: PrismaService) {}
+
+  async onModuleInit() {
+    // 서버 시작 시 캐시 워밍업
+    try {
+      await this.getProList({ limit: 50, sort: 'rating' });
+      this.logger.log('Pro list cache warmed up');
+    } catch (e) {
+      this.logger.warn('Cache warmup failed', e);
+    }
+  }
 
   private cache = new Map<string, { data: any; expires: number }>();
   private CACHE_TTL = 1800_000; // 30분
