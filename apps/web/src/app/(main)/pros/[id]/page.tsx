@@ -63,144 +63,51 @@ function CountUp({ value, suffix = '' }: { value: number; suffix?: string }) {
   return <span ref={ref}>{n.toLocaleString()}{suffix}</span>;
 }
 
-// ─── 사회자 데이터 맵 (id → 실제 데이터) ────────────────────
-const PRO_MAP: Record<string, { name: string; image: string; images: string[]; intro: string; career: string; price: number; experience: number; youtubeId?: string }> = {
-  '1': { name: '강도현', image: '/images/pro-01/10000133881772850005043.avif', images: ['/images/pro-01/10000133881772850005043.avif', '/images/pro-01/10000269161772850296005.avif', '/images/pro-01/55111772850244842.avif', '/images/pro-01/9041772850314846.avif'], intro: '신뢰감 있는 보이스로 현직 아나운서,레크,운동회,쇼호스트 모두 가능한 남자!', career: '1억 상금 쇼호스트 오디션 방송 <보고스타워즈> 우승', price: 450000, experience: 14 },
-  '2': { name: '김동현', image: '/images/pro-02/10000365351773046135169.avif', images: ['/images/pro-02/10000365351773046135169.avif', '/images/pro-02/10000795161773046194452.avif', '/images/pro-02/10000855971773046164403.avif', '/images/pro-02/10000864531773046178640.avif'], intro: '안녕하세요 MC 김동현 입니다 :)', career: 'K리그 수원삼성블루윙즈 장외아나운서', price: 450000, experience: 8 },
-  '3': { name: '김민지', image: '/images/pro-03/IMG_06781773894450803.avif', images: ['/images/pro-03/IMG_06781773894450803.avif', '/images/pro-03/IMG_17531773894460574.avif', '/images/pro-03/IMG_44861773894475916.avif', '/images/pro-03/IMG_96081773894468666.avif'], intro: '꼼꼼하고 부드러운 진행', career: 'SBS Sports 야구 아나운서 / SBS Golf 골프 아나운서 등', price: 450000, experience: 4 },
-  '4': { name: '김솔', image: '/images/pro-04/IMG_23601771788594274.avif', images: ['/images/pro-04/IMG_23601771788594274.avif', '/images/pro-04/IMG_31471771788581868.avif', '/images/pro-04/IMG_33241771788569381.avif', '/images/pro-04/IMG_44921771788602280.avif'], intro: '자연스럽고 편안한 분위기의 웨딩 전문 MC', career: '웨딩 전문 MC', price: 450000, experience: 8 },
-  '5': { name: '김유석', image: '/images/pro-05/10000029811773033474612.avif', images: ['/images/pro-05/10000029811773033474612.avif', '/images/pro-05/10000044951773033401063.avif', '/images/pro-05/10000135061773033420087.avif', '/images/pro-05/10000263401773033544287.avif'], intro: '최고의 진행자 아나운서 김유석입니다.', career: '전남CBS 앵커 / SBS광주전남(KBC) 리포터 / KBS 책들아놀자 MC', price: 450000, experience: 8, youtubeId: '6R7r1tbMbTY' },
-  '6': { name: '김재성', image: '/images/pro-06/10000602271772960706687.avif', images: ['/images/pro-06/10000602271772960706687.avif', '/images/pro-06/10000625401772960688608.avif', '/images/pro-06/10000653321772960487396.avif', '/images/pro-06/10000666071772960530192.avif'], intro: '순간을 기억으로 만드는 사회자', career: 'MBC+ 트롯챔피언 트롯869 셀럽챔프 사회자', price: 450000, experience: 7 },
-  '7': { name: '김진아', image: '/images/pro-07/IMG_53011772965035335.avif', images: ['/images/pro-07/IMG_53011772965035335.avif', '/images/pro-07/IMG_61401772965618286.avif', '/images/pro-07/IMG_66501772965804174.avif', '/images/pro-07/IMG_78451772965478053.avif'], intro: '아나운서 김진아입니다', career: '한국경제TV 아나운서', price: 450000, experience: 6 },
-  '8': { name: '김호중', image: '/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif', images: ['/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif', '/images/pro-08/10E595A9-B36C-4A54-BE94-F6AFAA258E7D1773045761972.avif', '/images/pro-08/8CAA6337-E752-4EDF-8B1D-86C32DDCB5811773045691817.avif', '/images/pro-08/IMG_06101773045870594.avif'], intro: '기획에서 진행까지, 무대를 완성하다', career: '기업행사·공식행사 전문 MC', price: 450000, experience: 12 },
-  '9': { name: '나연지', image: '/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif', images: ['/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif', '/images/pro-09/Facetune_26-12-2025-23-11-081772438046927.avif', '/images/pro-09/Facetune_26-12-2025-23-47-461772438096422.avif', '/images/pro-09/Facetune_28-12-2025-16-00-271772438073263.avif'], intro: '공식행사 전문 MC', career: '공공기관 및 대기업 세미나 진행', price: 450000, experience: 3, youtubeId: 'Hue7ZLJM7oo' },
-  '10': { name: '노유재', image: '/images/pro-10/10000016211774440274171.avif', images: ['/images/pro-10/10000016211774440274171.avif', '/images/pro-10/10000080011774440452164.avif', '/images/pro-10/10000086141774440497085.avif', '/images/pro-10/10000096111774440365370.avif'], intro: '무대에서 다진 표현력과 방송에서 쌓은 전달력으로 신뢰와 감동이 공존하는 진행을 완성합니다.', career: 'SSG랜더스 장외 아나운서 / 롯데면세점 LDF 쇼호스트', price: 450000, experience: 16 },
-  '11': { name: '도준석', image: '/images/pro-11/1-1231772850030951.avif', images: ['/images/pro-11/1-1231772850030951.avif', '/images/pro-11/3-1231772850058559.avif', '/images/pro-11/IMG_02501772849985994.avif', '/images/pro-11/IMG_35941772850008495.avif'], intro: '격 있는 사회자입니다.', career: '충남도청 아나운서', price: 450000, experience: 2, youtubeId: '72RX9prME4I' },
-  '12': { name: '문정은', image: '/images/pro-12/IMG_27221772621229571.avif', images: ['/images/pro-12/IMG_27221772621229571.avif', '/images/pro-12/IMG_31821772621337651.avif', '/images/pro-12/IMG_61001772621448507.avif'], intro: '신랑신부님 맞춤! 품격있고 고급스러운 진행', career: '서울경제TV 앵커 / CJ온스타일+ 쇼호스트 / 정부 및 지자체 공식행사 MC', price: 450000, experience: 10, youtubeId: 'D5Mx42ArNOY' },
-  '13': { name: '박상설', image: '/images/pro-13/10000077391773050357628.avif', images: ['/images/pro-13/10000077391773050357628.avif', '/images/pro-13/10000119741773050332437.avif', '/images/pro-13/10000152851773050374131.avif', '/images/pro-13/10000345831773050337824.avif'], intro: '10년 경력, 2000번의 행사 경력으로 함께하겠습니다.', career: 'G1방송국 전국 TOP10 가요쇼 행사 MC / 연예인·기업·축제 500회 이상', price: 450000, experience: 10, youtubeId: 'P04peAmLV7c' },
-  '14': { name: '박은결', image: '/images/pro-14/IMG_02661773035503788.avif', images: ['/images/pro-14/IMG_02661773035503788.avif', '/images/pro-14/IMG_25661773035575396.avif', '/images/pro-14/IMG_31641773035613744.avif', '/images/pro-14/IMG_74881773035596478.avif'], intro: '안녕하세요! 아나운서 사회자 박은결입니다', career: 'SBS강원(G1) 리포터 / 팍스경제TV 앵커 / 삼성바이오로직스 아나운서', price: 450000, experience: 9 },
-  '15': { name: '박인애', image: '/images/pro-15/IMG_0196.avif', images: ['/images/pro-15/IMG_0196.avif', '/images/pro-15/IMG_7549.avif', '/images/pro-15/IMG_7552.avif', '/images/pro-15/IMG_8517.avif'], intro: '13년 생방송 뉴스 진행으로 다져진 품격있는 사회자', career: '연합뉴스TV / SK브로드밴드 Btv / 충주MBC', price: 450000, experience: 13, youtubeId: 'UIbfieXAT0U' },
-  '16': { name: '박주은', image: '/images/pro-16/IMG_01621772973118334.avif', images: ['/images/pro-16/IMG_01621772973118334.avif', '/images/pro-16/IMG_83991772973146317.avif', '/images/pro-16/IMG_98851772973174980.avif', '/images/pro-16/IMG_98891772973162789.avif'], intro: 'SBS Sports 아나운서', career: 'SBS전북·JTV전주방송 앵커', price: 450000, experience: 4, youtubeId: '_207ch4oFnU' },
-  '17': { name: '배유정', image: '/images/pro-17/IMG_21541773026472716.avif', images: ['/images/pro-17/IMG_21541773026472716.avif', '/images/pro-17/IMG_25041773026570198.avif', '/images/pro-17/IMG_30041773026515891.avif', '/images/pro-17/IMG_54931773026493813.avif'], intro: '안녕하십니까, 믿고 맏기는 행사입니다!', career: 'kt HCN 충북방송', price: 450000, experience: 4 },
-  '18': { name: '성연채', image: '/images/pro-18/20161016_161406_IMG_5921.avif', images: ['/images/pro-18/20161016_161406_IMG_5921.avif', '/images/pro-18/20161121_141359_IMG_6072.avif', '/images/pro-18/20180311_161359_IMG_8925.avif', '/images/pro-18/20180406_135859_IMG_9103.avif'], intro: '따뜻하고 다정한 아나운서 성연채입니다', career: 'KCN금강방송 아나운서', price: 450000, experience: 10, youtubeId: '6YEw574Gvg8' },
-  '19': { name: '송지은', image: '/images/pro-19/IMG_60741772092494350.avif', images: ['/images/pro-19/IMG_60741772092494350.avif', '/images/pro-19/IMG_70171772092524815.avif', '/images/pro-19/IMG_86861772092348488.avif'], intro: '믿고 맡기는 아나운서', career: '현대자동차 앰배서더 / 광복절 80주년 기념식 진행 / KBS 넥스트 라이콘 mc', price: 450000, experience: 10 },
-  '20': { name: '유하늘', image: '/images/pro-20/IMG_05351773030634574.avif', images: ['/images/pro-20/IMG_05351773030634574.avif', '/images/pro-20/IMG_06591773030512344.avif', '/images/pro-20/IMG_50451773030183819.avif'], intro: '고품격 따뜻하고 사랑스러운 분위기의 결혼식 전문 사회자', career: '매년 180건 이상 결혼식 진행', price: 450000, experience: 4 },
-  '21': { name: '유하영', image: '/images/pro-21/IMG_40271772967046036.avif', images: ['/images/pro-21/IMG_40271772967046036.avif', '/images/pro-21/IMG_40281772967049484.avif'], intro: 'KBS 캐스터 유하영 입니다', career: 'KBS 캐스터 / 도로교통공단 TBN 교통방송 캐스터 / MBC 라디오 광고 성우', price: 450000, experience: 9 },
-  '22': { name: '이강문', image: '/images/pro-22/10000353831773035180593.avif', images: ['/images/pro-22/10000353831773035180593.avif', '/images/pro-22/10000353841773035166256.avif', '/images/pro-22/10000353851773035190777.avif', '/images/pro-22/10000529141773035412786.avif'], intro: '10년차 베테랑 사회자', career: '오은영박사 콘서트 진행', price: 450000, experience: 11 },
-  '23': { name: '이승진', image: '/images/pro-23/IMG_46511771924269213.avif', images: ['/images/pro-23/IMG_46511771924269213.avif', '/images/pro-23/IMG_46591771924566302.avif', '/images/pro-23/IMG_75131771924219656.avif', '/images/pro-23/IMG_96001771924190664.avif'], intro: '따뜻하고 깔끔한 진행의 사회자 이승진 입니다 :)', career: '춘천MBC 라디오 리포터', price: 450000, experience: 4, youtubeId: 'Nqe3UioEV8E' },
-  '24': { name: '이용석', image: '/images/pro-24/10001176941772847263491.avif', images: ['/images/pro-24/10001176941772847263491.avif', '/images/pro-24/10001176951772847270433.avif', '/images/pro-24/10001176961772847283258.avif', '/images/pro-24/10001176971772847277083.avif'], intro: '1000회 이상의 결혼식사회, 공식행사, 방송진행', career: 'HD현대건설기계·한국은행·대한민국 소방정책 국제 심포지엄 MC', price: 450000, experience: 11, youtubeId: 'nZhdGrZaBKU' },
-  '25': { name: '이우영', image: '/images/pro-25/2-11772248201484.avif', images: ['/images/pro-25/2-11772248201484.avif', '/images/pro-25/IMG_58821772248170290.avif'], intro: '현직 아나운서의 고품격 진행', career: '남인천방송·YTN FM 아나운서 / KBS 라디오 기상캐스터 / 현대HCN 경북방송 뉴스 앵커', price: 450000, experience: 8, youtubeId: 'plGBzTNsdiM' },
-  '26': { name: '이원영', image: '/images/pro-26/1-1231772531708677.avif', images: ['/images/pro-26/1-1231772531708677.avif', '/images/pro-26/IMG_27231772531852387.avif', '/images/pro-26/IMG_27981772531758751.avif', '/images/pro-26/IMG_77151772531739607.avif'], intro: 'KBS 춘천방송총국 기상캐스터', career: 'KBC(SBS 광주전남) 기상캐스터·리포터', price: 450000, experience: 6 },
-  '27': { name: '이재원', image: '/images/pro-27/17230390916981773388202648.avif', images: ['/images/pro-27/17230390916981773388202648.avif', '/images/pro-27/17366775813661773388237802.avif'], intro: '영어MC / 영어아나운서 이재원 (Jay - Bilingual MC)', career: '국제결혼식 전문 한/영사회 700건 이상, 국제행사 100건 이상', price: 450000, experience: 11, youtubeId: 'oXBGQziegWc' },
-  '28': { name: '이한나', image: '/images/pro-28/IMG_002209_01772081523241.avif', images: ['/images/pro-28/IMG_002209_01772081523241.avif', '/images/pro-28/IMG_004350_01772081494500.avif', '/images/pro-28/IMG_010628_01772081478994.avif', '/images/pro-28/IMG_08631772081467465.avif'], intro: '생방송 4년차, 현직 아나운서 이한나', career: 'TBN경인교통방송 MC / CPBC부산가톨릭평화방송 아나운서', price: 450000, experience: 4, youtubeId: 'v1Rz8N2AV28' },
-  '29': { name: '임하람', image: '/images/pro-29/10000118841772968813129.avif', images: ['/images/pro-29/10000118841772968813129.avif', '/images/pro-29/10000118851772968842632.avif', '/images/pro-29/10000118861772968791354.avif', '/images/pro-29/10000292381772968967622.avif'], intro: '남들과 다른 특별한 예식을 진행해드립니다', career: '프리티풀 대표 사회자', price: 450000, experience: 8 },
-  '30': { name: '장윤영', image: '/images/pro-30/IMG_27051772976548211.avif', images: ['/images/pro-30/IMG_27051772976548211.avif', '/images/pro-30/IMG_27831772976505642.avif', '/images/pro-30/IMG_55911772976529887.avif', '/images/pro-30/IMG_55941772976566963.avif'], intro: '아나운서 장윤영입니다 :)', career: 'IB SPORTS·팍스경제TV 아나운서 / 중소벤처기업부·한국걸스카우트 행사 MC', price: 450000, experience: 1 },
-  '31': { name: '전해별', image: '/images/pro-31/IMG_73341772850094485.avif', images: ['/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif', '/images/pro-31/IMG_73341772850094485.avif', '/images/pro-31/IMG_73391772850088429.avif', '/images/pro-31/IMG_92281772850158117.avif'], intro: '탄탄한 발성의 아나운서가 여러분을 빛내 드리겠습니다.', career: '인천공항 아나운서 / 부평구청 아나운서 / <청중을 이끄는 스피치> 집필', price: 450000, experience: 10, youtubeId: 'Aooj1e0Wu2I' },
-  '32': { name: '전혜인', image: '/images/pro-32/IMG_19181773027236141.avif', images: ['/images/pro-32/IMG_19181773027236141.avif', '/images/pro-32/IMG_19191773027254756.avif', '/images/pro-32/IMG_19201773027246152.avif', '/images/pro-32/IMG_49261773027106589.avif'], intro: '믿고 맡기는 아나운서 전혜인', career: '한국경제TV 아나운서', price: 450000, experience: 3 },
-  '33': { name: '정미정', image: '/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif', images: ['/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif', '/images/pro-33/0cbe948eaed4fdb569f7e202960cc01a2dc22ff91772100447466.avif'], intro: '경력 13년차 아나운서 및 사회자', career: 'MBC충북 아나운서 / SPOTV 스포츠 아나운서 / 부산경남SBS(KNN)', price: 450000, experience: 13 },
-  '34': { name: '정애란', image: '/images/pro-34/IMG_2920.avif', images: ['/images/pro-34/IMG_2920.avif', '/images/pro-34/IMG_5670.avif', '/images/pro-34/IMG_5841.avif', '/images/pro-34/IMG_5842.avif'], intro: '임기응변에 강한 따뜻한 목소리', career: '경기도의회·송파구·남동구청 뉴스 / CMB광주방송 아나운서 / DBS동아방송 아나운서', price: 450000, experience: 10, youtubeId: 'uZCpxPN8I0Y' },
-  '35': { name: '정이현', image: '/images/pro-35/44561772622988798.avif', images: ['/images/pro-35/44561772622988798.avif', '/images/pro-35/44571772623001970.avif', '/images/pro-35/44611772622968203.avif', '/images/pro-35/56791772622891895.avif'], intro: '정이현 사회자입니다', career: '10년차 전문사회자', price: 450000, experience: 10 },
-  '36': { name: '조하늘', image: '/images/pro-36/IMG_27041773036338469.avif', images: ['/images/pro-36/IMG_27041773036338469.avif', '/images/pro-36/IMG_32021773036578352.avif', '/images/pro-36/IMG_42491773036546456.avif', '/images/pro-36/IMG_77011773036564503.avif'], intro: '아나돌: 아이돌 같은 아나운서 조하늘', career: 'KTV국민방송 / JTBC골프 MC / KBS 유튜브 MC 등', price: 450000, experience: 5 },
-  '37': { name: '최진선', image: '/images/pro-37/10001059551772371340253.avif', images: ['/images/pro-37/10001059551772371340253.avif', '/images/pro-37/10001101721772371303174.avif', '/images/pro-37/10001101751772371254806.avif', '/images/pro-37/10001127141772371327596.avif'], intro: '사회자 최진선', career: '웨딩·행사 전문 MC', price: 450000, experience: 5 },
-  '38': { name: '한가람', image: '/images/pro-38/IMG_34281772111635068.avif', images: ['/images/pro-38/IMG_34281772111635068.avif', '/images/pro-38/IMG_3429.avif', '/images/pro-38/IMG_3432.avif', '/images/pro-38/IMG_3433.avif'], intro: '고급스럽고 따뜻한 보이스 사회자 한가람 입니다', career: '결혼식·공식행사 전문 MC', price: 450000, experience: 8, youtubeId: 'H-u5iHpbxds' },
-  '39': { name: '함현지', image: '/images/pro-39/11773004544652.avif', images: ['/images/pro-39/11773004544652.avif', '/images/pro-39/IMG_12081773004575812.avif', '/images/pro-39/IMG_68091773004557667.avif', '/images/pro-39/IMG_76701773004528766.avif'], intro: '깔끔하고 격식있는 진행, 함현지입니다.', career: '연합뉴스TV 뉴스캐스터', price: 450000, experience: 4 },
-  '40': { name: '허수빈', image: '/images/pro-40/IMG_01991772961130928.avif', images: ['/images/pro-40/IMG_01991772961130928.avif', '/images/pro-40/IMG_02001772961175115.avif', '/images/pro-40/IMG_02021772961211905.avif', '/images/pro-40/IMG_02031772961191961.avif'], intro: '순간을 놓치지 않는 센스와 따뜻한 진행', career: '결혼식 전문 사회자 / 기업행사·공식행사 진행 / 라이브커머스 쇼호스트', price: 450000, experience: 8 },
-  '41': { name: '홍현미', image: '/images/pro-41/IMG_12201772513865121.avif', images: ['/images/pro-41/IMG_12201772513865121.avif', '/images/pro-41/IMG_19021772514066029.avif', '/images/pro-41/IMG_57741772513914924.avif', '/images/pro-41/IMG_60161772513816986.avif'], intro: '정부|기업 공식행사 전문아나운서의 고급스러운 진행', career: 'KTV국민방송 앵커 / 국가공무원인재개발원 MC / 부평구청·인천국제공항 아나운서', price: 450000, experience: 10 },
-};
+// ─── Helper: extract YouTube ID from URL ────────────────────
+function extractYoutubeId(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return match?.[1] || undefined;
+}
 
-// ─── Mock Data (fallback) ──────────────────────────────────
-
-const MOCK_PRO = {
-  id: '31',
-  name: '전해별',
-  level: 'Level 1',
-  profileImage: '/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif',
-  mainImage: '/images/pro-31/IMG_73341772850094485.avif',
-  images: [
-    '/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif',
-    '/images/pro-31/IMG_73341772850094485.avif',
-    '/images/pro-31/IMG_73391772850088429.avif',
-    '/images/pro-31/IMG_92281772850158117.avif',
-  ],
-  title: '사회자 전해별',
-  isPrime: true,
-  youtubeId: 'Aooj1e0Wu2I',
-  youtubeVideos: [
-    { id: 'Aooj1e0Wu2I', title: '전해별 아나운서 웨딩 MC 진행 영상' },
-    { id: 'yjF1Im350yE', title: '기업 행사 진행 하이라이트' },
-    { id: 'h9ckGqJHJJM', title: '공식 행사 MC 진행 영상' },
-    { id: 'aGt6EZQmmOk', title: '이벤트 진행 영상' },
-  ],
-  rating: 4.9,
-  reviewCount: 79,
-  plans: [
-    { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사 1시간 진행', desc: ['사회 진행', '사전 미팅'], workDays: 14, revisions: 1 },
-    { id: 'superior', label: 'Superior', price: 800000, duration: '2시간', title: '행사 2시간 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'], workDays: 14, revisions: 2 },
-    { id: 'enterprise', label: 'Enterprise', price: 1700000, duration: '6시간', title: '6시간 풀타임 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'], workDays: 14, revisions: 3 },
-  ],
-  description: `안녕하세요. 아나운서 전해별입니다.
-
-탄탄한 발성의 아나운서가 여러분을 빛내 드리겠습니다.
-
-신뢰감 있는 목소리, 탄탄한 발성, 센스 있는 진행으로
-첫 문장부터 시선을 이끌겠습니다.
-
-주요 경력:
-• 인천공항 아나운서
-• 부평구청 아나운서
-• <청중을 이끄는 스피치> 집필
-• 크몽 Prime 전문가
-• 영어 MC 가능`,
+// ─── Pro data type from API ────────────────────────────────
+interface ProDetailData {
+  id: string;
+  name: string;
+  profileImage: string;
+  mainImage: string;
+  images: string[];
+  title: string;
+  isPrime: boolean;
+  youtubeId?: string;
+  youtubeVideos: { id: string; title: string }[];
+  rating: number;
+  reviewCount: number;
+  plans: { id: string; label: string; price: number; duration: string; title: string; desc: string[]; workDays: number; revisions: number }[];
+  description: string;
   expertStats: {
-    totalDeals: 89,
-    satisfaction: 100,
-    memberType: '기업',
-    taxInvoice: '프리티풀 발행',
-    responseTime: '1시간 이내',
-    contactTime: '언제나 가능',
-  },
-  otherServices: [
-    { id: 'os1', title: '전문 아나운서가 특별한 날을 품격있게 꾸며드리...', price: 450000, rating: 5.0, reviewCount: 3, image: '/images/pro-31/IMG_92281772850158117.avif' },
-  ],
-  reviews: [
-    {
-      id: 'r1',
-      name: '나른********',
-      rating: 5.0,
-      date: '26.02.09 13:18',
-      scores: { 경력: 5.0, 만족도: 5.0, 구성력: 5.0, 위트: 4.5, 발성: 5.0, 이미지: 5.0 },
-      content: '상담과정부터 행사 진행, 마무리까지 모두 빠르고 친절하게 응대해 주셨어요! 진행도 상황에 맞게 톤 바꿔가시면서 잘 진행해 주셨습니다! 추운데 고생 많으셨습니다. 감사합니다!',
-      workDays: 13,
-      orderRange: '100만원 ~ 200만원',
-      badge: '대행사/에이전시',
-      proReply: {
-        date: '26.02.09',
-        content: '어머 매니저님 빠른 후기 감사합니다 +_+!!\n이런 큰 행사의 진행을 맡을 수 있어 기뻤고 영광이었습니다.\n다음에도 불러주시면 정말 기쁜 마음으로 달려가겠습니다 :)\n그럼 오늘 남은 하루도 행복하게 보내시기 바랍니다.\n새해 복 많이 받으세요!ㅎㅎ',
-      },
-    },
-    {
-      id: 'r2',
-      name: '스트********',
-      rating: 5.0,
-      date: '25.06.10 12:00',
-      scores: { 경력: 4.5, 만족도: 5.0, 구성력: 5.0, 위트: 5.0, 발성: 4.5, 이미지: 5.0 },
-      content: '꼼꼼하고 안정적으로 촬영 잘 마쳤습니다~',
-      workDays: 3,
-      orderRange: '80만원 ~ 90만원',
-      badge: 'Biz·기업',
-    },
-  ],
-  recommendedPros: [
-    { id: '15', name: '박인애', role: '사회자', rating: 4.7, reviews: 134, experience: 13, image: '/images/pro-15/IMG_0196.avif', tags: ['전국가능', '격식있는'], isPartner: true },
-    { id: '23', name: '이승진', role: '사회자', rating: 4.8, reviews: 211, experience: 4, image: '/images/pro-23/IMG_46511771924269213.avif', tags: ['서울/경기', '유머러스한'], isPartner: true },
-    { id: '12', name: '문정은', role: '사회자', rating: 4.6, reviews: 216, experience: 10, image: '/images/pro-12/IMG_27221772621229571.avif', tags: ['전국가능', '감동적인'], isPartner: true },
-  ],
-  alsoViewed: [
-    { id: '25', title: '현직 아나운서의 고품격 진행', price: 450000, author: '이우영', image: '/images/pro-25/2-11772248201484.avif' },
-    { id: '35', title: '정이현 사회자 - 청춘의 에너지를 담은 MC', price: 450000, rating: 5.0, reviewCount: 34, author: '정이현', image: '/images/pro-35/44561772622988798.avif' },
-    { id: '5', title: '최고의 진행자 아나운서 김유석입니다', price: 450000, rating: 4.7, reviewCount: 65, author: '김유석', image: '/images/pro-05/10000029811773033474612.avif' },
-  ],
-};
+    totalDeals: number;
+    satisfaction: number;
+    memberType: string;
+    taxInvoice: string;
+    responseTime: string;
+    contactTime: string;
+  };
+  reviews: {
+    id: string;
+    name: string;
+    rating: number;
+    date: string;
+    scores?: Record<string, number>;
+    content: string;
+    workDays: number;
+    orderRange: string;
+    badge?: string;
+    proReply?: { date: string; content: string };
+  }[];
+  recommendedPros: { id: string; name: string; role: string; rating: number; reviews: number; experience: number; image: string; tags: string[]; isPartner: boolean }[];
+  alsoViewed: { id: string; title: string; price: number; rating?: number; reviewCount?: number; author: string; image: string }[];
+}
 
 // ─── Components ─────────────────────────────────────────────
 
@@ -314,16 +221,8 @@ function RadarChart({ scores }: { scores: { label: string; value: number }[] }) 
   );
 }
 
-function ScoreBars() {
+function ScoreBars({ items }: { items: { label: string; value: number }[] }) {
   const { ref, visible } = useReveal(0.3);
-  const items = [
-    { label: '경력', value: 5.0 },
-    { label: '만족도', value: 4.9 },
-    { label: '구성력', value: 5.0 },
-    { label: '위트', value: 4.8 },
-    { label: '발성', value: 5.0 },
-    { label: '이미지', value: 4.9 },
-  ];
   return (
     <div ref={ref} className="mb-4">
       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -340,7 +239,7 @@ function ScoreBars() {
                 }}
               />
             </div>
-            <span className="text-[12px] font-bold text-gray-900 tabular-nums">{item.value}</span>
+            <span className="text-[12px] font-bold text-gray-900 tabular-nums">{item.value.toFixed(1)}</span>
           </div>
         ))}
       </div>
@@ -430,41 +329,149 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
 export default function ProDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const proData = id && PRO_MAP[id] ? PRO_MAP[id] : null;
-  const [apiRating, setApiRating] = useState<number | null>(null);
-  const [apiReviewCount, setApiReviewCount] = useState<number | null>(null);
-  const [apiProfileViews, setApiProfileViews] = useState<number | null>(null);
+  const [pro, setPro] = useState<ProDetailData | null>(null);
+  const [apiError, setApiError] = useState(false);
 
-  // API에서 실제 평점/리뷰수 가져오기
+  // API에서 전문가 상세 데이터 가져오기
   useEffect(() => {
     if (!id) return;
-    discoveryApi.getProList({ search: proData?.name, limit: 1 })
-      .then((res) => {
-        const found = res.data?.[0];
-        if (found) {
-          setApiRating(found.avgRating);
-          setApiReviewCount(found.reviewCount);
-        }
-      })
-      .catch(() => {});
-  }, [id, proData?.name]);
 
-  const pro = proData ? {
-    ...MOCK_PRO,
-    id: id || MOCK_PRO.id,
-    name: proData.name,
-    profileImage: proData.image,
-    mainImage: proData.images[0] || proData.image,
-    images: proData.images,
-    title: `사회자 ${proData.name}`,
-    rating: apiRating ?? proData.price / 100000,
-    reviewCount: apiReviewCount ?? 0,
-    youtubeId: proData.youtubeId || undefined,
-    youtubeVideos: proData.youtubeId ? [{ id: proData.youtubeId, title: `${proData.name} 사회자 진행 영상` }] : [],
-    description: `안녕하세요. 사회자 ${proData.name}입니다.\n\n${proData.intro}\n\n${proData.career ? `주요 경력:\n• ${proData.career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`,
-    plans: MOCK_PRO.plans.map((p: any) => ({ ...p, price: p.id === 'premium' ? 450000 : p.id === 'superior' ? 800000 : 1700000 })),
-    expertStats: { ...MOCK_PRO.expertStats, totalDeals: proData.experience * 8 + 10 },
-  } : { ...MOCK_PRO, id: id || MOCK_PRO.id };
+    // 'my-pro' special case: localStorage에서 등록된 사회자
+    if (id === 'my-pro') {
+      try {
+        const name = localStorage.getItem('proRegister_name') || '전문가';
+        const photos = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
+        const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
+        const intro = localStorage.getItem('proRegister_intro') || '프리티풀 인증 전문가';
+        const career = localStorage.getItem('proRegister_career') || '';
+        const careerYears = parseInt(localStorage.getItem('proRegister_careerYears') || '1');
+        const youtubeUrl = localStorage.getItem('proRegister_youtubeUrl') || '';
+        const ytId = extractYoutubeId(youtubeUrl);
+        const allImages = photos.length > 0 ? photos : ['/images/placeholder.avif'];
+
+        setPro({
+          id: 'my-pro',
+          name,
+          profileImage: allImages[mainPhotoIndex] || allImages[0],
+          mainImage: allImages[0],
+          images: allImages,
+          title: `사회자 ${name}`,
+          isPrime: true,
+          youtubeId: ytId,
+          youtubeVideos: ytId ? [{ id: ytId, title: `${name} 사회자 진행 영상` }] : [],
+          rating: 5.0,
+          reviewCount: 0,
+          plans: [
+            { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사 1시간 진행', desc: ['사회 진행', '사전 미팅'], workDays: 14, revisions: 1 },
+            { id: 'superior', label: 'Superior', price: 800000, duration: '2시간', title: '행사 2시간 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'], workDays: 14, revisions: 2 },
+            { id: 'enterprise', label: 'Enterprise', price: 1700000, duration: '6시간', title: '6시간 풀타임 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'], workDays: 14, revisions: 3 },
+          ],
+          description: `안녕하세요. 사회자 ${name}입니다.\n\n${intro}\n\n${career ? `주요 경력:\n• ${career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`,
+          expertStats: {
+            totalDeals: careerYears * 8 + 10,
+            satisfaction: 100,
+            memberType: '기업',
+            taxInvoice: '프리티풀 발행',
+            responseTime: '1시간 이내',
+            contactTime: '언제나 가능',
+          },
+          reviews: [],
+          recommendedPros: [],
+          alsoViewed: [],
+        });
+        return;
+      } catch {
+        setApiError(true);
+        return;
+      }
+    }
+
+    // API에서 실제 데이터 로드
+    discoveryApi.getProDetail(id)
+      .then((res: any) => {
+        if (!res) {
+          setApiError(true);
+          return;
+        }
+        const userName = res.user?.name || '전문가';
+        const images = res.images?.map((img: any) => img.imageUrl) || [];
+        const profileImg = res.user?.profileImageUrl || images[0] || '';
+        const ytId = extractYoutubeId(res.youtubeUrl);
+        const services = res.services || [];
+        const plans = services.length > 0
+          ? services.map((s: any, idx: number) => ({
+              id: s.id,
+              label: idx === 0 ? 'Premium' : idx === 1 ? 'Superior' : 'Enterprise',
+              price: s.basePrice || 450000,
+              duration: idx === 0 ? '1시간' : idx === 1 ? '2시간' : '6시간',
+              title: s.title || `행사 진행`,
+              desc: s.description ? s.description.split('\n').filter(Boolean) : ['사회 진행'],
+              workDays: 14,
+              revisions: idx + 1,
+            }))
+          : [
+              { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사 1시간 진행', desc: ['사회 진행', '사전 미팅'], workDays: 14, revisions: 1 },
+              { id: 'superior', label: 'Superior', price: 800000, duration: '2시간', title: '행사 2시간 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'], workDays: 14, revisions: 2 },
+              { id: 'enterprise', label: 'Enterprise', price: 1700000, duration: '6시간', title: '6시간 풀타임 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'], workDays: 14, revisions: 3 },
+            ];
+
+        const reviews = (res.reviews || []).map((r: any) => ({
+          id: r.id,
+          name: r.isAnonymous ? '익명' : (r.reviewer?.name ? r.reviewer.name.slice(0, 2) + '********' : '고객'),
+          rating: Number(r.avgRating) || 5.0,
+          date: new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }),
+          scores: {
+            경력: r.ratingExperience,
+            만족도: r.ratingSatisfaction,
+            구성력: r.ratingComposition,
+            위트: r.ratingWit,
+            발성: r.ratingVoice,
+            이미지: r.ratingAppearance,
+          },
+          content: r.comment || '',
+          workDays: 14,
+          orderRange: '협의',
+          proReply: r.proReply ? { date: r.proRepliedAt ? new Date(r.proRepliedAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '', content: r.proReply } : undefined,
+        }));
+
+        const descParts = [
+          `안녕하세요. 사회자 ${userName}입니다.`,
+          res.shortIntro ? `\n${res.shortIntro}` : '',
+          res.mainExperience ? `\n\n주요 경력:\n• ${res.mainExperience.split('/').map((s: string) => s.trim()).join('\n• ')}` : '',
+          res.detailHtml || '',
+        ].filter(Boolean).join('');
+
+        setPro({
+          id: res.id,
+          name: userName,
+          profileImage: profileImg,
+          mainImage: images[0] || profileImg,
+          images: images.length > 0 ? images : [profileImg].filter(Boolean),
+          title: `사회자 ${userName}`,
+          isPrime: res.isFeatured || res.showPartnersLogo || false,
+          youtubeId: ytId,
+          youtubeVideos: ytId ? [{ id: ytId, title: `${userName} 사회자 진행 영상` }] : [],
+          rating: res.avgRating || 0,
+          reviewCount: res.reviewCount || 0,
+          plans,
+          description: descParts,
+          expertStats: {
+            totalDeals: (res.careerYears || 1) * 8 + 10,
+            satisfaction: 100,
+            memberType: '기업',
+            taxInvoice: '프리티풀 발행',
+            responseTime: res.responseRate ? `${res.responseRate}시간 이내` : '1시간 이내',
+            contactTime: '언제나 가능',
+          },
+          reviews,
+          recommendedPros: [],
+          alsoViewed: [],
+        });
+      })
+      .catch(() => {
+        setApiError(true);
+      });
+  }, [id]);
 
   const [activeImage, setActiveImage] = useState(0);
   const [activePlan, setActivePlan] = useState(1); // default deluxe
@@ -505,7 +512,7 @@ export default function ProDetailPage() {
   const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
-  const plan = pro.plans[activePlan];
+  const plan = pro?.plans?.[activePlan] ?? { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사 1시간 진행', desc: ['사회 진행'], workDays: 14, revisions: 1 };
 
   // 방문 기록 저장
   useEffect(() => {
@@ -570,7 +577,7 @@ export default function ProDetailPage() {
   const handleShare = async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        await navigator.share({ title: pro.title, url: window.location.href });
+        await navigator.share({ title: pro?.title || '', url: window.location.href });
       } catch {
         setShareModal(true);
       }
@@ -593,14 +600,14 @@ export default function ProDetailPage() {
       toast(v ? '찜 해제' : '찜 목록에 추가됨', { icon: v ? '💙' : '❤️' });
       // Sync to API
       if (authUser) {
-        favoriteApi.toggle(pro.id).catch(() => {});
+        favoriteApi.toggle(pro?.id || id).catch(() => {});
       }
       try {
         const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
         if (newVal) {
-          if (!stored.includes(pro.id)) stored.push(pro.id);
+          if (!stored.includes(pro?.id || id)) stored.push(pro?.id || id);
         } else {
-          const idx = stored.indexOf(pro.id);
+          const idx = stored.indexOf(pro?.id || id);
           if (idx !== -1) stored.splice(idx, 1);
         }
         localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
@@ -610,12 +617,12 @@ export default function ProDetailPage() {
   };
 
   const handlePurchase = () => {
-    router.push(`/pros/${pro.id}/booking`);
+    router.push(`/pros/${pro?.id || id}/booking`);
   };
 
   const confirmPurchase = () => {
     setPurchaseModal(false);
-    router.push(`/pros/${pro.id}/booking`);
+    router.push(`/pros/${pro?.id || id}/booking`);
   };
 
   const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
@@ -627,10 +634,35 @@ export default function ProDetailPage() {
     }
   };
 
-  const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-pro-detail') : true);
-  useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-pro-detail', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (pro || apiError) { setLoading(false); return; }
+    const t = setTimeout(() => { setLoading(false); }, 300);
+    return () => clearTimeout(t);
+  }, [pro, apiError]);
 
-  if (loading) {
+  // Error state: 전문가를 찾을 수 없습니다
+  if (apiError || (!loading && !pro)) {
+    return (
+      <div className="bg-white min-h-screen flex flex-col items-center justify-center" style={{ letterSpacing: '-0.02em' }}>
+        <div className="text-center px-6">
+          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+            <ChevronLeft size={28} className="text-gray-400" />
+          </div>
+          <h2 className="text-[20px] font-bold text-gray-900 mb-2">전문가를 찾을 수 없습니다</h2>
+          <p className="text-[14px] text-gray-500 mb-6">요청하신 전문가 정보를 불러올 수 없습니다.<br />다시 시도해 주세요.</p>
+          <button
+            onClick={() => router.back()}
+            className="px-6 py-3 bg-[#3180F7] text-white font-semibold rounded-xl active:scale-95 transition-transform"
+          >
+            돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || !pro) {
     return (
       <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
         {/* Gallery skeleton */}
@@ -1086,7 +1118,7 @@ export default function ProDetailPage() {
             <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
               <StarRating value={parseFloat(pro.rating.toFixed(1))} size={12} />
-              <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({pro.reviewCount + 3})</span>
+              <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({pro.reviewCount})</span>
             </div>
             <p className="text-[11px] text-gray-400 mt-1">연락 가능 시간: {pro.expertStats.contactTime}</p>
             <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
@@ -1144,18 +1176,28 @@ export default function ProDetailPage() {
           <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
         </div>
 
-        {/* Radar Chart */}
-        <RadarChart scores={[
-          { label: '경력', value: 5.0 },
-          { label: '만족도', value: 4.9 },
-          { label: '위트', value: 4.8 },
-          { label: '발성', value: 5.0 },
-          { label: '이미지', value: 4.9 },
-          { label: '구성력', value: 5.0 },
-        ]} />
-
-        {/* Score bars */}
-        <ScoreBars />
+        {/* Radar Chart - derived from review scores */}
+        {(() => {
+          const reviewsWithScores = pro.reviews.filter(r => r.scores);
+          const avgScore = (key: string) => {
+            const vals = reviewsWithScores.map(r => r.scores?.[key]).filter((v): v is number => v != null && v > 0);
+            return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : pro.rating || 4.5;
+          };
+          const scoreItems = [
+            { label: '경력', value: avgScore('경력') },
+            { label: '만족도', value: avgScore('만족도') },
+            { label: '위트', value: avgScore('위트') },
+            { label: '발성', value: avgScore('발성') },
+            { label: '이미지', value: avgScore('이미지') },
+            { label: '구성력', value: avgScore('구성력') },
+          ];
+          return (
+            <>
+              <RadarChart scores={scoreItems} />
+              <ScoreBars items={scoreItems} />
+            </>
+          );
+        })()}
 
 
         {/* Reviews list */}

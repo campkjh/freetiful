@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
+import { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import Link from 'next/link';
-import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin, Gift } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
@@ -243,223 +242,26 @@ function Logo({ className }: { className?: string }) {
   );
 }
 
-const MOCK_PROS = [
-  { id: '1', name: '강도현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 117, pudding: 1, image: '/images/pro-01/10000133881772850005043.avif', images: ['/images/pro-01/10000133881772850005043.avif', '/images/pro-01/10000269161772850296005.avif', '/images/pro-01/55111772850244842.avif', '/images/pro-01/9041772850314846.avif'], intro: '신뢰감 있는 보이스로 현직 아나운서,레크,운동회,쇼호스트 모두 가능한 남자!', price: 450000, experience: 14, tags: ['전국가능', '우아한', '위트있는'], available: false },
-  { id: '2', name: '김동현', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 165, pudding: 2, image: '/images/pro-02/10000365351773046135169.avif', images: ['/images/pro-02/10000365351773046135169.avif', '/images/pro-02/10000795161773046194452.avif', '/images/pro-02/10000855971773046164403.avif', '/images/pro-02/10000864531773046178640.avif'], intro: '안녕하세요 MC 김동현 입니다 :)', price: 450000, experience: 8, tags: ['서울/경기', '감동적인', '유머러스한'], available: true },
-  { id: '3', name: '김민지', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.8, reviews: 96, pudding: 3, image: '/images/pro-03/IMG_06781773894450803.avif', images: ['/images/pro-03/IMG_06781773894450803.avif', '/images/pro-03/IMG_17531773894460574.avif', '/images/pro-03/IMG_44861773894475916.avif', '/images/pro-03/IMG_96081773894468666.avif'], intro: '꼼꼼하고 부드러운 진행', price: 450000, experience: 4, tags: ['전국가능', '섬세한', '전문적인'], available: true },
-  { id: '4', name: '김솔', category: 'MC', role: '사회자', region: '전국', rating: 4.7, reviews: 36, pudding: 4, image: '/images/pro-04/IMG_23601771788594274.avif', images: ['/images/pro-04/IMG_23601771788594274.avif', '/images/pro-04/IMG_31471771788581868.avif', '/images/pro-04/IMG_33241771788569381.avif', '/images/pro-04/IMG_44921771788602280.avif'], intro: '자연스럽고 편안한 분위기의 웨딩 전문 MC', price: 450000, experience: 8, tags: ['서울/경기', '격식있는', '유쾌한'], available: true },
-  { id: '5', name: '김유석', category: 'MC', role: '사회자', region: '전국', rating: 4.7, reviews: 65, pudding: 5, image: '/images/pro-05/10000029811773033474612.avif', images: ['/images/pro-05/10000029811773033474612.avif', '/images/pro-05/10000044951773033401063.avif', '/images/pro-05/10000135061773033420087.avif', '/images/pro-05/10000263401773033544287.avif'], intro: '최고의 진행자 아나운서 김유석입니다.', price: 450000, experience: 8, tags: ['전국가능', '따뜻한', '차분한'], available: true, youtubeId: '6R7r1tbMbTY' },
-  { id: '6', name: '김재성', category: 'MC', role: '사회자', region: '충청', rating: 4.5, reviews: 235, pudding: 6, image: '/images/pro-06/10000602271772960706687.avif', images: ['/images/pro-06/10000602271772960706687.avif', '/images/pro-06/10000625401772960688608.avif', '/images/pro-06/10000653321772960487396.avif', '/images/pro-06/10000666071772960530192.avif'], intro: '순간을 기억으로 만드는 사회자', price: 450000, experience: 7, tags: ['경상권', '에너지넘치는', '위트있는'], available: true },
-  { id: '7', name: '김진아', category: 'MC', role: '사회자', region: '경상', rating: 4.6, reviews: 170, pudding: 7, image: '/images/pro-07/IMG_53011772965035335.avif', images: ['/images/pro-07/IMG_53011772965035335.avif', '/images/pro-07/IMG_61401772965618286.avif', '/images/pro-07/IMG_66501772965804174.avif', '/images/pro-07/IMG_78451772965478053.avif'], intro: '아나운서 김진아입니다', price: 450000, experience: 6, tags: ['서울/경기', '프리미엄', '세련된'], available: true },
-  { id: '8', name: '김호중', category: 'MC', role: '사회자', region: '전라', rating: 4.6, reviews: 232, pudding: 8, image: '/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif', images: ['/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif', '/images/pro-08/10E595A9-B36C-4A54-BE94-F6AFAA258E7D1773045761972.avif', '/images/pro-08/8CAA6337-E752-4EDF-8B1D-86C32DDCB5811773045691817.avif', '/images/pro-08/IMG_06101773045870594.avif'], intro: '🎤 “기획에서 진행까지, 무대를 완성하다.”', price: 450000, experience: 12, tags: ['서울/경기', '밝은', '에너지넘치는'], available: true },
-  { id: '9', name: '나연지', category: 'MC', role: '사회자', region: '강원', rating: 4.9, reviews: 239, pudding: 9, image: '/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif', images: ['/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif', '/images/pro-09/Facetune_26-12-2025-23-11-081772438046927.avif', '/images/pro-09/Facetune_26-12-2025-23-47-461772438096422.avif', '/images/pro-09/Facetune_28-12-2025-16-00-271772438073263.avif'], intro: '공식행사 전문 MC', price: 450000, experience: 3, tags: ['충청권', '친근한', '안정적인'], available: true, youtubeId: 'Hue7ZLJM7oo' },
-  { id: '10', name: '노유재', category: 'MC', role: '사회자', region: '제주', rating: 4.7, reviews: 197, pudding: 10, image: '/images/pro-10/10000016211774440274171.avif', images: ['/images/pro-10/10000016211774440274171.avif', '/images/pro-10/10000080011774440452164.avif', '/images/pro-10/10000086141774440497085.avif', '/images/pro-10/10000096111774440365370.avif'], intro: '무대에서 다진 표현력과 방송에서 쌓은 전달력으로 신뢰와 감동이 공존하는 진행을 완성합니다.', price: 450000, experience: 16, tags: ['전국가능', '베테랑', '감동적인'], available: true },
-  { id: '11', name: '도준석', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.8, reviews: 163, pudding: 11, image: '/images/pro-11/1-1231772850030951.avif', images: ['/images/pro-11/1-1231772850030951.avif', '/images/pro-11/3-1231772850058559.avif', '/images/pro-11/IMG_02501772849985994.avif', '/images/pro-11/IMG_35941772850008495.avif'], intro: '‘격’ 있는 사회자입니다.', price: 450000, experience: 2, tags: ['서울/경기', '깔끔한', '아나운서출신'], available: true, youtubeId: '72RX9prME4I' },
-  { id: '12', name: '문정은', category: 'MC', role: '사회자', region: '서울/경기', rating: 5.0, reviews: 242, pudding: 12, image: '/images/pro-12/0913 문정은5705 복사1772621245459.avif', images: ['/images/pro-12/0913 문정은5705 복사1772621245459.avif', '/images/pro-12/IMG_27221772621229571.avif', '/images/pro-12/IMG_31821772621337651.avif', '/images/pro-12/IMG_61001772621448507.avif'], intro: '신랑신부님 맞춤! 품격있고 고급스러운 진행 + 편안함 한 스푼🩵🤍', price: 450000, experience: 10, tags: ['전라권', '다정한', '유머러스한'], available: true, youtubeId: 'D5Mx42ArNOY' },
-  { id: '13', name: '박상설', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.9, reviews: 43, pudding: 13, image: '/images/pro-13/10000077391773050357628.avif', images: ['/images/pro-13/10000077391773050357628.avif', '/images/pro-13/10000119741773050332437.avif', '/images/pro-13/10000152851773050374131.avif', '/images/pro-13/10000345831773050337824.avif'], intro: '10년 경력, 2000번의 행사 경력으로 함께하겠습니다.', price: 450000, experience: 10, tags: ['서울/경기', '전문적인', '격식있는'], available: true, youtubeId: 'P04peAmLV7c' },
-  { id: '14', name: '박은결', category: 'MC', role: '사회자', region: '전국', rating: 4.6, reviews: 156, pudding: 14, image: '/images/pro-14/IMG_02661773035503788.avif', images: ['/images/pro-14/IMG_02661773035503788.avif', '/images/pro-14/IMG_25661773035575396.avif', '/images/pro-14/IMG_31641773035613744.avif', '/images/pro-14/IMG_74881773035596478.avif'], intro: '안녕하세요! 아나운서 사회자 박은결입니다', price: 450000, experience: 9, tags: ['전국가능', '국제행사전문', '프로페셔널'], available: true },
-  { id: '15', name: '박인애', category: 'MC', role: '사회자', region: '전국', rating: 4.6, reviews: 119, pudding: 15, image: '/images/pro-15/IMG_0196.avif', images: ['/images/pro-15/IMG_0196.avif', '/images/pro-15/IMG_7549.avif', '/images/pro-15/IMG_7552.avif', '/images/pro-15/IMG_8517.avif'], intro: '13년 생방송 뉴스 진행으로 다져진 품격있는 사회자', price: 450000, experience: 13, tags: ['서울/경기', '돌잔치전문', '따뜻한'], available: true, youtubeId: 'UIbfieXAT0U' },
-  { id: '16', name: '박주은', category: 'MC', role: '사회자', region: '충청', rating: 4.8, reviews: 225, pudding: 16, image: '/images/pro-16/IMG_01621772973118334.avif', images: ['/images/pro-16/IMG_01621772973118334.avif', '/images/pro-16/IMG_83991772973146317.avif', '/images/pro-16/IMG_98851772973174980.avif', '/images/pro-16/IMG_98891772973162789.avif'], intro: 'SBS Sports 아나운서', price: 450000, experience: 4, tags: ['전국가능', '방송인출신', '전문적인'], available: true, youtubeId: '_207ch4oFnU' },
-  { id: '17', name: '배유정', category: 'MC', role: '사회자', region: '경상', rating: 4.8, reviews: 92, pudding: 17, image: '/images/pro-17/IMG_21541773026472716.avif', images: ['/images/pro-17/IMG_21541773026472716.avif', '/images/pro-17/IMG_25041773026570198.avif', '/images/pro-17/IMG_30041773026515891.avif', '/images/pro-17/IMG_54931773026493813.avif'], intro: '안녕하십니까, 믿고 맏기는 행사입니다!', price: 450000, experience: 4, tags: ['전국가능', '우아한', '위트있는'], available: true },
-  { id: '18', name: '성연채', category: 'MC', role: '사회자', region: '전라', rating: 4.7, reviews: 241, pudding: 18, image: '/images/pro-18/20161016_161406_IMG_5921.avif', images: ['/images/pro-18/20161016_161406_IMG_5921.avif', '/images/pro-18/20161121_141359_IMG_6072.avif', '/images/pro-18/20180311_161359_IMG_8925.avif', '/images/pro-18/20180406_135859_IMG_9103.avif'], intro: '따뜻하고 다정한 아나운서 성연채입니다😊', price: 450000, experience: 10, tags: ['서울/경기', '감동적인', '유머러스한'], available: true, youtubeId: '6YEw574Gvg8' },
-  { id: '19', name: '송지은', category: 'MC', role: '사회자', region: '강원', rating: 4.8, reviews: 86, pudding: 19, image: '/images/pro-19/DE397232-C3A6-4FD0-80C8-0251D66A66AF1772092441240.avif', images: ['/images/pro-19/DE397232-C3A6-4FD0-80C8-0251D66A66AF1772092441240.avif', '/images/pro-19/IMG_60741772092494350.avif', '/images/pro-19/IMG_70171772092524815.avif', '/images/pro-19/IMG_86861772092348488.avif'], intro: '믿고 맡기는 아나운서', price: 450000, experience: 10, tags: ['전국가능', '섬세한', '전문적인'], available: true },
-  { id: '20', name: '유하늘', category: 'MC', role: '사회자', region: '제주', rating: 4.9, reviews: 34, pudding: 20, image: '/images/pro-20/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif', images: ['/images/pro-20/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif', '/images/pro-20/IMG_05351773030634574.avif', '/images/pro-20/IMG_06591773030512344.avif', '/images/pro-20/IMG_50451773030183819.avif'], intro: '고품격✨ 따뜻하고 사랑스러운 분위기의 결혼식 전문 사회자', price: 450000, experience: 4, tags: ['서울/경기', '격식있는', '유쾌한'], available: true },
-  { id: '21', name: '유하영', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 54, pudding: 21, image: '/images/pro-21/22712e20f03327c2843673c063c881f432f6af591772967031477.avif', images: ['/images/pro-21/22712e20f03327c2843673c063c881f432f6af591772967031477.avif', '/images/pro-21/IMG_40271772967046036.avif', '/images/pro-21/IMG_40281772967049484.avif', '/images/pro-21/ffaed956fca024b38fedcd45a4369470deb4f0621772967038190.avif'], intro: '안녕하세요:) KBS 캐스터 유하영 입니다', price: 450000, experience: 9, tags: ['전국가능', '따뜻한', '차분한'], available: true },
-  { id: '22', name: '이강문', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.6, reviews: 210, pudding: 22, image: '/images/pro-22/10000353831773035180593.avif', images: ['/images/pro-22/10000353831773035180593.avif', '/images/pro-22/10000353841773035166256.avif', '/images/pro-22/10000353851773035190777.avif', '/images/pro-22/10000529141773035412786.avif'], intro: '10년베테랑사회자의 안정적인진행!', price: 450000, experience: 11, tags: ['경상권', '에너지넘치는', '위트있는'], available: true },
-  { id: '23', name: '이승진', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.8, reviews: 133, pudding: 23, image: '/images/pro-23/IMG_46511771924269213.avif', images: ['/images/pro-23/IMG_46511771924269213.avif', '/images/pro-23/IMG_46591771924566302.avif', '/images/pro-23/IMG_75131771924219656.avif', '/images/pro-23/IMG_96001771924190664.avif'], intro: '따뜻하고 깔끔한 진행의 사회자 이승진 입니다 :)', price: 450000, experience: 4, tags: ['서울/경기', '프리미엄', '세련된'], available: true, youtubeId: 'Nqe3UioEV8E' },
-  { id: '24', name: '이용석', category: 'MC', role: '사회자', region: '전국', rating: 4.9, reviews: 117, pudding: 24, image: '/images/pro-24/10001176941772847263491.avif', images: ['/images/pro-24/10001176941772847263491.avif', '/images/pro-24/10001176951772847270433.avif', '/images/pro-24/10001176961772847283258.avif', '/images/pro-24/10001176971772847277083.avif'], intro: '-1000회 이상의 결혼식사회, 공식행사, 방송진행 -정확한 톤, 명확한 전달, 자연스러운 여운. 그 균형을 지키는 사회자. 영상으로 확인하세요', price: 450000, experience: 11, tags: ['서울/경기', '밝은', '에너지넘치는'], available: true, youtubeId: 'nZhdGrZaBKU' },
-  { id: '25', name: '이우영', category: 'MC', role: '사회자', region: '전국', rating: 4.7, reviews: 222, pudding: 25, image: '/images/pro-25/2-11772248201484.avif', images: ['/images/pro-25/2-11772248201484.avif', '/images/pro-25/20260214_이우영240591772248144830.avif', '/images/pro-25/20260214_이우영240991772248153914.avif', '/images/pro-25/IMG_58821772248170290.avif'], intro: '현직 아나운서의 고품격 진행', price: 450000, experience: 8, tags: ['충청권', '친근한', '안정적인'], available: true, youtubeId: 'plGBzTNsdiM' },
-  { id: '26', name: '이원영', category: 'MC', role: '사회자', region: '충청', rating: 4.5, reviews: 94, pudding: 26, image: '/images/pro-26/1-1231772531708677.avif', images: ['/images/pro-26/1-1231772531708677.avif', '/images/pro-26/IMG_27231772531852387.avif', '/images/pro-26/IMG_27981772531758751.avif', '/images/pro-26/IMG_77151772531739607.avif'], intro: 'KBS 춘천방송총국 기상캐스터', price: 450000, experience: 6, tags: ['전국가능', '베테랑', '감동적인'], available: true },
-  { id: '27', name: '이재원', category: 'MC', role: '사회자', region: '경상', rating: 4.9, reviews: 24, pudding: 27, image: '/images/pro-27/17230390916981773388202648.avif', images: ['/images/pro-27/17230390916981773388202648.avif', '/images/pro-27/17366775813661773388237802.avif', '/images/pro-27/BeautyPlus_20230513204551113_save1773388309713.avif', '/images/pro-27/BeautyPlus_20251027213240149_save1773388163389.avif'], intro: '영어MC / 영어아나운서 이재원 (Jay - KOR/ENG Bilingual MC)', price: 450000, experience: 11, tags: ['서울/경기', '깔끔한', '아나운서출신'], available: true, youtubeId: 'oXBGQziegWc' },
-  { id: '28', name: '이한나', category: 'MC', role: '사회자', region: '전라', rating: 4.6, reviews: 68, pudding: 28, image: '/images/pro-28/IMG_002209_01772081523241.avif', images: ['/images/pro-28/IMG_002209_01772081523241.avif', '/images/pro-28/IMG_004350_01772081494500.avif', '/images/pro-28/IMG_010628_01772081478994.avif', '/images/pro-28/IMG_08631772081467465.avif'], intro: '생방송 4년차, 현직 아나운서 이한나', price: 450000, experience: 4, tags: ['전라권', '다정한', '유머러스한'], available: false, youtubeId: 'v1Rz8N2AV28' },
-  { id: '29', name: '임하람', category: 'MC', role: '사회자', region: '강원', rating: 4.8, reviews: 166, pudding: 29, image: '/images/pro-29/10000118841772968813129.avif', images: ['/images/pro-29/10000118841772968813129.avif', '/images/pro-29/10000118851772968842632.avif', '/images/pro-29/10000118861772968791354.avif', '/images/pro-29/10000292381772968967622.avif'], intro: '남들과 다른 특별한 예식을 진행해드립니다😆', price: 450000, experience: 8, tags: ['서울/경기', '전문적인', '격식있는'], available: true },
-  { id: '30', name: '장윤영', category: 'MC', role: '사회자', region: '제주', rating: 4.8, reviews: 225, pudding: 30, image: '/images/pro-30/IMG_27051772976548211.avif', images: ['/images/pro-30/IMG_27051772976548211.avif', '/images/pro-30/IMG_27831772976505642.avif', '/images/pro-30/IMG_55911772976529887.avif', '/images/pro-30/IMG_55941772976566963.avif'], intro: '아나운서 장윤영입니다 :)', price: 450000, experience: 1, tags: ['전국가능', '국제행사전문', '프로페셔널'], available: true },
-  { id: '31', name: '전해별', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.5, reviews: 201, pudding: 31, image: '/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif', images: ['/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif', '/images/pro-31/IMG_73341772850094485.avif', '/images/pro-31/IMG_73391772850088429.avif', '/images/pro-31/IMG_92281772850158117.avif'], intro: '탄탄한 발성의 아나운서가 여러분을 빛내 드리겠습니다.', price: 450000, experience: 10, tags: ['서울/경기', '돌잔치전문', '따뜻한'], available: true, youtubeId: 'Aooj1e0Wu2I' },
-  { id: '32', name: '전혜인', category: 'MC', role: '사회자', region: '서울/경기', rating: 5.0, reviews: 152, pudding: 32, image: '/images/pro-32/IMG_19181773027236141.avif', images: ['/images/pro-32/IMG_19181773027236141.avif', '/images/pro-32/IMG_19191773027254756.avif', '/images/pro-32/IMG_19201773027246152.avif', '/images/pro-32/IMG_49261773027106589.avif'], intro: '믿고 맡기는 아나운서 전혜인', price: 450000, experience: 3, tags: ['전국가능', '방송인출신', '전문적인'], available: true },
-  { id: '33', name: '정미정', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 48, pudding: 33, image: '/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif', images: ['/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif', '/images/pro-33/0cbe948eaed4fdb569f7e202960cc01a2dc22ff91772100447466.avif', '/images/pro-33/b555d5e83d7c070d5ca01b128f83700c4ca14fb31772100454325.avif', '/images/pro-33/d948fd97def1925232dea1242b17fa5731f9931d1772100435120.avif'], intro: '다양한 방송 분야 및 현장에서 경험과 전문성을 다진  경력 "1n"년차 아나운서 및 사회자', price: 450000, experience: 13, tags: ['전국가능', '우아한', '위트있는'], available: true },
-  { id: '34', name: '정애란', category: 'MC', role: '사회자', region: '전국', rating: 4.9, reviews: 226, pudding: 34, image: '/images/pro-34/IMG_2920.avif', images: ['/images/pro-34/IMG_2920.avif', '/images/pro-34/IMG_5670.avif', '/images/pro-34/IMG_5841.avif', '/images/pro-34/IMG_5842.avif'], intro: '임기응변에 강한 따뜻한 목소리', price: 450000, experience: 10, tags: ['서울/경기', '감동적인', '유머러스한'], available: true, youtubeId: 'uZCpxPN8I0Y' },
-  { id: '35', name: '정이현', category: 'MC', role: '사회자', region: '전국', rating: 4.8, reviews: 129, pudding: 35, image: '/images/pro-35/44561772622988798.avif', images: ['/images/pro-35/44561772622988798.avif', '/images/pro-35/44571772623001970.avif', '/images/pro-35/44611772622968203.avif', '/images/pro-35/56791772622891895.avif'], intro: '정이현사회자입니다', price: 450000, experience: 10, tags: ['전국가능', '섬세한', '전문적인'], available: true },
-  { id: '36', name: '조하늘', category: 'MC', role: '사회자', region: '충청', rating: 4.9, reviews: 152, pudding: 36, image: '/images/pro-36/IMG_27041773036338469.avif', images: ['/images/pro-36/IMG_27041773036338469.avif', '/images/pro-36/IMG_32021773036578352.avif', '/images/pro-36/IMG_42491773036546456.avif', '/images/pro-36/IMG_77011773036564503.avif'], intro: '아나돌: 아이돌 같은 아나운서 조하늘', price: 450000, experience: 5, tags: ['서울/경기', '격식있는', '유쾌한'], available: false },
-  { id: '37', name: '최진선', category: 'MC', role: '사회자', region: '경상', rating: 4.9, reviews: 204, pudding: 37, image: '/images/pro-37/10001059551772371340253.avif', images: ['/images/pro-37/10001059551772371340253.avif', '/images/pro-37/10001101721772371303174.avif', '/images/pro-37/10001101751772371254806.avif', '/images/pro-37/10001127141772371327596.avif'], intro: '최진선', price: 450000, experience: 5, tags: ['전국가능', '따뜻한', '차분한'], available: true },
-  { id: '38', name: '한가람', category: 'MC', role: '사회자', region: '전라', rating: 4.7, reviews: 62, pudding: 38, image: '/images/pro-38/IMG_34281772111635068.avif', images: ['/images/pro-38/IMG_34281772111635068.avif', '/images/pro-38/IMG_3429.avif', '/images/pro-38/IMG_3432.avif', '/images/pro-38/IMG_3433.avif'], intro: '고급스럽고 따뜻한 보이스 사회자 한가람 입니다☺️', price: 450000, experience: 8, tags: ['경상권', '에너지넘치는', '위트있는'], available: true, youtubeId: 'H-u5iHpbxds' },
-  { id: '39', name: '함현지', category: 'MC', role: '사회자', region: '강원', rating: 4.6, reviews: 115, pudding: 39, image: '/images/pro-39/11773004544652.avif', images: ['/images/pro-39/11773004544652.avif', '/images/pro-39/IMG_12081773004575812.avif', '/images/pro-39/IMG_68091773004557667.avif', '/images/pro-39/IMG_76701773004528766.avif'], intro: '깔끔하고 격식있는 진행, 함현지입니다.', price: 450000, experience: 4, tags: ['서울/경기', '프리미엄', '세련된'], available: true },
-  { id: '40', name: '허수빈', category: 'MC', role: '사회자', region: '제주', rating: 5.0, reviews: 97, pudding: 40, image: '/images/pro-40/IMG_01991772961130928.avif', images: ['/images/pro-40/IMG_01991772961130928.avif', '/images/pro-40/IMG_02001772961175115.avif', '/images/pro-40/IMG_02021772961211905.avif', '/images/pro-40/IMG_02031772961191961.avif'], intro: '순간을 놓치지 않는 센스와 따뜻한 진행으로, 결혼식의 분위기를 완성하는 전문 사회자 허수빈 입니다.', price: 450000, experience: 8, tags: ['서울/경기', '밝은', '에너지넘치는'], available: true },
-  { id: '41', name: '홍현미', category: 'MC', role: '사회자', region: '서울/경기', rating: 4.7, reviews: 222, pudding: 41, image: '/images/pro-41/IMG_12201772513865121.avif', images: ['/images/pro-41/IMG_12201772513865121.avif', '/images/pro-41/IMG_19021772514066029.avif', '/images/pro-41/IMG_57741772513914924.avif', '/images/pro-41/IMG_60161772513816986.avif'], intro: '정부|기업 공식행사 전문아나운서의 고급스러운 진행', price: 450000, experience: 10, tags: ['충청권', '친근한', '안정적인'], available: true },
-];
-
-interface ReviewItem {
-  nickname: string;
-  avatar: string;
+interface ProData {
+  id: string;
+  name: string;
+  category: string;
+  role: string;
+  region: string;
   rating: number;
-  text: string;
+  reviews: number;
+  pudding: number;
+  image: string;
+  images: string[];
+  intro: string;
+  price: number;
+  experience: number;
+  tags: string[];
+  available: boolean;
+  youtubeId?: string;
 }
 
-const RANK_REVIEWS: Record<string, ReviewItem[]> = {
-  '1': [
-    { nickname: '행복한신부', avatar: 'https://i.pravatar.cc/40?img=31', rating: 5.0, text: '우아하면서도 위트 있는 진행 덕분에 하객들이 모두 즐거워했어요' },
-    { nickname: '웨딩준비중', avatar: 'https://i.pravatar.cc/40?img=32', rating: 5.0, text: '격식과 유머의 밸런스가 완벽했어요. 다음에도 꼭 부탁드릴게요' },
-    { nickname: '예비신랑J', avatar: 'https://i.pravatar.cc/40?img=33', rating: 5.0, text: '사전 미팅부터 꼼꼼하게 준비해주셔서 감동이었습니다' },
-  ],
-  '2': [
-    { nickname: '봄날의신부', avatar: 'https://i.pravatar.cc/40?img=34', rating: 5.0, text: '감동과 웃음을 동시에, 이분 없으면 우리 결혼식 상상이 안 돼요' },
-    { nickname: '하객대표', avatar: 'https://i.pravatar.cc/40?img=35', rating: 4.9, text: '하객으로 갔는데 MC분이 너무 좋아서 연락처 받아왔어요' },
-    { nickname: '감동그자체', avatar: 'https://i.pravatar.cc/40?img=36', rating: 5.0, text: '부모님 감사 편지 낭독 때 온 하객이 울었어요. 진행력 최고' },
-  ],
-  '3': [
-    { nickname: '차분한예신', avatar: 'https://i.pravatar.cc/40?img=37', rating: 5.0, text: '섬세하게 챙겨주셔서 긴장 하나도 안 했어요. 최고의 MC!' },
-    { nickname: '후기남기기', avatar: 'https://i.pravatar.cc/40?img=38', rating: 4.8, text: '소통이 정말 빠르고 세심해요. 리허설도 꼼꼼하게 진행' },
-    { nickname: '행복한우리', avatar: 'https://i.pravatar.cc/40?img=39', rating: 5.0, text: '자연스러운 분위기 연출이 정말 프로페셔널했습니다' },
-  ],
-  '4': [
-    { nickname: '유쾌한커플', avatar: 'https://i.pravatar.cc/40?img=40', rating: 5.0, text: '격식도 있으면서 유쾌해서 분위기가 정말 좋았습니다' },
-    { nickname: '만족100', avatar: 'https://i.pravatar.cc/40?img=41', rating: 4.9, text: '이벤트 아이디어도 직접 제안해주시고 진행도 깔끔!' },
-    { nickname: '결혼축하', avatar: 'https://i.pravatar.cc/40?img=42', rating: 5.0, text: '친구 결혼식에서 보고 반해서 저도 바로 예약했어요' },
-  ],
-  '5': [
-    { nickname: '따뜻한하루', avatar: 'https://i.pravatar.cc/40?img=43', rating: 4.8, text: '따뜻한 목소리에 하객분들이 다 감동받으셨어요' },
-    { nickname: '소소한행복', avatar: 'https://i.pravatar.cc/40?img=44', rating: 4.9, text: '스몰웨딩이었는데 오히려 더 친밀한 진행이 좋았어요' },
-    { nickname: '웨딩후기', avatar: 'https://i.pravatar.cc/40?img=45', rating: 5.0, text: '목소리 톤이 정말 좋으세요. 편안한 분위기를 만들어주셨어요' },
-  ],
-};
-
-function RotatingReview({ proId }: { proId: string }) {
-  const reviews = RANK_REVIEWS[proId] ?? [];
-  const [idx, setIdx] = useState(0);
-
-  useEffect(() => {
-    if (reviews.length <= 1) return;
-    const timer = setInterval(() => {
-      setIdx((prev) => (prev + 1) % reviews.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [reviews.length]);
-
-  if (reviews.length === 0) return null;
-  const review = reviews[idx];
-
-  return (
-    <div className="relative h-[52px] overflow-hidden">
-      <div
-        key={idx}
-        className="absolute inset-0 animate-review-fade"
-      >
-        <div className="flex items-center gap-1 mb-1">
-          <img src={review.avatar} alt="" className="w-[14px] h-[14px] rounded-full" />
-          <span className="text-[10px] font-semibold text-gray-700">{review.nickname}</span>
-          <Star size={9} className="fill-yellow-400 text-yellow-400 ml-0.5" />
-          <span className="text-[10px] font-bold text-gray-600">{review.rating}</span>
-        </div>
-        <p className="text-[11px] text-gray-500 leading-snug line-clamp-2">
-          {review.text}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// Language map for foreign-language capable pros
-// 이름 → ID 매핑으로 언어 설정 (이우영=25, 김유석=5, 박인애=15, 이승진=23, 강도현=1, 김동현=2, 조하늘=36, 함현지=39, 정이현=35, 이한나=28, 전혜인=32, 김민지=3, 이강문=22, 박상설=13, 노유재=10)
-const PRO_LANGUAGES: Record<string, string[]> = {
-  '25': ['영어'],          // 이우영
-  '5': ['영어'],           // 김유석
-  '15': ['영어'],          // 박인애
-  '23': ['영어'],          // 이승진
-  '1': ['영어'],           // 강도현
-  '2': ['영어'],           // 김동현
-  '36': ['영어'],          // 조하늘
-  '39': ['영어'],          // 함현지
-  '35': ['일본어'],        // 정이현
-  '28': ['일본어'],        // 이한나
-  '32': ['일본어'],        // 전혜인
-  '3': ['일본어'],         // 김민지
-  '22': ['중국어'],        // 이강문
-  '13': ['중국어'],        // 박상설
-  '10': ['중국어'],        // 노유재
-};
-
-const LANGUAGE_PROS_IDS = Object.keys(PRO_LANGUAGES);
-const ALL_LANGUAGES = [...new Set(Object.values(PRO_LANGUAGES).flat())];
-
-// 언어별 국기 매핑
-const LANGUAGE_FLAGS: Record<string, string> = {
-  '영어': '/images/flag-uk.svg',
-  '일본어': '/images/flag-jp.svg',
-  '중국어': '/images/flag-cn.svg',
-  '베트남어': '/images/flag-vn.svg',
-};
-
-// Event-specialist pros (by id)
-const EVENT_SPECIALIST: Record<string, string> = {
-  '15': '돌잔치', '16': '돌잔치',
-  '34': '생신잔치',
-  '13': '기업행사', '11': '기업행사',
-  '18': '야외웨딩', '19': '리조트웨딩',
-  '26': '종교행사',
-  '29': '학교행사',
-  '27': '전통혼례',
-  '30': '상견례',
-  '6': '워크숍/MT',
-  '37': '축제/페스티벌',
-};
-const EVENT_SPECIALIST_IDS = Object.keys(EVENT_SPECIALIST);
-const ALL_EVENT_TYPES = [...new Set(Object.values(EVENT_SPECIALIST))];
-
-// Online status: minutes since last active (0 = currently online)
-const PRO_ONLINE_STATUS: Record<string, number> = {
-  '1': 0, '3': 0, '5': 3, '7': 0, '9': 0, '11': 2,
-  '13': 0, '15': 0, '17': 1, '19': 0, '21': 0, '23': 3,
-  '25': 0, '27': 0, '29': 2, '31': 0, '33': 0, '35': 0,
-  '37': 1, '39': 0, '41': 0,
-};
-
-function OnlineProCard({ pro }: { pro: typeof MOCK_PROS[0] }) {
-  const minutesAgo = PRO_ONLINE_STATUS[pro.id] ?? 0;
-  const isNow = minutesAgo === 0;
-
-  return (
-    <Link
-      href={`/pros/${pro.id}`}
-      className="flex items-center gap-4 group p-[10px] rounded-[14px] active:bg-black/5 active:scale-[0.97] transition-all duration-200"
-    >
-      {/* Circle avatar with fan-out on hover */}
-      <div className="relative w-[100px] h-[100px] shrink-0 my-3 z-10">
-        {/* Stacked photos behind — fan out on hover */}
-        <img
-          src={pro.images[2]}
-          alt=""
-          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[64px] group-hover:translate-y-[-12px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
-        />
-        <img
-          src={pro.images[1]}
-          alt=""
-          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[34px] group-hover:translate-y-[-18px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
-        />
-        {/* Main photo — stays in place */}
-        <img
-          src={pro.images[0]}
-          alt={pro.name}
-          className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-lg z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-        />
-        {/* Online indicator */}
-        <span className={`absolute bottom-1 right-1 z-[4] w-4 h-4 rounded-full border-[1.4px] border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
-      </div>
-
-      {/* Info */}
-      <div className="min-w-0">
-        <span className="text-[12px] font-medium text-gray-400">{pro.category}</span>
-        <p className="text-[16px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
-        <p className="text-[12px] mt-1">
-          {isNow ? (
-            <span className="text-green-600 font-semibold">현재 접속중</span>
-          ) : (
-            <span className="text-gray-400">접속 {minutesAgo}분 전</span>
-          )}
-        </p>
-      </div>
-    </Link>
-  );
-}
-
+/* placeholder to anchor subsequent edits */
 // ─── Business Partners (기업회원) ──────────────────────────────
 interface BusinessPartner {
   id: string;
@@ -577,12 +379,11 @@ const EVENT_PACKAGES = [
 ];
 
 
-function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
-  pro: typeof MOCK_PROS[0];
+function ProCard({ pro, favorites, toggleFavorite, index }: {
+  pro: ProData;
   favorites: Set<string>;
   toggleFavorite: (e: React.MouseEvent, id: string) => void;
   index: number;
-  languages?: string[];
 }) {
   return (
     <Link
@@ -604,10 +405,10 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
           </div>
         </div>
         {/* YouTube 썸네일 이미지 (iframe 대신 — 성능 최적화) */}
-        {(pro as typeof MOCK_PROS[0] & { youtubeId?: string }).youtubeId && (
+        {pro.youtubeId && (
           <div className="absolute bottom-2 right-2 w-[40%] aspect-video rounded-lg overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/90 bg-black z-10 flex items-center justify-center">
             <img
-              src={`https://img.youtube.com/vi/${(pro as typeof MOCK_PROS[0] & { youtubeId?: string }).youtubeId}/mqdefault.jpg`}
+              src={`https://img.youtube.com/vi/${pro.youtubeId}/mqdefault.jpg`}
               alt=""
               className="w-full h-full object-cover"
               loading="lazy"
@@ -646,9 +447,6 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
         </div>
         <div className="flex flex-wrap gap-1">
           <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
-          {languages && languages.map((lang) => (
-            <span key={lang} className="text-[10px] font-bold px-1.5 rounded-[5px] bg-blue-50 text-blue-600 flex items-center" style={{ height: 22 }}>{lang}</span>
-          ))}
           {pro.tags.map((tag) => (
             <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
           ))}
@@ -663,7 +461,7 @@ function ProCard({ pro, favorites, toggleFavorite, index, languages }: {
 
 export default function HomePage() {
   const authUser = useAuthStore((s) => s.user);
-  const [apiPros, setApiPros] = useState<typeof MOCK_PROS | null>(null);
+  const [apiPros, setApiPros] = useState<ProData[] | null>(null);
 
   // Fetch pro list from API
   useEffect(() => {
@@ -693,8 +491,8 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  // Use API data if available, otherwise mock
-  const prosData = apiPros || MOCK_PROS;
+  // Use API data only - no mock fallback
+  const prosData = apiPros || [];
 
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
@@ -703,17 +501,12 @@ export default function HomePage() {
     } catch { return new Set(); }
   });
   const rankScrollRef = useRef<HTMLDivElement>(null);
-  const [selectedLang, setSelectedLang] = useState<string | null>(null);
-  const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
   const [bannerIdx, setBannerIdx] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setBannerIdx((i) => (i + 1) % BANNERS.length), 4000);
     return () => clearInterval(timer);
   }, []);
-  const [myRegion, setMyRegion] = useState<string | null>(null);
-  const [myRegionLoading, setMyRegionLoading] = useState(false);
   const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
   const [viewedPros, setViewedPros] = useState<{ id: string; time: number }[]>([]);
   useEffect(() => {
@@ -783,24 +576,6 @@ export default function HomePage() {
     }
   };
 
-  const languagePros = MOCK_PROS.filter((p) => {
-    if (!LANGUAGE_PROS_IDS.includes(p.id)) return false;
-    if (!selectedLang) return true;
-    return PRO_LANGUAGES[p.id]?.includes(selectedLang);
-  });
-
-  const eventPros = MOCK_PROS.filter((p) => {
-    if (!EVENT_SPECIALIST_IDS.includes(p.id)) return false;
-    if (!selectedEventType) return true;
-    return EVENT_SPECIALIST[p.id] === selectedEventType;
-  });
-
-  const regionPros = MOCK_PROS.filter((p) => {
-    if (!selectedRegion) return true;
-    return p.region === selectedRegion || p.region === '전국';
-  });
-
-  const onlinePros = MOCK_PROS.filter((p) => p.id in PRO_ONLINE_STATUS).slice(0, 20);
 
   const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-main') : true);
   useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-main', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
@@ -1120,10 +895,10 @@ export default function HomePage() {
         {viewedPros.length > 0 && (() => {
           const viewedProData = viewedPros
             .map((v) => {
-              const pro = MOCK_PROS.find((p) => p.id === v.id);
+              const pro = prosData.find((p) => p.id === v.id);
               return pro ? { ...pro, viewedTime: v.time } : null;
             })
-            .filter(Boolean) as (typeof MOCK_PROS[0] & { viewedTime: number })[];
+            .filter(Boolean) as (ProData & { viewedTime: number })[];
           if (viewedProData.length === 0) return null;
           const isRecent = (time: number) => Date.now() - time < 1000 * 60 * 30; // 30분 이내
           return (
@@ -1161,31 +936,6 @@ export default function HomePage() {
           );
         })()}
 
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 1. 지금 접속중인 전문가                                      */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        <section>
-          <div className="flex items-center justify-between mb-1">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="section-title">지금 접속중인 전문가</h3>
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
-                </span>
-              </div>
-              <p className="section-subtitle mt-1">지금 바로 상담 가능한 전문가예요</p>
-            </div>
-          </div>
-          <div className="flex gap-3 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-            {onlinePros.map((pro) => (
-              <div key={pro.id} className="shrink-0">
-                <OnlineProCard pro={pro} />
-              </div>
-            ))}
-          </div>
-        </section>
-        <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 2. 이달의 TOP 전문가                                        */}
@@ -1226,10 +976,10 @@ export default function HomePage() {
 
           {/* Mobile: Pill-shaped 3:4 photos with rank badges (top 3) */}
           <div className="lg:hidden grid grid-cols-3 gap-x-3 py-4">
-            {[
-              { pro: MOCK_PROS[1], border: '#D1D5DB', trophy: '/images/group-1707482188.svg', offset: true },
-              { pro: MOCK_PROS[0], border: '#FBBF24', trophy: '/images/group-1707482189.svg', offset: false },
-              { pro: MOCK_PROS[2], border: '#CD7F32', trophy: '/images/group-1707482190.svg', offset: true },
+            {prosData.length >= 3 ? [
+              { pro: prosData[1], border: '#D1D5DB', trophy: '/images/group-1707482188.svg', offset: true },
+              { pro: prosData[0], border: '#FBBF24', trophy: '/images/group-1707482189.svg', offset: false },
+              { pro: prosData[2], border: '#CD7F32', trophy: '/images/group-1707482190.svg', offset: true },
             ].map(({ pro, border, trophy, offset }) => (
               <Link key={pro.id} href={`/pros/${pro.id}`} className={`flex flex-col items-center ${offset ? 'mt-5' : ''}`}>
                 <div className="relative w-full aspect-[3/4]">
@@ -1244,7 +994,9 @@ export default function HomePage() {
                 <p className="text-[14px] font-bold text-gray-900 mt-4">{pro.name}</p>
                 <p className="text-[12px] text-gray-400">{pro.role}</p>
               </Link>
-            ))}
+            )) : (
+              <p className="col-span-3 text-center text-gray-400 text-[14px] py-10">전문가 정보를 불러오는 중...</p>
+            )}
           </div>
 
           {/* Desktop: horizontal scroll rank cards */}
@@ -1252,13 +1004,13 @@ export default function HomePage() {
             ref={rankScrollRef}
             className="hidden lg:flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
           >
-            {MOCK_PROS.slice(0, 5).map((pro, i) => (
+            {prosData.slice(0, 5).map((pro, i) => (
               <Link
                 key={pro.id}
                 href={`/pros/${pro.id}`}
                 className="flex-shrink-0 w-[280px] snap-start flex gap-3 group"
               >
-                {/* Rank Number — vertically centered */}
+                {/* Rank Number -- vertically centered */}
                 <div className="flex items-center shrink-0">
                   <span className="text-[36px] font-black text-gray-900 leading-none">{i + 1}</span>
                 </div>
@@ -1278,7 +1030,11 @@ export default function HomePage() {
                     <span className="text-[11px] font-medium text-gray-400">{pro.category}</span>
                     <p className="text-[15px] font-bold text-gray-900 leading-tight">{pro.name}</p>
                   </div>
-                  <RotatingReview proId={pro.id} />
+                  <div className="flex items-center gap-0.5 mt-1">
+                    <Star size={11} className="fill-yellow-400 text-yellow-400" />
+                    <span className="text-[12px] font-bold text-gray-900">{pro.rating}</span>
+                    <span className="text-[11px] text-gray-400">({pro.reviews})</span>
+                  </div>
                 </div>
               </Link>
             ))}
@@ -1303,175 +1059,15 @@ export default function HomePage() {
           </Reveal>
           {/* Mobile: 3×3 grid, Desktop: 5×2 grid */}
           <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
-            {MOCK_PROS.slice(0, 10).map((pro, i) => (
+            {prosData.slice(0, 10).map((pro, i) => (
               <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
                 <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
               </div>
             ))}
+            {prosData.length === 0 && (
+              <p className="col-span-3 lg:col-span-5 text-center text-gray-400 text-[14px] py-10">전문가 정보를 불러오는 중...</p>
+            )}
           </div>
-        </section>
-        <div className="my-6 border-t border-gray-100" />
-
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 4. 행사 전문가                                              */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        <section>
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="section-title">행사 전문가</h3>
-                <p className="section-subtitle mt-1">행사 유형별 전문 사회자를 만나보세요</p>
-              </div>
-              <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
-                전체보기 <ChevronRight size={16} />
-              </Link>
-            </div>
-            <LayoutGroup id="event-tabs">
-              <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-                <button onClick={() => setSelectedEventType(null)} className={`relative isolate chip ${selectedEventType === null ? 'text-white' : 'chip-inactive'}`}>
-                  {selectedEventType === null && <motion.span layoutId="event-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
-                  <span className="relative">전체</span>
-                </button>
-                {ALL_EVENT_TYPES.map((et) => (
-                  <button key={et} onClick={() => setSelectedEventType(selectedEventType === et ? null : et)} className={`relative isolate chip ${selectedEventType === et ? 'text-white' : 'chip-inactive'}`}>
-                    {selectedEventType === et && <motion.span layoutId="event-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
-                    <span className="relative">{et}</span>
-                  </button>
-                ))}
-              </div>
-            </LayoutGroup>
-          </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-            {/* 4개씩 묶어서 페이지 단위로 스와이프 */}
-            {Array.from({ length: Math.ceil(eventPros.length / 4) }).map((_, pageIdx) => (
-              <div key={pageIdx} className="flex flex-col gap-3 shrink-0 w-[calc(100%-40px)] snap-start px-1">
-                {eventPros.slice(pageIdx * 4, pageIdx * 4 + 4).map((pro, i) => {
-                  const reviews = [
-                    '분위기를 정말 잘 살려주셔서 감동이었어요',
-                    '섬세한 진행 덕분에 행사가 완벽했습니다',
-                    '격식과 유머의 밸런스가 최고였어요',
-                    '처음부터 끝까지 프로페셔널한 진행이었습니다',
-                  ];
-                  return (
-                    <Link
-                      key={pro.id}
-                      href={`/pros/${pro.id}`}
-                      className="flex gap-3 group opacity-0 animate-fade-in"
-                      style={{ animationDelay: `${(pageIdx * 4 + i) * 60}ms`, animationFillMode: 'forwards' }}
-                    >
-                      <div className="w-[88px] h-[112px] shrink-0 rounded-xl overflow-hidden">
-                        <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
-                      </div>
-                      <div className="flex-1 min-w-0 border-b border-gray-100 pb-3">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-[16px] font-semibold text-gray-900">{pro.role} {pro.name}</h4>
-                          <span className="text-[11px] text-gray-400">경력 {pro.experience}년</span>
-                        </div>
-                        <p className="text-[12px] text-gray-400 mt-0.5 line-clamp-1">&ldquo;{reviews[i % reviews.length]}&rdquo;</p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-          {eventPros.length === 0 && (
-            <p className="text-center text-gray-400 text-[14px] py-10">해당 행사 유형의 전문가가 없습니다</p>
-          )}
-        </section>
-        <div className="my-6 border-t border-gray-100" />
-
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 4.5 지역별 사회자                                           */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        <section>
-          <Reveal>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="section-title">지역별 사회자</h3>
-                <p className="section-subtitle mt-1">내 지역에서 바로 활동하는 전문가</p>
-              </div>
-              <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
-                전체보기 <ChevronRight size={16} />
-              </Link>
-            </div>
-          </Reveal>
-          <LayoutGroup id="region-tabs">
-            <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-              {['서울/경기', '충청', '경상', '전라', '강원', '제주'].map((region) => {
-                const active = selectedRegion === region;
-                return (
-                  <button key={region} onClick={() => setSelectedRegion(active ? null : region)} className={`relative isolate chip ${active ? 'text-white' : 'chip-inactive'}`}>
-                    {active && <motion.span layoutId="region-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
-                    <span className="relative">{region}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </LayoutGroup>
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
-            {regionPros.slice(0, 9).map((pro, i) => (
-              <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
-              </div>
-            ))}
-          </div>
-          {regionPros.length === 0 && (
-            <p className="text-center text-gray-400 text-[14px] py-10">해당 지역의 전문가가 없습니다</p>
-          )}
-        </section>
-        <div className="my-6 border-t border-gray-100" />
-
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 5. 외국어 전문가                                            */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        <section>
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="section-title">외국어 전문가</h3>
-                <p className="section-subtitle mt-1">외국어 가능 전문가와 함께하세요</p>
-              </div>
-              <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
-                전체보기 <ChevronRight size={16} />
-              </Link>
-            </div>
-            <LayoutGroup id="lang-tabs">
-              <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-                <button onClick={() => setSelectedLang(null)} className={`relative isolate chip ${selectedLang === null ? 'text-white' : 'chip-inactive'}`}>
-                  {selectedLang === null && <motion.span layoutId="lang-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
-                  <span className="relative">전체</span>
-                </button>
-                {ALL_LANGUAGES.map((lang) => {
-                  const flag = LANGUAGE_FLAGS[lang];
-                  const active = selectedLang === lang;
-                  return (
-                    <button
-                      key={lang}
-                      onClick={() => setSelectedLang(active ? null : lang)}
-                      className={`relative isolate chip flex items-center gap-1.5 ${active ? 'text-white' : 'chip-inactive'}`}
-                    >
-                      {active && <motion.span layoutId="lang-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
-                      {flag && (
-                        <img src={flag} alt="" width={18} height={18} className="relative w-[18px] h-[18px] rounded-full object-cover shrink-0" draggable={false} />
-                      )}
-                      <span className="relative">{lang}</span>
-                    </button>
-                  );
-              })}
-              </div>
-            </LayoutGroup>
-          </div>
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8 relative z-10">
-            {languagePros.slice(0, 9).map((pro, i) => (
-              <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} languages={PRO_LANGUAGES[pro.id]} />
-              </div>
-            ))}
-          </div>
-          {languagePros.length === 0 && (
-            <p className="text-center text-gray-400 text-[14px] py-10">해당 언어의 전문가가 없습니다</p>
-          )}
         </section>
         <div className="my-6 border-t border-gray-100" />
 
