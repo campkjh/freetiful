@@ -14,16 +14,7 @@ import {
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
-
-const MY_ID_FALLBACK = 'user-1';
-
-const PROS: Record<string, { id: string; name: string; username: string; profileImageUrl: string; isActive: boolean; lastSeen?: string }> = {
-  '1': { id: 'pro-1', name: '이우영', username: 'wooyoung_mc', profileImageUrl: '/images/pro-25/2-11772248201484.avif', isActive: true },
-  '2': { id: 'pro-2', name: '이승진', username: 'seungjin_mc', profileImageUrl: '/images/pro-23/IMG_46511771924269213.avif', isActive: false, lastSeen: '5분 전' },
-  '3': { id: 'pro-3', name: '박인애', username: 'inae_mc', profileImageUrl: '/images/pro-15/IMG_0196.avif', isActive: true },
-  '4': { id: 'pro-4', name: '전해별', username: 'haebyul_mc', profileImageUrl: '/images/pro-31/IMG_73341772850094485.avif', isActive: false, lastSeen: '1시간 전' },
-  '5': { id: 'pro-5', name: '정이현', username: 'yihyun_mc', profileImageUrl: '/images/pro-35/44561772622988798.avif', isActive: true },
-};
+import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
 
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
 
@@ -360,110 +351,25 @@ function NaverMapPreview({ lat, lng, mine }: { lat: number; lng: number; mine: b
   );
 }
 
-function makeMockMessages(proId: string, proName: string, MY_ID: string = MY_ID_FALLBACK): Message[] {
-  const now = Date.now();
-  const D = 24 * 3600000;
-  // 시점 기준: 최초 문의 ~ 9일 전, 본식은 오늘로부터 5일 후
-  const t = (offsetDay: number, hour: number = 0) =>
-    new Date(now - offsetDay * D + hour * 3600000).toISOString();
-  const eventDate = new Date(now + 5 * D).toISOString().slice(0, 10);
-  const eventName = '결혼식 사회';
-  const venue = '더시에나 호텔 강남 그랜드볼룸';
-  const eventTime = '오후 2:00';
-
-  return [
-    // ─── D-9: 견적 요청 ───
-    {
-      id: 's1', senderId: 'system', content: '견적 요청으로 대화가 시작되었습니다',
-      type: 'system', createdAt: t(9, 9), isRead: true,
-      system: { kind: 'session_start' },
-    },
-    { id: 'm1', senderId: MY_ID, content: '안녕하세요! 4월 5일 결혼식 MC 문의드려요', type: 'text', createdAt: t(9, 9.2), isRead: true },
-    { id: 'm2', senderId: proId, content: '안녕하세요 😊 문의 감사드려요!\n해당 날짜 가능합니다. 장소가 어디일까요?', type: 'text', createdAt: t(9, 9.5), isRead: true },
-    { id: 'm3', senderId: MY_ID, content: '강남 더시에나호텔 그랜드볼룸이에요. 오후 2시 본식이고 리허설은 1시부터 시작합니다.', type: 'text', createdAt: t(9, 10), isRead: true },
-    { id: 'm4', senderId: proId, content: '확인했습니다 👌\n웨딩 MC 패키지 견적서 보내드릴게요!', type: 'text', createdAt: t(9, 10.3), isRead: true },
-
-    // ─── D-9: 견적서 발송 ───
-    {
-      id: 's-quote', senderId: 'system', content: '견적서 발송',
-      type: 'system', createdAt: t(9, 11), isRead: true,
-      system: {
-        kind: 'quote',
-        plan: 'superior',
-        eventName,
-        amount: 800000,
-        eventDate,
-        eventTime,
-        items: [
-          '본식 사회 (60분)',
-          '리허설 진행 (30분)',
-          '피로연 사회 (60분)',
-          '맞춤 대본 작성',
-          '포토타임 진행',
-          '영상 큐시트 관리',
-        ],
-      },
-    },
-    { id: 'm5', senderId: MY_ID, content: '좋아요! 진행하겠습니다 🙏', type: 'text', createdAt: t(9, 14), isRead: true },
-
-    // ─── D-8: 결제 요청 ───
-    {
-      id: 's-pay-req', senderId: 'system', content: '예약금 결제 요청',
-      type: 'system', createdAt: t(8, 10), isRead: true,
-      system: { kind: 'payment_request', paymentType: 'deposit', amount: 50000 },
-    },
-
-    // ─── D-8: 결제 완료 ───
-    {
-      id: 's-pay-ok', senderId: 'system', content: '예약금 결제 완료',
-      type: 'system', createdAt: t(8, 10.5), isRead: true,
-      system: { kind: 'payment_paid', paymentType: 'deposit', amount: 50000 },
-    },
-    {
-      id: 's-confirm', senderId: 'system', content: '예약이 확정되었습니다',
-      type: 'system', createdAt: t(8, 10.6), isRead: true,
-      system: {
-        kind: 'booking_confirmed',
-        eventName,
-        eventDate,
-        eventTime,
-        venue,
-      },
-    },
-    { id: 'm6', senderId: proId, content: '예약 확인 감사드립니다 ❤️\n본식 전에 신랑님 신부님 성함, 양가 부모님 성함, 그리고 특별히 강조하고 싶은 사연 있으시면 미리 알려주세요!', type: 'text', createdAt: t(8, 11), isRead: true },
-    { id: 'm7', senderId: MY_ID, content: '네! 정리해서 내일 보내드릴게요 😊', type: 'text', createdAt: t(8, 11.5), isRead: true },
-
-    // ─── D-7: 일주일 전 알림 ───
-    {
-      id: 's-d7', senderId: 'system', content: 'D-7',
-      type: 'system', createdAt: t(7, 9), isRead: true,
-      system: { kind: 'reminder', daysLeft: 7, eventName, eventDate, eventTime },
-    },
-    { id: 'm8', senderId: MY_ID, content: '신랑: 박지훈\n신부: 김서연\n시아버지: 박정호 / 시어머니: 이혜진\n친정아버지: 김민수 / 친정어머니: 정수영\n\n특별 사연: 신랑이 신부에게 깜짝 영상편지를 준비했어요. 본식 중반쯤 틀어주세요!', type: 'text', createdAt: t(7, 14), isRead: true },
-    { id: 'm9', senderId: proId, content: '와 너무 멋진 이벤트네요! 😍\n영상 큐 시점은 신부님 부케 받으신 직후에 어떨까요?', type: 'text', createdAt: t(7, 14.3), isRead: true, replyTo: { id: 'm8', name: '나', content: '신랑이 신부에게 깜짝 영상편지를 준비했어요' } },
-    { id: 'm10', senderId: MY_ID, content: '좋아요 그 타이밍이 딱이에요!', type: 'text', createdAt: t(7, 14.5), isRead: true },
-
-    // ─── D-3 ───
-    {
-      id: 's-d3', senderId: 'system', content: 'D-3',
-      type: 'system', createdAt: t(3, 9), isRead: true,
-      system: { kind: 'reminder', daysLeft: 3, eventName, eventDate, eventTime },
-    },
-    { id: 'm11', senderId: proId, content: '곧 본식이네요! 🎊\n행사 당일 1시간 30분 전에 도착해서 음향팀과 큐 맞춰볼게요. 신랑신부 대기실 위치만 다시 한 번 알려주실 수 있을까요?', type: 'text', createdAt: t(3, 11), isRead: true },
-    { id: 'm12', senderId: MY_ID, content: '본식홀 1층 입장구 우측에 신부 대기실 있어요. 도착하시면 웨딩 플래너 한지원 매니저님 찾으시면 안내해드릴 거예요!', type: 'text', createdAt: t(3, 11.3), isRead: true },
-
-    // ─── D-1 ───
-    {
-      id: 's-d1', senderId: 'system', content: 'D-1',
-      type: 'system', createdAt: t(1, 8), isRead: false,
-      system: { kind: 'reminder', daysLeft: 1, eventName, eventDate, eventTime },
-    },
-    { id: 'm13', senderId: proId, content: '내일이네요! 컨디션 잘 챙기시고, 푹 주무세요 😊\n내일 봬요!', type: 'text', createdAt: t(1, 20), isRead: false },
-    { id: 'm14', senderId: MY_ID, content: '감사합니다 ☺️ 내일 잘 부탁드려요!', type: 'text', createdAt: t(1, 20.3), isRead: true, reaction: '❤️' },
-
-    // 견적 답장 메시지 (오래 전 - 호환성 유지)
-    { id: 'm15', senderId: proId, content: '편하게 연락주세요. 본식 당일 1시간 30분 전에 미리 도착할게요!', type: 'text', createdAt: t(0, -2), isRead: false },
-  ];
+/** Convert a MessageItem from the API into our local Message shape */
+function mapApiMessage(m: MessageItem): Message {
+  const meta = m.metadata as Record<string, any> | null;
+  return {
+    id: m.id,
+    senderId: m.senderId,
+    content: m.content || '',
+    type: (m.type === 'link' || m.type === 'sticker') ? 'text' : m.type as Message['type'],
+    createdAt: m.createdAt,
+    isRead: m.isRead,
+    replyTo: m.replyTo ? { id: m.replyTo.id, name: m.replyTo.senderId, content: m.replyTo.content || '' } : null,
+    reaction: m.reactions?.[0]?.emoji ?? null,
+    fileName: meta?.fileName as string | undefined,
+    duration: meta?.duration as number | undefined,
+    latitude: meta?.latitude as number | undefined,
+    longitude: meta?.longitude as number | undefined,
+    address: meta?.address as string | undefined,
+    system: meta?.system as SystemPayload | undefined,
+  };
 }
 
 function formatDateDivider(dateStr: string) {
@@ -834,24 +740,24 @@ function renderTextWithMentions(text: string) {
   });
 }
 
-// 사회자 모드용 고객 데이터
-const CLIENTS: Record<string, { id: string; name: string; username: string; profileImageUrl: string; isActive: boolean; lastSeen?: string }> = {
-  'c1': { id: 'client-1', name: '홍**', username: 'client1', profileImageUrl: '', isActive: true },
-  'c2': { id: 'client-2', name: '김**', username: 'client2', profileImageUrl: '', isActive: false, lastSeen: '30분 전' },
-  'c3': { id: 'client-3', name: '이**', username: 'client3', profileImageUrl: '', isActive: true },
-  'c4': { id: 'client-4', name: '박**', username: 'client4', profileImageUrl: '', isActive: false, lastSeen: '2시간 전' },
-};
+interface ChatPartner {
+  id: string;
+  name: string;
+  profileImageUrl: string;
+  isActive: boolean;
+  lastSeen?: string;
+}
 
 export default function ChatRoomPage() {
   const { id: roomId } = useParams<{ id: string }>();
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const MY_ID = authUser?.id || MY_ID_FALLBACK;
-  const { connect, disconnect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
+  const MY_ID = authUser?.id || '';
   const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
-  const pro = isPro ? (CLIENTS[roomId] || CLIENTS['c1']) : (PROS[roomId] || PROS['1']);
+  const { connect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
 
-  const [messages, setMessages] = useState<Message[]>(() => makeMockMessages(pro.id, pro.name));
+  const [chatPartner, setChatPartner] = useState<ChatPartner | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [showAttach, setShowAttach] = useState(false);
   const [actionMenu, setActionMenu] = useState<{ id: string; x: number; y: number; mine: boolean } | null>(null);
@@ -860,10 +766,45 @@ export default function ChatRoomPage() {
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [muted, setMuted] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionList] = useState([
-    { id: pro.id, name: pro.name, username: pro.username },
-    ...Object.values(PROS).filter((p) => p.id !== pro.id).slice(0, 4),
-  ]);
+  const mentionList = chatPartner
+    ? [{ id: chatPartner.id, name: chatPartner.name, username: chatPartner.name }]
+    : [];
+
+  // Fetch room info + initial messages on mount
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRoom() {
+      try {
+        const res = await chatApi.getRoom(roomId);
+        if (cancelled) return;
+        const room = res.data as ChatRoomItem;
+        setChatPartner({
+          id: room.otherUser.id,
+          name: room.otherUser.name,
+          profileImageUrl: room.otherUser.profileImageUrl || '/images/default-avatar.png',
+          isActive: room.otherUser.isActive ?? false,
+        });
+      } catch (err) {
+        console.error('Failed to load room info', err);
+      }
+    }
+
+    async function loadMessages() {
+      try {
+        const res = await chatApi.getMessages(roomId, { limit: 50 });
+        if (cancelled) return;
+        const apiMessages = res.data.data;
+        setMessages(apiMessages.map(mapApiMessage));
+      } catch (err) {
+        console.error('Failed to load messages', err);
+      }
+    }
+
+    loadRoom();
+    loadMessages();
+    return () => { cancelled = true; };
+  }, [roomId]);
 
   // Connect to WebSocket when authenticated
   useEffect(() => {
@@ -873,20 +814,26 @@ export default function ChatRoomPage() {
     return () => { leaveRoom(); };
   }, [authUser, roomId]);
 
-  // Sync WebSocket messages with local state
+  // Sync WebSocket messages with local state - APPEND new ones
+  const prevWsCountRef = useRef(0);
   useEffect(() => {
     if (wsMessages.length === 0) return;
-    const mapped: Message[] = wsMessages.map((m) => ({
-      id: m.id,
-      senderId: m.senderId,
-      content: m.content || '',
-      type: m.type as Message['type'],
-      createdAt: m.createdAt,
-      isRead: m.isRead,
-      replyTo: m.replyTo ? { id: m.replyTo.id, name: m.replyTo.senderId, content: m.replyTo.content || '' } : null,
-      reaction: null,
-    }));
-    setMessages(mapped);
+    // Only process newly appended WebSocket messages
+    const newCount = wsMessages.length - prevWsCountRef.current;
+    if (newCount <= 0) {
+      prevWsCountRef.current = wsMessages.length;
+      return;
+    }
+    const newWsMessages = wsMessages.slice(prevWsCountRef.current);
+    prevWsCountRef.current = wsMessages.length;
+
+    const mapped: Message[] = newWsMessages.map(mapApiMessage);
+    setMessages((prev) => {
+      // Deduplicate by id
+      const existingIds = new Set(prev.map((m) => m.id));
+      const unique = mapped.filter((m) => !existingIds.has(m.id));
+      return unique.length > 0 ? [...prev, ...unique] : prev;
+    });
   }, [wsMessages]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -1216,7 +1163,7 @@ export default function ChatRoomPage() {
   };
 
   const handleReply = (msg: Message) => {
-    setReplyTo({ id: msg.id, name: msg.senderId === MY_ID ? '나' : pro.name, content: msg.content });
+    setReplyTo({ id: msg.id, name: msg.senderId === MY_ID ? '나' : (chatPartner?.name || '상대방'), content: msg.content });
     setActionMenu(null);
     inputRef.current?.focus();
   };
@@ -1241,7 +1188,7 @@ export default function ChatRoomPage() {
     }
     setPinnedMessage({
       id: msg.id,
-      name: msg.senderId === MY_ID ? '나' : pro.name,
+      name: msg.senderId === MY_ID ? '나' : (chatPartner?.name || '상대방'),
       content: msg.content,
     });
     setActionMenu(null);
@@ -1383,17 +1330,17 @@ export default function ChatRoomPage() {
 
           {/* 중앙 프로필 알약 */}
           <Link
-            href={`/pros/${pro.id}`}
+            href={`/pros/${chatPartner?.id || ''}`}
             className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
           >
             <div className="relative shrink-0">
-              <img src={pro.profileImageUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
-              {pro.isActive && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#34C759] border-2 border-white rounded-full" />}
+              <img src={chatPartner?.profileImageUrl || '/images/default-avatar.png'} alt="" className="w-9 h-9 rounded-full object-cover" />
+              {chatPartner?.isActive && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#34C759] border-2 border-white rounded-full" />}
             </div>
             <div className="flex-1 min-w-0 leading-tight">
-              <p className="text-[14px] font-bold text-gray-900 truncate">{pro.name}</p>
+              <p className="text-[14px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
               <p className="text-[10px] text-gray-400">
-                {pro.isActive ? '온라인' : pro.lastSeen ? `${pro.lastSeen} 활동` : '오프라인'}
+                {chatPartner?.isActive ? '온라인' : chatPartner?.lastSeen ? `${chatPartner.lastSeen} 활동` : '오프라인'}
               </p>
             </div>
           </Link>
@@ -1419,7 +1366,7 @@ export default function ChatRoomPage() {
                     {muted ? <Bell size={16} className="text-gray-500" /> : <BellOff size={16} className="text-gray-500" />}
                     {muted ? '알림 켜기' : '알림 끄기'}
                   </button>
-                  <Link href={`/pros/${pro.id}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
+                  <Link href={`/pros/${chatPartner?.id || ''}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
                     <Smile size={16} className="text-gray-500" /> 프로필 보기
                   </Link>
                   <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-red-500 hover:bg-red-50 w-full border-t border-gray-100">
