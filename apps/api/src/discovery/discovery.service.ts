@@ -5,6 +5,23 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DiscoveryService {
   constructor(private prisma: PrismaService) {}
 
+  private cache = new Map<string, { data: any; expires: number }>();
+  private CACHE_TTL = 1800_000; // 30분
+
+  private getCached<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry || entry.expires < Date.now()) return null;
+    return entry.data as T;
+  }
+
+  private setCached(key: string, data: any) {
+    this.cache.set(key, { data, expires: Date.now() + this.CACHE_TTL });
+    if (this.cache.size > 200) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) this.cache.delete(oldest);
+    }
+  }
+
   /** 오늘의 추천 전문가 — 날짜 기반 매일 로테이션 */
   async getDailyRecommendation() {
     const pros = await this.prisma.proProfile.findMany({
@@ -50,6 +67,10 @@ export class DiscoveryService {
     const limit = Number(params.limit) || 20;
     const { search, sort = 'rating', gender, minPrice, maxPrice, featured } = params;
 
+    const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured });
+    const cached = this.getCached<any>(cacheKey);
+    if (cached) return cached;
+
     const where: any = { status: 'approved' };
     if (search) {
       where.OR = [
@@ -91,7 +112,7 @@ export class DiscoveryService {
       this.prisma.proProfile.count({ where }),
     ]);
 
-    return {
+    const result = {
       data: data.map((p) => ({
         id: p.id,
         userId: p.userId,
@@ -114,10 +135,15 @@ export class DiscoveryService {
       limit,
       hasMore: page * limit < total,
     };
+    this.setCached(cacheKey, result);
+    return result;
   }
 
   /** 전문가 상세 */
   async getProDetail(proProfileId: string) {
+    const detailCacheKey = `proDetail:${proProfileId}`;
+    const detailCached = this.getCached<any>(detailCacheKey);
+    if (detailCached) return detailCached;
     const pro = await this.prisma.proProfile.findUnique({
       where: { id: proProfileId },
       include: {
@@ -135,15 +161,16 @@ export class DiscoveryService {
 
     if (!pro) return null;
 
-    // Increment views
-    await this.prisma.proProfile.update({
+    this.prisma.proProfile.update({
       where: { id: proProfileId },
       data: { profileViews: { increment: 1 } },
-    });
+    }).catch(() => {});
 
-    return {
+    const detailResult = {
       ...pro,
       avgRating: Number(pro.avgRating),
     };
+    this.setCached(detailCacheKey, detailResult);
+    return detailResult;
   }
 }
