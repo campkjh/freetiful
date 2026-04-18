@@ -23,6 +23,22 @@ import {
 export class ChatService {
   constructor(private prisma: PrismaService) {}
 
+  private roomCache = new Map<string, { data: any; ts: number }>();
+  private CACHE_TTL = 60_000; // 1분 (채팅은 짧게)
+
+  private getRoomCached(key: string) {
+    const hit = this.roomCache.get(key);
+    return hit && Date.now() - hit.ts < this.CACHE_TTL ? hit.data : null;
+  }
+
+  private setRoomCached(key: string, data: any) {
+    this.roomCache.set(key, { data, ts: Date.now() });
+    if (this.roomCache.size > 100) {
+      const oldest = this.roomCache.keys().next().value;
+      if (oldest) this.roomCache.delete(oldest);
+    }
+  }
+
   // ─── Chat Rooms ──────────────────────────────────────────────────────────
 
   async createRoom(userId: string, dto: CreateChatRoomDto) {
@@ -70,6 +86,10 @@ export class ChatService {
 
   async getRooms(userId: string, query: ChatRoomQueryDto) {
     const { search, dateFrom, dateTo, page = 1, limit = 20 } = query;
+
+    const cacheKey = `rooms:${userId}:${page}:${search || ''}`;
+    const cached = this.getRoomCached(cacheKey);
+    if (cached) return cached;
 
     const where: any = {
       members: { some: { userId } },
@@ -144,7 +164,9 @@ export class ChatService {
       };
     });
 
-    return { data, total, page, limit, hasMore: page * limit < total };
+    const result = { data, total, page, limit, hasMore: page * limit < total };
+    this.setRoomCached(cacheKey, result);
+    return result;
   }
 
   async getRoomById(roomId: string, userId: string) {
