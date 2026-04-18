@@ -201,7 +201,13 @@ export default function ChatRoomPage() {
     setMessages((prev) => {
       const existingIds = new Set(prev.map((m) => m.id));
       const unique = mapped.filter((m) => !existingIds.has(m.id));
-      return unique.length > 0 ? [...prev, ...unique] : prev;
+      if (unique.length === 0) return prev;
+      // 낙관적 메시지(opt-) 중 같은 senderId+content인 것 제거
+      const withoutOptimistic = prev.filter((m) => {
+        if (!m.id.startsWith('opt-')) return true;
+        return !unique.some((u) => u.senderId === m.senderId && u.content === m.content);
+      });
+      return [...withoutOptimistic, ...unique];
     });
   }, [wsMessages]);
 
@@ -382,6 +388,18 @@ export default function ChatRoomPage() {
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="max-w-[680px] mx-auto">
+          {messages.length === 0 && !chatPartner && (
+            <div className="space-y-4 pt-4">
+              {[1,2,3,4].map((i) => (
+                <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : ''}`}>
+                  <div className={`flex items-end gap-2 ${i % 2 === 0 ? 'flex-row-reverse' : ''}`}>
+                    {i % 2 !== 0 && <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse shrink-0" />}
+                    <div className="rounded-2xl bg-gray-100 animate-pulse" style={{ width: `${120 + i * 30}px`, height: 36 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {messages.map((msg, i) => {
             const showDate = shouldShowDateDivider(messages, i);
 
