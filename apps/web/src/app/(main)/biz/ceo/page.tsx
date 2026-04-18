@@ -320,12 +320,6 @@ export default function CeoPage() {
                       </div>
                     </div>
                   </div>
-                  {/* 경력 */}
-                  <div className="mt-4 space-y-1">
-                    {person.career.map((line, j) => (
-                      <p key={j} className="text-[12px] md:text-[13px] leading-relaxed text-gray-500">{line}</p>
-                    ))}
-                  </div>
                 </div>
               </Reveal>
             ))}
@@ -368,8 +362,18 @@ export default function CeoPage() {
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[16px] font-black text-gray-900">Freetiful</p>
-              <p className="mt-1 text-[11px] text-gray-300">프리티풀 | 서울특별시 종로구 율곡로 294, 2층(종로6가)</p>
+              <p className="mt-1 text-[11px] text-gray-300">프리티풀 | 서울 중구 퇴계로 36길 2, 충무로관</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful. All rights reserved.</p>
+              <div className="mt-4 rounded-xl overflow-hidden border border-gray-100" style={{ height: 200 }}>
+                <iframe
+                  src="https://map.kakao.com/link/map/프리티풀,37.5594,126.9942"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                />
+              </div>
             </div>
             <div className="flex gap-4 text-[12px] text-gray-300">
               <Link href="/biz" className="transition-colors hover:text-gray-500">회사소개</Link>

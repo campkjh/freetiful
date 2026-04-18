@@ -121,7 +121,7 @@ const COMPANY_INFO = {
   established: '2024년',
   business: '프리랜서 진행자 매칭 플랫폼',
   experts: '1,000여 명',
-  address: '서울특별시 종로구 율곡로 294, 2층(종로6가)',
+  address: '서울 중구 퇴계로 36길 2, 충무로관',
   phone: '02-765-8882',
   email: 'freetiful2025@gmail.com',
   website: 'https://freetiful.com',

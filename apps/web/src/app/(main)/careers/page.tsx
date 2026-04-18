@@ -43,7 +43,7 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
 /* ─── Constants ───────────────────────────────────────────── */
 const COMPANY = {
   name: '프리티풀',
-  address: '서울특별시 종로구 율곡로 294, 2층(종로6가)',
+  address: '서울 중구 퇴계로 36길 2, 충무로관',
   email: 'freetiful2025@gmail.com',
 };
 
