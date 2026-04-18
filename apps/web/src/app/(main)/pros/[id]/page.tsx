@@ -484,7 +484,7 @@ export default function ProDetailPage() {
   }, [id]);
 
   const [activeImage, setActiveImage] = useState(0);
-  const [activePlan, setActivePlan] = useState(1); // default deluxe
+  const [activePlan, setActivePlan] = useState(0);
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -723,10 +723,10 @@ export default function ProDetailPage() {
           />
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-bold text-gray-900 truncate leading-tight">
-              <span className="text-[#3180F7]">{pro.plans[activePlan].label}</span> {pro.title}
+              <span className="text-[#3180F7]">{(pro.plans[activePlan] || pro.plans[0])?.label}</span> {pro.title}
             </p>
             <p className="text-[12px] leading-tight mt-0.5">
-              <span className="font-bold text-gray-900">{pro.plans[activePlan].price.toLocaleString()}원</span>
+              <span className="font-bold text-gray-900">{((pro.plans[activePlan] || pro.plans[0])?.price || 0).toLocaleString()}원</span>
               <span className="text-gray-400 ml-1">(VAT 포함)</span>
             </p>
           </div>
