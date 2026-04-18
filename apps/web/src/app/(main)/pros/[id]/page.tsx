@@ -484,7 +484,9 @@ export default function ProDetailPage() {
   }, [id]);
 
   const [activeImage, setActiveImage] = useState(0);
-  const [activePlan, setActivePlan] = useState(0);
+  const [activePlan, setActivePlan] = useState(() => {
+    return (pro?.plans?.length || 0) > 1 ? 1 : 0;
+  });
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
