@@ -9,6 +9,7 @@ import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
 import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { useChatStore } from '@/lib/store/chat.store';
 
 const USER_NAV_ITEMS = [
   { href: '/main',      iconSrc: '/images/icon-home.svg',      label: '홈' },
@@ -84,6 +85,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
     }
   }, [pathname, needsAuth, authUser]);
+
+  // 로그인 시 채팅 목록 프리페치
+  useEffect(() => {
+    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    if (loggedIn) {
+      useChatStore.getState().fetchRooms();
+    }
+  }, [authUser]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';

@@ -154,6 +154,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   fetchRooms: async (params) => {
+    const { rooms } = get();
+    if (rooms.length > 0) {
+      set({ roomsLoading: false });
+      chatApi.getRooms(params).then((res) => set({ rooms: res.data.data })).catch(() => {});
+      return;
+    }
     set({ roomsLoading: true });
     try {
       const res = await chatApi.getRooms(params);
