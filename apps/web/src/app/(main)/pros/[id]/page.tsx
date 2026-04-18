@@ -396,6 +396,7 @@ export default function ProDetailPage() {
           setApiError(true);
           return;
         }
+        try {
         const userName = res.user?.name || '전문가';
         const images = res.images?.map((img: any) => img.imageUrl) || [];
         const profileImg = res.user?.profileImageUrl || images[0] || '';
@@ -470,6 +471,10 @@ export default function ProDetailPage() {
           recommendedPros: [],
           alsoViewed: [],
         });
+        } catch (mapErr) {
+          console.error('ProDetail mapping error:', mapErr);
+          setApiError(true);
+        }
       })
       .catch((err) => {
         console.error('ProDetail load error:', err);
