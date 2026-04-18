@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { discoveryApi } from '@/lib/api/discovery.api';
+import { discoveryApi, getCachedProDetail } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 
 // ─── Brand Color ────────────────────────────────────────────

@@ -386,6 +386,8 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
   return (
     <Link
       href={`/pros/${pro.id}`}
+      onTouchStart={() => discoveryApi.getProDetail(pro.id)}
+      onMouseEnter={() => discoveryApi.getProDetail(pro.id)}
       className="block opacity-0 animate-fade-in group card-press"
       style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
     >
