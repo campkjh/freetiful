@@ -89,7 +89,6 @@ export default function CheckoutPage() {
     } catch { /* ignore */ }
   }, [authUser]);
 
-  const [payMethod, setPayMethod] = useState('bank');
   const [maxDiscount, setMaxDiscount] = useState(true);
   const [agreedCancel, setAgreedCancel] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
@@ -98,28 +97,68 @@ export default function CheckoutPage() {
   const [showScheduleDetail, setShowScheduleDetail] = useState(false);
   const [showPrivacyDetail, setShowPrivacyDetail] = useState(false);
   const [usePoints, setUsePoints] = useState(true);
+  const [consented, setConsented] = useState(false);
 
-  const pointAmount = 5000;
+  // 실제 포인트 잔액 조회
+  const [pointBalance, setPointBalance] = useState(0);
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get<{ balance: number }>('/api/v1/users/points')
+      .then((res) => setPointBalance(res.data?.balance ?? 0))
+      .catch(() => {});
+  }, [authUser]);
+
+  const pointAmount = usePoints ? Math.min(pointBalance, price) : 0;
   const couponAmount = 0;
   const discountAmount = maxDiscount ? pointAmount : 0;
-  const finalPrice = price - discountAmount - couponAmount;
+  // Toss 최소 결제 금액 100원 보장 — 할인으로 음수가 되지 않도록 clamp
+  const finalPrice = Math.max(100, price - discountAmount - couponAmount);
 
   const [payLoading, setPayLoading] = useState(false);
-  const [consented, setConsented] = useState(false);
-  const [buttonPulse, setButtonPulse] = useState(false);
+  const widgetsRef = useRef<any>(null);
+  const [widgetsReady, setWidgetsReady] = useState(false);
 
-  const handleConsent = () => {
-    setAgreedCancel(true);
-    setAgreedPrivacy(true);
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    setButtonPulse(true);
-    setTimeout(() => {
-      setConsented(true);
-      setTimeout(() => setButtonPulse(false), 500);
-    }, 150);
-  };
+  // Toss 결제위젯 초기화 (gck_ 키는 widgets API 전용)
+  useEffect(() => {
+    const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+    if (!clientKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const tossPayments = await loadTossPayments(clientKey);
+        const customerKey = authUser?.id || `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const widgets = (tossPayments as any).widgets({ customerKey });
+        if (cancelled) return;
+        widgetsRef.current = widgets;
+        await widgets.setAmount({ currency: 'KRW', value: finalPrice });
+        await Promise.all([
+          widgets.renderPaymentMethods({ selector: '#toss-payment-methods', variantKey: 'DEFAULT' }),
+          widgets.renderAgreement({ selector: '#toss-agreement', variantKey: 'AGREEMENT' }),
+        ]);
+        setWidgetsReady(true);
+      } catch (e) {
+        console.error('[toss widgets init]', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authUser?.id]);
+
+  // 금액 변경 시 위젯 setAmount 재호출
+  useEffect(() => {
+    if (widgetsRef.current && widgetsReady) {
+      widgetsRef.current.setAmount({ currency: 'KRW', value: finalPrice }).catch(() => {});
+    }
+  }, [finalPrice, widgetsReady]);
 
   const handlePayment = async () => {
+    // 첫 클릭: 동의 처리 + 애니메이션 → 두 번째 클릭: 결제 진행
+    if (!consented) {
+      setAgreedCancel(true);
+      setAgreedPrivacy(true);
+      setConsented(true);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      return;
+    }
     if (!agreedCancel) { toast.error('취소/환불 규정에 동의해주세요'); return; }
     if (!agreedPrivacy) { toast.error('개인정보 수집에 동의해주세요'); return; }
 
@@ -132,56 +171,56 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 1. 주문 생성 (백엔드)
-      const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const orderName = `${proInfo.name} 사회자 - ${planName}`;
 
+      // 1. 주문 생성 — 서버가 orderId 발급 (DB 에 pending Payment 레코드 남김)
+      let orderId: string;
       try {
-        await apiClient.post('/api/v1/payment/order', {
-          orderId,
+        const eventDate = day && month ? `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : undefined;
+        const { data: order } = await apiClient.post<{ orderId: string }>('/api/v1/payment/order', {
           amount: finalPrice,
           orderName,
           proProfileId: id,
+          eventDate,
         });
-      } catch {
-        // 백엔드 없어도 결제 진행 가능
+        orderId = order.orderId;
+      } catch (e: any) {
+        alert('주문 생성에 실패했습니다: ' + (e?.response?.data?.message || e?.message || '알 수 없는 오류'));
+        setPayLoading(false);
+        return;
       }
 
-      // 2. 토스페이먼츠 위젯 호출
-      const tossPayments = await loadTossPayments(clientKey);
-      const payment = tossPayments.payment({ customerKey: authUser?.id || `guest_${Date.now()}` });
-
-      await (payment.requestPayment as any)({
-        method: payMethod === 'card' ? 'CARD' : payMethod === 'bank' ? 'TRANSFER' : 'EASY_PAY',
-        amount: { currency: 'KRW', value: finalPrice },
+      // 2. 토스 위젯으로 결제 요청 — 서버 orderId 사용
+      if (!widgetsRef.current) {
+        alert('결제 위젯 초기화 중입니다. 잠시 후 다시 시도해 주세요.');
+        setPayLoading(false);
+        return;
+      }
+      await widgetsRef.current.requestPayment({
         orderId,
         orderName,
         customerName: authUser?.name || bookerInfo.split('/')[0]?.trim() || '고객',
         customerEmail: authUser?.email || undefined,
         successUrl: `${window.location.origin}/payment/success?proId=${id}`,
         failUrl: `${window.location.origin}/payment/fail`,
-        ...(payMethod === 'kakaopay' ? { easyPay: { provider: 'KAKAOPAY' } } :
-           payMethod === 'npay' ? { easyPay: { provider: 'NAVERPAY' } } :
-           payMethod === 'tosspay' ? { easyPay: { provider: 'TOSSPAY' } } : {}),
       });
     } catch (e: any) {
-      if (e?.code === 'USER_CANCEL') {
+      // 상세 로그 (Toss 는 code + message 포함)
+      console.error('[toss requestPayment]', e);
+      const code = e?.code;
+      const message = e?.message || '결제 중 오류가 발생했습니다';
+      if (code === 'USER_CANCEL') {
         toast('결제가 취소되었습니다', { icon: '🔙' });
+      } else if (code) {
+        alert(`결제 실패\n[${code}] ${message}`);
       } else {
-        toast.error(e?.message || '결제 중 오류가 발생했습니다');
+        toast.error(message);
       }
     } finally {
       setPayLoading(false);
     }
   };
 
-  const PAY_METHODS = [
-    { id: 'bank', label: '퀵계좌이체', badge: '0.3% 즉시할인' },
-    { id: 'card', label: '신용·체크카드' },
-    { id: 'npay', label: 'N pay', icon: '🟢' },
-    { id: 'kakaopay', label: 'kakao pay', icon: '🟡' },
-    { id: 'tosspay', label: 'toss pay', badge: '혜택', icon: '🔵' },
-  ];
 
   return (
     <div className="bg-white min-h-screen pb-36" style={{ letterSpacing: '-0.02em' }}>
@@ -286,16 +325,23 @@ export default function CheckoutPage() {
           </div>
 
           <div className="px-4 py-3 border-t border-gray-100">
-            <p className="text-[12px] text-gray-500 mb-2">포인트</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[12px] text-gray-500">포인트</p>
+              <span className="text-[11px] text-gray-400">잔액 {pointBalance.toLocaleString()}P</span>
+            </div>
             <div className="flex items-center justify-between px-3 h-[40px] border border-gray-200 rounded-xl">
               <span className="text-[13px] text-gray-700">사용</span>
-              {usePoints ? (
-                <button onClick={() => setUsePoints(false)} className="flex items-center gap-1 text-[14px] font-bold text-[#3180F7]">
-                  -{pointAmount.toLocaleString()} P
-                  <X size={14} className="text-gray-400" />
-                </button>
+              {pointBalance > 0 ? (
+                usePoints ? (
+                  <button onClick={() => setUsePoints(false)} className="flex items-center gap-1 text-[14px] font-bold text-[#3180F7]">
+                    -{pointAmount.toLocaleString()} P
+                    <X size={14} className="text-gray-400" />
+                  </button>
+                ) : (
+                  <button onClick={() => setUsePoints(true)} className="text-[13px] text-gray-400">적용하기</button>
+                )
               ) : (
-                <button onClick={() => setUsePoints(true)} className="text-[13px] text-gray-400">적용하기</button>
+                <span className="text-[13px] text-gray-300">사용 가능한 포인트가 없어요</span>
               )}
             </div>
           </div>
@@ -309,31 +355,10 @@ export default function CheckoutPage() {
           <span className="text-[13px] font-bold text-[#3180F7]">필수</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {PAY_METHODS.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => setPayMethod(m.id)}
-              className={`relative h-[52px] rounded-xl border text-[13px] font-medium flex items-center justify-center transition-all active:scale-95 ${
-                payMethod === m.id
-                  ? 'border-gray-900 text-gray-900 bg-white'
-                  : 'border-gray-200 text-gray-600 bg-white'
-              }`}
-            >
-              {m.badge && (
-                <span className="absolute -top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#3180F7] text-white">{m.badge}</span>
-              )}
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="bg-gray-50 rounded-xl p-3 mt-3">
-          <p className="text-[12px] font-bold text-gray-700">퀵계좌이체 안내</p>
-          <p className="text-[11px] text-gray-500 mt-1">• 결제 금액 상관 없이 0.3% 즉시 할인</p>
-        </div>
-        <p className="text-[11px] text-gray-500 mt-2">퀵계좌이체 · 결제 시 0.3% 즉시할인</p>
-        <p className="text-[11px] text-gray-500">신용카드 무이자 할부 안내 &gt;</p>
+        {/* Toss 결제위젯: 결제수단 UI 가 여기에 렌더링됨 */}
+        <div id="toss-payment-methods" />
+        {/* Toss 약관 위젯 */}
+        <div id="toss-agreement" className="mt-3" />
       </div>
 
       {/* ═══ 결제 금액 ═══ */}
@@ -457,14 +482,13 @@ export default function CheckoutPage() {
           </div>
         </div>
         <button
-          onClick={() => { if (!consented) { handleConsent(); } else { handlePayment(); } }}
+          onClick={handlePayment}
           disabled={payLoading}
-          style={{ transition: 'background 500ms ease-out, transform 500ms ease-out, box-shadow 500ms ease-out' }}
-          className={`w-full h-[52px] rounded-2xl text-[16px] font-bold text-white active:scale-[0.98] disabled:opacity-60 ${
+          className={`w-full h-[52px] rounded-2xl text-[16px] font-bold text-white active:scale-[0.98] disabled:opacity-60 transition-all duration-500 ${
             consented
-              ? 'bg-gradient-to-r from-[#1E5FD1] to-[#2B6FE8] shadow-lg shadow-blue-500/30'
-              : 'bg-gradient-to-r from-[#3180F7] to-[#5A9BFF]'
-          } ${buttonPulse ? 'scale-[1.03]' : 'scale-100'}`}
+              ? 'bg-gradient-to-r from-[#1E5FD1] to-[#2B6FE8] shadow-lg shadow-blue-500/40 scale-[1.02]'
+              : 'bg-gradient-to-r from-[#3180F7] to-[#5A9BFF] shadow-md'
+          }`}
         >
           {payLoading ? (
             <span className="flex items-center justify-center gap-2">

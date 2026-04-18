@@ -128,30 +128,27 @@ export default function BookingPage() {
     return () => { alive = false; };
   }, [id]);
 
+  // getProDetail 반환값: { user: { name, profileImageUrl }, images: [{ imageUrl }], services: [{ title, basePrice, description }] }
+  const DEFAULT_PRICES: Record<string, number> = { Premium: 450000, Superior: 800000, Enterprise: 1700000 };
   const proInfo = {
-    name: pro?.name || fallbackInfo.name,
-    image: pro?.images?.[0] || pro?.profileImageUrl || fallbackInfo.image,
+    name: pro?.user?.name || pro?.name || fallbackInfo.name,
+    image: pro?.images?.[0]?.imageUrl || pro?.user?.profileImageUrl || fallbackInfo.image,
   };
 
-  // Prefer API plans/services if available
+  // 전문가가 등록한 서비스(옵션) 기반으로 동적 플랜 구성
   const plans = useMemo(() => {
-    if (pro?.plans && Array.isArray(pro.plans) && pro.plans.length > 0) {
-      return pro.plans.map((p: any, idx: number) => ({
-        id: p.id || `plan-${idx}`,
-        name: p.name || p.title || `플랜 ${idx + 1}`,
-        originalPrice: p.originalPrice || p.price || 0,
-        discountPercent: p.discountPercent || 0,
-        finalPrice: p.finalPrice || p.price || 0,
-      }));
-    }
     if (pro?.services && Array.isArray(pro.services) && pro.services.length > 0) {
-      return pro.services.map((s: any, idx: number) => ({
-        id: s.id || `svc-${idx}`,
-        name: s.name || s.title || `서비스 ${idx + 1}`,
-        originalPrice: s.price || 0,
-        discountPercent: 0,
-        finalPrice: s.price || 0,
-      }));
+      return pro.services.filter((s: any) => s.isActive !== false).map((s: any, idx: number) => {
+        const title = s.title || s.name || `서비스 ${idx + 1}`;
+        const price = s.basePrice || DEFAULT_PRICES[title] || 450000;
+        return {
+          id: s.id || `svc-${idx}`,
+          name: `${title} 패키지`,
+          originalPrice: price,
+          discountPercent: 0,
+          finalPrice: price,
+        };
+      });
     }
     return PLAN_OPTIONS;
   }, [pro]);
@@ -172,7 +169,13 @@ export default function BookingPage() {
   const [quantity, setQuantity] = useState(1);
   const [showDetail, setShowDetail] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
-  const [disabledSlots] = useState(['15:00', '15:30', '16:00', '16:30', '17:30', '18:00']);
+  // 전문가 스케줄에서 예약 불가 슬롯 계산 — bookedDates 에 해당일이 있으면 전체 슬롯 비활성
+  const disabledSlots = useMemo(() => {
+    if (!selectedDay) return [] as string[];
+    const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+    const isBooked = bookedDates.some((d) => d === dateStr || d.startsWith(dateStr));
+    return isBooked ? TIME_SLOTS : [] as string[];
+  }, [bookedDates, selectedDay, currentMonth, currentYear]);
   const [extraQty, setExtraQty] = useState<Record<string, number>>(
     Object.fromEntries(EXTRA_OPTIONS.map((o) => [o.id, 0]))
   );
