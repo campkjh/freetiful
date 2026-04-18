@@ -468,9 +468,11 @@ export default function ProDetailPage() {
           alsoViewed: [],
         });
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('ProDetail load error:', err);
         setApiError(true);
-      });
+      })
+      .finally(() => setApiLoading(false));
   }, [id]);
 
   const [activeImage, setActiveImage] = useState(0);
@@ -634,15 +636,10 @@ export default function ProDetailPage() {
     }
   };
 
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    if (pro || apiError) { setLoading(false); return; }
-    const t = setTimeout(() => { setLoading(false); }, 300);
-    return () => clearTimeout(t);
-  }, [pro, apiError]);
+  const [apiLoading, setApiLoading] = useState(true);
 
   // Error state: 전문가를 찾을 수 없습니다
-  if (apiError || (!loading && !pro)) {
+  if (apiError) {
     return (
       <div className="bg-white min-h-screen flex flex-col items-center justify-center" style={{ letterSpacing: '-0.02em' }}>
         <div className="text-center px-6">
@@ -662,7 +659,7 @@ export default function ProDetailPage() {
     );
   }
 
-  if (loading || !pro) {
+  if (apiLoading || !pro) {
     return (
       <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
         {/* Gallery skeleton */}
