@@ -142,15 +142,20 @@ export default function ChatRoomPage() {
     }
 
     async function loadMessages() {
+      // 캐시된 메시지 즉시 표시 (이미 매핑된 Message[])
       const cachedMsgs = useChatStore.getState().messageCache.get(roomId);
       if (cachedMsgs && cachedMsgs.length > 0) {
-        setMessages(cachedMsgs.map(mapApiMessage));
+        setMessages(cachedMsgs as any);
+        // 백그라운드에서 최신 데이터 갱신
+        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
+          if (!cancelled) setMessages(res.data.data.map(mapApiMessage));
+        }).catch(() => {});
+        return;
       }
       try {
         const res = await chatApi.getMessages(roomId, { limit: 50 });
         if (cancelled) return;
-        const apiMessages = res.data.data;
-        setMessages(apiMessages.map(mapApiMessage));
+        setMessages(res.data.data.map(mapApiMessage));
       } catch (err) {
         console.error('Failed to load messages', err);
       }
@@ -159,6 +164,17 @@ export default function ChatRoomPage() {
     loadRoom();
     loadMessages();
     return () => { cancelled = true; };
+  }, [roomId]);
+
+  // 언마운트 시 메시지 캐시 저장
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  useEffect(() => {
+    return () => {
+      if (messagesRef.current.length > 0) {
+        useChatStore.getState().messageCache.set(roomId, messagesRef.current as any);
+      }
+    };
   }, [roomId]);
 
   // ─── WebSocket ───
@@ -199,6 +215,18 @@ export default function ChatRoomPage() {
     if (!input.trim()) return;
 
     if (authUser) {
+      // 낙관적 업데이트: 즉시 화면에 표시
+      const optimistic: Message = {
+        id: `opt-${Date.now()}`,
+        senderId: authUser.id,
+        content: input.trim(),
+        type: 'text',
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        replyTo: replyTo ? { id: replyTo.id, name: replyTo.name, content: replyTo.content } : null,
+        isNew: true,
+      };
+      setMessages((prev) => [...prev, optimistic]);
       wsSendMessage({
         type: 'text',
         content: input.trim(),
@@ -208,6 +236,9 @@ export default function ChatRoomPage() {
       setReplyTo(null);
       setMentionQuery(null);
       inputRef.current?.focus();
+      setTimeout(() => {
+        setMessages((prev) => prev.map((m) => m.id === optimistic.id ? { ...m, isNew: false } : m));
+      }, 500);
       return;
     }
 
