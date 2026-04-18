@@ -22,7 +22,7 @@ function BizKakaoMap() {
       if (!window.kakao?.maps || !mapRef.current) return;
       window.kakao.maps.load(() => {
         const map = new window.kakao.maps.Map(mapRef.current, {
-          center: new window.kakao.maps.LatLng(37.5715, 126.9918), // 종로3가 근처
+          center: new window.kakao.maps.LatLng(37.5594, 126.9942), // 충무로
           level: 3,
         });
         // 주소로 검색
