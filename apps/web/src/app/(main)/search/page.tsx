@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Search, X, Star, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 
@@ -190,11 +189,8 @@ export default function SearchPage() {
               </p>
               <div className="divide-y divide-gray-100">
                 {results.map((pro, i) => (
-                  <motion.div
+                  <div
                     key={pro.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2, delay: i * 0.03 }}
                   >
                     <Link href={`/pros/${pro.id}`} className="block px-4 py-3">
                       <div className="flex gap-3">
@@ -213,7 +209,7 @@ export default function SearchPage() {
                         </div>
                       </div>
                     </Link>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -239,17 +235,14 @@ export default function SearchPage() {
             {recentSearches.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {recentSearches.map((s, i) => (
-                  <motion.button
+                  <button
                     key={`${s}-${i}`}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.03 }}
                     onClick={() => handleRecentClick(s)}
                     className="flex items-center gap-1.5 px-3 py-2 bg-gray-50 rounded-full text-[13px] text-gray-600 font-medium active:scale-95 transition-transform"
                   >
                     <Clock size={12} className="text-gray-400" />
                     {s}
-                  </motion.button>
+                  </button>
                 ))}
               </div>
             ) : (

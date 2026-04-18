@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
 const REQUIRED_TERMS = [
   '[필수]개인정보처리방침',
   '[필수]개인정보수집 및 이용 동의',
@@ -61,167 +59,117 @@ export default function TermsPage() {
       {/* Header — fixed */}
       <div className="shrink-0 px-4 pt-4 pb-4">
         <div className="flex items-center justify-between mb-4">
-          <motion.button
+          <button
             onClick={() => router.back()}
-            whileTap={{ scale: 0.9 }}
           >
             <ChevronLeft size={24} className="text-gray-900" />
-          </motion.button>
-          <motion.button
+          </button>
+          <button
             onClick={() => {
               localStorage.setItem('proRegister_allAgreed', JSON.stringify(allAgreed));
               localStorage.setItem('proRegister_terms', JSON.stringify(terms));
             }}
-            whileTap={{ scale: 0.95 }}
             className="text-[13px] text-gray-400 font-medium px-3 py-1.5 rounded-full hover:bg-gray-50 transition-colors"
           >
             중간저장
-          </motion.button>
+          </button>
         </div>
         {/* Progress bar */}
         <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
-          <motion.div
+          <div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${(1 / 7) * 100}%` }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
+        <p
           className="text-sm text-gray-400 mb-1"
         >
           프리티풀
-        </motion.p>
-        <motion.h1
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+        </p>
+        <h1
           className="text-2xl font-bold text-gray-900 mb-2"
         >
           파트너스 시작하기 <span className="text-[11px] text-gray-400">1/7</span>
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
+        </h1>
+        <p
           className="text-sm text-gray-400"
         >
           프리티풀 파트너스를 시작하시려면<br/>아래의 약관 동의가 필요합니다
-        </motion.p>
+        </p>
       </div>
 
       {/* All Agree */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+      <div
         className="px-4 mb-5"
       >
-        <motion.button
+        <button
           onClick={handleAllAgree}
-          whileTap={{ scale: 0.98 }}
-          animate={{
-            backgroundColor: allAgreed ? '#3180F7' : '#F9FAFB',
-          }}
-          transition={{ duration: 0.25 }}
           className="flex items-center gap-3 w-full px-5 py-5 rounded-2xl"
         >
-          <motion.div
-            animate={{
-              backgroundColor: allAgreed ? '#FFFFFF' : '#FFFFFF',
-              borderColor: allAgreed ? '#FFFFFF' : '#D1D5DB',
-            }}
-            transition={{ duration: 0.2 }}
+          <div
             className="w-6 h-6 rounded flex items-center justify-center shrink-0 border-2"
           >
-            <AnimatePresence>
+            <>
               {allAgreed && (
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
+                <div>
                   <Check size={16} className="text-[#3180F7] stroke-[3]" />
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
-          </motion.div>
-          <motion.span
-            animate={{ color: allAgreed ? '#FFFFFF' : '#111827' }}
-            transition={{ duration: 0.25 }}
+            </>
+          </div>
+          <span
             className="text-base font-semibold"
           >
             프리티풀의 필수약관을 모두 동의합니다
-          </motion.span>
-        </motion.button>
-      </motion.div>
+          </span>
+        </button>
+      </div>
 
       {/* Terms List — scrollable */}
       <div className="px-4 mb-4 flex-1 overflow-y-auto">
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }}
+        <p
           className="text-sm font-bold text-gray-900 mb-2"
         >
           필수 약관
-        </motion.p>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.28 }}
+        </p>
+        <p
           className="text-xs text-gray-400 mb-3"
         >
           프리티풀
-        </motion.p>
+        </p>
 
         <div className="space-y-5">
           {REQUIRED_TERMS.map((term, index) => (
-            <motion.button
+            <button
               key={index}
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 + index * 0.06 }}
-              whileTap={{ scale: 0.97 }}
               onClick={() => handleTermToggle(index)}
               className="flex items-center gap-3 w-full"
             >
-              <motion.div
-                animate={{
-                  backgroundColor: terms[index] ? '#3180F7' : '#FFFFFF',
-                  borderColor: terms[index] ? '#3180F7' : '#D1D5DB',
-                }}
-                transition={{ duration: 0.2 }}
+              <div
                 className="w-6 h-6 rounded flex items-center justify-center shrink-0 border-2"
               >
-                <AnimatePresence>
+                <>
                   {terms[index] && (
-                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
+                    <div>
                       <Check size={16} className="text-white stroke-[3]" />
-                    </motion.div>
+                    </div>
                   )}
-                </AnimatePresence>
-              </motion.div>
+                </>
+              </div>
               <span className="text-sm text-gray-600 text-left">{term}</span>
-            </motion.button>
+            </button>
           ))}
         </div>
       </div>
 
       {/* Next Button — fixed bottom */}
       <div className="shrink-0 p-4 pb-8 bg-white">
-        <motion.button
+        <button
           onClick={handleNext}
           disabled={!allAgreed}
-          whileTap={{ scale: 0.96 }}
-          animate={{
-            backgroundColor: allAgreed ? '#3180F7' : '#F3F4F6',
-            color: allAgreed ? '#FFFFFF' : '#9CA3AF',
-          }}
-          transition={{ duration: 0.3 }}
           className="w-full py-4 rounded-2xl font-bold text-base"
         >
           다음
-        </motion.button>
+        </button>
       </div>
     </div>
   );

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 
@@ -296,19 +295,14 @@ export default function ChatListPage() {
 
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
-    <LayoutGroup id={`chat-list-${isPC ? 'pc' : 'mobile'}`}>
+    <>
       <ul className="divide-y divide-gray-100">
-        <AnimatePresence initial={false} mode="popLayout">
+        <>
           {sorted.map((room) => {
             const hasUnread = room.unreadCount > 0;
             return (
-              <motion.li
+              <li
                 key={room.id}
-                layout
-                initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, x: -24, filter: 'blur(6px)' }}
-                transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 0.6 }}
                 className="relative"
               >
                 <div
@@ -339,14 +333,10 @@ export default function ChatListPage() {
                       aria-hidden="true"
                     />
                   )}
-                  <AnimatePresence>
+                  <>
                     {editMode && !isPC && (
-                      <motion.button
+                      <button
                         key="checkbox"
-                        initial={{ opacity: 0, width: 0, marginRight: 0 }}
-                        animate={{ opacity: 1, width: 20, marginRight: 0 }}
-                        exit={{ opacity: 0, width: 0, marginRight: -12 }}
-                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                         onClick={(e) => { e.stopPropagation(); toggleSelect(room.id); }}
                         className={`shrink-0 h-5 rounded-full border-2 flex items-center justify-center overflow-hidden ${
                           selectedIds.has(room.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
@@ -355,9 +345,9 @@ export default function ChatListPage() {
                         {selectedIds.has(room.id) && (
                           <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         )}
-                      </motion.button>
+                      </button>
                     )}
-                  </AnimatePresence>
+                  </>
                   {isPC ? (
                     room.otherUser.profileImageUrl
                       ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
@@ -400,31 +390,27 @@ export default function ChatListPage() {
                           </div>
                         </div>
                       </Link>
-                      <AnimatePresence>
+                      <>
                         {!editMode && room.isPinned && (
-                          <motion.button
+                          <button
                             key="pin"
-                            initial={{ opacity: 0, scale: 0.5, width: 0 }}
-                            animate={{ opacity: 1, scale: 1, width: 'auto' }}
-                            exit={{ opacity: 0, scale: 0.5, width: 0 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                             onClick={(e) => { e.stopPropagation(); togglePin(room.id); }}
                             className="shrink-0 p-1 overflow-hidden"
                             aria-label="고정 해제"
                           >
                             <Pin size={16} className="text-gray-900 fill-gray-900" />
-                          </motion.button>
+                          </button>
                         )}
-                      </AnimatePresence>
+                      </>
                     </>
                   )}
                 </div>
-              </motion.li>
+              </li>
             );
           })}
-        </AnimatePresence>
+        </>
       </ul>
-    </LayoutGroup>
+    </>
   );
 
   return (
@@ -445,7 +431,7 @@ export default function ChatListPage() {
                 className="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-gray-300"
               />
             </div>
-            <LayoutGroup id="pc-tabs">
+            <>
               <div className="flex gap-1.5 flex-wrap">
                 {(isPro ? PRO_TABS : TABS).map((tab) => {
                   const active = isPro ? proActiveTab === tab : activeTab === tab;
@@ -458,11 +444,9 @@ export default function ChatListPage() {
                       }`}
                     >
                       {active && (
-                        <motion.span
-                          layoutId="pc-tab-indicator"
+                        <span
                           className="absolute inset-0 bg-gray-900 rounded-full"
                           style={{ zIndex: -1 }}
-                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                         />
                       )}
                       <span className="relative">{tab}</span>
@@ -470,7 +454,7 @@ export default function ChatListPage() {
                   );
                 })}
               </div>
-            </LayoutGroup>
+            </>
           </div>
           <div className="flex-1 overflow-y-auto">
             {sorted.length === 0 ? (
@@ -565,50 +549,38 @@ export default function ChatListPage() {
               onClick={() => setShowSearch(!showSearch)}
               className={`p-2 rounded-full transition-colors active:scale-90 ${showSearch ? 'bg-gray-100' : ''}`}
             >
-              <AnimatePresence mode="wait" initial={false}>
+              <>
                 {showSearch ? (
-                  <motion.span
+                  <span
                     key="x"
-                    initial={{ rotate: -45, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 45, opacity: 0 }}
-                    transition={{ duration: 0.18 }}
                     className="block"
                   >
                     <X size={20} className="text-gray-500" />
-                  </motion.span>
+                  </span>
                 ) : (
-                  <motion.span
+                  <span
                     key="search"
-                    initial={{ rotate: 45, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: -45, opacity: 0 }}
-                    transition={{ duration: 0.18 }}
                     className="block"
                   >
                     <Search size={20} className="text-gray-500" />
-                  </motion.span>
+                  </span>
                 )}
-              </AnimatePresence>
+              </>
             </button>
           </div>
-          <AnimatePresence>
+          <>
             {showSearch && (
-              <motion.div
+              <div
                 key="search-input"
-                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginBottom: 12 }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                 className="relative"
               >
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 대화 내용 검색" className="w-full bg-gray-100 rounded-2xl pl-9 pr-9 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-gray-300" autoFocus />
                 {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-gray-400" /></button>}
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
-          <LayoutGroup id="mobile-tabs">
+          </>
+          <>
             <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
               {(isPro ? PRO_TABS : TABS).map((tab) => {
                 const active = isPro ? proActiveTab === tab : activeTab === tab;
@@ -627,11 +599,9 @@ export default function ChatListPage() {
                     className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate transition-colors active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
                   >
                     {active && (
-                      <motion.span
-                        layoutId="mobile-tab-indicator"
+                      <span
                         className="absolute inset-0 bg-gray-900 rounded-full"
                         style={{ zIndex: -1 }}
-                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                       />
                     )}
                     <span className="relative">{tab}</span>
@@ -639,28 +609,21 @@ export default function ChatListPage() {
                 );
               })}
             </div>
-          </LayoutGroup>
+          </>
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <motion.p
+          <p
             key={activeTab}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
             className="text-[13px] text-gray-400"
           >
             {activeTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span>
-          </motion.p>
+          </p>
           <button onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-gray-500 active:scale-90 transition-transform">{editMode ? '완료' : '편집'}</button>
         </div>
-        <AnimatePresence>
+        <>
           {editMode && selectedIds.size > 0 && (
-            <motion.div
+            <div
               key="bulk-bar"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
               className="sticky top-0 z-10 flex items-center justify-between px-5 py-2.5 bg-gray-50 border-b border-gray-100 overflow-hidden"
             >
               <span className="text-[13px] text-gray-500">{selectedIds.size}개 선택됨</span>
@@ -668,9 +631,9 @@ export default function ChatListPage() {
                 <button onClick={archiveSelected} className="flex items-center gap-1 text-[13px] text-gray-600 font-medium active:scale-90 transition-transform"><Archive size={14} /> 보관</button>
                 <button onClick={deleteSelected} className="flex items-center gap-1 text-[13px] text-red-500 font-medium active:scale-90 transition-transform"><Trash2 size={14} /> 삭제</button>
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
+        </>
         {sorted.length === 0 ? (
           <div className="text-center py-20">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto mb-4">

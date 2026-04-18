@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { reviewApi } from '@/lib/api/review.api';
 
@@ -152,16 +151,14 @@ export default function ReviewsPage() {
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="px-4 pt-12 pb-3 flex items-center gap-3">
           <Link href="/pro-dashboard">
-            <motion.div whileTap={{ scale: 0.9 }}><BackIcon /></motion.div>
+            <div><BackIcon /></div>
           </Link>
           <h1 className="text-lg font-bold text-gray-900">리뷰 관리</h1>
         </div>
       </div>
 
       {/* Rating Summary */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <div
         className="px-4 mt-5"
       >
         <div className="bg-white rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
@@ -188,21 +185,17 @@ export default function ReviewsPage() {
             ))}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Review List */}
-      <motion.div
-        variants={stagger}
-        initial="hidden"
-        animate="show"
+      <div
         className="px-4 mt-6"
       >
         <h2 className="text-base font-bold text-gray-900 mb-4">전체 리뷰</h2>
 
         {reviews.map((review, idx) => (
-          <motion.div
+          <div
             key={review.id}
-            variants={fadeUp}
             className={`py-4 ${idx < reviews.length - 1 ? 'border-b border-gray-100' : ''}`}
           >
             {/* Header */}
@@ -243,12 +236,9 @@ export default function ReviewsPage() {
               </div>
             ) : (
               <>
-                <AnimatePresence>
+                <>
                   {replyingTo === review.id && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
+                    <div
                       className="mt-2.5 overflow-hidden"
                     >
                       <textarea
@@ -258,39 +248,36 @@ export default function ReviewsPage() {
                         className="w-full border border-gray-200 rounded-lg p-2.5 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-20"
                       />
                       <div className="flex gap-2 mt-1.5">
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
+                        <button
                           onClick={() => setReplyingTo(null)}
                           className="px-3 py-1.5 text-[11px] text-gray-400 font-medium"
                         >
                           취소
-                        </motion.button>
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
+                        </button>
+                        <button
                           onClick={() => saveReply(review.id)}
                           disabled={!replyTexts[review.id]?.trim()}
                           className="px-3 py-1.5 bg-[#3180F7] text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
                         >
                           등록
-                        </motion.button>
+                        </button>
                       </div>
-                    </motion.div>
+                    </div>
                   )}
-                </AnimatePresence>
+                </>
                 {replyingTo !== review.id && (
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
+                  <button
                     onClick={() => setReplyingTo(review.id)}
                     className="flex items-center gap-1 mt-2.5 text-[11px] text-[#3180F7] font-medium"
                   >
                     <ReplyIcon /> 답글 작성
-                  </motion.button>
+                  </button>
                 )}
               </>
             )}
-          </motion.div>
+          </div>
         ))}
-      </motion.div>
+      </div>
     </div>
   );
 }

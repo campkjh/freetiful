@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Heart, Star, MapPin, Building2, Trash2 } from 'lucide-react';
-import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { favoriteApi } from '@/lib/api/favorite.api';
 
@@ -204,7 +203,7 @@ export default function FavoritesPage() {
               transition: 'margin-left 0.3s ease',
             }}
           >
-            <LayoutGroup id="fav-tabs">
+            <>
               {tabs.map((t) => {
                 const isActive = activeTab === t.key;
                 return (
@@ -217,16 +216,14 @@ export default function FavoritesPage() {
                     {t.label}
                     {t.badge && <span className="ml-0.5 text-[9px] font-bold text-red-500">{t.badge}</span>}
                     {isActive && (
-                      <motion.span
-                        layoutId="fav-tab-line"
+                      <span
                         className="absolute bottom-0 left-1 right-1 h-[2px] bg-gray-900 rounded-full"
-                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                       />
                     )}
                   </button>
                 );
               })}
-            </LayoutGroup>
+            </>
           </div>
         </div>
 
@@ -240,34 +237,34 @@ export default function FavoritesPage() {
           }}
         >
           {activeTab === 'service' && (
-            <LayoutGroup id="fav-pro-cats">
+            <>
               <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
                 {proCategories.map((c) => {
                   const active = proCategory === c.key;
                   return (
                     <button key={c.key} onClick={() => setProCategory(c.key)} className={`relative isolate px-3.5 py-1.5 text-[13px] font-medium shrink-0 rounded-full ${active ? 'text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                      {active && <motion.span layoutId="fav-pro-cat-bg" className="absolute inset-0 bg-[#2B313D] rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                      {active && <span className="absolute inset-0 bg-[#2B313D] rounded-full" style={{ zIndex: -1 }} />}
                       <span className="relative">{c.key} ({c.count})</span>
                     </button>
                   );
                 })}
               </div>
-            </LayoutGroup>
+            </>
           )}
           {activeTab === 'portfolio' && (
-            <LayoutGroup id="fav-biz-cats">
+            <>
               <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
                 {bizCategories.filter((c) => c.count > 0 || c.key === '전체').map((c) => {
                   const active = bizCategory === c.key;
                   return (
                     <button key={c.key} onClick={() => setBizCategory(c.key)} className={`relative isolate px-3.5 py-1.5 text-[13px] font-medium shrink-0 rounded-full ${active ? 'text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                      {active && <motion.span layoutId="fav-biz-cat-bg" className="absolute inset-0 bg-[#2B313D] rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                      {active && <span className="absolute inset-0 bg-[#2B313D] rounded-full" style={{ zIndex: -1 }} />}
                       <span className="relative">{c.key} ({c.count})</span>
                     </button>
                   );
                 })}
               </div>
-            </LayoutGroup>
+            </>
           )}
         </div>
       </div>

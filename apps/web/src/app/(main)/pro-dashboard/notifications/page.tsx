@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-
 /* ─── Icons ─── */
 
 const BackIcon = () => (
@@ -108,7 +106,7 @@ export default function NotificationsPage() {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }
 
-  function handleDragEnd(id: string, info: PanInfo) {
+  function handleDragEnd(id: string, info: { offset: { x: number } }) {
     if (info.offset.x < -100) {
       handleDelete(id);
     }
@@ -120,7 +118,7 @@ export default function NotificationsPage() {
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="px-4 pt-12 pb-3 flex items-center gap-3">
           <Link href="/pro-dashboard">
-            <motion.div whileTap={{ scale: 0.9 }}><BackIcon /></motion.div>
+            <div><BackIcon /></div>
           </Link>
           <h1 className="text-lg font-bold text-gray-900">알림</h1>
           {notifications.filter((n) => !n.read).length > 0 && (
@@ -133,22 +131,19 @@ export default function NotificationsPage() {
 
       {/* Notification List */}
       <div className="px-4 mt-2">
-        <motion.div variants={stagger} initial="hidden" animate="show">
-          <AnimatePresence>
+        <div>
+          <>
             {notifications.length === 0 ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-16 text-center">
+              <div className="py-16 text-center">
                 <div className="flex justify-center mb-3">
                   <img src="/images/notification-settings.svg" alt="" width={48} height={48} className="shrink-0" />
                 </div>
                 <p className="text-sm text-gray-400">알림이 없습니다</p>
-              </motion.div>
+              </div>
             ) : (
               notifications.map((notif, idx) => (
-                <motion.div
+                <div
                   key={notif.id}
-                  variants={fadeUp}
-                  exit={{ opacity: 0, x: -200, transition: { duration: 0.3 } }}
-                  layout
                   className="relative overflow-hidden"
                 >
                   {/* Delete background */}
@@ -157,11 +152,7 @@ export default function NotificationsPage() {
                   </div>
 
                   {/* Swipeable card */}
-                  <motion.div
-                    drag="x"
-                    dragConstraints={{ left: -120, right: 0 }}
-                    dragElastic={0.1}
-                    onDragEnd={(_, info) => handleDragEnd(notif.id, info)}
+                  <div
                     className={`relative bg-gray-50 ${idx < notifications.length - 1 ? 'border-b border-gray-100' : ''}`}
                   >
                     <div className={`py-4 flex items-start gap-3 ${!notif.read ? 'bg-blue-50/30' : ''}`}>
@@ -184,12 +175,12 @@ export default function NotificationsPage() {
                         <p className="text-[10px] text-gray-300 mt-1">{notif.time}</p>
                       </div>
                     </div>
-                  </motion.div>
-                </motion.div>
+                  </div>
+                </div>
               ))
             )}
-          </AnimatePresence>
-        </motion.div>
+          </>
+        </div>
       </div>
     </div>
   );

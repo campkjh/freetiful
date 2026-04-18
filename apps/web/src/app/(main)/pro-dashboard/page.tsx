@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { quotationApi } from '@/lib/api/quotation.api';
@@ -184,7 +183,7 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
 
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 
-/* ─── Animation variants ─── */
+/* ─── Animation ─── */
 
 const stagger = {
   hidden: {},
@@ -409,36 +408,27 @@ export default function ProDashboardPage() {
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="px-5 pt-12 pb-4 flex items-center justify-between">
           <div>
-            <motion.h1
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
+            <h1
               className="text-xl font-bold text-gray-900"
             >
               안녕하세요, {name}님
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
+            </h1>
+            <p
               className="text-xs text-gray-400 mt-0.5"
             >
               {todayString()}
-            </motion.p>
+            </p>
           </div>
           <Link href="/pro-dashboard/notifications">
-            <motion.div whileTap={{ scale: 0.9 }} className="relative p-2">
+            <div className="relative p-2">
               <BellIcon />
-            </motion.div>
+            </div>
           </Link>
         </div>
       </div>
 
       {/* ── Quick Stats (clickable Links) ── */}
-      <motion.div
-        variants={stagger}
-        initial="hidden"
-        animate="show"
+      <div
         className="px-4 mt-5 grid grid-cols-2 gap-3"
       >
         {[
@@ -448,10 +438,9 @@ export default function ProDashboardPage() {
           { icon: <img src="/images/avg-rating.svg" alt="" width={24} height={24} />, label: '평균 평점', value: avgRating, bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
           { icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#F59E0B" /><circle cx="12" cy="12" r="7" fill="#FBBF24" /><text x="12" y="16" textAnchor="middle" fill="#92400E" fontSize="11" fontWeight="bold">P</text></svg>, label: '보유 푸딩', value: `${puddingCount.toLocaleString()}개`, bg: 'bg-amber-50', href: '/my/pudding-history' },
         ].map((stat, i) => (
-          <motion.div key={i} variants={fadeUp}>
+          <div key={i}>
             <Link href={stat.href}>
-              <motion.div
-                whileTap={{ scale: 0.96 }}
+              <div
                 className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] active:bg-gray-50 transition-colors"
               >
                 <div className={`w-11 h-11 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
@@ -459,17 +448,14 @@ export default function ProDashboardPage() {
                 </div>
                 <p className="text-[11px] text-gray-400 font-medium">{stat.label}</p>
                 <p className="text-xl font-bold text-gray-900 mt-0.5">{stat.value}</p>
-              </motion.div>
+              </div>
             </Link>
-          </motion.div>
+          </div>
         ))}
-      </motion.div>
+      </div>
 
       {/* ── 견적 요청 ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
+      <div
         className="px-4 mt-8"
       >
         <div className="flex items-center gap-2 mb-4">
@@ -481,23 +467,18 @@ export default function ProDashboardPage() {
           )}
         </div>
 
-        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
-          <AnimatePresence mode="popLayout">
+        <div className="space-y-3">
+          <>
             {pendingQuotes.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+              <div
                 className="py-10 text-center"
               >
                 <p className="text-sm text-gray-400">대기 중인 견적 요청이 없습니다</p>
-              </motion.div>
+              </div>
             )}
             {pendingQuotes.map((quote, idx) => (
-              <motion.div
+              <div
                 key={quote.id}
-                layout
-                variants={fadeUp}
-                exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
                 onPointerDown={(e) => handlePointerDown(quote.id, e)}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
@@ -526,55 +507,46 @@ export default function ProDashboardPage() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-2">
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
+                  <button
                     onClick={() => setRejectTarget(quote.id)}
                     className="flex-1 py-2.5 rounded-xl bg-gray-100 text-sm font-bold text-gray-500 transition-colors active:bg-gray-200"
                   >
                     거절
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
+                  </button>
+                  <button
                     onClick={() => setConfirmAccept(quote.id)}
                     className="flex-1 py-2.5 rounded-xl bg-[#3180F7] text-sm font-bold text-white transition-colors active:bg-[#2060D0]"
                   >
                     수락
-                  </motion.button>
+                  </button>
                 </div>
-              </motion.div>
+              </div>
             ))}
-          </AnimatePresence>
-        </motion.div>
-      </motion.div>
+          </>
+        </div>
+      </div>
 
       {/* ── Context Menu ── */}
-      <AnimatePresence>
+      <>
         {contextMenu && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
+          <div
             className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
             style={{ top: contextMenu.y, left: Math.min(contextMenu.x, window.innerWidth - 140) }}
             onClick={(e) => e.stopPropagation()}
           >
-            <motion.button
-              whileTap={{ scale: 0.97 }}
+            <button
               onClick={() => handleArchive(contextMenu.id)}
               className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 font-medium hover:bg-gray-50 w-full"
             >
               <ArchiveIcon />
               보관
-            </motion.button>
-          </motion.div>
+            </button>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* ── 다가오는 일정 (timeline style) ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+      <div
         className="px-4 mt-8"
       >
         <div className="flex items-center justify-between mb-4">
@@ -586,11 +558,8 @@ export default function ProDashboardPage() {
 
         <div className="relative">
           {(hasDemoData ? UPCOMING_EVENTS : []).map((ev, i) => (
-            <motion.div
+            <div
               key={i}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.55 + i * 0.08 }}
               className="flex gap-4 pb-5 last:pb-0 relative"
             >
               {/* Timeline line + dot */}
@@ -616,16 +585,13 @@ export default function ProDashboardPage() {
                   {ev.status}
                 </span>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* ── 최근 리뷰 (with 6 category scores) ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.65 }}
+      <div
         className="px-4 mt-8"
       >
         <div className="flex items-center justify-between mb-4">
@@ -636,11 +602,8 @@ export default function ProDashboardPage() {
         </div>
         <div className="space-y-4">
           {(hasDemoData ? RECENT_REVIEWS : []).map((review, i) => (
-            <motion.div
+            <div
               key={review.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 + i * 0.08 }}
               className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm"
             >
               {/* Header */}
@@ -679,9 +642,7 @@ export default function ProDashboardPage() {
               ) : (
                 <>
                   {replyingTo === review.id ? (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
+                    <div
                       className="mt-2"
                     >
                       <textarea
@@ -691,43 +652,37 @@ export default function ProDashboardPage() {
                         className="w-full border border-gray-200 rounded-lg p-2.5 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-16"
                       />
                       <div className="flex gap-2 mt-1.5">
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
+                        <button
                           onClick={() => setReplyingTo(null)}
                           className="px-3 py-1.5 text-[11px] text-gray-400 font-medium"
                         >
                           취소
-                        </motion.button>
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
+                        </button>
+                        <button
                           onClick={() => saveReply(review.id)}
                           className="px-3 py-1.5 bg-[#3180F7] text-white text-[11px] font-bold rounded-lg"
                         >
                           등록
-                        </motion.button>
+                        </button>
                       </div>
-                    </motion.div>
+                    </div>
                   ) : (
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
+                    <button
                       onClick={() => setReplyingTo(review.id)}
                       className="flex items-center gap-1 mt-2 text-[11px] text-[#3180F7] font-medium"
                     >
                       <ReplyIcon /> 답글 작성
-                    </motion.button>
+                    </button>
                   )}
                 </>
               )}
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* ── 수익 현황 ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
+      <div
         className="px-4 mt-8 mb-8"
       >
         <div className="flex items-center gap-2 mb-4">
@@ -741,10 +696,7 @@ export default function ProDashboardPage() {
               <span className="text-sm font-bold text-gray-900">₩{thisMonth.toLocaleString()}</span>
             </div>
             <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${(thisMonth / maxRevenue) * 100}%` }}
-                transition={{ delay: 1, duration: 0.8, ease: 'easeOut' }}
+              <div
                 className="h-full bg-[#3180F7] rounded-full"
               />
             </div>
@@ -755,10 +707,7 @@ export default function ProDashboardPage() {
               <span className="text-sm font-bold text-gray-400">₩{lastMonth.toLocaleString()}</span>
             </div>
             <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${(lastMonth / maxRevenue) * 100}%` }}
-                transition={{ delay: 1.1, duration: 0.8, ease: 'easeOut' }}
+              <div
                 className="h-full bg-gray-300 rounded-full"
               />
             </div>
@@ -770,24 +719,17 @@ export default function ProDashboardPage() {
             </span>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* ── Accept Confirmation Modal ── */}
-      <AnimatePresence>
+      <>
         {confirmAccept && (
-          <motion.div
+          <div
             key="accept-overlay"
-            variants={modalOverlay}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
             className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-6"
             onClick={() => setConfirmAccept(null)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1, transition: { type: 'spring', damping: 24, stiffness: 300 } }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
             >
@@ -796,43 +738,33 @@ export default function ProDashboardPage() {
                 이 견적 요청을 수락하시겠습니까?<br />수락 후 고객에게 알림이 발송됩니다.
               </p>
               <div className="flex gap-3">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
+                <button
                   onClick={() => setConfirmAccept(null)}
                   className="flex-1 py-3 rounded-xl bg-gray-100 text-sm font-bold text-gray-500"
                 >
                   취소
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
+                </button>
+                <button
                   onClick={() => handleAccept(confirmAccept)}
                   className="flex-1 py-3 rounded-xl bg-[#3180F7] text-sm font-bold text-white"
                 >
                   수락하기
-                </motion.button>
+                </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* ── Rejection Reason Modal ── */}
-      <AnimatePresence>
+      <>
         {rejectTarget && (
-          <motion.div
+          <div
             key="reject-overlay"
-            variants={modalOverlay}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
             className="fixed inset-0 z-50 bg-black/40 flex items-end"
             onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}
           >
-            <motion.div
-              variants={modalSheet}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
+            <div
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto shadow-xl"
             >
@@ -842,18 +774,16 @@ export default function ProDashboardPage() {
               <div className="px-5 pt-3 pb-8">
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="text-base font-bold text-gray-900">거절 사유 선택</h3>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
+                  <button
                     onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}
                   >
                     <CloseIcon />
-                  </motion.button>
+                  </button>
                 </div>
                 <div className="space-y-2 mb-5">
                   {REJECTION_REASONS.map((reason) => (
-                    <motion.button
+                    <button
                       key={reason}
-                      whileTap={{ scale: 0.97 }}
                       onClick={() => setSelectedReason(reason)}
                       className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                         selectedReason === reason
@@ -862,32 +792,31 @@ export default function ProDashboardPage() {
                       }`}
                     >
                       {reason}
-                    </motion.button>
+                    </button>
                   ))}
                 </div>
                 {selectedReason === '기타' && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-5">
+                  <div className="mb-5">
                     <textarea
                       value={customReason}
                       onChange={(e) => setCustomReason(e.target.value)}
                       placeholder="거절 사유를 입력해주세요..."
                       className="w-full border border-gray-200 rounded-xl p-3 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-24"
                     />
-                  </motion.div>
+                  </div>
                 )}
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
+                <button
                   onClick={handleReject}
                   disabled={!selectedReason || (selectedReason === '기타' && !customReason.trim())}
                   className="w-full py-3.5 rounded-xl bg-[#3180F7] text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                 >
                   거절하기
-                </motion.button>
+                </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Check, Send, Star, ChevronDown, Search } from 'lucide-react';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { addPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -365,55 +364,54 @@ function QuotePage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-[10px] pb-6 relative z-10">
-        <AnimatePresence>
+        <>
         {/* Step: 행사 유형 */}
         {step === 'type' && (
-          <motion.div key="type" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">어떤 행사인가요?</motion.h2>
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">행사 유형을 선택해주세요</motion.p>
-            <motion.div className="grid grid-cols-2 gap-2.5" variants={staggerContainer} initial="initial" animate="animate">
+          <div key="type">
+            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">어떤 행사인가요?</h2>
+            <p className="text-[14px] text-gray-400 mb-6">행사 유형을 선택해주세요</p>
+            <div className="grid grid-cols-2 gap-2.5">
               {EVENT_TYPES.map((t) => (
-                <motion.button key={t} variants={staggerItem} whileTap={{ scale: 0.95 }} onClick={() => setEventType(t)} className={`p-4 rounded-2xl border text-left transition-colors ${eventType === t ? 'border-[#3180F7] bg-blue-50/60' : 'border-gray-100'}`}>
+                <button key={t} onClick={() => setEventType(t)} className={`p-4 rounded-2xl border text-left transition-colors ${eventType === t ? 'border-[#3180F7] bg-blue-50/60' : 'border-gray-100'}`}>
                   <p className={`text-[15px] font-semibold ${eventType === t ? 'text-[#3180F7]' : 'text-gray-600'}`}>{t}</p>
-                </motion.button>
+                </button>
               ))}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
 
         {/* Step: 플랜 선택 */}
         {step === 'plan' && (
-          <motion.div key="plan" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">플랜을 선택해주세요</motion.h2>
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">행사 규모에 맞는 플랜을 골라주세요</motion.p>
+          <div key="plan">
+            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">플랜을 선택해주세요</h2>
+            <p className="text-[14px] text-gray-400 mb-6">행사 규모에 맞는 플랜을 골라주세요</p>
 
-            {/* Plan selector — flat row with layoutId indicator */}
-            <LayoutGroup id="plan-tabs">
+            {/* Plan selector — flat row with indicator */}
+            <>
               <div className="flex gap-0 border-b border-gray-100">
                 {PLANS.map((p) => {
                   const active = plan === p.id;
                   return (
-                    <motion.button
+                    <button
                       key={p.id}
                       onClick={() => setPlan(p.id)}
-                      whileTap={{ scale: 0.95 }}
                       className="flex-1 py-4 flex flex-col items-center gap-1.5 relative"
                     >
-                      <motion.div animate={{ scale: active ? 1.1 : 1, opacity: active ? 1 : 0.4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>{p.icon}</motion.div>
+                      <div>{p.icon}</div>
                       <p className={`text-[14px] font-bold transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{p.label}</p>
                       <p className={`text-[12px] transition-colors ${active ? 'text-gray-500' : 'text-gray-300'}`}>{p.desc}</p>
                       <p className={`text-[15px] font-bold mt-0.5 transition-colors ${active ? 'text-[#3180F7]' : 'text-gray-300'}`}>{(p.price / 10000).toFixed(0)}만원~</p>
                       {active && (
-                        <motion.div layoutId="plan-indicator" className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#3180F7] rounded-full" transition={{ type: 'spring', stiffness: 380, damping: 30 }} />
+                        <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#3180F7] rounded-full" />
                       )}
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
-            </LayoutGroup>
+            </>
 
             {/* Service comparison table — clickable */}
-            <motion.div className="mt-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <div className="mt-6">
               <p className="text-[13px] font-bold text-gray-900 mb-3">서비스 포함 내역</p>
               <div className="overflow-hidden rounded-xl border border-gray-100">
                 <div className="grid grid-cols-4 bg-gray-50">
@@ -425,7 +423,7 @@ function QuotePage() {
                   ))}
                 </div>
                 {SERVICE_TABLE.map((row, i) => (
-                  <motion.div key={row.name} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 + i * 0.03 }} className={`grid grid-cols-4 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${i < SERVICE_TABLE.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                  <div key={row.name} className={`grid grid-cols-4 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${i < SERVICE_TABLE.length - 1 ? 'border-b border-gray-50' : ''}`}>
                     <div className="py-2.5 px-3 text-[12px] text-gray-600 font-medium flex items-center">{row.name}</div>
                     {(['premium', 'superior', 'enterprise'] as const).map((planKey) => {
                       const included = row[planKey];
@@ -433,34 +431,33 @@ function QuotePage() {
                       return (
                         <button key={planKey} onClick={() => handleTableCellClick(planKey)} className={`py-2.5 flex items-center justify-center transition-colors ${isActive ? 'bg-blue-50/30' : ''}`}>
                           {included ? (
-                            <motion.div animate={{ scale: isActive ? 1 : 0.85, backgroundColor: isActive ? '#3180F7' : '#E5E7EB' }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} className="w-5 h-5 rounded-full flex items-center justify-center">
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center">
                               <Check size={11} className="text-white" />
-                            </motion.div>
+                            </div>
                           ) : (
                             <span className="text-[12px] text-gray-300">—</span>
                           )}
                         </button>
                       );
                     })}
-                  </motion.div>
+                  </div>
                 ))}
               </div>
               <p className="text-[11px] text-gray-400 mt-2">* 가격은 사회자에 따라 달라질 수 있습니다</p>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
 
         {/* Step: 행사 정보 */}
         {step === 'detail' && (
-          <motion.div key="detail" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">행사 정보를 입력해주세요</motion.h2>
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">장소, 날짜, 시간을 알려주세요</motion.p>
+          <div key="detail">
+            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">행사 정보를 입력해주세요</h2>
+            <p className="text-[14px] text-gray-400 mb-6">장소, 날짜, 시간을 알려주세요</p>
             <div className="space-y-5">
               {/* 장소 */}
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <div>
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><LocationIcon />행사 장소</label>
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
+                <button
                   onClick={() => setShowAddressModal(true)}
                   className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-left flex items-center gap-2 active:bg-gray-100 transition-colors"
                 >
@@ -468,17 +465,17 @@ function QuotePage() {
                   <span className={`text-[15px] truncate ${location ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
                     {location || '주소를 검색해주세요'}
                   </span>
-                </motion.button>
-                <AnimatePresence>
+                </button>
+                <>
                   {location && (
-                    <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-[12px] text-[#3180F7] mt-1.5 font-medium">{location}</motion.p>
+                    <p className="text-[12px] text-[#3180F7] mt-1.5 font-medium">{location}</p>
                   )}
-                </AnimatePresence>
+                </>
 
                 {/* Nearby Wedding Venues */}
-                <AnimatePresence>
+                <>
                   {location && (venuesLoading || nearbyVenues.length > 0) && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3">
+                    <div className="mt-3">
                       <div className="flex items-center gap-1.5 mb-2">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 21V7l9-4 9 4v14" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/><path d="M9 21V13h6v8" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/></svg>
                         <span className="text-[12px] font-bold text-gray-700">근처 웨딩홀</span>
@@ -489,12 +486,8 @@ function QuotePage() {
                           {nearbyVenues.slice(0, 5).map((v, i) => {
                             const isSelected = selectedVenue === v.name;
                             return (
-                              <motion.button
+                              <button
                                 key={i}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: i * 0.05 }}
-                                whileTap={{ scale: 0.98 }}
                                 onClick={() => setSelectedVenue(isSelected ? null : v.name)}
                                 className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl text-left transition-all ${
                                   isSelected ? 'bg-blue-50 border border-[#3180F7]' : 'bg-gray-50 border border-transparent'
@@ -514,7 +507,7 @@ function QuotePage() {
                                 <span className="text-[11px] text-[#3180F7] font-bold shrink-0">
                                   {v.distance < 1000 ? `${v.distance}m` : `${(v.distance / 1000).toFixed(1)}km`}
                                 </span>
-                              </motion.button>
+                              </button>
                             );
                           })}
                         </div>
@@ -522,13 +515,13 @@ function QuotePage() {
                       {!venuesLoading && nearbyVenues.length === 0 && location && (
                         <p className="text-[11px] text-gray-400">근처에 웨딩홀이 없습니다</p>
                       )}
-                    </motion.div>
+                    </div>
                   )}
-                </AnimatePresence>
-              </motion.div>
+                </>
+              </div>
 
               {/* 날짜 */}
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+              <div>
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><CalendarIcon />행사 날짜</label>
                 <div className="relative">
                   <input
@@ -544,16 +537,16 @@ function QuotePage() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-gray-400 pointer-events-none">날짜를 선택해주세요</span>
                   )}
                 </div>
-              </motion.div>
+              </div>
 
               {/* 시간 */}
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <div>
                 <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><ClockIcon />행사 시간</label>
-                <AnimatePresence>
+                <>
                   {timeDisplay && (
-                    <motion.p initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-[13px] text-[#3180F7] font-bold mb-2">{timeDisplay}</motion.p>
+                    <p className="text-[13px] text-[#3180F7] font-bold mb-2">{timeDisplay}</p>
                   )}
-                </AnimatePresence>
+                </>
                 <p className="text-[11px] text-gray-400 mb-2">시작 시간과 종료 시간을 순서대로 선택해주세요</p>
                 <div className="grid grid-cols-5 gap-1.5">
                   {TIME_SLOTS.map((slot) => {
@@ -561,72 +554,66 @@ function QuotePage() {
                     const isStart = slot === timeStart;
                     const isEnd = slot === timeEnd;
                     return (
-                      <motion.button
+                      <button
                         key={slot}
-                        whileTap={{ scale: 0.9 }}
-                        animate={{
-                          backgroundColor: isStart || isEnd ? '#3180F7' : inRange ? '#DBEAFE' : '#F9FAFB',
-                          color: isStart || isEnd ? '#FFFFFF' : inRange ? '#3180F7' : '#4B5563',
-                        }}
-                        transition={{ duration: 0.2 }}
                         onClick={() => handleTimeClick(slot)}
                         className={`py-2 rounded-lg text-[13px] font-medium ${!inRange && !isStart && !isEnd ? 'border border-gray-100' : ''}`}
                       >
                         {slot}
-                      </motion.button>
+                      </button>
                     );
                   })}
                 </div>
-              </motion.div>
+              </div>
 
               {/* 선호 분위기 태그 */}
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+              <div>
                 <label className="block text-[13px] font-semibold text-gray-700 mb-2">선호 분위기 (다중 선택)</label>
                 <div className="flex flex-wrap gap-2">
                   {MOOD_TAGS.map((m) => {
                     const active = moods.has(m);
                     return (
-                      <motion.button key={m} whileTap={{ scale: 0.9 }} animate={{ backgroundColor: active ? '#3180F7' : '#F3F4F6', color: active ? '#FFFFFF' : '#6B7280' }} transition={{ duration: 0.2 }} onClick={() => toggleMood(m)} className="px-3.5 py-2 rounded-full text-[13px] font-medium">
+                      <button key={m} onClick={() => toggleMood(m)} className="px-3.5 py-2 rounded-full text-[13px] font-medium">
                         {m}
-                      </motion.button>
+                      </button>
                     );
                   })}
                 </div>
-              </motion.div>
+              </div>
 
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <div>
                 <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">추가 요청사항 (선택)</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="특별히 요청하실 사항이 있으시면 적어주세요" className="w-full h-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#3180F7] resize-none transition-colors" />
-              </motion.div>
+              </div>
             </div>
-          </motion.div>
+          </div>
         )}
 
         {/* Step: 사회자 선택 */}
         {step === 'pros' && (
-          <motion.div key="pros" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">사회자를 선택해주세요</motion.h2>
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">여러 명을 선택하면 동시에 견적을 받을 수 있어요</motion.p>
-            <motion.div className="grid grid-cols-2 gap-3" variants={staggerContainer} initial="initial" animate="animate">
+          <div key="pros">
+            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">사회자를 선택해주세요</h2>
+            <p className="text-[14px] text-gray-400 mb-6">여러 명을 선택하면 동시에 견적을 받을 수 있어요</p>
+            <div className="grid grid-cols-2 gap-3">
               {MOCK_PROS.map((pro) => (
-                <motion.div key={pro.id} variants={staggerItem}>
+                <div key={pro.id}>
                   <ProSelectCard
                     pro={pro}
                     selected={selectedPros.has(pro.id)}
                     onToggle={() => togglePro(pro.id)}
                   />
-                </motion.div>
+                </div>
               ))}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
 
         {/* Step: 확인 */}
         {step === 'confirm' && (
-          <motion.div key="confirm" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-            <motion.h2 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-[22px] font-bold text-gray-900 mt-2 mb-1">견적 요청 확인</motion.h2>
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="text-[14px] text-gray-400 mb-6">아래 내용을 확인하고 전송해주세요</motion.p>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }} className="bg-gray-50 rounded-2xl p-5 space-y-3">
+          <div key="confirm">
+            <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">견적 요청 확인</h2>
+            <p className="text-[14px] text-gray-400 mb-6">아래 내용을 확인하고 전송해주세요</p>
+            <div className="bg-gray-50 rounded-2xl p-5 space-y-3">
               {isEvent && eventType && (
                 <div className="flex justify-between"><span className="text-[13px] text-gray-500">행사 유형</span><span className="text-[13px] font-semibold text-gray-900">{eventType}</span></div>
               )}
@@ -640,7 +627,7 @@ function QuotePage() {
               {moods.size > 0 && (
                 <div className="pt-3 border-t border-gray-200">
                   <p className="text-[13px] text-gray-500 mb-1">선호 분위기</p>
-                  <div className="flex flex-wrap gap-1.5">{[...moods].map((m) => <motion.span key={m} initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-[11px] bg-blue-50 text-[#3180F7] px-2.5 py-1 rounded-full font-medium">{m}</motion.span>)}</div>
+                  <div className="flex flex-wrap gap-1.5">{[...moods].map((m) => <span key={m} className="text-[11px] bg-blue-50 text-[#3180F7] px-2.5 py-1 rounded-full font-medium">{m}</span>)}</div>
                 </div>
               )}
               {!isEvent && selectedPros.size > 0 && (
@@ -648,10 +635,10 @@ function QuotePage() {
                   <p className="text-[13px] text-gray-500 mb-2">선택한 사회자 ({selectedPros.size}명)</p>
                   <div className="flex flex-wrap gap-2">
                     {MOCK_PROS.filter((p) => selectedPros.has(p.id)).map((p, i) => (
-                      <motion.div key={p.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-2 bg-white rounded-full pl-1 pr-3 py-1 border border-gray-200">
+                      <div key={p.id} className="flex items-center gap-2 bg-white rounded-full pl-1 pr-3 py-1 border border-gray-200">
                         <img src={p.image} alt={p.name} className="w-6 h-6 rounded-full object-cover" />
                         <span className="text-[12px] font-medium text-gray-700">{p.name}</span>
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -662,28 +649,21 @@ function QuotePage() {
                   <p className="text-[13px] text-gray-700 mt-1">{note}</p>
                 </div>
               )}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-        </AnimatePresence>
+        </>
       </div>
 
       {/* Address Search Modal */}
-      <AnimatePresence>
+      <>
         {showAddressModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
             className="fixed inset-0 z-50 flex flex-col bg-black/40"
             onClick={() => setShowAddressModal(false)}
           >
             <div className="flex-1" />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            <div
               className="bg-white rounded-t-2xl overflow-hidden"
               style={{ height: '75vh' }}
               onClick={(e) => e.stopPropagation()}
@@ -695,26 +675,19 @@ function QuotePage() {
                 </button>
               </div>
               <div ref={addressEmbedRef} className="w-full" style={{ height: 'calc(75vh - 52px)' }} />
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Confirm Modal */}
-      <AnimatePresence>
+      <>
         {showConfirmModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8"
             onClick={() => setShowConfirmModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            <div
               className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
@@ -726,41 +699,32 @@ function QuotePage() {
                 {isEvent ? '행사 견적 요청을 전송합니다.' : `${selectedPros.size}명의 사회자에게 견적 요청을 보냅니다.`}
               </p>
               <div className="flex gap-2.5 mt-6">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
+                <button
                   onClick={() => setShowConfirmModal(false)}
                   className="flex-1 h-[46px] rounded-xl bg-gray-100 text-[14px] font-semibold text-gray-600"
                 >
                   취소
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
+                </button>
+                <button
                   onClick={handleConfirm}
                   className="flex-1 h-[46px] rounded-xl bg-[#3180F7] text-[14px] font-semibold text-white"
                 >
                   요청하기
-                </motion.button>
+                </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Survey Prompt Modal — coffee coupon */}
-      <AnimatePresence>
+      <>
         {showSurveyPrompt && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8"
             onClick={() => setShowSurveyPrompt(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            <div
               className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
             >
               {/* Coffee icon */}
@@ -779,33 +743,28 @@ function QuotePage() {
                 웨딩 준비 현황에 대한 간단한 설문입니다.<br/>약 1분 정도 소요됩니다.
               </p>
               <div className="flex gap-2.5 mt-6">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
+                <button
                   onClick={handleSurveyDecline}
                   className="flex-1 h-[46px] rounded-xl bg-gray-100 text-[14px] font-semibold text-gray-500"
                 >
                   괜찮아요
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
+                </button>
+                <button
                   onClick={handleSurveyAccept}
                   className="flex-1 h-[46px] rounded-xl bg-[#D97706] text-[14px] font-semibold text-white"
                 >
                   참여할게요
-                </motion.button>
+                </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Survey Modal (first-time users) */}
-      <AnimatePresence>
+      <>
         {showSurvey && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
             className="fixed inset-0 z-50 flex flex-col bg-white"
           >
             <div className="flex items-center px-4 h-[52px]">
@@ -815,23 +774,17 @@ function QuotePage() {
             {/* Survey progress */}
             <div className="px-6 pb-4">
               <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden">
-                <motion.div
+                <div
                   className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
-                  animate={{ width: `${((surveyStep + 1) / SURVEY_QUESTIONS.length) * 100}%` }}
-                  transition={{ duration: 0.4 }}
                 />
               </div>
               <p className="text-[11px] text-gray-300 mt-2 text-right">{surveyStep + 1} / {SURVEY_QUESTIONS.length}</p>
             </div>
 
             <div className="flex-1 overflow-y-auto px-[10px] pb-6">
-              <AnimatePresence>
-                <motion.div
+              <>
+                <div
                   key={surveyStep}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.25 }}
                 >
                   <p className="text-[12px] text-[#3180F7] font-bold mb-2">웨딩 준비 현황</p>
                   <h2 className="text-[22px] font-bold text-gray-900 mb-1">{SURVEY_QUESTIONS[surveyStep].question}</h2>
@@ -840,12 +793,8 @@ function QuotePage() {
                     {SURVEY_QUESTIONS[surveyStep].options.map((opt, i) => {
                       const selected = surveyAnswers[SURVEY_QUESTIONS[surveyStep].key] === opt;
                       return (
-                        <motion.button
+                        <button
                           key={opt}
-                          initial={{ opacity: 0, y: 12 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.04 }}
-                          whileTap={{ scale: 0.97 }}
                           onClick={() => setSurveyAnswers(prev => ({ ...prev, [SURVEY_QUESTIONS[surveyStep].key]: opt }))}
                           className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
                             selected ? 'border-[#3180F7] bg-blue-50/60' : 'border-gray-100'
@@ -853,26 +802,20 @@ function QuotePage() {
                         >
                           <p className={`text-[15px] font-semibold ${selected ? 'text-[#3180F7]' : 'text-gray-600'}`}>{opt}</p>
                           {selected && (
-                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-5 h-5 rounded-full bg-[#3180F7] flex items-center justify-center">
+                            <div className="w-5 h-5 rounded-full bg-[#3180F7] flex items-center justify-center">
                               <Check size={12} className="text-white" />
-                            </motion.div>
+                            </div>
                           )}
-                        </motion.button>
+                        </button>
                       );
                     })}
                   </div>
-                </motion.div>
-              </AnimatePresence>
+                </div>
+              </>
             </div>
 
             <div className="shrink-0 px-[10px] pb-6 pt-3">
-              <motion.button
-                whileTap={{ scale: 0.96 }}
-                animate={{
-                  backgroundColor: surveyAnswers[SURVEY_QUESTIONS[surveyStep].key] ? '#3180F7' : '#F3F4F6',
-                  color: surveyAnswers[SURVEY_QUESTIONS[surveyStep].key] ? '#FFFFFF' : '#9CA3AF',
-                }}
-                transition={{ duration: 0.25 }}
+              <button
                 disabled={!surveyAnswers[SURVEY_QUESTIONS[surveyStep].key]}
                 onClick={() => {
                   if (surveyStep < SURVEY_QUESTIONS.length - 1) {
@@ -884,17 +827,17 @@ function QuotePage() {
                 className="w-full h-[52px] font-semibold rounded-2xl text-[15px]"
               >
                 {surveyStep < SURVEY_QUESTIONS.length - 1 ? '다음' : '완료'}
-              </motion.button>
+              </button>
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Login Modal */}
-      <AnimatePresence>
+      <>
         {showLoginModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40" onClick={() => setShowLoginModal(false)}>
-            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }} className="bg-white w-full max-w-md rounded-t-3xl px-6 pt-6 pb-8" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40" onClick={() => setShowLoginModal(false)}>
+            <div className="bg-white w-full max-w-md rounded-t-3xl px-6 pt-6 pb-8" onClick={(e) => e.stopPropagation()}>
               <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-5" />
               <h2 className="text-[20px] font-bold text-gray-900 text-center mb-1">로그인이 필요합니다</h2>
               <p className="text-[14px] text-gray-500 text-center mb-6">견적 요청을 보내려면 로그인해주세요</p>
@@ -908,34 +851,30 @@ function QuotePage() {
                 ))}
               </div>
               <button onClick={() => setShowLoginModal(false)} className="w-full mt-4 text-[14px] text-gray-400 font-medium py-2 text-center">나중에 하기</button>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Bottom Button */}
       <div className="shrink-0 px-[10px] pb-6 pt-3 bg-white">
         {step === 'confirm' ? (
-          <motion.button
-            whileTap={{ scale: 0.96 }}
+          <button
             onClick={handleSubmitClick}
             disabled={sending}
             className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2568d9] text-white font-semibold rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-[15px]"
           >
             <Send size={16} />
             {sending ? '전송 중...' : isEvent ? '견적 요청 보내기' : `${selectedPros.size}명에게 견적 보내기`}
-          </motion.button>
+          </button>
         ) : (
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            animate={{ backgroundColor: canNext() ? '#3180F7' : '#F3F4F6', color: canNext() ? '#FFFFFF' : '#9CA3AF' }}
-            transition={{ duration: 0.25 }}
+          <button
             onClick={nextStep}
             disabled={!canNext()}
             className="w-full h-[52px] font-semibold rounded-2xl text-[15px]"
           >
             다음
-          </motion.button>
+          </button>
         )}
       </div>
     </div>
@@ -967,13 +906,11 @@ function ProSelectCard({ pro, selected, onToggle }: {
       <div className="relative aspect-[3/4]">
         <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
         {selected && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+          <div
             className="absolute top-2 right-2 w-6 h-6 bg-[#3180F7] rounded-full flex items-center justify-center shadow z-10"
           >
             <Check size={14} className="text-white" />
-          </motion.div>
+          </div>
         )}
         {/* YouTube thumbnail — bottom right */}
         {pro.youtubeId && (
@@ -1004,18 +941,14 @@ function ProSelectCard({ pro, selected, onToggle }: {
         {/* Rotating review with slide animation */}
         <div className="mt-2 flex items-start gap-1.5 overflow-hidden">
           <span className="text-[10px] text-[#3180F7] font-bold shrink-0 mt-0.5">리뷰</span>
-          <AnimatePresence mode="wait">
-            <motion.p
+          <>
+            <p
               key={reviewKey}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.3 }}
               className="text-[11px] text-gray-500 line-clamp-1"
             >
               &ldquo;{displayReview}&rdquo;
-            </motion.p>
-          </AnimatePresence>
+            </p>
+          </>
         </div>
       </div>
     </button>

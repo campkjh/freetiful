@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { quotationApi } from '@/lib/api/quotation.api';
@@ -201,7 +200,7 @@ export default function QuotesPage() {
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="px-4 pt-12 pb-3 flex items-center gap-3">
           <Link href="/pro-dashboard">
-            <motion.div whileTap={{ scale: 0.9 }}><BackIcon /></motion.div>
+            <div><BackIcon /></div>
           </Link>
           <h1 className="text-lg font-bold text-gray-900">견적 요청 관리</h1>
         </div>
@@ -209,19 +208,16 @@ export default function QuotesPage() {
         {/* Tabs */}
         <div className="px-4 pb-3 flex gap-2">
           {TABS.map((t) => (
-            <motion.button
+            <button
               key={t.key}
-              whileTap={{ scale: 0.95 }}
               onClick={() => setTab(t.key)}
               className={`relative px-4 py-2 rounded-full text-sm font-bold transition-colors ${
                 tab === t.key ? 'text-white' : 'text-gray-400 bg-gray-100'
               }`}
             >
               {tab === t.key && (
-                <motion.div
-                  layoutId="quote-tab"
+                <div
                   className="absolute inset-0 bg-[#3180F7] rounded-full"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
               <span className="relative z-10">{t.label}</span>
@@ -230,7 +226,7 @@ export default function QuotesPage() {
                   ({quotes.filter((q) => q.status === 'pending').length})
                 </span>
               )}
-            </motion.button>
+            </button>
           ))}
         </div>
       </div>
@@ -238,19 +234,16 @@ export default function QuotesPage() {
       {/* List */}
       <div className="px-4 mt-4">
         {filtered.length === 0 ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-16 text-center">
+          <div className="py-16 text-center">
             <div className="flex justify-center mb-3"><EmptyIcon /></div>
             <p className="text-sm text-gray-400">해당하는 견적이 없습니다</p>
-          </motion.div>
+          </div>
         ) : (
-          <motion.div variants={stagger} initial="hidden" animate="show" key={tab} className="space-y-0">
-            <AnimatePresence mode="popLayout">
+          <div key={tab} className="space-y-0">
+            <>
               {filtered.map((quote, idx) => (
-                <motion.div
+                <div
                   key={quote.id}
-                  layout
-                  variants={fadeUp}
-                  exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
                   onPointerDown={(e) => handlePointerDown(quote.id, e)}
                   onPointerUp={handlePointerUp}
                   onPointerCancel={handlePointerUp}
@@ -275,10 +268,10 @@ export default function QuotesPage() {
 
                   {quote.status === 'pending' && (
                     <div className="flex gap-2">
-                      <motion.button whileTap={{ scale: 0.95 }} onClick={() => setRejectTarget(quote.id)}
-                        className="flex-1 py-2.5 rounded-xl bg-gray-100 text-sm font-bold text-gray-500">거절</motion.button>
-                      <motion.button whileTap={{ scale: 0.95 }} onClick={() => setConfirmAccept(quote.id)}
-                        className="flex-1 py-2.5 rounded-xl bg-[#3180F7] text-sm font-bold text-white">수락</motion.button>
+                      <button onClick={() => setRejectTarget(quote.id)}
+                        className="flex-1 py-2.5 rounded-xl bg-gray-100 text-sm font-bold text-gray-500">거절</button>
+                      <button onClick={() => setConfirmAccept(quote.id)}
+                        className="flex-1 py-2.5 rounded-xl bg-[#3180F7] text-sm font-bold text-white">수락</button>
                     </div>
                   )}
 
@@ -292,95 +285,94 @@ export default function QuotesPage() {
                       {quote.rejectionReason && <span className="text-[11px] text-gray-400">{quote.rejectionReason}</span>}
                     </div>
                   )}
-                </motion.div>
+                </div>
               ))}
-            </AnimatePresence>
-          </motion.div>
+            </>
+          </div>
         )}
       </div>
 
       {/* Context Menu */}
-      <AnimatePresence>
+      <>
         {contextMenu && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+          <div
             className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
             style={{ top: contextMenu.y, left: Math.min(contextMenu.x, (typeof window !== 'undefined' ? window.innerWidth : 300) - 140) }}
             onClick={(e) => e.stopPropagation()}
           >
-            <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleArchive(contextMenu.id)}
+            <button onClick={() => handleArchive(contextMenu.id)}
               className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 font-medium hover:bg-gray-50 w-full border-b border-gray-50">
               <ArchiveIcon /> 보관
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleDelete(contextMenu.id)}
+            </button>
+            <button onClick={() => handleDelete(contextMenu.id)}
               className="flex items-center gap-2 px-4 py-3 text-sm text-red-500 font-medium hover:bg-red-50 w-full">
               <TrashIcon /> 삭제
-            </motion.button>
-          </motion.div>
+            </button>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Accept Modal */}
-      <AnimatePresence>
+      <>
         {confirmAccept && (
-          <motion.div key="accept" variants={modalOverlay} initial="hidden" animate="visible" exit="exit"
+          <div key="accept"
             className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-6" onClick={() => setConfirmAccept(null)}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+            <div
               onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
               <h3 className="text-base font-bold text-gray-900 text-center mb-2">견적 수락</h3>
               <p className="text-sm text-gray-500 text-center mb-6">이 견적 요청을 수락하시겠습니까?</p>
               <div className="flex gap-3">
-                <motion.button whileTap={{ scale: 0.95 }} onClick={() => setConfirmAccept(null)}
-                  className="flex-1 py-3 rounded-xl bg-gray-100 text-sm font-bold text-gray-500">취소</motion.button>
-                <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleAccept(confirmAccept)}
-                  className="flex-1 py-3 rounded-xl bg-[#3180F7] text-sm font-bold text-white">수락하기</motion.button>
+                <button onClick={() => setConfirmAccept(null)}
+                  className="flex-1 py-3 rounded-xl bg-gray-100 text-sm font-bold text-gray-500">취소</button>
+                <button onClick={() => handleAccept(confirmAccept)}
+                  className="flex-1 py-3 rounded-xl bg-[#3180F7] text-sm font-bold text-white">수락하기</button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Reject Modal */}
-      <AnimatePresence>
+      <>
         {rejectTarget && (
-          <motion.div key="reject" variants={modalOverlay} initial="hidden" animate="visible" exit="exit"
+          <div key="reject"
             className="fixed inset-0 z-50 bg-black/40 flex items-end"
             onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}>
-            <motion.div variants={modalSheet} initial="hidden" animate="visible" exit="exit"
+            <div
               onClick={(e) => e.stopPropagation()} className="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto shadow-xl">
               <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-200 rounded-full" /></div>
               <div className="px-5 pt-3 pb-8">
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="text-base font-bold text-gray-900">거절 사유 선택</h3>
-                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}>
+                  <button onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}>
                     <CloseIcon />
-                  </motion.button>
+                  </button>
                 </div>
                 <div className="space-y-2 mb-5">
                   {REJECTION_REASONS.map((reason) => (
-                    <motion.button key={reason} whileTap={{ scale: 0.97 }} onClick={() => setSelectedReason(reason)}
+                    <button key={reason} onClick={() => setSelectedReason(reason)}
                       className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                         selectedReason === reason ? 'bg-[#3180F7] text-white' : 'bg-gray-50 text-gray-700'
-                      }`}>{reason}</motion.button>
+                      }`}>{reason}</button>
                   ))}
                 </div>
                 {selectedReason === '기타' && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-5">
+                  <div className="mb-5">
                     <textarea value={customReason} onChange={(e) => setCustomReason(e.target.value)}
                       placeholder="거절 사유를 입력해주세요..."
                       className="w-full border border-gray-200 rounded-xl p-3 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] resize-none h-24" />
-                  </motion.div>
+                  </div>
                 )}
-                <motion.button whileTap={{ scale: 0.97 }} onClick={handleReject}
+                <button onClick={handleReject}
                   disabled={!selectedReason || (selectedReason === '기타' && !customReason.trim())}
                   className="w-full py-3.5 rounded-xl bg-[#3180F7] text-white text-sm font-bold disabled:opacity-40 transition-opacity">
                   거절하기
-                </motion.button>
+                </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
     </div>
   );
 }

@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-
 /* ─── Icons ─── */
 
 const BackIcon = () => (
@@ -91,32 +89,29 @@ export default function RevenuePage() {
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="px-4 pt-12 pb-3 flex items-center gap-3">
           <Link href="/pro-dashboard">
-            <motion.div whileTap={{ scale: 0.9 }}><BackIcon /></motion.div>
+            <div><BackIcon /></div>
           </Link>
           <h1 className="text-lg font-bold text-gray-900">매출 현황</h1>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <motion.div variants={stagger} initial="hidden" animate="show" className="px-4 mt-5 grid grid-cols-3 gap-2">
+      <div className="px-4 mt-5 grid grid-cols-3 gap-2">
         {[
           { icon: <MoneyBagIcon />, label: '총 매출', value: formatCurrency(totalRevenue), color: 'text-gray-900' },
           { icon: <CheckCircleIcon />, label: '정산 완료', value: formatCurrency(settledAmount), color: 'text-green-600' },
           { icon: <ClockIcon />, label: '정산 예정', value: formatCurrency(pendingAmount), color: 'text-amber-600' },
         ].map((item, i) => (
-          <motion.div key={i} variants={fadeUp} className="bg-white rounded-xl p-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+          <div key={i} className="bg-white rounded-xl p-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
             <div className="mb-2">{item.icon}</div>
             <p className="text-[10px] text-gray-400 font-medium">{item.label}</p>
             <p className={`text-sm font-bold mt-0.5 ${item.color}`}>{item.value}</p>
-          </motion.div>
+          </div>
         ))}
-      </motion.div>
+      </div>
 
       {/* Bar Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+      <div
         className="px-4 mt-8"
       >
         <h2 className="text-base font-bold text-gray-900 mb-4">월별 매출 추이</h2>
@@ -128,10 +123,7 @@ export default function RevenuePage() {
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <span className="text-[10px] font-bold text-gray-500">{formatCurrency(d.amount).replace('₩', '')}</span>
                   <div className="w-full flex items-end" style={{ height: '100px' }}>
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: `${(d.amount / maxAmount) * 100}%` }}
-                      transition={{ delay: 0.5 + i * 0.1, duration: 0.6, ease: 'easeOut' }}
+                    <div
                       className={`w-full rounded-t-lg ${isCurrentMonth ? 'bg-[#3180F7]' : 'bg-blue-100'}`}
                     />
                   </div>
@@ -143,21 +135,17 @@ export default function RevenuePage() {
             })}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Transaction List */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+      <div
         className="px-4 mt-8"
       >
         <h2 className="text-base font-bold text-gray-900 mb-4">최근 거래 내역</h2>
-        <motion.div variants={stagger} initial="hidden" animate="show">
+        <div>
           {transactions.map((tx, idx) => (
-            <motion.div
+            <div
               key={tx.id}
-              variants={fadeUp}
               className={`py-4 flex items-center justify-between ${idx < transactions.length - 1 ? 'border-b border-gray-100' : ''}`}
             >
               <div className="flex items-center gap-3">
@@ -175,10 +163,10 @@ export default function RevenuePage() {
                   {tx.status === 'settled' ? '정산 완료' : '정산 예정'}
                 </p>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </div>
   );
 }

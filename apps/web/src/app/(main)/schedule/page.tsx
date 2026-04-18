@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Calendar, List, MapPin, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { scheduleApi } from '@/lib/api/schedule.api';
 
@@ -451,14 +450,9 @@ export default function SchedulePage() {
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            <AnimatePresence mode="wait" initial={false} custom={slideDirection}>
-              <motion.div
+            <>
+              <div
                 key={weekOffset}
-                custom={slideDirection}
-                initial={{ x: slideDirection * 300, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: slideDirection * -300, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                 className="grid grid-cols-7 text-center gap-y-1"
               >
                 {/* Day of week header */}
@@ -514,8 +508,8 @@ export default function SchedulePage() {
                     </button>
                   );
                 })}
-              </motion.div>
-            </AnimatePresence>
+              </div>
+            </>
             {/* 스와이프 인디케이터 */}
             <div className="flex justify-center gap-1 mt-2">
               {Array.from({ length: totalWeeks }, (_, i) => (

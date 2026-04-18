@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-
 interface BannerItem {
   id: string;
   title: string;
@@ -72,15 +70,11 @@ export default function StackBanner({ banners, autoPlayInterval = 4000 }: StackB
           );
         })}
 
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div
+        <>
+          <div
             key={banners[currentIndex].id}
             className="absolute inset-0 rounded-2xl overflow-hidden shadow-lg"
             style={{ zIndex: visibleCount }}
-            initial={{ y: 60, scale: 0.92, opacity: 0 }}
-            animate={{ y: 0, scale: 1, opacity: 1 }}
-            exit={{ y: -300, scale: 0.95, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
           >
             <BannerContent banner={banners[currentIndex]} onClick={next} />
             {/* Page indicator */}
@@ -93,8 +87,8 @@ export default function StackBanner({ banners, autoPlayInterval = 4000 }: StackB
                 />
               ))}
             </div>
-          </motion.div>
-        </AnimatePresence>
+          </div>
+        </>
       </div>
     </div>
   );

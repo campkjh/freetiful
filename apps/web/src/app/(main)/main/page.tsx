@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import Link from 'next/link';
 import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
-import { motion, LayoutGroup } from 'framer-motion';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -378,7 +377,6 @@ const EVENT_PACKAGES = [
   { name: '워크숍', tags: ['교육행사', '세미나'], image: '/images/group-1707482248.png' },
 ];
 
-
 function ProCard({ pro, favorites, toggleFavorite, index }: {
   pro: ProData;
   favorites: Set<string>;
@@ -396,7 +394,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
         <div className="lg:hidden" style={{ aspectRatio: '3 / 4' }}>
           <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
         </div>
-        {/* Desktop: 1+2 grid layout */}
+        {/* Desktop: 1+2 grid */}
         <div className="hidden lg:grid grid-cols-[1fr_0.5fr] gap-[2px] h-[220px]">
           <img src={pro.images[0]} alt={pro.name} className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
           <div className="grid grid-rows-2 gap-[2px]">
@@ -575,7 +573,6 @@ export default function HomePage() {
       }
     }
   };
-
 
   const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-main') : true);
   useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-main', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
@@ -936,7 +933,6 @@ export default function HomePage() {
           );
         })()}
 
-
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 2. 이달의 TOP 전문가                                        */}
         {/* ══════════════════════════════════════════════��════════════ */}
@@ -1085,20 +1081,20 @@ export default function HomePage() {
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>
-            <LayoutGroup id="biz-tabs">
+            <>
               <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
                 <button onClick={() => setSelectedBizCat(null)} className={`relative isolate chip ${selectedBizCat === null ? 'text-white' : 'chip-inactive'}`}>
-                  {selectedBizCat === null && <motion.span layoutId="biz-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                  {selectedBizCat === null && <span className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} />}
                   <span className="relative">전체</span>
                 </button>
                 {BIZ_CATEGORIES.slice(1).map((cat) => (
                   <button key={cat} onClick={() => setSelectedBizCat(selectedBizCat === cat ? null : cat)} className={`relative isolate chip ${selectedBizCat === cat ? 'text-white' : 'chip-inactive'}`}>
-                    {selectedBizCat === cat && <motion.span layoutId="biz-tab-bg" className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
+                    {selectedBizCat === cat && <span className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} />}
                     <span className="relative">{cat}</span>
                   </button>
                 ))}
               </div>
-            </LayoutGroup>
+            </>
           </div>
 
           {/* Business Cards — horizontal scroll with peek crop */}

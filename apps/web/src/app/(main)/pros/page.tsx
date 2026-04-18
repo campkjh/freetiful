@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Star, MapPin, ChevronDown, Search, SlidersHorizontal, X, ChevronUp } from 'lucide-react';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Suspense } from 'react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
@@ -246,14 +245,10 @@ function ProsListContent() {
           <button onClick={() => router.back()} className="p-1 -ml-2 shrink-0 active:scale-90 transition-transform">
             <ChevronLeft size={24} className="text-gray-800" />
           </button>
-          <AnimatePresence mode="wait">
+          <>
             {showSearch ? (
-              <motion.div
+              <div
                 key="search-input"
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: '100%' }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                 className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5 ml-1"
               >
                 <Search size={16} className="text-gray-400 shrink-0" />
@@ -271,19 +266,16 @@ function ProsListContent() {
                 >
                   <X size={16} className="text-gray-500" />
                 </button>
-              </motion.div>
+              </div>
             ) : (
-              <motion.h1
+              <h1
                 key="title"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
                 className="text-[18px] font-bold text-gray-900 truncate"
               >
                 {selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
-              </motion.h1>
+              </h1>
             )}
-          </AnimatePresence>
+          </>
           <div className="flex-1" />
           {!showSearch && (
             <button onClick={() => setShowSearch(true)} className="p-1 active:scale-90 transition-transform">
@@ -311,18 +303,16 @@ function ProsListContent() {
                   {activeFilterCount}
                 </span>
               )}
-              <motion.span
-                animate={{ rotate: showFilter ? 180 : 0 }}
-                transition={{ duration: 0.2 }}
+              <span
               >
                 <ChevronDown size={12} />
-              </motion.span>
+              </span>
             </button>
 
             <div className="w-px h-5 bg-gray-200 shrink-0" />
 
-            {/* Region chips with layoutId animation */}
-            <LayoutGroup id="pros-region-tabs">
+            {/* Region chips with animation */}
+            <>
               {REGIONS.map((region) => {
                 const active = selectedRegion === region;
                 return (
@@ -334,28 +324,22 @@ function ProsListContent() {
                     }`}
                   >
                     {active && (
-                      <motion.span
-                        layoutId="pros-region-bg"
+                      <span
                         className="absolute inset-0 bg-[#2B313D] rounded-full"
                         style={{ zIndex: -1 }}
-                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                       />
                     )}
                     <span className="relative">{region}</span>
                   </button>
                 );
               })}
-            </LayoutGroup>
+            </>
           </div>
 
           {/* Expandable filter panel */}
-          <AnimatePresence>
+          <>
             {showFilter && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+              <div
                 className="overflow-hidden"
               >
                 <div className="px-4 pt-2 pb-4 space-y-4 bg-gray-50/50">
@@ -441,20 +425,18 @@ function ProsListContent() {
 
                   {/* Reset + Apply */}
                   {hasActiveFilters && (
-                    <motion.button
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
+                    <button
                       onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); setSelectedLang('전체'); setSelectedType('전체'); }}
                       className="text-[12px] text-red-500 font-medium flex items-center gap-1"
                     >
                       <X size={12} />
                       필터 초기화
-                    </motion.button>
+                    </button>
                   )}
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
+          </>
         </div>
       </div>
 
@@ -479,15 +461,10 @@ function ProsListContent() {
         {filtered.length > 0 ? (
           <div>
             <div className="divide-y divide-gray-100">
-              <AnimatePresence mode="popLayout">
+              <>
                 {paginatedPros.map((pro, i) => (
-                  <motion.div
+                  <div
                     key={pro.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3, delay: i < PAGE_SIZE ? i * 0.03 : 0 }}
                   >
                     <div className="px-4 py-3">
                       <div className="flex gap-3">
@@ -510,16 +487,15 @@ function ProsListContent() {
                         </div>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
-              </AnimatePresence>
+              </>
             </div>
 
             {/* Load More */}
             {hasMore && (
               <div className="px-4 pb-6 pt-2">
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
+                <button
                   onClick={() => setPage(p => p + 1)}
                   className="w-full py-3.5 flex items-center justify-center gap-1.5 text-[14px] font-semibold text-gray-500 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                 >
@@ -528,7 +504,7 @@ function ProsListContent() {
                   <span className="text-[12px] text-gray-400 ml-1">
                     {paginatedPros.length}/{filtered.length}
                   </span>
-                </motion.button>
+                </button>
               </div>
             )}
 
@@ -541,9 +517,7 @@ function ProsListContent() {
             <div className="h-20 lg:h-0" />
           </div>
         ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+          <div
             className="flex flex-col items-center py-20"
           >
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-gray-100">
@@ -556,25 +530,21 @@ function ProsListContent() {
             >
               필터 초기화
             </button>
-          </motion.div>
+          </div>
         )}
       </div>
 
       {/* Scroll to top FAB */}
-      <AnimatePresence>
+      <>
         {scrolled && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="fixed bottom-24 right-4 z-30 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center"
           >
             <ChevronUp size={18} className="text-gray-600" />
-          </motion.button>
+          </button>
         )}
-      </AnimatePresence>
+      </>
     </div>
   );
 }

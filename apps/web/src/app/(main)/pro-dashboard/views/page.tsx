@@ -1,8 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-
 /* ─── Icons ─── */
 
 const BackIcon = () => (
@@ -76,15 +74,15 @@ export default function ViewsPage() {
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="px-4 pt-12 pb-3 flex items-center gap-3">
           <Link href="/pro-dashboard">
-            <motion.div whileTap={{ scale: 0.9 }}><BackIcon /></motion.div>
+            <div><BackIcon /></div>
           </Link>
           <h1 className="text-lg font-bold text-gray-900">프로필 조회 분석</h1>
         </div>
       </div>
 
       {/* Summary Stats */}
-      <motion.div variants={stagger} initial="hidden" animate="show" className="px-4 mt-5 grid grid-cols-2 gap-3">
-        <motion.div variants={fadeUp} className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+      <div className="px-4 mt-5 grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
           <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center mb-2">
             <EyeIcon />
           </div>
@@ -94,8 +92,8 @@ export default function ViewsPage() {
             <TrendUpIcon />
           </div>
           <p className="text-[10px] text-green-500 font-bold mt-0.5">+18% 전월 대비</p>
-        </motion.div>
-        <motion.div variants={fadeUp} className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
           <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-2">
             <UsersIcon />
           </div>
@@ -104,14 +102,11 @@ export default function ViewsPage() {
             <p className="text-xl font-bold text-gray-900">{uniqueVisitors}</p>
           </div>
           <p className="text-[10px] text-gray-400 font-medium mt-0.5">이번 달 기준</p>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* Daily View Chart */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+      <div
         className="px-4 mt-8"
       >
         <h2 className="text-base font-bold text-gray-900 mb-4">최근 7일 조회수</h2>
@@ -123,10 +118,7 @@ export default function ViewsPage() {
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <span className="text-[10px] font-bold text-gray-500">{d.views}</span>
                   <div className="w-full flex items-end" style={{ height: '80px' }}>
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: `${(d.views / maxViews) * 100}%` }}
-                      transition={{ delay: 0.4 + i * 0.08, duration: 0.5, ease: 'easeOut' }}
+                    <div
                       className={`w-full rounded-t-lg ${isMax ? 'bg-[#7C3AED]' : 'bg-purple-100'}`}
                     />
                   </div>
@@ -138,13 +130,10 @@ export default function ViewsPage() {
             })}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Keywords */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+      <div
         className="px-4 mt-8"
       >
         <div className="flex items-center gap-2 mb-4">
@@ -152,11 +141,10 @@ export default function ViewsPage() {
           <h2 className="text-base font-bold text-gray-900">유입 검색어</h2>
         </div>
 
-        <motion.div variants={stagger} initial="hidden" animate="show">
+        <div>
           {KEYWORDS.map((kw, idx) => (
-            <motion.div
+            <div
               key={kw.keyword}
-              variants={fadeUp}
               className={`py-3 flex items-center justify-between ${idx < KEYWORDS.length - 1 ? 'border-b border-gray-100' : ''}`}
             >
               <div className="flex items-center gap-3">
@@ -169,10 +157,10 @@ export default function ViewsPage() {
                   {kw.change}
                 </span>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </div>
   );
 }

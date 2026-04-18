@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
 const OTHER_TAGS = ['레슨/클래스', '쇼호스트', '축가/연주'];
@@ -77,46 +75,37 @@ export default function PersonalInfoPage() {
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
       {/* Header — fixed */}
       <div className="shrink-0 px-6 pt-4 pb-4">
-        <motion.button onClick={() => router.back()} className="mb-4" whileTap={{ scale: 0.9 }}>
+        <button onClick={() => router.back()} className="mb-4">
           <ChevronLeft size={24} className="text-gray-900" />
-        </motion.button>
+        </button>
         {/* Progress bar */}
         <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
-          <motion.div
+          <div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${(3 / 7) * 100}%` }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
-        <motion.h1
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+        <h1
           className="text-2xl font-bold text-gray-900"
         >
           개인정보 <span className="text-[11px] text-gray-400">3/7</span>
-        </motion.h1>
+        </h1>
       </div>
 
       {/* Toast */}
-      <AnimatePresence>
+      <>
         {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+          <div
             className="fixed top-[100px] left-1/2 -translate-x-1/2 bg-white px-6 py-3.5 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-50"
           >
             <p className="text-sm font-medium text-gray-900">{toast}</p>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Form — scrollable */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {/* 이름 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-8">
+        <div className="mb-8">
           {name && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">이름</label>}
           <input
             type="text"
@@ -128,10 +117,10 @@ export default function PersonalInfoPage() {
               name ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-900'
             } focus:border-b-2 focus:border-[#3180F7]`}
           />
-        </motion.div>
+        </div>
 
         {/* 전화번호 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
+        <div className="mb-8">
           {phone && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">전화번호</label>}
           <input
             type="tel"
@@ -142,14 +131,13 @@ export default function PersonalInfoPage() {
               phone ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-400'
             } focus:border-b-2 focus:border-[#3180F7]`}
           />
-        </motion.div>
+        </div>
 
         {/* 성별 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-8">
+        <div className="mb-8">
           {gender && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">성별</label>}
-          <motion.button
+          <button
             onClick={() => setShowGenderSheet(true)}
-            whileTap={{ scale: 0.99 }}
             className={`w-full flex items-center justify-between pb-2 transition-all ${
               gender ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300 focus:border-b-2 focus:border-[#3180F7]'
             }`}
@@ -158,15 +146,14 @@ export default function PersonalInfoPage() {
               {gender || '성별을 선택해주세요'}
             </span>
             <ChevronDown size={20} className="text-gray-400" />
-          </motion.button>
-        </motion.div>
+          </button>
+        </div>
 
         {/* 전문가분류 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-10">
+        <div className="mb-10">
           {category && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">전문가분류</label>}
-          <motion.button
+          <button
             onClick={() => setShowCategorySheet(true)}
-            whileTap={{ scale: 0.99 }}
             className={`w-full flex items-center justify-between pb-2 transition-all ${
               category ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300 focus:border-b-2 focus:border-[#3180F7]'
             }`}
@@ -175,11 +162,11 @@ export default function PersonalInfoPage() {
               {displayCategory() || '전문가분류를 선택해주세요'}
             </span>
             <ChevronDown size={20} className="text-gray-400" />
-          </motion.button>
-        </motion.div>
+          </button>
+        </div>
 
         {/* [필수]전문영역 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-6">
+        <div className="mb-6">
           <p className="text-sm font-bold text-gray-900 mb-1">[필수]전문영역</p>
           <p className="text-xs text-gray-400 mb-4">가능한 분야를 모두 선택해주세요</p>
 
@@ -206,50 +193,36 @@ export default function PersonalInfoPage() {
               <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} delay={0.6 + i * 0.03} />
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Next Button — fixed bottom */}
       <div className="shrink-0 p-6 pb-8 bg-white">
-        <motion.button
+        <button
           onClick={handleNext}
           disabled={!isFormValid}
-          whileTap={{ scale: 0.96 }}
-          animate={{
-            backgroundColor: isFormValid ? '#3180F7' : '#F3F4F6',
-            color: isFormValid ? '#FFFFFF' : '#9CA3AF',
-          }}
-          transition={{ duration: 0.25 }}
           className="w-full py-4 rounded-2xl font-bold text-base"
         >
           다음
-        </motion.button>
+        </button>
       </div>
 
       {/* 성별 선택 바텀시트 */}
-      <AnimatePresence>
+      <>
         {showGenderSheet && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
             className="fixed inset-0 bg-black/50 z-50 flex items-end"
             onClick={() => setShowGenderSheet(false)}
           >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            <div
               className="bg-white rounded-t-3xl w-full p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
               <h2 className="text-xl font-bold mb-6">성별을 선택해주세요.</h2>
               {['남성', '여성'].map((g) => (
-                <motion.button
+                <button
                   key={g}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => { setGender(g); setShowGenderSheet(false); }}
                   className={`w-full py-4 rounded-2xl mb-3 text-[18px] font-bold transition-all ${
                     gender === g
@@ -258,28 +231,21 @@ export default function PersonalInfoPage() {
                   }`}
                 >
                   {g}
-                </motion.button>
+                </button>
               ))}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* 전문가분류 선택 바텀시트 */}
-      <AnimatePresence>
+      <>
         {showCategorySheet && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
             className="fixed inset-0 bg-black/50 z-50 flex items-end"
             onClick={() => setShowCategorySheet(false)}
           >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            <div
               className="bg-white rounded-t-3xl w-full p-6"
               onClick={(e) => e.stopPropagation()}
             >
@@ -287,9 +253,8 @@ export default function PersonalInfoPage() {
               <h2 className="text-xl font-bold mb-2">전문가분류를 선택해주세요.</h2>
               <p className="text-sm text-gray-500 mb-6">선택한 전문가분류로 활동이 가능합니다.</p>
               {['사회자', '쇼호스트', '축가/연주'].map((item) => (
-                <motion.button
+                <button
                   key={item}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => { setCategory(item); setShowCategorySheet(false); }}
                   className={`w-full py-4 rounded-2xl mb-3 text-[18px] font-bold transition-all ${
                     category === item
@@ -298,23 +263,19 @@ export default function PersonalInfoPage() {
                   }`}
                 >
                   {item}
-                </motion.button>
+                </button>
               ))}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
     </div>
   );
 }
 
 function TagChip({ label, selected, onToggle, delay }: { label: string; selected: boolean; onToggle: () => void; delay: number }) {
   return (
-    <motion.button
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay }}
-      whileTap={{ scale: 0.93 }}
+    <button
       onClick={onToggle}
       className="px-3.5 py-2 rounded-full text-[13px] font-medium transition-colors"
       style={{
@@ -324,6 +285,6 @@ function TagChip({ label, selected, onToggle, delay }: { label: string; selected
       }}
     >
       {label}
-    </motion.button>
+    </button>
   );
 }

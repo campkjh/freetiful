@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
 /* ─── Constants ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
@@ -34,9 +32,7 @@ function lsJson<T>(key: string, fallback: T): T {
 function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div
       className="border-b border-gray-100"
     >
       <button
@@ -46,30 +42,25 @@ function Section({ title, defaultOpen = false, children }: { title: string; defa
         <span className="text-[15px] font-bold text-gray-900">{title}</span>
         {open ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
       </button>
-      <AnimatePresence initial={false}>
+      <>
         {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
+          <div
             className="overflow-hidden"
           >
             <div className="px-5 pb-5">
               {children}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </motion.div>
+      </>
+    </div>
   );
 }
 
 /* ─── Tag chip ─── */
 function TagChip({ label, selected, onToggle }: { label: string; selected: boolean; onToggle: () => void }) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.93 }}
+    <button
       onClick={onToggle}
       className="px-3.5 py-2 rounded-full text-[13px] font-medium transition-colors"
       style={{
@@ -79,7 +70,7 @@ function TagChip({ label, selected, onToggle }: { label: string; selected: boole
       }}
     >
       {label}
-    </motion.button>
+    </button>
   );
 }
 
@@ -204,28 +195,25 @@ export default function ProEditPage() {
       {/* ─── Header ─── */}
       <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100/60">
         <div className="flex items-center gap-3 px-4 h-[52px]">
-          <motion.button onClick={() => router.back()} className="p-1" whileTap={{ scale: 0.9 }}>
+          <button onClick={() => router.back()} className="p-1">
             <ChevronLeft size={24} className="text-gray-700" />
-          </motion.button>
+          </button>
           <h1 className="text-[17px] font-bold text-gray-900">프로필 수정</h1>
         </div>
       </div>
 
       {/* ─── Toast ─── */}
-      <AnimatePresence>
+      <>
         {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+          <div
             className="fixed top-[70px] left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg z-50"
           >
             <p className="text-[14px] font-bold flex items-center gap-2">
               <Check size={16} className="text-green-400" /> {toast}
             </p>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* ─── 1. 기본 정보 ─── */}
       <Section title="기본 정보" defaultOpen={true}>
@@ -262,14 +250,13 @@ export default function ProEditPage() {
           {/* 전문가분류 */}
           <div>
             <label className="block text-[12px] font-bold text-gray-400 mb-1.5">전문가분류</label>
-            <motion.button
-              whileTap={{ scale: 0.99 }}
+            <button
               onClick={() => setShowCategorySheet(true)}
               className="w-full h-11 border border-gray-200 rounded-xl px-4 flex items-center justify-between text-[15px] text-gray-900 active:bg-gray-50 transition-colors"
             >
               <span className={category ? 'text-gray-900' : 'text-gray-400'}>{category || '선택해주세요'}</span>
               <ChevronDown size={18} className="text-gray-400" />
-            </motion.button>
+            </button>
           </div>
         </div>
       </Section>
@@ -292,20 +279,18 @@ export default function ProEditPage() {
       {/* ─── 3. 경력 ─── */}
       <Section title="경력">
         <div>
-          <motion.button
-            whileTap={{ scale: 0.99 }}
+          <button
             onClick={() => setShowCareerSheet(true)}
             className="w-full h-11 border border-gray-200 rounded-xl px-4 flex items-center justify-between text-[15px] active:bg-gray-50 transition-colors"
           >
             <span className="text-gray-900">{careerYears}년</span>
             <ChevronDown size={18} className="text-gray-400" />
-          </motion.button>
+          </button>
           {/* Horizontal pill preview */}
           <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-hide">
             {[1, 3, 5, 7, 10, 15, 20, 25, 30].map(y => (
-              <motion.button
+              <button
                 key={y}
-                whileTap={{ scale: 0.93 }}
                 onClick={() => setCareerYears(y)}
                 className="shrink-0 px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors"
                 style={{
@@ -314,7 +299,7 @@ export default function ProEditPage() {
                 }}
               >
                 {y}년
-              </motion.button>
+              </button>
             ))}
           </div>
         </div>
@@ -356,9 +341,8 @@ export default function ProEditPage() {
           {REGIONS.map(region => {
             const selected = selectedRegions.includes(region);
             return (
-              <motion.button
+              <button
                 key={region}
-                whileTap={{ scale: 0.97 }}
                 onClick={() => toggleRegion(region)}
                 className="w-full py-3 rounded-xl text-[14px] font-bold border-2 flex items-center justify-center gap-2 transition-colors"
                 style={{
@@ -367,15 +351,15 @@ export default function ProEditPage() {
                   color: selected ? '#3180F7' : '#9CA3AF',
                 }}
               >
-                <AnimatePresence>
+                <>
                   {selected && (
-                    <motion.span initial={{ scale: 0, width: 0 }} animate={{ scale: 1, width: 'auto' }} exit={{ scale: 0, width: 0 }}>
+                    <span>
                       <Check size={16} className="text-[#3180F7] stroke-[3]" />
-                    </motion.span>
+                    </span>
                   )}
-                </AnimatePresence>
+                </>
                 {region}
-              </motion.button>
+              </button>
             );
           })}
         </div>
@@ -385,14 +369,13 @@ export default function ProEditPage() {
       <Section title="프로필 사진">
         <div className="grid grid-cols-3 gap-2.5">
           {/* Add button */}
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={handleAddPhoto}
             className="aspect-square bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-[#3180F7] hover:bg-blue-50/30 transition-colors"
           >
             <Plus size={22} className="text-gray-400" />
             <span className="text-[11px] text-gray-400 font-medium">{photos.length}장</span>
-          </motion.button>
+          </button>
 
           {/* Photos */}
           {photos.map((photo, index) => (
@@ -447,13 +430,12 @@ export default function ProEditPage() {
         ) : (
           <p className="text-[13px] text-gray-400">등록된 기업이력이 없습니다</p>
         )}
-        <motion.button
-          whileTap={{ scale: 0.97 }}
+        <button
           onClick={() => router.push('/pro-register/profile')}
           className="mt-3 w-full py-2.5 border border-gray-200 rounded-xl text-[13px] font-bold text-gray-600 active:bg-gray-50 transition-colors"
         >
           기업 선택 페이지로 이동
-        </motion.button>
+        </button>
       </Section>
 
       {/* ─── 8. 언어 ─── */}
@@ -503,10 +485,8 @@ export default function ProEditPage() {
       <Section title="FAQ">
         <div className="space-y-3">
           {faqItems.map((item, index) => (
-            <motion.div
+            <div
               key={index}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
               className="border border-gray-200 rounded-xl p-3 space-y-2 relative"
             >
               <button
@@ -529,44 +509,35 @@ export default function ProEditPage() {
                 rows={2}
                 className="w-full text-[16px] text-gray-600 outline-none resize-none"
               />
-            </motion.div>
+            </div>
           ))}
-          <motion.button
-            whileTap={{ scale: 0.97 }}
+          <button
             onClick={addFaqItem}
             className="w-full py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-[13px] font-bold text-gray-500 flex items-center justify-center gap-1 active:bg-gray-50 transition-colors"
           >
             <Plus size={14} /> FAQ 항목 추가
-          </motion.button>
+          </button>
         </div>
       </Section>
 
       {/* ─── Save Button ─── */}
       <div className="p-5 pb-10">
-        <motion.button
-          whileTap={{ scale: 0.97 }}
+        <button
           onClick={handleSave}
           className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2668d8] text-white font-bold rounded-2xl text-[15px] transition-colors active:scale-[0.98]"
         >
           저장하기
-        </motion.button>
+        </button>
       </div>
 
       {/* ─── 전문가분류 바텀시트 ─── */}
-      <AnimatePresence>
+      <>
         {showCategorySheet && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
             className="fixed inset-0 bg-black/50 z-50 flex items-end"
             onClick={() => setShowCategorySheet(false)}
           >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            <div
               className="bg-white rounded-t-3xl w-full max-w-lg mx-auto p-6"
               onClick={(e) => e.stopPropagation()}
             >
@@ -574,9 +545,8 @@ export default function ProEditPage() {
               <h2 className="text-xl font-bold mb-2">전문가분류를 선택해주세요</h2>
               <p className="text-[13px] text-gray-500 mb-6">선택한 전문가분류로 활동이 가능합니다</p>
               {['사회자', '쇼호스트', '축가/연주'].map(item => (
-                <motion.button
+                <button
                   key={item}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => { setCategory(item); setShowCategorySheet(false); }}
                   className={`w-full py-4 rounded-2xl mb-3 text-[18px] font-bold transition-all ${
                     category === item
@@ -585,28 +555,21 @@ export default function ProEditPage() {
                   }`}
                 >
                   {item}
-                </motion.button>
+                </button>
               ))}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
 
       {/* ─── 경력 바텀시트 ─── */}
-      <AnimatePresence>
+      <>
         {showCareerSheet && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div
             className="fixed inset-0 bg-black/50 z-50 flex items-end"
             onClick={() => setShowCareerSheet(false)}
           >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            <div
               className="bg-white rounded-t-3xl w-full max-w-lg mx-auto p-6 max-h-[60vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
@@ -614,9 +577,8 @@ export default function ProEditPage() {
               <h2 className="text-xl font-bold mb-4">경력을 선택해주세요</h2>
               <div className="flex-1 overflow-y-auto space-y-2 pb-4">
                 {CAREER_YEARS.map(y => (
-                  <motion.button
+                  <button
                     key={y}
-                    whileTap={{ scale: 0.98 }}
                     onClick={() => { setCareerYears(y); setShowCareerSheet(false); }}
                     className={`w-full py-3 rounded-xl text-[16px] font-bold transition-all ${
                       careerYears === y
@@ -625,13 +587,13 @@ export default function ProEditPage() {
                     }`}
                   >
                     {y}년
-                  </motion.button>
+                  </button>
                 ))}
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </>
     </div>
   );
 }
