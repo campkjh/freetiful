@@ -134,8 +134,8 @@ const COMPANY_INFO = {
 const NAV_SECTIONS = ['회사소개', '핵심서비스', '연혁', '자료실', '오시는길', '문의'];
 
 /* ─── Expert Marquee Images ──────────────────────────────── */
-const EXPERT_IMAGES_ROW1 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482282 + i}.png`);
-const EXPERT_IMAGES_ROW2 = Array.from({ length: 11 }, (_, i) => `/images/Group ${1707482293 + i}.png`);
+const EXPERT_IMAGES_ROW1 = Array.from({ length: 11 }, (_, i) => `/images/group-${1707482282 + i}.png`);
+const EXPERT_IMAGES_ROW2 = Array.from({ length: 11 }, (_, i) => `/images/group-${1707482293 + i}.png`);
 
 const INTRO_IMAGES = [
   '/images/intro-1.png',

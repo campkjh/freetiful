@@ -366,16 +366,14 @@ export default function ChatListPage() {
                     <button
                       key={tab}
                       onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
-                      className={`relative px-3 py-1.5 rounded-full text-[12px] font-medium isolate transition-colors ${
+                      className={`relative px-3 py-1.5 rounded-full text-[12px] font-medium isolate transition-all duration-300 ${
                         active ? 'text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                       }`}
                     >
-                      {active && (
-                        <span
-                          className="absolute inset-0 bg-gray-900 rounded-full"
-                          style={{ zIndex: -1 }}
-                        />
-                      )}
+                      <span
+                        className={`absolute inset-0 bg-gray-900 rounded-full transition-all duration-300 ${active ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+                        style={{ zIndex: -1 }}
+                      />
                       <span className="relative">{tab}</span>
                     </button>
                   );
@@ -523,14 +521,12 @@ export default function ChatListPage() {
                       setEditMode(false);
                       setSelectedIds(new Set());
                     }}
-                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate transition-colors active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
+                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate transition-all duration-300 active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
                   >
-                    {active && (
-                      <span
-                        className="absolute inset-0 bg-gray-900 rounded-full"
-                        style={{ zIndex: -1 }}
-                      />
-                    )}
+                    <span
+                      className={`absolute inset-0 bg-gray-900 rounded-full transition-all duration-300 ${active ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+                      style={{ zIndex: -1 }}
+                    />
                     <span className="relative">{tab}</span>
                   </button>
                 );
