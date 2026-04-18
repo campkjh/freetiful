@@ -389,9 +389,12 @@ export default function ProDetailPage() {
       }
     }
 
-    // API에서 실제 데이터 로드
-    discoveryApi.getProDetail(id)
-      .then((res: any) => {
+    // API에서 실제 데이터 로드 (pro detail + recommended pros 병렬)
+    Promise.all([
+      discoveryApi.getProDetail(id),
+      discoveryApi.getProList({ limit: 9, sort: 'rating' }),
+    ])
+      .then(([res, proListRes]: [any, any]) => {
         if (!res) {
           setApiError(true);
           return;
@@ -460,15 +463,28 @@ export default function ProDetailPage() {
           plans,
           description: descParts,
           expertStats: {
-            totalDeals: (res.careerYears || 1) * 8 + 10,
-            satisfaction: 100,
+            totalDeals: res.reviewCount || 0,
+            satisfaction: res.avgRating ? Math.round((res.avgRating / 5) * 100) : 0,
             memberType: '기업',
             taxInvoice: '프리티풀 발행',
             responseTime: res.responseRate ? `${res.responseRate}시간 이내` : '1시간 이내',
             contactTime: '언제나 가능',
           },
           reviews,
-          recommendedPros: [],
+          recommendedPros: (proListRes?.data || [])
+            .filter((p: any) => p.id !== res.id)
+            .slice(0, 6)
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              role: '사회자',
+              rating: p.avgRating,
+              reviews: p.reviewCount,
+              experience: p.careerYears,
+              image: p.images?.[0] || p.profileImageUrl || '',
+              tags: p.shortIntro ? p.shortIntro.split(' ').slice(0, 3) : [],
+              isPartner: p.isFeatured,
+            })),
           alsoViewed: [],
         });
         } catch (mapErr) {

@@ -922,7 +922,7 @@ export default function HomePage() {
                   <h3 className="section-title">관심있는 전문가</h3>
                   <p className="section-subtitle mt-1">최근 본 전문가를 다시 확인하세요</p>
                 </div>
-                <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
+                <Link href="/favorites" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
                   전체보기 <ChevronRight size={16} />
                 </Link>
               </div>

@@ -210,16 +210,17 @@ export default function FavoritesPage() {
                   <button
                     key={t.key}
                     onClick={() => setActiveTab(t.key)}
-                    className={`relative shrink-0 font-semibold whitespace-nowrap pb-2 transition-colors ${isActive ? 'text-gray-900' : 'text-gray-400'}`}
-                    style={{ fontSize: scrolled ? 12 : 14, padding: scrolled ? '4px 10px 8px' : '4px 8px 8px' }}
+                    className={`relative isolate shrink-0 font-semibold whitespace-nowrap transition-all duration-300 active:scale-95 ${isActive ? 'text-white' : 'text-gray-500'}`}
+                    style={{ fontSize: scrolled ? 12 : 13, padding: scrolled ? '4px 10px' : '6px 14px', borderRadius: 999 }}
                   >
-                    {t.label}
-                    {t.badge && <span className="ml-0.5 text-[9px] font-bold text-red-500">{t.badge}</span>}
-                    {isActive && (
-                      <span
-                        className="absolute bottom-0 left-1 right-1 h-[2px] bg-gray-900 rounded-full"
-                      />
-                    )}
+                    <span
+                      className={`absolute inset-0 bg-gray-900 rounded-full transition-all duration-300 ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+                      style={{ zIndex: -1 }}
+                    />
+                    <span className="relative">
+                      {t.label}
+                      {t.badge && <span className="ml-0.5 text-[9px] font-bold text-red-400">{t.badge}</span>}
+                    </span>
                   </button>
                 );
               })}

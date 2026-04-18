@@ -93,6 +93,17 @@ export default function ReviewsPage() {
 
   const allReviews = [...userReviews, ...(apiReviews || REVIEWS)];
 
+  const avgRating = allReviews.length > 0
+    ? Math.round((allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length) * 10) / 10
+    : 0;
+
+  const SCORE_KEYS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
+  const categoryScores = SCORE_KEYS.map((label) => {
+    const vals = allReviews.map((r) => (r.scores as Record<string, number>)[label] || 0).filter(Boolean);
+    const avg = vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+    return { label, value: Math.round(avg * 10) / 10 };
+  });
+
   return (
     <div className="bg-white min-h-screen pb-10" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
@@ -108,19 +119,12 @@ export default function ReviewsPage() {
       {/* Summary */}
       <div className="px-4 pt-6 pb-4 border-b border-gray-100">
         <div className="flex items-center gap-2 mb-3">
-          <StarRating value={4.9} size={22} />
-          <span className="text-[26px] font-bold text-gray-900">4.9</span>
-          <span className="text-[15px] text-gray-400">(79)</span>
+          <StarRating value={avgRating} size={22} />
+          <span className="text-[26px] font-bold text-gray-900">{avgRating.toFixed(1)}</span>
+          <span className="text-[15px] text-gray-400">({allReviews.length})</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {[
-            { label: '경력', value: 5.0 },
-            { label: '만족도', value: 4.9 },
-            { label: '구성력', value: 5.0 },
-            { label: '위트', value: 4.8 },
-            { label: '발성', value: 5.0 },
-            { label: '이미지', value: 4.9 },
-          ].map((item) => (
+          {categoryScores.map((item) => (
             <div key={item.label} className="flex items-center gap-2">
               <span className="text-[12px] text-gray-500 w-12 shrink-0">{item.label}</span>
               <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">

@@ -8,45 +8,49 @@ import {
   ChevronRight, ChevronDown, ChevronLeft, Shield, BarChart3, Users, Building2,
   CheckCircle, Award, Download, MapPin, Phone, Mail,
   Clock, FileText, Send, User, Briefcase, Globe,
-  Target, Heart, Star, Zap, X, ArrowRight,
+  Target, Heart, Star, Zap, X, ArrowRight, Copy, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-/* ─── Kakao Map ──────────────────────────────────────────── */
-declare global { interface Window { kakao?: any; } }
-
+/* ─── Map (OpenStreetMap iframe, no API key needed) ──────── */
 function BizKakaoMap() {
-  const mapRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const initMap = () => {
-      if (!window.kakao?.maps || !mapRef.current) return;
-      window.kakao.maps.load(() => {
-        const map = new window.kakao.maps.Map(mapRef.current, {
-          center: new window.kakao.maps.LatLng(37.5594, 126.9942), // 충무로
-          level: 3,
-        });
-        // 주소로 검색
-        const ps = new window.kakao.maps.services.Places();
-        ps.keywordSearch(COMPANY_INFO.address.split(' ').slice(0, 3).join(' '), (data: any[], status: string) => {
-          if (status === window.kakao.maps.services.Status.OK && data[0]) {
-            const pos = new window.kakao.maps.LatLng(data[0].y, data[0].x);
-            map.setCenter(pos);
-            new window.kakao.maps.Marker({ map, position: pos });
-          }
-        });
-      });
-    };
-    const existing = document.querySelector('script[src*="dapi.kakao.com/v2/maps"]');
-    if (existing) { if (window.kakao?.maps) initMap(); else existing.addEventListener('load', initMap); }
-    else {
-      const s = document.createElement('script');
-      s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=dca1b472188890116c81a55eff590885&libraries=services&autoload=false';
-      s.async = true;
-      s.onload = initMap;
-      document.head.appendChild(s);
-    }
-  }, []);
-  return <div ref={mapRef} className="w-full h-full" />;
+  return (
+    <iframe
+      title="프리티풀 오시는길"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=126.9838%2C37.5478%2C127.0038%2C37.5678&layer=mapnik&marker=37.5578%2C126.9938"
+      className="w-full h-full border-0"
+      loading="lazy"
+    />
+  );
+}
+
+/* ─── CopyableCard ────────────────────────────────────────── */
+function CopyableCard({ icon, label, value, copyable }: { icon: React.ReactNode; label: string; value: string; copyable: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="flex items-start gap-4 border border-gray-100 rounded-2xl p-5 transition-all hover:border-gray-200 hover:shadow-sm">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] font-bold text-gray-300">{label}</p>
+        <p className="mt-1 text-[14px] text-gray-700 break-all">{value}</p>
+      </div>
+      {copyable && (
+        <button
+          onClick={handleCopy}
+          className="shrink-0 flex items-center justify-center h-8 w-8 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+          title="복사"
+        >
+          {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+        </button>
+      )}
+    </div>
+  );
 }
 
 /* ─── Scroll-Reveal ───────────────────────────────────────── */
@@ -151,12 +155,12 @@ const EXPERT_IMAGES_ROW2 = [
 ];
 
 const PROMO_IMAGES = [
-  '/images/promo-images/5.jpg', '/images/promo-images/7.jpg', '/images/promo-images/8.jpg',
-  '/images/promo-images/9.jpg', '/images/promo-images/10.jpg', '/images/promo-images/11.JPG',
-  '/images/promo-images/IMG_3123.JPG', '/images/promo-images/IMG_3129.JPG', '/images/promo-images/IMG_3953.JPG',
-  '/images/promo-images/IMG_3955.JPG', '/images/promo-images/IMG_3960.JPG', '/images/promo-images/IMG_3989.WEBP',
-  '/images/promo-images/IMG_3990.WEBP', '/images/promo-images/IMG_3993.JPG', '/images/promo-images/IMG_3998.JPG',
-  '/images/promo-images/IMG_4007.WEBP', '/images/promo-images/1748923458746.jpg', '/images/promo-images/1748923514141.jpg',
+  '/images/group-1707482240.png', '/images/group-1707482241.png', '/images/group-1707482242.png',
+  '/images/group-1707482243.png', '/images/group-1707482244.png', '/images/group-1707482245.png',
+  '/images/group-1707482246.png', '/images/group-1707482247.png', '/images/group-1707482248.png',
+  '/images/group-1707482282.png', '/images/group-1707482283.png', '/images/group-1707482284.png',
+  '/images/group-1707482285.png', '/images/group-1707482286.png', '/images/group-1707482287.png',
+  '/images/group-1707482288.png', '/images/group-1707482289.png', '/images/group-1707482290.png',
 ];
 
 // 54개 기업 로고를 6줄에 9개씩 겹치지 않게 분배
@@ -1072,27 +1076,19 @@ export default function BizPage() {
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">LOCATION</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">오시는길</h2></Reveal>
 
-          <Reveal delay={200}>
-            <div className="mt-12 w-full h-[300px] border border-gray-100 rounded-2xl overflow-hidden">
-              <BizKakaoMap />
-            </div>
-          </Reveal>
+          <div className="mt-12 w-full h-[320px] border border-gray-100 rounded-2xl overflow-hidden">
+            <BizKakaoMap />
+          </div>
 
           <div className="mt-8 grid gap-3 md:grid-cols-2">
             {[
-              { icon: <MapPin className="h-5 w-5" />, label: '주소', value: COMPANY_INFO.address },
-              { icon: <Phone className="h-5 w-5" />, label: '대표전화', value: COMPANY_INFO.phone },
-              { icon: <Mail className="h-5 w-5" />, label: '이메일', value: COMPANY_INFO.email },
-              { icon: <Clock className="h-5 w-5" />, label: '업무시간', value: '평일 09:00 - 18:00 (주말/공휴일 휴무)' },
+              { icon: <MapPin className="h-5 w-5" />, label: '주소', value: COMPANY_INFO.address, copyable: true },
+              { icon: <Phone className="h-5 w-5" />, label: '대표전화', value: COMPANY_INFO.phone, copyable: true },
+              { icon: <Mail className="h-5 w-5" />, label: '이메일', value: COMPANY_INFO.email, copyable: true },
+              { icon: <Clock className="h-5 w-5" />, label: '업무시간', value: '평일 09:00 - 18:00 (주말/공휴일 휴무)', copyable: false },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 80}>
-                <div className="flex items-start gap-4 border border-gray-100 rounded-2xl p-5 transition-all hover:border-gray-200 hover:shadow-sm">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">{item.icon}</div>
-                  <div>
-                    <p className="text-[11px] font-bold text-gray-300">{item.label}</p>
-                    <p className="mt-1 text-[14px] text-gray-700">{item.value}</p>
-                  </div>
-                </div>
+                <CopyableCard icon={item.icon} label={item.label} value={item.value} copyable={item.copyable} />
               </Reveal>
             ))}
           </div>

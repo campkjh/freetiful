@@ -36,7 +36,7 @@ export class DiscoveryService implements OnModuleInit {
   /** 오늘의 추천 전문가 — 날짜 기반 매일 로테이션 */
   async getDailyRecommendation() {
     const pros = await this.prisma.proProfile.findMany({
-      where: { status: 'approved' },
+      where: { status: { in: ['approved', 'pending'] } },
       include: {
         user: { select: { id: true, name: true, profileImageUrl: true } },
         images: { where: { isPrimary: true }, take: 1 },
@@ -82,7 +82,7 @@ export class DiscoveryService implements OnModuleInit {
     const cached = this.getCached<any>(cacheKey);
     if (cached) return cached;
 
-    const where: any = { status: 'approved' };
+    const where: any = { status: { in: ['approved', 'pending'] } };
     if (search) {
       where.OR = [
         { user: { name: { contains: search, mode: 'insensitive' } } },
