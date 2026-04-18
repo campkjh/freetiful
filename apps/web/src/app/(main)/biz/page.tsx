@@ -311,6 +311,7 @@ export default function BizPage() {
   const router = useRouter();
   const [activeSection, setActiveSection] = useState('회사소개');
   const [inquiry, setInquiry] = useState({ company: '', name: '', phone: '', email: '', type: '', message: '' });
+  const [inquiryFile, setInquiryFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
 
   const openInquiryMail = () => {
@@ -435,22 +436,30 @@ export default function BizPage() {
     }
     setSending(true);
 
-    // mailto로 문의 메일 발송
-    const subject = encodeURIComponent(`[Biz 문의] ${inquiry.type || '기업 문의'} - ${inquiry.company || '회사명 미입력'}`);
-    const body = encodeURIComponent(
-      `회사명: ${inquiry.company || '-'}\n` +
-      `담당자: ${inquiry.name}\n` +
-      `연락처: ${inquiry.phone}\n` +
-      `이메일: ${inquiry.email || '-'}\n` +
-      `문의 유형: ${inquiry.type || '-'}\n\n` +
-      `문의 내용:\n${inquiry.message}`
-    );
-    window.location.href = `mailto:support@freetiful.com?subject=${subject}&body=${body}`;
+    try {
+      const formData = new FormData();
+      formData.append('company', inquiry.company);
+      formData.append('name', inquiry.name);
+      formData.append('phone', inquiry.phone);
+      formData.append('email', inquiry.email);
+      formData.append('type', inquiry.type);
+      formData.append('message', inquiry.message);
+      if (inquiryFile) formData.append('file', inquiryFile);
 
-    await new Promise((r) => setTimeout(r, 500));
-    toast.success('이메일 앱이 열립니다. 문의를 보내주세요!');
-    setInquiry({ company: '', name: '', phone: '', email: '', type: '', message: '' });
-    setSending(false);
+      const res = await fetch('/api/inquiry', { method: 'POST', body: formData });
+      if (res.ok) {
+        toast.success('문의가 접수되었습니다. 빠른 시일 내에 연락드리겠습니다!');
+        setInquiry({ company: '', name: '', phone: '', email: '', type: '', message: '' });
+        setInquiryFile(null);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || '문의 접수에 실패했습니다');
+      }
+    } catch {
+      toast.error('문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -1194,6 +1203,22 @@ export default function BizPage() {
                 <option value="other">기타</option>
               </select>
               <textarea className="h-32 w-full resize-none border border-gray-200 rounded-xl bg-white px-4 py-3 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="문의 내용 *" value={inquiry.message} onChange={(e) => setInquiry({ ...inquiry, message: e.target.value })} required />
+              {/* 파일 첨부 */}
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 transition-colors text-[14px] text-gray-500">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                  파일 첨부
+                  <input type="file" className="hidden" onChange={(e) => setInquiryFile(e.target.files?.[0] || null)} />
+                </label>
+                {inquiryFile && (
+                  <div className="flex items-center gap-2 text-[13px] text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg">
+                    <span className="truncate max-w-[200px]">{inquiryFile.name}</span>
+                    <button type="button" onClick={() => setInquiryFile(null)} className="text-gray-400 hover:text-red-500">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 type="submit"
                 disabled={sending}
