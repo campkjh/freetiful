@@ -241,7 +241,6 @@ export class PaymentService {
       },
     );
 
-    // Payment 상태 업데이트
     const updatedPayment = await this.prisma.payment.update({
       where: { id: payment.id },
       data: {
@@ -252,13 +251,37 @@ export class PaymentService {
       },
     });
 
-    // 연관된 견적서 상태를 refunded로 업데이트
     if (payment.quotationId) {
       await this.prisma.quotation.update({
         where: { id: payment.quotationId },
         data: { status: 'refunded' },
       });
     }
+
+    // 환불 알림 → 고객 + 전문가
+    try {
+      this.notificationService.createNotification(
+        payment.userId,
+        'payment' as any,
+        '결제가 환불되었습니다',
+        `${Number(payment.amount).toLocaleString()}원 환불이 처리되었습니다.`,
+        { paymentId: payment.id },
+      ).catch(() => {});
+
+      const proProfile = await this.prisma.proProfile.findUnique({
+        where: { id: payment.proProfileId },
+        select: { userId: true },
+      });
+      if (proProfile) {
+        this.notificationService.createNotification(
+          proProfile.userId,
+          'payment' as any,
+          '결제가 환불되었습니다',
+          `${Number(payment.amount).toLocaleString()}원 결제가 고객 요청으로 환불 처리되었습니다.`,
+          { paymentId: payment.id },
+        ).catch(() => {});
+      }
+    } catch {}
 
     return updatedPayment;
   }

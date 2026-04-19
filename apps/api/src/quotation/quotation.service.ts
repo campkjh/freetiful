@@ -204,7 +204,7 @@ export class QuotationService {
       throw new BadRequestException('견적서 유효기간이 만료되었습니다.');
     }
 
-    return this.prisma.quotation.update({
+    const updated = await this.prisma.quotation.update({
       where: { id },
       data: { status },
       include: {
@@ -213,8 +213,34 @@ export class QuotationService {
             user: { select: { id: true, name: true, profileImageUrl: true } },
           },
         },
+        user: { select: { id: true, name: true } },
       },
     });
+
+    // 수락/취소 알림 → 전문가에게
+    const proUserId = updated.proProfile?.user?.id;
+    const customerName = updated.user?.name || '고객';
+    if (proUserId) {
+      if (status === 'accepted') {
+        this.notificationService.createNotification(
+          proUserId,
+          'system' as any,
+          '견적서가 수락되었습니다! 💰',
+          `${customerName}님이 견적서를 수락했습니다.`,
+          { quotationId: id },
+        ).catch(() => {});
+      } else {
+        this.notificationService.createNotification(
+          proUserId,
+          'system' as any,
+          '견적서가 취소되었습니다',
+          `${customerName}님이 견적서를 취소했습니다.`,
+          { quotationId: id },
+        ).catch(() => {});
+      }
+    }
+
+    return updated;
   }
 
   /** 전문가 대시보드용 견적 요약 */

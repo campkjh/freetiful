@@ -5,10 +5,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class MatchService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   /** 사용자가 매칭 요청 생성 */
   async createMatchRequest(
@@ -27,7 +31,6 @@ export class MatchService {
       rawUserInput?: any;
     },
   ) {
-    // 카테고리 확인
     const category = await this.prisma.category.findUnique({
       where: { id: data.categoryId },
     });
@@ -35,7 +38,6 @@ export class MatchService {
       throw new NotFoundException('카테고리를 찾을 수 없습니다.');
     }
 
-    // 이벤트 카테고리 확인
     if (data.eventCategoryId) {
       const eventCategory = await this.prisma.eventCategory.findUnique({
         where: { id: data.eventCategoryId },
@@ -142,7 +144,14 @@ export class MatchService {
   ) {
     const delivery = await this.prisma.matchDelivery.findUnique({
       where: { id: matchDeliveryId },
-      include: { matchRequest: true },
+      include: {
+        matchRequest: {
+          include: { user: { select: { id: true, name: true } } },
+        },
+        proProfile: {
+          include: { user: { select: { id: true, name: true } } },
+        },
+      },
     });
 
     if (!delivery) {
@@ -157,40 +166,57 @@ export class MatchService {
       throw new BadRequestException('이미 응답한 매칭입니다.');
     }
 
+    const proName = delivery.proProfile?.user?.name || '사회자';
+    const customerId = delivery.matchRequest?.user?.id;
+
     if (action === 'accept') {
-      return this.prisma.matchDelivery.update({
+      const result = await this.prisma.matchDelivery.update({
         where: { id: matchDeliveryId },
-        data: {
-          status: 'replied',
-          repliedAt: new Date(),
-        },
+        data: { status: 'replied', repliedAt: new Date() },
         include: {
           matchRequest: {
             include: {
               category: true,
               eventCategory: true,
-              user: {
-                select: { id: true, name: true, profileImageUrl: true },
-              },
+              user: { select: { id: true, name: true, profileImageUrl: true } },
             },
           },
         },
       });
+
+      // 수락 알림 → 고객에게
+      if (customerId) {
+        this.notificationService.createNotification(
+          customerId,
+          'system' as any,
+          '매칭 요청이 수락되었습니다! 🎉',
+          `${proName} 사회자가 매칭 요청을 수락했습니다. 채팅으로 연락해보세요.`,
+          { matchDeliveryId, proProfileId },
+        ).catch(() => {});
+      }
+
+      return result;
     } else {
-      return this.prisma.matchDelivery.update({
+      const result = await this.prisma.matchDelivery.update({
         where: { id: matchDeliveryId },
-        data: {
-          status: 'declined',
-        },
+        data: { status: 'declined' },
         include: {
-          matchRequest: {
-            include: {
-              category: true,
-              eventCategory: true,
-            },
-          },
+          matchRequest: { include: { category: true, eventCategory: true } },
         },
       });
+
+      // 거절 알림 → 고객에게
+      if (customerId) {
+        this.notificationService.createNotification(
+          customerId,
+          'system' as any,
+          '매칭 요청이 거절되었습니다',
+          `${proName} 사회자가 매칭 요청을 거절했습니다. 다른 전문가를 찾아보세요.`,
+          { matchDeliveryId, proProfileId },
+        ).catch(() => {});
+      }
+
+      return result;
     }
   }
 }

@@ -5,11 +5,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class ReviewService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   /** 리뷰 작성 */
   async createReview(
@@ -28,7 +32,6 @@ export class ReviewService {
       isAnonymous?: boolean;
     },
   ) {
-    // 결제 존재 여부 확인
     const payment = await this.prisma.payment.findUnique({
       where: { id: data.paymentId },
     });
@@ -36,7 +39,6 @@ export class ReviewService {
       throw new NotFoundException('결제 정보를 찾을 수 없습니다.');
     }
 
-    // 이미 리뷰가 작성된 결제인지 확인
     const existingReview = await this.prisma.review.findUnique({
       where: { paymentId: data.paymentId },
     });
@@ -44,7 +46,6 @@ export class ReviewService {
       throw new BadRequestException('이미 리뷰가 작성된 결제입니다.');
     }
 
-    // 전문가 프로필 존재 여부 확인
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { id: data.proProfileId },
     });
@@ -52,7 +53,6 @@ export class ReviewService {
       throw new NotFoundException('전문가 프로필을 찾을 수 없습니다.');
     }
 
-    // 평균 평점 계산
     const avgRating =
       (data.ratingSatisfaction +
         data.ratingComposition +
@@ -62,7 +62,6 @@ export class ReviewService {
         data.ratingWit) /
       6;
 
-    // 리뷰 생성
     const review = await this.prisma.review.create({
       data: {
         paymentId: data.paymentId,
@@ -85,7 +84,6 @@ export class ReviewService {
       },
     });
 
-    // 전문가 프로필의 avgRating, reviewCount 업데이트
     const allReviews = await this.prisma.review.findMany({
       where: { proProfileId: data.proProfileId, isVisible: true },
       select: { avgRating: true },
@@ -102,6 +100,16 @@ export class ReviewService {
         reviewCount: allReviews.length,
       },
     });
+
+    // 리뷰 등록 알림 → 전문가에게
+    const reviewerName = data.isAnonymous ? '익명' : (review.reviewer.name || '고객');
+    this.notificationService.createNotification(
+      proProfile.userId,
+      'system' as any,
+      '새 리뷰가 등록되었습니다 ⭐',
+      `${reviewerName}님이 평점 ${avgRating.toFixed(1)}점으로 리뷰를 작성했습니다.`,
+      { reviewId: review.id, proProfileId: data.proProfileId },
+    ).catch(() => {});
 
     return review;
   }
@@ -127,7 +135,6 @@ export class ReviewService {
       }),
     ]);
 
-    // 익명 리뷰의 경우 리뷰어 정보 마스킹
     const masked = reviews.map((r) => ({
       ...r,
       reviewer: r.isAnonymous
@@ -150,6 +157,11 @@ export class ReviewService {
   async replyToReview(proProfileId: string, reviewId: string, reply: string) {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
+      include: {
+        proProfile: {
+          include: { user: { select: { id: true, name: true } } },
+        },
+      },
     });
 
     if (!review) {
@@ -160,13 +172,25 @@ export class ReviewService {
       throw new ForbiddenException('본인의 리뷰에만 답글을 작성할 수 있습니다.');
     }
 
-    return this.prisma.review.update({
+    const updated = await this.prisma.review.update({
       where: { id: reviewId },
       data: {
         proReply: reply,
         proRepliedAt: new Date(),
       },
     });
+
+    // 답글 알림 → 리뷰 작성자에게
+    const proName = review.proProfile?.user?.name || '사회자';
+    this.notificationService.createNotification(
+      review.reviewerId,
+      'system' as any,
+      '전문가 답글이 달렸습니다',
+      `${proName} 사회자가 회원님의 리뷰에 답글을 달았습니다.`,
+      { reviewId, proProfileId },
+    ).catch(() => {});
+
+    return updated;
   }
 
   /** 내가 작성한 리뷰 목록 */

@@ -85,6 +85,21 @@ export class ChatService {
       },
     });
 
+    // 새 문의 알림 → 전문가에게
+    try {
+      const inquiryUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
+      this.notificationService.createNotification(
+        pro.userId,
+        'chat' as any,
+        '새 문의가 도착했습니다 💬',
+        `${inquiryUser?.name || '고객'}님이 채팅 문의를 보냈습니다.`,
+        { roomId: room.id },
+      ).catch(() => {});
+    } catch {}
+
     return this.getRoomById(room.id, userId);
   }
 

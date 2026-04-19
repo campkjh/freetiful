@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class FavoriteService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   async toggleFavorite(
     userId: string,
@@ -31,6 +35,23 @@ export class FavoriteService {
         targetId: proProfileId,
       },
     });
+
+    // 찜 알림 → 전문가에게
+    try {
+      const [user, proProfile] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+        this.prisma.proProfile.findUnique({ where: { id: proProfileId }, select: { userId: true } }),
+      ]);
+      if (proProfile) {
+        this.notificationService.createNotification(
+          proProfile.userId,
+          'system' as any,
+          '찜 목록에 추가되었습니다! 💖',
+          `${user?.name || '누군가'}님이 회원님을 찜 목록에 추가했습니다.`,
+          { proProfileId },
+        ).catch(() => {});
+      }
+    } catch {}
 
     return { isFavorited: true };
   }
