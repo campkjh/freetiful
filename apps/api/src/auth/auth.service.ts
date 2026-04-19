@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
 import axios from 'axios';
@@ -26,6 +27,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
+    private notificationService: NotificationService,
   ) {}
 
   private generateReferralCode(): string {
@@ -126,7 +128,15 @@ export class AuthService {
       isNewUser = true;
     }
 
-    return this.buildLoginResponse(user, await this.issueTokens(user.id), isNewUser);
+    const tokens = await this.issueTokens(user.id);
+    if (isNewUser) {
+      this.notificationService.createNotification(
+        user.id, 'system' as any,
+        '프리티풀에 오신 것을 환영합니다! 🎉',
+        '전문 사회자를 쉽고 빠르게 찾아보세요.',
+      ).catch(() => {});
+    }
+    return this.buildLoginResponse(user, tokens, isNewUser);
   }
 
   async kakaoLogin(code: string) {
@@ -208,6 +218,11 @@ export class AuthService {
       { providerUserId: dto.email, name: dto.name },
       { email: dto.email, phone: dto.phone, passwordHash },
     );
+    this.notificationService.createNotification(
+      user.id, 'system' as any,
+      '프리티풀에 오신 것을 환영합니다! 🎉',
+      '전문 사회자를 쉽고 빠르게 찾아보세요.',
+    ).catch(() => {});
     return this.buildLoginResponse(user, await this.issueTokens(user.id), true);
   }
 

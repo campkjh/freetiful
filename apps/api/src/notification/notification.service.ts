@@ -1,10 +1,36 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType } from '@prisma/client';
+import axios from 'axios';
 
 @Injectable()
 export class NotificationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  private async sendOneSignalPush(userId: string, title: string, body: string, data?: Record<string, any>) {
+    const appId = this.config.get<string>('ONESIGNAL_APP_ID');
+    const apiKey = this.config.get<string>('ONESIGNAL_REST_API_KEY');
+    if (!appId || !apiKey) return;
+
+    try {
+      await axios.post('https://onesignal.com/api/v1/notifications', {
+        app_id: appId,
+        target_channel: 'push',
+        include_aliases: { external_id: [userId] },
+        headings: { en: title, ko: title },
+        contents: { en: body, ko: body },
+        data: data || {},
+      }, {
+        headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+      });
+    } catch {
+      // push failure is non-fatal
+    }
+  }
 
   async getNotifications(userId: string, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
@@ -73,14 +99,18 @@ export class NotificationService {
     body: string,
     data?: Record<string, any>,
   ) {
-    return this.prisma.notification.create({
-      data: {
-        userId,
-        type,
-        title,
-        body,
-        data: data ?? undefined,
-      },
-    });
+    const [notification] = await Promise.all([
+      this.prisma.notification.create({
+        data: {
+          userId,
+          type,
+          title,
+          body,
+          data: data ?? undefined,
+        },
+      }),
+      this.sendOneSignalPush(userId, title, body, data),
+    ]);
+    return notification;
   }
 }
