@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Heart, Star, MapPin, Building2, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { favoriteApi } from '@/lib/api/favorite.api';
+import { favoriteApi, getCachedFavoritesList } from '@/lib/api/favorite.api';
 
 type Tab = 'service' | 'portfolio' | 'recent';
 type ProCategory = '전체' | '사회자' | '쇼호스트' | '축가';
@@ -72,9 +72,25 @@ export default function FavoritesPage() {
   const [activeTab, setActiveTab] = useState<Tab>('service');
   const [proCategory, setProCategory] = useState<ProCategory>('전체');
   const [bizCategory, setBizCategory] = useState<BizCategory>('전체');
-  const [favPros, setFavPros] = useState<typeof MOCK_FAVORITE_PROS>([]);
+  // 세션 캐시에서 initial state 생성 (재방문 시 skeleton 안 보임)
+  const cached = typeof window !== 'undefined' ? getCachedFavoritesList() : null;
+  const cachedPros = cached?.items?.length > 0
+    ? cached.items.map((f: any) => ({
+        id: f.proProfile?.id || f.proProfileId,
+        name: f.proProfile?.user?.name || '',
+        category: '사회자',
+        badge: '',
+        intro: f.proProfile?.shortIntro || '',
+        rating: Number(f.proProfile?.avgRating || 0),
+        reviews: f.proProfile?.reviewCount || 0,
+        image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
+        price: f.proProfile?.services?.[0]?.basePrice || 450000,
+        subName: `사회자 ${f.proProfile?.user?.name || ''}`,
+      }))
+    : [];
+  const [favPros, setFavPros] = useState<typeof MOCK_FAVORITE_PROS>(cachedPros);
   const [favBiz, setFavBiz] = useState<typeof MOCK_FAVORITE_BIZ>([]);
-  const [favLoading, setFavLoading] = useState(true);
+  const [favLoading, setFavLoading] = useState(cachedPros.length === 0);
   const authUser = useAuthStore((s) => s.user);
 
   // Login check + load favorites
