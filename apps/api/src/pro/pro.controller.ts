@@ -16,11 +16,67 @@ import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { ProService } from './pro.service';
+import { UpdateProProfileDto } from './dto/pro.dto';
 
 @ApiTags('pro')
 @Controller('pro')
 export class ProController {
   constructor(private readonly proService: ProService) {}
+
+  // ─── My Profile ──────────────────────────────────────────────────────────
+
+  @Get('profile')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 프로 프로필 조회 (images/services/faqs/categories 포함)' })
+  getMyProfile(@Req() req) {
+    return this.proService.getProfile(req.user.id);
+  }
+
+  @Put('profile')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 프로 프로필 업데이트 (없으면 draft 생성)' })
+  updateMyProfile(@Req() req, @Body() dto: UpdateProProfileDto) {
+    return this.proService.updateProfile(req.user.id, dto);
+  }
+
+  @Post('profile')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 프로 프로필 생성 (draft)' })
+  createMyProfile(@Req() req) {
+    return this.proService.createProfile(req.user.id);
+  }
+
+  // ─── Registration ────────────────────────────────────────────────────────
+
+  @Post('register')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '파트너 신청 제출 — proProfile 생성/업데이트 후 status=pending' })
+  submitRegistration(
+    @Req() req,
+    @Body()
+    body: {
+      name?: string;
+      phone?: string;
+      gender?: string;
+      shortIntro?: string;
+      mainExperience?: string;
+      careerYears?: number;
+      awards?: string;
+      youtubeUrl?: string;
+      detailHtml?: string;
+      photos?: string[];
+      mainPhotoIndex?: number;
+      services?: { title: string; description?: string; basePrice?: number }[];
+      faqs?: { question: string; answer: string }[];
+      languages?: string[];
+    },
+  ) {
+    return this.proService.submitRegistration(req.user.id, body);
+  }
 
   // ─── Profile Images ──────────────────────────────────────────────────────
 

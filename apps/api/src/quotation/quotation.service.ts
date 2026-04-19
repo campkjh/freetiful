@@ -213,13 +213,16 @@ export class QuotationService {
             user: { select: { id: true, name: true, profileImageUrl: true } },
           },
         },
-        user: { select: { id: true, name: true } },
       },
+    });
+    const customer = await this.prisma.user.findUnique({
+      where: { id: updated.userId },
+      select: { name: true },
     });
 
     // 수락/취소 알림 → 전문가에게
     const proUserId = updated.proProfile?.user?.id;
-    const customerName = updated.user?.name || '고객';
+    const customerName = customer?.name || '고객';
     if (proUserId) {
       if (status === 'accepted') {
         this.notificationService.createNotification(

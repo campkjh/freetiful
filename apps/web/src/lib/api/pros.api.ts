@@ -39,6 +39,24 @@ export const prosApi = {
   submitProfile: () =>
     apiClient.post(`${BASE}/pro/profile/submit`).then((r) => r.data),
 
+  submitRegistration: (data: {
+    name?: string;
+    phone?: string;
+    gender?: string;
+    shortIntro?: string;
+    mainExperience?: string;
+    careerYears?: number;
+    awards?: string;
+    youtubeUrl?: string;
+    detailHtml?: string;
+    photos?: string[];
+    mainPhotoIndex?: number;
+    services?: { title: string; description?: string; basePrice?: number }[];
+    faqs?: { question: string; answer: string }[];
+    languages?: string[];
+  }) =>
+    apiClient.post(`${BASE}/pro/register`, data, { timeout: 60000 }).then((r) => r.data),
+
   saveDraft: (data: Partial<ProProfile>) =>
     apiClient.post(`${BASE}/pro/profile/draft`, data).then((r) => r.data),
 

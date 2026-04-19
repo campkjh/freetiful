@@ -15,6 +15,83 @@ export class ProService {
     private imageService: ImageService,
   ) {}
 
+  // ─── Profile (My) ────────────────────────────────────────────────────────
+
+  async getProfile(userId: string) {
+    let profile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      include: {
+        images: { orderBy: { displayOrder: 'asc' } },
+        services: { orderBy: { displayOrder: 'asc' } },
+        faqs: { orderBy: { displayOrder: 'asc' } },
+        categories: { include: { category: true } },
+      },
+    });
+
+    if (!profile) {
+      await this.prisma.proProfile.create({
+        data: { userId, status: 'draft' },
+      });
+      profile = await this.prisma.proProfile.findUnique({
+        where: { userId },
+        include: {
+          images: { orderBy: { displayOrder: 'asc' } },
+          services: { orderBy: { displayOrder: 'asc' } },
+          faqs: { orderBy: { displayOrder: 'asc' } },
+          categories: { include: { category: true } },
+        },
+      });
+    }
+
+    return profile;
+  }
+
+  async createProfile(userId: string) {
+    const existing = await this.prisma.proProfile.findUnique({ where: { userId } });
+    if (existing) return existing;
+    return this.prisma.proProfile.create({
+      data: { userId, status: 'draft' },
+    });
+  }
+
+  async updateProfile(
+    userId: string,
+    data: {
+      shortIntro?: string;
+      mainExperience?: string;
+      careerYears?: number;
+      awards?: string;
+      detailHtml?: string;
+      youtubeUrl?: string;
+      gender?: string;
+      isNationwide?: boolean;
+    },
+  ) {
+    const existing = await this.prisma.proProfile.findUnique({ where: { userId } });
+
+    const fields = {
+      ...(data.shortIntro !== undefined ? { shortIntro: data.shortIntro } : {}),
+      ...(data.mainExperience !== undefined ? { mainExperience: data.mainExperience } : {}),
+      ...(data.careerYears !== undefined ? { careerYears: data.careerYears } : {}),
+      ...(data.awards !== undefined ? { awards: data.awards } : {}),
+      ...(data.detailHtml !== undefined ? { detailHtml: data.detailHtml } : {}),
+      ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
+      ...(data.gender !== undefined ? { gender: data.gender } : {}),
+      ...(data.isNationwide !== undefined ? { isNationwide: data.isNationwide } : {}),
+    };
+
+    if (!existing) {
+      return this.prisma.proProfile.create({
+        data: { userId, status: 'draft', ...fields },
+      });
+    }
+
+    return this.prisma.proProfile.update({
+      where: { userId },
+      data: fields,
+    });
+  }
+
   // ─── Profile Images ──────────────────────────────────────────────────────
 
   async uploadImage(
@@ -45,8 +122,8 @@ export class ProService {
     const image = await this.prisma.proProfileImage.create({
       data: {
         proProfileId: profile.id,
-        imageUrl: processed.path,
-        originalUrl: `/uploads/${processed.originalFilename}`,
+        imageUrl: processed.webpPath || processed.path,
+        originalUrl: processed.path,
         displayOrder: count,
         hasFace: processed.hasFace,
         isPrimary: count === 0, // first image is primary
@@ -234,6 +311,203 @@ export class ProService {
     return schedules.map((s) => s.date.toISOString().split('T')[0]);
   }
 
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  // ─── Registration Submission ─────────────────────────────────────────────
+
+  async submitRegistration(
+    userId: string,
+    data: {
+      name?: string;
+      phone?: string;
+      gender?: string;
+      shortIntro?: string;
+      mainExperience?: string;
+      careerYears?: number;
+      awards?: string;
+      youtubeUrl?: string;
+      detailHtml?: string;
+      photos?: string[]; // base64 data URLs
+      mainPhotoIndex?: number;
+      services?: { title: string; description?: string; basePrice?: number }[];
+      faqs?: { question: string; answer: string }[];
+      languages?: string[];
+    },
+  ) {
+    if (data.name || data.phone) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(data.name ? { name: data.name } : {}),
+          ...(data.phone ? { phone: data.phone } : {}),
+        },
+      });
+    }
+
+    const fields = {
+      ...(data.gender !== undefined ? { gender: data.gender } : {}),
+      ...(data.shortIntro !== undefined ? { shortIntro: data.shortIntro } : {}),
+      ...(data.mainExperience !== undefined ? { mainExperience: data.mainExperience } : {}),
+      ...(data.careerYears !== undefined ? { careerYears: data.careerYears } : {}),
+      ...(data.awards !== undefined ? { awards: data.awards } : {}),
+      ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
+      ...(data.detailHtml !== undefined ? { detailHtml: data.detailHtml } : {}),
+    };
+
+    const profile = await this.prisma.proProfile.upsert({
+      where: { userId },
+      create: { userId, status: 'pending', ...fields },
+      update: { status: 'pending', ...fields },
+    });
+
+    // Photos: base64 data URL → webp on disk → ProProfileImage 재생성
+    if (Array.isArray(data.photos) && data.photos.length > 0) {
+      const mainIdx = Math.max(0, Math.min(data.mainPhotoIndex ?? 0, data.photos.length - 1));
+      const savedImages: { path: string; originalPath: string; index: number }[] = [];
+      const failures: { index: number; error: string }[] = [];
+
+      for (let i = 0; i < data.photos.length; i++) {
+        try {
+          const processed = await this.savePhotoFromDataUrl(data.photos[i]);
+          if (processed) savedImages.push({ ...processed, index: i });
+          else failures.push({ index: i, error: 'invalid data URL' });
+        } catch (e: any) {
+          failures.push({ index: i, error: e?.message || String(e) });
+        }
+      }
+
+      // 모든 사진 실패 시 에러로 터뜨려 프론트가 알림 표시
+      if (savedImages.length === 0) {
+        throw new BadRequestException(
+          `사진 업로드 실패 (${failures.length}장): ${failures.map((f) => f.error).join('; ')}`,
+        );
+      }
+
+      // 성공한 사진만 있을 때 기존 이미지 교체
+      await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
+      for (const img of savedImages) {
+        await this.prisma.proProfileImage.create({
+          data: {
+            proProfileId: profile.id,
+            imageUrl: img.path,
+            originalUrl: img.originalPath,
+            displayOrder: img.index,
+            isPrimary: img.index === mainIdx,
+            hasFace: true,
+          },
+        });
+      }
+    }
+
+    // Services / FAQs / Languages 는 각각 하나의 트랜잭션으로 delete+create 처리 (동시 재제출 race condition 방지)
+    if (Array.isArray(data.services)) {
+      // 중복 타이틀 제거 (같은 title 은 마지막 것만 유지)
+      const seen = new Set<string>();
+      const unique = [...data.services].reverse().filter((s) => {
+        if (!s?.title || seen.has(s.title)) return false;
+        seen.add(s.title);
+        return true;
+      }).reverse();
+      await this.prisma.$transaction([
+        this.prisma.proService.deleteMany({ where: { proProfileId: profile.id } }),
+        ...unique.map((s, i) =>
+          this.prisma.proService.create({
+            data: {
+              proProfileId: profile.id,
+              title: s.title,
+              description: s.description ?? null,
+              basePrice: s.basePrice ?? null,
+              displayOrder: i,
+              isActive: true,
+            },
+          }),
+        ),
+      ]);
+    }
+
+    if (Array.isArray(data.faqs)) {
+      // 중복 question 제거
+      const seen = new Set<string>();
+      const unique = data.faqs.filter((f) => {
+        if (!f?.question || !f?.answer || seen.has(f.question)) return false;
+        seen.add(f.question);
+        return true;
+      });
+      await this.prisma.$transaction([
+        this.prisma.proFaq.deleteMany({ where: { proProfileId: profile.id } }),
+        ...unique.map((f, i) =>
+          this.prisma.proFaq.create({
+            data: {
+              proProfileId: profile.id,
+              question: f.question,
+              answer: f.answer,
+              displayOrder: i,
+            },
+          }),
+        ),
+      ]);
+    }
+
+    if (Array.isArray(data.languages)) {
+      const unique = Array.from(new Set(data.languages.filter(Boolean)));
+      await this.prisma.$transaction([
+        this.prisma.proLanguage.deleteMany({ where: { proProfileId: profile.id } }),
+        ...unique.map((code) =>
+          this.prisma.proLanguage.create({
+            data: { proProfileId: profile.id, languageCode: code },
+          }),
+        ),
+      ]);
+    }
+
+    return profile;
+  }
+
+  private async savePhotoFromDataUrl(dataUrl: string): Promise<{ path: string; originalPath: string } | null> {
+    const match = dataUrl.match(/^data:(image\/(jpeg|jpg|png|webp|heic|heif));base64,(.+)$/i);
+    if (!match) {
+      // 이미 URL이면 그대로 보존
+      if (/^https?:\/\//.test(dataUrl) || dataUrl.startsWith('/uploads/')) {
+        return { path: dataUrl, originalPath: dataUrl };
+      }
+      return null;
+    }
+    const mime = match[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : match[1].toLowerCase();
+    const buffer = Buffer.from(match[3], 'base64');
+    const fakeFile: Express.Multer.File = {
+      fieldname: 'file',
+      originalname: `upload.${match[2]}`,
+      encoding: '7bit',
+      mimetype: mime,
+      size: buffer.length,
+      buffer,
+      destination: '',
+      filename: '',
+      path: '',
+      stream: null as any,
+    };
+    const processed = await this.imageService.processImage(fakeFile, {
+      requireFace: false,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      quality: 85,
+    });
+    return { path: processed.webpPath || processed.path, originalPath: processed.path };
+  }
+
+  private async getProfileByUserId(userId: string) {
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+    });
+    if (!profile) {
+      // Auto-create draft profile
+      return this.prisma.proProfile.create({
+        data: { userId },
+      });
+    }
+    return profile;
+  }
+
   // ─── Revenue ──────────────────────────────────────────────────────────────
 
   async getRevenue(userId: string) {
@@ -283,20 +557,5 @@ export class ProService {
       data: { profileViews: { increment: 1 } },
     });
     return { ok: true };
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────
-
-  private async getProfileByUserId(userId: string) {
-    const profile = await this.prisma.proProfile.findUnique({
-      where: { userId },
-    });
-    if (!profile) {
-      // Auto-create draft profile
-      return this.prisma.proProfile.create({
-        data: { userId },
-      });
-    }
-    return profile;
   }
 }
