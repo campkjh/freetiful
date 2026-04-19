@@ -49,33 +49,32 @@ export default function ChatListPage() {
 
     if (authUser) {
       connect();
-      fetchRooms().then(() => {
-        // If API returns rooms, use them; otherwise fall back to mock data
-        const storeRooms = useChatStore.getState().rooms;
-        if (storeRooms.length > 0) {
-          const isProUser = authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro';
-          setRooms(storeRooms.map((r) => ({
-            id: r.id,
-            otherUser: {
-              id: r.otherUser.id,
-              name: r.otherUser.name,
-              role: isProUser ? '고객' : '사회자',
-              profileImageUrl: r.otherUser.profileImageUrl || '',
-            },
-            lastMessage: r.lastMessage?.content || '',
-            lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
-            unreadCount: r.unreadCount,
-            isPinned: false,
-            isArchived: false,
-            isHidden: false,
-          })));
-          return;
-        }
-      }).catch(() => {}).finally(() => setRoomsLoading(false));
+      fetchRooms().catch(() => {}).finally(() => setRoomsLoading(false));
     }
 
     return () => { disconnect(); };
   }, [authUser]);
+
+  // Store의 apiRooms가 업데이트되면 local rooms state도 동기화
+  useEffect(() => {
+    if (!authUser) return;
+    const isProUser = authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro';
+    setRooms(apiRooms.map((r) => ({
+      id: r.id,
+      otherUser: {
+        id: r.otherUser.id,
+        name: r.otherUser.name,
+        role: isProUser ? '고객' : '사회자',
+        profileImageUrl: r.otherUser.profileImageUrl || '',
+      },
+      lastMessage: r.lastMessage?.content || '',
+      lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
+      unreadCount: r.unreadCount,
+      isPinned: false,
+      isArchived: false,
+      isHidden: false,
+    })));
+  }, [apiRooms, authUser]);
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');

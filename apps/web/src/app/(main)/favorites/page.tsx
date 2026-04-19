@@ -74,19 +74,37 @@ export default function FavoritesPage() {
   const [bizCategory, setBizCategory] = useState<BizCategory>('전체');
   const [favPros, setFavPros] = useState<typeof MOCK_FAVORITE_PROS>([]);
   const [favBiz, setFavBiz] = useState<typeof MOCK_FAVORITE_BIZ>([]);
+  const [favLoading, setFavLoading] = useState(true);
   const authUser = useAuthStore((s) => s.user);
 
   // Login check + load favorites
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
-    if (!loggedIn) return;
+    if (!loggedIn) { setFavLoading(false); return; }
 
-    // Try fetching from API first
+    // localStorage 먼저 즉시 렌더 (체감 속도 개선)
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+      if (stored.length > 0) {
+        const mapped = stored
+          .map((id) => ALL_PROS.find((p) => p.id === id))
+          .filter(Boolean) as typeof ALL_PROS;
+        setFavPros(mapped);
+        setFavLoading(false);
+      }
+    } catch {}
+
+    // Demo biz fallback
+    if (localStorage.getItem('freetiful-has-demo-data') === 'true') {
+      setFavBiz(MOCK_FAVORITE_BIZ);
+    }
+
+    // API로 최신 데이터 fetch (백그라운드)
     if (authUser) {
       favoriteApi.getList({ limit: 50 })
         .then((res: any) => {
-          if (res?.items?.length > 0) {
+          if (res?.items) {
             setFavPros(res.items.map((f: any) => ({
               id: f.proProfile?.id || f.proProfileId,
               name: f.proProfile?.user?.name || '',
@@ -99,27 +117,12 @@ export default function FavoritesPage() {
               price: f.proProfile?.services?.[0]?.basePrice || 450000,
               subName: `사회자 ${f.proProfile?.user?.name || ''}`,
             })));
-            return;
           }
         })
-        .catch(() => {});
-    }
-
-    // Fallback: Load favorites from localStorage
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      if (stored.length > 0) {
-        const mapped = stored
-          .map((id) => ALL_PROS.find((p) => p.id === id))
-          .filter(Boolean) as typeof ALL_PROS;
-        setFavPros(mapped);
-      }
-    } catch {}
-
-    // Load demo biz data if available
-    const hasDemoData = localStorage.getItem('freetiful-has-demo-data') === 'true';
-    if (hasDemoData) {
-      setFavBiz(MOCK_FAVORITE_BIZ);
+        .catch(() => {})
+        .finally(() => setFavLoading(false));
+    } else {
+      setFavLoading(false);
     }
   }, [authUser]);
   const [recentPros, setRecentPros] = useState<typeof ALL_PROS>([]);
@@ -273,7 +276,13 @@ export default function FavoritesPage() {
       {/* 전문가 탭 */}
       {activeTab === 'service' && (
         <div className="bg-white">
-          {filteredPros.length > 0 ? (
+          {favLoading && filteredPros.length === 0 ? (
+            <div className="divide-y divide-gray-100">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <ProCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : filteredPros.length > 0 ? (
             <div className="divide-y divide-gray-100">
               {filteredPros.map((pro) => (
                 <ProCard key={pro.id} pro={pro} onRemove={removePro} />
@@ -397,6 +406,25 @@ function ProCard({ pro, onRemove }: { pro: { id: string; name: string; category:
               </button>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProCardSkeleton() {
+  return (
+    <div className="px-4 py-3">
+      <div className="flex gap-3">
+        <div className="w-[105px] h-[140px] rounded-lg bg-gray-200 animate-pulse shrink-0" />
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="h-4 w-28 bg-gray-200 rounded-full animate-pulse" />
+          <div className="flex items-center gap-0.5 mt-2">
+            <div className="h-3 w-20 bg-gray-100 rounded-full animate-pulse" />
+          </div>
+          <div className="h-4 w-24 bg-gray-200 rounded-full animate-pulse mt-2" />
+          <div className="h-3 w-full bg-gray-100 rounded-full animate-pulse mt-3" />
+          <div className="h-3 w-3/4 bg-gray-100 rounded-full animate-pulse mt-1.5" />
         </div>
       </div>
     </div>

@@ -59,6 +59,7 @@ export class FavoriteService {
   async getFavorites(userId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
 
+    // favorites + count 먼저 가져옴 (proProfileIds 필요)
     const [favorites, total] = await Promise.all([
       this.prisma.favorite.findMany({
         where: { userId, targetType: 'pro' },
@@ -70,6 +71,16 @@ export class FavoriteService {
         where: { userId, targetType: 'pro' },
       }),
     ]);
+
+    if (favorites.length === 0) {
+      return {
+        items: [],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    }
 
     const proProfileIds = favorites.map((f) => f.targetId);
 

@@ -43,6 +43,15 @@ export class ChatService {
     }
   }
 
+  /** 특정 유저의 룸 목록 캐시 무효화 (새 룸 생성/메시지 전송 시 호출) */
+  private invalidateRoomsCache(userId: string) {
+    for (const key of this.roomCache.keys()) {
+      if (key.startsWith(`rooms:${userId}:`)) {
+        this.roomCache.delete(key);
+      }
+    }
+  }
+
   // ─── Chat Rooms ──────────────────────────────────────────────────────────
 
   async createRoom(userId: string, dto: CreateChatRoomDto) {
@@ -123,6 +132,10 @@ export class ChatService {
         },
       },
     });
+
+    // 룸 목록 캐시 무효화 (고객 + 전문가 양쪽)
+    this.invalidateRoomsCache(userId);
+    this.invalidateRoomsCache(pro.userId);
 
     // 새 문의 알림 → 전문가에게 (fire-and-forget)
     this.notificationService.createNotification(
@@ -391,15 +404,19 @@ export class ChatService {
       data: { unreadCount: { increment: 1 } },
     });
 
-    // 메시지 알림 → 상대방에게
+    // 룸 목록 캐시 무효화 (발신자 + 수신자 모두) + 메시지 알림
     try {
-      const otherMembers = await this.prisma.chatRoomMember.findMany({
-        where: { roomId, userId: { not: userId } },
+      const allMembers = await this.prisma.chatRoomMember.findMany({
+        where: { roomId },
         select: { userId: true },
       });
+      for (const m of allMembers) {
+        this.invalidateRoomsCache(m.userId);
+      }
       const senderName = message.sender?.name || '상대방';
       const preview = (dto.content || '').slice(0, 40);
-      for (const m of otherMembers) {
+      for (const m of allMembers) {
+        if (m.userId === userId) continue;
         this.notificationService.createNotification(
           m.userId,
           'chat' as any,
