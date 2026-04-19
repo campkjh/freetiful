@@ -231,6 +231,7 @@ export default function ProDashboardPage() {
   const [profileViews, setProfileViews] = useState(0);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
+  const [inquiryRooms, setInquiryRooms] = useState<{ id: string; userName: string; image: string; message: string; receivedAt: string; unread: number }[]>([]);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -247,6 +248,33 @@ export default function ProDashboardPage() {
       setPuddingCount(storedPudding ? Number(storedPudding) : 0);
     } catch { /* ignore */ }
   }, []);
+
+  // Fetch chat inquiries (customer 견적 요청) - 견적 요청 메시지 포함된 채팅방
+  useEffect(() => {
+    if (!authUser) return;
+    apiClient.get('/api/v1/chat/rooms', { params: { page: 1 } })
+      .then((res: any) => {
+        const rooms = (res?.data?.data || []) as any[];
+        const mapped = rooms
+          .filter((r) => r.lastMessage?.content?.includes('📋 견적 요청'))
+          .map((r) => {
+            const d = r.lastMessageAt ? new Date(r.lastMessageAt) : null;
+            const diff = d ? Date.now() - d.getTime() : 0;
+            const min = Math.floor(diff / 60000);
+            const ago = !d ? '' : min < 1 ? '방금' : min < 60 ? `${min}분 전` : Math.floor(min / 60) < 24 ? `${Math.floor(min / 60)}시간 전` : `${Math.floor(min / 1440)}일 전`;
+            return {
+              id: r.id,
+              userName: r.otherUser?.name || '고객',
+              image: r.otherUser?.profileImageUrl || '/images/default-profile.svg',
+              message: (r.lastMessage?.content || '').replace('📋 견적 요청', '').split('\n').find((l: string) => l.trim())?.trim() || '견적 요청',
+              receivedAt: ago,
+              unread: r.unreadCount || 0,
+            };
+          });
+        setInquiryRooms(mapped);
+      })
+      .catch(() => {});
+  }, [authUser]);
 
   // Fetch quotation requests for pro
   useEffect(() => {
@@ -459,7 +487,7 @@ export default function ProDashboardPage() {
         className="px-4 mt-5 grid grid-cols-2 gap-3"
       >
         {[
-          { icon: <img src="/images/new-quote.svg" alt="" width={24} height={24} />, label: '새 견적요청', value: `${pendingQuotes.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/quotes' },
+          { icon: <img src="/images/new-quote.svg" alt="" width={24} height={24} />, label: '새 견적요청', value: `${pendingQuotes.length + inquiryRooms.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/inquiries' },
           { icon: <img src="/images/monthly-revenue.svg" alt="" width={24} height={24} />, label: '이번달 매출', value: `₩${monthlyRevenue.toLocaleString()}`, bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
           { icon: <img src="/images/profile-views.svg" alt="" width={24} height={24} />, label: '프로필 조회', value: `${profileViews}회`, bg: 'bg-purple-50', href: '/pro-dashboard/views' },
           { icon: <img src="/images/avg-rating.svg" alt="" width={24} height={24} />, label: '평균 평점', value: avgRating, bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
@@ -495,8 +523,31 @@ export default function ProDashboardPage() {
         </div>
 
         <div className="space-y-3">
+          {/* 채팅 기반 견적 요청 (고객이 보낸 📋 견적 요청 메시지) */}
+          {inquiryRooms.map((inq) => (
+            <Link
+              key={`inq-${inq.id}`}
+              href={`/chat/${inq.id}`}
+              className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm block active:scale-[0.98] transition-transform"
+            >
+              <div className="flex items-start gap-3">
+                <img src={inq.image} alt={inq.userName} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#3180F7]">견적요청</span>
+                    <p className="text-sm font-bold text-gray-900 truncate">{inq.userName}</p>
+                    {inq.unread > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white ml-auto shrink-0">{inq.unread}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 line-clamp-2">{inq.message}</p>
+                  <p className="text-[10px] text-gray-400 mt-2">{inq.receivedAt}</p>
+                </div>
+              </div>
+            </Link>
+          ))}
           <>
-            {pendingQuotes.length === 0 && (
+            {pendingQuotes.length === 0 && inquiryRooms.length === 0 && (
               <div
                 className="py-10 text-center"
               >

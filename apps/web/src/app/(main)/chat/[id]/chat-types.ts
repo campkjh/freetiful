@@ -27,6 +27,8 @@ export interface SystemPayload {
   plan?: 'premium' | 'superior' | 'enterprise';
   reviewUrl?: string;
   rating?: number;
+  quotationId?: string;
+  proId?: string;
 }
 
 export interface Message {

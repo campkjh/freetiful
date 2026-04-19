@@ -11,6 +11,8 @@ import {
   AlarmClock, Sparkles, Star, RefreshCw, XCircle, Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { quotationApi } from '@/lib/api/quotation.api';
+import { chatApi } from '@/lib/api/chat.api';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 export type { Message, ChatPartner, SystemPayload };
@@ -343,7 +345,7 @@ function KakaoMapEmbed({ venue }: { venue: string }) {
 }
 
 // ─── SystemMessageCard ───
-export function SystemMessageCard({ msg }: { msg: Message }) {
+export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null }) {
   const sys = msg.system;
   if (!sys) return null;
 
@@ -395,6 +397,24 @@ export function SystemMessageCard({ msg }: { msg: Message }) {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E5E7EB"/><rect x="3" y="4" width="18" height="6" rx="2.5" fill="#9CA3AF"/></svg>
                 <p className="text-[11px] text-gray-400">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
               </div>
+            )}
+            {/* 결제 버튼 (고객 측에만, quotationId 있을 때) */}
+            {!isPro && sys.quotationId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const proId = chatPartner?.id;
+                  const url = proId
+                    ? `/pros/${proId}/checkout?quotationId=${sys.quotationId}&amount=${sys.amount || 0}`
+                    : `/pros/checkout?quotationId=${sys.quotationId}&amount=${sys.amount || 0}`;
+                  window.location.href = url;
+                }}
+                className="w-full mt-3 h-11 bg-[#3180F7] active:scale-[0.98] text-white text-[14px] font-bold rounded-xl transition-transform flex items-center justify-center gap-1.5"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" fill="white"/><path d="M2 10h20" stroke="#3180F7" strokeWidth="1" opacity="0.3"/></svg>
+                결제하기
+              </button>
             )}
           </div>
         </div>
@@ -991,32 +1011,75 @@ export default function ChatExtras(props: ChatExtrasProps) {
     }
   };
 
-  const handleSendQuote = () => {
+  const handleSendQuote = async () => {
     const plan = PLAN_DATA[quotePlan];
-    const quoteMsg: Message = {
-      id: `s-quote-${Date.now()}`,
-      senderId: 'system',
-      content: '견적서 발송',
-      type: 'system',
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      system: {
-        kind: 'quote',
-        plan: quotePlan,
-        eventName: quoteEventName || '행사 진행',
+    if (!chatPartner?.id) {
+      toast.error('상대방 정보를 찾을 수 없습니다');
+      return;
+    }
+    try {
+      // 1) 백엔드에 실제 Quotation 생성
+      const created = await quotationApi.create({
+        userId: chatPartner.id,
         amount: plan.price,
-        eventDate: quoteEventDate,
-        eventTime: quoteEventTime,
-        items: plan.items,
-      },
-    };
-    setMessages(prev => [...prev, quoteMsg]);
-    setShowQuoteModal(false);
-    setQuoteEventName('');
-    setQuoteEventDate('');
-    setQuoteEventTime('');
-    setQuoteMemo('');
-    toast.success('견적서가 발송되었습니다');
+        title: quoteEventName || '행사 진행',
+        description: quoteMemo || undefined,
+        eventDate: quoteEventDate || undefined,
+        eventTime: quoteEventTime || undefined,
+      } as any);
+      const quotationId = (created as any)?.id;
+
+      // 2) 채팅방에 견적 카드 메시지 전송 (상대가 결제 버튼 누를 수 있게 metadata 포함)
+      const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+      if (roomId && !roomId.startsWith('pending-')) {
+        await chatApi.sendMessage(roomId, {
+          type: 'system' as any,
+          content: `💰 견적서 발송: ${plan.price.toLocaleString()}원`,
+          metadata: {
+            system: {
+              kind: 'quote',
+              plan: quotePlan,
+              eventName: quoteEventName || '행사 진행',
+              amount: plan.price,
+              eventDate: quoteEventDate,
+              eventTime: quoteEventTime,
+              items: plan.items,
+              quotationId,
+            },
+          },
+        } as any).catch(() => {});
+      }
+
+      // 3) 로컬 UI에도 즉시 반영
+      const quoteMsg: Message = {
+        id: `s-quote-${Date.now()}`,
+        senderId: MY_ID,
+        content: '견적서 발송',
+        type: 'system',
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        system: {
+          kind: 'quote',
+          plan: quotePlan,
+          eventName: quoteEventName || '행사 진행',
+          amount: plan.price,
+          eventDate: quoteEventDate,
+          eventTime: quoteEventTime,
+          items: plan.items,
+          quotationId,
+        },
+      };
+      setMessages(prev => [...prev, quoteMsg]);
+      setShowQuoteModal(false);
+      setQuoteEventName('');
+      setQuoteEventDate('');
+      setQuoteEventTime('');
+      setQuoteMemo('');
+      toast.success('견적서가 발송되었습니다');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '발송 실패';
+      toast.error(`견적서 발송 실패: ${msg}`);
+    }
   };
 
   const ATTACH_ITEMS = [

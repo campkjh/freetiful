@@ -13,6 +13,7 @@ import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-p
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
+const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
 
 /** Convert a MessageItem from the API into our local Message shape */
 function mapApiMessage(m: MessageItem): Message {
@@ -554,7 +555,13 @@ export default function ChatRoomPage() {
                       <span className="text-[11px] text-gray-400">{formatDateDivider(msg.createdAt)}</span>
                     </div>
                   )}
-                  <SystemMessageFallback msg={msg} />
+                  {msg.system ? (
+                    <Suspense fallback={<SystemMessageFallback msg={msg} />}>
+                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} />
+                    </Suspense>
+                  ) : (
+                    <SystemMessageFallback msg={msg} />
+                  )}
                 </div>
               );
             }
