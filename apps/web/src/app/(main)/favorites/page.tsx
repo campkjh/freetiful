@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Heart, Star, MapPin, Building2, Trash2 } from 'lucide-react';
+import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { favoriteApi, getCachedFavoritesList } from '@/lib/api/favorite.api';
 
@@ -194,27 +195,36 @@ export default function FavoritesPage() {
           <h1 className="text-[18px] font-bold text-gray-900 shrink-0">찜목록</h1>
 
           {/* 탭: 스크롤하면 칩 형태로 변신하며 헤더 우측에 붙음 */}
-          <div
-            className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide"
-            style={{
-              marginLeft: scrolled ? 0 : 'auto',
-              transition: 'margin-left 0.3s ease',
-            }}
-          >
-            <>
+          <LayoutGroup id="favorites-top-tabs">
+            <div
+              className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide"
+              style={{
+                marginLeft: scrolled ? 0 : 'auto',
+                transition: 'margin-left 0.3s ease',
+              }}
+            >
               {tabs.map((t) => {
                 const isActive = activeTab === t.key;
                 return (
                   <button
                     key={t.key}
                     onClick={() => setActiveTab(t.key)}
-                    className={`relative isolate shrink-0 font-semibold whitespace-nowrap transition-all duration-300 active:scale-95 ${isActive ? 'text-white' : 'text-gray-500'}`}
-                    style={{ fontSize: scrolled ? 12 : 13, padding: scrolled ? '4px 10px' : '6px 14px', borderRadius: 999 }}
+                    className={`relative isolate shrink-0 font-semibold whitespace-nowrap active:scale-95 ${isActive ? 'text-white' : 'text-gray-500'}`}
+                    style={{
+                      fontSize: scrolled ? 12 : 13,
+                      padding: scrolled ? '4px 10px' : '6px 14px',
+                      borderRadius: 999,
+                      transition: 'color 0.25s ease, font-size 0.3s ease, padding 0.3s ease, transform 0.15s ease',
+                    }}
                   >
-                    <span
-                      className={`absolute inset-0 bg-gray-900 rounded-full transition-all duration-300 ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
-                      style={{ zIndex: -1 }}
-                    />
+                    {isActive && (
+                      <motion.span
+                        layoutId="fav-top-pill"
+                        className="absolute inset-0 bg-gray-900 rounded-full"
+                        style={{ zIndex: -1 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                      />
+                    )}
                     <span className="relative">
                       {t.label}
                       {t.badge && <span className="ml-0.5 text-[9px] font-bold text-red-400">{t.badge}</span>}
@@ -222,8 +232,8 @@ export default function FavoritesPage() {
                   </button>
                 );
               })}
-            </>
-          </div>
+            </div>
+          </LayoutGroup>
         </div>
 
         {/* 카테고리 칩 - 스크롤 시 접힘 */}
@@ -236,34 +246,56 @@ export default function FavoritesPage() {
           }}
         >
           {activeTab === 'service' && (
-            <>
-              <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+            <LayoutGroup id="fav-pro-subtabs">
+              <div className="px-4 pt-1 flex gap-4 overflow-x-auto scrollbar-hide">
                 {proCategories.map((c) => {
                   const active = proCategory === c.key;
                   return (
-                    <button key={c.key} onClick={() => setProCategory(c.key)} className={`relative isolate px-3.5 py-1.5 text-[13px] font-medium shrink-0 rounded-full ${active ? 'text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                      {active && <span className="absolute inset-0 bg-[#2B313D] rounded-full" style={{ zIndex: -1 }} />}
-                      <span className="relative">{c.key} ({c.count})</span>
+                    <button
+                      key={c.key}
+                      onClick={() => setProCategory(c.key)}
+                      className={`relative shrink-0 py-2.5 text-[13px] whitespace-nowrap ${active ? 'font-bold text-gray-900' : 'font-medium text-gray-400'}`}
+                      style={{ transition: 'color 0.25s ease' }}
+                    >
+                      <span>{c.key} <span className={active ? 'text-[#3180F7]' : 'text-gray-300'}>{c.count}</span></span>
+                      {active && (
+                        <motion.span
+                          layoutId="fav-pro-underline"
+                          className="absolute left-0 right-0 -bottom-px h-[2px] bg-[#3180F7] rounded-full"
+                          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                        />
+                      )}
                     </button>
                   );
                 })}
               </div>
-            </>
+            </LayoutGroup>
           )}
           {activeTab === 'portfolio' && (
-            <>
-              <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+            <LayoutGroup id="fav-biz-subtabs">
+              <div className="px-4 pt-1 flex gap-4 overflow-x-auto scrollbar-hide">
                 {bizCategories.filter((c) => c.count > 0 || c.key === '전체').map((c) => {
                   const active = bizCategory === c.key;
                   return (
-                    <button key={c.key} onClick={() => setBizCategory(c.key)} className={`relative isolate px-3.5 py-1.5 text-[13px] font-medium shrink-0 rounded-full ${active ? 'text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                      {active && <span className="absolute inset-0 bg-[#2B313D] rounded-full" style={{ zIndex: -1 }} />}
-                      <span className="relative">{c.key} ({c.count})</span>
+                    <button
+                      key={c.key}
+                      onClick={() => setBizCategory(c.key)}
+                      className={`relative shrink-0 py-2.5 text-[13px] whitespace-nowrap ${active ? 'font-bold text-gray-900' : 'font-medium text-gray-400'}`}
+                      style={{ transition: 'color 0.25s ease' }}
+                    >
+                      <span>{c.key} <span className={active ? 'text-[#3180F7]' : 'text-gray-300'}>{c.count}</span></span>
+                      {active && (
+                        <motion.span
+                          layoutId="fav-biz-underline"
+                          className="absolute left-0 right-0 -bottom-px h-[2px] bg-[#3180F7] rounded-full"
+                          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                        />
+                      )}
                     </button>
                   );
                 })}
               </div>
-            </>
+            </LayoutGroup>
           )}
         </div>
       </div>

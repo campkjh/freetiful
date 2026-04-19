@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
+import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 
@@ -360,7 +361,7 @@ export default function ChatListPage() {
                 className="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-gray-300"
               />
             </div>
-            <>
+            <LayoutGroup id="chat-tabs-desktop">
               <div className="flex gap-1.5 flex-wrap">
                 {(isPro ? PRO_TABS : TABS).map((tab) => {
                   const active = isPro ? proActiveTab === tab : activeTab === tab;
@@ -368,20 +369,25 @@ export default function ChatListPage() {
                     <button
                       key={tab}
                       onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
-                      className={`relative px-3 py-1.5 rounded-full text-[12px] font-medium isolate transition-all duration-300 ${
+                      className={`relative px-3 py-1.5 rounded-full text-[12px] font-medium isolate ${
                         active ? 'text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                       }`}
+                      style={{ transition: 'color 0.25s ease' }}
                     >
-                      <span
-                        className={`absolute inset-0 bg-gray-900 rounded-full transition-all duration-300 ${active ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
-                        style={{ zIndex: -1 }}
-                      />
+                      {active && (
+                        <motion.span
+                          layoutId="chat-tab-pill-desktop"
+                          className="absolute inset-0 bg-gray-900 rounded-full"
+                          style={{ zIndex: -1 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        />
+                      )}
                       <span className="relative">{tab}</span>
                     </button>
                   );
                 })}
               </div>
-            </>
+            </LayoutGroup>
           </div>
           <div className="flex-1 overflow-y-auto">
             {sorted.length === 0 ? (
@@ -507,7 +513,7 @@ export default function ChatListPage() {
               </div>
             )}
           </>
-          <>
+          <LayoutGroup id="chat-tabs-mobile">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
               {(isPro ? PRO_TABS : TABS).map((tab) => {
                 const active = isPro ? proActiveTab === tab : activeTab === tab;
@@ -523,18 +529,23 @@ export default function ChatListPage() {
                       setEditMode(false);
                       setSelectedIds(new Set());
                     }}
-                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate transition-all duration-300 active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
+                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
+                    style={{ transition: 'color 0.25s ease, transform 0.15s ease' }}
                   >
-                    <span
-                      className={`absolute inset-0 bg-gray-900 rounded-full transition-all duration-300 ${active ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
-                      style={{ zIndex: -1 }}
-                    />
+                    {active && (
+                      <motion.span
+                        layoutId="chat-tab-pill-mobile"
+                        className="absolute inset-0 bg-gray-900 rounded-full"
+                        style={{ zIndex: -1 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                      />
+                    )}
                     <span className="relative">{tab}</span>
                   </button>
                 );
               })}
             </div>
-          </>
+          </LayoutGroup>
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <p
