@@ -527,10 +527,13 @@ export default function ProDetailPage() {
   // Pre-warm chat room + 메시지까지 백그라운드에서 미리 로드 + chat 라우트 prefetch
   useEffect(() => {
     if (!authUser || !id || id === 'my-pro') return;
-    preWarmChat(id);
-    // Next.js에서 chat 라우트 JS 번들 미리 로드
-    router.prefetch('/chat');
+    const pre = preWarmChat(id);
+    // createRoom 끝나면 실제 /chat/[roomId] 번들도 prefetch
+    pre.roomIdPromise?.then((rid) => {
+      if (rid) router.prefetch(`/chat/${rid}`);
+    });
   }, [authUser, id, router]);
+  const [openingChat, setOpeningChat] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
@@ -1425,24 +1428,37 @@ export default function ProDetailPage() {
             )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
-                onClick={() => {
+                disabled={openingChat}
+                onClick={async () => {
                   setShowTooltip(false);
                   if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; }
                   const nameParam = encodeURIComponent(pro.name || '');
                   const imgParam = encodeURIComponent(pro.profileImage || '');
                   const preWarmed = getPreWarmByProId(pro.id);
-                  const cachedRoomId = preWarmed?.roomId;
-                  if (cachedRoomId) {
-                    router.push(`/chat/${cachedRoomId}?name=${nameParam}&img=${imgParam}`);
+                  if (preWarmed?.roomId) {
+                    router.push(`/chat/${preWarmed.roomId}?name=${nameParam}&img=${imgParam}`);
+                    return;
+                  }
+                  // roomId 아직 없으면 버튼에 로딩 표시, createRoom 끝나면 바로 이동
+                  setOpeningChat(true);
+                  const pre = preWarmChat(pro.id);
+                  const resolvedId = await pre.roomIdPromise;
+                  if (resolvedId) {
+                    router.push(`/chat/${resolvedId}?name=${nameParam}&img=${imgParam}`);
                   } else {
-                    // pre-warm 아직 안 끝났으면 pending URL로 (채팅 페이지에서 기다림)
-                    preWarmChat(pro.id);
-                    router.push(`/chat/pending-${pro.id}?name=${nameParam}&img=${imgParam}`);
+                    setOpeningChat(false);
                   }
                 }}
-                className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
+                className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                문의하기
+                {openingChat ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
+                    열리는 중
+                  </>
+                ) : (
+                  '문의하기'
+                )}
               </button>
               <button
                 onClick={handlePurchase}

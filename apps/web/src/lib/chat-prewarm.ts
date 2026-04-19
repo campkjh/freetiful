@@ -4,7 +4,8 @@ export interface ChatPreWarmData {
   roomId?: string;
   room?: ChatRoomItem;
   messages?: MessageItem[];
-  promise?: Promise<void>;
+  /** createRoom만 완료되면 resolve (빠름) */
+  roomIdPromise?: Promise<string | undefined>;
 }
 
 // proId → pre-warmed chat data
@@ -14,33 +15,32 @@ export const roomDataCache = new Map<string, ChatPreWarmData>();
 
 export function preWarmChat(proProfileId: string) {
   const existing = proToRoomCache.get(proProfileId);
-  if (existing?.roomId || existing?.promise) return existing;
+  if (existing?.roomId || existing?.roomIdPromise) return existing;
 
   const data: ChatPreWarmData = {};
   proToRoomCache.set(proProfileId, data);
 
-  data.promise = (async () => {
+  data.roomIdPromise = (async () => {
     try {
       const roomRes = await chatApi.createRoom(proProfileId);
       const roomData = roomRes.data as any;
       const roomId: string | undefined = roomData?.id || roomData?.roomId;
-      if (!roomId) return;
+      if (!roomId) return undefined;
       data.roomId = roomId;
+      // createRoom 응답에 room 정보가 포함되어 있으면 즉시 사용
+      if (roomData?.otherUser) {
+        data.room = roomData as ChatRoomItem;
+      }
       roomDataCache.set(roomId, data);
 
-      // 메시지와 룸 정보를 병렬 프리페치
-      const [messagesRes, roomInfoRes] = await Promise.allSettled([
-        chatApi.getMessages(roomId, { limit: 50 }),
-        chatApi.getRoom(roomId),
-      ]);
-      if (messagesRes.status === 'fulfilled') {
-        data.messages = messagesRes.value.data.data || [];
-      }
-      if (roomInfoRes.status === 'fulfilled') {
-        data.room = roomInfoRes.value.data as ChatRoomItem;
-      }
+      // getMessages만 백그라운드로 (room 정보는 이미 있음)
+      chatApi.getMessages(roomId, { limit: 50 })
+        .then((res) => { data.messages = res.data.data || []; })
+        .catch(() => {});
+
+      return roomId;
     } catch {
-      // 실패해도 무시 (클릭 시 다시 시도)
+      return undefined;
     }
   })();
 

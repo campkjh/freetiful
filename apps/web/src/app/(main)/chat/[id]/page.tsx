@@ -138,14 +138,13 @@ export default function ChatRoomPage() {
     let cancelled = false;
 
     async function loadRoom() {
-      // Handle pending-{proId}: wait for pre-warm then replace URL
+      // Handle pending-{proId}: createRoom만 기다리고 URL 즉시 교체
       if (roomId.startsWith('pending-')) {
         const proId = roomId.replace('pending-', '');
         const pre = preWarmChat(proId); // idempotent
-        if (pre.promise) await pre.promise;
+        const resolvedRoomId = await pre.roomIdPromise;
         if (cancelled) return;
-        if (pre.roomId) {
-          // 파트너/메시지를 먼저 state에 반영 (skeleton 바로 사라짐)
+        if (resolvedRoomId) {
           if (pre.room) {
             setChatPartner({
               id: pre.room.otherUser.id,
@@ -154,13 +153,8 @@ export default function ChatRoomPage() {
               isActive: pre.room.otherUser.isActive ?? false,
             });
           }
-          if (pre.messages) {
-            setMessages(pre.messages.map(mapApiMessage));
-            setMessagesLoading(false);
-          }
-          // URL만 교체 (같은 route 패턴이라 컴포넌트 unmount 안 됨)
           const search = window.location.search;
-          router.replace(`/chat/${pre.roomId}${search}`);
+          router.replace(`/chat/${resolvedRoomId}${search}`);
         } else {
           router.replace('/chat');
         }
@@ -391,8 +385,9 @@ export default function ChatRoomPage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Skeleton loading state
-  const showSkeleton = roomId.startsWith('pending-') || (messagesLoading && messages.length === 0 && !chatPartner);
+  // Skeleton loading state — pre-warm 데이터가 이미 있으면 skip
+  const hasData = !!chatPartner || messages.length > 0;
+  const showSkeleton = !hasData && (roomId.startsWith('pending-') || (messagesLoading && messages.length === 0));
   const skeletonName = chatPartner?.name || urlProName;
   const skeletonImg = chatPartner?.profileImageUrl || urlProImg || '/images/default-avatar.png';
 
