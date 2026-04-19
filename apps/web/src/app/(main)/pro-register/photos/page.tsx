@@ -64,14 +64,39 @@ function getCroppedImg(imageSrc: string, crop: Area): Promise<string> {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      // localStorage 용량을 위해 최대 1200px로 다운스케일
+      const MAX = 1200;
+      const scale = Math.min(1, MAX / Math.max(crop.width, crop.height));
+      const outW = Math.round(crop.width * scale);
+      const outH = Math.round(crop.height * scale);
       const canvas = document.createElement('canvas');
-      canvas.width = crop.width;
-      canvas.height = crop.height;
+      canvas.width = outW;
+      canvas.height = outH;
       const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.9));
+      ctx.drawImage(img, crop.x, crop.y, crop.width, crop.height, 0, 0, outW, outH);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
     };
     img.src = imageSrc;
+  });
+}
+
+/* ─── Downscale non-cropped photos for localStorage ─── */
+function downscaleDataUrl(dataUrl: string, maxSize = 1200, quality = 0.75): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
   });
 }
 
@@ -109,7 +134,17 @@ export default function PhotosPage() {
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('proRegister_photos', JSON.stringify(photos));
+    try {
+      localStorage.setItem('proRegister_photos', JSON.stringify(photos));
+    } catch (err) {
+      // 용량 초과 시 세션 저장소 폴백 + 사용자 안내
+      try {
+        sessionStorage.setItem('proRegister_photos', JSON.stringify(photos));
+      } catch {}
+      console.warn('사진 저장 공간 부족:', err);
+      setFaceError('사진 저장 공간이 부족합니다. 사진을 줄이거나 다시 시도해주세요.');
+      setTimeout(() => setFaceError(''), 4000);
+    }
   }, [photos]);
 
   const onCropComplete = useCallback((_: Area, croppedAreaPixels: Area) => {
@@ -153,7 +188,8 @@ export default function PhotosPage() {
         const results: string[] = [];
         for (const file of imageFiles) {
           const data = await readFile(file);
-          results.push(data);
+          const scaled = await downscaleDataUrl(data);
+          results.push(scaled);
         }
         setPhotos(prev => [...prev, ...results]);
       } catch {
