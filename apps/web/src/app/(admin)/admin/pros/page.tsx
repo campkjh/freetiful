@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, Edit3 } from 'lucide-react';
+import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 interface ProItem {
   id: string;
@@ -42,10 +43,14 @@ export default function AdminProsPage() {
   const [total, setTotal] = useState(0);
   const [editingPro, setEditingPro] = useState<any | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [lastError, setLastError] = useState<{ status?: number; message?: string } | null>(null);
+  const authUser = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
   const LIMIT = 20;
 
   const fetchPros = async (p = page, s = search, st = filterStatus) => {
     setLoading(true);
+    setLastError(null);
     try {
       const params: any = { page: p, limit: LIMIT };
       if (s) params.search = s;
@@ -56,6 +61,7 @@ export default function AdminProsPage() {
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
       const status = e?.response?.status;
+      setLastError({ status, message: msg });
       toast.error(`목록 로드 실패${status ? ` (${status})` : ''}: ${msg}`, { duration: 6000 });
     } finally {
       setLoading(false);
@@ -135,6 +141,32 @@ export default function AdminProsPage() {
         <h1 className="text-xl font-bold text-gray-900">전문가 관리</h1>
         <span className="ml-auto text-sm text-gray-400">총 {total}명</span>
       </div>
+
+      {lastError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
+            <div className="flex-1 space-y-1">
+              <p className="font-bold text-red-700">목록 로드 실패 {lastError.status ? `(HTTP ${lastError.status})` : ''}</p>
+              <p className="text-red-600 break-words">{lastError.message}</p>
+              <div className="mt-2 pt-2 border-t border-red-200 space-y-0.5 text-[12px] text-red-700/80">
+                <p>로그인 이메일: <code className="bg-white px-1.5 py-0.5 rounded">{authUser?.email || '(로그인 안됨)'}</code></p>
+                <p>유저 role: <code className="bg-white px-1.5 py-0.5 rounded">{authUser?.role || '(없음)'}</code></p>
+                <p>JWT 토큰: <code className="bg-white px-1.5 py-0.5 rounded">{accessToken ? '있음' : '없음'}</code></p>
+                <p>localStorage admin-key: <code className="bg-white px-1.5 py-0.5 rounded">{(typeof window !== 'undefined' && localStorage.getItem('admin-key')) ? '있음' : '없음'}</code></p>
+              </div>
+              {lastError.status === 403 && (
+                <p className="mt-2 text-[12px] text-red-700/80 bg-white rounded-lg px-3 py-2">
+                  <strong>해결 방법:</strong>
+                  <br />1) Railway 백엔드에서 <code>admin@freetiful.com</code> 유저가 DB에 존재하는지 확인
+                  <br />2) 없다면 Railway 쉘에서 <code>cd apps/api && npx ts-node prisma/create-admin.ts</code> 실행
+                  <br />3) 또는 <code>/admin</code> 첫 화면에서 Railway의 <code>ADMIN_SECRET_KEY</code> 값을 입력
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
