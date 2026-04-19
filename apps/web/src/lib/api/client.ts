@@ -49,7 +49,9 @@ apiClient.interceptors.response.use(
     } catch (e) {
       failedQueue.forEach((q) => q.reject(e));
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      // 어드민 경로에 있었으면 admin 로그인으로, 아니면 일반 로그인으로
+      const isOnAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+      window.location.href = isOnAdmin ? '/admin/login' : '/login';
       return Promise.reject(e);
     } finally {
       failedQueue = [];

@@ -8,6 +8,7 @@ import { getPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
+import { prosApi } from '@/lib/api/pros.api';
 
 /* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
 // 이미지 기반 아이콘 헬퍼
@@ -289,6 +290,7 @@ export default function MyPage() {
   const { logout: authLogout } = useAuth();
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
+  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(null);
   const [isPro, setIsPro] = useState(false);
   const [couponCount, setCouponCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
@@ -322,6 +324,27 @@ export default function MyPage() {
     if (!isLoggedIn) return;
     setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
     if (!authUser) setIsPro(localStorage.getItem('userRole') === 'pro');
+
+    // 백엔드에서 실제 pro profile 상태 동기화 (어드민이 승인/반려한 경우 반영)
+    if (authUser) {
+      prosApi.getMyProfile()
+        .then((profile: any) => {
+          const status = profile?.status as 'draft' | 'pending' | 'approved' | 'rejected' | undefined;
+          if (!status) return;
+          setProProfileStatus(status);
+          if (status === 'approved') {
+            localStorage.setItem('proRegistrationComplete', 'approved');
+            setProRegistrationPending(false);
+          } else if (status === 'rejected') {
+            localStorage.setItem('proRegistrationComplete', 'rejected');
+            setProRegistrationPending(false);
+          } else if (status === 'pending') {
+            localStorage.setItem('proRegistrationComplete', 'pending');
+            setProRegistrationPending(true);
+          }
+        })
+        .catch(() => {});
+    }
     try {
       const coupons = JSON.parse(localStorage.getItem('freetiful-coupons') || '[]');
       setCouponCount(Array.isArray(coupons) ? coupons.length : 0);
@@ -333,7 +356,8 @@ export default function MyPage() {
   }, [isLoggedIn, authUser]);
 
   const handlePartnerApply = () => {
-    const alreadyRegistered = localStorage.getItem('proRegistrationComplete') === 'true';
+    const reg = localStorage.getItem('proRegistrationComplete');
+    const alreadyRegistered = reg === 'true' || reg === 'approved';
     if (alreadyRegistered) {
       if (authUser) {
         usersApi.switchRole('pro').then(() => {
@@ -580,13 +604,12 @@ export default function MyPage() {
         </Link>
 
         {/* Pro Registration Pending Banner */}
-        {proRegistrationPending && (
+        {proRegistrationPending && proProfileStatus !== 'approved' && (
           <div
             className="mt-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3.5"
             style={{ animation: 'myFadeUp 0.5s ease 0.08s both' }}
           >
             <div className="flex items-center gap-1.5">
-              {/* 서류+체크 아이콘 — 플랫 컬러 */}
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <rect x="4" y="2" width="16" height="20" rx="2.5" fill="#93C5FD"/>
                 <rect x="4" y="2" width="16" height="6" rx="2.5" fill="#60A5FA"/>
@@ -598,6 +621,37 @@ export default function MyPage() {
               <p className="text-[14px] font-bold text-blue-700">전문가 양식 제출완료!</p>
             </div>
             <p className="text-[12px] text-blue-500 mt-1 ml-[26px]">심사를 기다려주세요. 7일 이내에 결과를 알려드립니다.</p>
+          </div>
+        )}
+
+        {/* Pro Approved — 파트너스 전환 버튼 */}
+        {proProfileStatus === 'approved' && !isPro && (
+          <button
+            onClick={handlePartnerApply}
+            className="mt-3 w-full rounded-xl bg-gradient-to-r from-[#3180F7] to-[#5B9AFE] px-4 py-4 flex items-center gap-3 shadow-[0_4px_16px_rgba(49,128,247,0.3)] active:scale-[0.98] transition-transform"
+            style={{ animation: 'myFadeUp 0.5s ease 0.08s both' }}
+          >
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L15 8L22 9L17 14L18 21L12 18L6 21L7 14L2 9L9 8L12 2Z" fill="white"/>
+              </svg>
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-[15px] font-bold text-white">파트너스로 전환하기 🎉</p>
+              <p className="text-[12px] text-white/80 mt-0.5">파트너 승인 완료! 지금 바로 전문가 모드로 시작하세요</p>
+            </div>
+            <ChevronRight size={20} className="text-white shrink-0" />
+          </button>
+        )}
+
+        {/* Pro Rejected Banner */}
+        {proProfileStatus === 'rejected' && (
+          <div
+            className="mt-3 rounded-xl bg-red-50 border border-red-100 px-4 py-3.5"
+            style={{ animation: 'myFadeUp 0.5s ease 0.08s both' }}
+          >
+            <p className="text-[14px] font-bold text-red-700">파트너 신청이 반려되었습니다</p>
+            <p className="text-[12px] text-red-500 mt-1">신청 조건을 재확인 후 다시 신청해 주세요.</p>
           </div>
         )}
 
