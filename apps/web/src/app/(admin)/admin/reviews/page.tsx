@@ -7,8 +7,7 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 
 async function adminFetch(method: string, path: string) {
-  const adminKey = localStorage.getItem('admin-key') || '';
-  const res = await apiClient.request({ method, url: path, headers: { 'x-admin-key': adminKey } });
+  const res = await apiClient.request({ method, url: path });
   return res.data;
 }
 

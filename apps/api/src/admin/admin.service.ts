@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
@@ -190,6 +190,54 @@ export class AdminService {
       page,
       limit,
     };
+  }
+
+  // ─── Pro 상세 조회 ─────────────────────────────────────────────────────────
+  async getProDetail(proProfileId: string) {
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { id: proProfileId },
+      include: {
+        user: { select: { id: true, email: true, name: true, phone: true, profileImageUrl: true } },
+        images: { orderBy: { displayOrder: 'asc' } },
+        services: true,
+        faqs: true,
+        categories: { include: { category: true } },
+      },
+    });
+    if (!profile) throw new NotFoundException('전문가를 찾을 수 없습니다');
+    return profile;
+  }
+
+  // ─── Pro 프로필 업데이트 (어드민이 직접 수정) ────────────────────────────────
+  async updatePro(proProfileId: string, data: any) {
+    const allowed: any = {};
+    const editableFields = [
+      'shortIntro', 'mainExperience', 'careerYears', 'awards',
+      'youtubeUrl', 'detailHtml', 'gender',
+      'isFeatured', 'showPartnersLogo', 'status', 'basePrice',
+    ];
+    for (const k of editableFields) if (data[k] !== undefined) allowed[k] = data[k];
+
+    const profile = await this.prisma.proProfile.update({
+      where: { id: proProfileId },
+      data: allowed,
+      include: {
+        user: { select: { id: true, email: true, name: true, phone: true } },
+      },
+    });
+
+    // User 레벨 필드도 함께 수정 가능
+    if (data.name !== undefined || data.phone !== undefined) {
+      await this.prisma.user.update({
+        where: { id: profile.userId },
+        data: {
+          ...(data.name !== undefined ? { name: data.name } : {}),
+          ...(data.phone !== undefined ? { phone: data.phone } : {}),
+        },
+      });
+    }
+
+    return profile;
   }
 
   // ─── Pro 승인 ─────────────────────────────────────────────────────────────
