@@ -325,6 +325,9 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   );
 }
 
+// ─── Module-level room cache (survives re-renders, cleared on page navigation) ───
+const roomCache = new Map<string, string>(); // proId → roomId
+
 // ─── Page ───────────────────────────────────────────────────
 
 export default function ProDetailPage() {
@@ -520,6 +523,17 @@ export default function ProDetailPage() {
     if (authUser && id) {
       favoriteApi.check(id).then((res) => setIsFavorited(res.isFavorited)).catch(() => {});
     }
+  }, [authUser, id]);
+
+  // Pre-warm chat room so navigation is instant
+  useEffect(() => {
+    if (!authUser || !id || id === 'my-pro' || roomCache.has(id)) return;
+    chatApi.createRoom(id)
+      .then((res) => {
+        const roomId = (res.data as any)?.id || (res.data as any)?.roomId;
+        if (roomId) roomCache.set(id, roomId);
+      })
+      .catch(() => {});
   }, [authUser, id]);
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
@@ -1416,10 +1430,17 @@ export default function ProDetailPage() {
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
                 onClick={() => {
-                setShowTooltip(false);
-                if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; }
-                router.push(`/chat/pending-${pro.id}`);
-              }}
+                  setShowTooltip(false);
+                  if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; }
+                  const cachedRoomId = roomCache.get(pro.id);
+                  const nameParam = encodeURIComponent(pro.name || '');
+                  const imgParam = encodeURIComponent(pro.profileImage || '');
+                  if (cachedRoomId) {
+                    router.push(`/chat/${cachedRoomId}?name=${nameParam}&img=${imgParam}`);
+                  } else {
+                    router.push(`/chat/pending-${pro.id}?name=${nameParam}&img=${imgParam}`);
+                  }
+                }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
               >
                 문의하기

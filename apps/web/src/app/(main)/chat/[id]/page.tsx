@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText,
@@ -78,6 +78,9 @@ function SystemMessageFallback({ msg }: { msg: Message }) {
 export default function ChatRoomPage() {
   const { id: roomId } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlProName = searchParams.get('name') ? decodeURIComponent(searchParams.get('name')!) : null;
+  const urlProImg = searchParams.get('img') ? decodeURIComponent(searchParams.get('img')!) : null;
   const authUser = useAuthStore((s) => s.user);
   const MY_ID = authUser?.id || '';
   const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
@@ -350,19 +353,76 @@ export default function ChatRoomPage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Full-screen loading overlay for pending room creation or initial load
-  const showLoadingOverlay = roomId.startsWith('pending-') || (messagesLoading && messages.length === 0 && !chatPartner);
+  // Skeleton loading state
+  const showSkeleton = roomId.startsWith('pending-') || (messagesLoading && messages.length === 0 && !chatPartner);
+  const skeletonName = chatPartner?.name || urlProName;
+  const skeletonImg = chatPartner?.profileImageUrl || urlProImg || '/images/default-avatar.png';
+
+  if (showSkeleton) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-[#F2F2F7]" style={{ height: '100dvh' }}>
+        {/* Top shimmer bar */}
+        <div className="absolute top-0 left-0 right-0 h-[3px] z-50 overflow-hidden bg-gray-100">
+          <div className="h-full bg-[#3180F7]/40 animate-[shimmerBar_1.4s_ease-in-out_infinite]" style={{ width: '60%' }} />
+        </div>
+
+        {/* Header skeleton */}
+        <div className="absolute left-0 right-0 top-0 z-30 px-3 pt-3 pb-2 pt-safe">
+          <div className="flex items-center gap-2 max-w-[680px] mx-auto">
+            <button onClick={() => router.back()} className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0">
+              <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
+            </button>
+            <div className="flex-1 flex items-center gap-3 bg-white/90 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12">
+              <img src={skeletonImg} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+              <div className="flex-1 min-w-0">
+                {skeletonName
+                  ? <p className="text-[14px] font-bold text-gray-900 truncate">{skeletonName}</p>
+                  : <div className="h-3.5 w-24 bg-gray-200 rounded-full animate-pulse" />
+                }
+                <div className="h-2.5 w-12 bg-gray-100 rounded-full mt-1 animate-pulse" />
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60" />
+          </div>
+        </div>
+
+        {/* Message skeletons */}
+        <div className="flex-1 overflow-hidden pt-[80px] pb-[80px] px-4 flex flex-col gap-5 justify-end">
+          {[
+            { mine: false, w: 'w-[60%]', h: 'h-14' },
+            { mine: true, w: 'w-[45%]', h: 'h-10' },
+            { mine: false, w: 'w-[70%]', h: 'h-20' },
+            { mine: true, w: 'w-[55%]', h: 'h-10' },
+            { mine: false, w: 'w-[50%]', h: 'h-12' },
+          ].map((b, i) => (
+            <div key={i} className={`flex items-end gap-2 ${b.mine ? 'flex-row-reverse' : 'flex-row'}`}>
+              {!b.mine && <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse shrink-0" />}
+              <div className={`${b.w} ${b.h} rounded-2xl ${b.mine ? 'rounded-br-sm bg-[#3180F7]/15' : 'rounded-bl-sm bg-white'} animate-pulse`} />
+            </div>
+          ))}
+        </div>
+
+        {/* Input skeleton */}
+        <div className="px-3 pb-4 pb-safe pt-2 bg-[#F2F2F7]">
+          <div className="flex items-center gap-2 bg-white rounded-full px-4 h-12 shadow-sm border border-gray-200/60">
+            <div className="w-5 h-5 rounded-full bg-gray-200 animate-pulse" />
+            <div className="flex-1 h-3 bg-gray-100 rounded-full animate-pulse" />
+            <div className="w-5 h-5 rounded-full bg-gray-200 animate-pulse" />
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes shimmerBar {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(266%); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 flex flex-col bg-[#F2F2F7]" style={{ height: '100dvh' }}>
-      {showLoadingOverlay && (
-        <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center" style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-2xl px-8 py-6 flex flex-col items-center gap-3 shadow-xl">
-            <div className="w-10 h-10 border-4 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
-            <p className="text-[14px] font-semibold text-gray-700">채팅방 연결 중...</p>
-          </div>
-        </div>
-      )}
       {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
       <div
         className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"
