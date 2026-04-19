@@ -207,27 +207,24 @@ export default function QuotesPage() {
 
         {/* Tabs */}
         <div className="px-4 pb-3 flex gap-2">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`relative px-4 py-2 rounded-full text-sm font-bold transition-colors ${
-                tab === t.key ? 'text-white' : 'text-gray-400 bg-gray-100'
-              }`}
-            >
-              {tab === t.key && (
-                <div
-                  className="absolute inset-0 bg-[#3180F7] rounded-full"
-                />
-              )}
-              <span className="relative z-10">{t.label}</span>
-              {t.key === 'pending' && quotes.filter((q) => q.status === 'pending').length > 0 && (
-                <span className="relative z-10 ml-1 text-[10px]">
-                  ({quotes.filter((q) => q.status === 'pending').length})
-                </span>
-              )}
-            </button>
-          ))}
+          {TABS.map((t) => {
+            const isActive = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`relative isolate px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 active:scale-95 ${isActive ? 'text-white' : 'text-gray-400 bg-gray-100'}`}
+              >
+                <span className={`absolute inset-0 bg-[#3180F7] rounded-full transition-all duration-300 ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} style={{ zIndex: -1 }} />
+                <span className="relative">{t.label}</span>
+                {t.key === 'pending' && quotes.filter((q) => q.status === 'pending').length > 0 && (
+                  <span className="relative ml-1 text-[10px]">
+                    ({quotes.filter((q) => q.status === 'pending').length})
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

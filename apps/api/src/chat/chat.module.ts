@@ -3,9 +3,11 @@ import { AuthModule } from '../auth/auth.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
+import { NotificationModule } from '../notification/notification.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PrismaModule, NotificationModule],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway],
   exports: [ChatService],

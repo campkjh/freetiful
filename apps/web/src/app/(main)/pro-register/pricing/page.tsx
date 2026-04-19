@@ -169,14 +169,12 @@ export default function PricingPage() {
                   <button
                     key={plan.id}
                     onClick={() => setActiveTab(plan.id)}
-                    className={`relative isolate px-4 py-2 text-[14px] font-semibold rounded-full shrink-0 ${active ? 'text-white' : 'text-gray-500 border border-gray-200'}`}
+                    className={`relative isolate px-4 py-2 text-[14px] font-semibold rounded-full shrink-0 transition-all duration-300 active:scale-95 ${active ? 'text-white' : 'text-gray-500 border border-gray-200'}`}
                   >
-                    {active && (
-                      <span
-                        className="absolute inset-0 bg-[#3180F7] rounded-full"
-                        style={{ zIndex: -1 }}
-                      />
-                    )}
+                    <span
+                      className={`absolute inset-0 bg-[#3180F7] rounded-full transition-all duration-300 ${active ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+                      style={{ zIndex: -1 }}
+                    />
                     <span className="relative">{plan.label}</span>
                   </button>
                 );

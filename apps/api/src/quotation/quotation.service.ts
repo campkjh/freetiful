@@ -5,10 +5,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class QuotationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   /** 전문가가 견적서 생성 */
   async createQuotation(
@@ -43,7 +47,7 @@ export class QuotationService {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
-    return this.prisma.quotation.create({
+    const quotation = await this.prisma.quotation.create({
       data: {
         proProfileId,
         userId,
@@ -66,6 +70,17 @@ export class QuotationService {
         },
       },
     });
+
+    // 견적서 도착 알림 → 고객에게
+    this.notificationService.createNotification(
+      userId,
+      'system' as any,
+      '견적서가 도착했습니다',
+      `${quotation.proProfile.user.name} 사회자가 ${(data.amount || 0).toLocaleString()}원 견적서를 보냈습니다.`,
+      { quotationId: quotation.id },
+    ).catch(() => {});
+
+    return quotation;
   }
 
   /** 전문가가 보낸 견적서 목록 */

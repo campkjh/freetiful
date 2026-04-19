@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 
@@ -17,6 +18,7 @@ export class PaymentService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private notificationService: NotificationService,
   ) {
     this.tossSecretKey = this.config.get<string>('TOSS_SECRET_KEY', '');
   }
@@ -133,6 +135,31 @@ export class PaymentService {
         },
       });
     }
+
+    // 결제 완료 알림: 고객 + 전문가
+    try {
+      this.notificationService.createNotification(
+        payment.userId,
+        'payment' as any,
+        '결제가 완료되었습니다',
+        `${data.amount.toLocaleString()}원 결제가 성공적으로 처리되었습니다.`,
+        { paymentId: payment.id },
+      ).catch(() => {});
+
+      const proProfile = await this.prisma.proProfile.findUnique({
+        where: { id: payment.proProfileId },
+        select: { userId: true },
+      });
+      if (proProfile) {
+        this.notificationService.createNotification(
+          proProfile.userId,
+          'payment' as any,
+          '새 결제가 도착했습니다',
+          `${data.amount.toLocaleString()}원 결제가 확정되었습니다.`,
+          { paymentId: payment.id },
+        ).catch(() => {});
+      }
+    } catch {}
 
     return updatedPayment;
   }

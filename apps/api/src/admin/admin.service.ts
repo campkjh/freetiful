@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import * as bcrypt from 'bcrypt';
 
 const PROS = [
@@ -49,7 +51,10 @@ const PROS = [
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   async seedPros(): Promise<{ created: number; skipped: number; errors: number }> {
     const passwordHash = await bcrypt.hash('Pro1234!', 12);
@@ -141,5 +146,147 @@ export class AdminService {
 
     this.logger.log(`Seed complete — created: ${created}, skipped: ${skipped}, errors: ${errors}`);
     return { created, skipped, errors };
+  }
+
+  // ─── Pro 목록 조회 (관리자용) ─────────────────────────────────────────────
+  async getPros(params: { page?: number; limit?: number; status?: string; search?: string }) {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const where: any = {};
+    if (params.status) where.status = params.status;
+    if (params.search) {
+      where.user = { name: { contains: params.search, mode: 'insensitive' } };
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.proProfile.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, profileImageUrl: true, email: true } },
+          images: { where: { isPrimary: true }, take: 1 },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.proProfile.count({ where }),
+    ]);
+
+    return {
+      data: data.map((p) => ({
+        id: p.id,
+        userId: p.userId,
+        name: p.user.name,
+        email: p.user.email,
+        image: p.images[0]?.imageUrl || p.user.profileImageUrl,
+        status: p.status,
+        avgRating: Number(p.avgRating),
+        reviewCount: p.reviewCount,
+        isFeatured: p.isFeatured,
+        showPartnersLogo: p.showPartnersLogo,
+        createdAt: p.createdAt,
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  // ─── Pro 승인 ─────────────────────────────────────────────────────────────
+  async approvePro(proProfileId: string) {
+    const profile = await this.prisma.proProfile.update({
+      where: { id: proProfileId },
+      data: { status: 'approved', approvedAt: new Date() },
+      include: { user: { select: { id: true, name: true } } },
+    });
+
+    // user.role을 'pro'로 변경
+    await this.prisma.user.update({
+      where: { id: profile.userId },
+      data: { role: 'pro' },
+    });
+
+    // 승인 알림
+    this.notificationService.createNotification(
+      profile.userId,
+      'system' as any,
+      '파트너 신청이 승인되었습니다! 🎉',
+      '프리티풀 파트너로 등록되었습니다. 지금 바로 프로필을 확인하세요.',
+      { proProfileId },
+    ).catch(() => {});
+
+    return { success: true, proProfileId };
+  }
+
+  // ─── Pro 반려 ─────────────────────────────────────────────────────────────
+  async rejectPro(proProfileId: string, reason?: string) {
+    const profile = await this.prisma.proProfile.update({
+      where: { id: proProfileId },
+      data: { status: 'rejected' },
+      include: { user: { select: { id: true } } },
+    });
+
+    this.notificationService.createNotification(
+      profile.userId,
+      'system' as any,
+      '파트너 신청이 반려되었습니다',
+      reason || '신청 조건을 재확인 후 다시 신청해 주세요.',
+      { proProfileId },
+    ).catch(() => {});
+
+    return { success: true, proProfileId };
+  }
+
+  // ─── 파트너스 로고 토글 ──────────────────────────────────────────────────
+  async togglePartnersLogo(proProfileId: string) {
+    const profile = await this.prisma.proProfile.findUnique({ where: { id: proProfileId } });
+    if (!profile) throw new Error('Pro not found');
+    return this.prisma.proProfile.update({
+      where: { id: proProfileId },
+      data: { showPartnersLogo: !profile.showPartnersLogo },
+    });
+  }
+
+  // ─── 행사일 리마인더 크론 (매일 오전 9시) ──────────────────────────────
+  @Cron('0 9 * * *')
+  async sendEventReminders() {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todayStr = now.toISOString().split('T')[0];
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    const quotations = await this.prisma.quotation.findMany({
+      where: {
+        status: 'paid',
+        eventDate: {
+          gte: new Date(todayStr),
+          lte: new Date(tomorrowStr + 'T23:59:59'),
+        },
+      },
+      include: {
+        proProfile: { include: { user: { select: { id: true, name: true } } } },
+      },
+    });
+
+    for (const q of quotations) {
+      const eventDate = q.eventDate ? new Date(q.eventDate).toISOString().split('T')[0] : '';
+      const isToday = eventDate === todayStr;
+      const title = isToday ? '오늘 행사가 있습니다! 🎉' : '내일 행사가 있습니다 📅';
+      const body = isToday
+        ? `오늘 ${q.proProfile.user.name} 사회자와 행사가 예정되어 있습니다.`
+        : `내일 ${q.proProfile.user.name} 사회자와 행사가 예정되어 있습니다.`;
+
+      this.notificationService.createNotification(q.userId, 'system' as any, title, body, {
+        quotationId: q.id,
+      }).catch(() => {});
+
+      this.notificationService.createNotification(q.proProfile.userId, 'system' as any, title, body, {
+        quotationId: q.id,
+      }).catch(() => {});
+    }
+
+    this.logger.log(`Event reminders sent for ${quotations.length} quotations`);
   }
 }

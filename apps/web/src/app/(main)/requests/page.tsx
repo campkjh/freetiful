@@ -133,19 +133,19 @@ export default function RequestsPage() {
 
       {/* Filter Tabs */}
       <div className="px-4 pb-4 flex gap-2">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => handleTabChange(tab)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === tab
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-500 border border-gray-200'
-            }`}
-          >
-            {tab} {counts[tab]}
-          </button>
-        ))}
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => handleTabChange(tab)}
+              className={`relative isolate px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 active:scale-95 ${isActive ? 'text-white' : 'text-gray-500'}`}
+            >
+              <span className={`absolute inset-0 bg-gray-900 rounded-full transition-all duration-300 ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} style={{ zIndex: -1 }} />
+              <span className="relative">{tab} {counts[tab]}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Request Cards */}

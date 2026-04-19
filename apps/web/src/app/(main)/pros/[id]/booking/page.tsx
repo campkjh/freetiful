@@ -37,17 +37,9 @@ const TIME_SLOTS = [
 ];
 
 const PLAN_OPTIONS = [
-  { id: 'opt1', name: 'Premium 패키지', originalPrice: 450000, discountPercent: 0, finalPrice: 450000 },
+  { id: 'opt1', name: 'Premium 패키지', originalPrice: 100, discountPercent: 0, finalPrice: 100 },
   { id: 'opt2', name: 'Superior 패키지', originalPrice: 800000, discountPercent: 0, finalPrice: 800000 },
   { id: 'opt3', name: 'Enterprise 패키지', originalPrice: 1700000, discountPercent: 0, finalPrice: 1700000 },
-];
-
-const EXTRA_OPTIONS = [
-  { id: 'dist1', label: '출장비 (30km 이내)', price: 30000 },
-  { id: 'dist2', label: '출장비 (30~60km)', price: 50000 },
-  { id: 'dist3', label: '출장비 (60~100km)', price: 100000 },
-  { id: 'dist4', label: '출장비 (100~150km)', price: 130000 },
-  { id: 'dist5', label: '출장비 (150km 이상)', price: 200000 },
 ];
 
 const MAX_SELECTIONS = 1;
@@ -128,8 +120,8 @@ export default function BookingPage() {
     return () => { alive = false; };
   }, [id]);
 
-  // getProDetail 반환값: { user: { name, profileImageUrl }, images: [{ imageUrl }], services: [{ title, basePrice, description }] }
-  const DEFAULT_PRICES: Record<string, number> = { Premium: 450000, Superior: 800000, Enterprise: 1700000 };
+  // getProDetail 반환값: { user: { name, profileImageUrl }, images: [{ imageUrl }], services: [{ title, basePrice, description, priceUnit }] }
+  const DEFAULT_PRICES: Record<string, number> = { Premium: 100, Superior: 800000, Enterprise: 1700000 };
   const proInfo = {
     name: pro?.user?.name || pro?.name || fallbackInfo.name,
     image: pro?.images?.[0]?.imageUrl || pro?.user?.profileImageUrl || fallbackInfo.image,
@@ -176,9 +168,25 @@ export default function BookingPage() {
     const isBooked = bookedDates.some((d) => d === dateStr || d.startsWith(dateStr));
     return isBooked ? TIME_SLOTS : [] as string[];
   }, [bookedDates, selectedDay, currentMonth, currentYear]);
-  const [extraQty, setExtraQty] = useState<Record<string, number>>(
-    Object.fromEntries(EXTRA_OPTIONS.map((o) => [o.id, 0]))
-  );
+  // 전문가가 등록한 추가 옵션 (priceUnit !== 'per_event') 동적 로드
+  const extraOptions = useMemo(() => {
+    if (!pro?.services) return [];
+    return (pro.services as any[])
+      .filter((s) => s.isActive !== false && s.priceUnit && s.priceUnit !== 'per_event')
+      .map((s) => ({
+        id: s.id || `extra-${s.title}`,
+        label: s.title || '추가 옵션',
+        price: s.basePrice || 0,
+      }));
+  }, [pro]);
+
+  const [extraQty, setExtraQty] = useState<Record<string, number>>({});
+
+  // extraOptions 변경 시 초기화
+  useEffect(() => {
+    setExtraQty(Object.fromEntries(extraOptions.map((o) => [o.id, 0])));
+  }, [extraOptions]);
+
   const [showPlanSelector, setShowPlanSelector] = useState(false);
   const optionSectionRef = useRef<HTMLDivElement>(null);
   const [venueAddress, setVenueAddress] = useState('');
@@ -186,7 +194,7 @@ export default function BookingPage() {
   const [showMapSearch, setShowMapSearch] = useState(false);
   const [mapQuery, setMapQuery] = useState('');
 
-  const extraTotal = EXTRA_OPTIONS.reduce((sum, o) => sum + o.price * (extraQty[o.id] || 0), 0);
+  const extraTotal = extraOptions.reduce((sum, o) => sum + o.price * (extraQty[o.id] || 0), 0);
 
   // 대한민국 공휴일 (2025~2027)
   const holidays = useMemo<Record<string, string>>(() => ({
@@ -380,40 +388,42 @@ export default function BookingPage() {
         </div>
       </div>
 
-      {/* ─── 옵션항목 ─── */}
-      <div className="px-4 pt-6">
-        <h2 className="text-[17px] font-bold text-gray-900 mb-4">옵션항목</h2>
-        <div className="space-y-5">
-          {EXTRA_OPTIONS.map((opt) => (
-            <div key={opt.id}>
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] text-gray-600">{opt.label}</span>
-                <HelpCircle size={16} className="text-gray-300" />
-              </div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-[17px] font-bold text-gray-900">+{opt.price.toLocaleString()}원</span>
-                <div className="flex items-center gap-0">
-                  <button
-                    onClick={() => setExtraQty((p) => ({ ...p, [opt.id]: Math.max(0, (p[opt.id] || 0) - 1) }))}
-                    className="w-9 h-9 border border-gray-200 rounded-l-xl flex items-center justify-center text-gray-400 active:bg-gray-50"
-                  >
-                    <Minus size={15} />
-                  </button>
-                  <div className="w-10 h-9 border-t border-b border-gray-200 flex items-center justify-center text-[14px] font-bold text-gray-900">
-                    {extraQty[opt.id] || 0}
+      {/* ─── 옵션항목 (전문가가 등록한 추가 옵션이 있을 때만 표시) ─── */}
+      {extraOptions.length > 0 && (
+        <div className="px-4 pt-6">
+          <h2 className="text-[17px] font-bold text-gray-900 mb-4">옵션항목</h2>
+          <div className="space-y-5">
+            {extraOptions.map((opt) => (
+              <div key={opt.id}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[14px] text-gray-600">{opt.label}</span>
+                  <HelpCircle size={16} className="text-gray-300" />
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-[17px] font-bold text-gray-900">+{opt.price.toLocaleString()}원</span>
+                  <div className="flex items-center gap-0">
+                    <button
+                      onClick={() => setExtraQty((p) => ({ ...p, [opt.id]: Math.max(0, (p[opt.id] || 0) - 1) }))}
+                      className="w-9 h-9 border border-gray-200 rounded-l-xl flex items-center justify-center text-gray-400 active:bg-gray-50"
+                    >
+                      <Minus size={15} />
+                    </button>
+                    <div className="w-10 h-9 border-t border-b border-gray-200 flex items-center justify-center text-[14px] font-bold text-gray-900">
+                      {extraQty[opt.id] || 0}
+                    </div>
+                    <button
+                      onClick={() => setExtraQty((p) => ({ ...p, [opt.id]: (p[opt.id] || 0) + 1 }))}
+                      className="w-9 h-9 border border-gray-200 rounded-r-xl flex items-center justify-center text-gray-400 active:bg-gray-50"
+                    >
+                      <Plus size={15} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setExtraQty((p) => ({ ...p, [opt.id]: (p[opt.id] || 0) + 1 }))}
-                    className="w-9 h-9 border border-gray-200 rounded-r-xl flex items-center justify-center text-gray-400 active:bg-gray-50"
-                  >
-                    <Plus size={15} />
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ─── 행사 위치 ─── */}
       <div className="px-4 pt-6">

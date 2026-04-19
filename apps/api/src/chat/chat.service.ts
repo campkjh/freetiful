@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CreateChatRoomDto,
@@ -21,7 +22,10 @@ import {
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
   private CACHE_TTL = 60_000; // 1분 (채팅은 짧게)
@@ -327,6 +331,25 @@ export class ChatService {
       where: { roomId, userId: { not: userId } },
       data: { unreadCount: { increment: 1 } },
     });
+
+    // 메시지 알림 → 상대방에게
+    try {
+      const otherMembers = await this.prisma.chatRoomMember.findMany({
+        where: { roomId, userId: { not: userId } },
+        select: { userId: true },
+      });
+      const senderName = message.sender?.name || '상대방';
+      const preview = (dto.content || '').slice(0, 40);
+      for (const m of otherMembers) {
+        this.notificationService.createNotification(
+          m.userId,
+          'chat' as any,
+          `${senderName}님의 메시지`,
+          preview || '새 메시지가 도착했습니다.',
+          { roomId, messageId: message.id },
+        ).catch(() => {});
+      }
+    } catch {}
 
     return { ...message, reactions: [], isRead: false };
   }
