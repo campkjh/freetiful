@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 import { chatApi } from '@/lib/api/chat.api';
+import { preWarmChat, getPreWarmByProId } from '@/lib/chat-prewarm';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -325,8 +326,6 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   );
 }
 
-// ─── Module-level room cache (survives re-renders, cleared on page navigation) ───
-const roomCache = new Map<string, string>(); // proId → roomId
 
 // ─── Page ───────────────────────────────────────────────────
 
@@ -525,16 +524,13 @@ export default function ProDetailPage() {
     }
   }, [authUser, id]);
 
-  // Pre-warm chat room so navigation is instant
+  // Pre-warm chat room + 메시지까지 백그라운드에서 미리 로드 + chat 라우트 prefetch
   useEffect(() => {
-    if (!authUser || !id || id === 'my-pro' || roomCache.has(id)) return;
-    chatApi.createRoom(id)
-      .then((res) => {
-        const roomId = (res.data as any)?.id || (res.data as any)?.roomId;
-        if (roomId) roomCache.set(id, roomId);
-      })
-      .catch(() => {});
-  }, [authUser, id]);
+    if (!authUser || !id || id === 'my-pro') return;
+    preWarmChat(id);
+    // Next.js에서 chat 라우트 JS 번들 미리 로드
+    router.prefetch('/chat');
+  }, [authUser, id, router]);
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
@@ -1432,12 +1428,15 @@ export default function ProDetailPage() {
                 onClick={() => {
                   setShowTooltip(false);
                   if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; }
-                  const cachedRoomId = roomCache.get(pro.id);
                   const nameParam = encodeURIComponent(pro.name || '');
                   const imgParam = encodeURIComponent(pro.profileImage || '');
+                  const preWarmed = getPreWarmByProId(pro.id);
+                  const cachedRoomId = preWarmed?.roomId;
                   if (cachedRoomId) {
                     router.push(`/chat/${cachedRoomId}?name=${nameParam}&img=${imgParam}`);
                   } else {
+                    // pre-warm 아직 안 끝났으면 pending URL로 (채팅 페이지에서 기다림)
+                    preWarmChat(pro.id);
                     router.push(`/chat/pending-${pro.id}?name=${nameParam}&img=${imgParam}`);
                   }
                 }}

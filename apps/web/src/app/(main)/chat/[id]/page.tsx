@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
+import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-prewarm';
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
@@ -86,10 +87,26 @@ export default function ChatRoomPage() {
   const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
   const { connect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
 
+  // ─── Pre-warmed data 즉시 사용 (initial state만 계산) ───
+  const initialPreWarmed = (() => {
+    if (typeof window === 'undefined') return null;
+    if (roomId.startsWith('pending-')) {
+      return getPreWarmByProId(roomId.replace('pending-', ''));
+    }
+    return getPreWarmByRoomId(roomId);
+  })();
+  const initialPartner: ChatPartner | null = initialPreWarmed?.room ? {
+    id: initialPreWarmed.room.otherUser.id,
+    name: initialPreWarmed.room.otherUser.name,
+    profileImageUrl: initialPreWarmed.room.otherUser.profileImageUrl || '/images/default-avatar.png',
+    isActive: initialPreWarmed.room.otherUser.isActive ?? false,
+  } : null;
+  const initialMessages: Message[] = initialPreWarmed?.messages ? initialPreWarmed.messages.map(mapApiMessage) : [];
+
   // ─── Core state (needed for instant render) ───
-  const [chatPartner, setChatPartner] = useState<ChatPartner | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(true);
+  const [chatPartner, setChatPartner] = useState<ChatPartner | null>(initialPartner);
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
   const [input, setInput] = useState('');
 
   // ─── Extra state (passed to ChatExtras) ───
@@ -121,32 +138,46 @@ export default function ChatRoomPage() {
     let cancelled = false;
 
     async function loadRoom() {
-      // Handle pending-{proId} URLs: create room first then redirect
+      // Handle pending-{proId}: wait for pre-warm then replace URL
       if (roomId.startsWith('pending-')) {
         const proId = roomId.replace('pending-', '');
-        try {
-          const res = await chatApi.createRoom(proId);
-          if (cancelled) return;
-          const actualRoomId = (res.data as any)?.id || (res.data as any)?.roomId;
-          if (actualRoomId) {
-            router.replace(`/chat/${actualRoomId}`);
-          } else {
-            router.replace('/chat');
+        const pre = preWarmChat(proId); // idempotent
+        if (pre.promise) await pre.promise;
+        if (cancelled) return;
+        if (pre.roomId) {
+          // 파트너/메시지를 먼저 state에 반영 (skeleton 바로 사라짐)
+          if (pre.room) {
+            setChatPartner({
+              id: pre.room.otherUser.id,
+              name: pre.room.otherUser.name,
+              profileImageUrl: pre.room.otherUser.profileImageUrl || '/images/default-avatar.png',
+              isActive: pre.room.otherUser.isActive ?? false,
+            });
           }
-        } catch {
-          if (!cancelled) router.replace('/chat');
+          if (pre.messages) {
+            setMessages(pre.messages.map(mapApiMessage));
+            setMessagesLoading(false);
+          }
+          // URL만 교체 (같은 route 패턴이라 컴포넌트 unmount 안 됨)
+          const search = window.location.search;
+          router.replace(`/chat/${pre.roomId}${search}`);
+        } else {
+          router.replace('/chat');
         }
         return;
       }
 
-      const storeRoom = useChatStore.getState().rooms.find((r) => r.id === roomId);
-      if (storeRoom) {
-        setChatPartner({
-          id: storeRoom.otherUser.id,
-          name: storeRoom.otherUser.name,
-          profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-avatar.png',
-          isActive: (storeRoom.otherUser as any).isActive ?? true,
-        });
+      // 이미 pre-warm에서 파트너를 받았으면 fetch 생략
+      if (!chatPartner) {
+        const storeRoom = useChatStore.getState().rooms.find((r) => r.id === roomId);
+        if (storeRoom) {
+          setChatPartner({
+            id: storeRoom.otherUser.id,
+            name: storeRoom.otherUser.name,
+            profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-avatar.png',
+            isActive: (storeRoom.otherUser as any).isActive ?? true,
+          });
+        }
       }
       try {
         const res = await chatApi.getRoom(roomId);
@@ -165,6 +196,13 @@ export default function ChatRoomPage() {
 
     async function loadMessages() {
       if (roomId.startsWith('pending-')) return;
+      // pre-warm된 메시지를 이미 initial state로 넣어뒀다면 background refresh만
+      if (initialMessages.length > 0) {
+        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
+          if (!cancelled) setMessages((res.data.data || []).map(mapApiMessage));
+        }).catch(() => {});
+        return;
+      }
       const cachedMsgs = useChatStore.getState().messageCache.get(roomId);
       if (cachedMsgs && cachedMsgs.length > 0) {
         setMessages(cachedMsgs as any);
