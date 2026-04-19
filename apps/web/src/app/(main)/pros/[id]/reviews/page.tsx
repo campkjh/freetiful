@@ -39,10 +39,19 @@ export default function ReviewsPage() {
   const [userReviews, setUserReviews] = useState<typeof REVIEWS>([]);
   const [canWriteReview, setCanWriteReview] = useState(false);
   const [apiReviews, setApiReviews] = useState<typeof REVIEWS | null>(null);
+  const [proName, setProName] = useState<string>('');
 
   // API에서 리뷰 가져오기
   useEffect(() => {
     if (!id) return;
+
+    // Fetch pro name
+    apiClient.get(`/api/v1/pros/${id}`)
+      .then((res) => {
+        const name = res.data?.user?.name || res.data?.name || '';
+        if (name) setProName(name);
+      })
+      .catch(() => {});
     reviewApi.getByPro(id, { limit: 50 })
       .then((res: any) => {
         if (res.data?.length > 0) {
@@ -202,7 +211,7 @@ export default function ReviewsPage() {
             )}
             {review.proReply && (
               <div className="mt-3 bg-gray-50 rounded-xl p-3">
-                <p className="text-[12px] font-semibold text-gray-800 mb-1">전해별 <span className="font-normal text-gray-400">{review.proReply.date}</span></p>
+                <p className="text-[12px] font-semibold text-gray-800 mb-1">{proName || '사회자'} <span className="font-normal text-gray-400">{review.proReply.date}</span></p>
                 <p className="text-[12px] leading-[1.6] text-gray-600">{review.proReply.content}</p>
               </div>
             )}

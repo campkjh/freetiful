@@ -1415,16 +1415,10 @@ export default function ProDetailPage() {
             )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
-                onClick={async () => {
+                onClick={() => {
                 setShowTooltip(false);
                 if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; }
-                try {
-                  const res = await chatApi.createRoom(pro.id);
-                  const roomId = (res.data as any)?.id || (res.data as any)?.roomId;
-                  router.push(`/chat/${roomId || pro.id}`);
-                } catch {
-                  router.push(`/chat/${pro.id}`);
-                }
+                router.push(`/chat/pending-${pro.id}`);
               }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
               >

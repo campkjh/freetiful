@@ -118,6 +118,24 @@ export default function ChatRoomPage() {
     let cancelled = false;
 
     async function loadRoom() {
+      // Handle pending-{proId} URLs: create room first then redirect
+      if (roomId.startsWith('pending-')) {
+        const proId = roomId.replace('pending-', '');
+        try {
+          const res = await chatApi.createRoom(proId);
+          if (cancelled) return;
+          const actualRoomId = (res.data as any)?.id || (res.data as any)?.roomId;
+          if (actualRoomId) {
+            router.replace(`/chat/${actualRoomId}`);
+          } else {
+            router.replace('/chat');
+          }
+        } catch {
+          if (!cancelled) router.replace('/chat');
+        }
+        return;
+      }
+
       const storeRoom = useChatStore.getState().rooms.find((r) => r.id === roomId);
       if (storeRoom) {
         setChatPartner({
@@ -143,6 +161,7 @@ export default function ChatRoomPage() {
     }
 
     async function loadMessages() {
+      if (roomId.startsWith('pending-')) return;
       const cachedMsgs = useChatStore.getState().messageCache.get(roomId);
       if (cachedMsgs && cachedMsgs.length > 0) {
         setMessages(cachedMsgs as any);
@@ -182,7 +201,7 @@ export default function ChatRoomPage() {
 
   // ─── WebSocket ───
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser || roomId.startsWith('pending-')) return;
     connect();
     joinRoom(roomId);
     return () => { leaveRoom(); };
@@ -331,8 +350,19 @@ export default function ChatRoomPage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Full-screen loading overlay for pending room creation or initial load
+  const showLoadingOverlay = roomId.startsWith('pending-') || (messagesLoading && messages.length === 0 && !chatPartner);
+
   return (
     <div className="fixed inset-0 flex flex-col bg-[#F2F2F7]" style={{ height: '100dvh' }}>
+      {showLoadingOverlay && (
+        <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center" style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl px-8 py-6 flex flex-col items-center gap-3 shadow-xl">
+            <div className="w-10 h-10 border-4 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
+            <p className="text-[14px] font-semibold text-gray-700">채팅방 연결 중...</p>
+          </div>
+        </div>
+      )}
       {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
       <div
         className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"

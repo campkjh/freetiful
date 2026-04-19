@@ -86,8 +86,8 @@ export default function FavoritesPage() {
     if (authUser) {
       favoriteApi.getList({ limit: 50 })
         .then((res: any) => {
-          if (res.data?.length > 0) {
-            setFavPros(res.data.map((f: any) => ({
+          if (res?.items?.length > 0) {
+            setFavPros(res.items.map((f: any) => ({
               id: f.proProfile?.id || f.proProfileId,
               name: f.proProfile?.user?.name || '',
               category: '사회자',

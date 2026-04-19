@@ -6,6 +6,8 @@ import { ChevronLeft, Check, Send, Star, ChevronDown, Search } from 'lucide-reac
 import toast from 'react-hot-toast';
 import { addPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { discoveryApi } from '@/lib/api/discovery.api';
+import { chatApi } from '@/lib/api/chat.api';
 
 const stepVariants = {
   initial: { opacity: 0, x: 40 },
@@ -266,7 +268,34 @@ function QuotePage() {
 
   const doSubmit = async () => {
     setSending(true);
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const planLabel = PLANS.find((p) => p.id === plan)?.label || plan;
+      const msgContent = `📋 견적 요청\n\n행사 유형: ${eventType || '미정'}\n플랜: ${planLabel}\n일정: ${date} ${timeStart}${timeEnd ? ` ~ ${timeEnd}` : ''}\n장소: ${location || '미정'}${moods.size > 0 ? `\n분위기: ${[...moods].join(', ')}` : ''}${note ? `\n\n${note}` : ''}`;
+
+      if (selectedPros.size > 0 && authUser) {
+        // Find real pro UUIDs for selected pros
+        const proNames = [...selectedPros].map((id) => MOCK_PROS.find((p) => p.id === id)?.name).filter(Boolean) as string[];
+        const roomIds: string[] = [];
+
+        await Promise.allSettled(proNames.map(async (name) => {
+          try {
+            const result = await discoveryApi.getProList({ search: name, limit: 3 });
+            const match = (result as any)?.data?.find((p: any) =>
+              p.name === name || p.name?.includes(name.slice(0, 2))
+            );
+            if (match?.id) {
+              const roomRes = await chatApi.createRoom(match.id);
+              const roomId = (roomRes.data as any)?.id || (roomRes.data as any)?.roomId;
+              if (roomId) {
+                await chatApi.sendMessage(roomId, { type: 'text', content: msgContent });
+                roomIds.push(roomId);
+              }
+            }
+          } catch {}
+        }));
+      }
+    } catch {}
+
     setSending(false);
     localStorage.setItem('freetiful-quote-submitted', 'true');
     addPoints('quote_request', 200, '견적 요청 적립');
