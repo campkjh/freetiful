@@ -1015,7 +1015,20 @@ export default function HomePage() {
                 <p className="text-[12px] text-gray-400">{pro.role}</p>
               </Link>
             )) : (
-              <p className="col-span-3 text-center text-gray-400 text-[14px] py-10">전문가 정보를 불러오는 중...</p>
+              [
+                { border: '#D1D5DB', offset: true },
+                { border: '#FBBF24', offset: false },
+                { border: '#CD7F32', offset: true },
+              ].map((s, i) => (
+                <div key={i} className={`flex flex-col items-center ${s.offset ? 'mt-5' : ''}`}>
+                  <div
+                    className="relative w-full aspect-[3/4] bg-gray-200 animate-pulse shadow-md"
+                    style={{ borderRadius: '9999px', border: `1.4px solid ${s.border}` }}
+                  />
+                  <div className="h-3.5 w-16 bg-gray-200 rounded-full animate-pulse mt-4" />
+                  <div className="h-2.5 w-10 bg-gray-100 rounded-full animate-pulse mt-2" />
+                </div>
+              ))
             )}
           </div>
 
@@ -1024,6 +1037,23 @@ export default function HomePage() {
             ref={rankScrollRef}
             className="hidden lg:flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
           >
+            {prosData.length === 0 && (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-[280px] snap-start flex gap-3">
+                  <div className="flex items-center shrink-0">
+                    <div className="h-9 w-7 bg-gray-200 rounded animate-pulse" />
+                  </div>
+                  <div className="w-[80px] h-[106px] rounded-lg bg-gray-200 animate-pulse shrink-0" />
+                  <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                    <div>
+                      <div className="h-2.5 w-10 bg-gray-100 rounded-full animate-pulse" />
+                      <div className="h-3.5 w-20 bg-gray-200 rounded-full animate-pulse mt-1.5" />
+                    </div>
+                    <div className="h-2.5 w-14 bg-gray-100 rounded-full animate-pulse" />
+                  </div>
+                </div>
+              ))
+            )}
             {prosData.slice(0, 5).map((pro, i) => (
               <Link
                 key={pro.id}
