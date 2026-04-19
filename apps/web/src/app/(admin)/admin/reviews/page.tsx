@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, Trash2, RefreshCw, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
+import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 
 async function adminFetch(method: string, path: string) {
   const headers: Record<string, string> = {};
@@ -29,16 +30,20 @@ export default function AdminReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const LIMIT = 20;
 
   const fetchReviews = async (p = page) => {
     setLoading(true);
+    setLastError(null);
     try {
       const data = await adminFetch('GET', `/api/v1/admin/reviews?page=${p}&limit=${LIMIT}`);
       setReviews(data.data || []);
       setTotal(data.total || 0);
-    } catch {
-      toast.error('목록을 불러오지 못했습니다 — 어드민 권한을 확인해주세요');
+    } catch (e: any) {
+      const err = extractAdminError(e);
+      setLastError(err);
+      toast.error(`리뷰 로드 실패${err.status ? ` (${err.status})` : ''}: ${err.message}`, { duration: 6000 });
     } finally {
       setLoading(false);
     }
@@ -72,6 +77,7 @@ export default function AdminReviewsPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-6">
+        <AdminErrorPanel error={lastError} label="리뷰" />
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">

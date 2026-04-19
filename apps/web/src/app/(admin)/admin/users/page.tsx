@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Search, ChevronLeft, ChevronRight, Trash2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
+import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 
 async function adminFetch(method: string, path: string, body?: any) {
   const headers: Record<string, string> = {};
@@ -39,10 +40,12 @@ export default function AdminUsersPage() {
   const [filterRole, setFilterRole] = useState('전체');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const LIMIT = 20;
 
   const fetchUsers = async (p = page, s = search, r = filterRole) => {
     setLoading(true);
+    setLastError(null);
     try {
       const params: any = { page: p, limit: LIMIT };
       if (s) params.search = s;
@@ -50,8 +53,10 @@ export default function AdminUsersPage() {
       const data = await adminFetch('GET', `/api/v1/admin/users?${new URLSearchParams(params).toString()}`);
       setUsers(data.data || []);
       setTotal(data.total || 0);
-    } catch {
-      toast.error('목록을 불러오지 못했습니다');
+    } catch (e: any) {
+      const err = extractAdminError(e);
+      setLastError(err);
+      toast.error(`유저 목록 로드 실패${err.status ? ` (${err.status})` : ''}: ${err.message}`, { duration: 6000 });
     } finally {
       setLoading(false);
     }
@@ -94,6 +99,7 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-6">
+        <AdminErrorPanel error={lastError} label="유저 목록" />
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">

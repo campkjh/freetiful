@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
+import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 
 async function adminFetch(method: string, path: string) {
   const headers: Record<string, string> = {};
@@ -44,10 +45,12 @@ export default function AdminPaymentsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const LIMIT = 20;
 
   const fetchPayments = async (p = page, st = filterStatus) => {
     setLoading(true);
+    setLastError(null);
     try {
       const params: any = { page: p, limit: LIMIT };
       if (st !== '전체') params.status = st;
@@ -56,8 +59,10 @@ export default function AdminPaymentsPage() {
       setTotal(data.total || 0);
       const sum = (data.data || []).reduce((s: number, p: PaymentItem) => s + (p.amount || 0), 0);
       setTotalAmount(sum);
-    } catch {
-      toast.error('목록을 불러오지 못했습니다');
+    } catch (e: any) {
+      const err = extractAdminError(e);
+      setLastError(err);
+      toast.error(`결제 목록 로드 실패${err.status ? ` (${err.status})` : ''}: ${err.message}`, { duration: 6000 });
     } finally {
       setLoading(false);
     }
@@ -81,6 +86,7 @@ export default function AdminPaymentsPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-6">
+        <AdminErrorPanel error={lastError} label="결제" />
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <div className="flex gap-2 flex-wrap">
             {['전체', 'completed', 'pending', 'failed', 'refunded'].map((st) => (
