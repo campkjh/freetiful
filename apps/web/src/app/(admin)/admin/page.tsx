@@ -6,6 +6,14 @@ import { Users, Star, CreditCard, UserCheck, ChevronRight, RefreshCw, Sprout, Ca
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 
+async function adminFetch(method: string, path: string, body?: any) {
+  const headers: Record<string, string> = {};
+  const adminKey = (typeof window !== 'undefined' && localStorage.getItem('admin-key')) || '';
+  if (adminKey) headers['x-admin-key'] = adminKey;
+  const res = await apiClient.request({ method, url: path, data: body, headers });
+  return res.data;
+}
+
 interface Stats {
   totalUsers: number;
   totalPros: number;
@@ -23,10 +31,12 @@ export default function AdminDashboardPage() {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/api/v1/admin/stats');
-      setStats(res.data);
-    } catch {
-      toast.error('통계를 불러오지 못했습니다');
+      const data = await adminFetch('GET', '/api/v1/admin/stats');
+      setStats(data);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
+      const status = e?.response?.status;
+      toast.error(`통계 로드 실패${status ? ` (${status})` : ''}: ${msg}`, { duration: 6000 });
     } finally {
       setLoading(false);
     }
@@ -38,11 +48,12 @@ export default function AdminDashboardPage() {
     if (!confirm('전문가 데이터를 시드하시겠습니까?')) return;
     setSeeding(true);
     try {
-      const res = await apiClient.post('/api/v1/admin/seed-pros');
-      toast.success(`완료: 생성 ${res.data.created}, 스킵 ${res.data.skipped}, 오류 ${res.data.errors}`);
+      const data = await adminFetch('POST', '/api/v1/admin/seed-pros');
+      toast.success(`완료: 생성 ${data.created}, 스킵 ${data.skipped}, 오류 ${data.errors}`);
       fetchStats();
-    } catch {
-      toast.error('시드 실패');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
+      toast.error(`시드 실패: ${msg}`);
     } finally {
       setSeeding(false);
     }

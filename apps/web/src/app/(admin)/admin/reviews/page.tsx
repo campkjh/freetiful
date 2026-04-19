@@ -7,7 +7,10 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 
 async function adminFetch(method: string, path: string) {
-  const res = await apiClient.request({ method, url: path });
+  const headers: Record<string, string> = {};
+  const adminKey = (typeof window !== 'undefined' && localStorage.getItem('admin-key')) || '';
+  if (adminKey) headers['x-admin-key'] = adminKey;
+  const res = await apiClient.request({ method, url: path, headers });
   return res.data;
 }
 
@@ -35,7 +38,7 @@ export default function AdminReviewsPage() {
       setReviews(data.data || []);
       setTotal(data.total || 0);
     } catch {
-      toast.error('목록을 불러오지 못했습니다');
+      toast.error('목록을 불러오지 못했습니다 — 어드민 권한을 확인해주세요');
     } finally {
       setLoading(false);
     }

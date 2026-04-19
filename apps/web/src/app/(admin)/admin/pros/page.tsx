@@ -26,7 +26,10 @@ const statusLabel: Record<string, { text: string; className: string }> = {
 };
 
 async function adminFetch(method: string, path: string, body?: any) {
-  const res = await apiClient.request({ method, url: path, data: body });
+  const headers: Record<string, string> = {};
+  const adminKey = (typeof window !== 'undefined' && localStorage.getItem('admin-key')) || '';
+  if (adminKey) headers['x-admin-key'] = adminKey;
+  const res = await apiClient.request({ method, url: path, data: body, headers });
   return res.data;
 }
 
@@ -50,8 +53,10 @@ export default function AdminProsPage() {
       const data = await adminFetch('GET', `/api/v1/admin/pros?${new URLSearchParams(params).toString()}`);
       setPros(data.data || []);
       setTotal(data.total || 0);
-    } catch {
-      toast.error('목록을 불러오지 못했습니다');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
+      const status = e?.response?.status;
+      toast.error(`목록 로드 실패${status ? ` (${status})` : ''}: ${msg}`, { duration: 6000 });
     } finally {
       setLoading(false);
     }
