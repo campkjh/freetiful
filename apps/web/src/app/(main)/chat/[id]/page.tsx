@@ -234,12 +234,22 @@ export default function ChatRoomPage() {
     };
   }, [roomId]);
 
-  // ─── WebSocket ───
+  // ─── WebSocket (첫 렌더 후 idle 시 연결) ───
   useEffect(() => {
     if (!authUser || roomId.startsWith('pending-')) return;
-    connect();
-    joinRoom(roomId);
-    return () => { leaveRoom(); };
+    const schedule = (typeof window !== 'undefined' && 'requestIdleCallback' in window)
+      ? (window as any).requestIdleCallback
+      : (cb: () => void) => setTimeout(cb, 50);
+    const handle = schedule(() => {
+      connect();
+      joinRoom(roomId);
+    });
+    return () => {
+      if (typeof window !== 'undefined' && 'cancelIdleCallback' in window && typeof handle === 'number') {
+        (window as any).cancelIdleCallback(handle);
+      }
+      leaveRoom();
+    };
   }, [authUser, roomId]);
 
   // Sync WebSocket messages

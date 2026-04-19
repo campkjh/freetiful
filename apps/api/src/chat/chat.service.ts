@@ -46,20 +46,59 @@ export class ChatService {
   // ─── Chat Rooms ──────────────────────────────────────────────────────────
 
   async createRoom(userId: string, dto: CreateChatRoomDto) {
-    // Check if room already exists between user and pro
-    const existing = await this.prisma.chatRoom.findFirst({
+    // 기존 룸 체크 + 필요한 joins을 한 번에 가져옴 (2번 쿼리 → 1번)
+    const existingWithJoins = await this.prisma.chatRoom.findFirst({
       where: {
         userId,
         proProfileId: dto.proProfileId,
         userDeletedAt: null,
       },
+      include: {
+        proProfile: {
+          include: {
+            user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+            images: { where: { isPrimary: true }, take: 1 },
+          },
+        },
+        user: { select: { id: true, name: true, profileImageUrl: true } },
+        members: { where: { userId } },
+      },
     });
-    if (existing) return this.getRoomById(existing.id, userId);
+    if (existingWithJoins) {
+      const member = existingWithJoins.members[0];
+      const isProUser = existingWithJoins.proProfile.userId === userId;
+      const otherUser = isProUser
+        ? existingWithJoins.user
+        : {
+            id: existingWithJoins.proProfile.user.id,
+            name: existingWithJoins.proProfile.user.name,
+            profileImageUrl:
+              existingWithJoins.proProfile.user.profileImageUrl ??
+              existingWithJoins.proProfile.images[0]?.imageUrl,
+            isActive: existingWithJoins.proProfile.user.isActive,
+          };
+      return {
+        id: existingWithJoins.id,
+        otherUser,
+        isFavorited: member?.isFavorited ?? false,
+        unreadCount: member?.unreadCount ?? 0,
+      };
+    }
 
-    // Verify pro exists
-    const pro = await this.prisma.proProfile.findUnique({
-      where: { id: dto.proProfileId },
-    });
+    // 신규 룸 생성 - user 정보도 함께 fetch (병렬)
+    const [pro, inquiryUser] = await Promise.all([
+      this.prisma.proProfile.findUnique({
+        where: { id: dto.proProfileId },
+        include: {
+          user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+          images: { where: { isPrimary: true }, take: 1 },
+        },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      }),
+    ]);
     if (!pro) throw new NotFoundException('전문가를 찾을 수 없습니다');
 
     const room = await this.prisma.chatRoom.create({
@@ -85,22 +124,27 @@ export class ChatService {
       },
     });
 
-    // 새 문의 알림 → 전문가에게
-    try {
-      const inquiryUser = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true },
-      });
-      this.notificationService.createNotification(
-        pro.userId,
-        'chat' as any,
-        '새 문의가 도착했습니다 💬',
-        `${inquiryUser?.name || '고객'}님이 채팅 문의를 보냈습니다.`,
-        { roomId: room.id },
-      ).catch(() => {});
-    } catch {}
+    // 새 문의 알림 → 전문가에게 (fire-and-forget)
+    this.notificationService.createNotification(
+      pro.userId,
+      'chat' as any,
+      '새 문의가 도착했습니다 💬',
+      `${inquiryUser?.name || '고객'}님이 채팅 문의를 보냈습니다.`,
+      { roomId: room.id },
+    ).catch(() => {});
 
-    return this.getRoomById(room.id, userId);
+    // 추가 쿼리 없이 응답 조립 (이미 pro join을 받아놨음)
+    return {
+      id: room.id,
+      otherUser: {
+        id: pro.user.id,
+        name: pro.user.name,
+        profileImageUrl: pro.user.profileImageUrl ?? pro.images[0]?.imageUrl,
+        isActive: pro.user.isActive,
+      },
+      isFavorited: false,
+      unreadCount: 0,
+    };
   }
 
   async getRooms(userId: string, query: ChatRoomQueryDto) {
