@@ -170,6 +170,9 @@ function QuotePage() {
   const [moods, setMoods] = useState<Set<string>>(new Set());
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
+  const [aiWriting, setAiWriting] = useState(false);
+  const [filteredPros, setFilteredPros] = useState<typeof MOCK_PROS>([]);
+  const [prosLoading, setProsLoading] = useState(false);
   const [nearbyVenues, setNearbyVenues] = useState<{ name: string; address: string; phone: string; distance: number; url: string }[]>([]);
   const [venuesLoading, setVenuesLoading] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
@@ -181,6 +184,77 @@ function QuotePage() {
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const toggleMood = (m: string) => setMoods((prev) => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n; });
+
+  // AI로 추가 요청사항 자동 작성 (로컬 템플릿 기반 — 입력된 조건으로 자연스러운 문장 생성)
+  const handleAIWrite = () => {
+    if (aiWriting) return;
+    setAiWriting(true);
+    setTimeout(() => {
+      const parts: string[] = [];
+      if (eventType) parts.push(`${eventType} 행사를 준비하고 있습니다.`);
+      if (location) parts.push(`장소는 ${location.split(' ').slice(0, 2).join(' ')} 입니다.`);
+      if (date) {
+        const d = new Date(date);
+        parts.push(`행사일은 ${d.getMonth() + 1}월 ${d.getDate()}일 입니다.`);
+      }
+      if (timeStart && timeEnd) parts.push(`진행 시간은 ${timeStart}부터 ${timeEnd}까지입니다.`);
+      const moodList = Array.from(moods);
+      if (moodList.length > 0) {
+        parts.push(`${moodList.join(', ')} 분위기를 선호합니다.`);
+      }
+      const planLabel = PLANS.find((p) => p.id === plan)?.label;
+      if (planLabel) parts.push(`${planLabel} 플랜으로 부탁드립니다.`);
+      parts.push('사전 미팅 가능한지, 대본 작성 및 리허설 참석 가능한지 알려주세요.');
+      parts.push('가능한 일정과 견적 확인 부탁드립니다. 감사합니다.');
+      setNote(parts.join(' '));
+      setAiWriting(false);
+    }, 700);
+  };
+
+  // 사용자 조건에 맞는 사회자 필터링 (사회자 선택 step에 들어갈 때)
+  useEffect(() => {
+    if (step !== 'pros') return;
+    let cancelled = false;
+    setProsLoading(true);
+    const moodList = Array.from(moods);
+    discoveryApi.getProList({ limit: 30, sort: 'rating' })
+      .then((res) => {
+        if (cancelled) return;
+        const all = (res?.data || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          image: p.images?.[0] || p.profileImageUrl || '',
+          rating: Number(p.avgRating || 0),
+          reviews: p.reviewCount || 0,
+          experience: p.careerYears || 0,
+          intro: p.shortIntro || '',
+          youtubeId: p.youtubeUrl?.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/)?.[1],
+          recentReviews: [] as string[],
+        }));
+        // 클라이언트 사이드 필터링: 분위기 keyword 가 intro 에 포함 / 최소 평점
+        const scored = all.map((p) => {
+          let score = p.rating * 10 + p.reviews * 0.05;
+          if (moodList.length > 0) {
+            const intro = (p.intro || '').toLowerCase();
+            for (const m of moodList) {
+              if (intro.includes(m.replace('한', '').replace('는', ''))) score += 15;
+            }
+          }
+          if (plan === 'enterprise' && p.experience >= 8) score += 20;
+          if (plan === 'superior' && p.experience >= 4) score += 10;
+          return { pro: p, score };
+        }).sort((a, b) => b.score - a.score);
+        const filtered = scored.map((s) => s.pro).slice(0, 12);
+        setFilteredPros(filtered.length > 0 ? filtered : MOCK_PROS);
+      })
+      .catch(() => {
+        if (!cancelled) setFilteredPros(MOCK_PROS);
+      })
+      .finally(() => {
+        if (!cancelled) setProsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [step, plan, moods]);
 
   // Embed Daum Postcode when modal opens
   useEffect(() => {
@@ -460,11 +534,11 @@ function QuotePage() {
                       return (
                         <button key={planKey} onClick={() => handleTableCellClick(planKey)} className={`py-2.5 flex items-center justify-center transition-colors ${isActive ? 'bg-blue-50/30' : ''}`}>
                           {included ? (
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center">
-                              <Check size={11} className="text-white" />
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isActive ? 'bg-[#3180F7]' : 'bg-emerald-500'}`}>
+                              <Check size={12} className="text-white" strokeWidth={3} />
                             </div>
                           ) : (
-                            <span className="text-[12px] text-gray-300">—</span>
+                            <span className="text-[14px] text-gray-300 font-bold">—</span>
                           )}
                         </button>
                       );
@@ -582,11 +656,18 @@ function QuotePage() {
                     const inRange = isInRange(slot);
                     const isStart = slot === timeStart;
                     const isEnd = slot === timeEnd;
+                    const active = isStart || isEnd;
                     return (
                       <button
                         key={slot}
                         onClick={() => handleTimeClick(slot)}
-                        className={`py-2 rounded-lg text-[13px] font-medium ${!inRange && !isStart && !isEnd ? 'border border-gray-100' : ''}`}
+                        className={`py-2 rounded-lg text-[13px] font-medium transition-all duration-200 active:scale-95 ${
+                          active
+                            ? 'bg-[#3180F7] text-white shadow-[0_2px_8px_rgba(49,128,247,0.3)]'
+                            : inRange
+                            ? 'bg-blue-100 text-[#3180F7] font-semibold'
+                            : 'border border-gray-200 text-gray-600 hover:border-[#3180F7]/40 hover:bg-blue-50/30'
+                        }`}
                       >
                         {slot}
                       </button>
@@ -602,7 +683,16 @@ function QuotePage() {
                   {MOOD_TAGS.map((m) => {
                     const active = moods.has(m);
                     return (
-                      <button key={m} onClick={() => toggleMood(m)} className="px-3.5 py-2 rounded-full text-[13px] font-medium">
+                      <button
+                        key={m}
+                        onClick={() => toggleMood(m)}
+                        className={`px-3.5 py-2 rounded-full text-[13px] font-medium transition-all duration-200 active:scale-95 ${
+                          active
+                            ? 'bg-[#3180F7] text-white shadow-[0_2px_8px_rgba(49,128,247,0.25)]'
+                            : 'bg-gray-50 text-gray-600 border border-gray-200 hover:border-[#3180F7]/40'
+                        }`}
+                      >
+                        {active && <span className="mr-1">✓</span>}
                         {m}
                       </button>
                     );
@@ -611,8 +701,28 @@ function QuotePage() {
               </div>
 
               <div>
-                <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">추가 요청사항 (선택)</label>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="특별히 요청하실 사항이 있으시면 적어주세요" className="w-full h-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#3180F7] resize-none transition-colors" />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[13px] font-semibold text-gray-700">추가 요청사항 (선택)</label>
+                  <button
+                    type="button"
+                    onClick={handleAIWrite}
+                    disabled={aiWriting}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#3180F7] to-[#7B61FF] text-white text-[11px] font-bold shadow-[0_2px_6px_rgba(49,128,247,0.3)] active:scale-95 transition-transform disabled:opacity-60"
+                  >
+                    {aiWriting ? (
+                      <>
+                        <div className="w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full animate-spin" />
+                        작성 중
+                      </>
+                    ) : (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M9.5 3L11 7.5L15.5 9L11 10.5L9.5 15L8 10.5L3.5 9L8 7.5L9.5 3Z" fill="white"/><path d="M18 13l.8 2.3L21 16l-2.2.8L18 19l-.8-2.2L15 16l2.2-.7L18 13z" fill="white" opacity="0.7"/></svg>
+                        AI로 작성
+                      </>
+                    )}
+                  </button>
+                </div>
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="특별히 요청하실 사항이 있으시면 적어주세요 (또는 AI로 작성 클릭)" className="w-full h-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#3180F7] resize-none transition-colors" />
               </div>
             </div>
           </div>
@@ -622,9 +732,26 @@ function QuotePage() {
         {step === 'pros' && (
           <div key="pros">
             <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">사회자를 선택해주세요</h2>
-            <p className="text-[14px] text-gray-400 mb-6">여러 명을 선택하면 동시에 견적을 받을 수 있어요</p>
+            <p className="text-[14px] text-gray-400 mb-1">
+              {moods.size > 0 || plan ? `선호 조건에 맞는 사회자 ${filteredPros.length}명을 추천했어요` : '여러 명을 선택하면 동시에 견적을 받을 수 있어요'}
+            </p>
+            {(moods.size > 0 || plan) && (
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {plan && <span className="px-2 py-0.5 rounded-full bg-blue-50 text-[11px] font-bold text-[#3180F7]">{PLANS.find((p) => p.id === plan)?.label}</span>}
+                {Array.from(moods).map((m) => (
+                  <span key={m} className="px-2 py-0.5 rounded-full bg-purple-50 text-[11px] font-bold text-purple-600">{m}</span>
+                ))}
+              </div>
+            )}
+            {prosLoading && filteredPros.length === 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="aspect-[3/4] bg-gray-100 rounded-2xl animate-pulse" />
+                ))}
+              </div>
+            ) : (
             <div className="grid grid-cols-2 gap-3">
-              {MOCK_PROS.map((pro) => (
+              {filteredPros.map((pro) => (
                 <div key={pro.id}>
                   <ProSelectCard
                     pro={pro}
@@ -634,6 +761,7 @@ function QuotePage() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
@@ -967,18 +1095,24 @@ function ProSelectCard({ pro, selected, onToggle }: {
       <div className="p-3">
         <p className="text-[13px] text-gray-700 font-medium line-clamp-1 leading-snug">{pro.intro}</p>
         <p className="text-[11px] text-gray-400 mt-0.5">경력 {pro.experience}년</p>
-        {/* Rotating review with slide animation */}
-        <div className="mt-2 flex items-start gap-1.5 overflow-hidden">
-          <span className="text-[10px] text-[#3180F7] font-bold shrink-0 mt-0.5">리뷰</span>
-          <>
-            <p
-              key={reviewKey}
-              className="text-[11px] text-gray-500 line-clamp-1"
-            >
-              &ldquo;{displayReview}&rdquo;
-            </p>
-          </>
+        {/* 기본 제공 서비스 체크리스트 */}
+        <div className="mt-2 space-y-1">
+          {['사회 진행', '사전 미팅', '대본 작성'].map((svc) => (
+            <div key={svc} className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                <Check size={8} className="text-white" strokeWidth={3.5} />
+              </div>
+              <span className="text-[10px] text-gray-500 font-medium">{svc}</span>
+            </div>
+          ))}
         </div>
+        {/* Rotating review */}
+        {displayReview && (
+          <div className="mt-2 flex items-start gap-1.5 overflow-hidden">
+            <span className="text-[10px] text-[#3180F7] font-bold shrink-0 mt-0.5">리뷰</span>
+            <p key={reviewKey} className="text-[11px] text-gray-500 line-clamp-1">&ldquo;{displayReview}&rdquo;</p>
+          </div>
+        )}
       </div>
     </button>
   );
