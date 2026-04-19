@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon, CheckCircle, Check } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { prosApi } from '@/lib/api/pros.api';
+
 const COMPANY_LOGOS: string[] = [
   '/images/company-logos/ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg',
   '/images/company-logos/BRqtD2yZxxRP08TEpNXXNlHvXxtA9Dck7kO4rNAiyud7WyX1EudEU0Y7XpRaIi0eGipOIqU1iZRx06TjD87Bu_8PuSHC-vYi2expOi_ie9INQgZ_8lkfsq7WCiYGssRZvARyM-hmOKkZEOhr4vxl6Q.svg',
@@ -287,31 +290,41 @@ export default function ProfilePage() {
     <div className="fixed inset-0 h-[100dvh] flex flex-col bg-white">
       {/* Header */}
       <div className="shrink-0 px-6 pt-4 pb-6">
-        <button
+        <motion.button
           onClick={() => router.back()}
           className="mb-4"
+          whileTap={{ scale: 0.92 }}
         >
           <ChevronLeft size={24} className="text-gray-900" />
-        </button>
+        </motion.button>
         {/* Progress bar */}
         <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
-          <div
+          <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${(7 / 7) * 100}%` }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
-        <h1
+        <motion.h1
           className="text-2xl font-bold text-gray-900"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
         >
           전문가 프로필 <span className="text-[11px] text-gray-400">7/7</span>
-        </h1>
+        </motion.h1>
       </div>
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto px-6">
-        <div
+        <motion.div
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
         >
           {/* [필수]전문가 소개 */}
-          <div className="py-4">
+          <motion.div className="py-4" variants={staggerItem}>
             <p className="text-sm text-gray-500 mb-2">[필수]전문가 소개</p>
             {intro && <label className="text-xs text-[#3180F7] mb-1 block">한줄평소개</label>}
             <input
@@ -323,14 +336,14 @@ export default function ProfilePage() {
                 intro ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300'
               } focus:border-b-2 focus:border-[#3180F7]`}
             />
-          </div>
+          </motion.div>
 
           {/* 경력 - horizontal scrollable pills */}
-          <div className="py-4 border-b border-gray-200">
+          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <p className="text-sm font-bold text-gray-900 mb-3">경력</p>
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {careerYearsOptions.map((year) => (
-                <button
+                <motion.button
                   key={year}
                   onClick={() => setCareerYears(year)}
                   className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
@@ -338,23 +351,26 @@ export default function ProfilePage() {
                       ? 'bg-[#3180F7] text-white'
                       : 'bg-gray-100 text-gray-500'
                   }`}
+                  whileTap={{ scale: 0.92 }}
                 >
                   {year}
-                </button>
+                </motion.button>
               ))}
             </div>
-          </div>
+          </motion.div>
 
           {/* 수상 내역 */}
-          <div className="py-4 border-b border-gray-200">
+          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <p className="text-sm font-bold text-gray-900 mb-4">수상 내역</p>
 
             {/* 등록된 수상 내역 */}
             {awardList.length > 0 && (
               <div className="space-y-2.5 mb-4">
                 {awardList.map((award, index) => (
-                  <div
+                  <motion.div
                     key={index}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
                     className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-b-0"
                   >
                     {/* 날짜 */}
@@ -367,10 +383,10 @@ export default function ProfilePage() {
                     )}
                     {/* 수상명 */}
                     <p className="flex-1 min-w-0 text-[14px] text-gray-600 leading-snug">{award.text}</p>
-                    <button onClick={() => setAwardList(prev => prev.filter((_, i) => i !== index))} className="shrink-0">
+                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => setAwardList(prev => prev.filter((_, i) => i !== index))} className="shrink-0">
                       <X size={14} className="text-gray-300" />
-                    </button>
-                  </div>
+                    </motion.button>
+                  </motion.div>
                 ))}
               </div>
             )}
@@ -380,18 +396,23 @@ export default function ProfilePage() {
               {/* 연도/월 선택 — 인라인 */}
               <div className="flex gap-2 mb-3">
                 <div className="relative flex-1">
-                  <button
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => { setShowAwardYear(!showAwardYear); setShowAwardMonth(false); }}
                     className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 flex items-center justify-between text-[14px] font-medium"
                   >
                     <span className={awardYear ? 'text-gray-900' : 'text-gray-400'}>{awardYear ? `${awardYear}년` : '연도'}</span>
-                    <span>
+                    <motion.span animate={{ rotate: showAwardYear ? 180 : 0 }} transition={{ duration: 0.2 }}>
                       <ChevronDown size={14} className="text-gray-400" />
-                    </span>
-                  </button>
-                  <>
+                    </motion.span>
+                  </motion.button>
+                  <AnimatePresence>
                     {showAwardYear && (
-                      <div
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.15 }}
                         className="absolute top-12 left-0 right-0 max-h-[180px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30 scrollbar-hide"
                       >
                         {Array.from({ length: 30 }, (_, i) => `${2026 - i}`).map((y) => (
@@ -405,23 +426,28 @@ export default function ProfilePage() {
                             {y}년
                           </button>
                         ))}
-                      </div>
+                      </motion.div>
                     )}
-                  </>
+                  </AnimatePresence>
                 </div>
                 <div className="relative w-[90px]">
-                  <button
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => { setShowAwardMonth(!showAwardMonth); setShowAwardYear(false); }}
                     className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 flex items-center justify-between text-[14px] font-medium"
                   >
                     <span className={awardMonth ? 'text-gray-900' : 'text-gray-400'}>{awardMonth ? `${awardMonth}월` : '월'}</span>
-                    <span>
+                    <motion.span animate={{ rotate: showAwardMonth ? 180 : 0 }} transition={{ duration: 0.2 }}>
                       <ChevronDown size={14} className="text-gray-400" />
-                    </span>
-                  </button>
-                  <>
+                    </motion.span>
+                  </motion.button>
+                  <AnimatePresence>
                     {showAwardMonth && (
-                      <div
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.15 }}
                         className="absolute top-12 left-0 right-0 max-h-[180px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30 scrollbar-hide"
                       >
                         {Array.from({ length: 12 }, (_, i) => `${i + 1}`).map((m) => (
@@ -435,9 +461,9 @@ export default function ProfilePage() {
                             {m}월
                           </button>
                         ))}
-                      </div>
+                      </motion.div>
                     )}
-                  </>
+                  </AnimatePresence>
                 </div>
               </div>
 
@@ -451,18 +477,24 @@ export default function ProfilePage() {
                   placeholder="수상명을 입력해주세요"
                   className="flex-1 h-11 bg-white border border-gray-200 rounded-xl px-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                 />
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
                   onClick={addAward}
+                  animate={{
+                    backgroundColor: awardInput.trim() ? '#3180F7' : '#E5E7EB',
+                    color: awardInput.trim() ? '#FFFFFF' : '#9CA3AF',
+                  }}
+                  transition={{ duration: 0.2 }}
                   className="shrink-0 h-11 px-5 rounded-xl text-[14px] font-bold"
                 >
                   추가
-                </button>
+                </motion.button>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* [선택]기업이력 - opens company search modal */}
-          <div className="py-4 border-b border-gray-200">
+          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <p className="text-sm font-bold text-gray-900 mb-3">[선택]기업이력</p>
             {selectedCategories.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-3">
@@ -479,17 +511,18 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-            <button
+            <motion.button
               onClick={() => setShowCompanySheet(true)}
               className="w-full border border-gray-200 rounded-lg px-3 py-3 bg-[#F9F9F9] text-left flex items-center justify-between"
+              whileTap={{ scale: 0.98 }}
             >
               <span className="text-sm text-gray-400">기업이력 검색 및 선택</span>
               <Plus size={16} className="text-gray-400" />
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
 
           {/* [선택]언어 */}
-          <div className="py-4 border-b border-gray-200">
+          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <p className="text-sm font-bold text-gray-900 mb-3">[선택]언어</p>
             <div className="flex flex-wrap gap-2">
               {LANGUAGES.map((lang) => (
@@ -512,10 +545,10 @@ export default function ProfilePage() {
                 </label>
               ))}
             </div>
-          </div>
+          </motion.div>
 
           {/* [선택]상세설명 */}
-          <div className="py-4 border-b border-gray-200">
+          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <p className="text-sm font-bold text-gray-900 mb-3">[선택]상세설명</p>
 
             {/* Toolbar */}
@@ -670,10 +703,10 @@ export default function ProfilePage() {
                 </span>
               )}
             </div>
-          </div>
+          </motion.div>
 
           {/* [선택]전문가소개영상 */}
-          <div className="py-4 border-b border-gray-200">
+          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <p className="text-sm font-bold text-gray-900 mb-3">[선택]전문가소개영상</p>
 
             {/* 링크 추가 입력 */}
@@ -688,20 +721,20 @@ export default function ProfilePage() {
                     className="flex-1 outline-none text-[16px] text-gray-900 placeholder:text-gray-400"
                     autoFocus
                   />
-                  <button onClick={addVideo} className="text-[#3180F7] text-[14px] font-bold shrink-0">추가</button>
-                  <button onClick={() => { setShowVideoInput(false); setVideoInput(''); setVideoError(''); }} className="text-gray-400">
+                  <motion.button onClick={addVideo} whileTap={{ scale: 0.92 }} className="text-[#3180F7] text-[14px] font-bold shrink-0">추가</motion.button>
+                  <motion.button onClick={() => { setShowVideoInput(false); setVideoInput(''); setVideoError(''); }} whileTap={{ scale: 0.92 }} className="text-gray-400">
                     <X size={16} />
-                  </button>
+                  </motion.button>
                 </div>
                 {/* Error */}
-                <>
+                <AnimatePresence>
                   {videoError && (
-                    <p className="text-[12px] text-[#3180F7] font-medium mt-1.5 ml-1">{videoError}</p>
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-[12px] text-[#3180F7] font-medium mt-1.5 ml-1">{videoError}</motion.p>
                   )}
-                </>
+                </AnimatePresence>
                 {/* Live preview */}
                 {videoInput && extractYouTubeId(videoInput) && (
-                  <div className="mt-3 rounded-xl overflow-hidden">
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3 rounded-xl overflow-hidden">
                     <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                       <img
                         src={`https://img.youtube.com/vi/${extractYouTubeId(videoInput)}/mqdefault.jpg`}
@@ -714,25 +747,27 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
               </div>
             ) : (
               <div className="flex gap-2 mb-3">
-                <button
+                <motion.button
                   onClick={() => setShowVideoInput(true)}
                   className="flex-1 flex items-center justify-between border border-gray-200 rounded-xl px-3 py-2.5 bg-[#F9F9F9]"
+                  whileTap={{ scale: 0.98 }}
                 >
                   <span className="text-[14px] text-gray-400">링크 직접 입력</span>
                   <Plus size={16} className="text-gray-400" />
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={() => setShowYoutubeSearch(true)}
                   className="flex items-center gap-1.5 border border-blue-200 rounded-xl px-3 py-2.5 bg-blue-50/50"
+                  whileTap={{ scale: 0.98 }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#3180F7"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="white"/></svg>
                   <span className="text-[13px] text-[#3180F7] font-semibold">검색</span>
-                </button>
+                </motion.button>
               </div>
             )}
 
@@ -742,7 +777,7 @@ export default function ProfilePage() {
                 {videos.map((url, index) => {
                   const ytId = extractYouTubeId(url);
                   return (
-                  <div key={index} className="rounded-xl border border-gray-100 overflow-hidden">
+                  <motion.div key={index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-gray-100 overflow-hidden">
                     {/* Thumbnail preview */}
                     {ytId && (
                       <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
@@ -761,29 +796,30 @@ export default function ProfilePage() {
                     )}
                     <div className="flex items-center justify-between px-3 py-2">
                       <span className="text-[12px] text-gray-500 truncate flex-1">{url.length > 35 ? url.slice(0, 35) + '...' : url}</span>
-                      <button
+                      <motion.button
                         onClick={() => removeVideo(index)}
+                        whileTap={{ scale: 0.9 }}
                         className="text-[12px] text-[#3180F7] font-bold shrink-0 ml-2"
                       >
                         삭제
-                      </button>
+                      </motion.button>
                     </div>
-                  </div>
+                  </motion.div>
                   );
                 })}
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* [필수]전문가 FAQ */}
-          <div className="py-4 border-b border-gray-200">
+          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <p className="text-sm font-bold text-gray-900 mb-3">[필수]전문가 FAQ</p>
 
             {/* 탭 목록 */}
-            <>
+            <LayoutGroup>
               <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
                 {FAQ_CATEGORIES.map((cat) => (
-                  <button
+                  <motion.button
                     key={cat}
                     onClick={() => setActiveFaqTab(cat)}
                     className={`relative shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-colors ${
@@ -791,17 +827,20 @@ export default function ProfilePage() {
                         ? 'text-white'
                         : 'bg-gray-100 text-gray-500'
                     }`}
+                    whileTap={{ scale: 0.92 }}
                   >
                     {activeFaqTab === cat && (
-                      <div
+                      <motion.div
+                        layoutId="faqActiveTab"
                         className="absolute inset-0 bg-gray-900 rounded-full"
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                       />
                     )}
                     <span className="relative z-10">{cat}</span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
-            </>
+            </LayoutGroup>
 
             {/* 활성 FAQ 내용 편집 */}
             <div>
@@ -814,36 +853,46 @@ export default function ProfilePage() {
                 rows={5}
               />
             </div>
-          </div>
+          </motion.div>
 
           {/* Bottom spacer so content isn't hidden behind the fixed footer */}
           <div className="h-4" />
-        </div>
+        </motion.div>
       </div>
 
       {/* Fixed Bottom Button */}
       <div className="shrink-0 p-6 pb-8 bg-white">
-        <button
+        <motion.button
           onClick={() => isFormValid && setShowConfirm(true)}
           disabled={!isFormValid}
           className="w-full py-4 rounded-2xl font-bold text-base"
+          animate={{
+            backgroundColor: isFormValid ? '#3180F7' : '#F3F4F6',
+            color: isFormValid ? '#FFFFFF' : '#9CA3AF',
+          }}
+          transition={{ duration: 0.3 }}
+          whileTap={isFormValid ? { scale: 0.97 } : {}}
         >
           제출
-        </button>
+        </motion.button>
       </div>
 
       {/* 기업이력 검색 — 전체 페이지 덮기 */}
-      <>
+      <AnimatePresence>
         {showCompanySheet && (
-          <div
+          <motion.div
             className="fixed inset-0 z-50 bg-white flex flex-col"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
             {/* Header */}
             <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100">
               <div className="flex items-center gap-3 mb-4">
-                <button onClick={() => setShowCompanySheet(false)}>
+                <motion.button onClick={() => setShowCompanySheet(false)} whileTap={{ scale: 0.9 }}>
                   <ChevronLeft size={24} className="text-gray-900" />
-                </button>
+                </motion.button>
                 <h2 className="text-[18px] font-bold text-gray-900">기업이력 선택</h2>
               </div>
               <p className="text-[13px] text-gray-400 mt-1">진행한 기업의 로고를 선택해주세요</p>
@@ -858,8 +907,12 @@ export default function ProfilePage() {
                 {filteredCompanies.map((logo, i) => {
                   const selected = selectedCategories.includes(logo);
                   return (
-                    <button
+                    <motion.button
                       key={i}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.02 }}
+                      whileTap={{ scale: 0.93 }}
                       onClick={() => toggleCategory(logo)}
                       className={`relative aspect-[3/2] rounded-xl border-2 flex items-center justify-center p-3 transition-all ${
                         selected ? 'border-[#3180F7] bg-blue-50/50 shadow-sm' : 'border-gray-100 bg-white'
@@ -867,13 +920,15 @@ export default function ProfilePage() {
                     >
                       <img src={logo} alt="" className="w-full h-full object-contain" />
                       {selected && (
-                        <div
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
                           className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#3180F7] flex items-center justify-center"
                         >
                           <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </div>
+                        </motion.div>
                       )}
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
@@ -881,29 +936,34 @@ export default function ProfilePage() {
 
             {/* Bottom button */}
             <div className="shrink-0 p-4 pb-8 bg-white border-t border-gray-100">
-              <button
+              <motion.button
                 onClick={() => setShowCompanySheet(false)}
+                whileTap={{ scale: 0.96 }}
                 className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-[16px]"
               >
                 선택 완료 ({selectedCategories.length}개)
-              </button>
+              </motion.button>
             </div>
-          </div>
+          </motion.div>
         )}
-      </>
+      </AnimatePresence>
 
       {/* YouTube 채널 검색 페이지 */}
-      <>
+      <AnimatePresence>
         {showYoutubeSearch && (
-          <div
+          <motion.div
             className="fixed inset-0 z-50 bg-white flex flex-col"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
             {/* Header */}
             <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100">
               <div className="flex items-center gap-3 mb-3">
-                <button onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }}>
+                <motion.button onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }} whileTap={{ scale: 0.9 }}>
                   <ChevronLeft size={24} className="text-gray-900" />
-                </button>
+                </motion.button>
                 <h2 className="text-[18px] font-bold text-gray-900">YouTube 영상 검색</h2>
               </div>
               {/* Search input */}
@@ -919,12 +979,13 @@ export default function ProfilePage() {
                     autoFocus
                   />
                 </div>
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
                   onClick={searchYtChannels}
                   className="h-11 px-4 bg-[#3180F7] text-white rounded-xl text-[14px] font-bold shrink-0"
                 >
                   검색
-                </button>
+                </motion.button>
               </div>
             </div>
 
@@ -942,8 +1003,9 @@ export default function ProfilePage() {
                   <p className="text-[12px] text-gray-400 font-bold uppercase mb-3">채널 선택</p>
                   <div className="space-y-2">
                     {ytChannels.map((ch) => (
-                      <button
+                      <motion.button
                         key={ch.id}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => loadYtVideos(ch.id)}
                         className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors text-left"
                       >
@@ -953,7 +1015,7 @@ export default function ProfilePage() {
                           <p className="text-[12px] text-gray-400 truncate">{ch.description}</p>
                         </div>
                         <ChevronDown size={16} className="text-gray-400 -rotate-90 shrink-0" />
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 </div>
@@ -964,19 +1026,21 @@ export default function ProfilePage() {
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[12px] text-gray-400 font-bold uppercase">영상 선택</p>
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => { setYtSelectedChannel(null); setYtVideos([]); }}
                       className="text-[12px] text-[#3180F7] font-semibold"
                     >
                       채널 다시 선택
-                    </button>
+                    </motion.button>
                   </div>
                   <div className="space-y-3">
                     {ytVideos.map((v) => {
                       const alreadyAdded = videos.includes(`https://www.youtube.com/watch?v=${v.id}`);
                       return (
-                        <button
+                        <motion.button
                           key={v.id}
+                          whileTap={{ scale: 0.98 }}
                           onClick={() => { if (!alreadyAdded) selectYtVideo(v.id); }}
                           className={`w-full rounded-xl overflow-hidden border text-left transition-all ${alreadyAdded ? 'border-[#3180F7] bg-blue-50/30' : 'border-gray-100'}`}
                         >
@@ -985,18 +1049,21 @@ export default function ProfilePage() {
                             {alreadyAdded && (
                               <>
                                 <div className="absolute inset-0 bg-[#3180F7]/10" />
-                                <div
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                                   className="absolute top-2 right-2 w-7 h-7 bg-[#3180F7] rounded-full flex items-center justify-center shadow-md"
                                 >
                                   <Check size={16} className="text-white stroke-[3]" />
-                                </div>
+                                </motion.div>
                               </>
                             )}
                           </div>
                           <div className="p-3">
                             <p className="text-[14px] font-semibold text-gray-900 line-clamp-2">{v.title}</p>
                           </div>
-                        </button>
+                        </motion.button>
                       );
                     })}
                   </div>
@@ -1019,27 +1086,35 @@ export default function ProfilePage() {
             {/* Bottom: 선택 완료 */}
             {videos.length > 0 && (
               <div className="shrink-0 p-4 pb-8 bg-white border-t border-gray-100">
-                <button
+                <motion.button
                   onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }}
+                  whileTap={{ scale: 0.96 }}
                   className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-[16px]"
                 >
                   완료 ({videos.length}개 영상)
-                </button>
+                </motion.button>
               </div>
             )}
-          </div>
+          </motion.div>
         )}
-      </>
+      </AnimatePresence>
 
       {/* 제출 확인 바텀시트 */}
-      <>
+      <AnimatePresence>
         {showConfirm && (
           <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowConfirm(false)}>
-            <div
+            <motion.div
               className="absolute inset-0 bg-black/50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             />
-            <div
+            <motion.div
               className="relative bg-white rounded-t-3xl w-full p-6 pb-10"
+              variants={bottomSheetVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
@@ -1050,10 +1125,10 @@ export default function ProfilePage() {
               <p className="text-sm text-gray-500 mb-6">
                 심사기간은 최대 7일이며, 결과는 알림으로 안내드립니다.
               </p>
-              <button
-                onClick={() => {
+              <motion.button
+                onClick={async () => {
+                  // localStorage 캐시 (UI 표시용)
                   localStorage.setItem('proRegistrationComplete', 'pending');
-                  // 프로필 데이터 저장
                   localStorage.setItem('proRegister_intro', intro);
                   localStorage.setItem('proRegister_careerYears', careerYears);
                   localStorage.setItem('proRegister_awards', JSON.stringify(awardList));
@@ -1064,54 +1139,125 @@ export default function ProfilePage() {
                     Object.entries(faqContents).map(([key, val]) => ({ q: key, a: val }))
                   ));
                   localStorage.setItem('proRegister_description', description);
+
+                  // 서버에 실제 proProfile 생성/업데이트 (status=pending)
+                  let submitSucceeded = false;
+                  let submitError: any = null;
+                  try {
+                    const photos: string[] = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
+                    const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
+                    const enabledPlans: string[] = JSON.parse(localStorage.getItem('proRegister_enabledPlans') || '[]');
+                    const prices: Record<string, number> = JSON.parse(localStorage.getItem('proRegister_prices') || '{}');
+                    const PLAN_META: Record<string, { label: string; desc: string }> = {
+                      premium: { label: 'Premium', desc: '행사 1시간 진행' },
+                      superior: { label: 'Superior', desc: '행사 2시간 진행' },
+                      enterprise: { label: 'Enterprise', desc: '6시간 풀타임' },
+                    };
+                    const services = enabledPlans
+                      .map((id) => ({
+                        title: PLAN_META[id]?.label || id,
+                        description: PLAN_META[id]?.desc,
+                        basePrice: prices[id] ? Number(prices[id]) : undefined,
+                      }))
+                      .filter((s) => s.title);
+                    const faqs = Object.entries(faqContents)
+                      .filter(([q, a]) => q && a)
+                      .map(([question, answer]) => ({ question, answer }));
+
+                    await prosApi.submitRegistration({
+                      name: localStorage.getItem('proRegister_name') || undefined,
+                      phone: localStorage.getItem('proRegister_phone') || undefined,
+                      gender: localStorage.getItem('proRegister_gender') || undefined,
+                      shortIntro: intro || undefined,
+                      // profile/page 에는 '주요 경력' 텍스트 필드가 없음 → awardList 를 mainExperience 로 사용
+                      mainExperience: awardList.length > 0 ? awardList.map((a) => a.text).filter(Boolean).join(' / ') : undefined,
+                      careerYears: careerYears ? parseInt(careerYears) || undefined : undefined,
+                      awards: awardList.length > 0 ? awardList.map((a) => a.text).filter(Boolean).join('\n') : undefined,
+                      youtubeUrl: videos[0] || undefined,
+                      detailHtml: description || undefined,
+                      photos: photos.length > 0 ? photos : undefined,
+                      mainPhotoIndex,
+                      services: services.length > 0 ? services : undefined,
+                      faqs: faqs.length > 0 ? faqs : undefined,
+                      languages: selectedLanguages.length > 0 ? selectedLanguages : undefined,
+                    });
+                    submitSucceeded = true;
+                  } catch (e: any) {
+                    submitError = e;
+                    console.error('submitRegistration failed', e);
+                  }
                   setShowConfirm(false);
-                  setShowSuccess(true);
+                  if (submitSucceeded) {
+                    setShowSuccess(true);
+                  } else {
+                    const msg = submitError?.response?.data?.message || submitError?.message || '서버 저장 중 오류가 발생했습니다.';
+                    alert(`파트너 신청 서버 저장 실패: ${msg}\n\n다시 시도해주세요. 계속 실패하면 관리자에게 문의해 주세요.`);
+                  }
                 }}
                 className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base mb-3"
+                whileTap={{ scale: 0.97 }}
               >
                 제출
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={() => setShowConfirm(false)}
                 className="w-full py-4 text-gray-500 font-medium text-base"
+                whileTap={{ scale: 0.97 }}
               >
                 취소
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           </div>
         )}
-      </>
+      </AnimatePresence>
 
       {/* 제출 완료 페이지 */}
-      <>
+      <AnimatePresence>
         {showSuccess && (
-          <div
+          <motion.div
             className="fixed inset-0 z-[60] bg-white flex flex-col items-center justify-center px-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
           >
-            <div
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.15 }}
               className="mb-6"
             >
               <CheckCircle size={72} className="text-[#3180F7]" />
-            </div>
-            <h2
+            </motion.div>
+            <motion.h2
               className="text-2xl font-bold text-gray-900 mb-3"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
             >
               제출이 완료되었습니다!
-            </h2>
-            <p
+            </motion.h2>
+            <motion.p
               className="text-base text-gray-500 text-center mb-10"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
             >
               7일 이내에 승인 결과를 알려드립니다
-            </p>
-            <button
+            </motion.p>
+            <motion.button
               onClick={() => { router.push('/main'); }}
               className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              whileTap={{ scale: 0.97 }}
             >
               확인
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         )}
-      </>
+      </AnimatePresence>
     </div>
   );
 }

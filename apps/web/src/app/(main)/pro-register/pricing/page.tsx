@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Check, Plus, X, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+
 const PLANS = [
   { id: 'premium', label: 'Premium', defaultPrice: 450000, desc: '행사 1시간 진행' },
   { id: 'superior', label: 'Superior', defaultPrice: 800000, desc: '행사 2시간 진행' },
@@ -97,41 +99,51 @@ export default function PricingPage() {
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
       {/* Header */}
       <div className="shrink-0 px-4 pt-4 pb-3">
-        <button onClick={() => router.back()} className="mb-3">
+        <motion.button onClick={() => router.back()} className="mb-3" whileTap={{ scale: 0.9 }}>
           <ChevronLeft size={24} className="text-gray-900" />
-        </button>
+        </motion.button>
         {/* Progress bar */}
         <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
-          <div
+          <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${(CURRENT_STEP / TOTAL_STEPS) * 100}%` }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
         <div className="flex items-center justify-between">
-          <h1
+          <motion.h1
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
             className="text-2xl font-bold text-gray-900"
           >
             상품고지
-          </h1>
+          </motion.h1>
           <span className="text-[11px] text-gray-400">{CURRENT_STEP}/{TOTAL_STEPS}</span>
         </div>
-        <p
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
           className="text-sm text-gray-400 mt-1"
         >
           제공할 플랜과 가격을 설정해주세요
-        </p>
+        </motion.p>
       </div>
 
       {/* Content — scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {/* Plan toggles */}
-        <div className="mb-6">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-6">
           <p className="text-[13px] font-bold text-gray-900 mb-3">제공 플랜 선택</p>
           <div className="space-y-2">
             {PLANS.map((plan) => {
               const enabled = enabledPlans.has(plan.id);
               return (
-                <button
+                <motion.button
                   key={plan.id}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => togglePlan(plan.id)}
                   className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
                     enabled ? 'border-[#3180F7] bg-blue-50/30' : 'border-gray-100'
@@ -141,27 +153,29 @@ export default function PricingPage() {
                     <p className={`text-[16px] font-bold ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>{plan.label}</p>
                     <p className={`text-[13px] ${enabled ? 'text-gray-500' : 'text-gray-300'}`}>{plan.desc}</p>
                   </div>
-                  <div
+                  <motion.div
+                    animate={{ backgroundColor: enabled ? '#3180F7' : '#E5E7EB' }}
+                    transition={{ duration: 0.2 }}
                     className="w-6 h-6 rounded-full flex items-center justify-center"
                   >
-                    <>
+                    <AnimatePresence>
                       {enabled && (
-                        <div>
+                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
                           <Check size={14} className="text-white stroke-[3]" />
-                        </div>
+                        </motion.div>
                       )}
-                    </>
-                  </div>
-                </button>
+                    </AnimatePresence>
+                  </motion.div>
+                </motion.button>
               );
             })}
           </div>
-        </div>
+        </motion.div>
 
         {/* Plan detail tabs */}
-        <div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <p className="text-[13px] font-bold text-gray-900 mb-3">플랜별 상세 설정</p>
-          <>
+          <LayoutGroup id="pricing-tabs">
             <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide">
               {PLANS.filter(p => enabledPlans.has(p.id)).map((plan) => {
                 const active = activeTab === plan.id;
@@ -169,23 +183,31 @@ export default function PricingPage() {
                   <button
                     key={plan.id}
                     onClick={() => setActiveTab(plan.id)}
-                    className={`relative isolate px-4 py-2 text-[14px] font-semibold rounded-full shrink-0 transition-all duration-300 active:scale-95 ${active ? 'text-white' : 'text-gray-500 border border-gray-200'}`}
+                    className={`relative isolate px-4 py-2 text-[14px] font-semibold rounded-full shrink-0 ${active ? 'text-white' : 'text-gray-500 border border-gray-200'}`}
                   >
-                    <span
-                      className={`absolute inset-0 bg-[#3180F7] rounded-full transition-all duration-300 ${active ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
-                      style={{ zIndex: -1 }}
-                    />
+                    {active && (
+                      <motion.span
+                        layoutId="pricing-tab-bg"
+                        className="absolute inset-0 bg-[#3180F7] rounded-full"
+                        style={{ zIndex: -1 }}
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      />
+                    )}
                     <span className="relative">{plan.label}</span>
                   </button>
                 );
               })}
             </div>
-          </>
+          </LayoutGroup>
 
           {enabledPlans.has(activeTab) && (
-            <>
-              <div
+            <AnimatePresence mode="popLayout">
+              <motion.div
                 key={activeTab}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
               >
                 {/* Price — fixed */}
                 <div className="mb-5">
@@ -203,15 +225,18 @@ export default function PricingPage() {
                   <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">공통 옵션 (기본 포함)</label>
                   <div className="space-y-1.5">
                     {(COMMON_OPTIONS[activeTab] || []).map((opt, i) => (
-                      <div
+                      <motion.div
                         key={opt}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
                         className="flex items-center gap-2.5 py-2"
                       >
                         <div className="w-5 h-5 rounded-full bg-[#3180F7]/10 flex items-center justify-center">
                           <Check size={11} className="text-[#3180F7] stroke-[3]" />
                         </div>
                         <span className="text-[14px] text-gray-700">{opt}</span>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
@@ -222,8 +247,10 @@ export default function PricingPage() {
                   {(customOptions[activeTab] || []).length > 0 && (
                     <div className="space-y-1.5 mb-3">
                       {(customOptions[activeTab] || []).map((opt, i) => (
-                        <div
+                        <motion.div
                           key={i}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
                           className="flex items-center gap-2.5 py-2"
                         >
                           <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center">
@@ -233,10 +260,10 @@ export default function PricingPage() {
                           {opt.price > 0 && (
                             <span className="text-[13px] font-semibold text-gray-500">{opt.price.toLocaleString()}원</span>
                           )}
-                          <button onClick={() => removeCustomOption(activeTab, i)}>
+                          <motion.button whileTap={{ scale: 0.85 }} onClick={() => removeCustomOption(activeTab, i)}>
                             <X size={14} className="text-gray-300" />
-                          </button>
-                        </div>
+                          </motion.button>
+                        </motion.div>
                       ))}
                     </div>
                   )}
@@ -259,29 +286,41 @@ export default function PricingPage() {
                         className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                       />
                     </div>
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
                       onClick={addCustomOption}
+                      animate={{
+                        backgroundColor: newOption.trim() ? '#3180F7' : '#E5E7EB',
+                        color: newOption.trim() ? '#FFFFFF' : '#9CA3AF',
+                      }}
+                      transition={{ duration: 0.2 }}
                       className="w-full h-11 rounded-xl text-[14px] font-bold"
                     >
                       추가
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
-              </div>
-            </>
+              </motion.div>
+            </AnimatePresence>
           )}
-        </div>
+        </motion.div>
       </div>
 
       {/* Next Button */}
       <div className="shrink-0 p-4 pb-8 bg-white">
-        <button
+        <motion.button
           onClick={() => router.push('/pro-register/profile')}
           disabled={!isValid}
+          whileTap={{ scale: 0.96 }}
+          animate={{
+            backgroundColor: isValid ? '#3180F7' : '#F3F4F6',
+            color: isValid ? '#FFFFFF' : '#9CA3AF',
+          }}
+          transition={{ duration: 0.25 }}
           className="w-full py-4 rounded-2xl font-bold text-base"
         >
           다음
-        </button>
+        </motion.button>
       </div>
     </div>
   );

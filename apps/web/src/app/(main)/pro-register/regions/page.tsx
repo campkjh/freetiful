@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
 const REGIONS = [
   '전국가능',
   '수도권(서울/인천/경기)',
@@ -46,28 +48,38 @@ export default function RegionsPage() {
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
       {/* Header */}
       <div className="shrink-0 px-6 pt-4 pb-4">
-        <button
+        <motion.button
           onClick={() => router.back()}
           className="mb-4"
+          whileTap={{ scale: 0.9 }}
         >
           <ChevronLeft size={24} className="text-gray-900" />
-        </button>
+        </motion.button>
         {/* Progress bar */}
         <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
-          <div
+          <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${(4 / 7) * 100}%` }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
-        <h1
+        <motion.h1
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
           className="text-2xl font-bold text-gray-900 mb-2"
         >
           행사 가능 지역 선택 <span className="text-[11px] text-gray-400">4/7</span>
-        </h1>
-        <p
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
           className="text-sm text-gray-400"
         >
           다중선택 가능합니다
-        </p>
+        </motion.p>
       </div>
 
       {/* Regions — scrollable */}
@@ -76,20 +88,30 @@ export default function RegionsPage() {
           {REGIONS.map((region, index) => {
             const selected = selectedRegions.includes(region);
             return (
-              <button
+              <motion.button
                 key={region}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  backgroundColor: selected ? '#EFF6FF' : '#FFFFFF',
+                  borderColor: selected ? '#3180F7' : '#E5E7EB',
+                  color: selected ? '#3180F7' : '#9CA3AF',
+                }}
+                transition={{ delay: index * 0.05, duration: 0.2 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => toggleRegion(region)}
                 className="w-full py-4 rounded-2xl text-[18px] font-bold border-2 flex items-center justify-center gap-2"
               >
-                <>
+                <AnimatePresence>
                   {selected && (
-                    <span>
+                    <motion.span initial={{ scale: 0, width: 0 }} animate={{ scale: 1, width: 'auto' }} exit={{ scale: 0, width: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
                       <Check size={18} className="text-[#3180F7] stroke-[3]" />
-                    </span>
+                    </motion.span>
                   )}
-                </>
+                </AnimatePresence>
                 {region}
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -97,13 +119,19 @@ export default function RegionsPage() {
 
       {/* Next Button — fixed bottom */}
       <div className="shrink-0 p-6 pb-8 bg-white">
-        <button
+        <motion.button
           onClick={handleNext}
           disabled={!hasSelection}
+          whileTap={{ scale: 0.96 }}
+          animate={{
+            backgroundColor: hasSelection ? '#3180F7' : '#F3F4F6',
+            color: hasSelection ? '#FFFFFF' : '#9CA3AF',
+          }}
+          transition={{ duration: 0.25 }}
           className="w-full py-4 rounded-2xl font-bold text-base"
         >
           다음
-        </button>
+        </motion.button>
       </div>
     </div>
   );

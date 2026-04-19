@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Plus, X, Crop, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 
@@ -228,127 +229,156 @@ export default function PhotosPage() {
 
       {/* Header — fixed */}
       <div className="shrink-0 px-6 pt-4 pb-4 relative z-10">
-        <button onClick={() => router.back()} className="mb-4">
+        <motion.button onClick={() => router.back()} className="mb-4" whileTap={{ scale: 0.9 }}>
           <ChevronLeft size={24} className="text-gray-900" />
-        </button>
+        </motion.button>
         {/* Progress bar */}
         <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
-          <div
+          <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${(5 / 7) * 100}%` }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <motion.h1 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-2xl font-bold text-gray-900 mb-2">
           프로필사진 <span className="text-[11px] text-gray-400">5/7</span>
-        </h1>
-        <p className="text-sm text-gray-400">
+        </motion.h1>
+        <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-sm text-gray-400">
           대표 사진은 얼굴이 포함된 사진만 등록 가능합니다
-        </p>
-        <p className="text-sm text-gray-400">
+        </motion.p>
+        <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="text-sm text-gray-400">
           [필수] 4장 이상 등록 시 다음 버튼이 활성화됩니다
-        </p>
+        </motion.p>
       </div>
 
       {/* Face error toast */}
-      <>
+      <AnimatePresence>
         {faceError && (
-          <div
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
             className="fixed top-[100px] left-1/2 -translate-x-1/2 bg-red-500 text-white px-5 py-3 rounded-full shadow-lg z-50 flex items-center gap-2"
           >
             <AlertCircle size={16} />
             <p className="text-sm font-medium">{faceError}</p>
-          </div>
+          </motion.div>
         )}
-      </>
+      </AnimatePresence>
 
       {/* Photos Grid — scrollable */}
       <div className="flex-1 overflow-y-auto px-6 py-2">
         <div className="grid grid-cols-2 gap-3">
           {/* Add Photo Button */}
-          <button
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleAddPhoto}
             className="aspect-square bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-1.5 hover:border-[#3180F7] hover:bg-blue-50/30 transition-colors"
           >
             <Plus size={28} className="text-gray-400" />
             <span className="text-[12px] text-gray-400 font-medium">{photos.length}/4+</span>
-          </button>
+          </motion.button>
 
           {/* Photo Items */}
           {photos.map((photo, index) => (
-            <div
+            <motion.div
               key={index}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.25 + index * 0.05 }}
               className="aspect-square relative rounded-2xl overflow-hidden group"
             >
               {/* 대표 라벨 */}
-              <>
+              <AnimatePresence>
                 {mainPhotoIndex === index && (
-                  <div
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
                     className="absolute top-2.5 left-2.5 bg-[#3180F7] text-white text-[11px] px-2.5 py-1 rounded-full z-10 font-bold"
                   >
                     대표
-                  </div>
+                  </motion.div>
                 )}
-              </>
+              </AnimatePresence>
 
               <img src={photo} alt={`Profile ${index + 1}`} className="w-full h-full object-cover" />
 
               {/* Overlay actions */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end justify-center pb-2.5 gap-2 opacity-0 group-hover:opacity-100">
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => handleSetMain(index)}
                   className="px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold text-gray-700"
                 >
                   대표설정
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => handleEditCrop(index)}
                   className="w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center"
                 >
                   <Crop size={13} className="text-gray-700" />
-                </button>
+                </motion.button>
               </div>
 
               {/* Delete */}
-              <button
+              <motion.button
+                whileTap={{ scale: 0.85 }}
                 onClick={(e) => { e.stopPropagation(); handleRemovePhoto(index); }}
                 className="absolute top-2.5 right-2.5 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center z-10"
               >
                 <X size={15} className="text-white stroke-[2.5]" />
-              </button>
-            </div>
+              </motion.button>
+            </motion.div>
           ))}
         </div>
       </div>
 
       {/* Next Button — fixed bottom */}
       <div className="shrink-0 p-6 pb-8 bg-white">
-        <button
+        <motion.button
           onClick={handleNext}
           disabled={!isValid}
+          whileTap={{ scale: 0.96 }}
+          animate={{
+            backgroundColor: isValid ? '#3180F7' : '#F3F4F6',
+            color: isValid ? '#FFFFFF' : '#9CA3AF',
+          }}
+          transition={{ duration: 0.25 }}
           className="w-full py-4 rounded-2xl font-bold text-base"
         >
           다음 ({photos.length}/4)
-        </button>
+        </motion.button>
       </div>
 
       {/* Crop Modal */}
-      <>
+      <AnimatePresence>
         {cropImage && (
-          <div
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black flex flex-col"
           >
             {/* Crop header */}
             <div className="shrink-0 flex items-center justify-between px-4 h-[52px] bg-black/80 z-10">
-              <button onClick={() => { setCropImage(null); setFaceError(''); }} className="text-white text-[14px] font-medium">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setCropImage(null); setFaceError(''); }} className="text-white text-[14px] font-medium">
                 취소
-              </button>
+              </motion.button>
               <span className="text-white text-[16px] font-bold">사진 크롭</span>
-              <button
+              <motion.button
+                whileTap={{ scale: 0.9 }}
                 onClick={handleCropSave}
                 disabled={checking}
                 className="text-[#3180F7] text-[14px] font-bold"
               >
                 {checking ? '확인중...' : '완료'}
-              </button>
+              </motion.button>
             </div>
 
             {/* Cropper */}
@@ -373,15 +403,16 @@ export default function PhotosPage() {
             {/* Aspect ratio tabs */}
             <div className="shrink-0 px-4 py-3 bg-black/80 flex gap-2 justify-center">
               {ASPECT_OPTIONS.map((opt) => (
-                <button
+                <motion.button
                   key={opt.label}
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => setAspect(opt.value)}
                   className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors ${
                     aspect === opt.value ? 'bg-[#3180F7] text-white' : 'bg-white/10 text-gray-400'
                   }`}
                 >
                   {opt.label}
-                </button>
+                </motion.button>
               ))}
             </div>
 
@@ -401,19 +432,22 @@ export default function PhotosPage() {
             </div>
 
             {/* Face error in crop modal */}
-            <>
+            <AnimatePresence>
               {faceError && (
-                <div
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
                   className="absolute bottom-24 left-4 right-4 bg-red-500 text-white px-4 py-3 rounded-xl flex items-center gap-2 z-20"
                 >
                   <AlertCircle size={16} />
                   <p className="text-[13px] font-medium">{faceError}</p>
-                </div>
+                </motion.div>
               )}
-            </>
-          </div>
+            </AnimatePresence>
+          </motion.div>
         )}
-      </>
+      </AnimatePresence>
     </div>
   );
 }
