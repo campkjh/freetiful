@@ -211,13 +211,14 @@ function QuotePage() {
     }, 700);
   };
 
-  // 사용자 조건에 맞는 사회자 필터링 (사회자 선택 step에 들어갈 때)
+  // 사회자 전체 조회 + 조건 기반 정렬 (필터링으로 제외 안 함)
   useEffect(() => {
     if (step !== 'pros') return;
     let cancelled = false;
     setProsLoading(true);
     const moodList = Array.from(moods);
-    discoveryApi.getProList({ limit: 30, sort: 'rating' })
+    // limit 넉넉하게 (승인된 모든 사회자)
+    discoveryApi.getProList({ limit: 200, sort: 'rating' })
       .then((res) => {
         if (cancelled) return;
         const all = (res?.data || []).map((p: any) => ({
@@ -231,7 +232,11 @@ function QuotePage() {
           youtubeId: p.youtubeUrl?.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/)?.[1],
           recentReviews: [] as string[],
         }));
-        // 클라이언트 사이드 필터링: 분위기 keyword 가 intro 에 포함 / 최소 평점
+        // 조건 있으면 스코어 기반 정렬, 없으면 원래 순서 유지 (전부 노출)
+        if (moodList.length === 0 && !plan) {
+          setFilteredPros(all.length > 0 ? all : MOCK_PROS);
+          return;
+        }
         const scored = all.map((p) => {
           let score = p.rating * 10 + p.reviews * 0.05;
           if (moodList.length > 0) {
@@ -240,12 +245,13 @@ function QuotePage() {
               if (intro.includes(m.replace('한', '').replace('는', ''))) score += 15;
             }
           }
+          // 플랜은 정렬 우선순위에만 반영 — 경력이 높을수록 상위 플랜(Enterprise/Superior) 수행 가능
           if (plan === 'enterprise' && p.experience >= 8) score += 20;
           if (plan === 'superior' && p.experience >= 4) score += 10;
           return { pro: p, score };
         }).sort((a, b) => b.score - a.score);
-        const filtered = scored.map((s) => s.pro).slice(0, 12);
-        setFilteredPros(filtered.length > 0 ? filtered : MOCK_PROS);
+        // 스코어 정렬만 하고 필터링으로 제외 안 함 (전부 노출)
+        setFilteredPros(scored.map((s) => s.pro));
       })
       .catch(() => {
         if (!cancelled) setFilteredPros(MOCK_PROS);
@@ -733,7 +739,9 @@ function QuotePage() {
           <div key="pros">
             <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">사회자를 선택해주세요</h2>
             <p className="text-[14px] text-gray-400 mb-1">
-              {moods.size > 0 || plan ? `선호 조건에 맞는 사회자 ${filteredPros.length}명을 추천했어요` : '여러 명을 선택하면 동시에 견적을 받을 수 있어요'}
+              {moods.size > 0 || plan
+                ? `선호 조건 순으로 ${filteredPros.length}명의 사회자를 정렬했어요`
+                : `전체 ${filteredPros.length}명의 사회자 · 여러 명을 선택하면 동시에 견적을 받을 수 있어요`}
             </p>
             {(moods.size > 0 || plan) && (
               <div className="flex flex-wrap gap-1.5 mb-4">
