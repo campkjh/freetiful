@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon, CheckCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { prosApi } from '@/lib/api/pros.api';
 
 const COMPANY_LOGOS: string[] = [
@@ -166,6 +167,7 @@ export default function ProfilePage() {
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [showCompanySheet, setShowCompanySheet] = useState(false);
   const [companySearch, setCompanySearch] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
@@ -1126,7 +1128,10 @@ export default function ProfilePage() {
                 심사기간은 최대 7일이며, 결과는 알림으로 안내드립니다.
               </p>
               <motion.button
+                disabled={submitting}
                 onClick={async () => {
+                  if (submitting) return;
+                  setSubmitting(true);
                   // localStorage 캐시 (UI 표시용)
                   localStorage.setItem('proRegistrationComplete', 'pending');
                   localStorage.setItem('proRegister_intro', intro);
@@ -1186,18 +1191,26 @@ export default function ProfilePage() {
                     submitError = e;
                     console.error('submitRegistration failed', e);
                   }
+                  setSubmitting(false);
                   setShowConfirm(false);
                   if (submitSucceeded) {
                     setShowSuccess(true);
                   } else {
                     const msg = submitError?.response?.data?.message || submitError?.message || '서버 저장 중 오류가 발생했습니다.';
-                    alert(`파트너 신청 서버 저장 실패: ${msg}\n\n다시 시도해주세요. 계속 실패하면 관리자에게 문의해 주세요.`);
+                    toast.error(`신청 실패: ${msg}`, { duration: 4000 });
                   }
                 }}
-                className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base mb-3"
-                whileTap={{ scale: 0.97 }}
+                className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base mb-3 flex items-center justify-center gap-2 disabled:opacity-70"
+                whileTap={submitting ? {} : { scale: 0.97 }}
               >
-                제출
+                {submitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    제출 중...
+                  </>
+                ) : (
+                  '제출'
+                )}
               </motion.button>
               <motion.button
                 onClick={() => setShowConfirm(false)}

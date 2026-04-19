@@ -4,11 +4,18 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import * as compression from 'compression';
+import * as express from 'express';
 import * as path from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+
+  // Body parser — 파트너 신청 시 base64 사진 여러 장 업로드를 위해 큰 용량 허용
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Serve uploaded files statically
   app.useStaticAssets(path.join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
