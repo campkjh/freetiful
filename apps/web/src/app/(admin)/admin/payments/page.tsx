@@ -4,16 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { apiClient } from '@/lib/api/client';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
-
-async function adminFetch(method: string, path: string) {
-  const headers: Record<string, string> = {};
-  const adminKey = (typeof window !== 'undefined' && localStorage.getItem('admin-key')) || '';
-  if (adminKey) headers['x-admin-key'] = adminKey;
-  const res = await apiClient.request({ method, url: path, headers });
-  return res.data;
-}
+import { adminFetch } from '../_components/adminFetch';
 
 interface PaymentItem {
   id: string;

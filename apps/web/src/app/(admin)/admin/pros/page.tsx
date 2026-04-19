@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { adminFetch } from '../_components/adminFetch';
 
 interface ProItem {
   id: string;
@@ -26,13 +26,6 @@ const statusLabel: Record<string, { text: string; className: string }> = {
   draft: { text: '임시저장', className: 'bg-gray-50 text-gray-500' },
 };
 
-async function adminFetch(method: string, path: string, body?: any) {
-  const headers: Record<string, string> = {};
-  const adminKey = (typeof window !== 'undefined' && localStorage.getItem('admin-key')) || '';
-  if (adminKey) headers['x-admin-key'] = adminKey;
-  const res = await apiClient.request({ method, url: path, data: body, headers });
-  return res.data;
-}
 
 export default function AdminProsPage() {
   const [pros, setPros] = useState<ProItem[]>([]);

@@ -4,16 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Search, ChevronLeft, ChevronRight, Trash2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { apiClient } from '@/lib/api/client';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
-
-async function adminFetch(method: string, path: string, body?: any) {
-  const headers: Record<string, string> = {};
-  const adminKey = (typeof window !== 'undefined' && localStorage.getItem('admin-key')) || '';
-  if (adminKey) headers['x-admin-key'] = adminKey;
-  const res = await apiClient.request({ method, url: path, data: body, headers });
-  return res.data;
-}
+import { adminFetch } from '../_components/adminFetch';
 
 interface UserItem {
   id: string;

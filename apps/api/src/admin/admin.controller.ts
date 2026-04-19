@@ -5,7 +5,10 @@ import { AdminGuard } from '../common/guards/admin.guard';
 
 @ApiTags('admin')
 @UseGuards(AdminGuard)
-@Controller('admin')
+// 두 경로 모두 허용 (Railway 배포 타이밍 이슈 방지):
+// - /api/v1/admin/* : 글로벌 prefix + 'admin'
+// - /api/v1/api/v1/admin/* : 글로벌 prefix + 'api/v1/admin' (구 배포 호환)
+@Controller(['admin', 'api/v1/admin'])
 export class AdminController {
   constructor(private adminService: AdminService) {}
 
