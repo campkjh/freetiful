@@ -195,7 +195,7 @@ function ProsListContent() {
     }
 
     return results;
-  }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType]);
+  }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType, ALL_PROS]);
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;

@@ -325,7 +325,13 @@ export default function FavoritesPage() {
       {/* 웨딩파트너 탭 */}
       {activeTab === 'portfolio' && (
         <div className="bg-white">
-          {filteredBiz.length > 0 ? (
+          {favLoading && filteredBiz.length === 0 ? (
+            <div className="divide-y divide-gray-100">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <BizCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : filteredBiz.length > 0 ? (
             <div className="divide-y divide-gray-100">
               {filteredBiz.map((biz) => (
                 <div key={biz.id} className="px-4 py-3">
@@ -441,6 +447,23 @@ function ProCardSkeleton() {
           <div className="h-4 w-24 bg-gray-200 rounded-full animate-pulse mt-2" />
           <div className="h-3 w-full bg-gray-100 rounded-full animate-pulse mt-3" />
           <div className="h-3 w-3/4 bg-gray-100 rounded-full animate-pulse mt-1.5" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BizCardSkeleton() {
+  return (
+    <div className="px-4 py-3">
+      <div className="flex gap-3">
+        <div className="w-[140px] h-[140px] rounded-lg bg-gray-200 animate-pulse shrink-0" />
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="h-4 w-10 bg-gray-200 rounded animate-pulse" />
+          <div className="h-4 w-32 bg-gray-200 rounded-full animate-pulse mt-2" />
+          <div className="h-3 w-24 bg-gray-100 rounded-full animate-pulse mt-1.5" />
+          <div className="h-3 w-20 bg-gray-100 rounded-full animate-pulse mt-2" />
+          <div className="h-4 w-28 bg-gray-200 rounded-full animate-pulse mt-2" />
         </div>
       </div>
     </div>
