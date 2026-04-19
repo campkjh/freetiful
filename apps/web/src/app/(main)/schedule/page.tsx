@@ -223,12 +223,6 @@ function ProScheduleView() {
               <rect x="14.5" y="2" width="2.5" height="4" rx="1.25" fill="#D1D5DB"/>
             </svg>
             <p className="text-[14px]">예약된 행사가 없습니다</p>
-            <button
-              onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setHasDemoData(true); }}
-              className="mt-3 text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors"
-            >
-              데모 데이터 로드
-            </button>
           </div>
         )}
         {bookings.map(booking => {
@@ -572,14 +566,6 @@ export default function SchedulePage() {
                   <path d="M9 15l2 2 4-4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <p className="text-[14px]">이 날에는 일정이 없습니다</p>
-                {isLoggedIn && !hasDemoData && (
-                  <button
-                    onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setHasDemoData(true); }}
-                    className="mt-3 text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors"
-                  >
-                    데모 데이터 로드
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -639,14 +625,6 @@ export default function SchedulePage() {
                 <path d="M9 15l2 2 4-4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <p className="text-[14px]">이번 달 일정이 없습니다</p>
-              {isLoggedIn && !hasDemoData && (
-                <button
-                  onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setHasDemoData(true); }}
-                  className="mt-3 text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors"
-                >
-                  데모 데이터 로드
-                </button>
-              )}
             </div>
           )}
         </div>

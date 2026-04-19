@@ -97,49 +97,28 @@ export default function FavoritesPage() {
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
-    if (!loggedIn) { setFavLoading(false); return; }
+    if (!loggedIn || !authUser) { setFavLoading(false); return; }
 
-    // localStorage 먼저 즉시 렌더 (체감 속도 개선)
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      if (stored.length > 0) {
-        const mapped = stored
-          .map((id) => ALL_PROS.find((p) => p.id === id))
-          .filter(Boolean) as typeof ALL_PROS;
-        setFavPros(mapped);
-        setFavLoading(false);
-      }
-    } catch {}
-
-    // Demo biz fallback
-    if (localStorage.getItem('freetiful-has-demo-data') === 'true') {
-      setFavBiz(MOCK_FAVORITE_BIZ);
-    }
-
-    // API로 최신 데이터 fetch (백그라운드)
-    if (authUser) {
-      favoriteApi.getList({ limit: 50 })
-        .then((res: any) => {
-          if (res?.items) {
-            setFavPros(res.items.map((f: any) => ({
-              id: f.proProfile?.id || f.proProfileId,
-              name: f.proProfile?.user?.name || '',
-              category: '사회자',
-              badge: '',
-              intro: f.proProfile?.shortIntro || '',
-              rating: Number(f.proProfile?.avgRating || 0),
-              reviews: f.proProfile?.reviewCount || 0,
-              image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
-              price: f.proProfile?.services?.[0]?.basePrice || 450000,
-              subName: `사회자 ${f.proProfile?.user?.name || ''}`,
-            })));
-          }
-        })
-        .catch(() => {})
-        .finally(() => setFavLoading(false));
-    } else {
-      setFavLoading(false);
-    }
+    // 캐시된 데이터가 없으면 skeleton 유지, 있으면 이미 initial state로 표시 중
+    favoriteApi.getList({ limit: 50 })
+      .then((res: any) => {
+        if (res?.items) {
+          setFavPros(res.items.map((f: any) => ({
+            id: f.proProfile?.id || f.proProfileId,
+            name: f.proProfile?.user?.name || '',
+            category: '사회자',
+            badge: '',
+            intro: f.proProfile?.shortIntro || '',
+            rating: Number(f.proProfile?.avgRating || 0),
+            reviews: f.proProfile?.reviewCount || 0,
+            image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
+            price: f.proProfile?.services?.[0]?.basePrice || 450000,
+            subName: `사회자 ${f.proProfile?.user?.name || ''}`,
+          })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setFavLoading(false));
   }, [authUser]);
   const [recentPros, setRecentPros] = useState<typeof ALL_PROS>([]);
   const [scrolled, setScrolled] = useState(false);
@@ -305,19 +284,7 @@ export default function FavoritesPage() {
               ))}
             </div>
           ) : (
-            <>
-              <EmptyState message={isLoggedIn ? "찜한 전문가가 없습니다" : "로그인 후 찜한 전문가를 확인하세요"} linkText={isLoggedIn ? "전문가 찾아보기" : "로그인하기"} linkHref={isLoggedIn ? "/pros" : "/"} />
-              {isLoggedIn && favPros.length === 0 && (
-                <div className="flex justify-center -mt-16 pb-8">
-                  <button
-                    onClick={() => { localStorage.setItem('freetiful-has-demo-data', 'true'); setFavPros(MOCK_FAVORITE_PROS); setFavBiz(MOCK_FAVORITE_BIZ); }}
-                    className="text-[13px] text-blue-500 font-medium px-4 py-2 rounded-full border border-blue-200 hover:bg-blue-50 transition-colors"
-                  >
-                    데모 데이터 로드
-                  </button>
-                </div>
-              )}
-            </>
+            <EmptyState message={isLoggedIn ? "찜한 전문가가 없습니다" : "로그인 후 찜한 전문가를 확인하세요"} linkText={isLoggedIn ? "전문가 찾아보기" : "로그인하기"} linkHref={isLoggedIn ? "/pros" : "/"} />
           )}
         </div>
       )}
