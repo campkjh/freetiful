@@ -35,7 +35,7 @@ export class AuthService {
   private async issueTokens(userId: string) {
     const accessToken = this.jwt.sign(
       { sub: userId },
-      { expiresIn: this.config.get('JWT_EXPIRES_IN', '15m') },
+      { expiresIn: this.config.get('JWT_EXPIRES_IN', '7d') },
     );
     const refreshToken = uuid();
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);

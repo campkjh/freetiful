@@ -100,6 +100,13 @@ export default function AdminProsPage() {
     } catch { toast.error('변경 실패'); }
   };
 
+  const handleToggleFeatured = async (id: string) => {
+    try {
+      await adminFetch('PATCH', `/api/v1/admin/pros/${id}/featured`);
+      setPros((prev) => prev.map((p) => p.id === id ? { ...p, isFeatured: !p.isFeatured } : p));
+    } catch { toast.error('변경 실패'); }
+  };
+
   const totalPages = Math.ceil(total / LIMIT);
 
   if (!adminKey) {
@@ -183,6 +190,7 @@ export default function AdminProsPage() {
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">평점</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">리뷰</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">파트너로고</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">추천</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
                 </tr>
               </thead>
@@ -212,6 +220,15 @@ export default function AdminProsPage() {
                         <button onClick={() => handleToggleLogo(pro.id)} className="transition-colors">
                           {pro.showPartnersLogo
                             ? <ToggleRight size={32} className="text-blue-500" />
+                            : <ToggleLeft size={32} className="text-gray-300" />}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center">
+                        <button onClick={() => handleToggleFeatured(pro.id)} className="transition-colors">
+                          {pro.isFeatured
+                            ? <ToggleRight size={32} className="text-amber-500" />
                             : <ToggleLeft size={32} className="text-gray-300" />}
                         </button>
                       </div>

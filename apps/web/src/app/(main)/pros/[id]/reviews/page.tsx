@@ -91,7 +91,7 @@ export default function ReviewsPage() {
     } catch {}
   }, [id, authUser]);
 
-  const allReviews = [...userReviews, ...(apiReviews || REVIEWS)];
+  const allReviews = [...userReviews, ...(apiReviews || [])];
 
   const avgRating = allReviews.length > 0
     ? Math.round((allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length) * 10) / 10

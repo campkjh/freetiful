@@ -234,6 +234,57 @@ export class ProService {
     return schedules.map((s) => s.date.toISOString().split('T')[0]);
   }
 
+  // ─── Revenue ──────────────────────────────────────────────────────────────
+
+  async getRevenue(userId: string) {
+    const profile = await this.getProfileByUserId(userId);
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const [thisMonthPayments, lastMonthPayments, profileData] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: {
+          proProfileId: profile.id,
+          status: 'completed',
+          createdAt: { gte: thisMonthStart },
+        },
+        select: { amount: true },
+      }),
+      this.prisma.payment.findMany({
+        where: {
+          proProfileId: profile.id,
+          status: 'completed',
+          createdAt: { gte: lastMonthStart, lt: thisMonthStart },
+        },
+        select: { amount: true },
+      }),
+      this.prisma.proProfile.findUnique({
+        where: { id: profile.id },
+        select: { profileViews: true, avgRating: true, reviewCount: true },
+      }),
+    ]);
+
+    const thisMonth = thisMonthPayments.reduce((s, p) => s + (p.amount || 0), 0);
+    const lastMonth = lastMonthPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
+    return {
+      thisMonth,
+      lastMonth,
+      profileViews: profileData?.profileViews || 0,
+      avgRating: profileData?.avgRating || 0,
+      reviewCount: profileData?.reviewCount || 0,
+    };
+  }
+
+  async incrementProfileView(proProfileId: string) {
+    await this.prisma.proProfile.update({
+      where: { id: proProfileId },
+      data: { profileViews: { increment: 1 } },
+    });
+    return { ok: true };
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private async getProfileByUserId(userId: string) {

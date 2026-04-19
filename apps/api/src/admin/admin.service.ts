@@ -247,6 +247,181 @@ export class AdminService {
     });
   }
 
+  // ─── Featured 토글 ───────────────────────────────────────────────────────
+  async toggleFeatured(proProfileId: string) {
+    const profile = await this.prisma.proProfile.findUnique({ where: { id: proProfileId } });
+    if (!profile) throw new Error('Pro not found');
+    return this.prisma.proProfile.update({
+      where: { id: proProfileId },
+      data: { isFeatured: !profile.isFeatured },
+    });
+  }
+
+  // ─── 통계 ────────────────────────────────────────────────────────────────
+  async getStats() {
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [totalUsers, totalPros, pendingPros, totalReviews, thisMonthRevenue, totalRevenue] = await Promise.all([
+      this.prisma.user.count({ where: { role: 'general' } }),
+      this.prisma.proProfile.count({ where: { status: 'approved' } }),
+      this.prisma.proProfile.count({ where: { status: 'pending' } }),
+      this.prisma.review.count(),
+      this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: { gte: thisMonthStart } }, _sum: { amount: true } }),
+      this.prisma.payment.aggregate({ where: { status: 'completed' }, _sum: { amount: true } }),
+    ]);
+
+    return {
+      totalUsers,
+      totalPros,
+      pendingPros,
+      totalReviews,
+      thisMonthRevenue: thisMonthRevenue._sum.amount || 0,
+      totalRevenue: totalRevenue._sum.amount || 0,
+    };
+  }
+
+  // ─── 유저 목록 ───────────────────────────────────────────────────────────
+  async getUsers(params: { page?: number; limit?: number; search?: string; role?: string }) {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const where: any = {};
+    if (params.role) where.role = params.role;
+    if (params.search) {
+      where.OR = [
+        { name: { contains: params.search, mode: 'insensitive' } },
+        { email: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          profileImageUrl: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: data.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        profileImageUrl: u.profileImageUrl,
+        createdAt: u.createdAt,
+        paymentCount: 0,
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  // ─── 유저 권한 변경 ──────────────────────────────────────────────────────
+  async updateUserRole(userId: string, role: string) {
+    return this.prisma.user.update({ where: { id: userId }, data: { role: role as any } });
+  }
+
+  // ─── 유저 삭제 ───────────────────────────────────────────────────────────
+  async deleteUser(userId: string) {
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { success: true };
+  }
+
+  // ─── 결제 목록 ───────────────────────────────────────────────────────────
+  async getPayments(params: { page?: number; limit?: number; status?: string }) {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const where: any = {};
+    if (params.status) where.status = params.status;
+
+    const [payments, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    const userIds = [...new Set(payments.map((p) => p.userId))];
+    const proIds = [...new Set(payments.map((p) => p.proProfileId))];
+
+    const [users, proProfiles] = await Promise.all([
+      this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }),
+      this.prisma.proProfile.findMany({ where: { id: { in: proIds } }, include: { user: { select: { id: true, name: true } } } }),
+    ]);
+
+    const userMap = new Map(users.map((u) => [u.id, u.name]));
+    const proMap = new Map(proProfiles.map((p) => [p.id, p.user?.name]));
+
+    return {
+      data: payments.map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        status: p.status,
+        userName: userMap.get(p.userId) || null,
+        proName: proMap.get(p.proProfileId) || null,
+        createdAt: p.createdAt,
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  // ─── 리뷰 목록 ───────────────────────────────────────────────────────────
+  async getReviews(params: { page?: number; limit?: number }) {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+
+    const [data, total] = await Promise.all([
+      this.prisma.review.findMany({
+        include: {
+          reviewer: { select: { name: true } },
+          proProfile: { include: { user: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.review.count(),
+    ]);
+
+    return {
+      data: data.map((r) => ({
+        id: r.id,
+        reviewerName: r.reviewer?.name,
+        proName: r.proProfile?.user?.name,
+        avgRating: r.avgRating,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        isAnonymous: r.isAnonymous,
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  // ─── 리뷰 삭제 ───────────────────────────────────────────────────────────
+  async deleteReview(reviewId: string) {
+    await this.prisma.review.delete({ where: { id: reviewId } });
+    return { success: true };
+  }
+
   // ─── 행사일 리마인더 크론 (매일 오전 9시) ──────────────────────────────
   @Cron('0 9 * * *')
   async sendEventReminders() {

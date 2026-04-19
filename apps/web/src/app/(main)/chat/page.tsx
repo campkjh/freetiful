@@ -53,12 +53,13 @@ export default function ChatListPage() {
         // If API returns rooms, use them; otherwise fall back to mock data
         const storeRooms = useChatStore.getState().rooms;
         if (storeRooms.length > 0) {
+          const isProUser = authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro';
           setRooms(storeRooms.map((r) => ({
             id: r.id,
             otherUser: {
               id: r.otherUser.id,
               name: r.otherUser.name,
-              role: '사회자',
+              role: isProUser ? '고객' : '사회자',
               profileImageUrl: r.otherUser.profileImageUrl || '',
             },
             lastMessage: r.lastMessage?.content || '',

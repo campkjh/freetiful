@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
+import { chatApi } from '@/lib/api/chat.api';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -1019,7 +1020,10 @@ export default function ProDetailPage() {
             <div className="relative overflow-hidden rounded-xl p-5 mb-6 border border-[#3180F7]/15 bg-gradient-to-br from-[#EAF3FF]/40 via-white to-white">
               {/* Glow accent */}
               <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#3180F7]/10 blur-3xl pointer-events-none" />
-              <img src="/images/partners-badge.svg" alt="Partners" className="h-[26px] mb-3 relative" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3180F7] bg-[#EAF3FF] px-2.5 py-1 rounded-full mb-3">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Partners
+              </span>
               <p className="text-[15px] font-bold text-gray-900 mb-3">
                 이 서비스는 프리티풀 엄선 <span className="text-[#3180F7]">상위 2% 전문가</span>가 제공해요
               </p>
@@ -1110,7 +1114,7 @@ export default function ProDetailPage() {
                 </button>
               </div>
               <div className="mt-1.5">
-                <img src="/images/partners-badge.svg" alt="Partners" className="h-[18px] mb-0.5" />
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-[2px] rounded-full mb-0.5"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
                 <p className="text-[13px] font-semibold text-gray-900 leading-tight">사회자 {item.author}</p>
                 {item.rating && (
                   <div className="flex items-center gap-1 mt-0.5">
@@ -1411,7 +1415,17 @@ export default function ProDetailPage() {
             )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
-                onClick={() => { setShowTooltip(false); if (localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; } router.push(`/chat/${pro.id}`); }}
+                onClick={async () => {
+                setShowTooltip(false);
+                if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; }
+                try {
+                  const res = await chatApi.createRoom(pro.id);
+                  const roomId = (res.data as any)?.id || (res.data as any)?.roomId;
+                  router.push(`/chat/${roomId || pro.id}`);
+                } catch {
+                  router.push(`/chat/${pro.id}`);
+                }
+              }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors"
               >
                 문의하기

@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { quotationApi } from '@/lib/api/quotation.api';
 import { reviewApi } from '@/lib/api/review.api';
+import { scheduleApi } from '@/lib/api/schedule.api';
 import { apiClient } from '@/lib/api/client';
 
 /* ─── Detailed SVG Icons (multi-layered, flat-color, premium) ─── */
@@ -132,40 +133,25 @@ interface Quote {
   rejectionReason?: string;
 }
 
-/* ─── Mock Data ─── */
+/* ─── Types ─── */
 
-const INITIAL_QUOTES: Quote[] = [
-  { id: 'q1', clientName: '홍**', eventType: '결혼식', eventDate: '2026-05-17', plan: 'Premium', budget: '₩1,800,000', status: 'pending' },
-  { id: 'q2', clientName: '김**', eventType: '돌잔치', eventDate: '2026-05-24', plan: 'Superior', budget: '₩1,200,000', status: 'pending' },
-  { id: 'q3', clientName: '박**', eventType: '기업행사', eventDate: '2026-06-01', plan: 'Enterprise', budget: '₩3,500,000', status: 'pending' },
-];
+interface UpcomingEvent {
+  date: string;
+  day: string;
+  eventType: string;
+  venue: string;
+  status: string;
+}
 
-const UPCOMING_EVENTS = [
-  { date: '4/19', day: '토', eventType: '웨딩 MC', client: '최**', venue: '시에나호텔 그랜드홀', time: '11:00', status: '확정' },
-  { date: '4/26', day: '토', eventType: '돌잔치 MC', client: '장**', venue: '그랜드하얏트 볼룸', time: '12:00', status: '확정' },
-  { date: '5/03', day: '토', eventType: '웨딩 MC', client: '서**', venue: 'JW메리어트 가든', time: '14:00', status: '조율중' },
-];
-
-const RECENT_REVIEWS = [
-  {
-    id: 'r1',
-    author: '김**',
-    rating: 5,
-    text: '정말 프로페셔널하시고, 분위기를 완벽하게 이끌어주셨어요. 하객분들 모두 만족하셨습니다!',
-    date: '2026-04-05',
-    badge: '개인' as const,
-    scores: { 경력: 5, 만족도: 5, 구성력: 5, 위트: 4, 발성: 5, 이미지: 5 },
-  },
-  {
-    id: 'r2',
-    author: '이**',
-    rating: 5,
-    text: '아이 돌잔치를 정말 따뜻하고 감동적으로 진행해주셔서 감사합니다.',
-    date: '2026-03-29',
-    badge: 'Biz' as const,
-    scores: { 경력: 5, 만족도: 5, 구성력: 4, 위트: 5, 발성: 5, 이미지: 4 },
-  },
-];
+interface RecentReview {
+  id: string;
+  author: string;
+  rating: number;
+  text: string;
+  date: string;
+  badge: '개인' | 'Biz' | '에이전시';
+  scores: { 경력: number; 만족도: number; 구성력: number; 위트: number; 발성: number; 이미지: number };
+}
 
 const REJECTION_REASONS = ['일정 불가', '지역 불가', '금액 불일치', '전문 분야 불일치', '기타'];
 
@@ -238,74 +224,115 @@ export default function ProDashboardPage() {
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
   const [puddingCount, setPuddingCount] = useState(0);
-  const [hasDemoData, setHasDemoData] = useState(false);
   const [reviewCount, setReviewCount] = useState(0);
-  const [avgRating, setAvgRating] = useState('4.8');
-  const [monthlyRevenue, setMonthlyRevenue] = useState(2400000);
-  const [lastMonthRevenue, setLastMonthRevenue] = useState(1800000);
-  const [profileViews, setProfileViews] = useState(328);
+  const [avgRating, setAvgRating] = useState('0.0');
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [lastMonthRevenue, setLastMonthRevenue] = useState(0);
+  const [profileViews, setProfileViews] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
+  const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const storedName = localStorage.getItem('proRegister_name') || '프로';
     setName(storedName);
 
-    const hasDemo = localStorage.getItem('freetiful-has-demo-data') === 'true';
-    setHasDemoData(hasDemo);
-    if (hasDemo) {
-      const stored = localStorage.getItem('pro-quotes');
-      if (stored) {
-        try {
-          setQuotes(JSON.parse(stored));
-        } catch {
-          setQuotes(INITIAL_QUOTES);
-          localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES));
-        }
-      } else {
-        setQuotes(INITIAL_QUOTES);
-        localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES));
-      }
-    }
-
     const storedReplies = localStorage.getItem('pro-review-replies');
     if (storedReplies) {
       try { setSavedReplies(JSON.parse(storedReplies)); } catch { /* ignore */ }
     }
 
-    // Read pudding count from localStorage
     try {
       const storedPudding = localStorage.getItem('freetiful-pudding');
       setPuddingCount(storedPudding ? Number(storedPudding) : 0);
     } catch { /* ignore */ }
   }, []);
 
-  // Fetch dashboard data from API when authenticated
+  // Fetch quotation requests for pro
   useEffect(() => {
     if (!authUser) return;
-    quotationApi.getDashboard()
-      .then((data) => {
-        if (data?.quotes && Array.isArray(data.quotes)) {
-          setQuotes(data.quotes);
+    quotationApi.getForPro({ limit: 20 })
+      .then((data: any) => {
+        const items = data?.data || (Array.isArray(data) ? data : []);
+        if (items.length > 0) {
+          const mapped: Quote[] = items.map((q: any) => ({
+            id: q.id,
+            clientName: q.user?.name ? q.user.name.slice(0, 1) + '**' : '고객**',
+            eventType: q.title || '행사',
+            eventDate: q.eventDate || new Date().toISOString(),
+            plan: (q.planName as Quote['plan']) || 'Premium',
+            budget: q.amount ? `₩${Number(q.amount).toLocaleString()}` : '협의',
+            status: q.status === 'cancelled' ? 'rejected' : ((q.status || 'pending') as Quote['status']),
+          }));
+          setQuotes(mapped);
         }
-        if (data?.name) setName(data.name);
       })
-      .catch(() => { /* fallback to localStorage data */ });
+      .catch(() => {});
   }, [authUser]);
 
-  // Fetch review stats
+  // Fetch review stats + recent reviews
   useEffect(() => {
     if (!authUser) return;
-    reviewApi.getMine({ page: 1, limit: 1 })
+    reviewApi.getMine({ page: 1, limit: 5 })
       .then((data: any) => {
-        if (data?.total != null) setReviewCount(data.total);
-        if (data?.avgRating != null) setAvgRating(String(data.avgRating));
-        if (Array.isArray(data) && data.length > 0) {
-          setReviewCount(data.length);
-          const avg = (data.reduce((s: number, r: any) => s + (r.ratingSatisfaction || r.rating || 0), 0) / data.length).toFixed(1);
-          setAvgRating(avg);
+        const items = data?.data || (Array.isArray(data) ? data : []);
+        const total = data?.total ?? items.length;
+        if (total != null) setReviewCount(total);
+        if (data?.avgRating != null) setAvgRating(Number(data.avgRating).toFixed(1));
+        if (items.length > 0) {
+          const avg = (items.reduce((s: number, r: any) => s + (r.avgRating || r.ratingSatisfaction || 0), 0) / items.length).toFixed(1);
+          if (data?.avgRating == null) setAvgRating(avg);
+          const mapped: RecentReview[] = items.slice(0, 2).map((r: any) => ({
+            id: r.id,
+            author: r.reviewer?.name ? r.reviewer.name.slice(0, 1) + '**' : '고객**',
+            rating: Math.round((r.avgRating || r.ratingSatisfaction || 0) * 10) / 10,
+            text: r.comment || '',
+            date: r.createdAt || new Date().toISOString(),
+            badge: '개인' as const,
+            scores: {
+              경력: r.ratingExperience || 0,
+              만족도: r.ratingSatisfaction || 0,
+              구성력: r.ratingComposition || 0,
+              위트: r.ratingWit || 0,
+              발성: r.ratingVoice || 0,
+              이미지: r.ratingAppearance || 0,
+            },
+          }));
+          setRecentReviews(mapped);
         }
       })
-      .catch(() => { /* fallback */ });
+      .catch(() => {});
+  }, [authUser]);
+
+  // Fetch upcoming scheduled events
+  useEffect(() => {
+    if (!authUser) return;
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
+    Promise.all([
+      scheduleApi.getMySchedule(thisMonth),
+      scheduleApi.getMySchedule(nextMonth),
+    ]).then(([thisData, nextData]: [any, any]) => {
+      const all = [...(Array.isArray(thisData) ? thisData : []), ...(Array.isArray(nextData) ? nextData : [])];
+      const upcoming: UpcomingEvent[] = all
+        .filter((s: any) => s.status === 'booked' && new Date(s.date) >= now)
+        .slice(0, 3)
+        .map((s: any) => {
+          const d = new Date(s.date);
+          return {
+            date: `${d.getMonth() + 1}/${d.getDate()}`,
+            day: weekdays[d.getDay()],
+            eventType: s.eventTitle || '일정',
+            venue: s.eventLocation || '',
+            status: '확정',
+          };
+        });
+      setUpcomingEvents(upcoming);
+    }).catch(() => {});
   }, [authUser]);
 
   // Fetch pudding from API
@@ -557,7 +584,10 @@ export default function ProDashboardPage() {
         </div>
 
         <div className="relative">
-          {(hasDemoData ? UPCOMING_EVENTS : []).map((ev, i) => (
+          {upcomingEvents.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-6">예정된 일정이 없습니다</p>
+          )}
+          {upcomingEvents.map((ev, i) => (
             <div
               key={i}
               className="flex gap-4 pb-5 last:pb-0 relative"
@@ -567,7 +597,7 @@ export default function ProDashboardPage() {
                 <div className="w-3 h-3 rounded-full bg-[#3180F7] mt-1.5 shrink-0 relative">
                   <div className="absolute inset-0 rounded-full bg-[#3180F7] animate-ping opacity-20" />
                 </div>
-                {i < UPCOMING_EVENTS.length - 1 && (
+                {i < upcomingEvents.length - 1 && (
                   <div className="w-0.5 flex-1 bg-blue-100 mt-1" />
                 )}
               </div>
@@ -576,8 +606,8 @@ export default function ProDashboardPage() {
               <div className="flex-1 flex items-start justify-between min-w-0">
                 <div>
                   <p className="text-sm font-bold text-gray-900">{ev.date} ({ev.day})</p>
-                  <p className="text-xs text-gray-700 mt-0.5">{ev.eventType} · {ev.client}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{ev.venue} · {ev.time}</p>
+                  <p className="text-xs text-gray-700 mt-0.5">{ev.eventType}</p>
+                  {ev.venue && <p className="text-[11px] text-gray-400 mt-0.5">{ev.venue}</p>}
                 </div>
                 <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ml-2 ${
                   ev.status === '확정' ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'
@@ -601,7 +631,10 @@ export default function ProDashboardPage() {
           </Link>
         </div>
         <div className="space-y-4">
-          {(hasDemoData ? RECENT_REVIEWS : []).map((review, i) => (
+          {recentReviews.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-6">아직 리뷰가 없습니다</p>
+          )}
+          {recentReviews.map((review, i) => (
             <div
               key={review.id}
               className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm"
@@ -697,7 +730,8 @@ export default function ProDashboardPage() {
             </div>
             <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#3180F7] rounded-full"
+                className="h-full bg-[#3180F7] rounded-full transition-all duration-700"
+                style={{ width: maxRevenue > 0 ? `${(thisMonth / maxRevenue) * 100}%` : '0%' }}
               />
             </div>
           </div>
@@ -708,14 +742,17 @@ export default function ProDashboardPage() {
             </div>
             <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gray-300 rounded-full"
+                className="h-full bg-gray-300 rounded-full transition-all duration-700"
+                style={{ width: maxRevenue > 0 ? `${(lastMonth / maxRevenue) * 100}%` : '0%' }}
               />
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
             <span className="text-[11px] text-gray-400">전월 대비</span>
-            <span className="text-xs font-bold text-green-500">
-              +{Math.round(((thisMonth - lastMonth) / lastMonth) * 100)}% 증가
+            <span className={`text-xs font-bold ${thisMonth >= lastMonth ? 'text-green-500' : 'text-red-400'}`}>
+              {lastMonth > 0
+                ? `${thisMonth >= lastMonth ? '+' : ''}${Math.round(((thisMonth - lastMonth) / lastMonth) * 100)}% ${thisMonth >= lastMonth ? '증가' : '감소'}`
+                : thisMonth > 0 ? '첫 달 매출' : '매출 없음'}
             </span>
           </div>
         </div>

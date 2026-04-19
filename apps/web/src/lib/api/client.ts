@@ -41,8 +41,8 @@ apiClient.interceptors.response.use(
       const store = useAuthStore.getState();
       // Bypass apiClient to avoid recursive 401 loops
       const res = await axios.post(`/api/v1/auth/refresh`, { refreshToken: store.refreshToken });
-      const { accessToken } = res.data.tokens;
-      store.setTokens(accessToken, store.refreshToken!);
+      const { accessToken, refreshToken: newRefreshToken } = res.data.tokens;
+      store.setTokens(accessToken, newRefreshToken || store.refreshToken!);
       failedQueue.forEach((q) => q.resolve(accessToken));
       original.headers.Authorization = `Bearer ${accessToken}`;
       return apiClient(original);

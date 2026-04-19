@@ -272,6 +272,7 @@ interface ProData {
   tags: string[];
   available: boolean;
   youtubeId?: string;
+  isPartner?: boolean;
 }
 
 /* placeholder to anchor subsequent edits */
@@ -446,7 +447,12 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
         </button>
       </div>
       <div className="mt-1.5">
-        <img src="/images/partners-badge.svg" alt="Partners" className="h-[22px] mb-0.5" />
+        {pro.isPartner && (
+          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-[2px] rounded-full mb-1">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Partners
+          </span>
+        )}
         <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[16px]">{pro.role} {pro.name}</h4>
         <div className="flex items-center gap-2 mt-0.5 mb-1">
           <div className="flex items-center gap-0.5">
@@ -499,6 +505,7 @@ export default function HomePage() {
             tags: p.isFeatured ? ['인기', '추천'] : ['전국가능'],
             available: true,
             youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
+            isPartner: p.showPartnersLogo || p.isFeatured || false,
           })));
         }
       })
@@ -1072,14 +1079,20 @@ export default function HomePage() {
           </Reveal>
           {/* Mobile: 3×3 grid, Desktop: 5×2 grid */}
           <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-8">
-            {prosData.slice(0, 10).map((pro, i) => (
+            {apiPros === null ? (
+              [1,2,3,4,5,6,7,8,9].map((i) => (
+                <div key={i} className={i >= 9 ? 'hidden lg:block' : ''}>
+                  <div className="skeleton mb-2" style={{ width: '100%', aspectRatio: '3/4', borderRadius: 12 }} />
+                  <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
+                  <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
+                  <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
+                </div>
+              ))
+            ) : prosData.slice(0, 10).map((pro, i) => (
               <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
                 <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
               </div>
             ))}
-            {prosData.length === 0 && (
-              <p className="col-span-3 lg:col-span-5 text-center text-gray-400 text-[14px] py-10">전문가 정보를 불러오는 중...</p>
-            )}
           </div>
         </section>
         <div className="my-6 border-t border-gray-100" />

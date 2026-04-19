@@ -126,4 +126,22 @@ export class ProController {
   getBookedDates(@Param('proProfileId') proProfileId: string) {
     return this.proService.getBookedDates(proProfileId);
   }
+
+  // ─── Revenue ──────────────────────────────────────────────────────────────
+
+  @Get('revenue')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '사회자 수익 현황' })
+  getRevenue(@Req() req) {
+    return this.proService.getRevenue(req.user.id);
+  }
+
+  // ─── Profile View Increment ───────────────────────────────────────────────
+
+  @Post(':proProfileId/view')
+  @ApiOperation({ summary: '프로필 조회 카운트 증가' })
+  incrementView(@Param('proProfileId') proProfileId: string) {
+    return this.proService.incrementProfileView(proProfileId);
+  }
 }
