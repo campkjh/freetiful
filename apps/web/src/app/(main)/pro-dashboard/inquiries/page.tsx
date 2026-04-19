@@ -4,26 +4,65 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Clock, Users, User, MessageCircle, ChevronRight } from 'lucide-react';
+import { chatApi, type ChatRoomItem } from '@/lib/api/chat.api';
+import { useAuthStore } from '@/lib/store/auth.store';
 
-type Filter = 'all' | 'multi' | 'single';
+type Filter = 'all' | 'pending' | 'replied';
 
-const MOCK_INQUIRIES = [
-  { id: '1', type: 'multi' as const, userName: '홍길동', eventType: '결혼식', eventDate: '2026-04-20', budget: '50~80만원', message: '서울 강남 지역에서 진행할 결혼식 MC를 찾고 있습니다. 격식있으면서 유머있는 스타일을 원합니다.', receivedAt: '2분 전', status: 'pending' },
-  { id: '2', type: 'single' as const, userName: '이영희', eventType: '돌잔치', eventDate: '2026-05-01', budget: '30~50만원', message: '아이 돌잔치 MC 문의드립니다. 밝고 친근한 분위기로 진행해주실 분을 찾습니다.', receivedAt: '1시간 전', status: 'pending' },
-  { id: '3', type: 'multi' as const, userName: '박철수', eventType: '기업행사', eventDate: '2026-04-15', budget: '80~100만원', message: '회사 창립기념 행사 MC를 찾습니다. 프로페셔널한 진행 가능한 분 부탁드립니다.', receivedAt: '3시간 전', status: 'replied' },
-  { id: '4', type: 'single' as const, userName: '김수정', eventType: '결혼식', eventDate: '2026-05-10', budget: '50~80만원', message: '5월 야외 웨딩 MC 가능하신지 문의드립니다.', receivedAt: '어제', status: 'replied' },
-  { id: '5', type: 'multi' as const, userName: '정대호', eventType: '생신잔치', eventDate: '2026-04-25', budget: '30~50만원', message: '아버지 칠순 잔치 MC 부탁드려요.', receivedAt: '어제', status: 'declined' },
-];
+interface InquiryView {
+  id: string;
+  userName: string;
+  image: string;
+  message: string;
+  receivedAt: string;
+  unread: number;
+  hasQuote: boolean;
+}
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const diff = Date.now() - d.getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '방금';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const days = Math.floor(hr / 24);
+  if (days < 7) return `${days}일 전`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
 
 export default function InquiriesPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
-  const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
+  const [inquiries, setInquiries] = useState<InquiryView[]>([]);
+  const [loading, setLoading] = useState(true);
+  const authUser = useAuthStore((s) => s.user);
 
-  const inquiries = hasDemoData ? MOCK_INQUIRIES : [];
-  const filtered = inquiries.filter((inq) => filter === 'all' || inq.type === filter);
-  const pendingCount = inquiries.filter((i) => i.status === 'pending').length;
+  useEffect(() => {
+    if (!authUser) { setLoading(false); return; }
+    chatApi.getRooms({ page: 1 })
+      .then((res) => {
+        const rooms = (res.data.data || []) as ChatRoomItem[];
+        setInquiries(rooms.map((r) => ({
+          id: r.id,
+          userName: r.otherUser.name,
+          image: r.otherUser.profileImageUrl || '/images/default-profile.svg',
+          message: r.lastMessage?.content?.split('\n')[0] || '(대화를 시작해보세요)',
+          receivedAt: timeAgo(r.lastMessageAt),
+          unread: r.unreadCount,
+          hasQuote: (r.lastMessage?.content || '').includes('📋 견적 요청'),
+        })));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [authUser]);
+
+  const filtered = inquiries.filter((i) =>
+    filter === 'all' ? true : filter === 'pending' ? i.unread > 0 : i.unread === 0
+  );
+  const pendingCount = inquiries.filter((i) => i.unread > 0).length;
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -39,8 +78,8 @@ export default function InquiriesPage() {
         <div className="flex gap-2">
           {([
             { key: 'all' as Filter, label: '전체', icon: null },
-            { key: 'multi' as Filter, label: '다중 견적', icon: Users },
-            { key: 'single' as Filter, label: '1:1 문의', icon: User },
+            { key: 'pending' as Filter, label: '미답변', icon: User },
+            { key: 'replied' as Filter, label: '답변완료', icon: Users },
           ]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -59,59 +98,57 @@ export default function InquiriesPage() {
       </div>
 
       <div className="px-4 py-4 space-y-3">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="card p-4 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-24" />
+                    <div className="h-3 bg-gray-100 rounded w-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-gray-400 text-sm">문의가 없습니다</p>
           </div>
         ) : (
           filtered.map((inq) => (
             <Link key={inq.id} href={`/chat/${inq.id}`} className="card p-4 block hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    inq.type === 'multi'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'bg-green-50 text-green-600'
-                  }`}>
-                    {inq.type === 'multi' ? '다중' : '1:1'}
-                  </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    inq.status === 'pending' ? 'bg-red-50 text-red-500' :
-                    inq.status === 'replied' ? 'bg-green-50 text-green-600' :
-                    'bg-gray-100 text-gray-500'
-                  }`}>
-                    {inq.status === 'pending' ? '미답변' : inq.status === 'replied' ? '답변완료' : '거절'}
-                  </span>
+              <div className="flex items-start gap-3">
+                <img src={inq.image} alt={inq.userName} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    {inq.hasQuote && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">견적요청</span>
+                    )}
+                    <p className="text-sm font-bold text-gray-900 truncate">{inq.userName}</p>
+                    {inq.unread > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white ml-auto shrink-0">{inq.unread}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 line-clamp-2">{inq.message}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] text-gray-400 flex items-center gap-1"><Clock size={10} /> {inq.receivedAt}</span>
+                    <span className="ml-auto"><ChevronRight size={14} className="text-gray-300" /></span>
+                  </div>
+
+                  {inq.unread > 0 && (
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={(e) => e.preventDefault()}
+                        className="flex-1 py-2 text-xs font-bold text-white bg-primary-500 rounded-xl flex items-center justify-center gap-1"
+                      >
+                        <MessageCircle size={12} /> 답변하기
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <span className="text-[10px] text-gray-400">{inq.receivedAt}</span>
               </div>
-
-              <div className="flex items-center gap-2 mb-1.5">
-                <p className="text-sm font-bold text-gray-900">{inq.userName}</p>
-                <p className="text-xs text-gray-400">·</p>
-                <p className="text-xs text-gray-500">{inq.eventType}</p>
-              </div>
-
-              <p className="text-xs text-gray-600 line-clamp-2">{inq.message}</p>
-
-              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-50">
-                <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                  <Clock size={10} /> {inq.eventDate}
-                </span>
-                <span className="text-[10px] text-gray-400">{inq.budget}</span>
-                <span className="ml-auto"><ChevronRight size={14} className="text-gray-300" /></span>
-              </div>
-
-              {inq.status === 'pending' && (
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={(e) => e.preventDefault()}
-                    className="flex-1 py-2 text-xs font-bold text-white bg-primary-500 rounded-xl flex items-center justify-center gap-1"
-                  >
-                    <MessageCircle size={12} /> 답변하기
-                  </button>
-                </div>
-              )}
             </Link>
           ))
         )}

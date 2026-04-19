@@ -353,28 +353,50 @@ function QuotePage() {
       const msgContent = `📋 견적 요청\n\n행사 유형: ${eventType || '미정'}\n플랜: ${planLabel}\n일정: ${date} ${timeStart}${timeEnd ? ` ~ ${timeEnd}` : ''}\n장소: ${location || '미정'}${moods.size > 0 ? `\n분위기: ${[...moods].join(', ')}` : ''}${note ? `\n\n${note}` : ''}`;
 
       if (selectedPros.size > 0 && authUser) {
-        // Find real pro UUIDs for selected pros
-        const proNames = [...selectedPros].map((id) => MOCK_PROS.find((p) => p.id === id)?.name).filter(Boolean) as string[];
+        // filteredPros 는 실제 API 데이터(UUID) — MOCK_PROS 폴백일 때는 name 검색
+        const selectedIds = [...selectedPros];
         const roomIds: string[] = [];
 
-        await Promise.allSettled(proNames.map(async (name) => {
+        await Promise.allSettled(selectedIds.map(async (id) => {
           try {
-            const result = await discoveryApi.getProList({ search: name, limit: 3 });
-            const match = (result as any)?.data?.find((p: any) =>
-              p.name === name || p.name?.includes(name.slice(0, 2))
-            );
-            if (match?.id) {
-              const roomRes = await chatApi.createRoom(match.id);
-              const roomId = (roomRes.data as any)?.id || (roomRes.data as any)?.roomId;
-              if (roomId) {
-                await chatApi.sendMessage(roomId, { type: 'text', content: msgContent });
-                roomIds.push(roomId);
+            // 실제 UUID 형태면 바로 createRoom, 아니면 name으로 검색
+            let proProfileId: string | null = null;
+            const isUuid = /^[0-9a-f-]{30,}$/i.test(id);
+            if (isUuid) {
+              proProfileId = id;
+            } else {
+              const fallbackName = (filteredPros.find((p) => p.id === id)?.name) || MOCK_PROS.find((p) => p.id === id)?.name;
+              if (fallbackName) {
+                const result = await discoveryApi.getProList({ search: fallbackName, limit: 3 });
+                const match = (result as any)?.data?.find((p: any) => p.name === fallbackName || p.name?.includes(fallbackName.slice(0, 2)));
+                if (match?.id) proProfileId = match.id;
               }
             }
-          } catch {}
+            if (!proProfileId) return;
+            const roomRes = await chatApi.createRoom(proProfileId);
+            const roomId = (roomRes.data as any)?.id || (roomRes.data as any)?.roomId;
+            if (roomId) {
+              await chatApi.sendMessage(roomId, { type: 'text', content: msgContent });
+              roomIds.push(roomId);
+            }
+          } catch (e) {
+            console.error('견적 요청 전송 실패', id, e);
+          }
         }));
+
+        if (roomIds.length === 0) {
+          toast.error('견적 요청 전송에 실패했습니다. 다시 시도해주세요.');
+          setSending(false);
+          return;
+        }
+      } else if (selectedPros.size > 0 && !authUser) {
+        toast.error('로그인 후 견적 요청이 가능합니다.');
+        setSending(false);
+        return;
       }
-    } catch {}
+    } catch (e) {
+      console.error('doSubmit 에러', e);
+    }
 
     setSending(false);
     localStorage.setItem('freetiful-quote-submitted', 'true');
