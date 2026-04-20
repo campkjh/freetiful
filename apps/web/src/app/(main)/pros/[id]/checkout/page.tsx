@@ -177,11 +177,14 @@ export default function CheckoutPage() {
       let orderId: string;
       try {
         const eventDate = day && month ? `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : undefined;
+        // 견적서 결제인 경우 quotationId 를 함께 보내 Payment ↔ Quotation 연결
+        const quotationId = searchParams.get('quotationId') || undefined;
         const { data: order } = await apiClient.post<{ orderId: string }>('/api/v1/payment/order', {
           amount: finalPrice,
           orderName,
           proProfileId: id,
           eventDate,
+          quotationId,
         });
         orderId = order.orderId;
       } catch (e: any) {

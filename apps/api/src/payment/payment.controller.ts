@@ -26,10 +26,13 @@ export class PaymentController {
     @Request() req: any,
     @Body()
     body: {
-      quotationId: string;
+      quotationId?: string;
       amount: number;
       orderName: string;
       proProfileId: string;
+      eventDate?: string;
+      eventLocation?: string;
+      eventTime?: string;
     },
   ) {
     return this.paymentService.createOrder(req.user.id, body);

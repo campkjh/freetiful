@@ -93,19 +93,25 @@ export default function ChatRoomPage() {
   const [hasMyProProfile, setHasMyProProfile] = useState<boolean>(false);
   useEffect(() => {
     if (!authUser) return;
+    // 모든 유저가 draft ProProfile 을 자동 생성받기 때문에 단순히 존재만 보면 안됨.
+    // approved/pending 상태(실제로 프로 등록을 마친 경우)만 pro 로 인정
     import('@/lib/api/pros.api').then(({ prosApi }) => {
       prosApi.getMyProfile()
         .then((p: any) => {
-          if (p?.id) setHasMyProProfile(true);
+          const status = p?.status;
+          if (p?.id && (status === 'approved' || status === 'pending')) setHasMyProProfile(true);
         })
         .catch(() => {});
     });
   }, [authUser]);
+  // 이 채팅방에서 내가 pro 측인지 확정하는 주 신호:
+  // 1) 백엔드가 알려주는 roomProUserId === MY_ID (가장 확실)
+  // 2) 내 User.role === 'pro' (이미 어드민이 승인한 경우만 role 이 바뀜)
+  // 3) 내 ProProfile 이 approved/pending (부차 신호)
   const isPro = Boolean(
     (roomProUserId && roomProUserId === MY_ID) ||
-    hasMyProProfile ||
     authUser?.role === 'pro' ||
-    (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro')
+    hasMyProProfile
   );
   const { connect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
 
