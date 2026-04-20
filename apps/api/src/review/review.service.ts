@@ -197,6 +197,33 @@ export class ReviewService {
   async getMyReviews(userId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 
+    // 사용자가 pro 이면 "받은 리뷰" 를 반환, 아니면 "작성한 리뷰" 반환
+    const proProfile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      select: { id: true, avgRating: true, reviewCount: true },
+    });
+
+    if (proProfile) {
+      const [reviews, total] = await Promise.all([
+        this.prisma.review.findMany({
+          where: { proProfileId: proProfile.id },
+          include: {
+            reviewer: { select: { id: true, name: true, profileImageUrl: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        this.prisma.review.count({ where: { proProfileId: proProfile.id } }),
+      ]);
+      return {
+        data: reviews,
+        total,
+        avgRating: Number(proProfile.avgRating),
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      };
+    }
+
     const [reviews, total] = await Promise.all([
       this.prisma.review.findMany({
         where: { reviewerId: userId },
@@ -212,19 +239,13 @@ export class ReviewService {
         skip,
         take: limit,
       }),
-      this.prisma.review.count({
-        where: { reviewerId: userId },
-      }),
+      this.prisma.review.count({ where: { reviewerId: userId } }),
     ]);
 
     return {
       data: reviews,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      total,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 }
