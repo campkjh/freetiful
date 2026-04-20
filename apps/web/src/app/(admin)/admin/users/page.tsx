@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Search, ChevronLeft, ChevronRight, Trash2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Search, ChevronLeft, ChevronRight, Trash2, RefreshCw, AlertTriangle, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { adminFetch } from '../_components/adminFetch';
@@ -80,7 +80,41 @@ export default function AdminUsersPage() {
       toast.success('삭제되었습니다');
       setUsers((prev) => prev.filter((u) => u.id !== id));
       setTotal((t) => t - 1);
-    } catch { toast.error('삭제 실패'); }
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '';
+      toast.error(`삭제 실패: ${msg} — 연관 데이터(채팅/결제/메시지 등)가 있으면 "보관처리" 를 사용해주세요`, { duration: 8000 });
+    }
+  };
+
+  // 중복 진단 섹션
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diagQuery, setDiagQuery] = useState('');
+  const [diagResult, setDiagResult] = useState<any[]>([]);
+  const [diagLoading, setDiagLoading] = useState(false);
+
+  const runDiag = async () => {
+    if (!diagQuery.trim()) { toast.error('이메일 또는 이름을 입력하세요'); return; }
+    setDiagLoading(true);
+    try {
+      const data = await adminFetch('GET', `/api/v1/admin/users/diagnose?email=${encodeURIComponent(diagQuery.trim())}`);
+      setDiagResult(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      toast.error(`진단 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setDiagLoading(false);
+    }
+  };
+
+  const handleArchive = async (userId: string, name: string) => {
+    if (!confirm(`${name}님 계정을 보관처리하시겠습니까? email 이 archived-... 로 변경되고 isActive=false 됩니다. 연관 데이터는 유지됩니다.`)) return;
+    try {
+      await adminFetch('PATCH', `/api/v1/admin/users/${userId}/archive`);
+      toast.success('보관처리되었습니다');
+      runDiag();
+      fetchUsers();
+    } catch (e: any) {
+      toast.error(`보관처리 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    }
   };
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -100,6 +134,98 @@ export default function AdminUsersPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-6">
         <AdminErrorPanel error={lastError} label="유저 목록" />
+
+        {/* 중복 진단 섹션 */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+          <button onClick={() => setDiagOpen((v) => !v)} className="flex items-center gap-2 text-sm font-bold text-amber-800 w-full text-left">
+            <AlertTriangle size={16} />
+            중복 유저 진단 (같은 이메일/이름으로 여러 계정이 있는지 확인)
+            <span className="ml-auto text-xs text-amber-600">{diagOpen ? '닫기' : '열기'}</span>
+          </button>
+          {diagOpen && (
+            <div className="mt-4 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={diagQuery}
+                  onChange={(e) => setDiagQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') runDiag(); }}
+                  placeholder="이메일 일부 또는 이름 (예: campkjh, 김정훈)"
+                  className="flex-1 h-10 border border-amber-300 rounded-lg px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-200"
+                />
+                <button onClick={runDiag} disabled={diagLoading} className="px-4 h-10 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50">
+                  {diagLoading ? '검색 중' : '진단'}
+                </button>
+              </div>
+              {diagResult.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-amber-700">{diagResult.length}개 계정 발견. 데이터가 많은 쪽을 남기고 빈 쪽을 "보관처리" 하세요.</p>
+                  {diagResult.map((u) => (
+                    <div key={u.id} className="bg-white rounded-lg border border-amber-200 p-3 text-xs">
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={u.profileImageUrl || '/images/default-profile.svg'}
+                          alt={u.name}
+                          className="w-10 h-10 rounded-full object-cover bg-gray-100 shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-gray-900">{u.name}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${u.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>{u.isActive ? 'active' : 'inactive'}</span>
+                            <span className="text-gray-400">· {u.role}</span>
+                          </div>
+                          <p className="text-gray-600 break-all">📧 {u.email || '(이메일 없음)'}</p>
+                          <p className="text-gray-600">📱 {u.phone || '(전화 없음)'}</p>
+                          <p className="text-gray-500 mt-1">
+                            가입일: {new Date(u.createdAt).toLocaleDateString('ko-KR')} ·
+                            Auth: {u.authProviders?.map((a: any) => a.provider).join(', ') || 'none'}
+                          </p>
+                          {u.proProfile ? (
+                            <div className="mt-2 p-2 bg-blue-50 rounded">
+                              <p className="font-bold text-blue-700">프로프로필 [{u.proProfile.status}]</p>
+                              <p className="text-blue-600">
+                                사진 {u.proProfile._count.images} · 서비스 {u.proProfile._count.services} ·
+                                리뷰 {u.proProfile._count.reviews} · 견적 {u.proProfile._count.quotations} ·
+                                점수 {u.proProfileScore}
+                              </p>
+                              <p className="text-blue-600 truncate">{u.proProfile.shortIntro || '(소개 없음)'}</p>
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-gray-400">프로프로필 없음</p>
+                          )}
+                          <p className="text-gray-500 mt-1">
+                            채팅방 {u._count.chatRooms} · 보낸메시지 {u._count.sentMessages} · 작성리뷰 {u._count.reviews}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {u.proProfile && (
+                            <a
+                              href={`/admin/pros/${u.proProfile.id}/edit`}
+                              className="px-2 py-1 rounded bg-blue-50 text-blue-600 text-[11px] font-medium hover:bg-blue-100"
+                            >
+                              수정
+                            </a>
+                          )}
+                          <button
+                            onClick={() => handleArchive(u.id, u.name)}
+                            className="flex items-center gap-1 px-2 py-1 rounded bg-gray-100 text-gray-700 text-[11px] font-medium hover:bg-gray-200"
+                          >
+                            <Archive size={11} /> 보관
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!diagLoading && diagResult.length === 0 && diagQuery && (
+                <p className="text-xs text-amber-700">검색 결과 없음. 이메일 일부만 입력해보세요 (예: campkjh)</p>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">

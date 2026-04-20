@@ -105,6 +105,16 @@ export class AdminController {
     return this.adminService.deleteUser(id);
   }
 
+  @Get('users/diagnose')
+  async findUsersByEmail(@Query('email') email?: string) {
+    return this.adminService.findUsersByEmail(email || '');
+  }
+
+  @Patch('users/:id/archive')
+  async archiveUser(@Param('id') id: string) {
+    return this.adminService.archiveUser(id);
+  }
+
   @Get('payments')
   async getPayments(
     @Query('page') page?: string,

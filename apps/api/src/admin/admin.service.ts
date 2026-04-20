@@ -523,6 +523,66 @@ export class AdminService {
     return this.prisma.user.update({ where: { id: userId }, data: { role: role as any } });
   }
 
+  // ─── 이메일 중복 유저 진단 / 정리 ─────────────────────────────────────────
+  // 검색어 포함 이메일의 모든 유저와 프로프로필을 반환 → 어드민이 눈으로 판단 가능
+  async findUsersByEmail(searchEmail: string) {
+    if (!searchEmail) return [];
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { email: { contains: searchEmail, mode: 'insensitive' } },
+          { name: { contains: searchEmail, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+        profileImageUrl: true,
+        proProfile: {
+          select: {
+            id: true,
+            status: true,
+            shortIntro: true,
+            _count: { select: { images: true, services: true, reviews: true, quotations: true } },
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        authProviders: { select: { provider: true, providerEmail: true, createdAt: true } },
+        _count: { select: { chatRooms: true, sentMessages: true, reviews: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return users.map((u) => ({
+      ...u,
+      proProfileScore: u.proProfile
+        ? (u.proProfile._count.images + u.proProfile._count.services + u.proProfile._count.reviews * 2)
+        : 0,
+    }));
+  }
+
+  // 지정 유저를 소프트 삭제 (email → archived-{ts}-{email}, role→archived)
+  // 연관 데이터 (ChatRoom, Payment, Message 등)는 유지 → 참조 무결성 보장
+  async archiveUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('유저 없음');
+    const ts = Date.now();
+    const newEmail = user.email ? `archived-${ts}-${user.email}` : null;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: newEmail,
+        isActive: false,
+      },
+    });
+    return { success: true, userId, archivedEmail: newEmail };
+  }
+
   // ─── 유저 삭제 ───────────────────────────────────────────────────────────
   async deleteUser(userId: string) {
     await this.prisma.user.delete({ where: { id: userId } });
