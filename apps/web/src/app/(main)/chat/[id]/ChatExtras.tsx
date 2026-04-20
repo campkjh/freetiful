@@ -386,6 +386,20 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
               {sys.eventName && <span className="text-[11px] text-gray-400">{sys.eventName}</span>}
             </div>
             <p className="text-[16px] font-semibold text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+            {sys.options && sys.options.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                <div className="flex items-center justify-between text-[11px] text-gray-500">
+                  <span>기본 플랜</span>
+                  <span>{formatKRW(sys.basePrice || 0)}</span>
+                </div>
+                {sys.options.map((o, i) => (
+                  <div key={i} className="flex items-center justify-between text-[11px] text-amber-700">
+                    <span>+ {o.name}</span>
+                    <span>+{formatKRW(o.price || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {sys.items && sys.items.length > 0 && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">포함 서비스</p>
@@ -729,6 +743,10 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const [quoteEventDate, setQuoteEventDate] = useState('');
   const [quoteEventTime, setQuoteEventTime] = useState('');
   const [quoteMemo, setQuoteMemo] = useState('');
+  // 추가 옵션 (프로가 견적 보낼 때 옵션을 추가해 총액을 올릴 수 있음)
+  const [quoteOptions, setQuoteOptions] = useState<{ name: string; price: number }[]>([]);
+  const [newOptName, setNewOptName] = useState('');
+  const [newOptPrice, setNewOptPrice] = useState('');
 
   // 어드민 플랜 템플릿 — 가격/이름/포함항목의 단일 소스
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
@@ -1058,13 +1076,21 @@ export default function ChatExtras(props: ChatExtrasProps) {
       toast.error('상대방 정보를 찾을 수 없습니다');
       return;
     }
+    // 옵션 총액 + 전체 합계
+    const optionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
+    const totalAmount = plan.price + optionsTotal;
     try {
       // 1) 백엔드에 실제 Quotation 생성
       const created = await quotationApi.create({
         userId: chatPartner.id,
-        amount: plan.price,
+        amount: totalAmount,
         title: quoteEventName || '행사 진행',
-        description: quoteMemo || undefined,
+        description: [
+          quoteMemo,
+          quoteOptions.length > 0
+            ? `\n[추가 옵션]\n${quoteOptions.map((o) => `- ${o.name}: +${o.price.toLocaleString()}원`).join('\n')}`
+            : '',
+        ].filter(Boolean).join(''),
         eventDate: quoteEventDate || undefined,
         eventTime: quoteEventTime || undefined,
       } as any);
@@ -1075,13 +1101,15 @@ export default function ChatExtras(props: ChatExtrasProps) {
       if (roomId && !roomId.startsWith('pending-')) {
         await chatApi.sendMessage(roomId, {
           type: 'system' as any,
-          content: `💰 견적서 발송: ${plan.price.toLocaleString()}원`,
+          content: `💰 견적서 발송: ${totalAmount.toLocaleString()}원`,
           metadata: {
             system: {
               kind: 'quote',
               plan: quotePlan,
               eventName: quoteEventName || '행사 진행',
-              amount: plan.price,
+              amount: totalAmount,
+              basePrice: plan.price,
+              options: quoteOptions,
               eventDate: quoteEventDate,
               eventTime: quoteEventTime,
               items: plan.items,
@@ -1103,7 +1131,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
           kind: 'quote',
           plan: quotePlan,
           eventName: quoteEventName || '행사 진행',
-          amount: plan.price,
+          amount: totalAmount,
+          basePrice: plan.price,
+          options: quoteOptions,
           eventDate: quoteEventDate,
           eventTime: quoteEventTime,
           items: plan.items,
@@ -1116,6 +1146,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
       setQuoteEventDate('');
       setQuoteEventTime('');
       setQuoteMemo('');
+      setQuoteOptions([]);
+      setNewOptName('');
+      setNewOptPrice('');
       toast.success('견적서가 발송되었습니다');
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '발송 실패';
@@ -1396,6 +1429,65 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 placeholder="추가 메모 (선택)"
                 className="w-full h-20 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[16px] outline-none focus:border-[#3180F7] resize-none transition-colors"
               />
+            </div>
+
+            {/* ─── 추가 옵션 ─── */}
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">추가 옵션 (선택)</p>
+            <div className="space-y-2 mb-3">
+              {quoteOptions.map((opt, i) => (
+                <div key={i} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                  <span className="flex-1 text-[14px] text-gray-800 truncate">+ {opt.name}</span>
+                  <span className="text-[13px] font-bold text-amber-700 shrink-0">+{opt.price.toLocaleString()}원</span>
+                  <button
+                    onClick={() => setQuoteOptions((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center shrink-0"
+                  >
+                    <X size={12} className="text-gray-600" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newOptName}
+                  onChange={(e) => setNewOptName(e.target.value)}
+                  placeholder="옵션명 (예: 리허설 참여)"
+                  className="flex-1 h-10 bg-gray-50 border border-gray-200 rounded-xl px-3 text-[14px] outline-none focus:border-[#3180F7]"
+                />
+                <input
+                  type="number"
+                  value={newOptPrice}
+                  onChange={(e) => setNewOptPrice(e.target.value)}
+                  placeholder="가격"
+                  className="w-[110px] h-10 bg-gray-50 border border-gray-200 rounded-xl px-3 text-[14px] outline-none focus:border-[#3180F7]"
+                />
+                <button
+                  onClick={() => {
+                    const price = parseInt(newOptPrice) || 0;
+                    if (!newOptName.trim()) return;
+                    setQuoteOptions((prev) => [...prev, { name: newOptName.trim(), price }]);
+                    setNewOptName('');
+                    setNewOptPrice('');
+                  }}
+                  disabled={!newOptName.trim()}
+                  className="h-10 px-3 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold disabled:opacity-40"
+                >
+                  추가
+                </button>
+              </div>
+            </div>
+
+            {/* 총액 표시 */}
+            <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-4">
+              <div>
+                <p className="text-[11px] text-gray-400">기본 {PLAN_DATA[quotePlan]?.label || ''} {(PLAN_DATA[quotePlan]?.price || 0).toLocaleString()}원</p>
+                {quoteOptions.length > 0 && (
+                  <p className="text-[11px] text-amber-600">+ 옵션 {quoteOptions.length}개 {quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0).toLocaleString()}원</p>
+                )}
+              </div>
+              <p className="text-[18px] font-bold text-[#3180F7]">
+                {((PLAN_DATA[quotePlan]?.price || 0) + quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0)).toLocaleString()}원
+              </p>
             </div>
 
             <button
