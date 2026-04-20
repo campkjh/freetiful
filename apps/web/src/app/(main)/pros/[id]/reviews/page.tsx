@@ -58,15 +58,15 @@ export default function ReviewsPage() {
           setApiReviews(res.data.map((r: any) => ({
             id: r.id,
             name: r.isAnonymous ? '익명' : (r.reviewer?.name?.slice(0, 1) + '**' + '****') || '고객',
-            rating: r.avgRating || 0,
+            rating: Number(r.avgRating) || 0,
             date: new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }),
             scores: {
-              경력: r.ratingExperience || 0,
-              만족도: r.ratingSatisfaction || 0,
-              구성력: r.ratingComposition || 0,
-              위트: r.ratingWit || 0,
-              발성: r.ratingVoice || 0,
-              이미지: r.ratingAppearance || 0,
+              경력: Number(r.ratingExperience) || 0,
+              만족도: Number(r.ratingSatisfaction) || 0,
+              구성력: Number(r.ratingComposition) || 0,
+              위트: Number(r.ratingWit) || 0,
+              발성: Number(r.ratingVoice) || 0,
+              이미지: Number(r.ratingAppearance) || 0,
             },
             content: r.comment || '',
             workDays: 0,
@@ -187,8 +187,8 @@ export default function ReviewsPage() {
             </div>
 
             <div className="flex items-center gap-1.5 mb-2">
-              <StarRating value={review.rating} size={13} />
-              <span className="text-[12px] font-bold text-gray-900">{review.rating}</span>
+              <StarRating value={Number(review.rating) || 0} size={13} />
+              <span className="text-[12px] font-bold text-gray-900">{(Number(review.rating) || 0).toFixed(1)}</span>
               <span className="text-[11px] text-gray-300">|</span>
               <span className="text-[11px] text-gray-400">{review.date}</span>
             </div>

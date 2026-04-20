@@ -29,17 +29,28 @@ export default function PointsPage() {
   const router = useRouter();
   const [totalPoints, setTotalPoints] = useState(0);
   const [history, setHistory] = useState<PointTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const authUser = useAuthStore((s) => s.user);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    // Immediate from localStorage
-    setTotalPoints(getPoints());
-    setHistory(getPointHistory());
-    // Then fetch from API
-    getPointsAsync().then(setTotalPoints).catch(() => {});
-    getPointHistoryAsync().then(setHistory).catch(() => {});
+    if (authUser) {
+      // 로그인 상태: API 만 사용해서 목업 플래시 방지
+      setLoading(true);
+      Promise.all([getPointsAsync(), getPointHistoryAsync()])
+        .then(([points, hist]) => {
+          setTotalPoints(points);
+          setHistory(hist);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else {
+      // 비로그인: localStorage
+      setTotalPoints(getPoints());
+      setHistory(getPointHistory());
+      setLoading(false);
+    }
   }, [authUser]);
 
   // Group transactions by year
@@ -69,7 +80,11 @@ export default function PointsPage() {
 
       {/* Total Points */}
       <div className="px-4 pt-2 pb-5">
-        <p className="text-[28px] font-bold text-gray-900">{totalPoints.toLocaleString()}P</p>
+        {loading ? (
+          <div className="h-8 w-32 bg-gray-100 rounded-lg animate-pulse" />
+        ) : (
+          <p className="text-[28px] font-bold text-gray-900">{totalPoints.toLocaleString()}P</p>
+        )}
       </div>
 
       {/* Divider */}
@@ -79,7 +94,22 @@ export default function PointsPage() {
       <div className="px-4 pt-5">
         <p className="text-[16px] font-bold text-gray-900 mb-4">사용 내역</p>
 
-        {history.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-start justify-between pb-4 border-b border-gray-100">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />
+                  <div>
+                    <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
+                    <div className="h-3 w-16 bg-gray-100 rounded animate-pulse mt-2" />
+                  </div>
+                </div>
+                <div className="h-4 w-16 bg-gray-100 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : history.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-gray-400">
             <Gift size={40} className="mb-3 text-gray-300" />
             <p className="text-[14px]">포인트 내역이 없습니다</p>
