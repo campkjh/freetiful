@@ -77,6 +77,22 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   { id: '8', type: 'chat', title: '박준혁 가수님의 새 메시지', body: '축가 3곡 기본이고, 추가 곡은 곡당 5만원입니다. 곡 목록 보내드릴까요?', isRead: true, date: '6일 전', link: '/chat/3' },
 ];
 
+function resolveNotifLink(type: NotifType, data: any): string | undefined {
+  if (data?.link) return data.link;
+  if (data?.chatRoomId) return `/chat/${data.chatRoomId}`;
+  if (data?.quotationId) return '/my/purchase-history';
+  if (data?.paymentId) return '/my/payment-history';
+  if (data?.reviewId && data?.proProfileId) return `/pros/${data.proProfileId}/reviews`;
+  if (data?.proProfileId) return `/pros/${data.proProfileId}`;
+  if (type === 'chat') return '/chat';
+  if (type === 'booking') return '/schedule';
+  if (type === 'payment') return '/my/payment-history';
+  if (type === 'review') return '/my/purchase-history';
+  if (type === 'marketing') return '/my/coupons';
+  if (type === 'system') return '/my/announcements';
+  return undefined;
+}
+
 function mapNotif(n: any): Notification {
   return {
     id: n.id,
@@ -85,7 +101,7 @@ function mapNotif(n: any): Notification {
     body: n.body || '',
     isRead: n.isRead,
     date: new Date(n.createdAt).toLocaleDateString('ko-KR'),
-    link: n.data?.link,
+    link: resolveNotifLink(n.type as NotifType, n.data),
   };
 }
 
@@ -259,19 +275,25 @@ export default function NotificationsPage() {
                   onMouseUp={() => handleMouseUp(n.id)}
                   onMouseLeave={() => handleMouseUp(n.id)}
                 >
-                  {n.link ? (
-                    <Link
-                      href={n.link}
-                      className="block px-4 py-4"
-                      onClick={(e) => { if (swipeX > 20) { e.preventDefault(); setSwipeStates(prev => ({ ...prev, [n.id]: 0 })); } }}
-                    >
-                      <NotifContent n={n} badge={badge} />
-                    </Link>
-                  ) : (
-                    <div className="px-4 py-4">
-                      <NotifContent n={n} badge={badge} />
-                    </div>
-                  )}
+                  <Link
+                    href={n.link || '#'}
+                    className="block px-4 py-4"
+                    onClick={(e) => {
+                      if (swipeX > 20) {
+                        e.preventDefault();
+                        setSwipeStates(prev => ({ ...prev, [n.id]: 0 }));
+                        return;
+                      }
+                      // 읽음 처리 (API + 로컬)
+                      if (!n.isRead) {
+                        setItems(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+                        notificationApi.markAsRead(n.id).catch(() => {});
+                      }
+                      if (!n.link) { e.preventDefault(); }
+                    }}
+                  >
+                    <NotifContent n={n} badge={badge} />
+                  </Link>
                 </div>
               </div>
             );
