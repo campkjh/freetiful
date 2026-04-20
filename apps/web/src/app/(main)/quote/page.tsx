@@ -8,6 +8,7 @@ import { addPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { chatApi } from '@/lib/api/chat.api';
+import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 
 const stepVariants = {
   initial: { opacity: 0, x: 40 },
@@ -60,24 +61,13 @@ const ClockIcon = () => (
   </svg>
 );
 
-const PLANS = [
-  { id: 'premium', label: 'Premium', price: 450000, desc: '행사 1시간 진행', icon: <PlanIconPremium />, color: 'border-blue-200 bg-blue-50/40' },
-  { id: 'superior', label: 'Superior', price: 800000, desc: '행사 2시간 진행', icon: <PlanIconSuperior />, color: 'border-violet-200 bg-violet-50/40' },
-  { id: 'enterprise', label: 'Enterprise', price: 1700000, desc: '6시간 풀타임', icon: <PlanIconEnterprise />, color: 'border-amber-200 bg-amber-50/40' },
-];
-
-const SERVICE_TABLE = [
-  { name: '사회 진행', premium: true, superior: true, enterprise: true },
-  { name: '사전 미팅', premium: true, superior: true, enterprise: true },
-  { name: '대본 작성', premium: false, superior: true, enterprise: true },
-  { name: '리허설 참석', premium: false, superior: true, enterprise: true },
-  { name: '축사/건배사 코디', premium: false, superior: false, enterprise: true },
-  { name: '포토타임 진행', premium: false, superior: true, enterprise: true },
-  { name: '하객 응대 안내', premium: false, superior: false, enterprise: true },
-  { name: '2차 진행', premium: false, superior: false, enterprise: true },
-  { name: '영상 큐시트 관리', premium: false, superior: true, enterprise: true },
-  { name: '전담 코디네이터', premium: false, superior: false, enterprise: true },
-];
+// planKey 별 시각 스타일 (icon + color) — 가격/이름/포함항목은 API 템플릿에서 동적 로드
+const PLAN_STYLES: Record<string, { icon: React.ReactElement; color: string }> = {
+  premium: { icon: <PlanIconPremium />, color: 'border-blue-200 bg-blue-50/40' },
+  superior: { icon: <PlanIconSuperior />, color: 'border-violet-200 bg-violet-50/40' },
+  enterprise: { icon: <PlanIconEnterprise />, color: 'border-amber-200 bg-amber-50/40' },
+};
+const PLAN_FALLBACK_STYLE = { icon: <PlanIconPremium />, color: 'border-gray-200 bg-gray-50/40' };
 
 const EVENT_TYPES = ['결혼식', '돌잔치', '기업행사', '공식행사', '체육대회', '레크리에이션', '팀빌딩', '송년회', '컨퍼런스', '라이브커머스', '기업PT', '워크숍'];
 
@@ -159,6 +149,24 @@ function QuotePage() {
   const params = useSearchParams();
   const isEvent = params.get('mode') === 'event';
   const postcodeLoaded = useDaumPostcode();
+
+  // 어드민 플랜 템플릿 — 가격/이름/포함항목의 단일 소스
+  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
+  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
+  const PLANS = planTemplates.filter((t) => t.isActive).map((t) => {
+    const style = PLAN_STYLES[t.planKey] || PLAN_FALLBACK_STYLE;
+    return { id: t.planKey, label: t.label, price: t.defaultPrice, desc: t.description || '', icon: style.icon, color: style.color };
+  });
+  // SERVICE_TABLE: 모든 플랜의 includedItems 를 합쳐 "이 플랜에 포함되는지" 매트릭스 생성
+  const SERVICE_TABLE = (() => {
+    const allItems = new Set<string>();
+    planTemplates.forEach((t) => t.includedItems.forEach((it) => allItems.add(it)));
+    return Array.from(allItems).map((name) => {
+      const row: any = { name };
+      planTemplates.forEach((t) => { row[t.planKey] = t.includedItems.includes(name); });
+      return row;
+    });
+  })();
 
   const [step, setStep] = useState<Step>(isEvent ? 'type' : 'plan');
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -548,7 +556,7 @@ function QuotePage() {
             <div className="mt-6">
               <p className="text-[13px] font-bold text-gray-900 mb-3">서비스 포함 내역</p>
               <div className="overflow-hidden rounded-xl border border-gray-100">
-                <div className="grid grid-cols-4 bg-gray-50">
+                <div className={`grid bg-gray-50`} style={{ gridTemplateColumns: `repeat(${PLANS.length + 1}, minmax(0, 1fr))` }}>
                   <div className="py-2.5 px-3 text-[11px] font-bold text-gray-400">서비스</div>
                   {PLANS.map((p) => (
                     <button key={p.id} onClick={() => setPlan(p.id)} className={`py-2.5 text-center text-[11px] font-bold transition-colors ${plan === p.id ? 'text-[#3180F7]' : 'text-gray-400'}`}>
@@ -557,13 +565,13 @@ function QuotePage() {
                   ))}
                 </div>
                 {SERVICE_TABLE.map((row, i) => (
-                  <div key={row.name} className={`grid grid-cols-4 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${i < SERVICE_TABLE.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                  <div key={row.name} className={`grid ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} ${i < SERVICE_TABLE.length - 1 ? 'border-b border-gray-50' : ''}`} style={{ gridTemplateColumns: `repeat(${PLANS.length + 1}, minmax(0, 1fr))` }}>
                     <div className="py-2.5 px-3 text-[12px] text-gray-600 font-medium flex items-center">{row.name}</div>
-                    {(['premium', 'superior', 'enterprise'] as const).map((planKey) => {
-                      const included = row[planKey];
-                      const isActive = plan === planKey;
+                    {PLANS.map((p) => {
+                      const included = !!row[p.id];
+                      const isActive = plan === p.id;
                       return (
-                        <button key={planKey} onClick={() => handleTableCellClick(planKey)} className={`py-2.5 flex items-center justify-center transition-colors ${isActive ? 'bg-blue-50/30' : ''}`}>
+                        <button key={p.id} onClick={() => handleTableCellClick(p.id)} className={`py-2.5 flex items-center justify-center transition-colors ${isActive ? 'bg-blue-50/30' : ''}`}>
                           {included ? (
                             <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isActive ? 'bg-[#3180F7]' : 'bg-emerald-500'}`}>
                               <Check size={12} className="text-white" strokeWidth={3} />

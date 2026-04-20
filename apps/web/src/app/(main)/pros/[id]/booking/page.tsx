@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { scheduleApi } from '@/lib/api/schedule.api';
+import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 
 // ─── Helpers ───────────────────────────────────────────────
 function getDaysOfWeek(year: number, month: number, holidays: Record<string, string>) {
@@ -36,11 +37,8 @@ const TIME_SLOTS = [
   '15:30', '16:00', '16:30', '17:00', '17:30', '18:00',
 ];
 
-const PLAN_OPTIONS = [
-  { id: 'opt1', name: 'Premium 패키지', originalPrice: 100, discountPercent: 0, finalPrice: 100 },
-  { id: 'opt2', name: 'Superior 패키지', originalPrice: 800000, discountPercent: 0, finalPrice: 800000 },
-  { id: 'opt3', name: 'Enterprise 패키지', originalPrice: 1700000, discountPercent: 0, finalPrice: 1700000 },
-];
+// 초기 렌더용 폴백 — 실제 플랜 옵션은 어드민 설정 PlanTemplate + 프로 services 에서 동적 생성
+const PLAN_OPTIONS: { id: string; name: string; originalPrice: number; discountPercent: number; finalPrice: number }[] = [];
 
 const MAX_SELECTIONS = 1;
 
@@ -120,19 +118,23 @@ export default function BookingPage() {
     return () => { alive = false; };
   }, [id]);
 
-  // getProDetail 반환값: { user: { name, profileImageUrl }, images: [{ imageUrl }], services: [{ title, basePrice, description, priceUnit }] }
-  const DEFAULT_PRICES: Record<string, number> = { Premium: 100, Superior: 800000, Enterprise: 1700000 };
+  // 어드민 플랜 템플릿 로드 (프로가 서비스 미등록이면 이 값을 폴백으로 사용)
+  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
+  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
+
   const proInfo = {
     name: pro?.user?.name || pro?.name || fallbackInfo.name,
     image: pro?.images?.[0]?.imageUrl || pro?.user?.profileImageUrl || fallbackInfo.image,
   };
 
-  // 전문가가 등록한 서비스(옵션) 기반으로 동적 플랜 구성
+  // 전문가가 등록한 서비스 우선, 없으면 어드민 플랜 템플릿으로 폴백
   const plans = useMemo(() => {
     if (pro?.services && Array.isArray(pro.services) && pro.services.length > 0) {
       return pro.services.filter((s: any) => s.isActive !== false).map((s: any, idx: number) => {
         const title = s.title || s.name || `서비스 ${idx + 1}`;
-        const price = s.basePrice || DEFAULT_PRICES[title] || 450000;
+        // title 매칭으로 템플릿 price 를 최신값으로 사용 (프로가 커스텀 가격을 설정했으면 s.basePrice 우선)
+        const tpl = planTemplates.find((t) => t.label.toLowerCase() === title.toLowerCase() || t.planKey.toLowerCase() === title.toLowerCase());
+        const price = s.basePrice || tpl?.defaultPrice || 0;
         return {
           id: s.id || `svc-${idx}`,
           name: `${title} 패키지`,
@@ -142,19 +144,26 @@ export default function BookingPage() {
         };
       });
     }
-    return PLAN_OPTIONS;
-  }, [pro]);
+    // 프로 서비스가 없으면 어드민 플랜 템플릿을 그대로 사용
+    return planTemplates.filter((t) => t.isActive).map((t) => ({
+      id: `tpl-${t.planKey}`,
+      name: `${t.label} 패키지`,
+      originalPrice: t.defaultPrice,
+      discountPercent: 0,
+      finalPrice: t.defaultPrice,
+    }));
+  }, [pro, planTemplates]);
 
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
   const [currentYear] = useState(now.getFullYear());
   const [selectedDay, setSelectedDay] = useState<number | null>(now.getDate());
-  const [selectedOption, setSelectedOption] = useState(PLAN_OPTIONS[0]);
+  const [selectedOption, setSelectedOption] = useState<typeof PLAN_OPTIONS[number] | { id: string; name: string; originalPrice: number; discountPercent: number; finalPrice: number } | null>(null);
 
   // Sync selectedOption when API plans load
   useEffect(() => {
     if (plans && plans.length > 0 && plans[0]?.id !== selectedOption?.id) {
-      setSelectedOption(plans[0]);
+      setSelectedOption(plans[0] as any);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plans]);
@@ -269,6 +278,7 @@ export default function BookingPage() {
       toast.error('희망 시간을 선택해주세요');
       return;
     }
+    if (!selectedOption) { toast.error('플랜을 선택해주세요'); return; }
     const params = new URLSearchParams({
       plan: selectedOption.name,
       price: String(selectedOption.finalPrice * quantity + extraTotal),
@@ -280,7 +290,7 @@ export default function BookingPage() {
     router.push(`/pros/${id}/checkout?${params.toString()}`);
   };
 
-  const totalPrice = selectedOption.finalPrice * quantity;
+  const totalPrice = (selectedOption?.finalPrice ?? 0) * quantity;
 
   return (
     <div className="bg-white min-h-screen pb-40" style={{ letterSpacing: '-0.02em' }}>
@@ -314,13 +324,13 @@ export default function BookingPage() {
                 key={plan.id}
                 onClick={() => { setSelectedOption(plan); setShowPlanSelector(false); }}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-                  selectedOption.id === plan.id
+                  selectedOption?.id === plan.id
                     ? 'border-[#3180F7] bg-[#EAF3FF]'
                     : 'border-gray-200 bg-white active:bg-gray-50'
                 }`}
               >
-                <span className={`text-[14px] font-medium ${selectedOption.id === plan.id ? 'text-[#3180F7] font-bold' : 'text-gray-700'}`}>{plan.name}</span>
-                <span className={`text-[14px] font-bold ${selectedOption.id === plan.id ? 'text-[#3180F7]' : 'text-gray-900'}`}>{plan.finalPrice.toLocaleString()}원</span>
+                <span className={`text-[14px] font-medium ${selectedOption?.id === plan.id ? 'text-[#3180F7] font-bold' : 'text-gray-700'}`}>{plan.name}</span>
+                <span className={`text-[14px] font-bold ${selectedOption?.id === plan.id ? 'text-[#3180F7]' : 'text-gray-900'}`}>{plan.finalPrice.toLocaleString()}원</span>
               </button>
             ))}
           </div>
@@ -344,9 +354,9 @@ export default function BookingPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[15px] font-bold text-gray-900">사회자 {proInfo.name}</p>
-                <p className="text-[12px] text-gray-500 mt-0.5">{selectedOption.name}</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">{selectedOption?.name ?? ''}</p>
                 <p className="text-[17px] font-bold text-gray-900 mt-1">
-                  {selectedOption.finalPrice.toLocaleString()}원
+                  {(selectedOption?.finalPrice ?? 0).toLocaleString()}원
                   <span className="text-[12px] font-normal text-gray-400 ml-1.5">1개</span>
                 </p>
               </div>

@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import { quotationApi } from '@/lib/api/quotation.api';
 import { chatApi } from '@/lib/api/chat.api';
+import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 export type { Message, ChatPartner, SystemPayload };
@@ -346,6 +347,9 @@ function KakaoMapEmbed({ venue }: { venue: string }) {
 
 // ─── SystemMessageCard ───
 export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null }) {
+  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
+  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
+
   const sys = msg.system;
   if (!sys) return null;
 
@@ -362,8 +366,11 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
   const wrapperClass = 'max-w-[280px] my-2 ml-14 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
 
   if (sys.kind === 'quote') {
-    const planLabel = sys.plan === 'enterprise' ? 'Enterprise' : sys.plan === 'superior' ? 'Superior' : 'Premium';
-    const planColor = sys.plan === 'enterprise' ? '#F59E0B' : sys.plan === 'superior' ? '#8B5CF6' : '#3180F7';
+    // 어드민 템플릿에서 label 조회, 없으면 planKey 를 Title Case 로 표시
+    const planKey = String(sys.plan || '').toLowerCase();
+    const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === planKey);
+    const planLabel = tpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : 'Premium');
+    const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' ? '#8B5CF6' : '#3180F7';
     return (
       <div className={wrapperClass}>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -717,17 +724,22 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
   // ─── Quote modal state ───
-  const [quotePlan, setQuotePlan] = useState<'premium' | 'superior' | 'enterprise'>('premium');
+  const [quotePlan, setQuotePlan] = useState<string>('premium');
   const [quoteEventName, setQuoteEventName] = useState('');
   const [quoteEventDate, setQuoteEventDate] = useState('');
   const [quoteEventTime, setQuoteEventTime] = useState('');
   const [quoteMemo, setQuoteMemo] = useState('');
 
-  const PLAN_DATA: Record<string, { label: string; price: number; items: string[] }> = {
-    premium: { label: 'Premium', price: 450000, items: ['사회 진행', '사전 미팅'] },
-    superior: { label: 'Superior', price: 800000, items: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'] },
-    enterprise: { label: 'Enterprise', price: 1700000, items: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'] },
-  };
+  // 어드민 플랜 템플릿 — 가격/이름/포함항목의 단일 소스
+  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
+  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
+  const PLAN_DATA: Record<string, { label: string; price: number; items: string[] }> = Object.fromEntries(
+    planTemplates.filter((t) => t.isActive).map((t) => [t.planKey, { label: t.label, price: t.defaultPrice, items: t.includedItems }])
+  );
+  const PLAN_KEYS = planTemplates.filter((t) => t.isActive).map((t) => t.planKey);
+  useEffect(() => {
+    if (PLAN_KEYS.length > 0 && !PLAN_KEYS.includes(quotePlan)) setQuotePlan(PLAN_KEYS[0]);
+  }, [planTemplates]);
 
   // ─── Handlers ───
 
@@ -1013,6 +1025,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
   const handleSendQuote = async () => {
     const plan = PLAN_DATA[quotePlan];
+    if (!plan) { toast.error('플랜 정보를 불러오는 중입니다'); return; }
     if (!chatPartner?.id) {
       toast.error('상대방 정보를 찾을 수 없습니다');
       return;
@@ -1300,24 +1313,24 @@ export default function ChatExtras(props: ChatExtrasProps) {
             <h2 className="text-[18px] font-bold text-gray-900 mb-4">견적서 작성</h2>
 
             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">플랜 선택</p>
-            <div className="flex gap-2 mb-4">
-              {(['premium', 'superior', 'enterprise'] as const).map(p => (
+            <div className="flex gap-2 mb-4 overflow-x-auto">
+              {PLAN_KEYS.map(p => (
                 <button
                   key={p}
                   onClick={() => setQuotePlan(p)}
-                  className={`flex-1 py-3 rounded-xl text-[13px] font-bold transition-colors ${
+                  className={`flex-1 shrink-0 py-3 rounded-xl text-[13px] font-bold transition-colors ${
                     quotePlan === p ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-500'
                   }`}
                 >
-                  {PLAN_DATA[p].label}
-                  <span className="block text-[11px] font-medium mt-0.5 opacity-70">{(PLAN_DATA[p].price / 10000).toFixed(0)}만원</span>
+                  {PLAN_DATA[p]?.label}
+                  <span className="block text-[11px] font-medium mt-0.5 opacity-70">{((PLAN_DATA[p]?.price || 0) / 10000).toFixed(0)}만원</span>
                 </button>
               ))}
             </div>
 
             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">포함 서비스</p>
             <div className="bg-gray-50 rounded-xl p-3 mb-4 space-y-1">
-              {PLAN_DATA[quotePlan].items.map((item, i) => (
+              {(PLAN_DATA[quotePlan]?.items || []).map((item, i) => (
                 <div key={i} className="flex items-center gap-2 text-[13px] text-gray-600">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#3180F7]" />
                   {item}

@@ -24,7 +24,7 @@ export interface SystemPayload {
   venue?: string;
   daysLeft?: number;
   paymentType?: 'deposit' | 'balance';
-  plan?: 'premium' | 'superior' | 'enterprise';
+  plan?: string; // 어드민이 자유롭게 planKey 추가 가능 (premium/superior/enterprise + 기타)
   reviewUrl?: string;
   rating?: number;
   quotationId?: string;

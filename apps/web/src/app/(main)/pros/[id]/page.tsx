@@ -8,6 +8,7 @@ import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, Arr
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail } from '@/lib/api/discovery.api';
+import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId } from '@/lib/chat-prewarm';
@@ -341,6 +342,12 @@ export default function ProDetailPage() {
   const [apiError, setApiError] = useState(false);
   const [apiLoading, setApiLoading] = useState(true);
 
+  // 어드민 설정 플랜 템플릿 로드 (모든 플랜 가격/이름/포함항목의 단일 소스)
+  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
+  useEffect(() => {
+    getPlanTemplates().then(setPlanTemplates).catch(() => {});
+  }, []);
+
   // API에서 전문가 상세 데이터 가져오기
   useEffect(() => {
     if (!id) return;
@@ -378,11 +385,16 @@ export default function ProDetailPage() {
           youtubeVideos: ytIds.map((id, i) => ({ id, title: `${name} 사회자 진행 영상 ${i + 1}` })),
           rating: 5.0,
           reviewCount: 0,
-          plans: [
-            { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사 1시간 진행', desc: ['사회 진행', '사전 미팅'], workDays: 14, revisions: 1 },
-            { id: 'superior', label: 'Superior', price: 800000, duration: '2시간', title: '행사 2시간 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'], workDays: 14, revisions: 2 },
-            { id: 'enterprise', label: 'Enterprise', price: 1700000, duration: '6시간', title: '6시간 풀타임 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'], workDays: 14, revisions: 3 },
-          ],
+          plans: (planTemplates.length > 0 ? planTemplates : []).filter((t) => t.isActive).map((t, idx) => ({
+            id: t.planKey,
+            label: t.label,
+            price: t.defaultPrice,
+            duration: t.description || '',
+            title: t.description || `${t.label} 패키지`,
+            desc: t.includedItems,
+            workDays: 14,
+            revisions: idx + 1,
+          })),
           description: `안녕하세요. 사회자 ${name}입니다.\n\n${intro}\n\n${career ? `주요 경력:\n• ${career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`,
           expertStats: {
             totalDeals: careerYears * 8 + 10,
@@ -424,25 +436,23 @@ export default function ProDetailPage() {
         const profileImg = res.user?.profileImageUrl || images[0] || '';
         const ytId = extractYoutubeId(res.youtubeUrl);
         const services = res.services || [];
-        const PLAN_META_MAP: Record<string, { label: string; duration: string; revisions: number; defaultDesc: string[] }> = {
-          premium: { label: 'Premium', duration: '1시간', revisions: 1, defaultDesc: ['사회 진행', '사전 미팅'] },
-          superior: { label: 'Superior', duration: '2시간', revisions: 2, defaultDesc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'] },
-          enterprise: { label: 'Enterprise', duration: '6시간', revisions: 3, defaultDesc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'] },
-          test: { label: 'Test', duration: '테스트', revisions: 1, defaultDesc: ['테스트 서비스'] },
-        };
-        // API에 등록된 services만 표시 (없으면 빈 배열 — mock 데이터 없음)
+        // 어드민 PlanTemplate 을 단일 소스로 사용 — 프로의 ProService.title 로 매칭
+        const tplByLabel = new Map(planTemplates.map((t) => [t.label.toLowerCase(), t]));
+        const tplByKey = new Map(planTemplates.map((t) => [t.planKey.toLowerCase(), t]));
         const plans = services.map((s: any, idx: number) => {
-          const key = (s.title || '').toLowerCase();
-          const meta = PLAN_META_MAP[key] || { label: s.title || `옵션 ${idx + 1}`, duration: '', revisions: idx + 1, defaultDesc: ['사회 진행'] };
+          const labelKey = (s.title || '').toLowerCase();
+          const tpl = tplByLabel.get(labelKey) || tplByKey.get(labelKey);
           return {
-            id: s.id || key || `svc-${idx}`,
-            label: meta.label,
-            price: s.basePrice || 0,
-            duration: meta.duration,
-            title: s.description || `${meta.label} 서비스`,
-            desc: s.description ? s.description.split('\n').filter(Boolean) : meta.defaultDesc,
+            id: s.id || labelKey || `svc-${idx}`,
+            label: tpl?.label || s.title || `옵션 ${idx + 1}`,
+            price: s.basePrice || tpl?.defaultPrice || 0,
+            duration: tpl?.description || '',
+            title: s.description || tpl?.description || `${tpl?.label || s.title} 서비스`,
+            desc: tpl?.includedItems?.length
+              ? tpl.includedItems
+              : (s.description ? s.description.split('\n').filter(Boolean) : ['사회 진행']),
             workDays: 14,
-            revisions: meta.revisions,
+            revisions: idx + 1,
           };
         });
 
@@ -521,7 +531,7 @@ export default function ProDetailPage() {
         setApiError(true);
       })
       .finally(() => setApiLoading(false));
-  }, [id]);
+  }, [id, planTemplates]);
 
   const [activeImage, setActiveImage] = useState(0);
   const [activePlan, setActivePlan] = useState(() => {

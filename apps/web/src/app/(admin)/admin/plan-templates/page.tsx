@@ -53,10 +53,12 @@ export default function AdminPlanTemplatesPage() {
         isActive: item.isActive,
         planKey: item.planKey,
       });
-      // 프로 상세 페이지의 프론트 캐시도 무효화
+      // 프로 상세 페이지의 프론트 캐시도 무효화 + 플랜 템플릿 캐시 무효화
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
         invalidateProCache();
+        const { invalidatePlanTemplateCache } = await import('@/lib/api/plan-templates.api');
+        invalidatePlanTemplateCache();
       } catch {}
       toast.success(`${item.label} 저장됨 — 모든 프로에 반영됐어요`);
     } catch (e: any) {
