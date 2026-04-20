@@ -51,7 +51,6 @@ export class DiscoveryService implements OnModuleInit {
       where: {
         status: 'approved',
         user: { isActive: true },
-        images: { some: {} },
       },
       include: {
         user: { select: { id: true, name: true, profileImageUrl: true } },
@@ -100,13 +99,13 @@ export class DiscoveryService implements OnModuleInit {
 
     // 공개 목록 조건:
     // 1) 프로필 status = approved
-    // 2) User.isActive (archived 제외) — role 은 체크 안 함: 프로가 일반 모드로
-    //    UI 전환해도 공개 프로필은 유지돼야 함
-    // 3) 프로필에 사진 1장 이상 (빈 프로필 제외)
+    // 2) User.isActive (archived 제외)
+    // 사진 체크는 제거 — 기존 프로들의 ProProfileImage 저장이 누락돼 있을 수 있어
+    // 필터로 한꺼번에 숨기면 박테스터/김사회자 처럼 데이터 가진 프로도 사라짐.
+    // 대신 프론트에서 이미지 없으면 default-profile 폴백으로 표시.
     const where: any = {
       status: 'approved',
       user: { isActive: true },
-      images: { some: {} },
     };
     if (search) {
       where.OR = [
