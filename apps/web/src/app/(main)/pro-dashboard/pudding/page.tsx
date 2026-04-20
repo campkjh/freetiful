@@ -25,11 +25,11 @@ const MOCK_HISTORY = [
 ];
 
 const MOCK_RANKING = [
-  { rank: 1, name: '김민준', pudding: 45, image: 'https://i.pravatar.cc/150?img=1', isMe: true },
-  { rank: 2, name: '이서연', pudding: 38, image: 'https://i.pravatar.cc/150?img=5', isMe: false },
-  { rank: 3, name: '박준혁', pudding: 35, image: 'https://i.pravatar.cc/150?img=3', isMe: false },
-  { rank: 4, name: '최지은', pudding: 28, image: 'https://i.pravatar.cc/150?img=9', isMe: false },
-  { rank: 5, name: '정대현', pudding: 22, image: 'https://i.pravatar.cc/150?img=11', isMe: false },
+  { rank: 1, name: '김민준', pudding: 45, image: '/images/default-profile.svg', isMe: true },
+  { rank: 2, name: '이서연', pudding: 38, image: '/images/default-profile.svg', isMe: false },
+  { rank: 3, name: '박준혁', pudding: 35, image: '/images/default-profile.svg', isMe: false },
+  { rank: 4, name: '최지은', pudding: 28, image: '/images/default-profile.svg', isMe: false },
+  { rank: 5, name: '정대현', pudding: 22, image: '/images/default-profile.svg', isMe: false },
 ];
 
 export default function PuddingPage() {
@@ -72,7 +72,7 @@ export default function PuddingPage() {
             rank: r.rank || i + 1,
             name: r.name || '익명',
             pudding: r.pudding ?? r.score ?? 0,
-            image: r.image || r.profileImage || `https://i.pravatar.cc/150?img=${i + 1}`,
+            image: r.image || r.profileImage || '/images/default-profile.svg',
             isMe: r.isMe ?? false,
           })));
         }

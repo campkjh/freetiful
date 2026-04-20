@@ -71,6 +71,7 @@ export default function BookingDetailPage() {
           setApiBooking({
             proName: proUser.name || '',
             proImage: proImg,
+            proPhone: proUser.phone || '',
             category: q.category || 'MC',
             date: dateFmt,
             eventDate: dateStr,
@@ -179,9 +180,20 @@ export default function BookingDetailPage() {
         </div>
         {booking.status !== 'cancelled' && (
           <div className="flex gap-2 mt-3 relative z-10">
-            <a href="tel:010-0000-0000" className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 text-[13px] font-medium text-gray-700 active:bg-gray-50 transition-colors" style={{ borderRadius: 10 }}>
-              <Phone size={14} /> 전화하기
-            </a>
+            {booking.proPhone ? (
+              <a href={`tel:${booking.proPhone}`} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 text-[13px] font-medium text-gray-700 active:bg-gray-50 transition-colors" style={{ borderRadius: 10 }}>
+                <Phone size={14} /> 전화하기
+              </a>
+            ) : (
+              <button
+                onClick={() => router.push('/chat')}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 text-[13px] font-medium text-gray-400 cursor-pointer"
+                style={{ borderRadius: 10 }}
+                title="전화번호 미등록 — 채팅으로 연결됩니다"
+              >
+                <Phone size={14} /> 전화하기
+              </button>
+            )}
             <button onClick={() => router.push('/chat')} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 text-[13px] font-medium text-gray-700 active:bg-gray-50 transition-colors" style={{ borderRadius: 10 }}>
               <MessageCircle size={14} /> 채팅하기
             </button>

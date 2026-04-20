@@ -60,7 +60,7 @@ const MOCK_RANK_ITEMS: RankItem[] = [
     finalPrice: 42900,
     hasAppPay: true,
     hasAppBooking: true,
-    image: 'https://i.pravatar.cc/400?img=45',
+    image: '/images/default-profile.svg',
   },
   {
     id: 'b2',
@@ -75,7 +75,7 @@ const MOCK_RANK_ITEMS: RankItem[] = [
     finalPrice: 99000,
     hasAppPay: false,
     hasAppBooking: true,
-    image: 'https://i.pravatar.cc/400?img=47',
+    image: '/images/default-profile.svg',
     verifiedBadge: '고객평가우수병원',
   },
   {
@@ -89,7 +89,7 @@ const MOCK_RANK_ITEMS: RankItem[] = [
     finalPrice: 99000,
     hasAppPay: true,
     hasAppBooking: true,
-    image: 'https://i.pravatar.cc/400?img=48',
+    image: '/images/default-profile.svg',
   },
   {
     id: 'b4',
@@ -104,7 +104,7 @@ const MOCK_RANK_ITEMS: RankItem[] = [
     finalPrice: 43500,
     hasAppPay: true,
     hasAppBooking: true,
-    image: 'https://i.pravatar.cc/400?img=50',
+    image: '/images/default-profile.svg',
   },
   {
     id: 'b5',
@@ -119,7 +119,7 @@ const MOCK_RANK_ITEMS: RankItem[] = [
     finalPrice: 74400,
     hasAppPay: true,
     hasAppBooking: true,
-    image: 'https://i.pravatar.cc/400?img=52',
+    image: '/images/default-profile.svg',
   },
   {
     id: 'b6',
@@ -134,7 +134,7 @@ const MOCK_RANK_ITEMS: RankItem[] = [
     finalPrice: 1300000,
     hasAppPay: true,
     hasAppBooking: true,
-    image: 'https://i.pravatar.cc/400?img=55',
+    image: '/images/default-profile.svg',
   },
 ];
 
@@ -168,7 +168,7 @@ export default function BusinessListPage() {
             finalPrice: b.finalPrice ?? b.price ?? 0,
             hasAppPay: b.hasAppPay ?? false,
             hasAppBooking: b.hasAppBooking ?? false,
-            image: b.image || b.imageUrl || `https://i.pravatar.cc/400?img=${i + 45}`,
+            image: b.image || b.imageUrl || '/images/default-profile.svg',
             verifiedBadge: b.verifiedBadge,
           })));
         }

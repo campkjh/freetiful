@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle, Plus, Trash2, Star, Youtube } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -34,8 +34,6 @@ export default function AdminProsPage() {
   const [filterStatus, setFilterStatus] = useState('전체');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [editingPro, setEditingPro] = useState<any | null>(null);
-  const [editForm, setEditForm] = useState<any>({});
   const [lastError, setLastError] = useState<{ status?: number; message?: string } | null>(null);
   const authUser = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -94,60 +92,6 @@ export default function AdminProsPage() {
     } catch { toast.error('변경 실패'); }
   };
 
-  const openEdit = async (id: string) => {
-    try {
-      const detail = await adminFetch('GET', `/api/v1/admin/pros/${id}`);
-      setEditingPro(detail);
-      setEditForm({
-        name: detail.user?.name || '',
-        phone: detail.user?.phone || '',
-        gender: detail.gender || '',
-        shortIntro: detail.shortIntro || '',
-        mainExperience: detail.mainExperience || '',
-        careerYears: detail.careerYears || 0,
-        awards: detail.awards || '',
-        youtubeUrl: detail.youtubeUrl || '',
-        detailHtml: detail.detailHtml || '',
-        basePrice: detail.basePrice || 0,
-        isFeatured: detail.isFeatured,
-        showPartnersLogo: detail.showPartnersLogo,
-        status: detail.status,
-        // 전체 수정용 필드
-        photos: (detail.images || []).map((img: any) => img.imageUrl),
-        mainPhotoIndex: Math.max(0, (detail.images || []).findIndex((img: any) => img.isPrimary)),
-        videos: (() => {
-          const urls: string[] = [];
-          if (detail.youtubeUrl) urls.push(detail.youtubeUrl);
-          return urls;
-        })(),
-        services: (detail.services || []).map((s: any) => ({
-          title: s.title || '',
-          description: s.description || '',
-          basePrice: s.basePrice || 0,
-        })),
-      });
-    } catch { toast.error('상세 조회 실패'); }
-  };
-
-  const saveEdit = async () => {
-    if (!editingPro) return;
-    try {
-      // youtubeUrl 은 videos 의 첫번째로 반영
-      const payload = {
-        ...editForm,
-        youtubeUrl: editForm.videos?.[0] || editForm.youtubeUrl || '',
-        photos: editForm.photos,
-        mainPhotoIndex: editForm.mainPhotoIndex,
-        services: editForm.services,
-      };
-      await adminFetch('PATCH', `/api/v1/admin/pros/${editingPro.id}/full`, payload);
-      toast.success('저장되었습니다');
-      setEditingPro(null);
-      fetchPros();
-    } catch (e: any) {
-      toast.error(`저장 실패: ${e?.response?.data?.message || e?.message || ''}`);
-    }
-  };
 
   const totalPages = Math.ceil(total / LIMIT);
 
@@ -271,12 +215,12 @@ export default function AdminProsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1 flex-wrap">
-                      <button
-                        onClick={() => openEdit(pro.id)}
+                      <Link
+                        href={`/admin/pros/${pro.id}/edit`}
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
                       >
                         <Edit3 size={12} /> 수정
-                      </button>
+                      </Link>
                       {pro.status !== 'approved' && (
                         <button
                           onClick={() => handleApprove(pro.id)}
@@ -325,312 +269,7 @@ export default function AdminProsPage() {
         )}
       </div>
 
-      {/* Edit Modal */}
-      {editingPro && (
-        <EditModal
-          editingPro={editingPro}
-          editForm={editForm}
-          setEditForm={setEditForm}
-          onClose={() => setEditingPro(null)}
-          onSave={saveEdit}
-        />
-      )}
     </div>
   );
 }
 
-function EditModal({
-  editingPro,
-  editForm,
-  setEditForm,
-  onClose,
-  onSave,
-}: {
-  editingPro: any;
-  editForm: any;
-  setEditForm: (v: any) => void;
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [videoInput, setVideoInput] = useState('');
-
-  const addPhotos = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const newPhotos: string[] = [];
-    for (const f of Array.from(files)) {
-      const reader = new FileReader();
-      const p = new Promise<string>((res) => { reader.onload = () => res(reader.result as string); });
-      reader.readAsDataURL(f);
-      newPhotos.push(await p);
-    }
-    setEditForm({ ...editForm, photos: [...(editForm.photos || []), ...newPhotos] });
-  };
-
-  const removePhoto = (idx: number) => {
-    const newPhotos = (editForm.photos || []).filter((_: any, i: number) => i !== idx);
-    let mainIdx = editForm.mainPhotoIndex || 0;
-    if (mainIdx === idx) mainIdx = 0;
-    else if (mainIdx > idx) mainIdx -= 1;
-    setEditForm({ ...editForm, photos: newPhotos, mainPhotoIndex: mainIdx });
-  };
-
-  const setMainPhoto = (idx: number) => {
-    setEditForm({ ...editForm, mainPhotoIndex: idx });
-  };
-
-  const addVideo = () => {
-    const url = videoInput.trim();
-    if (!url) return;
-    const videos = editForm.videos || [];
-    if (videos.includes(url)) { toast.error('이미 추가된 영상입니다'); return; }
-    setEditForm({ ...editForm, videos: [...videos, url] });
-    setVideoInput('');
-  };
-
-  const removeVideo = (idx: number) => {
-    const videos = (editForm.videos || []).filter((_: any, i: number) => i !== idx);
-    setEditForm({ ...editForm, videos });
-  };
-
-  const addService = () => {
-    setEditForm({
-      ...editForm,
-      services: [...(editForm.services || []), { title: '', description: '', basePrice: 0 }],
-    });
-  };
-
-  const updateService = (idx: number, patch: any) => {
-    const services = [...(editForm.services || [])];
-    services[idx] = { ...services[idx], ...patch };
-    setEditForm({ ...editForm, services });
-  };
-
-  const removeService = (idx: number) => {
-    const services = (editForm.services || []).filter((_: any, i: number) => i !== idx);
-    setEditForm({ ...editForm, services });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addPhotos(e.target.files)} />
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-lg font-bold">전문가 프로필 전체 수정 · {editingPro.user?.name}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="px-6 py-5 space-y-6">
-          {/* 기본 정보 */}
-          <SectionBlock title="기본 정보">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="이름" value={editForm.name} onChange={(v) => setEditForm({ ...editForm, name: v })} />
-              <Field label="전화번호" value={editForm.phone} onChange={(v) => setEditForm({ ...editForm, phone: v })} />
-              <SelectField label="성별" value={editForm.gender} options={['', 'male', 'female']} onChange={(v) => setEditForm({ ...editForm, gender: v })} />
-              <Field label="경력(년)" type="number" value={editForm.careerYears} onChange={(v) => setEditForm({ ...editForm, careerYears: Number(v) })} />
-              <Field label="기본 가격" type="number" value={editForm.basePrice} onChange={(v) => setEditForm({ ...editForm, basePrice: Number(v) })} />
-              <SelectField label="상태" value={editForm.status} options={['draft', 'pending', 'approved', 'rejected']} onChange={(v) => setEditForm({ ...editForm, status: v })} />
-              <div className="col-span-2">
-                <Field label="한 줄 소개" value={editForm.shortIntro} onChange={(v) => setEditForm({ ...editForm, shortIntro: v })} />
-              </div>
-              <div className="col-span-2">
-                <TextareaField label="주요 경력" value={editForm.mainExperience} onChange={(v) => setEditForm({ ...editForm, mainExperience: v })} />
-              </div>
-              <div className="col-span-2">
-                <TextareaField label="수상/자격 (줄바꿈으로 구분)" value={editForm.awards} onChange={(v) => setEditForm({ ...editForm, awards: v })} />
-              </div>
-              <div className="col-span-2">
-                <TextareaField label="상세 HTML" value={editForm.detailHtml} onChange={(v) => setEditForm({ ...editForm, detailHtml: v })} rows={5} />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={!!editForm.isFeatured} onChange={(e) => setEditForm({ ...editForm, isFeatured: e.target.checked })} />
-                추천 노출
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={!!editForm.showPartnersLogo} onChange={(e) => setEditForm({ ...editForm, showPartnersLogo: e.target.checked })} />
-                파트너 로고
-              </label>
-            </div>
-          </SectionBlock>
-
-          {/* 프로필 사진 */}
-          <SectionBlock title={`프로필 사진 (${(editForm.photos || []).length}장)`}>
-            <div className="grid grid-cols-4 gap-3">
-              {(editForm.photos || []).map((src: string, idx: number) => (
-                <div key={idx} className="relative group aspect-[3/4] rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-                  <img src={src} alt="" className="w-full h-full object-cover" />
-                  {editForm.mainPhotoIndex === idx && (
-                    <span className="absolute top-1 left-1 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                      <Star size={10} /> 대표
-                    </span>
-                  )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                    {editForm.mainPhotoIndex !== idx && (
-                      <button
-                        onClick={() => setMainPhoto(idx)}
-                        className="bg-white text-gray-900 text-[11px] font-medium px-2 py-1 rounded"
-                      >
-                        대표
-                      </button>
-                    )}
-                    <button
-                      onClick={() => removePhoto(idx)}
-                      className="bg-red-500 text-white rounded p-1"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="aspect-[3/4] rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
-              >
-                <Plus size={24} />
-                <span className="text-[11px] mt-1">사진 추가</span>
-              </button>
-            </div>
-            <p className="text-[11px] text-gray-500 mt-2">새로 추가한 사진은 저장 시 서버에 업로드됩니다. 기존 이미지 순서는 표시 순서대로 저장됩니다.</p>
-          </SectionBlock>
-
-          {/* 소개 영상 */}
-          <SectionBlock title={`소개 영상 (${(editForm.videos || []).length}개)`}>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={videoInput}
-                onChange={(e) => setVideoInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addVideo(); } }}
-                placeholder="YouTube URL (https://youtu.be/... 또는 https://youtube.com/watch?v=...)"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-              <button
-                onClick={addVideo}
-                className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 flex items-center gap-1"
-              >
-                <Plus size={14} /> 추가
-              </button>
-            </div>
-            {(editForm.videos || []).length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-4">등록된 영상이 없습니다</p>
-            ) : (
-              <ul className="space-y-2">
-                {(editForm.videos || []).map((url: string, idx: number) => (
-                  <li key={idx} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                    <Youtube size={16} className="text-red-500 shrink-0" />
-                    <span className="flex-1 text-sm text-gray-700 truncate">{url}</span>
-                    {idx === 0 && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">대표</span>}
-                    <button onClick={() => removeVideo(idx)} className="text-gray-400 hover:text-red-500">
-                      <Trash2 size={14} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </SectionBlock>
-
-          {/* 서비스(플랜) */}
-          <SectionBlock title={`서비스/플랜 (${(editForm.services || []).length}개)`}>
-            <div className="space-y-3">
-              {(editForm.services || []).map((s: any, idx: number) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={s.title}
-                      onChange={(e) => updateService(idx, { title: e.target.value })}
-                      placeholder="플랜 이름 (예: Premium)"
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    />
-                    <input
-                      type="number"
-                      value={s.basePrice}
-                      onChange={(e) => updateService(idx, { basePrice: Number(e.target.value) })}
-                      placeholder="가격"
-                      className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    />
-                    <button onClick={() => removeService(idx)} className="p-2 text-gray-400 hover:text-red-500">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  <textarea
-                    value={s.description}
-                    onChange={(e) => updateService(idx, { description: e.target.value })}
-                    placeholder="플랜 설명"
-                    rows={2}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  />
-                </div>
-              ))}
-              <button
-                onClick={addService}
-                className="w-full py-2 rounded-lg border-2 border-dashed border-gray-300 text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 flex items-center justify-center gap-1"
-              >
-                <Plus size={14} /> 플랜 추가
-              </button>
-            </div>
-          </SectionBlock>
-        </div>
-
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200">취소</button>
-          <button onClick={onSave} className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600">저장</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SectionBlock({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="text-sm font-bold text-gray-800 mb-3">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function Field({ label, value, onChange, type = 'text' }: { label: string; value: any; onChange: (v: string) => void; type?: string }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
-      <input
-        type={type}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-      />
-    </div>
-  );
-}
-
-function TextareaField({ label, value, onChange, rows = 3 }: { label: string; value: any; onChange: (v: string) => void; rows?: number }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
-      <textarea
-        value={value ?? ''}
-        rows={rows}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-      />
-    </div>
-  );
-}
-
-function SelectField({ label, value, options, onChange }: { label: string; value: any; options: string[]; onChange: (v: string) => void }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
-      <select
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-      >
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  );
-}

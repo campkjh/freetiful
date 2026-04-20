@@ -27,9 +27,9 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 };
 
 const MOCK_PURCHASES: PurchaseItem[] = [
-  { id: '1', proName: '김민준 MC', service: '웨딩 MC 패키지', amount: 500000, eventDate: '2026-04-05', status: 'upcoming', image: 'https://i.pravatar.cc/150?img=1', hasReview: false },
-  { id: '2', proName: '박준혁 가수', service: '웨딩 축가 3곡', amount: 300000, eventDate: '2026-03-15', status: 'completed', image: 'https://i.pravatar.cc/150?img=3', hasReview: true },
-  { id: '3', proName: '이서연 MC', service: '돌잔치 MC', amount: 400000, eventDate: '2026-02-28', status: 'completed', image: 'https://i.pravatar.cc/150?img=5', hasReview: false },
+  { id: '1', proName: '김민준 MC', service: '웨딩 MC 패키지', amount: 500000, eventDate: '2026-04-05', status: 'upcoming', image: '/images/default-profile.svg', hasReview: false },
+  { id: '2', proName: '박준혁 가수', service: '웨딩 축가 3곡', amount: 300000, eventDate: '2026-03-15', status: 'completed', image: '/images/default-profile.svg', hasReview: true },
+  { id: '3', proName: '이서연 MC', service: '돌잔치 MC', amount: 400000, eventDate: '2026-02-28', status: 'completed', image: '/images/default-profile.svg', hasReview: false },
 ];
 
 const CACHE_KEY = 'freetiful-purchase-cache';
