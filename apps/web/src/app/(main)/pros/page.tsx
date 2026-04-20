@@ -115,7 +115,12 @@ function ProsListContent() {
       .catch(() => { setApiLoaded(true); });
   }, [authUser]);
 
-  const ALL_PROS = registeredPro ? [registeredPro, ...apiPros] : apiPros;
+  // 본인 프로가 API에 이미 있으면 localStorage 버전 중복 표시 안함
+  const hasApiOwnPro = registeredPro && authUser && apiPros.some(p =>
+    p.name === registeredPro.name ||
+    (typeof window !== 'undefined' && p.id === localStorage.getItem('freetiful-my-pro-id'))
+  );
+  const ALL_PROS = registeredPro && !hasApiOwnPro ? [registeredPro, ...apiPros] : apiPros;
   const initialRegion = searchParams.get('region') || '전체';
   const categoryParam = searchParams.get('category') || '';
   const isForeignFilter = categoryParam === '외국어사회자';
