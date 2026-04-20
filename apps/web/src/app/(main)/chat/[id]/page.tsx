@@ -600,7 +600,7 @@ export default function ChatRoomPage() {
                   )}
                   {msg.system ? (
                     <Suspense fallback={<SystemMessageFallback msg={msg} />}>
-                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} />
+                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} myProfileImage={authUser?.profileImageUrl || null} />
                     </Suspense>
                   ) : (
                     <SystemMessageFallback msg={msg} />

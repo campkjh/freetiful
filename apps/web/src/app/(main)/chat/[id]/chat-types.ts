@@ -31,6 +31,7 @@ export interface SystemPayload {
   rating?: number;
   quotationId?: string;
   proId?: string;
+  proImage?: string | null;
 }
 
 export interface Message {

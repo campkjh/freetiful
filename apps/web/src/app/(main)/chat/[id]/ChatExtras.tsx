@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import { quotationApi } from '@/lib/api/quotation.api';
 import { chatApi } from '@/lib/api/chat.api';
+import { useAuthStore } from '@/lib/store/auth.store';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
@@ -381,7 +382,7 @@ function KakaoMapEmbed({ venue }: { venue: string }) {
 }
 
 // ─── SystemMessageCard ───
-export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null }) {
+export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null }) {
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
   useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
 
@@ -462,12 +463,40 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
                 <div className="absolute inset-0.5 rounded-[2px]" style={{ background: 'repeating-linear-gradient(90deg, transparent 0, transparent 1.5px, rgba(0,0,0,0.15) 1.5px, rgba(0,0,0,0.15) 2px)' }} />
               </div>
 
-              {/* 중앙 플랜 타이포 */}
+              {/* 사회자 프로필 사진 — 카드 3D transform 상속 */}
+              {(() => {
+                const proImg = (sys as any)?.proImage
+                  || (isPro ? myProfileImage : chatPartner?.profileImageUrl)
+                  || '/images/default-profile.svg';
+                return (
+                  <div
+                    className="absolute left-1/2 rounded-full overflow-hidden"
+                    style={{
+                      top: '28%',
+                      width: 56,
+                      height: 56,
+                      transform: 'translateX(-50%)',
+                      border: '2px solid rgba(255,255,255,0.6)',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.25)',
+                      background: 'rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <img
+                      src={proImg}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
+                    />
+                  </div>
+                );
+              })()}
+
+              {/* 하단 플랜 라벨 (프로필 아래) */}
               <p
-                className="absolute left-3 right-3 text-white font-black tracking-tighter leading-none"
+                className="absolute left-3 right-3 text-white font-black tracking-tighter leading-none text-center"
                 style={{
-                  top: '42%',
-                  fontSize: 30,
+                  bottom: 14,
+                  fontSize: 22,
                   textShadow: '0 2px 6px rgba(0,0,0,0.25), 0 0 20px rgba(255,255,255,0.12)',
                 }}
               >
@@ -486,6 +515,24 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
                 className="absolute inset-0 pointer-events-none mix-blend-overlay"
                 style={{
                   background: 'radial-gradient(ellipse at 70% 20%, rgba(255,255,255,0.35) 0%, transparent 55%)',
+                }}
+              />
+              {/* 빛반사 shimmer — 부유에 맞춰 대각선으로 흐름 */}
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  inset: '-20% -30%',
+                  background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.28) 46%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0.28) 54%, transparent 70%)',
+                  animation: 'quoteCardShimmer 4.5s ease-in-out 1.1s infinite alternate',
+                  mixBlendMode: 'overlay',
+                }}
+              />
+              {/* 딤 레이어 — 부유할 때 진해졌다 옅어짐 */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.18) 100%)',
+                  animation: 'quoteCardDim 4.5s ease-in-out 1.1s infinite alternate',
                 }}
               />
             </div>
@@ -598,6 +645,17 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
           @keyframes quoteCardShadow {
             0%   { opacity: 0.72; transform: translateX(-50%) scaleX(0.6) scaleY(0.55); filter: blur(3px); }
             100% { opacity: 0.3;  transform: translateX(-50%) scaleX(1.35) scaleY(1.25); filter: blur(9px); }
+          }
+          /* 빛반사 — 대각선 광택이 카드 위를 쓸고 지나감 */
+          @keyframes quoteCardShimmer {
+            0%   { transform: translate3d(-40%, -20%, 0) rotate(0deg); opacity: 0.4; }
+            50%  { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.9; }
+            100% { transform: translate3d(40%, 20%, 0) rotate(0deg); opacity: 0.4; }
+          }
+          /* 딤 레이어 — 부유에 맞춰 하단이 진해졌다 옅어짐 */
+          @keyframes quoteCardDim {
+            0%   { opacity: 0.4; }
+            100% { opacity: 1; }
           }
           /* 텍스트 — 우측에서 좌측으로 페이드인 (태그 전용) */
           @keyframes quoteTextInRight {
@@ -1271,6 +1329,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       const quotationId = (created as any)?.id;
 
       // 2) 채팅방에 견적 카드 메시지 전송 (상대가 결제 버튼 누를 수 있게 metadata 포함)
+      const myProImage = useAuthStore.getState().user?.profileImageUrl || null;
       const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       if (roomId && !roomId.startsWith('pending-')) {
         await chatApi.sendMessage(roomId, {
@@ -1288,6 +1347,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
               eventTime: quoteEventTime,
               items: plan.items,
               quotationId,
+              proImage: myProImage,
             },
           },
         } as any).catch(() => {});
@@ -1312,7 +1372,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
           eventTime: quoteEventTime,
           items: plan.items,
           quotationId,
-        },
+          proImage: myProImage,
+        } as any,
       };
       setMessages(prev => [...prev, quoteMsg]);
       setShowQuoteModal(false);
