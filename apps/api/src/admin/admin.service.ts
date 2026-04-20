@@ -566,6 +566,29 @@ export class AdminService {
     }));
   }
 
+  // 빈 ProProfile 일괄 정리: 이미지 0장이고 shortIntro 없는 프로필을 draft 로 강등
+  // (approved 된 빈 프로필이 공개 목록에 잡혀 있던 문제 일괄 수정)
+  async cleanupEmptyProProfiles() {
+    const empty = await this.prisma.proProfile.findMany({
+      where: {
+        status: 'approved',
+        images: { none: {} },
+      },
+      select: { id: true, userId: true, user: { select: { name: true, email: true } } },
+    });
+    const ids = empty.map((p) => p.id);
+    if (ids.length === 0) return { archivedCount: 0, archived: [] };
+    await this.prisma.proProfile.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 'draft' },
+    });
+    this.discoveryService.invalidateCache();
+    return {
+      archivedCount: ids.length,
+      archived: empty.map((p) => ({ id: p.id, userId: p.userId, name: p.user.name, email: p.user.email })),
+    };
+  }
+
   // 지정 유저를 소프트 삭제 (email → archived-{ts}-{email}, role→archived)
   // 연관 데이터 (ChatRoom, Payment, Message 등)는 유지 → 참조 무결성 보장
   async archiveUser(userId: string) {

@@ -51,7 +51,7 @@ export class DiscoveryService implements OnModuleInit {
       where: {
         status: 'approved',
         user: { role: 'pro', isActive: true },
-        OR: [{ shortIntro: { not: null } }, { images: { some: {} } }],
+        images: { some: {} },
       },
       include: {
         user: { select: { id: true, name: true, profileImageUrl: true } },
@@ -98,25 +98,21 @@ export class DiscoveryService implements OnModuleInit {
     const cached = this.getCached<any>(cacheKey);
     if (cached) return cached;
 
-    // 공개 목록 조건:
+    // 공개 목록 조건 (엄격):
     // 1) 프로필 status = approved
     // 2) User.role = 'pro' + isActive (일반 모드로 돌린 유저 / archived 제외)
-    // 3) 프로필에 최소한의 내용 (shortIntro 또는 이미지 최소 1장) — 빈 유령 프로필 제외
+    // 3) 프로필에 사진 1장 이상 (빈 프로필 제외 — 사진 없으면 어차피 카드에 플레이스홀더만 뜸)
     const where: any = {
       status: 'approved',
       user: { role: 'pro', isActive: true },
-      AND: [
-        { OR: [{ shortIntro: { not: null } }, { images: { some: {} } }] },
-      ],
+      images: { some: {} },
     };
     if (search) {
-      (where.AND as any[]).push({
-        OR: [
-          { user: { name: { contains: search, mode: 'insensitive' } } },
-          { shortIntro: { contains: search, mode: 'insensitive' } },
-          { mainExperience: { contains: search, mode: 'insensitive' } },
-        ],
-      });
+      where.OR = [
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { shortIntro: { contains: search, mode: 'insensitive' } },
+        { mainExperience: { contains: search, mode: 'insensitive' } },
+      ];
     }
     if (gender) where.gender = gender;
     if (featured) where.isFeatured = true;

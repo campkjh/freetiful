@@ -55,6 +55,19 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleCleanup = async () => {
+    if (!confirm('이미지 0장인 approved 프로필을 전부 draft 로 강등하시겠습니까? (공개 목록에서 사라짐)')) return;
+    try {
+      const data = await adminFetch('POST', '/api/v1/admin/cleanup-empty-profiles');
+      toast.success(`${data.archivedCount}개 빈 프로필이 draft 로 강등됨`);
+      if (data.archivedCount > 0) {
+        console.log('archived:', data.archived);
+      }
+    } catch (e: any) {
+      toast.error(`정리 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    }
+  };
+
   const handleTransfer = async () => {
     if (!transferSource || !transferTarget) { toast.error('이메일을 모두 입력하세요'); return; }
     if (!confirm(`${transferSource} 의 모든 프로필/이미지/서비스를 ${transferTarget} 계정으로 이관합니다.\n\n이 작업은 되돌릴 수 없습니다. 계속할까요?`)) return;
@@ -92,6 +105,9 @@ export default function AdminDashboardPage() {
           <p className="text-xs text-gray-400 mt-0.5">프리티풀 전체 관리</p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={handleCleanup} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-medium transition-colors">
+            빈 프로필 정리
+          </button>
           <button onClick={() => setTransferOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
             <ArrowRightLeft size={14} /> 프로필 이관
           </button>

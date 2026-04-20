@@ -115,6 +115,11 @@ export class AdminController {
     return this.adminService.archiveUser(id);
   }
 
+  @Post('cleanup-empty-profiles')
+  async cleanupEmptyProfiles() {
+    return this.adminService.cleanupEmptyProProfiles();
+  }
+
   @Get('payments')
   async getPayments(
     @Query('page') page?: string,
