@@ -354,15 +354,18 @@ export default function ProDetailPage() {
         const intro = localStorage.getItem('proRegister_intro') || '프리티풀 인증 전문가';
         const career = localStorage.getItem('proRegister_career') || '';
         const careerYears = parseInt(localStorage.getItem('proRegister_careerYears') || '1');
-        // 여러 가능한 key 시도 (pro-edit는 _videoUrl/_videos/_youtubeUrl 전부 저장)
-        let youtubeUrl = localStorage.getItem('proRegister_youtubeUrl') || localStorage.getItem('proRegister_videoUrl') || '';
-        if (!youtubeUrl) {
-          try {
-            const vs = JSON.parse(localStorage.getItem('proRegister_videos') || '[]');
-            if (Array.isArray(vs) && vs.length > 0) youtubeUrl = vs[0];
-          } catch {}
+        // 영상 목록: proRegister_videos 배열 우선, 없으면 단일 URL fallback
+        let videoUrls: string[] = [];
+        try {
+          const vs = JSON.parse(localStorage.getItem('proRegister_videos') || '[]');
+          if (Array.isArray(vs)) videoUrls = vs.filter(Boolean);
+        } catch {}
+        if (videoUrls.length === 0) {
+          const single = localStorage.getItem('proRegister_youtubeUrl') || localStorage.getItem('proRegister_videoUrl') || '';
+          if (single) videoUrls = [single];
         }
-        const ytId = extractYoutubeId(youtubeUrl);
+        const ytIds = videoUrls.map((u) => extractYoutubeId(u)).filter(Boolean) as string[];
+        const ytId = ytIds[0];
         const allImages = photos.length > 0 ? photos : ['/images/placeholder.avif'];
 
         setPro({
@@ -374,7 +377,7 @@ export default function ProDetailPage() {
           title: `사회자 ${name}`,
           isPrime: true,
           youtubeId: ytId,
-          youtubeVideos: ytId ? [{ id: ytId, title: `${name} 사회자 진행 영상` }] : [],
+          youtubeVideos: ytIds.map((id, i) => ({ id, title: `${name} 사회자 진행 영상 ${i + 1}` })),
           rating: 5.0,
           reviewCount: 0,
           plans: [
