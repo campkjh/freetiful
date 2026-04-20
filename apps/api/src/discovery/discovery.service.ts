@@ -33,6 +33,18 @@ export class DiscoveryService implements OnModuleInit {
     }
   }
 
+  /** 프로 상세/리스트 캐시 무효화 */
+  invalidateCache(proProfileId?: string) {
+    if (proProfileId) {
+      this.cache.delete(`proDetail:${proProfileId}`);
+    }
+    // 리스트 캐시는 모두 삭제
+    const keys = Array.from(this.cache.keys());
+    keys.forEach((k) => {
+      if (k.startsWith('{"fn":"getProList"')) this.cache.delete(k);
+    });
+  }
+
   /** 오늘의 추천 전문가 — 날짜 기반 매일 로테이션 */
   async getDailyRecommendation() {
     const pros = await this.prisma.proProfile.findMany({

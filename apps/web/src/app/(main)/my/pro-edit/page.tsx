@@ -211,7 +211,8 @@ export default function ProEditPage() {
   const removeFaqItem = (index: number) => setFaqItems(prev => prev.filter((_, i) => i !== index));
 
   /* ── Save ── */
-  const handleSave = () => {
+  const handleSave = async () => {
+    // 1) localStorage 저장 (즉시 UI 반영용)
     localStorage.setItem('proRegister_name', name);
     localStorage.setItem('proRegister_phone', phone);
     localStorage.setItem('proRegister_gender', gender);
@@ -229,7 +230,34 @@ export default function ProEditPage() {
     localStorage.setItem('proRegister_videoUrl', videos[0] || '');
     localStorage.setItem('proRegister_faq', JSON.stringify(faqItems));
 
-    setToast('저장되었습니다');
+    // 2) 서버에 업데이트 (pro detail 페이지 반영)
+    try {
+      const { prosApi } = await import('@/lib/api/pros.api');
+      const awardsArray = awards.split('\n').filter(Boolean);
+      await prosApi.submitRegistration({
+        name: name || undefined,
+        phone: phone || undefined,
+        gender: gender || undefined,
+        shortIntro: intro || undefined,
+        mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : undefined,
+        careerYears: careerYears || undefined,
+        awards: awards || undefined,
+        youtubeUrl: videos[0] || undefined,
+        photos: photos.length > 0 ? photos : undefined,
+        mainPhotoIndex: mainPhotoIndex,
+        faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
+        languages: languages.length > 0 ? languages : undefined,
+      });
+      // 프로 상세 in-memory 캐시 무효화
+      try {
+        const { invalidateProCache } = await import('@/lib/api/discovery.api');
+        invalidateProCache();
+      } catch {}
+      setToast('저장되었습니다');
+    } catch (e) {
+      console.error('프로필 저장 실패:', e);
+      setToast('저장에 실패했습니다. 다시 시도해주세요.');
+    }
     setTimeout(() => setToast(''), 2500);
   };
 

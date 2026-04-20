@@ -55,6 +55,17 @@ export function getCachedProDetail(id: string): any | null {
   return hit && Date.now() - hit.ts < TTL ? hit.data : null;
 }
 
+export function invalidateProCache(id?: string) {
+  if (id) {
+    cache.delete(`detail:${id}`);
+  }
+  // 리스트 캐시도 모두 삭제
+  const keys = Array.from(cache.keys());
+  keys.forEach((k) => {
+    if (k.startsWith('list:') || (id && k === `detail:${id}`)) cache.delete(k);
+  });
+}
+
 export const discoveryApi = {
   getDailyRecommendation: () =>
     cached('daily', () => apiClient.get<RecommendedPro>(`${BASE}/recommendation/daily`).then((r) => r.data)),
@@ -71,6 +82,8 @@ export const discoveryApi = {
     return cached(key, () => apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, { params }).then((r) => r.data));
   },
 
-  getProDetail: (id: string) =>
-    cached(`detail:${id}`, () => apiClient.get(`${BASE}/pros/${id}`).then((r) => r.data)),
+  getProDetail: (id: string, skipCache = false) => {
+    if (skipCache) cache.delete(`detail:${id}`);
+    return cached(`detail:${id}`, () => apiClient.get(`${BASE}/pros/${id}`).then((r) => r.data));
+  },
 };

@@ -278,9 +278,14 @@ function CompanyLogoCarousel({ proId }: { proId?: string }) {
       setLogos(PRO_COMPANY_LOGOS[proId]);
       return;
     }
-    // 2. localStorage에서 읽기 (본인 프로필)
+    // 2. 본인 프로필 페이지일 때만 localStorage에서 읽기 (my-pro 또는 내 프로 ID인 경우)
+    const isOwnProfile = proId === 'my-pro';
+    if (!isOwnProfile) {
+      setLogos([]);
+      return;
+    }
     try {
-      const saved = localStorage.getItem('proRegister_companyLogos') || localStorage.getItem('proRegister_selectedCategories');
+      const saved = localStorage.getItem('proRegister_companyLogos');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string' && parsed[0].startsWith('/images/')) {
