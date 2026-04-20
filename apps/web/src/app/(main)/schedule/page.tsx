@@ -321,31 +321,46 @@ export default function SchedulePage() {
 
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  const allDays = useMemo(() => {
+  type DayCell = { day: number; dateStr: string; dayOfWeek: string; isToday: boolean; isPast: boolean; isHoliday: boolean; holidayName: string } | null;
+
+  // 월의 첫 요일로 맞춘 7×N 캘린더 주 배열
+  const calendarWeeks = useMemo<DayCell[][]>(() => {
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const days: { day: number; dateStr: string; dayOfWeek: string; isToday: boolean; isPast: boolean; isHoliday: boolean; holidayName: string }[] = [];
+    const firstDayOfWeek = new Date(year, month - 1, 1).getDay(); // 0=일 ~ 6=토
+    const cells: DayCell[] = [];
+    // 앞쪽 빈 셀
+    for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+    // 해당 월 날짜
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(year, month - 1, d);
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      days.push({
+      cells.push({
         day: d, dateStr, dayOfWeek: DAYS_KR[date.getDay()],
         isToday: dateStr === todayStr,
         isPast: date < new Date(today.getFullYear(), today.getMonth(), today.getDate()),
         isHoliday: !!holidays[d], holidayName: holidays[d] || '',
       });
     }
-    return days;
+    // 뒤쪽 빈 셀 (7의 배수 맞추기)
+    while (cells.length % 7 !== 0) cells.push(null);
+    // 주 단위로 분할
+    const weeks: DayCell[][] = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    return weeks;
   }, [year, month, daysInMonth, holidays, today]);
 
-  // 7일 주 단위 스와이프
+  // 스와이프 주 이동
   const [slideDirection, setSlideDirection] = useState(0); // -1 = left, 1 = right
-  const [weekOffset, setWeekOffset] = useState(0);
-  const todayIdx = allDays.findIndex((d) => d.isToday);
-  const baseIdx = month === today.getMonth() + 1 && year === today.getFullYear() ? Math.max(0, todayIdx) : 0;
-  const weekStart = baseIdx + weekOffset * 7;
-  const visibleDays = allDays.slice(weekStart, weekStart + 7);
-  const totalWeeks = Math.ceil((allDays.length - baseIdx) / 7);
-  const hasNextWeek = weekStart + 7 < allDays.length;
+  const [weekOffset, setWeekOffset] = useState(() => {
+    // 현재 월이면 오늘이 속한 주로 초기화
+    const isCurrentMonth = month === today.getMonth() + 1 && year === today.getFullYear();
+    if (!isCurrentMonth) return 0;
+    const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
+    return Math.floor((firstDayOfWeek + today.getDate() - 1) / 7);
+  });
+  const totalWeeks = calendarWeeks.length;
+  const visibleDays = calendarWeeks[Math.min(weekOffset, totalWeeks - 1)] || [];
+  const hasNextWeek = weekOffset < totalWeeks - 1;
   const hasPrevWeek = weekOffset > 0;
 
   const touchStartX = useRef(0);
@@ -449,17 +464,20 @@ export default function SchedulePage() {
                 key={weekOffset}
                 className="grid grid-cols-7 text-center gap-y-1"
               >
-                {/* Day of week header */}
-                {visibleDays.map((d, i) => (
+                {/* 요일 헤더 (고정 일월화수목금토) */}
+                {DAYS_KR.map((dow, i) => (
                   <span
                     key={`dow-${i}`}
-                    className={`text-[12px] font-medium ${d.dayOfWeek === '일' || d.isHoliday ? 'text-red-400' : d.dayOfWeek === '토' ? 'text-blue-400' : 'text-gray-400'}`}
+                    className={`text-[12px] font-medium ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'}`}
                   >
-                    {d.dayOfWeek}
+                    {dow}
                   </span>
                 ))}
-                {/* Day numbers */}
+                {/* Day numbers - 7개 고정, null은 빈 셀 */}
                 {visibleDays.map((d, i) => {
+                  if (!d) {
+                    return <div key={`empty-${i}`} />;
+                  }
                   const isSelected = d.dateStr === selectedDate;
                   const isRed = d.dayOfWeek === '일' || d.isHoliday;
                   const isSat = d.dayOfWeek === '토';
@@ -475,7 +493,7 @@ export default function SchedulePage() {
                           isSelected
                             ? 'bg-[#2B313D] text-white'
                             : d.isPast
-                            ? 'text-gray-200'
+                            ? 'text-gray-300'
                             : isRed
                             ? 'text-red-400'
                             : isSat
