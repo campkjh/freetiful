@@ -300,6 +300,48 @@ export default function SchedulePage() {
   // Fetch schedule from API when authenticated
   useEffect(() => {
     if (!authUser) return;
+
+    // 일반 유저: 결제 내역을 스케줄로 변환
+    if (authUser.role !== 'pro') {
+      import('@/lib/api/client').then(({ apiClient }) => {
+        apiClient.get('/api/v1/payment', { params: { limit: 100 } })
+          .then((res: any) => {
+            const data = res.data?.data || [];
+            if (!Array.isArray(data)) return;
+            const mapped: ScheduleItem[] = data
+              .filter((p: any) => p.status !== 'refunded' && (p.quotation?.eventDate || p.eventDate))
+              .map((p: any) => {
+                const q = p.quotation || {};
+                const proUser = q.proProfile?.user || {};
+                const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
+                const eventDate = q.eventDate || p.eventDate;
+                const dateStr = new Date(eventDate).toISOString().slice(0, 10);
+                const eventDateObj = new Date(eventDate);
+                const now = new Date();
+                const status: 'confirmed' | 'pending' | 'completed' =
+                  p.status === 'completed' && eventDateObj < now ? 'completed'
+                  : p.status === 'completed' ? 'confirmed'
+                  : 'pending';
+                return {
+                  id: p.id,
+                  date: dateStr,
+                  title: q.title || p.description || '행사',
+                  category: q.category || 'MC',
+                  proName: proUser.name || '',
+                  proImage: proImg,
+                  time: q.eventTime || '',
+                  location: q.eventLocation || q.venue || '',
+                  status,
+                };
+              });
+            if (mapped.length > 0) setApiSchedules(mapped);
+          })
+          .catch(() => {});
+      });
+      return;
+    }
+
+    // Pro 유저: pro-dashboard 스케줄 API
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     scheduleApi.getMySchedule(month)
