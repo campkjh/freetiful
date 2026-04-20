@@ -55,8 +55,17 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
   const [navVisible, setNavVisible] = useState(true);
+  const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션
   const [navExpanding, setNavExpanding] = useState(false);
   const [bizCollapsing, setBizCollapsing] = useState(false);
+
+  // 페이지 진입 시 nav 등장 애니메이션 트리거
+  useEffect(() => {
+    if (hideNav) return;
+    setNavMounted(false);
+    const t = setTimeout(() => setNavMounted(true), 30);
+    return () => clearTimeout(t);
+  }, [hideNav, pathname]);
   const [isPro, setIsPro] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const lastScrollY = useRef(0);
@@ -192,9 +201,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <nav
           className="lg:hidden fixed left-0 right-0 z-50 px-4 pb-safe"
           style={{
-            bottom: navVisible ? 0 : -80,
-            transform: navVisible ? 'scale(1)' : 'scale(0.95)',
-            transition: 'bottom 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            bottom: navMounted && navVisible ? 0 : -80,
+            transform: navMounted && navVisible ? 'scale(1) translateY(0)' : 'scale(0.88) translateY(8px)',
+            opacity: navMounted && navVisible ? 1 : 0,
+            filter: navMounted && navVisible ? 'blur(0)' : 'blur(6px)',
+            transition: 'bottom 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease, filter 0.4s ease',
           }}
         >
           <div
