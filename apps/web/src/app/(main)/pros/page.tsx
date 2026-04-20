@@ -94,7 +94,15 @@ function ProsListContent() {
     discoveryApi.getProList({ limit: 100 })
       .then((res) => {
         if (res?.data && res.data.length > 0) {
-          const mapped = res.data.map((p: ProListItem, idx: number) => ({
+          // userId 중복 제거
+          const seen = new Set<string>();
+          const deduped = res.data.filter((p: any) => {
+            const key = p.userId || p.id;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          const mapped = deduped.map((p: ProListItem, idx: number) => ({
             id: p.id,
             name: p.name,
             category: 'MC',
@@ -115,12 +123,11 @@ function ProsListContent() {
       .catch(() => { setApiLoaded(true); });
   }, [authUser]);
 
-  // 본인 프로가 API에 이미 있으면 localStorage 버전 중복 표시 안함
-  const hasApiOwnPro = registeredPro && authUser && apiPros.some(p =>
-    p.name === registeredPro.name ||
-    (typeof window !== 'undefined' && p.id === localStorage.getItem('freetiful-my-pro-id'))
-  );
-  const ALL_PROS = registeredPro && !hasApiOwnPro ? [registeredPro, ...apiPros] : apiPros;
+  // API에 프로들이 있으면 localStorage 본인 프로(my-pro) 중복 표시 안함
+  // 본인 프로는 API에서 자동으로 나오므로 localStorage 버전 제거
+  const ALL_PROS = apiPros.length > 0
+    ? apiPros
+    : (registeredPro ? [registeredPro] : []);
   const initialRegion = searchParams.get('region') || '전체';
   const categoryParam = searchParams.get('category') || '';
   const isForeignFilter = categoryParam === '외국어사회자';
