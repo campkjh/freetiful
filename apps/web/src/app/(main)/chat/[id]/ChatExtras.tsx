@@ -411,21 +411,31 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
       : 'linear-gradient(165deg, #BFDBFE 0%, #A5B8FF 55%, #8CA2FF 100%)';
 
     return (
-      <div className="my-2 ml-14 max-w-[320px]" style={{ perspective: '1200px' }}>
-        <div className="flex items-center gap-4">
+      <div
+        className="my-2 ml-14 max-w-[320px]"
+        style={{
+          perspective: '800px',
+          perspectiveOrigin: '50% 50%',
+          transformStyle: 'preserve-3d',
+        }}
+      >
+        <div className="flex items-center gap-4" style={{ transformStyle: 'preserve-3d' }}>
           {/* ─── 좌측: 세로형 카드 (perspective 로 날아오는 연출) ─── */}
           <div
             className="relative shrink-0"
             style={{
               width: 110,
-              height: 150, // 세로형 카드 (약 2:3)
+              height: 150,
               transformStyle: 'preserve-3d',
-              animation: 'quoteCardFly 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
+              animation: 'quoteCardFly 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
+              transformOrigin: 'center center',
+              // 착지 후에도 살짝 기울어진 상태(원근 유지)
+              transform: 'rotateY(-12deg) rotateX(4deg)',
             }}
           >
             <div
-              className="absolute inset-0 rounded-[14px] shadow-[0_14px_30px_rgba(0,0,0,0.22)] overflow-hidden"
-              style={{ background: cardGradient }}
+              className="absolute inset-0 rounded-[14px] shadow-[0_16px_36px_rgba(0,0,0,0.28)] overflow-hidden"
+              style={{ background: cardGradient, transformStyle: 'preserve-3d' }}
             >
               {/* 카드 상단 KB 로고 자리 — 브랜드명 */}
               <p className="absolute top-2.5 left-3 text-white text-[10px] font-black tracking-wider">
@@ -450,12 +460,26 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
               >
                 {planLabel}
               </p>
-              {/* 상단 광택 */}
+              {/* 상단 광택 (원근 기울임과 함께 움직여서 입체감 강조) */}
               <div
                 className="absolute inset-0 pointer-events-none"
-                style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 40%)' }}
+                style={{ background: 'linear-gradient(115deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.12) 100%)' }}
               />
             </div>
+            {/* 바닥 그림자 (원근감 보조) */}
+            <div
+              className="absolute"
+              style={{
+                left: '50%',
+                bottom: -8,
+                width: '72%',
+                height: 10,
+                background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 70%)',
+                transform: 'translateX(-50%) translateZ(-1px)',
+                filter: 'blur(2px)',
+                pointerEvents: 'none',
+              }}
+            />
           </div>
 
           {/* ─── 우측: 텍스트 스택 + 결제 버튼 ─── */}
@@ -493,20 +517,23 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
           @keyframes quoteCardFly {
             0% {
               opacity: 0;
-              transform: translate3d(-180px, 10px, -40px) rotateY(-60deg) rotateX(8deg) scale(0.65);
-              filter: blur(2px);
+              transform: translate3d(-220px, 14px, -180px) rotateY(-70deg) rotateX(14deg) scale(0.6);
+              filter: blur(3px);
             }
-            55% {
+            40% {
               opacity: 1;
-              transform: translate3d(8px, -3px, 20px) rotateY(8deg) rotateX(-2deg) scale(1.04);
               filter: blur(0);
             }
+            60% {
+              transform: translate3d(12px, -4px, 30px) rotateY(4deg) rotateX(-3deg) scale(1.06);
+            }
             80% {
-              transform: translate3d(-2px, 1px, 10px) rotateY(-2deg) rotateX(0.5deg) scale(1);
+              transform: translate3d(-3px, 1px, 10px) rotateY(-18deg) rotateX(6deg) scale(1);
             }
             100% {
               opacity: 1;
-              transform: translate3d(0, 0, 0) rotateY(0) rotateX(0) scale(1);
+              /* 착지 후에도 살짝 기울어진 자세 유지 → 원근감 지속 */
+              transform: translate3d(0, 0, 0) rotateY(-12deg) rotateX(4deg) scale(1);
               filter: blur(0);
             }
           }
