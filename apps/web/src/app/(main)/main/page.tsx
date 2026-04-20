@@ -1117,6 +1117,87 @@ export default function HomePage() {
         <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 지금 접속중인 전문가 (무작위 선택, 초록 점)                */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {prosData.length > 0 && (
+          <section>
+            <Reveal>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="section-title">지금 접속중인 전문가</h3>
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                    </span>
+                  </div>
+                  <p className="section-subtitle mt-1">지금 바로 상담 가능한 전문가예요</p>
+                </div>
+              </div>
+            </Reveal>
+            <div className="flex gap-0 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+              {prosData.slice(0, 10).map((pro) => (
+                <Link
+                  key={pro.id}
+                  href={`/pros/${pro.id}`}
+                  className="shrink-0 w-[100px] flex flex-col items-center"
+                >
+                  <div className="relative w-[84px] h-[112px] rounded-xl overflow-hidden">
+                    <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
+                    <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 ring-2 ring-white" />
+                    </span>
+                  </div>
+                  <p className="text-[16px] font-bold text-gray-900 mt-1.5 text-center">{pro.name}</p>
+                  <p className="text-[14px] text-gray-400">{pro.category}</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+        {prosData.length > 0 && <div className="my-6 border-t border-gray-100" />}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 지역별 사회자                                              */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {prosData.length > 0 && (() => {
+          const REGIONS = ['전국', '서울/경기', '충청', '경상', '전라', '강원', '제주'];
+          return (
+            <section>
+              <Reveal>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="section-title">지역별 사회자</h3>
+                    <p className="section-subtitle mt-1">원하는 지역의 전문가를 찾아보세요</p>
+                  </div>
+                </div>
+              </Reveal>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] mb-4">
+                {REGIONS.map((r) => (
+                  <Link
+                    key={r}
+                    href={`/pros?region=${encodeURIComponent(r)}`}
+                    className="shrink-0 px-3.5 py-1.5 text-[13px] font-medium bg-gray-100 text-gray-700"
+                    style={{ borderRadius: 20 }}
+                  >
+                    {r}
+                  </Link>
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4">
+                {prosData.slice(0, 6).map((pro, i) => (
+                  <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
+                    <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
+        {prosData.length > 0 && <div className="my-6 border-t border-gray-100" />}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
         {/* 3. 인기 전문가 — PC 5×2, Mobile 2×3                        */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section>
