@@ -406,76 +406,138 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
     const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === planKey);
     const planLabel = tpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : 'Premium');
     const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' ? '#8B5CF6' : '#3180F7';
+    const cardGradient = planKey === 'enterprise'
+      ? 'linear-gradient(135deg, #F59E0B 0%, #FB923C 60%, #EA580C 100%)'
+      : planKey === 'superior'
+      ? 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 60%, #6D28D9 100%)'
+      : 'linear-gradient(135deg, #3180F7 0%, #60A5FA 60%, #1D4ED8 100%)';
+
     return (
-      <div className={wrapperClass}>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="bg-[#3180F7] px-4 py-3 flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="16" height="20" rx="2.5" fill="white" opacity="0.3"/><rect x="7.5" y="6" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/><rect x="7.5" y="9.5" width="6" height="1.5" rx="0.75" fill="white" opacity="0.5"/><rect x="7.5" y="13" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/></svg>
-            <p className="text-[14px] font-semibold text-white">견적서가 발송되었습니다</p>
-          </div>
-          <div className="px-4 py-3.5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: `${planColor}15`, color: planColor }}>
-                {planLabel}
-              </span>
-              {sys.eventName && <span className="text-[11px] text-gray-400">{sys.eventName}</span>}
-            </div>
-            <p className="text-[16px] font-semibold text-gray-900 tabular-nums">{formatKRW(sys.amount || 0)}</p>
-            {sys.options && sys.options.length > 0 && (
-              <div className="mt-2 space-y-0.5">
-                <div className="flex items-center justify-between text-[11px] text-gray-500">
-                  <span>기본 플랜</span>
-                  <span>{formatKRW(sys.basePrice || 0)}</span>
-                </div>
-                {sys.options.map((o, i) => (
-                  <div key={i} className="flex items-center justify-between text-[11px] text-amber-700">
-                    <span>+ {o.name}</span>
-                    <span>+{formatKRW(o.price || 0)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {sys.items && sys.items.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">포함 서비스</p>
-                <div className="space-y-1">
-                  {sys.items.map((it, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-[12px] text-gray-600">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill={planColor} opacity="0.15"/><path d="M8 12l3 3 5-5" stroke={planColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      <span>{it}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {sys.eventDate && (
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E5E7EB"/><rect x="3" y="4" width="18" height="6" rx="2.5" fill="#9CA3AF"/></svg>
-                <p className="text-[11px] text-gray-400">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
-              </div>
-            )}
-            {/* 결제 버튼 (고객 측에만, quotationId 있을 때) */}
-            {!isPro && sys.quotationId && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const proId = chatPartner?.id;
-                  const amount = sys.amount || 0;
-                  const plan = sys.plan || 'premium';
-                  // 기존 checkout UI 가 읽는 파라미터: price + plan + (quotationId 추가)
-                  const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
-                  const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
-                  window.location.href = url;
+      <div className="max-w-[320px] my-2 ml-14" style={{ perspective: '1000px' }}>
+        <div
+          className="bg-white rounded-2xl border border-gray-100 shadow-[0_6px_24px_rgba(0,0,0,0.08)] overflow-hidden"
+          style={{ animation: 'quoteCardReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+        >
+          <div className="flex items-stretch">
+            {/* ─── 좌측: 원근법 카드 (slide in from left with perspective tilt) ─── */}
+            <div
+              className="shrink-0 relative px-3 py-3 flex items-center justify-center"
+              style={{ perspective: '600px' }}
+            >
+              <div
+                className="relative rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.22)]"
+                style={{
+                  width: 108,
+                  height: 72, // 3:2 가로형
+                  background: cardGradient,
+                  transformStyle: 'preserve-3d',
+                  animation: 'quoteCardFly 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
                 }}
-                className="w-full mt-3 h-11 bg-[#3180F7] active:scale-[0.98] text-white text-[14px] font-bold rounded-xl transition-transform flex items-center justify-center gap-1.5"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" fill="white"/><path d="M2 10h20" stroke="#3180F7" strokeWidth="1" opacity="0.3"/></svg>
-                결제하기
-              </button>
-            )}
+                {/* 카드 하이라이트 (상단 광택) */}
+                <div
+                  className="absolute inset-0 rounded-xl pointer-events-none"
+                  style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 50%)' }}
+                />
+                {/* 카드 칩 */}
+                <div
+                  className="absolute top-2 left-2 w-5 h-4 rounded-[3px]"
+                  style={{ background: 'linear-gradient(135deg, #FFD966 0%, #D4A84B 100%)', boxShadow: '0 1px 2px rgba(0,0,0,0.3) inset' }}
+                />
+                {/* 플랜 라벨 */}
+                <p
+                  className="absolute left-2 bottom-1.5 text-white font-black tracking-tight"
+                  style={{ fontSize: 13, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
+                >
+                  {planLabel}
+                </p>
+                {/* 우측 ✨ 장식 */}
+                <div className="absolute right-2 top-1.5 text-white/80 text-[10px]">✨</div>
+              </div>
+            </div>
+
+            {/* ─── 우측: 내용 + 결제 버튼 ─── */}
+            <div className="flex-1 min-w-0 pr-3 py-3 pl-1 flex flex-col justify-between">
+              <div>
+                <p className="text-[10px] font-bold" style={{ color: planColor }}>견적서 도착</p>
+                <p className="text-[14px] font-bold text-gray-900 mt-0.5 leading-tight">
+                  {sys.eventName || '행사 진행'}
+                </p>
+                <p className="text-[17px] font-extrabold text-gray-900 tabular-nums mt-1">
+                  {formatKRW(sys.amount || 0)}
+                </p>
+                {sys.options && sys.options.length > 0 && (
+                  <p className="text-[10px] text-amber-700 mt-0.5">+ 옵션 {sys.options.length}건 포함</p>
+                )}
+              </div>
+              {/* 결제 버튼 (고객 측, quotationId 있을 때) — 우측 하단 */}
+              {!isPro && sys.quotationId ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const proId = chatPartner?.id;
+                    const amount = sys.amount || 0;
+                    const plan = sys.plan || 'premium';
+                    const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
+                    const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
+                    window.location.href = url;
+                  }}
+                  className="mt-2 self-end h-8 px-3 rounded-full text-white text-[12px] font-bold active:scale-95 transition-transform shadow-[0_3px_10px_rgba(49,128,247,0.35)]"
+                  style={{ background: cardGradient }}
+                >
+                  결제하기 →
+                </button>
+              ) : (
+                sys.eventDate && (
+                  <p className="text-[10px] text-gray-400 mt-2 self-end">
+                    {formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}
+                  </p>
+                )
+              )}
+            </div>
           </div>
+
+          {/* 포함 서비스 / 옵션 펼침 (카드 하단) */}
+          {(sys.items && sys.items.length > 0) && (
+            <div className="border-t border-gray-50 px-4 py-2.5">
+              <div className="flex flex-wrap gap-1">
+                {sys.items.slice(0, 4).map((it, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-[10px] text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full">
+                    <span style={{ color: planColor }}>✓</span>
+                    {it}
+                  </span>
+                ))}
+                {sys.items.length > 4 && (
+                  <span className="inline-block text-[10px] text-gray-400 px-1 py-0.5">+{sys.items.length - 4}</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+        <style>{`
+          @keyframes quoteCardFly {
+            0% {
+              opacity: 0;
+              transform: translate3d(-140px, 8px, 0) rotateY(-55deg) rotateX(10deg) scale(0.7);
+              filter: blur(2px);
+            }
+            60% {
+              opacity: 1;
+              transform: translate3d(12px, -2px, 0) rotateY(6deg) rotateX(-2deg) scale(1.03);
+              filter: blur(0);
+            }
+            100% {
+              opacity: 1;
+              transform: translate3d(0, 0, 0) rotateY(0) rotateX(0) scale(1);
+              filter: blur(0);
+            }
+          }
+          @keyframes quoteCardReveal {
+            0% { opacity: 0; transform: translateY(8px); }
+            100% { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
       </div>
     );
   }
