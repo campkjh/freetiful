@@ -183,7 +183,7 @@ export default function AdminProsPage() {
                 <tr key={pro.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <img src={pro.image || '/images/placeholder.avif'} alt={pro.name} className="w-10 h-10 rounded-full object-cover bg-gray-100" />
+                      <ProAvatar src={pro.image} name={pro.name} />
                       <Link href={`/pros/${pro.id}`} target="_blank" className="text-sm font-semibold text-gray-900 hover:text-blue-500">{pro.name}</Link>
                     </div>
                   </td>
@@ -270,6 +270,28 @@ export default function AdminProsPage() {
       </div>
 
     </div>
+  );
+}
+
+function ProAvatar({ src, name }: { src?: string | null; name: string }) {
+  const [err, setErr] = useState(false);
+  if (!src || err) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#B6CEE2] flex items-center justify-center shrink-0" aria-label={`${name} 기본 프로필`}>
+        <svg viewBox="0 0 24 24" fill="#E8F1F9" className="w-6 h-6">
+          <circle cx="12" cy="9" r="3.5" />
+          <path d="M4.5 20.5C4.5 16 7.5 14 12 14C16.5 14 19.5 16 19.5 20.5 L4.5 20.5 Z" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={name}
+      onError={() => setErr(true)}
+      className="w-10 h-10 rounded-full object-cover bg-gray-100 shrink-0"
+    />
   );
 }
 
