@@ -308,13 +308,17 @@ export default function SchedulePage() {
           .then((res: any) => {
             const data = res.data?.data || [];
             if (!Array.isArray(data)) return;
-            const mapped: ScheduleItem[] = data
-              .filter((p: any) => p.status !== 'refunded' && (p.quotation?.eventDate || p.eventDate))
-              .map((p: any) => {
-                const q = p.quotation || {};
+            const mapped: ScheduleItem[] = [];
+            data.forEach((p: any) => {
+              if (p.status === 'refunded') return;
+              // quotations는 배열 (payment.quotations[])
+              const qs = Array.isArray(p.quotations) ? p.quotations : (p.quotation ? [p.quotation] : []);
+              if (qs.length === 0) return;
+              qs.forEach((q: any) => {
+                if (!q?.eventDate) return;
                 const proUser = q.proProfile?.user || {};
                 const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
-                const eventDate = q.eventDate || p.eventDate;
+                const eventDate = q.eventDate;
                 const dateStr = new Date(eventDate).toISOString().slice(0, 10);
                 const eventDateObj = new Date(eventDate);
                 const now = new Date();
@@ -322,18 +326,19 @@ export default function SchedulePage() {
                   p.status === 'completed' && eventDateObj < now ? 'completed'
                   : p.status === 'completed' ? 'confirmed'
                   : 'pending';
-                return {
-                  id: p.id,
+                mapped.push({
+                  id: `${p.id}-${q.id}`,
                   date: dateStr,
                   title: q.title || p.description || '행사',
                   category: q.category || 'MC',
                   proName: proUser.name || '',
                   proImage: proImg,
-                  time: q.eventTime || '',
-                  location: q.eventLocation || q.venue || '',
+                  time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',
+                  location: q.eventLocation || '',
                   status,
-                };
+                });
               });
+            });
             if (mapped.length > 0) setApiSchedules(mapped);
           })
           .catch(() => {});

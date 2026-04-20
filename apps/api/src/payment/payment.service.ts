@@ -175,7 +175,16 @@ export class PaymentService {
         skip,
         take: limit,
         include: {
-          quotations: true,
+          quotations: {
+            include: {
+              proProfile: {
+                include: {
+                  user: { select: { id: true, name: true, profileImageUrl: true } },
+                  images: { where: { isPrimary: true }, take: 1 },
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.payment.count({ where: { userId } }),
