@@ -85,14 +85,28 @@ export default function ChatRoomPage() {
   const urlProImg = searchParams.get('img') ? decodeURIComponent(searchParams.get('img')!) : null;
   const authUser = useAuthStore((s) => s.user);
   const MY_ID = authUser?.id || '';
-  // isPro 는 이 채팅방에서 내가 프로 측인지 판단 — User.role 이 general 로 바뀌어도
-  // 기존에 등록한 ProProfile 이 있어 채팅방의 proProfile.userId 와 내 id 가 일치하면 프로.
-  // roomProUserId 는 아래 useEffect 에서 room 로드 시 세팅됨.
+  // isPro 판정: 아래 셋 중 하나라도 true 면 프로 측 — 견적서 발송 버튼 노출
+  // 1) 이 채팅방에서 내가 프로 측 (백엔드 iAmPro 응답)
+  // 2) 내가 ProProfile 을 보유 (일반모드로 UI 전환해도 견적 발송 가능)
+  // 3) User.role 이 'pro'
   const [roomProUserId, setRoomProUserId] = useState<string | null>(null);
-  const isPro =
+  const [hasMyProProfile, setHasMyProProfile] = useState<boolean>(false);
+  useEffect(() => {
+    if (!authUser) return;
+    import('@/lib/api/pros.api').then(({ prosApi }) => {
+      prosApi.getMyProfile()
+        .then((p: any) => {
+          if (p?.id) setHasMyProProfile(true);
+        })
+        .catch(() => {});
+    });
+  }, [authUser]);
+  const isPro = Boolean(
     (roomProUserId && roomProUserId === MY_ID) ||
+    hasMyProProfile ||
     authUser?.role === 'pro' ||
-    (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
+    (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro')
+  );
   const { connect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
 
   // ─── Pre-warmed data 즉시 사용 (initial state만 계산) ───
