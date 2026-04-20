@@ -17,6 +17,14 @@ export class AdminController {
     return this.adminService.seedPros();
   }
 
+  @Post('transfer-pro-profile')
+  async transferProProfile(
+    @Body('sourceEmail') sourceEmail: string,
+    @Body('targetEmail') targetEmail: string,
+  ) {
+    return this.adminService.transferProProfile(sourceEmail, targetEmail);
+  }
+
   @Get('pros')
   async getPros(
     @Query('page') page?: string,

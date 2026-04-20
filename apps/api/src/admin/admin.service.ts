@@ -293,6 +293,66 @@ export class AdminService {
     return this.getProDetail(proProfileId);
   }
 
+  // ─── 더미 계정 → 실제 계정으로 프로 프로필 이관 ─────────────────────────
+  // sourceEmail 의 ProProfile(+이미지/서비스/FAQ/리뷰 등 연관 데이터)을
+  // targetEmail 계정으로 통째로 옮기고, source 계정은 비활성화(email 변경)
+  async transferProProfile(sourceEmail: string, targetEmail: string) {
+    if (!sourceEmail || !targetEmail) {
+      throw new NotFoundException('sourceEmail, targetEmail 필요');
+    }
+
+    const source = await this.prisma.user.findUnique({
+      where: { email: sourceEmail },
+      include: { proProfile: true },
+    });
+    if (!source) throw new NotFoundException(`source 계정 없음: ${sourceEmail}`);
+    if (!source.proProfile) throw new NotFoundException(`source 계정에 프로필 없음`);
+
+    const target = await this.prisma.user.findUnique({
+      where: { email: targetEmail },
+      include: { proProfile: true },
+    });
+    if (!target) throw new NotFoundException(`target 계정 없음: ${targetEmail}`);
+
+    // target에 기존 proProfile이 있다면 삭제 (userId @unique 제약 때문)
+    if (target.proProfile) {
+      await this.prisma.proProfile.delete({ where: { id: target.proProfile.id } });
+    }
+
+    // ProProfile.userId를 target으로 변경 (연관 데이터는 FK로 따라옴)
+    const transferred = await this.prisma.proProfile.update({
+      where: { id: source.proProfile.id },
+      data: { userId: target.id },
+    });
+
+    // target 유저 정보 업데이트: 이름/프로필이미지/role 을 source 값으로 복사
+    await this.prisma.user.update({
+      where: { id: target.id },
+      data: {
+        name: source.name,
+        role: 'pro',
+        profileImageUrl: source.profileImageUrl,
+      },
+    });
+
+    // source 계정 비활성화: 이메일을 archived-{ts}-... 로 변경해 재시딩/충돌 방지
+    await this.prisma.user.update({
+      where: { id: source.id },
+      data: { email: `archived-${Date.now()}-${sourceEmail}` },
+    });
+
+    // 캐시 무효화
+    this.discoveryService.invalidateCache(transferred.id);
+
+    return {
+      success: true,
+      sourceEmail,
+      targetEmail,
+      transferredProfileId: transferred.id,
+      newOwnerUserId: target.id,
+    };
+  }
+
   // ─── Pro 승인 ─────────────────────────────────────────────────────────────
   async approvePro(proProfileId: string) {
     const profile = await this.prisma.proProfile.update({

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Star, CreditCard, UserCheck, ChevronRight, RefreshCw, Sprout, Calendar, Building2 } from 'lucide-react';
+import { Users, Star, CreditCard, UserCheck, ChevronRight, RefreshCw, Sprout, Calendar, Building2, ArrowRightLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from './_components/adminFetch';
 
@@ -19,6 +19,10 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferSource, setTransferSource] = useState('leesj@freetiful.com');
+  const [transferTarget, setTransferTarget] = useState('lsja3713@hanmail.net');
+  const [transferring, setTransferring] = useState(false);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -51,6 +55,26 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleTransfer = async () => {
+    if (!transferSource || !transferTarget) { toast.error('이메일을 모두 입력하세요'); return; }
+    if (!confirm(`${transferSource} 의 모든 프로필/이미지/서비스를 ${transferTarget} 계정으로 이관합니다.\n\n이 작업은 되돌릴 수 없습니다. 계속할까요?`)) return;
+    setTransferring(true);
+    try {
+      const data = await adminFetch('POST', '/api/v1/admin/transfer-pro-profile', {
+        sourceEmail: transferSource,
+        targetEmail: transferTarget,
+      });
+      toast.success(`이관 완료: ${data.transferredProfileId}`);
+      setTransferOpen(false);
+      fetchStats();
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
+      toast.error(`이관 실패: ${msg}`, { duration: 6000 });
+    } finally {
+      setTransferring(false);
+    }
+  };
+
   const navItems = [
     { href: '/admin/pros', icon: <UserCheck size={20} />, label: '전문가 관리', desc: '승인/반려, 프로필 수정', color: 'text-blue-600 bg-blue-50', count: stats?.pendingPros ? `대기 ${stats.pendingPros}명` : undefined },
     { href: '/admin/users', icon: <Users size={20} />, label: '유저 관리', desc: '회원 목록, 권한 변경', color: 'text-emerald-600 bg-emerald-50', count: stats?.totalUsers != null ? `전체 ${stats.totalUsers}명` : undefined },
@@ -68,6 +92,9 @@ export default function AdminDashboardPage() {
           <p className="text-xs text-gray-400 mt-0.5">프리티풀 전체 관리</p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setTransferOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
+            <ArrowRightLeft size={14} /> 프로필 이관
+          </button>
           <button onClick={handleSeed} disabled={seeding} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
             <Sprout size={14} /> {seeding ? '시드 중...' : '전문가 시드'}
           </button>
@@ -125,6 +152,51 @@ export default function AdminDashboardPage() {
           </Link>
         ))}
       </div>
+
+      {transferOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setTransferOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-base font-bold">프로필 이관 (더미 → 실계정)</h2>
+              <button onClick={() => setTransferOpen(false)} className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 text-lg">×</button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                source 계정의 프로 프로필(이미지·서비스·리뷰·채팅 등)을 target 계정으로 통째로 이관합니다.
+                target에 기존 프로필이 있으면 삭제되고, source 이메일은 archived-... 로 변경됩니다.
+              </p>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">source (더미) 이메일</label>
+                <input
+                  type="email"
+                  value={transferSource}
+                  onChange={(e) => setTransferSource(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">target (실계정) 이메일</label>
+                <input
+                  type="email"
+                  value={transferTarget}
+                  onChange={(e) => setTransferTarget(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-2 justify-end">
+              <button onClick={() => setTransferOpen(false)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200">취소</button>
+              <button
+                onClick={handleTransfer}
+                disabled={transferring}
+                className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+              >
+                {transferring ? '이관 중...' : '이관 실행'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
