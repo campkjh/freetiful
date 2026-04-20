@@ -886,18 +886,46 @@ export default function ChatExtras(props: ChatExtrasProps) {
     }
   };
 
-  const handleImageSend = (file: File) => {
-    const url = URL.createObjectURL(file);
+  const handleImageSend = async (file: File) => {
+    setShowAttach(false);
+    const tempId = `tmp-${Date.now()}`;
+    const localUrl = URL.createObjectURL(file);
+    // 낙관적 UI: 로컬 미리보기 먼저 표시
     setMessages((prev) => [...prev, {
-      id: Date.now().toString(),
+      id: tempId,
       senderId: MY_ID,
-      content: url,
+      content: localUrl,
       type: 'image',
       createdAt: new Date().toISOString(),
       isRead: false,
       isNew: true,
     }]);
-    setShowAttach(false);
+
+    try {
+      const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+      if (!roomId || roomId.startsWith('pending-')) return;
+      // file → base64 data URL
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      // 서버에 전송 → 서버가 디스크 저장 후 공개 URL 로 content 대체
+      const res = await chatApi.sendMessage(roomId, { type: 'image', content: dataUrl });
+      const saved = res.data as any;
+      // 임시 메시지를 서버 응답으로 교체 (senderId, content 는 서버 값)
+      setMessages((prev) => prev.map((m) => m.id === tempId ? {
+        ...m,
+        id: saved.id,
+        content: saved.content || localUrl,
+        isNew: false,
+      } : m));
+    } catch (e: any) {
+      toast.error(`이미지 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
+      // 실패한 임시 메시지 제거
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    }
   };
 
   const handleFileSend = (file: File) => {

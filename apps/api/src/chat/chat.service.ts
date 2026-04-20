@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { ImageService } from '../image/image.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CreateChatRoomDto,
@@ -25,6 +26,7 @@ export class ChatService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private imageService: ImageService,
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
@@ -386,12 +388,46 @@ export class ChatService {
   async sendMessage(roomId: string, userId: string, dto: SendMessageDto) {
     await this.verifyMembership(roomId, userId);
 
+    // image 타입이고 content 가 base64 data URL 이면 서버에 저장 후 공개 URL 로 대체
+    let finalContent = dto.content;
+    if (dto.type === 'image' && dto.content && dto.content.startsWith('data:image/')) {
+      try {
+        const match = dto.content.match(/^data:(image\/[a-z]+);base64,(.+)$/i);
+        if (match) {
+          const mime = match[1];
+          const buffer = Buffer.from(match[2], 'base64');
+          const ext = mime.split('/')[1] || 'jpg';
+          const fakeFile: any = {
+            fieldname: 'file',
+            originalname: `chat-${Date.now()}.${ext}`,
+            encoding: '7bit',
+            mimetype: mime,
+            size: buffer.length,
+            buffer,
+            destination: '',
+            filename: '',
+            path: '',
+            stream: null as any,
+          };
+          const processed = await this.imageService.processImage(fakeFile, {
+            requireFace: false,
+            maxWidth: 1600,
+            maxHeight: 1600,
+            quality: 85,
+          });
+          finalContent = processed.webpPath || processed.path;
+        }
+      } catch (e) {
+        // 저장 실패해도 content 는 그대로 둠 (클라이언트에서 에러 처리)
+      }
+    }
+
     const message = await this.prisma.message.create({
       data: {
         roomId,
         senderId: userId,
         type: dto.type,
-        content: dto.content,
+        content: finalContent,
         metadata: dto.metadata as any,
         replyToId: dto.replyToId,
         mediaExpiresAt: ['image', 'file'].includes(dto.type)
