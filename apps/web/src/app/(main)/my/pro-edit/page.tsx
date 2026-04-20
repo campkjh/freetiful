@@ -228,6 +228,7 @@ export default function ProEditPage() {
     localStorage.setItem('proRegister_awards', awards);
     localStorage.setItem('proRegister_videos', JSON.stringify(videos));
     localStorage.setItem('proRegister_videoUrl', videos[0] || '');
+    localStorage.setItem('proRegister_youtubeUrl', videos[0] || ''); // 상세페이지가 이 키를 읽음
     localStorage.setItem('proRegister_faq', JSON.stringify(faqItems));
 
     // 2) 서버에 업데이트 (pro detail 페이지 반영)

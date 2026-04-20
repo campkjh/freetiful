@@ -354,7 +354,14 @@ export default function ProDetailPage() {
         const intro = localStorage.getItem('proRegister_intro') || '프리티풀 인증 전문가';
         const career = localStorage.getItem('proRegister_career') || '';
         const careerYears = parseInt(localStorage.getItem('proRegister_careerYears') || '1');
-        const youtubeUrl = localStorage.getItem('proRegister_youtubeUrl') || '';
+        // 여러 가능한 key 시도 (pro-edit는 _videoUrl/_videos/_youtubeUrl 전부 저장)
+        let youtubeUrl = localStorage.getItem('proRegister_youtubeUrl') || localStorage.getItem('proRegister_videoUrl') || '';
+        if (!youtubeUrl) {
+          try {
+            const vs = JSON.parse(localStorage.getItem('proRegister_videos') || '[]');
+            if (Array.isArray(vs) && vs.length > 0) youtubeUrl = vs[0];
+          } catch {}
+        }
         const ytId = extractYoutubeId(youtubeUrl);
         const allImages = photos.length > 0 ? photos : ['/images/placeholder.avif'];
 
