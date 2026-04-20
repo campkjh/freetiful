@@ -414,70 +414,95 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
       <div
         className="my-2 ml-14 max-w-[320px]"
         style={{
-          perspective: '800px',
-          perspectiveOrigin: '50% 50%',
+          perspective: '900px',
+          perspectiveOrigin: '50% 40%',
           transformStyle: 'preserve-3d',
         }}
       >
         <div className="flex items-center gap-4" style={{ transformStyle: 'preserve-3d' }}>
-          {/* ─── 좌측: 세로형 카드 (perspective 로 날아오는 연출) ─── */}
+          {/* ─── 좌측: 세로형 카드 컨테이너 (fly-in + float 두 애니메이션 합성) ─── */}
           <div
             className="relative shrink-0"
             style={{
-              width: 110,
-              height: 150,
+              width: 130,
+              height: 175,
               transformStyle: 'preserve-3d',
-              animation: 'quoteCardFly 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
-              transformOrigin: 'center center',
-              // 착지 후에도 살짝 기울어진 상태(원근 유지)
-              transform: 'rotateY(-12deg) rotateX(4deg)',
+              // 부유 애니메이션을 컨테이너에 (Y 위치만)
+              animation: 'quoteCardFloat 4.2s ease-in-out 1.1s infinite alternate',
             }}
           >
+            {/* 카드 본체 (마름모 느낌으로 기울어진 3D 카드) */}
             <div
-              className="absolute inset-0 rounded-[14px] shadow-[0_16px_36px_rgba(0,0,0,0.28)] overflow-hidden"
-              style={{ background: cardGradient, transformStyle: 'preserve-3d' }}
+              className="absolute inset-0 rounded-[16px] overflow-hidden"
+              style={{
+                background: cardGradient,
+                transformStyle: 'preserve-3d',
+                animation: 'quoteCardFly 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
+                // 착지 후 자세 (rotateY -22deg 로 더 기울임 → 좌측변 길고 우측변 짧은 마름모 느낌)
+                transformOrigin: 'center center',
+                transform: 'rotateY(-22deg) rotateX(6deg)',
+                boxShadow: '0 20px 40px -10px rgba(0,0,0,0.35), 0 6px 14px -4px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2)',
+                willChange: 'transform',
+              }}
             >
-              {/* 카드 상단 KB 로고 자리 — 브랜드명 */}
-              <p className="absolute top-2.5 left-3 text-white text-[10px] font-black tracking-wider">
+              {/* 카드 상단 freetiful 브랜드 */}
+              <p className="absolute top-3 left-3.5 text-white text-[11px] font-black tracking-wider" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.25)' }}>
                 freetiful
               </p>
-              {/* 우측 상단 칩 */}
+              {/* 우측 상단 칩 (EMV 칩) */}
               <div
-                className="absolute top-2.5 right-3 w-5 h-4 rounded-[3px]"
+                className="absolute top-3 right-3.5 w-6 h-5 rounded-[4px]"
                 style={{
-                  background: 'linear-gradient(135deg, #FFE28A 0%, #C98A2C 100%)',
-                  boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.35)',
+                  background: 'linear-gradient(135deg, #FFEAA7 0%, #D4A340 55%, #A57A2E 100%)',
+                  boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.2)',
                 }}
-              />
-              {/* 중앙 큰 텍스트 (펭-카 느낌) */}
+              >
+                {/* 칩 라인 디테일 */}
+                <div className="absolute inset-0.5 rounded-[2px]" style={{ background: 'repeating-linear-gradient(90deg, transparent 0, transparent 1.5px, rgba(0,0,0,0.15) 1.5px, rgba(0,0,0,0.15) 2px)' }} />
+              </div>
+
+              {/* 중앙 플랜 타이포 */}
               <p
-                className="absolute left-2.5 right-2.5 text-white font-black tracking-tighter leading-none"
+                className="absolute left-3 right-3 text-white font-black tracking-tighter leading-none"
                 style={{
                   top: '42%',
-                  fontSize: 26,
-                  textShadow: '0 2px 4px rgba(0,0,0,0.25)',
+                  fontSize: 30,
+                  textShadow: '0 2px 6px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.15)',
                 }}
               >
                 {planLabel}
               </p>
-              {/* 상단 광택 (원근 기울임과 함께 움직여서 입체감 강조) */}
+
+              {/* 상단 하이라이트 (기울임 반영) */}
               <div
                 className="absolute inset-0 pointer-events-none"
-                style={{ background: 'linear-gradient(115deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.12) 100%)' }}
+                style={{
+                  background: 'linear-gradient(118deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0) 55%, rgba(0,0,0,0.1) 85%, rgba(0,0,0,0.18) 100%)',
+                }}
+              />
+              {/* 추가 글로우 (금속 느낌) */}
+              <div
+                className="absolute inset-0 pointer-events-none mix-blend-overlay"
+                style={{
+                  background: 'radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.4) 0%, transparent 55%)',
+                }}
               />
             </div>
-            {/* 바닥 그림자 (원근감 보조) */}
+
+            {/* 바닥 그림자 (부유에 맞춰 영역/투명도 반대로 애니메이션) */}
             <div
               className="absolute"
               style={{
                 left: '50%',
-                bottom: -8,
-                width: '72%',
-                height: 10,
-                background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 70%)',
-                transform: 'translateX(-50%) translateZ(-1px)',
-                filter: 'blur(2px)',
+                bottom: -18,
+                width: 96,
+                height: 14,
+                background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.18) 40%, rgba(0,0,0,0) 75%)',
+                transform: 'translateX(-50%)',
+                filter: 'blur(4px)',
                 pointerEvents: 'none',
+                // 카드가 떠오르면 연해지고 넓어지고, 내려앉으면 진해지고 작아짐
+                animation: 'quoteCardShadow 4.2s ease-in-out 1.1s infinite alternate',
               }}
             />
           </div>
@@ -517,7 +542,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
           @keyframes quoteCardFly {
             0% {
               opacity: 0;
-              transform: translate3d(-220px, 14px, -180px) rotateY(-70deg) rotateX(14deg) scale(0.6);
+              transform: translate3d(-240px, 16px, -200px) rotateY(-75deg) rotateX(14deg) scale(0.58);
               filter: blur(3px);
             }
             40% {
@@ -525,17 +550,29 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
               filter: blur(0);
             }
             60% {
-              transform: translate3d(12px, -4px, 30px) rotateY(4deg) rotateX(-3deg) scale(1.06);
+              transform: translate3d(14px, -6px, 40px) rotateY(-6deg) rotateX(-3deg) scale(1.08);
             }
             80% {
-              transform: translate3d(-3px, 1px, 10px) rotateY(-18deg) rotateX(6deg) scale(1);
+              transform: translate3d(-4px, 2px, 14px) rotateY(-28deg) rotateX(7deg) scale(1);
             }
             100% {
               opacity: 1;
-              /* 착지 후에도 살짝 기울어진 자세 유지 → 원근감 지속 */
-              transform: translate3d(0, 0, 0) rotateY(-12deg) rotateX(4deg) scale(1);
+              /* 마름모 느낌: 좌측변이 길고 우측변이 짧아 보이도록 rotateY 음수로 강하게 */
+              transform: translate3d(0, 0, 0) rotateY(-22deg) rotateX(6deg) scale(1);
               filter: blur(0);
             }
+          }
+          /* 컨테이너 - 부드럽게 위아래 둥둥 */
+          @keyframes quoteCardFloat {
+            0%   { transform: translate3d(0, 0, 0); }
+            50%  { transform: translate3d(0, -6px, 8px); }
+            100% { transform: translate3d(0, 2px, -2px); }
+          }
+          /* 그림자 - 카드가 뜨면 연해지고 넓어지고, 내려앉으면 진해지고 좁아짐 */
+          @keyframes quoteCardShadow {
+            0%   { opacity: 0.95; transform: translateX(-50%) scaleX(0.75) scaleY(0.7); filter: blur(3px); }
+            50%  { opacity: 0.55; transform: translateX(-50%) scaleX(1.15) scaleY(1.1); filter: blur(6px); }
+            100% { opacity: 1;    transform: translateX(-50%) scaleX(0.68) scaleY(0.62); filter: blur(2.5px); }
           }
         `}</style>
       </div>
