@@ -22,6 +22,41 @@ export type { Message, ChatPartner, SystemPayload };
 
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
 
+// 옵션명 AI 추천 (키워드 기반) — 입력 단어에 매칭되는 추천 태그를 보여줌
+const OPTION_SUGGESTIONS: { name: string; price: number; keywords: string[] }[] = [
+  { name: '전문 사회 비용', price: 150000, keywords: ['사회', '진행', 'mc'] },
+  { name: '공식 행사 MC', price: 300000, keywords: ['공식', 'mc', '행사'] },
+  { name: '리허설 참여', price: 50000, keywords: ['리허설', '연습'] },
+  { name: '대본 작성', price: 80000, keywords: ['대본', '스크립트', '원고'] },
+  { name: '사전 미팅', price: 30000, keywords: ['미팅', '사전', '상담'] },
+  { name: '포토타임 진행', price: 50000, keywords: ['포토', '사진'] },
+  { name: '축사/건배사 코디', price: 70000, keywords: ['축사', '건배', '코디'] },
+  { name: '2차 진행', price: 150000, keywords: ['2차', '뒷풀이', '피로연'] },
+  { name: '하객 응대', price: 80000, keywords: ['하객', '응대', '안내'] },
+  { name: '전담 코디네이터', price: 200000, keywords: ['코디', '전담', '매니저'] },
+  { name: '음향/사운드 체크', price: 50000, keywords: ['음향', '사운드', '마이크'] },
+  { name: '교통비', price: 30000, keywords: ['교통', '출장', '이동'] },
+  { name: '출장비 (장거리)', price: 100000, keywords: ['출장', '장거리', '지방', '교통'] },
+  { name: '의상 (턱시도/드레스)', price: 100000, keywords: ['의상', '턱시도', '드레스'] },
+  { name: '조기 도착', price: 30000, keywords: ['조기', '일찍', '리허설'] },
+  { name: '영상 큐시트', price: 50000, keywords: ['큐시트', '영상', '진행표'] },
+  { name: '세팅 지원', price: 50000, keywords: ['세팅', '준비', '셋업'] },
+];
+
+function suggestOptionNames(input: string): { name: string; price: number }[] {
+  const q = input.toLowerCase().trim();
+  if (!q) return [];
+  const scored = OPTION_SUGGESTIONS.map((s) => {
+    let score = 0;
+    if (s.name.toLowerCase().includes(q)) score += 10;
+    for (const kw of s.keywords) {
+      if (kw.toLowerCase().includes(q) || q.includes(kw.toLowerCase())) score += 5;
+    }
+    return { ...s, score };
+  }).filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
+  return scored.map(({ name, price }) => ({ name, price }));
+}
+
 const formatKRW = (n: number) => n.toLocaleString('ko-KR') + '원';
 const formatDate = (iso: string) => {
   const d = new Date(iso);
@@ -1400,37 +1435,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
               ))}
             </div>
 
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">행사 정보</p>
-            <div className="space-y-2 mb-4">
-              <input
-                type="text"
-                value={quoteEventName}
-                onChange={(e) => setQuoteEventName(e.target.value)}
-                placeholder="행사명 (예: 결혼식 사회)"
-                className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] transition-colors"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={quoteEventDate}
-                  onChange={(e) => setQuoteEventDate(e.target.value)}
-                  className="flex-1 h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] transition-colors"
-                />
-                <input
-                  type="time"
-                  value={quoteEventTime}
-                  onChange={(e) => setQuoteEventTime(e.target.value)}
-                  className="w-[130px] h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] transition-colors"
-                />
-              </div>
-              <textarea
-                value={quoteMemo}
-                onChange={(e) => setQuoteMemo(e.target.value)}
-                placeholder="추가 메모 (선택)"
-                className="w-full h-20 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[16px] outline-none focus:border-[#3180F7] resize-none transition-colors"
-              />
-            </div>
-
             {/* ─── 추가 옵션 ─── */}
             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">추가 옵션 (선택)</p>
             <div className="space-y-2 mb-3">
@@ -1446,34 +1450,60 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   </button>
                 </div>
               ))}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newOptName}
-                  onChange={(e) => setNewOptName(e.target.value)}
-                  placeholder="옵션명 (예: 리허설 참여)"
-                  className="flex-1 h-10 bg-gray-50 border border-gray-200 rounded-xl px-3 text-[14px] outline-none focus:border-[#3180F7]"
-                />
-                <input
-                  type="number"
-                  value={newOptPrice}
-                  onChange={(e) => setNewOptPrice(e.target.value)}
-                  placeholder="가격"
-                  className="w-[110px] h-10 bg-gray-50 border border-gray-200 rounded-xl px-3 text-[14px] outline-none focus:border-[#3180F7]"
-                />
-                <button
-                  onClick={() => {
-                    const price = parseInt(newOptPrice) || 0;
-                    if (!newOptName.trim()) return;
-                    setQuoteOptions((prev) => [...prev, { name: newOptName.trim(), price }]);
-                    setNewOptName('');
-                    setNewOptPrice('');
-                  }}
-                  disabled={!newOptName.trim()}
-                  className="h-10 px-3 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold disabled:opacity-40"
-                >
-                  추가
-                </button>
+              {/* 옵션 입력 — 2줄 배치로 width 초과 방지 */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={newOptName}
+                    onChange={(e) => setNewOptName(e.target.value)}
+                    placeholder="옵션명 (예: 사회, 리허설, 대본 …)"
+                    className="w-full h-10 bg-gray-50 border border-gray-200 rounded-xl px-3 text-[14px] outline-none focus:border-[#3180F7]"
+                  />
+                  {/* AI 자동 추천 태그 */}
+                  {newOptName.trim() && (() => {
+                    const suggestions = suggestOptionNames(newOptName.trim());
+                    if (suggestions.length === 0) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {suggestions.map((s) => (
+                          <button
+                            key={s.name}
+                            type="button"
+                            onClick={() => { setNewOptName(s.name); setNewOptPrice(String(s.price)); }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#3180F7]/8 border border-[#3180F7]/30 text-[12px] text-[#3180F7] font-medium hover:bg-[#3180F7]/15 transition-colors"
+                          >
+                            <span>✨</span>
+                            <span>{s.name}</span>
+                            <span className="text-gray-400">· {(s.price / 10000).toFixed(0)}만원</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={newOptPrice}
+                    onChange={(e) => setNewOptPrice(e.target.value)}
+                    placeholder="가격 (원)"
+                    className="flex-1 h-10 bg-gray-50 border border-gray-200 rounded-xl px-3 text-[14px] outline-none focus:border-[#3180F7]"
+                  />
+                  <button
+                    onClick={() => {
+                      const price = parseInt(newOptPrice) || 0;
+                      if (!newOptName.trim()) return;
+                      setQuoteOptions((prev) => [...prev, { name: newOptName.trim(), price }]);
+                      setNewOptName('');
+                      setNewOptPrice('');
+                    }}
+                    disabled={!newOptName.trim()}
+                    className="h-10 px-5 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold disabled:opacity-40 shrink-0"
+                  >
+                    추가
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1492,10 +1522,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
             <button
               onClick={handleSendQuote}
-              disabled={!quoteEventName.trim()}
-              className={`w-full h-12 rounded-xl font-bold text-[15px] transition-colors ${
-                quoteEventName.trim() ? 'bg-[#3180F7] text-white active:scale-[0.98]' : 'bg-gray-100 text-gray-400'
-              }`}
+              className="w-full h-12 rounded-xl font-bold text-[15px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors"
             >
               견적서 발송
             </button>
