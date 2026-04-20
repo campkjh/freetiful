@@ -9,12 +9,14 @@ const PLANS = [
   { id: 'premium', label: 'Premium', defaultPrice: 450000, desc: '행사 1시간 진행' },
   { id: 'superior', label: 'Superior', defaultPrice: 800000, desc: '행사 2시간 진행' },
   { id: 'enterprise', label: 'Enterprise', defaultPrice: 1700000, desc: '6시간 풀타임' },
+  { id: 'test', label: 'Test', defaultPrice: 100, desc: '테스트용 (결제 플로우 확인)' },
 ];
 
 const COMMON_OPTIONS: Record<string, string[]> = {
   premium: ['사회 진행', '사전 미팅'],
   superior: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'],
   enterprise: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'],
+  test: ['테스트 서비스'],
 };
 
 const TOTAL_STEPS = 7;

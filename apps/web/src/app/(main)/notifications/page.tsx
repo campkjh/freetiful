@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Search, Trash2, X } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { notificationApi } from '@/lib/api/notification.api';
+import { notificationApi, getCachedNotifications } from '@/lib/api/notification.api';
 
 type NotifType = 'chat' | 'booking' | 'payment' | 'review' | 'system' | 'marketing';
 
@@ -77,10 +77,27 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   { id: '8', type: 'chat', title: '박준혁 가수님의 새 메시지', body: '축가 3곡 기본이고, 추가 곡은 곡당 5만원입니다. 곡 목록 보내드릴까요?', isRead: true, date: '6일 전', link: '/chat/3' },
 ];
 
+function mapNotif(n: any): Notification {
+  return {
+    id: n.id,
+    type: n.type as NotifType,
+    title: n.title || '',
+    body: n.body || '',
+    isRead: n.isRead,
+    date: new Date(n.createdAt).toLocaleDateString('ko-KR'),
+    link: n.data?.link,
+  };
+}
+
 export default function NotificationsPage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [items, setItems] = useState<Notification[]>([]);
+  // 캐시된 알림을 즉시 표시
+  const [items, setItems] = useState<Notification[]>(() => {
+    const cached: any = getCachedNotifications();
+    if (cached && Array.isArray(cached.data) && cached.data.length > 0) return cached.data.map(mapNotif);
+    return [];
+  });
   const authUser = useAuthStore((s) => s.user);
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
@@ -91,15 +108,7 @@ export default function NotificationsPage() {
       notificationApi.getList({ limit: 50 })
         .then((res: any) => {
           if (res.data?.length > 0) {
-            setItems(res.data.map((n: any) => ({
-              id: n.id,
-              type: n.type as NotifType,
-              title: n.title || '',
-              body: n.body || '',
-              isRead: n.isRead,
-              date: new Date(n.createdAt).toLocaleDateString('ko-KR'),
-              link: n.data?.link,
-            })));
+            setItems(res.data.map(mapNotif));
             return;
           }
         })

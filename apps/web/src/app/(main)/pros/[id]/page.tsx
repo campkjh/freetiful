@@ -408,22 +408,27 @@ export default function ProDetailPage() {
         const profileImg = res.user?.profileImageUrl || images[0] || '';
         const ytId = extractYoutubeId(res.youtubeUrl);
         const services = res.services || [];
-        const plans = services.length > 0
-          ? services.map((s: any, idx: number) => ({
-              id: s.id,
-              label: idx === 0 ? 'Premium' : idx === 1 ? 'Superior' : 'Enterprise',
-              price: s.basePrice || 450000,
-              duration: idx === 0 ? '1시간' : idx === 1 ? '2시간' : '6시간',
-              title: s.title || `행사 진행`,
-              desc: s.description ? s.description.split('\n').filter(Boolean) : ['사회 진행'],
-              workDays: 14,
-              revisions: idx + 1,
-            }))
-          : [
-              { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사 1시간 진행', desc: ['사회 진행', '사전 미팅'], workDays: 14, revisions: 1 },
-              { id: 'superior', label: 'Superior', price: 800000, duration: '2시간', title: '행사 2시간 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'], workDays: 14, revisions: 2 },
-              { id: 'enterprise', label: 'Enterprise', price: 1700000, duration: '6시간', title: '6시간 풀타임 진행', desc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'], workDays: 14, revisions: 3 },
-            ];
+        const PLAN_META_MAP: Record<string, { label: string; duration: string; revisions: number; defaultDesc: string[] }> = {
+          premium: { label: 'Premium', duration: '1시간', revisions: 1, defaultDesc: ['사회 진행', '사전 미팅'] },
+          superior: { label: 'Superior', duration: '2시간', revisions: 2, defaultDesc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'] },
+          enterprise: { label: 'Enterprise', duration: '6시간', revisions: 3, defaultDesc: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'] },
+          test: { label: 'Test', duration: '테스트', revisions: 1, defaultDesc: ['테스트 서비스'] },
+        };
+        // API에 등록된 services만 표시 (없으면 빈 배열 — mock 데이터 없음)
+        const plans = services.map((s: any, idx: number) => {
+          const key = (s.title || '').toLowerCase();
+          const meta = PLAN_META_MAP[key] || { label: s.title || `옵션 ${idx + 1}`, duration: '', revisions: idx + 1, defaultDesc: ['사회 진행'] };
+          return {
+            id: s.id || key || `svc-${idx}`,
+            label: meta.label,
+            price: s.basePrice || 0,
+            duration: meta.duration,
+            title: s.description || `${meta.label} 서비스`,
+            desc: s.description ? s.description.split('\n').filter(Boolean) : meta.defaultDesc,
+            workDays: 14,
+            revisions: meta.revisions,
+          };
+        });
 
         const reviews = (res.reviews || []).map((r: any) => ({
           id: r.id,

@@ -1157,6 +1157,7 @@ export default function ProfilePage() {
                       premium: { label: 'Premium', desc: '행사 1시간 진행' },
                       superior: { label: 'Superior', desc: '행사 2시간 진행' },
                       enterprise: { label: 'Enterprise', desc: '6시간 풀타임' },
+                      test: { label: 'Test', desc: '테스트용 (결제 플로우 확인)' },
                     };
                     const services = enabledPlans
                       .map((id) => ({

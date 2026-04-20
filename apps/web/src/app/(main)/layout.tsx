@@ -86,11 +86,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
   }, [pathname, needsAuth, authUser]);
 
-  // 로그인 시 채팅 목록 프리페치
+  // 로그인 시 채팅 + 알림 프리페치
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (loggedIn) {
       useChatStore.getState().fetchRooms();
+      // 알림 프리페치 (백그라운드)
+      import('@/lib/api/notification.api').then(({ notificationApi }) => {
+        notificationApi.prefetch();
+      });
     }
   }, [authUser]);
 

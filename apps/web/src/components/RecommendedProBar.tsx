@@ -91,6 +91,7 @@ export default function RecommendedProBar() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('init');
   const [recommended, setRecommended] = useState<{ id: string; name: string; image: string } | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false); // 스크롤 중이면 원형 축소
 
   // Fetch daily recommendation from API
   useEffect(() => {
@@ -117,9 +118,29 @@ export default function RecommendedProBar() {
     };
   }, []);
 
+  // 스크롤 시 원형으로 축소, 멈추면 다시 알약으로 펼침
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let timer: NodeJS.Timeout | null = null;
+    const onScroll = () => {
+      const current = window.scrollY;
+      const diff = Math.abs(current - lastScrollY);
+      if (diff > 3) setIsScrolling(true);
+      lastScrollY = current;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setIsScrolling(false), 300);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
   if (phase === 'closed' || !recommended) return null;
 
-  const isPillPhase = phase === 'expanding' || phase === 'expanded';
+  // 스크롤 중에는 원형 형태로 강제 (expanded 상태에서도)
+  const isPillPhase = (phase === 'expanding' || phase === 'expanded') && !isScrolling;
 
   const handleClose = (e: React.MouseEvent) => {
     e.preventDefault();

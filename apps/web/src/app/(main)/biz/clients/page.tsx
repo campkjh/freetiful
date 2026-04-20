@@ -334,6 +334,11 @@ export default function ClientsPage() {
             ))}
           </div>
 
+          {/* 프리티풀 파트너스와 함께한 기업들 */}
+          <Reveal delay={100}>
+            <h3 className="mt-16 text-[22px] font-bold tracking-tight text-gray-900">프리티풀 파트너스와 함께한 기업들</h3>
+          </Reveal>
+
           {/* 기업 로고 */}
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4 mt-8">
             {PARTNER_LOGOS.map((logo, i) => (

@@ -364,16 +364,6 @@ export default function CeoPage() {
               <p className="text-[16px] font-black text-gray-900">Freetiful</p>
               <p className="mt-1 text-[11px] text-gray-300">프리티풀 | 서울 중구 퇴계로 36길 2, 충무로관</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful. All rights reserved.</p>
-              <div className="mt-4 rounded-xl overflow-hidden border border-gray-100" style={{ height: 200 }}>
-                <iframe
-                  src="https://map.kakao.com/link/map/프리티풀,37.5594,126.9942"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                />
-              </div>
             </div>
             <div className="flex gap-4 text-[12px] text-gray-300">
               <Link href="/biz" className="transition-colors hover:text-gray-500">회사소개</Link>
