@@ -214,9 +214,9 @@ const PRO_MENU_SECTIONS = [
   {
     title: '수익 관리',
     items: [
-      { href: '/my/revenue', icon: () => <ImgIcon src="/images/pro-mypage-icons/매출 내역.svg" />, label: '매출 내역' },
-      { href: '/my/settlement', icon: () => <ImgIcon src="/images/pro-mypage-icons/정산 내역.svg" />, label: '정산 내역' },
-      { href: '/my/bank', icon: () => <ImgIcon src="/images/pro-mypage-icons/계좌 관리.svg" />, label: '계좌 관리' },
+      { href: '/my/revenue', icon: () => <ImgIcon src="/images/pro-mypage-icons/revenue.svg" />, label: '매출 내역' },
+      { href: '/my/settlement', icon: () => <ImgIcon src="/images/pro-mypage-icons/settlement.svg" />, label: '정산 내역' },
+      { href: '/my/bank', icon: () => <ImgIcon src="/images/pro-mypage-icons/bank-account.svg" />, label: '계좌 관리' },
     ],
   },
   {
@@ -228,21 +228,21 @@ const PRO_MENU_SECTIONS = [
   {
     title: '푸딩',
     items: [
-      { href: '/my/pudding-history', icon: () => <ImgIcon src="/images/pro-mypage-icons/푸딩 내역.svg" />, label: '푸딩 내역' },
-      { href: '/my/pudding-ranking', icon: () => <ImgIcon src="/images/pro-mypage-icons/랭킹 보기.svg" />, label: '랭킹 보기' },
+      { href: '/my/pudding-history', icon: () => <ImgIcon src="/images/pro-mypage-icons/pudding-history.svg" />, label: '푸딩 내역' },
+      { href: '/my/pudding-ranking', icon: () => <ImgIcon src="/images/pro-mypage-icons/ranking.svg" />, label: '랭킹 보기' },
     ],
   },
   {
     title: '고객센터',
     items: [
-      { href: 'tel:02-1234-5678', icon: () => <ImgIcon src="/images/pro-mypage-icons/전화문의.svg" />, label: '전화문의' },
+      { href: 'tel:02-1234-5678', icon: () => <ImgIcon src="/images/pro-mypage-icons/phone-inquiry.svg" />, label: '전화문의' },
     ],
   },
   {
     title: '기타',
     items: [
-      { href: '/my/terms', icon: () => <ImgIcon src="/images/pro-mypage-icons/약관 및 정책.svg" />, label: '약관 및 정책' },
-      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/일반회원 전환.svg" />, label: '일반유저 전환', action: 'switchToGeneral' },
+      { href: '/my/terms', icon: () => <ImgIcon src="/images/pro-mypage-icons/terms.svg" />, label: '약관 및 정책' },
+      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/switch-role.svg" />, label: '일반유저 전환', action: 'switchToGeneral' },
     ],
   },
 ];
@@ -278,7 +278,7 @@ const MENU_SECTIONS = [
       { href: '/my/invite', icon: () => <ImgIcon src="/images/invite-friend.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
       { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/partners-apply.svg" />, label: '파트너 신청', action: 'partner' },
-      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/일반회원 전환.svg" />, label: '프로유저 전환', action: 'switchToPro' },
+      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/switch-role.svg" />, label: '프로유저 전환', action: 'switchToPro' },
     ],
   },
 ];
