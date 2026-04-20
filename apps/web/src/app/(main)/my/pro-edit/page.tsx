@@ -80,6 +80,7 @@ export default function ProEditPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ── State ── */
+  const [accountInfo, setAccountInfo] = useState<{ email: string; userId: string; proProfileId: string; status: string } | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState('');
@@ -168,6 +169,12 @@ export default function ProEditPage() {
         if (!p?.id) return;
         // 내 프로 ID localStorage 저장 — 상세페이지에서 skipCache 판단에 사용
         localStorage.setItem('freetiful-my-pro-id', p.id);
+        setAccountInfo({
+          email: p.user?.email || '',
+          userId: p.userId || p.user?.id || '',
+          proProfileId: p.id,
+          status: p.status || '',
+        });
         if (p.shortIntro) setIntro(p.shortIntro);
         if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
         if (p.awards) setAwards(p.awards);
@@ -331,6 +338,19 @@ export default function ProEditPage() {
           </div>
         )}
       </>
+
+      {/* ─── 계정 진단 배너 (같은 사람 2개 계정 문제 추적용) ─── */}
+      {accountInfo && (
+        <div className="mx-4 mt-3 mb-1 bg-amber-50/60 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900">
+          <p className="font-bold text-[12px] mb-1">현재 수정 중인 계정</p>
+          <div className="space-y-0.5 font-mono">
+            <p>이메일: <span className="font-semibold">{accountInfo.email || '(없음)'}</span></p>
+            <p>프로필 상태: <span className="font-semibold">{accountInfo.status}</span></p>
+            <p className="text-amber-700">프로필 ID: {accountInfo.proProfileId.slice(0, 8)}…</p>
+          </div>
+          <p className="text-[10px] text-amber-700 mt-2">여러 계정(같은 이메일이라도 대소문자나 공백 차이로 분리)이 있을 수 있습니다. 공개 목록에서 '내가 아닌 내 이름'이 보이면 어드민에 중복 계정 병합을 요청하세요.</p>
+        </div>
+      )}
 
       {/* ─── 1. 기본 정보 ─── */}
       <Section title="기본 정보" defaultOpen={true}>

@@ -102,6 +102,9 @@ export class AuthService {
   }
 
   private async socialLogin(provider: AuthProvider, info: SocialUserInfo) {
+    // 이메일 정규화 (대소문자/공백 차이로 중복 유저가 생기는 문제 방지)
+    const normalizedEmail = info.providerEmail?.trim().toLowerCase() || undefined;
+
     const authRecord = await this.prisma.authProviderRecord.findUnique({
       where: { provider_providerUserId: { provider, providerUserId: info.providerUserId } },
       include: { user: true },
@@ -112,15 +115,22 @@ export class AuthService {
 
     if (authRecord) {
       user = authRecord.user;
-    } else if (info.providerEmail) {
-      const existing = await this.prisma.user.findUnique({ where: { email: info.providerEmail } });
+    } else if (normalizedEmail) {
+      // 1차: 정규화된 이메일로 정확히 일치하는 유저 검색
+      let existing = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+      // 2차: 대소문자 무관하게 검색 (기존 DB 의 대소문자 혼재 대응)
+      if (!existing) {
+        existing = await this.prisma.user.findFirst({
+          where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+        });
+      }
       if (existing) {
         await this.prisma.authProviderRecord.create({
-          data: { userId: existing.id, provider, providerUserId: info.providerUserId, providerEmail: info.providerEmail },
+          data: { userId: existing.id, provider, providerUserId: info.providerUserId, providerEmail: normalizedEmail },
         });
         user = existing;
       } else {
-        user = await this.createUser(provider, info, { email: info.providerEmail });
+        user = await this.createUser(provider, { ...info, providerEmail: normalizedEmail }, { email: normalizedEmail });
         isNewUser = true;
       }
     } else {
