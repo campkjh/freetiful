@@ -99,7 +99,7 @@ export default function ChatRoomPage() {
   const initialPartner: ChatPartner | null = initialPreWarmed?.room ? {
     id: initialPreWarmed.room.otherUser.id,
     name: initialPreWarmed.room.otherUser.name,
-    profileImageUrl: initialPreWarmed.room.otherUser.profileImageUrl || '/images/default-avatar.png',
+    profileImageUrl: initialPreWarmed.room.otherUser.profileImageUrl || '/images/default-profile.svg',
     isActive: initialPreWarmed.room.otherUser.isActive ?? false,
   } : null;
   const initialMessages: Message[] = initialPreWarmed?.messages ? initialPreWarmed.messages.map(mapApiMessage) : [];
@@ -150,7 +150,7 @@ export default function ChatRoomPage() {
             setChatPartner({
               id: pre.room.otherUser.id,
               name: pre.room.otherUser.name,
-              profileImageUrl: pre.room.otherUser.profileImageUrl || '/images/default-avatar.png',
+              profileImageUrl: pre.room.otherUser.profileImageUrl || '/images/default-profile.svg',
               isActive: pre.room.otherUser.isActive ?? false,
             });
           }
@@ -169,7 +169,7 @@ export default function ChatRoomPage() {
           setChatPartner({
             id: storeRoom.otherUser.id,
             name: storeRoom.otherUser.name,
-            profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-avatar.png',
+            profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-profile.svg',
             isActive: (storeRoom.otherUser as any).isActive ?? true,
           });
         }
@@ -181,7 +181,7 @@ export default function ChatRoomPage() {
         setChatPartner({
           id: room.otherUser.id,
           name: room.otherUser.name,
-          profileImageUrl: room.otherUser.profileImageUrl || '/images/default-avatar.png',
+          profileImageUrl: room.otherUser.profileImageUrl || '/images/default-profile.svg',
           isActive: room.otherUser.isActive ?? false,
         });
       } catch (err) {
@@ -400,7 +400,7 @@ export default function ChatRoomPage() {
   const hasData = !!chatPartner || messages.length > 0;
   const showSkeleton = !hasData && (roomId.startsWith('pending-') || (messagesLoading && messages.length === 0));
   const skeletonName = chatPartner?.name || urlProName;
-  const skeletonImg = chatPartner?.profileImageUrl || urlProImg || '/images/default-avatar.png';
+  const skeletonImg = chatPartner?.profileImageUrl || urlProImg || '/images/default-profile.svg';
 
   if (showSkeleton) {
     return (
@@ -490,17 +490,31 @@ export default function ChatRoomPage() {
             <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
           </button>
 
-          {/* 중앙 프로필 알약 */}
+          {/* 중앙 프로필 알약 (고객 채팅 시 클릭 없음) */}
           <Link
-            href={`/pros/${chatPartner?.id || ''}`}
+            href={isPro ? '#' : `/pros/${chatPartner?.id || ''}`}
+            onClick={(e) => { if (isPro) e.preventDefault(); }}
             className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
           >
             <div className="relative shrink-0">
-              <img src={chatPartner?.profileImageUrl || '/images/default-avatar.png'} alt="" className="w-9 h-9 rounded-full object-cover" />
+              <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-9 h-9 rounded-full object-cover" />
               {chatPartner?.isActive && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#34C759] border-2 border-white rounded-full" />}
             </div>
             <div className="flex-1 min-w-0 leading-tight">
-              <p className="text-[14px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[14px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
+                {chatPartner && (
+                  <span
+                    className="text-[9px] font-bold px-1.5 py-[1px] rounded shrink-0"
+                    style={{
+                      color: isPro ? '#6B7280' : '#3180F7',
+                      backgroundColor: isPro ? '#F3F4F6' : '#EAF3FF',
+                    }}
+                  >
+                    {isPro ? '고객' : '사회자'}
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] text-gray-400">
                 {chatPartner?.isActive ? '온라인' : chatPartner?.lastSeen ? `${chatPartner.lastSeen} 활동` : '오프라인'}
               </p>

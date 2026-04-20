@@ -55,4 +55,5 @@ export interface ChatPartner {
   profileImageUrl: string;
   isActive: boolean;
   lastSeen?: string;
+  role?: 'pro' | 'general'; // 상대방 역할: 사회자 or 고객
 }
