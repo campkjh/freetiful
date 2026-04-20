@@ -461,21 +461,24 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
+                  borderRadius: 16,
                   background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 65%, rgba(0,0,0,0.3) 100%)',
                   animation: 'quoteCardDim 4.5s ease-in-out 1.1s infinite alternate',
                 }}
               />
 
-              {/* 빛반사 shimmer — 부드럽고 자연스러운 대각선 광택 */}
-              <div
-                className="absolute pointer-events-none"
-                style={{
-                  inset: '-30% -40%',
-                  background: 'linear-gradient(110deg, transparent 42%, rgba(255,255,255,0.12) 48%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.12) 52%, transparent 58%)',
-                  animation: 'quoteCardShimmer 5s ease-in-out 1.1s infinite',
-                  mixBlendMode: 'screen',
-                }}
-              />
+              {/* 빛반사 shimmer — 카드 안에만 흐르도록 래퍼로 clip */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 16 }}>
+                <div
+                  className="absolute"
+                  style={{
+                    inset: '-30% -40%',
+                    background: 'linear-gradient(110deg, transparent 42%, rgba(255,255,255,0.12) 48%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.12) 52%, transparent 58%)',
+                    animation: 'quoteCardShimmer 5s ease-in-out 1.1s infinite',
+                    mixBlendMode: 'screen',
+                  }}
+                />
+              </div>
             </div>
 
             {/* 바닥 그림자 — 전체적으로 더 옅게 */}
