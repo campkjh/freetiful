@@ -415,7 +415,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
       <div
         className="my-2 ml-14 max-w-[320px]"
         style={{
-          perspective: '1000px',
+          perspective: '650px',
           perspectiveOrigin: '50% 45%',
           transformStyle: 'preserve-3d',
         }}
@@ -425,10 +425,10 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
           <div
             className="relative shrink-0"
             style={{
-              width: 130,
-              height: 175,
+              width: 108,
+              height: 180,
               transformStyle: 'preserve-3d',
-              animation: 'quoteCardFloat 5s ease-in-out 1.1s infinite alternate',
+              animation: 'quoteCardFloat 4.5s ease-in-out 1.1s infinite alternate',
             }}
           >
             {/* 카드 본체 — 반대 방향 마름모 (우측변 길고 좌측변 짧음) */}
@@ -439,7 +439,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
                 transformStyle: 'preserve-3d',
                 animation: 'quoteCardFly 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
                 transformOrigin: 'center center',
-                transform: 'rotateY(22deg) rotateX(6deg)',
+                transform: 'rotateY(32deg) rotateX(8deg)',
                 // 더 옅은 다층 그림자
                 boxShadow: '0 14px 28px -12px rgba(0,0,0,0.18), 0 4px 10px -4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18)',
                 willChange: 'transform',
@@ -510,14 +510,12 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
             {/* 태그 (플랜명) — 알약 형태 / 살짝 딤드 */}
             <div style={{ animation: 'quoteTextInRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' }}>
               <span
-                className="inline-block px-2.5 py-1 rounded-full text-[13px] leading-none"
+                className="inline-block px-2.5 py-1 rounded-full leading-none"
                 style={{
+                  fontSize: 11,
                   fontWeight: 500,
-                  color: planColor,
-                  background: `${planColor}14`,
-                  backdropFilter: 'blur(4px)',
-                  WebkitBackdropFilter: 'blur(4px)',
-                  border: `1px solid ${planColor}22`,
+                  color: 'rgba(0,0,0,0.7)',
+                  background: 'rgba(0,0,0,0.10)',
                 }}
               >
                 {planLabel}
@@ -558,8 +556,8 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
                   const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
                   window.location.href = url;
                 }}
-                className="mt-2 self-start px-4 py-2 rounded-full bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform shadow-[0_4px_12px_rgba(49,128,247,0.28)]"
-                style={{ animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.84s both' }}
+                className="mt-2 self-start px-4 py-2.5 bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform shadow-[0_4px_12px_rgba(49,128,247,0.28)]"
+                style={{ borderRadius: 12, animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.84s both' }}
               >
                 결제하기
               </button>
@@ -580,20 +578,20 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
             }
             100% {
               opacity: 1;
-              /* 반대 방향: 우측변 길고 좌측변 짧음 */
-              transform: translate3d(0, 0, 0) rotateY(22deg) rotateX(6deg) scale(1);
+              /* 반대 방향 + 강한 원근: 우측변 길고 좌측변 짧음 */
+              transform: translate3d(0, 0, 0) rotateY(32deg) rotateX(8deg) scale(1);
               filter: blur(0);
             }
           }
-          /* 부유 — 감속 없이 완전 연속적으로 ease-in-out */
+          /* 부유 — 더 확실하게 보이도록 진폭 증가 */
           @keyframes quoteCardFloat {
             0%   { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(0, -8px, 10px); }
+            100% { transform: translate3d(0, -16px, 18px); }
           }
           /* 그림자 호흡 — 전체 옅게 */
           @keyframes quoteCardShadow {
-            0%   { opacity: 0.75; transform: translateX(-50%) scaleX(0.72) scaleY(0.65); filter: blur(3.5px); }
-            100% { opacity: 0.38; transform: translateX(-50%) scaleX(1.2) scaleY(1.12); filter: blur(7px); }
+            0%   { opacity: 0.72; transform: translateX(-50%) scaleX(0.6) scaleY(0.55); filter: blur(3px); }
+            100% { opacity: 0.3;  transform: translateX(-50%) scaleX(1.35) scaleY(1.25); filter: blur(9px); }
           }
           /* 텍스트 — 우측에서 좌측으로 페이드인 (태그 전용) */
           @keyframes quoteTextInRight {
