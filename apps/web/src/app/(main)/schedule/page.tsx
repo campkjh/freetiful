@@ -307,18 +307,36 @@ export default function SchedulePage() {
         apiClient.get('/api/v1/payment', { params: { limit: 100 } })
           .then((res: any) => {
             const data = res.data?.data || [];
+            console.log('[Schedule] payments from API:', data.length, data);
             if (!Array.isArray(data)) return;
             const mapped: ScheduleItem[] = [];
             data.forEach((p: any) => {
               if (p.status === 'refunded') return;
               // quotations는 배열 (payment.quotations[])
               const qs = Array.isArray(p.quotations) ? p.quotations : (p.quotation ? [p.quotation] : []);
-              if (qs.length === 0) return;
+
+              // quotation이 없으면 payment 자체를 사용
+              if (qs.length === 0) {
+                const dateStr = new Date(p.createdAt).toISOString().slice(0, 10);
+                mapped.push({
+                  id: p.id,
+                  date: dateStr,
+                  title: p.description || '결제 완료',
+                  category: 'MC',
+                  proName: '',
+                  proImage: '',
+                  time: '',
+                  location: '',
+                  status: p.status === 'completed' ? 'confirmed' : 'pending',
+                });
+                return;
+              }
+
               qs.forEach((q: any) => {
-                if (!q?.eventDate) return;
                 const proUser = q.proProfile?.user || {};
                 const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
-                const eventDate = q.eventDate;
+                // eventDate가 없으면 결제일 기준
+                const eventDate = q.eventDate || p.createdAt;
                 const dateStr = new Date(eventDate).toISOString().slice(0, 10);
                 const eventDateObj = new Date(eventDate);
                 const now = new Date();
@@ -339,9 +357,10 @@ export default function SchedulePage() {
                 });
               });
             });
+            console.log('[Schedule] mapped schedules:', mapped.length, mapped);
             if (mapped.length > 0) setApiSchedules(mapped);
           })
-          .catch(() => {});
+          .catch((err) => { console.error('[Schedule] payment API error:', err); });
       });
       return;
     }
@@ -424,8 +443,12 @@ export default function SchedulePage() {
   }, []);
 
   const schedulesByDate = useMemo(() => {
-    if (!isLoggedIn || (!hasDemoData && apiSchedules.length === 0)) return {};
-    const source = apiSchedules.length > 0 ? apiSchedules : MOCK_SCHEDULES;
+    // API 스케줄이 있으면 우선 표시, 없으면 demo 데이터
+    let source: ScheduleItem[];
+    if (apiSchedules.length > 0) source = apiSchedules;
+    else if (isLoggedIn && hasDemoData) source = MOCK_SCHEDULES;
+    else return {};
+
     const map: Record<string, ScheduleItem[]> = {};
     source.forEach(s => {
       if (!map[s.date]) map[s.date] = [];
