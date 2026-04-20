@@ -89,123 +89,201 @@ export default function AdminDashboardPage() {
   };
 
   const navItems = [
-    { href: '/admin/pros', icon: <UserCheck size={20} />, label: '전문가 관리', desc: '승인/반려, 프로필 수정', color: 'text-blue-600 bg-blue-50', count: stats?.pendingPros ? `대기 ${stats.pendingPros}명` : undefined },
-    { href: '/admin/users', icon: <Users size={20} />, label: '유저 관리', desc: '회원 목록, 권한 변경', color: 'text-emerald-600 bg-emerald-50', count: stats?.totalUsers != null ? `전체 ${stats.totalUsers}명` : undefined },
-    { href: '/admin/bookings', icon: <Calendar size={20} />, label: '의뢰/예약', desc: '예약 현황 관리', color: 'text-orange-600 bg-orange-50' },
-    { href: '/admin/payments', icon: <CreditCard size={20} />, label: '결제 관리', desc: '결제 내역, 매출', color: 'text-violet-600 bg-violet-50', count: stats?.thisMonthRevenue != null ? `이번달 ₩${Number(stats.thisMonthRevenue).toLocaleString()}` : undefined },
-    { href: '/admin/reviews', icon: <Star size={20} />, label: '리뷰 관리', desc: '리뷰 목록, 삭제', color: 'text-amber-600 bg-amber-50', count: stats?.totalReviews != null ? `${stats.totalReviews}건` : undefined },
-    { href: '/admin/businesses', icon: <Building2 size={20} />, label: 'Biz 고객사', desc: '비즈니스 계정', color: 'text-rose-600 bg-rose-50' },
+    { href: '/admin/pros', icon: UserCheck, label: '전문가 관리', desc: '승인 · 반려 · 프로필', accent: 'bg-[#E8F3FF] text-[#3182F6]', count: stats?.pendingPros ? `대기 ${stats.pendingPros}` : undefined, countTone: 'warn' as const },
+    { href: '/admin/users', icon: Users, label: '유저 관리', desc: '회원 목록 · 권한', accent: 'bg-[#E7F8F3] text-[#00C896]', count: stats?.totalUsers != null ? `${stats.totalUsers.toLocaleString()}명` : undefined },
+    { href: '/admin/bookings', icon: Calendar, label: '의뢰 · 예약', desc: '예약 현황', accent: 'bg-[#FFF4E5] text-[#FF9500]' },
+    { href: '/admin/payments', icon: CreditCard, label: '결제 관리', desc: '결제 내역 · 매출', accent: 'bg-[#F0EEFF] text-[#8B75FF]', count: stats?.thisMonthRevenue != null ? `₩${Number(stats.thisMonthRevenue).toLocaleString()}` : undefined },
+    { href: '/admin/reviews', icon: Star, label: '리뷰 관리', desc: '리뷰 목록 · 삭제', accent: 'bg-[#FFF7E0] text-[#F59E0B]', count: stats?.totalReviews != null ? `${stats.totalReviews.toLocaleString()}건` : undefined },
+    { href: '/admin/businesses', icon: Building2, label: 'Biz 고객사', desc: '비즈니스 계정', accent: 'bg-[#FFECEC] text-[#F04452]' },
   ];
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-5">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between px-1">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">대시보드</h1>
-          <p className="text-xs text-gray-400 mt-0.5">프리티풀 전체 관리</p>
+          <h1 className="text-[22px] font-bold text-[#191F28] tracking-tight">대시보드</h1>
+          <p className="text-[13px] text-[#8B95A1] mt-0.5">프리티풀 전체 관리</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleCleanup} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-medium transition-colors">
-            빈 프로필 정리
-          </button>
-          <button onClick={() => setTransferOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors">
-            <ArrowRightLeft size={14} /> 프로필 이관
-          </button>
-          <button onClick={handleSeed} disabled={seeding} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors disabled:opacity-50">
-            <Sprout size={14} /> {seeding ? '시드 중...' : '전문가 시드'}
-          </button>
-          <button onClick={fetchStats} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <RefreshCw size={16} className="text-gray-500" />
-          </button>
-        </div>
+        <button
+          onClick={fetchStats}
+          className="w-10 h-10 flex items-center justify-center rounded-full text-[#6B7684] hover:bg-white transition-colors"
+          title="새로고침"
+        >
+          <RefreshCw size={18} />
+        </button>
       </div>
 
+      {/* 매출 히어로 */}
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-          {[1,2,3,4,5,6].map((i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-              <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
-              <div className="h-6 w-24 bg-gray-100 rounded" />
+        <div className="bg-white rounded-3xl p-6 animate-pulse">
+          <div className="h-3 w-20 bg-gray-100 rounded mb-3" />
+          <div className="h-9 w-56 bg-gray-100 rounded" />
+        </div>
+      ) : stats && (
+        <div className="bg-white rounded-3xl p-6">
+          <p className="text-[13px] text-[#6B7684]">이번달 매출</p>
+          <p className="mt-1.5 text-[30px] leading-tight font-extrabold text-[#191F28] tracking-tight">
+            ₩{Number(stats.thisMonthRevenue).toLocaleString()}
+          </p>
+          <div className="mt-4 pt-4 border-t border-[#F2F4F6] flex items-center justify-between text-[13px]">
+            <span className="text-[#6B7684]">누적 매출</span>
+            <span className="font-semibold text-[#191F28]">₩{Number(stats.totalRevenue).toLocaleString()}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 통계 4분할 */}
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[1,2,3,4].map((i) => (
+            <div key={i} className="bg-white rounded-2xl p-4 animate-pulse">
+              <div className="h-3 w-14 bg-gray-100 rounded mb-2" />
+              <div className="h-6 w-20 bg-gray-100 rounded" />
             </div>
           ))}
         </div>
       ) : stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: '전체 유저', value: `${stats.totalUsers.toLocaleString()}명`, color: 'text-blue-600' },
-            { label: '승인 전문가', value: `${stats.totalPros.toLocaleString()}명`, color: 'text-emerald-600' },
-            { label: '승인 대기', value: `${stats.pendingPros}명`, color: stats.pendingPros > 0 ? 'text-amber-600' : 'text-gray-400' },
-            { label: '전체 리뷰', value: `${stats.totalReviews.toLocaleString()}건`, color: 'text-violet-600' },
-            { label: '이번달 매출', value: `₩${Number(stats.thisMonthRevenue).toLocaleString()}`, color: 'text-green-600' },
-            { label: '누적 매출', value: `₩${Number(stats.totalRevenue).toLocaleString()}`, color: 'text-gray-700' },
+            { label: '전체 유저', value: stats.totalUsers.toLocaleString(), unit: '명' },
+            { label: '승인 전문가', value: stats.totalPros.toLocaleString(), unit: '명' },
+            { label: '승인 대기', value: `${stats.pendingPros}`, unit: '명', highlight: stats.pendingPros > 0 },
+            { label: '리뷰', value: stats.totalReviews.toLocaleString(), unit: '건' },
           ].map((item) => (
-            <div key={item.label} className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs text-gray-400 mb-1">{item.label}</p>
-              <p className={`text-lg font-bold ${item.color}`}>{item.value}</p>
+            <div key={item.label} className="bg-white rounded-2xl p-4">
+              <p className="text-[12px] text-[#8B95A1]">{item.label}</p>
+              <p className="mt-1 text-[20px] font-bold tracking-tight">
+                <span className={item.highlight ? 'text-[#F04452]' : 'text-[#191F28]'}>{item.value}</span>
+                <span className="text-[13px] font-medium text-[#8B95A1] ml-1">{item.unit}</span>
+              </p>
             </div>
           ))}
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {navItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <div className="bg-white rounded-xl border border-gray-200 p-5 hover:border-gray-300 hover:shadow-sm transition-all group cursor-pointer">
-              <div className="flex items-start justify-between">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color} mb-3`}>
-                  {item.icon}
+      {/* 관리 메뉴 */}
+      <div className="bg-white rounded-3xl overflow-hidden">
+        <div className="px-5 pt-5 pb-1">
+          <h2 className="text-[15px] font-bold text-[#191F28]">관리 메뉴</h2>
+        </div>
+        <div className="divide-y divide-[#F2F4F6]">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const countClass = item.countTone === 'warn'
+              ? 'text-[#F04452] bg-[#FFECEC]'
+              : 'text-[#3182F6] bg-[#E8F3FF]';
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors"
+              >
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${item.accent}`}>
+                  <Icon size={20} />
                 </div>
-                <ChevronRight size={18} className="text-gray-300 group-hover:text-gray-500 transition-colors mt-0.5" />
-              </div>
-              <h3 className="text-sm font-bold text-gray-900">{item.label}</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
-              {item.count && (
-                <span className="inline-block mt-2 text-[11px] font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                  {item.count}
-                </span>
-              )}
-            </div>
-          </Link>
-        ))}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-semibold text-[#191F28] truncate">{item.label}</p>
+                  <p className="text-[12px] text-[#8B95A1] mt-0.5 truncate">{item.desc}</p>
+                </div>
+                {item.count && (
+                  <span className={`text-[12px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${countClass}`}>
+                    {item.count}
+                  </span>
+                )}
+                <ChevronRight size={18} className="text-[#B0B8C1] shrink-0" />
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
+      {/* 관리자 도구 */}
+      <div className="bg-white rounded-3xl p-5">
+        <h2 className="text-[15px] font-bold text-[#191F28] mb-3">관리자 도구</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button
+            onClick={handleCleanup}
+            className="px-4 py-3 rounded-2xl bg-[#F9FAFB] hover:bg-[#F2F4F6] transition-colors text-left"
+          >
+            <span className="block text-[13px] font-semibold text-[#F04452]">빈 프로필 정리</span>
+            <span className="block text-[11px] text-[#8B95A1] mt-0.5">이미지 0 → draft 강등</span>
+          </button>
+          <button
+            onClick={() => setTransferOpen(true)}
+            className="px-4 py-3 rounded-2xl bg-[#F9FAFB] hover:bg-[#F2F4F6] transition-colors text-left"
+          >
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
+              <ArrowRightLeft size={13} /> 프로필 이관
+            </span>
+            <span className="block text-[11px] text-[#8B95A1] mt-0.5">더미 → 실계정</span>
+          </button>
+          <button
+            onClick={handleSeed}
+            disabled={seeding}
+            className="px-4 py-3 rounded-2xl bg-[#F9FAFB] hover:bg-[#F2F4F6] transition-colors disabled:opacity-50 text-left"
+          >
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
+              <Sprout size={13} /> {seeding ? '시드 중...' : '전문가 시드'}
+            </span>
+            <span className="block text-[11px] text-[#8B95A1] mt-0.5">데모 데이터 주입</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 프로필 이관 모달 */}
       {transferOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setTransferOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-base font-bold">프로필 이관 (더미 → 실계정)</h2>
-              <button onClick={() => setTransferOpen(false)} className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 text-lg">×</button>
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setTransferOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 pt-6 pb-2">
+              <h2 className="text-[18px] font-bold text-[#191F28]">프로필 이관</h2>
+              <p className="text-[12px] text-[#8B95A1] mt-1">더미 계정 → 실계정</p>
             </div>
-            <div className="px-6 py-5 space-y-4">
-              <p className="text-xs text-gray-500 leading-relaxed">
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-[12px] text-[#6B7684] leading-relaxed">
                 source 계정의 프로 프로필(이미지·서비스·리뷰·채팅 등)을 target 계정으로 통째로 이관합니다.
                 target에 기존 프로필이 있으면 삭제되고, source 이메일은 archived-... 로 변경됩니다.
               </p>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">source (더미) 이메일</label>
+                <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
+                  source (더미) 이메일
+                </label>
                 <input
                   type="email"
                   value={transferSource}
                   onChange={(e) => setTransferSource(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="w-full bg-[#F9FAFB] rounded-xl px-4 py-3 text-[14px] text-[#191F28] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#3182F6]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">target (실계정) 이메일</label>
+                <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
+                  target (실계정) 이메일
+                </label>
                 <input
                   type="email"
                   value={transferTarget}
                   onChange={(e) => setTransferTarget(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="w-full bg-[#F9FAFB] rounded-xl px-4 py-3 text-[14px] text-[#191F28] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#3182F6]"
                 />
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex gap-2 justify-end">
-              <button onClick={() => setTransferOpen(false)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200">취소</button>
+            <div className="px-6 pb-6 flex gap-2">
+              <button
+                onClick={() => setTransferOpen(false)}
+                className="flex-1 py-3.5 rounded-2xl bg-[#F2F4F6] text-[#191F28] text-[15px] font-semibold hover:bg-[#E5E8EB]"
+              >
+                취소
+              </button>
               <button
                 onClick={handleTransfer}
                 disabled={transferring}
-                className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+                className="flex-1 py-3.5 rounded-2xl bg-[#3182F6] text-white text-[15px] font-semibold hover:bg-[#1B64DA] disabled:opacity-50"
               >
                 {transferring ? '이관 중...' : '이관 실행'}
               </button>

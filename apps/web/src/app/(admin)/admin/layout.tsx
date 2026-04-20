@@ -102,10 +102,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             key={item.href}
             href={item.href}
             onClick={onClickItem}
-            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors ${
               active
-                ? 'bg-primary-500 text-white'
-                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                ? 'bg-[#E8F3FF] text-[#3182F6]'
+                : 'text-[#6B7684] hover:bg-white hover:text-[#191F28]'
             } ${collapsed && !onClickItem ? 'justify-center px-0' : ''}`}
             title={collapsed ? item.label : undefined}
           >
@@ -143,13 +143,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex h-screen bg-white">
       {/* Desktop sidebar */}
       <aside
-        className={`hidden md:flex flex-col border-r border-gray-200 bg-gray-50 transition-all duration-200 ${
+        className={`hidden md:flex flex-col border-r border-[#F2F4F6] bg-[#F9FAFB] transition-all duration-200 ${
           collapsed ? 'w-14' : 'w-56'
         }`}
       >
-        <div className="flex h-12 items-center justify-between border-b border-gray-200 px-3">
+        <div className="flex h-12 items-center justify-between border-b border-[#F2F4F6] px-3">
           {!collapsed && (
-            <h1 className="text-[13px] font-extrabold tracking-tight text-gray-900">
+            <h1 className="text-[13px] font-extrabold tracking-tight text-[#191F28]">
               Admin Console
             </h1>
           )}
@@ -197,8 +197,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         )}
 
-        <main className="flex-1 overflow-auto bg-gray-50">
-          <div className="max-w-6xl mx-auto px-4 py-6">{children}</div>
+        <main className="flex-1 overflow-auto bg-[#F9FAFB]">
+          <div className="max-w-6xl mx-auto px-4 py-6 md:px-6 md:py-8">{children}</div>
         </main>
       </div>
 
