@@ -7,12 +7,14 @@ import {
 import type { Multer } from 'multer';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImageService, ImageProcessOptions } from '../image/image.service';
+import { DiscoveryService } from '../discovery/discovery.service';
 
 @Injectable()
 export class ProService {
   constructor(
     private prisma: PrismaService,
     private imageService: ImageService,
+    private discovery: DiscoveryService,
   ) {}
 
   // ─── Profile (My) ────────────────────────────────────────────────────────
@@ -465,6 +467,10 @@ export class ProService {
         ),
       ]);
     }
+
+    // 저장 직후 디스커버리 캐시 (리스트 + 상세) 전부 무효화 — 변경사항 즉시 반영
+    this.discovery.invalidateCache(profile.id);
+    this.discovery.invalidateCache();
 
     return profile;
   }

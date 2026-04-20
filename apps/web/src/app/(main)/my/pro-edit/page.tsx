@@ -252,11 +252,13 @@ export default function ProEditPage() {
         const { data: myPro } = await apiClient.get('/api/v1/pro/profile').catch(() => ({ data: null }));
         if (myPro?.id) {
           await apiClient.get(`/api/v1/discovery/pros/${myPro.id}?nocache=1&_=${Date.now()}`).catch(() => {});
+          // 리스트 캐시도 강제 리프레시 (새 데이터 fetch)
+          await apiClient.get(`/api/v1/discovery/pros?_=${Date.now()}`).catch(() => {});
           // localStorage에 내 프로 id도 저장 (다른 곳에서 참조용)
           localStorage.setItem('freetiful-my-pro-id', myPro.id);
         }
       } catch {}
-      setToast('저장되었습니다');
+      setToast('저장되었습니다 — 상세 페이지 새로고침 필요하면 한번 더 새로고침 해주세요');
     } catch (e) {
       console.error('프로필 저장 실패:', e);
       setToast('저장에 실패했습니다. 다시 시도해주세요.');
