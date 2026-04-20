@@ -15,6 +15,14 @@ interface UserItem {
   profileImageUrl: string | null;
   createdAt: string;
   paymentCount: number;
+  proProfile: null | {
+    id: string;
+    status: 'draft' | 'pending' | 'approved' | 'rejected';
+    hasIntro: boolean;
+    imageCount: number;
+    serviceCount: number;
+    isEmpty: boolean;
+  };
 }
 
 const roleColors: Record<string, string> = {
@@ -127,6 +135,7 @@ export default function AdminUsersPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이메일</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">권한</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">프로프로필</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">결제수</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">가입일</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
@@ -134,9 +143,9 @@ export default function AdminUsersPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-sm text-gray-400">로딩 중...</td></tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-sm text-gray-400">로딩 중...</td></tr>
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-sm text-gray-400">검색 결과가 없습니다</td></tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-sm text-gray-400">검색 결과가 없습니다</td></tr>
                 ) : users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
@@ -160,6 +169,26 @@ export default function AdminUsersPage() {
                         <option value="business">business</option>
                         <option value="admin">admin</option>
                       </select>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {user.proProfile ? (
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            user.proProfile.status === 'approved' ? 'bg-emerald-50 text-emerald-600'
+                            : user.proProfile.status === 'pending' ? 'bg-amber-50 text-amber-600'
+                            : user.proProfile.status === 'rejected' ? 'bg-red-50 text-red-500'
+                            : 'bg-gray-100 text-gray-500'
+                          }`}>{user.proProfile.status}</span>
+                          <span className="text-[10px] text-gray-400">
+                            사진 {user.proProfile.imageCount} · 서비스 {user.proProfile.serviceCount}
+                          </span>
+                          {user.proProfile.isEmpty && (
+                            <span className="text-[10px] text-red-500 font-bold">빈 프로필</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center text-sm text-gray-600">{user.paymentCount}</td>
                     <td className="px-4 py-3 text-center text-xs text-gray-400">

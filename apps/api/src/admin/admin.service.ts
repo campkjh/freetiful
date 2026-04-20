@@ -332,13 +332,13 @@ export class AdminService {
       data: { userId: target.id },
     });
 
-    // target 유저 정보 업데이트: 이름/프로필이미지/role 을 source 값으로 복사
+    // target 유저 정보 업데이트: role='pro' 로, 프로필 이미지가 없으면 source 값으로 보완.
+    // 이름(User.name)은 target 것을 유지 — 실계정 이름이 덮어쓰이지 않도록.
     await this.prisma.user.update({
       where: { id: target.id },
       data: {
-        name: source.name,
         role: 'pro',
-        profileImageUrl: source.profileImageUrl,
+        ...(target.profileImageUrl ? {} : { profileImageUrl: source.profileImageUrl }),
       },
     });
 
@@ -472,6 +472,15 @@ export class AdminService {
           role: true,
           profileImageUrl: true,
           createdAt: true,
+          proProfile: {
+            select: {
+              id: true,
+              status: true,
+              shortIntro: true,
+              images: { select: { id: true }, take: 1 },
+              _count: { select: { images: true, services: true } },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -489,6 +498,19 @@ export class AdminService {
         profileImageUrl: u.profileImageUrl,
         createdAt: u.createdAt,
         paymentCount: 0,
+        proProfile: u.proProfile
+          ? {
+              id: u.proProfile.id,
+              status: u.proProfile.status,
+              hasIntro: !!u.proProfile.shortIntro,
+              imageCount: u.proProfile._count.images,
+              serviceCount: u.proProfile._count.services,
+              isEmpty:
+                !u.proProfile.shortIntro &&
+                u.proProfile._count.images === 0 &&
+                u.proProfile._count.services === 0,
+            }
+          : null,
       })),
       total,
       page,
