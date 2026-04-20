@@ -295,6 +295,18 @@ export default function MyPage() {
   const [couponCount, setCouponCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
 
+  // 최근 30초 이내 방문 시 진입 애니메이션 스킵 (하위 페이지 뒤로가기 중복 방지)
+  const skipAnim = (() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const last = Number(sessionStorage.getItem('my-page-visited-at') || '0');
+      const skip = last && Date.now() - last < 30000;
+      sessionStorage.setItem('my-page-visited-at', String(Date.now()));
+      return !!skip;
+    } catch { return false; }
+  })();
+  const animOrNone = (base: React.CSSProperties) => skipAnim ? undefined : base;
+
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     setIsLoggedIn(loggedIn);
@@ -426,7 +438,7 @@ export default function MyPage() {
         </div>
 
         {/* Pro Profile */}
-        <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
+        <div className="px-4 pb-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
           <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
             <div className="relative">
               <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
@@ -447,7 +459,7 @@ export default function MyPage() {
           </Link>
 
           {/* Pro Quick Stats */}
-          <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={{ animation: 'myFadeUp 0.5s ease 0.1s both' }}>
+          <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.1s both' })}>
             <Link href="/my/revenue" className="flex-1 py-2 text-center">
               <p className="text-[17px] font-bold text-gray-900">₩{proMockStats.revenue}</p>
               <p className="text-[11px] text-gray-400 mt-0.5">이번달 매출</p>
@@ -465,7 +477,7 @@ export default function MyPage() {
           </div>
 
           {/* Pudding ranking info */}
-          <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3" style={{ animation: 'myFadeUp 0.5s ease 0.15s both' }}>
+          <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.15s both' })}>
             <div className="flex items-center gap-2 mb-1">
               <ProIconPudding />
               <p className="text-[13px] font-bold text-amber-800">푸딩 랭킹 시스템</p>
@@ -477,7 +489,7 @@ export default function MyPage() {
 
         {/* Pro Menu Sections */}
         {PRO_MENU_SECTIONS.map((section, si) => (
-          <div key={section.title} style={{ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` }}>
+          <div key={section.title} style={animOrNone({ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` })}>
             {si > 0 && <div className="h-1.5 bg-gray-50" />}
             <div className="px-4 pt-3 pb-0.5">
               <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
@@ -539,7 +551,7 @@ export default function MyPage() {
 
       {/* Profile — 로그인 안 되었으면 로그인 유도 */}
       {!isLoggedIn ? (
-        <div className="px-4 pb-4 pt-2" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
+        <div className="px-4 pb-4 pt-2" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
           <div className="rounded-2xl bg-gray-50 p-5 text-center">
             <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
@@ -564,7 +576,7 @@ export default function MyPage() {
           </div>
         </div>
       ) : (
-      <div className="px-4 pb-3" style={{ animation: 'myFadeUp 0.5s ease forwards' }}>
+      <div className="px-4 pb-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
         <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
           <div className="relative">
             <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
@@ -607,7 +619,7 @@ export default function MyPage() {
         {proRegistrationPending && proProfileStatus !== 'approved' && (
           <div
             className="mt-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3.5"
-            style={{ animation: 'myFadeUp 0.5s ease 0.08s both' }}
+            style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.08s both' })}
           >
             <div className="flex items-center gap-1.5">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -629,7 +641,7 @@ export default function MyPage() {
           <button
             onClick={handlePartnerApply}
             className="mt-3 w-full rounded-xl bg-gradient-to-r from-[#3180F7] to-[#5B9AFE] px-4 py-4 flex items-center gap-3 shadow-[0_4px_16px_rgba(49,128,247,0.3)] active:scale-[0.98] transition-transform"
-            style={{ animation: 'myFadeUp 0.5s ease 0.08s both' }}
+            style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.08s both' })}
           >
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -648,7 +660,7 @@ export default function MyPage() {
         {proProfileStatus === 'rejected' && (
           <div
             className="mt-3 rounded-xl bg-red-50 border border-red-100 px-4 py-3.5"
-            style={{ animation: 'myFadeUp 0.5s ease 0.08s both' }}
+            style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.08s both' })}
           >
             <p className="text-[14px] font-bold text-red-700">파트너 신청이 반려되었습니다</p>
             <p className="text-[12px] text-red-500 mt-1">신청 조건을 재확인 후 다시 신청해 주세요.</p>
@@ -656,7 +668,7 @@ export default function MyPage() {
         )}
 
         {/* Quick Stats */}
-        <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={{ animation: 'myFadeUp 0.5s ease 0.1s both' }}>
+        <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.1s both' })}>
           <Link href="/my/points" className="flex-1 py-2 text-center">
             <p className="text-[17px] font-bold text-gray-900">{user.points.toLocaleString()}</p>
             <p className="text-[11px] text-gray-400 mt-0.5">포인트</p>
@@ -677,7 +689,7 @@ export default function MyPage() {
 
       {/* Upcoming Schedules */}
       {isLoggedIn && typeof window !== 'undefined' && localStorage.getItem('freetiful-has-demo-data') === 'true' && UPCOMING_SCHEDULES.length > 0 && (
-        <div className="px-4 pt-2 pb-1" style={{ animation: 'myFadeUp 0.5s ease 0.15s both' }}>
+        <div className="px-4 pt-2 pb-1" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.15s both' })}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[12px] font-bold text-gray-400">다가오는 일정</p>
             <Link href="/schedule" className="text-[12px] text-gray-400">전체보기</Link>
@@ -702,7 +714,7 @@ export default function MyPage() {
 
       {/* Menu Sections */}
       {MENU_SECTIONS.map((section, si) => (
-        <div key={section.title} style={{ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` }}>
+        <div key={section.title} style={animOrNone({ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` })}>
           {si > 0 && <div className="h-1.5 bg-gray-50" />}
           <div className="px-4 pt-3 pb-0.5">
             <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
