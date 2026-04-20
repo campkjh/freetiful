@@ -155,12 +155,8 @@ export default function ProEditPage() {
     setLanguages(lsJson('proRegister_languages', []));
     const savedAwards = lsJson('proRegister_awards', []);
     setAwards(Array.isArray(savedAwards) ? savedAwards.map((a: any) => typeof a === 'string' ? a : a.text || '').join('\n') : ls('proRegister_awards'));
-    const savedVideos = lsJson('proRegister_videos', null);
+    const savedVideos = lsJson<string[] | null>('proRegister_videos', null);
     if (Array.isArray(savedVideos)) setVideos(savedVideos);
-    else {
-      const legacy = ls('proRegister_videoUrl');
-      if (legacy) setVideos([legacy]);
-    }
     setFaqItems(lsJson('proRegister_faq', []));
   }, []);
 
@@ -227,9 +223,6 @@ export default function ProEditPage() {
     localStorage.setItem('proRegister_languages', JSON.stringify(languages));
     localStorage.setItem('proRegister_awards', awards);
     localStorage.setItem('proRegister_videos', JSON.stringify(videos));
-    localStorage.setItem('proRegister_videoUrl', videos[0] || '');
-    localStorage.setItem('proRegister_youtubeUrl', videos[0] || ''); // 상세페이지가 이 키를 읽음
-    localStorage.setItem('proRegister_videos_all', JSON.stringify(videos)); // 여러 영상 보관용
     localStorage.setItem('proRegister_faq', JSON.stringify(faqItems));
 
     // 2) 서버에 업데이트 (pro detail 페이지 반영)

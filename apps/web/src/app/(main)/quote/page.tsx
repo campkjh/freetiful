@@ -89,17 +89,20 @@ const TIME_SLOTS = [
   '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00',
 ];
 
-const MOCK_PROS = [
-  { id: '15', name: '박인애', image: '/images/pro-15/IMG_0196.avif', rating: 4.9, reviews: 134, experience: 13, intro: '13년 생방송 뉴스 진행으로 다져진 품격있는 사회자', youtubeId: 'UIbfieXAT0U', recentReviews: ['품격있는 진행 감동이었어요', '뉴스 앵커 느낌의 안정감!', '하객분들이 정말 좋아하셨어요'] },
-  { id: '23', name: '이승진', image: '/images/pro-23/IMG_46511771924269213.avif', rating: 4.8, reviews: 211, experience: 4, intro: '따뜻하고 깔끔한 진행의 사회자', youtubeId: 'Nqe3UioEV8E', recentReviews: ['따뜻한 진행 덕분에 울컥했어요', '깔끔하고 센스있는 진행!', '다시 부탁드리고 싶어요'] },
-  { id: '12', name: '문정은', image: '/images/pro-12/IMG_27221772621229571.avif', rating: 4.6, reviews: 216, experience: 10, intro: '품격있고 고급스러운 진행', youtubeId: 'D5Mx42ArNOY', recentReviews: ['고급스러운 분위기 최고!', '프로페셔널한 진행에 감사', '축사 코디까지 완벽했어요'] },
-  { id: '25', name: '이우영', image: '/images/pro-25/2-11772248201484.avif', rating: 4.7, reviews: 158, experience: 8, intro: '현직 아나운서의 고품격 진행', youtubeId: 'plGBzTNsdiM', recentReviews: ['아나운서 발성이 확실히 다르네요', '격식과 유머의 밸런스 최고', '현직 아나운서 진행 추천!'] },
-  { id: '5', name: '김유석', image: '/images/pro-05/10000029811773033474612.avif', rating: 4.7, reviews: 65, experience: 8, intro: '최고의 진행자 아나운서', youtubeId: '6R7r1tbMbTY', recentReviews: ['진행이 정말 자연스러웠어요', '분위기를 잘 살려주셨어요', '사전 미팅도 꼼꼼하셨어요'] },
-  { id: '24', name: '이용석', image: '/images/pro-24/10001176941772847263491.avif', rating: 4.9, reviews: 239, experience: 11, intro: '1000회 이상 결혼식사회', youtubeId: 'nZhdGrZaBKU', recentReviews: ['1000회 경력이 느껴지는 진행', '안정감 있는 진행 최고!', '처음부터 끝까지 완벽했습니다'] },
-  { id: '13', name: '박상설', image: '/images/pro-13/10000077391773050357628.avif', rating: 4.9, reviews: 43, experience: 10, intro: '10년 경력, 2000번의 행사', youtubeId: 'P04peAmLV7c', recentReviews: ['베테랑의 여유가 느껴졌어요', '행사 경험이 풍부하시네요', '센스있는 진행 감사합니다'] },
-  { id: '31', name: '전해별', image: '/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif', rating: 4.8, reviews: 133, experience: 10, intro: '탄탄한 발성의 아나운서', youtubeId: 'Aooj1e0Wu2I', recentReviews: ['발성이 정말 좋으세요', '아나운서 진행 추천합니다', '마이크 없이도 잘 들렸어요'] },
-  { id: '34', name: '정애란', image: '/images/pro-34/IMG_2920.avif', rating: 4.9, reviews: 226, experience: 10, intro: '임기응변에 강한 따뜻한 목소리', youtubeId: 'uZCpxPN8I0Y', recentReviews: ['돌발상황도 자연스럽게!', '따뜻한 목소리에 감동', '위트있는 진행 최고였어요'] },
-];
+type ProItem = {
+  id: string;
+  name: string;
+  image: string;
+  rating: number;
+  reviews: number;
+  experience: number;
+  intro: string;
+  youtubeId?: string;
+  recentReviews: string[];
+};
+
+// API 실패 시에는 빈 배열로 폴백 (하드코딩 목업 데이터 제거됨)
+const MOCK_PROS: ProItem[] = [];
 
 /* ─── Rotating Review Hook ─── */
 function useRotatingReview(reviews: string[], interval = 4000) {
@@ -171,7 +174,7 @@ function QuotePage() {
   const [selectedPros, setSelectedPros] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
   const [aiWriting, setAiWriting] = useState(false);
-  const [filteredPros, setFilteredPros] = useState<typeof MOCK_PROS>([]);
+  const [filteredPros, setFilteredPros] = useState<ProItem[]>([]);
   const [prosLoading, setProsLoading] = useState(false);
   const [nearbyVenues, setNearbyVenues] = useState<{ name: string; address: string; phone: string; distance: number; url: string }[]>([]);
   const [venuesLoading, setVenuesLoading] = useState(false);
@@ -365,7 +368,7 @@ function QuotePage() {
             if (isUuid) {
               proProfileId = id;
             } else {
-              const fallbackName = (filteredPros.find((p) => p.id === id)?.name) || MOCK_PROS.find((p) => p.id === id)?.name;
+              const fallbackName = filteredPros.find((p) => p.id === id)?.name;
               if (fallbackName) {
                 const result = await discoveryApi.getProList({ search: fallbackName, limit: 3 });
                 const match = (result as any)?.data?.find((p: any) => p.name === fallbackName || p.name?.includes(fallbackName.slice(0, 2)));
@@ -821,7 +824,7 @@ function QuotePage() {
                 <div className="pt-3 border-t border-gray-200">
                   <p className="text-[13px] text-gray-500 mb-2">선택한 사회자 ({selectedPros.size}명)</p>
                   <div className="flex flex-wrap gap-2">
-                    {MOCK_PROS.filter((p) => selectedPros.has(p.id)).map((p, i) => (
+                    {filteredPros.filter((p) => selectedPros.has(p.id)).map((p, i) => (
                       <div key={p.id} className="flex items-center gap-2 bg-white rounded-full pl-1 pr-3 py-1 border border-gray-200">
                         <img src={p.image} alt={p.name} className="w-6 h-6 rounded-full object-cover" />
                         <span className="text-[12px] font-medium text-gray-700">{p.name}</span>
@@ -1070,7 +1073,7 @@ function QuotePage() {
 
 /* ─── Pro Select Card with YouTube + Rotating Review ─── */
 function ProSelectCard({ pro, selected, onToggle }: {
-  pro: typeof MOCK_PROS[0];
+  pro: ProItem;
   selected: boolean;
   onToggle: () => void;
 }) {

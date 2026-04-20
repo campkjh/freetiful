@@ -1,43 +1,13 @@
 import { apiClient } from './client';
-import type { ProProfile, PaginatedResponse } from '@prettyful/types';
+import type { ProProfile } from '@prettyful/types';
 
 const BASE = '/api/v1';
 
+// 읽기(list/get/reviews 등)는 discoveryApi 에서 처리함.
+// 이 파일은 "내 프로 프로필" 쓰기 작업 전용.
 export const prosApi = {
-  list: (params?: {
-    categoryId?: string;
-    eventCategoryId?: string;
-    regionId?: string;
-    sort?: 'pudding_rank' | 'avg_rating' | 'review_count' | 'newest';
-    page?: number;
-    limit?: number;
-  }) =>
-    apiClient.get<PaginatedResponse<ProProfile>>(`${BASE}/pros`, { params }).then((r) => r.data),
-
-  get: (id: string) =>
-    apiClient.get<ProProfile>(`${BASE}/pros/${id}`).then((r) => r.data),
-
-  getReviews: (id: string, page = 1) =>
-    apiClient.get(`${BASE}/pros/${id}/reviews`, { params: { page } }).then((r) => r.data),
-
-  getSchedule: (id: string) =>
-    apiClient.get(`${BASE}/pros/${id}/schedule`).then((r) => r.data),
-
-  getRecommended: () =>
-    apiClient.get<ProProfile[]>(`${BASE}/pros/recommended`).then((r) => r.data),
-
-  // Pro profile management
   getMyProfile: () =>
     apiClient.get<ProProfile>(`${BASE}/pro/profile`).then((r) => r.data),
-
-  createProfile: () =>
-    apiClient.post<ProProfile>(`${BASE}/pro/profile`).then((r) => r.data),
-
-  updateProfile: (data: Partial<ProProfile>) =>
-    apiClient.put<ProProfile>(`${BASE}/pro/profile`, data).then((r) => r.data),
-
-  submitProfile: () =>
-    apiClient.post(`${BASE}/pro/profile/submit`).then((r) => r.data),
 
   submitRegistration: (data: {
     name?: string;
@@ -56,9 +26,6 @@ export const prosApi = {
     languages?: string[];
   }) =>
     apiClient.post(`${BASE}/pro/register`, data, { timeout: 60000 }).then((r) => r.data),
-
-  saveDraft: (data: Partial<ProProfile>) =>
-    apiClient.post(`${BASE}/pro/profile/draft`, data).then((r) => r.data),
 
   uploadImage: (file: File) => {
     const form = new FormData();

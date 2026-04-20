@@ -1139,7 +1139,7 @@ export default function ProfilePage() {
                   localStorage.setItem('proRegister_awards', JSON.stringify(awardList));
                   localStorage.setItem('proRegister_companyLogos', JSON.stringify(selectedCategories));
                   localStorage.setItem('proRegister_languages', JSON.stringify(selectedLanguages));
-                  localStorage.setItem('proRegister_videoUrl', videos.length > 0 ? videos[0] : '');
+                  localStorage.setItem('proRegister_videos', JSON.stringify(videos));
                   localStorage.setItem('proRegister_faq', JSON.stringify(
                     Object.entries(faqContents).map(([key, val]) => ({ q: key, a: val }))
                   ));

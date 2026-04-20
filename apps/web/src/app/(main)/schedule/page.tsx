@@ -31,17 +31,7 @@ interface ScheduleItem {
   status: 'confirmed' | 'pending' | 'completed';
 }
 
-const MOCK_SCHEDULES: ScheduleItem[] = [
-  { id: '1', date: '2026-04-10', title: '결혼식 MC', category: 'MC', proName: '박인애', proImage: '/images/pro-15/IMG_0196.avif', time: '14:00 - 16:00', location: '그랜드 웨딩홀', status: 'confirmed' },
-  { id: '2', date: '2026-04-10', title: '축가 공연', category: '축가', proName: '성연채', proImage: '/images/pro-23/IMG_46511771924269213.avif', time: '14:30 - 15:00', location: '그랜드 웨딩홀', status: 'confirmed' },
-  { id: '3', date: '2026-04-15', title: '웨딩 촬영', category: '스튜디오', proName: '조하늘', proImage: '/images/pro-31/IMG_73341772850094485.avif', time: '10:00 - 13:00', location: '강남 스튜디오', status: 'pending' },
-  { id: '4', date: '2026-04-18', title: '드레스 피팅', category: '드레스', proName: '김진아', proImage: '/images/pro-15/IMG_0196.avif', time: '15:00 - 17:00', location: '청담 쇼룸', status: 'pending' },
-  { id: '5', date: '2026-04-22', title: '헤어 메이크업 리허설', category: '헤메샵', proName: '유하영', proImage: '/images/pro-02/10000365351773046135169.avif', time: '11:00 - 13:00', location: '압구정 살롱', status: 'pending' },
-  { id: '6', date: '2026-04-05', title: '웨딩홀 투어', category: '웨딩홀', proName: '함현지', proImage: '/images/pro-15/IMG_0196.avif', time: '14:00 - 15:30', location: '청담동', status: 'completed' },
-  { id: '7', date: '2026-04-03', title: 'MC 미팅', category: 'MC', proName: '문정은', proImage: '/images/pro-15/IMG_0196.avif', time: '16:00 - 17:00', location: '카페', status: 'completed' },
-  { id: '8', date: '2026-05-01', title: '본식 MC', category: 'MC', proName: '박인애', proImage: '/images/pro-15/IMG_0196.avif', time: '12:00 - 14:00', location: '그랜드 웨딩홀', status: 'confirmed' },
-  { id: '9', date: '2026-05-01', title: '본식 축가', category: '축가', proName: '성연채', proImage: '/images/pro-23/IMG_46511771924269213.avif', time: '12:30 - 13:00', location: '그랜드 웨딩홀', status: 'confirmed' },
-];
+// 실제 스케줄은 API 응답(apiSchedules)으로 채워집니다. 목업 데이터 제거됨.
 
 const STATUS_MAP = {
   confirmed: { label: '확정', color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -437,25 +427,15 @@ export default function SchedulePage() {
     if (diff < -50 && hasPrevWeek) { setSlideDirection(-1); setWeekOffset((p) => p - 1); }
   };
 
-  const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => {
-    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
-  }, []);
-
   const schedulesByDate = useMemo(() => {
-    // API 스케줄이 있으면 우선 표시, 없으면 demo 데이터
-    let source: ScheduleItem[];
-    if (apiSchedules.length > 0) source = apiSchedules;
-    else if (isLoggedIn && hasDemoData) source = MOCK_SCHEDULES;
-    else return {};
-
+    if (apiSchedules.length === 0) return {};
     const map: Record<string, ScheduleItem[]> = {};
-    source.forEach(s => {
+    apiSchedules.forEach(s => {
       if (!map[s.date]) map[s.date] = [];
       map[s.date].push(s);
     });
     return map;
-  }, [isLoggedIn, hasDemoData, apiSchedules]);
+  }, [apiSchedules]);
 
   const selectedSchedules = selectedDate ? (schedulesByDate[selectedDate] ?? []) : [];
 
@@ -473,13 +453,12 @@ export default function SchedulePage() {
 
   // List view: all schedules for current month sorted
   const monthSchedules = useMemo(() => {
-    if (!isLoggedIn || (!hasDemoData && apiSchedules.length === 0)) return [];
-    const source = apiSchedules.length > 0 ? apiSchedules : MOCK_SCHEDULES;
+    if (!isLoggedIn || apiSchedules.length === 0) return [];
     const prefix = `${year}-${String(month).padStart(2, '0')}`;
-    return source
+    return apiSchedules
       .filter(s => s.date.startsWith(prefix))
       .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-  }, [year, month, isLoggedIn, hasDemoData, apiSchedules]);
+  }, [year, month, isLoggedIn, apiSchedules]);
 
   // Stats
   const confirmedCount = monthSchedules.filter(s => s.status === 'confirmed').length;
