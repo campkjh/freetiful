@@ -401,141 +401,114 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
   const wrapperClass = 'max-w-[280px] my-2 ml-14 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
 
   if (sys.kind === 'quote') {
-    // 어드민 템플릿에서 label 조회, 없으면 planKey 를 Title Case 로 표시
     const planKey = String(sys.plan || '').toLowerCase();
     const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === planKey);
     const planLabel = tpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : 'Premium');
-    const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' ? '#8B5CF6' : '#3180F7';
     const cardGradient = planKey === 'enterprise'
-      ? 'linear-gradient(135deg, #F59E0B 0%, #FB923C 60%, #EA580C 100%)'
+      ? 'linear-gradient(165deg, #FBBF24 0%, #F59E0B 55%, #D97706 100%)'
       : planKey === 'superior'
-      ? 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 60%, #6D28D9 100%)'
-      : 'linear-gradient(135deg, #3180F7 0%, #60A5FA 60%, #1D4ED8 100%)';
+      ? 'linear-gradient(165deg, #C4B5FD 0%, #8B5CF6 55%, #6D28D9 100%)'
+      : 'linear-gradient(165deg, #BFDBFE 0%, #A5B8FF 55%, #8CA2FF 100%)';
 
     return (
-      <div className="max-w-[320px] my-2 ml-14" style={{ perspective: '1000px' }}>
-        <div
-          className="bg-white rounded-2xl border border-gray-100 shadow-[0_6px_24px_rgba(0,0,0,0.08)] overflow-hidden"
-          style={{ animation: 'quoteCardReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) both' }}
-        >
-          <div className="flex items-stretch">
-            {/* ─── 좌측: 원근법 카드 (slide in from left with perspective tilt) ─── */}
+      <div className="my-2 ml-14 max-w-[320px]" style={{ perspective: '1200px' }}>
+        <div className="flex items-center gap-4">
+          {/* ─── 좌측: 세로형 카드 (perspective 로 날아오는 연출) ─── */}
+          <div
+            className="relative shrink-0"
+            style={{
+              width: 110,
+              height: 150, // 세로형 카드 (약 2:3)
+              transformStyle: 'preserve-3d',
+              animation: 'quoteCardFly 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
+            }}
+          >
             <div
-              className="shrink-0 relative px-3 py-3 flex items-center justify-center"
-              style={{ perspective: '600px' }}
+              className="absolute inset-0 rounded-[14px] shadow-[0_14px_30px_rgba(0,0,0,0.22)] overflow-hidden"
+              style={{ background: cardGradient }}
             >
+              {/* 카드 상단 KB 로고 자리 — 브랜드명 */}
+              <p className="absolute top-2.5 left-3 text-white text-[10px] font-black tracking-wider">
+                freetiful
+              </p>
+              {/* 우측 상단 칩 */}
               <div
-                className="relative rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.22)]"
+                className="absolute top-2.5 right-3 w-5 h-4 rounded-[3px]"
                 style={{
-                  width: 108,
-                  height: 72, // 3:2 가로형
-                  background: cardGradient,
-                  transformStyle: 'preserve-3d',
-                  animation: 'quoteCardFly 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
+                  background: 'linear-gradient(135deg, #FFE28A 0%, #C98A2C 100%)',
+                  boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.35)',
+                }}
+              />
+              {/* 중앙 큰 텍스트 (펭-카 느낌) */}
+              <p
+                className="absolute left-2.5 right-2.5 text-white font-black tracking-tighter leading-none"
+                style={{
+                  top: '42%',
+                  fontSize: 26,
+                  textShadow: '0 2px 4px rgba(0,0,0,0.25)',
                 }}
               >
-                {/* 카드 하이라이트 (상단 광택) */}
-                <div
-                  className="absolute inset-0 rounded-xl pointer-events-none"
-                  style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 50%)' }}
-                />
-                {/* 카드 칩 */}
-                <div
-                  className="absolute top-2 left-2 w-5 h-4 rounded-[3px]"
-                  style={{ background: 'linear-gradient(135deg, #FFD966 0%, #D4A84B 100%)', boxShadow: '0 1px 2px rgba(0,0,0,0.3) inset' }}
-                />
-                {/* 플랜 라벨 */}
-                <p
-                  className="absolute left-2 bottom-1.5 text-white font-black tracking-tight"
-                  style={{ fontSize: 13, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
-                >
-                  {planLabel}
-                </p>
-                {/* 우측 ✨ 장식 */}
-                <div className="absolute right-2 top-1.5 text-white/80 text-[10px]">✨</div>
-              </div>
-            </div>
-
-            {/* ─── 우측: 내용 + 결제 버튼 ─── */}
-            <div className="flex-1 min-w-0 pr-3 py-3 pl-1 flex flex-col justify-between">
-              <div>
-                <p className="text-[10px] font-bold" style={{ color: planColor }}>견적서 도착</p>
-                <p className="text-[14px] font-bold text-gray-900 mt-0.5 leading-tight">
-                  {sys.eventName || '행사 진행'}
-                </p>
-                <p className="text-[17px] font-extrabold text-gray-900 tabular-nums mt-1">
-                  {formatKRW(sys.amount || 0)}
-                </p>
-                {sys.options && sys.options.length > 0 && (
-                  <p className="text-[10px] text-amber-700 mt-0.5">+ 옵션 {sys.options.length}건 포함</p>
-                )}
-              </div>
-              {/* 결제 버튼 (고객 측, quotationId 있을 때) — 우측 하단 */}
-              {!isPro && sys.quotationId ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const proId = chatPartner?.id;
-                    const amount = sys.amount || 0;
-                    const plan = sys.plan || 'premium';
-                    const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
-                    const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
-                    window.location.href = url;
-                  }}
-                  className="mt-2 self-end h-8 px-3 rounded-full text-white text-[12px] font-bold active:scale-95 transition-transform shadow-[0_3px_10px_rgba(49,128,247,0.35)]"
-                  style={{ background: cardGradient }}
-                >
-                  결제하기 →
-                </button>
-              ) : (
-                sys.eventDate && (
-                  <p className="text-[10px] text-gray-400 mt-2 self-end">
-                    {formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}
-                  </p>
-                )
-              )}
+                {planLabel}
+              </p>
+              {/* 상단 광택 */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 40%)' }}
+              />
             </div>
           </div>
 
-          {/* 포함 서비스 / 옵션 펼침 (카드 하단) */}
-          {(sys.items && sys.items.length > 0) && (
-            <div className="border-t border-gray-50 px-4 py-2.5">
-              <div className="flex flex-wrap gap-1">
-                {sys.items.slice(0, 4).map((it, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 text-[10px] text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full">
-                    <span style={{ color: planColor }}>✓</span>
-                    {it}
-                  </span>
-                ))}
-                {sys.items.length > 4 && (
-                  <span className="inline-block text-[10px] text-gray-400 px-1 py-0.5">+{sys.items.length - 4}</span>
-                )}
-              </div>
-            </div>
-          )}
+          {/* ─── 우측: 텍스트 스택 + 결제 버튼 ─── */}
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            {sys.options && sys.options.length > 0 && (
+              <p className="text-[12px] text-amber-600 font-bold">+옵션 {sys.options.length}건</p>
+            )}
+            <p className="text-[18px] font-bold text-gray-900 leading-tight">{planLabel}</p>
+            <p className="text-[15px] text-gray-500 leading-tight">
+              {sys.eventName || '행사 진행'}
+            </p>
+            <p className="text-[17px] font-extrabold text-gray-900 tabular-nums mt-1">
+              {formatKRW(sys.amount || 0)}
+            </p>
+            {!isPro && sys.quotationId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const proId = chatPartner?.id;
+                  const amount = sys.amount || 0;
+                  const plan = sys.plan || 'premium';
+                  const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
+                  const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
+                  window.location.href = url;
+                }}
+                className="mt-2 self-start px-4 py-2 rounded-full bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform shadow-[0_4px_12px_rgba(49,128,247,0.35)]"
+              >
+                결제하기
+              </button>
+            )}
+          </div>
         </div>
         <style>{`
           @keyframes quoteCardFly {
             0% {
               opacity: 0;
-              transform: translate3d(-140px, 8px, 0) rotateY(-55deg) rotateX(10deg) scale(0.7);
+              transform: translate3d(-180px, 10px, -40px) rotateY(-60deg) rotateX(8deg) scale(0.65);
               filter: blur(2px);
             }
-            60% {
+            55% {
               opacity: 1;
-              transform: translate3d(12px, -2px, 0) rotateY(6deg) rotateX(-2deg) scale(1.03);
+              transform: translate3d(8px, -3px, 20px) rotateY(8deg) rotateX(-2deg) scale(1.04);
               filter: blur(0);
+            }
+            80% {
+              transform: translate3d(-2px, 1px, 10px) rotateY(-2deg) rotateX(0.5deg) scale(1);
             }
             100% {
               opacity: 1;
               transform: translate3d(0, 0, 0) rotateY(0) rotateX(0) scale(1);
               filter: blur(0);
             }
-          }
-          @keyframes quoteCardReveal {
-            0% { opacity: 0; transform: translateY(8px); }
-            100% { opacity: 1; transform: translateY(0); }
           }
         `}</style>
       </div>
