@@ -50,7 +50,7 @@ export class DiscoveryService implements OnModuleInit {
     const pros = await this.prisma.proProfile.findMany({
       where: {
         status: 'approved',
-        user: { role: 'pro', isActive: true },
+        user: { isActive: true },
         images: { some: {} },
       },
       include: {
@@ -98,13 +98,14 @@ export class DiscoveryService implements OnModuleInit {
     const cached = this.getCached<any>(cacheKey);
     if (cached) return cached;
 
-    // 공개 목록 조건 (엄격):
+    // 공개 목록 조건:
     // 1) 프로필 status = approved
-    // 2) User.role = 'pro' + isActive (일반 모드로 돌린 유저 / archived 제외)
-    // 3) 프로필에 사진 1장 이상 (빈 프로필 제외 — 사진 없으면 어차피 카드에 플레이스홀더만 뜸)
+    // 2) User.isActive (archived 제외) — role 은 체크 안 함: 프로가 일반 모드로
+    //    UI 전환해도 공개 프로필은 유지돼야 함
+    // 3) 프로필에 사진 1장 이상 (빈 프로필 제외)
     const where: any = {
       status: 'approved',
-      user: { role: 'pro', isActive: true },
+      user: { isActive: true },
       images: { some: {} },
     };
     if (search) {
