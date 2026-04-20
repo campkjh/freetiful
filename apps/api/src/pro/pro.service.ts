@@ -354,10 +354,17 @@ export class ProService {
       ...(data.detailHtml !== undefined ? { detailHtml: data.detailHtml } : {}),
     };
 
+    // 기존 프로필 존재 여부 체크: approved 이면 status 유지, 아니면 pending
+    const existing = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      select: { status: true },
+    });
+    const keepStatus = existing?.status === 'approved' ? { status: 'approved' as const } : { status: 'pending' as const };
+
     const profile = await this.prisma.proProfile.upsert({
       where: { userId },
       create: { userId, status: 'pending', ...fields },
-      update: { status: 'pending', ...fields },
+      update: { ...keepStatus, ...fields },
     });
 
     // Photos: base64 data URL → webp on disk → ProProfileImage 재생성

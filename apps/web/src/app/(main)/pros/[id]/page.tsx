@@ -398,8 +398,11 @@ export default function ProDetailPage() {
     }
 
     // API에서 실제 데이터 로드 (pro detail + recommended pros 병렬)
+    // 본인 프로 페이지면 항상 최신 데이터 로드 (캐시 스킵)
+    const myProId = typeof window !== 'undefined' ? localStorage.getItem('freetiful-my-pro-id') : null;
+    const skipCache = myProId === id;
     Promise.all([
-      discoveryApi.getProDetail(id),
+      discoveryApi.getProDetail(id, skipCache),
       discoveryApi.getProList({ limit: 9, sort: 'rating' }),
     ])
       .then(([res, proListRes]: [any, any]) => {

@@ -251,12 +251,14 @@ export default function ProEditPage() {
       // 프로 상세 in-memory 캐시 무효화
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
-        invalidateProCache();
-        // 서버 캐시도 무효화: my-pro 상세 호출 시 nocache=1 플래그
+        invalidateProCache(); // 전체 detail + list 삭제
+        // 서버 캐시도 무효화: 내 프로 상세를 nocache=1로 강제 리프레시
         const { apiClient } = await import('@/lib/api/client');
         const { data: myPro } = await apiClient.get('/api/v1/pro/profile').catch(() => ({ data: null }));
         if (myPro?.id) {
-          await apiClient.get(`/api/v1/discovery/pros/${myPro.id}?nocache=1`).catch(() => {});
+          await apiClient.get(`/api/v1/discovery/pros/${myPro.id}?nocache=1&_=${Date.now()}`).catch(() => {});
+          // localStorage에 내 프로 id도 저장 (다른 곳에서 참조용)
+          localStorage.setItem('freetiful-my-pro-id', myPro.id);
         }
       } catch {}
       setToast('저장되었습니다');
