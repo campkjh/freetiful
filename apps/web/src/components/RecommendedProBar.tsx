@@ -32,7 +32,10 @@ function PillBorderTrain() {
     const perimeter = path.getTotalLength();
     const trainLen = perimeter * 0.12;
     path.setAttribute('stroke-dasharray', `${trainLen} ${perimeter - trainLen}`);
-    path.style.animation = `pillDash ${Math.max(2.5, perimeter / 80)}s linear infinite`;
+    // 둘레가 작으면(원형 축소) 더 천천히: 길이와 무관하게 고정 속도 느낌 주도록
+    const isSmall = perimeter < 250; // 원형 축소 상태
+    const duration = isSmall ? 8 : Math.max(3, perimeter / 80);
+    path.style.animation = `pillDash ${duration}s linear infinite`;
   }, [size]);
 
   if (size.w === 0) {
