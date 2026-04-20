@@ -43,23 +43,78 @@ export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
-  const bookingData = hasDemoData ? MOCK_BOOKINGS[id] : undefined;
+  const [apiBooking, setApiBooking] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
+    // id는 "paymentId-quotationId" 형태일 수 있음
+    const paymentId = id.split('-')[0];
+    import('@/lib/api/client').then(({ apiClient }) => {
+      apiClient.get(`/api/v1/payment/${paymentId}`)
+        .then((res: any) => {
+          const p = res.data;
+          const qs = Array.isArray(p?.quotations) ? p.quotations : (p?.quotation ? [p.quotation] : []);
+          const q = qs[0] || {};
+          const proUser = q.proProfile?.user || {};
+          const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
+          const eventDate = q.eventDate || p.createdAt;
+          const dateStr = new Date(eventDate).toISOString().slice(0, 10);
+          const dateFmt = new Date(eventDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+          const eventDateObj = new Date(eventDate);
+          const now = new Date();
+          const status: 'confirmed' | 'pending' | 'completed' | 'cancelled' =
+            p.status === 'refunded' ? 'cancelled'
+            : p.status === 'completed' && eventDateObj < now ? 'completed'
+            : p.status === 'completed' ? 'confirmed'
+            : 'pending';
+          setApiBooking({
+            proName: proUser.name || '',
+            proImage: proImg,
+            category: q.category || 'MC',
+            date: dateFmt,
+            eventDate: dateStr,
+            time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',
+            location: q.eventLocation || '',
+            plan: q.title || p.description || '패키지',
+            price: p.amount || 0,
+            status,
+          });
+        })
+        .catch(() => { /* fallback to mock */ })
+        .finally(() => setLoading(false));
+    });
+  }, [id]);
+
+  const bookingData = apiBooking || (hasDemoData ? MOCK_BOOKINGS[id] : undefined);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
-  const [bookingStatus, setBookingStatus] = useState(bookingData?.status || 'pending');
+  const [bookingStatus, setBookingStatus] = useState<'confirmed' | 'pending' | 'completed' | 'cancelled'>(bookingData?.status || 'pending');
   const [agreedPolicy, setAgreedPolicy] = useState(false);
 
-  if (!bookingData) {
+  useEffect(() => {
+    if (bookingData?.status) setBookingStatus(bookingData.status);
+  }, [bookingData?.status]);
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-gray-400">예약 정보를 찾을 수 없습니다</p>
+        <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
       </div>
     );
   }
 
-  const booking = { ...bookingData, status: bookingStatus as typeof bookingData.status };
+  if (!bookingData) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3">
+        <p className="text-gray-400">예약 정보를 찾을 수 없습니다</p>
+        <button onClick={() => router.back()} className="text-[13px] text-blue-500">돌아가기</button>
+      </div>
+    );
+  }
+
+  const booking = { ...bookingData, status: bookingStatus };
   const status = STATUS_MAP[booking.status];
   const pointUsed = 5000;
   const finalPrice = booking.price - pointUsed;

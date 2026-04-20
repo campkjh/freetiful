@@ -1136,12 +1136,12 @@ export default function HomePage() {
         <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 지금 접속중인 전문가 (무작위 선택, 초록 점)                */}
+        {/* 지금 접속중인 전문가 (100px 원형 + hover 부채꼴)            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         {prosData.length > 0 && (
           <section>
             <Reveal>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-1">
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="section-title">지금 접속중인 전문가</h3>
@@ -1154,24 +1154,49 @@ export default function HomePage() {
                 </div>
               </div>
             </Reveal>
-            <div className="flex gap-0 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-              {prosData.slice(0, 10).map((pro) => (
-                <Link
-                  key={pro.id}
-                  href={`/pros/${pro.id}`}
-                  className="shrink-0 w-[100px] flex flex-col items-center"
-                >
-                  <div className="relative w-[84px] h-[112px] rounded-xl overflow-hidden">
-                    <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
-                    <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 ring-2 ring-white" />
-                    </span>
-                  </div>
-                  <p className="text-[16px] font-bold text-gray-900 mt-1.5 text-center">{pro.name}</p>
-                  <p className="text-[14px] text-gray-400">{pro.category}</p>
-                </Link>
-              ))}
+            <div className="flex gap-3 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0 pt-3">
+              {prosData.slice(0, 10).map((pro, idx) => {
+                const minutesAgo = (idx * 7) % 60; // 간단한 더미 시간
+                const isNow = idx < 3;
+                const images = pro.images && pro.images.length >= 3 ? pro.images : [pro.image, pro.image, pro.image];
+                return (
+                  <Link
+                    key={pro.id}
+                    href={`/pros/${pro.id}`}
+                    className="flex items-center gap-4 group p-[10px] rounded-[14px] active:bg-black/5 active:scale-[0.97] transition-all duration-200 shrink-0"
+                  >
+                    <div className="relative w-[100px] h-[100px] shrink-0 my-3 z-10">
+                      <img
+                        src={images[2]}
+                        alt=""
+                        className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[64px] group-hover:translate-y-[-12px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
+                      />
+                      <img
+                        src={images[1]}
+                        alt=""
+                        className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[34px] group-hover:translate-y-[-18px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
+                      />
+                      <img
+                        src={images[0]}
+                        alt={pro.name}
+                        className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-lg z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                      />
+                      <span className={`absolute bottom-1 right-1 z-[4] w-4 h-4 rounded-full border-[1.4px] border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[12px] font-medium text-gray-400">{pro.category}</span>
+                      <p className="text-[16px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
+                      <p className="text-[12px] mt-1">
+                        {isNow ? (
+                          <span className="text-green-600 font-semibold">현재 접속중</span>
+                        ) : (
+                          <span className="text-gray-400">접속 {minutesAgo}분 전</span>
+                        )}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}
