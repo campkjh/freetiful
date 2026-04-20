@@ -42,6 +42,11 @@ export class AdminController {
     return this.adminService.updatePro(id, body);
   }
 
+  @Patch('pros/:id/full')
+  async fullUpdatePro(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.fullUpdatePro(id, body);
+  }
+
   @Patch('pros/:id/approve')
   async approvePro(@Param('id') id: string) {
     return this.adminService.approvePro(id);

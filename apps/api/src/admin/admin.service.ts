@@ -2,6 +2,8 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { ProService } from '../pro/pro.service';
+import { DiscoveryService } from '../discovery/discovery.service';
 import * as bcrypt from 'bcrypt';
 
 const PROS = [
@@ -54,6 +56,8 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private proService: ProService,
+    private discoveryService: DiscoveryService,
   ) {}
 
   async seedPros(): Promise<{ created: number; skipped: number; errors: number }> {
@@ -237,7 +241,56 @@ export class AdminService {
       });
     }
 
+    this.discoveryService.invalidateCache(proProfileId);
     return profile;
+  }
+
+  // ─── Pro 프로필 전체 수정 (submitRegistration 재사용) ────────────────────
+  // 사진, 서비스, FAQ, 언어 등 전체 필드를 어드민이 수정 가능
+  async fullUpdatePro(proProfileId: string, data: any) {
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { id: proProfileId },
+      select: { userId: true, status: true },
+    });
+    if (!profile) throw new NotFoundException('전문가를 찾을 수 없습니다');
+
+    // submitRegistration 호출 후 flag 필드(isFeatured/showPartnersLogo/status/basePrice) 별도 반영
+    await this.proService.submitRegistration(profile.userId, {
+      name: data.name,
+      phone: data.phone,
+      gender: data.gender,
+      shortIntro: data.shortIntro,
+      mainExperience: data.mainExperience,
+      careerYears: data.careerYears !== undefined ? Number(data.careerYears) : undefined,
+      awards: data.awards,
+      youtubeUrl: data.youtubeUrl,
+      detailHtml: data.detailHtml,
+      photos: Array.isArray(data.photos) ? data.photos : undefined,
+      mainPhotoIndex: data.mainPhotoIndex,
+      services: Array.isArray(data.services) ? data.services : undefined,
+      faqs: Array.isArray(data.faqs) ? data.faqs : undefined,
+      languages: Array.isArray(data.languages) ? data.languages : undefined,
+    });
+
+    // 어드민만 수정 가능한 flag 필드
+    const adminOnly: any = {};
+    if (data.isFeatured !== undefined) adminOnly.isFeatured = data.isFeatured;
+    if (data.showPartnersLogo !== undefined) adminOnly.showPartnersLogo = data.showPartnersLogo;
+    if (data.status !== undefined) {
+      adminOnly.status = data.status;
+      if (data.status === 'approved') adminOnly.approvedAt = new Date();
+    }
+    if (data.basePrice !== undefined) adminOnly.basePrice = Number(data.basePrice);
+
+    if (Object.keys(adminOnly).length > 0) {
+      await this.prisma.proProfile.update({
+        where: { id: proProfileId },
+        data: adminOnly,
+      });
+    }
+
+    this.discoveryService.invalidateCache(proProfileId);
+    return this.getProDetail(proProfileId);
   }
 
   // ─── Pro 승인 ─────────────────────────────────────────────────────────────

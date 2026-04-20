@@ -5,10 +5,12 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationModule } from '../notification/notification.module';
+import { ProModule } from '../pro/pro.module';
+import { DiscoveryModule } from '../discovery/discovery.module';
 import { AdminGuard } from '../common/guards/admin.guard';
 
 @Module({
-  imports: [PrismaModule, NotificationModule, JwtModule.register({}), ConfigModule],
+  imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, JwtModule.register({}), ConfigModule],
   controllers: [AdminController],
   providers: [AdminService, AdminGuard],
   exports: [AdminService],
