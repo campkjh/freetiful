@@ -122,8 +122,15 @@ export default function LoginPage() {
     <div className="min-h-screen bg-white flex flex-col">
       <div className="flex-1 flex flex-col justify-center px-6 py-12 max-w-md mx-auto w-full">
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-black text-primary-500 tracking-tight">Freetiful</h1>
-          <p className="mt-2 text-gray-500 text-sm">나의 특별한 행사를 완성하는 전문가</p>
+          <div className="inline-flex items-center gap-2.5">
+            <div className="w-11 h-11 rounded-[12px] bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow-[0_6px_16px_rgba(49,130,246,0.28)]">
+              <span className="text-white text-[20px] font-black tracking-tight">F</span>
+            </div>
+            <span className="text-[30px] font-extrabold tracking-[-0.04em] text-[#191F28]">
+              프리티풀
+            </span>
+          </div>
+          <p className="mt-3 text-[14px] text-[#6B7684]">나의 특별한 행사를 완성하는 전문가</p>
         </div>
 
         <div className="space-y-3 mb-6">
