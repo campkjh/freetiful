@@ -254,9 +254,8 @@ export class AdminService {
     });
     if (!profile) throw new NotFoundException('전문가를 찾을 수 없습니다');
 
-    // submitRegistration 호출 후 flag 필드(isFeatured/showPartnersLogo/status/basePrice) 별도 반영
+    // submitRegistration 호출 (name 은 제외 — 어드민은 아래에서 User 직접 수정)
     await this.proService.submitRegistration(profile.userId, {
-      name: data.name,
       phone: data.phone,
       gender: data.gender,
       shortIntro: data.shortIntro,
@@ -271,6 +270,14 @@ export class AdminService {
       faqs: Array.isArray(data.faqs) ? data.faqs : undefined,
       languages: Array.isArray(data.languages) ? data.languages : undefined,
     });
+
+    // 어드민은 User.name 을 직접 바꿀 수 있음 (일반 pro-edit 에서는 불가)
+    if (data.name !== undefined) {
+      await this.prisma.user.update({
+        where: { id: profile.userId },
+        data: { name: data.name },
+      });
+    }
 
     // 어드민만 수정 가능한 flag 필드
     const adminOnly: any = {};

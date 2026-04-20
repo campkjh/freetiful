@@ -334,13 +334,12 @@ export class ProService {
       languages?: string[];
     },
   ) {
-    if (data.name || data.phone) {
+    // 전화번호만 업데이트 가능. 이름은 User.name (가입 시 설정) 을 그대로 사용 —
+    // 프로 등록/수정 과정에서 User.name 을 덮어쓰면 일반 모드로 돌아와도 이름이 바뀌는 버그 발생
+    if (data.phone) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: {
-          ...(data.name ? { name: data.name } : {}),
-          ...(data.phone ? { phone: data.phone } : {}),
-        },
+        data: { phone: data.phone },
       });
     }
 
