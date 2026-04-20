@@ -155,12 +155,11 @@ const EXPERT_IMAGES_ROW2 = [
 ];
 
 const PROMO_IMAGES = [
-  '/images/group-1707482240.png', '/images/group-1707482241.png', '/images/group-1707482242.png',
-  '/images/group-1707482243.png', '/images/group-1707482244.png', '/images/group-1707482245.png',
-  '/images/group-1707482246.png', '/images/group-1707482247.png', '/images/group-1707482248.png',
-  '/images/group-1707482282.png', '/images/group-1707482283.png', '/images/group-1707482284.png',
-  '/images/group-1707482285.png', '/images/group-1707482286.png', '/images/group-1707482287.png',
-  '/images/group-1707482288.png', '/images/group-1707482289.png', '/images/group-1707482290.png',
+  '/images/biz-promo/promo-1.jpeg', '/images/biz-promo/promo-2.jpeg', '/images/biz-promo/promo-3.jpeg',
+  '/images/biz-promo/promo-4.jpeg', '/images/biz-promo/promo-5.jpeg', '/images/biz-promo/promo-6.jpeg',
+  '/images/biz-promo/promo-7.jpeg', '/images/biz-promo/promo-8.jpeg', '/images/biz-promo/promo-9.jpeg',
+  '/images/biz-promo/promo-10.jpeg', '/images/biz-promo/promo-11.jpeg', '/images/biz-promo/promo-12.jpeg',
+  '/images/biz-promo/promo-13.jpeg', '/images/biz-promo/promo-14.jpeg',
 ];
 
 // 54개 기업 로고를 6줄에 9개씩 겹치지 않게 분배
