@@ -7,6 +7,7 @@ import { ChevronLeft, Star, MapPin, ChevronDown, Search, SlidersHorizontal, X, C
 import { Suspense } from 'react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
+import { getPlanTemplates } from '@/lib/api/plan-templates.api';
 
 interface ProItem {
   id: string;
@@ -91,8 +92,13 @@ function ProsListContent() {
   const [apiLoaded, setApiLoaded] = useState(false);
 
   useEffect(() => {
-    discoveryApi.getProList({ limit: 100 })
-      .then((res) => {
+    Promise.all([
+      discoveryApi.getProList({ limit: 100 }),
+      getPlanTemplates().catch(() => []),
+    ])
+      .then(([res, templates]) => {
+        // 첫 번째 활성 플랜(Premium)의 defaultPrice를 폴백 기준으로 사용
+        const fallbackPrice = (templates as any[]).find((t) => t.isActive)?.defaultPrice || 450000;
         if (res?.data && res.data.length > 0) {
           // userId 중복 제거
           const seen = new Set<string>();
@@ -113,7 +119,8 @@ function ProsListContent() {
             puddingRank: idx + 1,
             image: p.profileImageUrl || p.images?.[0] || '',
             intro: p.shortIntro || '',
-            price: p.basePrice || 450000,
+            // basePrice 가 0/null/undefined 모두 폴백 (0원 등록은 무의미하니 안전)
+            price: (typeof p.basePrice === 'number' && p.basePrice > 0) ? p.basePrice : fallbackPrice,
             experience: p.careerYears || 1,
           }));
           setApiPros(mapped);
@@ -261,16 +268,16 @@ function ProsListContent() {
             {showSearch ? (
               <div
                 key="search-input"
-                className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5 ml-1"
+                className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3.5 py-2 ml-1"
               >
-                <Search size={16} className="text-gray-400 shrink-0" />
+                <Search size={18} className="text-gray-400 shrink-0" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="이름, 소개로 검색"
-                  className="flex-1 bg-transparent text-[14px] text-gray-900 placeholder-gray-400 outline-none"
+                  className="flex-1 bg-transparent text-[16px] text-gray-900 placeholder-gray-400 outline-none"
                 />
                 <button
                   onClick={() => { setShowSearch(false); setSearchQuery(''); }}

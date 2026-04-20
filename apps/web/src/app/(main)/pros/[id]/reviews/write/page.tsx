@@ -66,6 +66,7 @@ export default function WriteReviewPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   // 결제 완료 건 확인 — 없으면 리뷰 작성 불가
+  // 반드시 해당 프로와의 거래가 완료되어 있어야 함
   useEffect(() => {
     if (!authUser) {
       setCheckingAuth(false);
@@ -75,13 +76,18 @@ export default function WriteReviewPage() {
       apiClient.get('/api/v1/payment', { params: { limit: 100 } })
         .then((res) => {
           const payments = res.data?.data || [];
-          const valid = payments.find((p: any) => p.status === 'completed' && !p.reviewId);
+          // 이 사회자(id)와의 거래가 완료되고 아직 리뷰를 안 쓴 결제만 유효
+          const valid = payments.find((p: any) =>
+            p.status === 'completed' &&
+            !p.reviewId &&
+            (p.proProfileId === id || p.proProfile?.id === id || p.quotations?.some((q: any) => q.proProfileId === id))
+          );
           if (valid) setPaymentId(valid.id);
         })
         .catch(() => {})
         .finally(() => setCheckingAuth(false));
     });
-  }, [authUser]);
+  }, [authUser, id]);
 
   const [overallRating, setOverallRating] = useState(0);
   const [scores, setScores] = useState<Record<string, number>>(
@@ -170,8 +176,8 @@ export default function WriteReviewPage() {
     );
   }
 
-  // 결제 완료 건 없으면 접근 차단
-  if (authUser && !paymentId) {
+  // 로그인 필요 또는 결제 완료 건 없으면 접근 차단
+  if (!authUser || !paymentId) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-8">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -180,7 +186,11 @@ export default function WriteReviewPage() {
           </svg>
         </div>
         <p className="text-[17px] font-bold text-gray-900 mb-1">리뷰 작성 불가</p>
-        <p className="text-[14px] text-gray-400 text-center mb-6">이 사회자와 행사를 진행하고<br/>결제가 완료된 후 리뷰를 작성할 수 있습니다.</p>
+        <p className="text-[14px] text-gray-400 text-center mb-6">
+          {!authUser
+            ? <>로그인 후 거래 내역이 있어야<br/>리뷰를 작성할 수 있습니다.</>
+            : <>이 사회자와 행사를 진행하고<br/>결제가 완료된 후 리뷰를 작성할 수 있습니다.</>}
+        </p>
         <button onClick={() => router.back()} className="bg-gray-900 text-white font-semibold text-[14px] px-6 py-3 rounded-xl">
           돌아가기
         </button>

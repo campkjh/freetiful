@@ -38,6 +38,16 @@ export class ReviewService {
     if (!payment) {
       throw new NotFoundException('결제 정보를 찾을 수 없습니다.');
     }
+    // 본인 결제만, 완료 상태, 대상 프로와 일치해야 함
+    if (payment.userId !== reviewerId) {
+      throw new BadRequestException('본인 결제 건에 대해서만 리뷰 작성이 가능합니다.');
+    }
+    if (payment.status !== 'completed') {
+      throw new BadRequestException('완료된 결제 건에 대해서만 리뷰 작성이 가능합니다.');
+    }
+    if (payment.proProfileId !== data.proProfileId) {
+      throw new BadRequestException('이 결제는 해당 사회자와의 거래가 아닙니다.');
+    }
 
     const existingReview = await this.prisma.review.findUnique({
       where: { paymentId: data.paymentId },
