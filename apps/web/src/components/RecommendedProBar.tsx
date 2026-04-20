@@ -91,7 +91,7 @@ export default function RecommendedProBar() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('init');
   const [recommended, setRecommended] = useState<{ id: string; name: string; image: string } | null>(null);
-  const [isScrolling, setIsScrolling] = useState(false); // 스크롤 중이면 원형 축소
+  const [isCollapsed, setIsCollapsed] = useState(false); // true면 원형, false면 알약
 
   // Fetch daily recommendation from API
   useEffect(() => {
@@ -118,29 +118,27 @@ export default function RecommendedProBar() {
     };
   }, []);
 
-  // 스크롤 시 원형으로 축소, 멈추면 다시 알약으로 펼침
+  // 아래로 스크롤 → 원형 축소, 위로 스크롤 → 알약 펼침
   useEffect(() => {
     let lastScrollY = window.scrollY;
-    let timer: NodeJS.Timeout | null = null;
     const onScroll = () => {
       const current = window.scrollY;
-      const diff = Math.abs(current - lastScrollY);
-      if (diff > 3) setIsScrolling(true);
+      const diff = current - lastScrollY;
+      if (Math.abs(diff) < 5) return; // 노이즈 무시
+      if (diff > 0 && current > 80) {
+        setIsCollapsed(true); // 아래로 스크롤 → 원형
+      } else if (diff < 0) {
+        setIsCollapsed(false); // 위로 스크롤 → 알약
+      }
       lastScrollY = current;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => setIsScrolling(false), 300);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (timer) clearTimeout(timer);
-    };
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   if (phase === 'closed' || !recommended) return null;
 
-  // 스크롤 중에는 원형 형태로 강제 (expanded 상태에서도)
-  const isPillPhase = (phase === 'expanding' || phase === 'expanded') && !isScrolling;
+  const isPillPhase = (phase === 'expanding' || phase === 'expanded') && !isCollapsed;
 
   const handleClose = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -182,11 +180,9 @@ export default function RecommendedProBar() {
             transition:
               phase === 'circleIn'
                 ? 'transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s ease, filter 0.6s ease'
-                : phase === 'expanding'
-                ? 'padding 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), gap 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
                 : phase === 'collapsing'
                 ? 'transform 0.55s cubic-bezier(0.7, 0, 0.84, 0), opacity 0.55s ease, filter 0.55s ease, padding 0.4s ease, gap 0.4s ease'
-                : 'none',
+                : 'padding 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), gap 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)',
             transformOrigin: 'left center',
           }}
         >
@@ -203,44 +199,43 @@ export default function RecommendedProBar() {
             />
           </div>
 
-          {/* 텍스트 영역 - 알약 펼쳐졌을 때만 표시 */}
-          {isPillPhase && (
-            <div
-              className="overflow-hidden text-left whitespace-nowrap"
-              style={{
-                opacity: phase === 'expanded' ? 1 : 0,
-                transform: phase === 'expanded' ? 'translateX(0)' : 'translateX(-8px)',
-                filter: phase === 'expanded' ? 'blur(0)' : 'blur(4px)',
-                transition: 'opacity 0.4s ease 0.15s, transform 0.4s ease 0.15s, filter 0.4s ease 0.15s',
-              }}
-            >
-              <p className="text-[10px] font-semibold text-white/60 leading-tight">
-                사회자 {recommended.name}
-              </p>
-              <p className="text-[14px] font-bold text-white leading-tight">
-                오늘의 추천 전문가
-              </p>
-            </div>
-          )}
+          {/* 텍스트 영역 - 애니메이션으로 펼침/접힘 */}
+          <div
+            className="overflow-hidden text-left whitespace-nowrap"
+            style={{
+              maxWidth: isPillPhase ? 220 : 0,
+              opacity: isPillPhase && phase === 'expanded' ? 1 : 0,
+              transform: isPillPhase && phase === 'expanded' ? 'translateX(0)' : 'translateX(-8px)',
+              filter: isPillPhase && phase === 'expanded' ? 'blur(0)' : 'blur(4px)',
+              transition: 'max-width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease, transform 0.35s ease, filter 0.35s ease',
+            }}
+          >
+            <p className="text-[10px] font-semibold text-white/60 leading-tight">
+              사회자 {recommended.name}
+            </p>
+            <p className="text-[14px] font-bold text-white leading-tight">
+              오늘의 추천 전문가
+            </p>
+          </div>
 
           {/* X 닫기 버튼 */}
-          {isPillPhase && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={handleClose}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 active:scale-90 transition-all shrink-0 cursor-pointer"
-              style={{
-                opacity: phase === 'expanded' ? 1 : 0,
-                transform: phase === 'expanded' ? 'scale(1)' : 'scale(0.5)',
-                transition: 'opacity 0.3s ease 0.25s, transform 0.3s ease 0.25s',
-                pointerEvents: phase === 'expanded' ? 'auto' : 'none',
-              }}
-              aria-label="닫기"
-            >
-              <X size={16} strokeWidth={2.5} />
-            </span>
-          )}
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={handleClose}
+            className="rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 shrink-0 cursor-pointer overflow-hidden"
+            style={{
+              width: isPillPhase ? 28 : 0,
+              height: 28,
+              opacity: isPillPhase && phase === 'expanded' ? 1 : 0,
+              transform: isPillPhase && phase === 'expanded' ? 'scale(1)' : 'scale(0.5)',
+              transition: 'width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease, transform 0.3s ease',
+              pointerEvents: isPillPhase && phase === 'expanded' ? 'auto' : 'none',
+            }}
+            aria-label="닫기"
+          >
+            <X size={16} strokeWidth={2.5} />
+          </span>
         </button>
       </div>
     </div>
