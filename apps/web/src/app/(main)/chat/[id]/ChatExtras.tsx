@@ -422,10 +422,12 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
       >
         <div className="flex items-center gap-4" style={{ transformStyle: 'preserve-3d' }}>
           {/* ─── 좌측: 세로형 카드 컨테이너 (fly-in + float 합성) ─── */}
+          {/* 좌측으로 살짝 기울어진 래퍼 (Z축 회전만 담당, 내부 애니메이션과 충돌 없음) */}
+          <div className="relative shrink-0" style={{ transform: 'rotate(-4deg)', transformStyle: 'preserve-3d' }}>
           <div
-            className="relative shrink-0"
+            className="relative"
             style={{
-              width: 108,
+              width: 116,
               height: 180,
               transformStyle: 'preserve-3d',
               animation: 'quoteCardFloat 4.5s ease-in-out 1.1s infinite alternate',
@@ -504,18 +506,22 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
               }}
             />
           </div>
+          </div>
 
           {/* ─── 우측: 텍스트 스택 (순차 페이드인) + 결제 버튼 ─── */}
           <div className="flex-1 min-w-0 flex flex-col gap-1">
             {/* 태그 (플랜명) — 알약 형태 / 살짝 딤드 */}
             <div style={{ animation: 'quoteTextInRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' }}>
               <span
-                className="inline-block px-2.5 py-1 rounded-full leading-none"
+                className="inline-block py-1 rounded-full leading-none"
                 style={{
                   fontSize: 11,
                   fontWeight: 500,
+                  paddingLeft: 7,
+                  paddingRight: 7,
                   color: 'rgba(0,0,0,0.7)',
-                  background: 'rgba(0,0,0,0.10)',
+                  background: 'rgba(0,0,0,0.06)',
+                  border: '1px solid rgba(255,255,255,0.5)',
                 }}
               >
                 {planLabel}
