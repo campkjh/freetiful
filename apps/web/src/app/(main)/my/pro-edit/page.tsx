@@ -138,9 +138,10 @@ export default function ProEditPage() {
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showCareerSheet, setShowCareerSheet] = useState(false);
 
-  /* ── Load from localStorage ── */
+  /* ── Load from localStorage (즉시) + 서버(최신 기준 덮어쓰기) ── */
   useEffect(() => {
     window.scrollTo(0, 0);
+    // 1) localStorage 로 폼 즉시 채움 (체감 속도)
     setName(ls('proRegister_name'));
     setPhone(ls('proRegister_phone'));
     setGender(ls('proRegister_gender'));
@@ -158,6 +159,34 @@ export default function ProEditPage() {
     const savedVideos = lsJson<string[] | null>('proRegister_videos', null);
     if (Array.isArray(savedVideos)) setVideos(savedVideos);
     setFaqItems(lsJson('proRegister_faq', []));
+
+    // 2) 서버에서 최신 프로필 가져와 덮어쓰기 (stale localStorage 방지) + my-pro-id 저장
+    (async () => {
+      try {
+        const { prosApi } = await import('@/lib/api/pros.api');
+        const p: any = await prosApi.getMyProfile();
+        if (!p?.id) return;
+        // 내 프로 ID localStorage 저장 — 상세페이지에서 skipCache 판단에 사용
+        localStorage.setItem('freetiful-my-pro-id', p.id);
+        if (p.shortIntro) setIntro(p.shortIntro);
+        if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
+        if (p.awards) setAwards(p.awards);
+        if (p.gender) setGender(p.gender);
+        if (p.youtubeUrl) {
+          setVideos((prev) => prev.includes(p.youtubeUrl) ? prev : [p.youtubeUrl, ...prev]);
+        }
+        if (p.user?.name) setName(p.user.name);
+        if (p.user?.phone) setPhone(p.user.phone);
+        if (Array.isArray(p.images) && p.images.length > 0) {
+          setPhotos(p.images.map((img: any) => img.imageUrl || img).filter(Boolean));
+          const primaryIdx = p.images.findIndex((img: any) => img.isPrimary);
+          if (primaryIdx >= 0) setMainPhotoIndex(primaryIdx);
+        }
+        if (Array.isArray(p.faqs) && p.faqs.length > 0) {
+          setFaqItems(p.faqs.map((f: any) => ({ q: f.question, a: f.answer })));
+        }
+      } catch { /* 로컬 폼 유지 */ }
+    })();
   }, []);
 
   /* ── Formatters ── */
@@ -243,27 +272,37 @@ export default function ProEditPage() {
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages.length > 0 ? languages : undefined,
       });
-      // 프로 상세 in-memory 캐시 무효화
+      // 캐시 무효화 (클라 + 서버 + 브라우저 HTTP) + 내 프로 ID 저장
+      let myProId: string | null = null;
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
-        invalidateProCache(); // 전체 detail + list 삭제
-        // 서버 캐시도 무효화: 내 프로 상세를 nocache=1로 강제 리프레시
+        invalidateProCache(); // 클라 메모리 캐시 전체 삭제
         const { apiClient } = await import('@/lib/api/client');
         const { data: myPro } = await apiClient.get('/api/v1/pro/profile').catch(() => ({ data: null }));
         if (myPro?.id) {
-          await apiClient.get(`/api/v1/discovery/pros/${myPro.id}?nocache=1&_=${Date.now()}`).catch(() => {});
-          // 리스트 캐시도 강제 리프레시 (새 데이터 fetch)
-          await apiClient.get(`/api/v1/discovery/pros?_=${Date.now()}`).catch(() => {});
-          // localStorage에 내 프로 id도 저장 (다른 곳에서 참조용)
+          myProId = myPro.id;
           localStorage.setItem('freetiful-my-pro-id', myPro.id);
+          // 서버 캐시 강제 리프레시 (공개 리스트까지)
+          await Promise.allSettled([
+            apiClient.get(`/api/v1/discovery/pros/${myPro.id}?nocache=1&_=${Date.now()}`),
+            apiClient.get(`/api/v1/discovery/pros?_=${Date.now()}`),
+          ]);
         }
       } catch {}
-      setToast('저장되었습니다 — 상세 페이지 새로고침 필요하면 한번 더 새로고침 해주세요');
+      setToast('저장되었습니다');
+      // 상세 페이지로 이동 (타임스탬프로 HTTP 캐시 버스트)
+      setTimeout(() => {
+        if (myProId) {
+          window.location.href = `/pros/${myProId}?_=${Date.now()}`;
+        } else {
+          setToast('');
+        }
+      }, 600);
     } catch (e) {
       console.error('프로필 저장 실패:', e);
       setToast('저장에 실패했습니다. 다시 시도해주세요.');
+      setTimeout(() => setToast(''), 2500);
     }
-    setTimeout(() => setToast(''), 2500);
   };
 
   return (
