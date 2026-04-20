@@ -31,9 +31,9 @@ export class DiscoveryController {
   }
 
   @Get('pros/:id')
-  @Header('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300')
   @ApiOperation({ summary: '전문가 상세 조회' })
-  getProDetail(@Param('id') id: string) {
+  getProDetail(@Param('id') id: string, @Query('nocache') nocache?: string) {
+    if (nocache === '1') this.discovery.invalidateCache(id);
     return this.discovery.getProDetail(id);
   }
 }

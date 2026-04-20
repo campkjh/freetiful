@@ -252,6 +252,12 @@ export default function ProEditPage() {
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
         invalidateProCache();
+        // 서버 캐시도 무효화: my-pro 상세 호출 시 nocache=1 플래그
+        const { apiClient } = await import('@/lib/api/client');
+        const { data: myPro } = await apiClient.get('/api/v1/pro/profile').catch(() => ({ data: null }));
+        if (myPro?.id) {
+          await apiClient.get(`/api/v1/discovery/pros/${myPro.id}?nocache=1`).catch(() => {});
+        }
       } catch {}
       setToast('저장되었습니다');
     } catch (e) {

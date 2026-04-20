@@ -17,7 +17,7 @@ export class DiscoveryService implements OnModuleInit {
   }
 
   private cache = new Map<string, { data: any; expires: number }>();
-  private CACHE_TTL = 1800_000; // 30분
+  private CACHE_TTL = 60_000; // 1분 (실시간 카운트 반영 위해 짧게)
 
   private getCached<T>(key: string): T | null {
     const entry = this.cache.get(key);
@@ -184,6 +184,11 @@ export class DiscoveryService implements OnModuleInit {
 
     if (!pro) return null;
 
+    // 찜 갯수 동적 계산
+    const favoriteCount = await this.prisma.favorite.count({
+      where: { targetType: 'pro', targetId: proProfileId },
+    });
+
     this.prisma.proProfile.update({
       where: { id: proProfileId },
       data: { profileViews: { increment: 1 } },
@@ -192,6 +197,7 @@ export class DiscoveryService implements OnModuleInit {
     const detailResult = {
       ...pro,
       avgRating: Number(pro.avgRating),
+      favoriteCount,
     };
     this.setCached(detailCacheKey, detailResult);
     return detailResult;
