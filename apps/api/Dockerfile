@@ -20,5 +20,6 @@ WORKDIR /app/apps/api
 
 EXPOSE 4000
 
-# 스키마 변경을 런타임에 적용 (새 테이블 생성/컬럼 추가 자동 반영, 기존 데이터 유지)
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/src/main"]
+# 스키마 변경을 런타임에 적용 (실패해도 서버는 시작 — ; 사용)
+# 성공 시 새 테이블/컬럼 자동 반영, 기존 데이터 유지
+CMD ["sh", "-c", "timeout 30 npx prisma db push --skip-generate --accept-data-loss || echo 'prisma db push skipped/failed — continuing'; node dist/src/main"]
