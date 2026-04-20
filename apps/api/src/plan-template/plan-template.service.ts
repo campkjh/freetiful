@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { DiscoveryService } from '../discovery/discovery.service';
 
 const DEFAULT_TEMPLATES = [
   {
@@ -39,7 +40,10 @@ const DEFAULT_TEMPLATES = [
 @Injectable()
 export class PlanTemplateService implements OnModuleInit {
   private readonly logger = new Logger(PlanTemplateService.name);
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private discovery: DiscoveryService,
+  ) {}
 
   // 서버 시작 시 기본 템플릿 자동 시드 (이미 있으면 skip)
   async onModuleInit() {
@@ -97,7 +101,40 @@ export class PlanTemplateService implements OnModuleInit {
     const existing = await this.prisma.planTemplate.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('플랜 템플릿을 찾을 수 없습니다');
 
-    return this.prisma.planTemplate.update({ where: { id }, data: allowed });
+    const updated = await this.prisma.planTemplate.update({ where: { id }, data: allowed });
+
+    // 이전 label → 새 label 로 바뀌었을 수도 있으니 양쪽 타이틀로 매칭
+    const matchTitles = [existing.label, updated.label].filter(Boolean);
+    const cascadeData: any = {};
+    if (data.defaultPrice !== undefined) cascadeData.basePrice = Number(data.defaultPrice);
+    if (data.label !== undefined) cascadeData.title = updated.label;
+    if (data.description !== undefined) cascadeData.description = updated.description;
+
+    if (Object.keys(cascadeData).length > 0) {
+      // 기존 ProService 에서 title 이 일치하는 것들을 모두 업데이트 (모든 프로에 전파)
+      const affected = await this.prisma.proService.findMany({
+        where: { title: { in: matchTitles } },
+        select: { id: true, proProfileId: true },
+      });
+
+      if (affected.length > 0) {
+        await this.prisma.proService.updateMany({
+          where: { title: { in: matchTitles } },
+          data: cascadeData,
+        });
+        this.logger.log(`Plan template cascade: ${affected.length} ProService rows updated for "${existing.label}"`);
+
+        // 영향 받은 모든 프로의 discovery 캐시 무효화
+        const uniqueProfileIds = Array.from(new Set(affected.map((a) => a.proProfileId)));
+        for (const pid of uniqueProfileIds) {
+          this.discovery.invalidateCache(pid);
+        }
+        // 리스트 캐시도 전부 비움
+        this.discovery.invalidateCache();
+      }
+    }
+
+    return updated;
   }
 
   async remove(id: string) {

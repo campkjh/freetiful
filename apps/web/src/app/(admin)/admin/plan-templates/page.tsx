@@ -53,7 +53,12 @@ export default function AdminPlanTemplatesPage() {
         isActive: item.isActive,
         planKey: item.planKey,
       });
-      toast.success(`${item.label} 저장됨`);
+      // 프로 상세 페이지의 프론트 캐시도 무효화
+      try {
+        const { invalidateProCache } = await import('@/lib/api/discovery.api');
+        invalidateProCache();
+      } catch {}
+      toast.success(`${item.label} 저장됨 — 모든 프로에 반영됐어요`);
     } catch (e: any) {
       toast.error(`저장 실패: ${e?.response?.data?.message || e?.message || ''}`);
     } finally {
