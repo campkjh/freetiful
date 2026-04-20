@@ -8,6 +8,7 @@ import type { Multer } from 'multer';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImageService, ImageProcessOptions } from '../image/image.service';
 import { DiscoveryService } from '../discovery/discovery.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class ProService {
@@ -15,6 +16,7 @@ export class ProService {
     private prisma: PrismaService,
     private imageService: ImageService,
     private discovery: DiscoveryService,
+    private notification: NotificationService,
   ) {}
 
   // ─── Profile (My) ────────────────────────────────────────────────────────
@@ -569,5 +571,157 @@ export class ProService {
       data: { profileViews: { increment: 1 } },
     });
     return { ok: true };
+  }
+
+  // ─── Schedule Requests (고객이 구매해서 들어온 대기 요청) ────────────────
+
+  async getScheduleRequests(userId: string) {
+    const profile = await this.getProfileByUserId(userId);
+    const rows = await this.prisma.proSchedule.findMany({
+      where: { proProfileId: profile.id, status: 'pending' },
+      include: {
+        payment: {
+          include: {
+            quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+          },
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+    const userIds = rows.map((r) => r.payment?.userId).filter(Boolean) as string[];
+    const users = userIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, profileImageUrl: true },
+        })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    return rows.map((r) => {
+      const user = r.payment ? userMap.get(r.payment.userId) : null;
+      const quotation = r.payment?.quotations?.[0];
+      return {
+        id: r.id,
+        date: r.date,
+        status: r.status,
+        amount: r.payment?.amount || 0,
+        paymentId: r.paymentId,
+        clientId: r.payment?.userId,
+        clientName: user?.name || '고객',
+        clientImage: user?.profileImageUrl || null,
+        title: quotation?.title || '스케줄 요청',
+        eventLocation: quotation?.eventLocation || null,
+        eventTime: quotation?.eventTime || null,
+      };
+    });
+  }
+
+  async acceptScheduleRequest(userId: string, scheduleId: string) {
+    const profile = await this.getProfileByUserId(userId);
+    const schedule = await this.prisma.proSchedule.findUnique({
+      where: { id: scheduleId },
+      include: { payment: true },
+    });
+    if (!schedule || schedule.proProfileId !== profile.id) {
+      throw new NotFoundException('스케줄 요청을 찾을 수 없습니다.');
+    }
+    if (schedule.status !== 'pending') {
+      throw new BadRequestException('이미 처리된 요청입니다.');
+    }
+    const updated = await this.prisma.proSchedule.update({
+      where: { id: scheduleId },
+      data: { status: 'booked', note: null },
+    });
+
+    // 채팅방 존재 보장 + 수락 시스템 메시지 전송
+    if (schedule.payment) {
+      const room = await this.prisma.chatRoom.findFirst({
+        where: {
+          userId: schedule.payment.userId,
+          proProfileId: profile.id,
+          userDeletedAt: null,
+        },
+      });
+      if (room) {
+        await this.prisma.message.create({
+          data: {
+            roomId: room.id,
+            senderId: userId,
+            type: 'system',
+            content: '✅ 스케줄 요청을 수락했습니다. 예약이 확정되었습니다.',
+          },
+        });
+        await this.prisma.chatRoom.update({
+          where: { id: room.id },
+          data: { lastMessageAt: new Date() },
+        });
+      }
+
+      // 알림 → 고객에게
+      this.notification.createNotification(
+        schedule.payment.userId,
+        'booking' as any,
+        '예약이 확정되었습니다! 🎉',
+        `${schedule.payment.amount.toLocaleString()}원 스케줄 요청이 수락되어 예약이 확정되었습니다.`,
+        { scheduleId, paymentId: schedule.paymentId },
+      ).catch(() => {});
+    }
+
+    return updated;
+  }
+
+  async rejectScheduleRequest(userId: string, scheduleId: string, reason?: string) {
+    const profile = await this.getProfileByUserId(userId);
+    const schedule = await this.prisma.proSchedule.findUnique({
+      where: { id: scheduleId },
+      include: { payment: true },
+    });
+    if (!schedule || schedule.proProfileId !== profile.id) {
+      throw new NotFoundException('스케줄 요청을 찾을 수 없습니다.');
+    }
+    if (schedule.status !== 'pending') {
+      throw new BadRequestException('이미 처리된 요청입니다.');
+    }
+    const updated = await this.prisma.proSchedule.update({
+      where: { id: scheduleId },
+      data: {
+        status: 'unavailable',
+        note: reason || '사유 없음',
+      },
+    });
+
+    // 채팅방에 거절 시스템 메시지 + 알림
+    if (schedule.payment) {
+      const room = await this.prisma.chatRoom.findFirst({
+        where: {
+          userId: schedule.payment.userId,
+          proProfileId: profile.id,
+          userDeletedAt: null,
+        },
+      });
+      if (room) {
+        await this.prisma.message.create({
+          data: {
+            roomId: room.id,
+            senderId: userId,
+            type: 'system',
+            content: `❌ 스케줄 요청이 거절되었습니다.${reason ? `\n사유: ${reason}` : ''}`,
+          },
+        });
+        await this.prisma.chatRoom.update({
+          where: { id: room.id },
+          data: { lastMessageAt: new Date() },
+        });
+      }
+
+      this.notification.createNotification(
+        schedule.payment.userId,
+        'booking' as any,
+        '스케줄 요청이 거절되었습니다',
+        reason || '다른 일정으로 수락이 어려우니 양해 부탁드립니다.',
+        { scheduleId, paymentId: schedule.paymentId },
+      ).catch(() => {});
+    }
+
+    return updated;
   }
 }

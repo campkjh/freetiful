@@ -461,9 +461,11 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null }: { 
                 onClick={(e) => {
                   e.stopPropagation();
                   const proId = chatPartner?.id;
-                  const url = proId
-                    ? `/pros/${proId}/checkout?quotationId=${sys.quotationId}&amount=${sys.amount || 0}`
-                    : `/pros/checkout?quotationId=${sys.quotationId}&amount=${sys.amount || 0}`;
+                  const amount = sys.amount || 0;
+                  const plan = sys.plan || 'premium';
+                  // 기존 checkout UI 가 읽는 파라미터: price + plan + (quotationId 추가)
+                  const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
+                  const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
                   window.location.href = url;
                 }}
                 className="w-full mt-3 h-11 bg-[#3180F7] active:scale-[0.98] text-white text-[14px] font-bold rounded-xl transition-transform flex items-center justify-center gap-1.5"
@@ -780,6 +782,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const [quoteMemo, setQuoteMemo] = useState('');
   // 추가 옵션 (프로가 견적 보낼 때 옵션을 추가해 총액을 올릴 수 있음)
   const [quoteOptions, setQuoteOptions] = useState<{ name: string; price: number }[]>([]);
+  const [quoteSending, setQuoteSending] = useState(false);
   const [newOptName, setNewOptName] = useState('');
   const [newOptPrice, setNewOptPrice] = useState('');
 
@@ -1105,12 +1108,14 @@ export default function ChatExtras(props: ChatExtrasProps) {
   };
 
   const handleSendQuote = async () => {
+    if (quoteSending) return;
     const plan = PLAN_DATA[quotePlan];
     if (!plan) { toast.error('플랜 정보를 불러오는 중입니다'); return; }
     if (!chatPartner?.id) {
       toast.error('상대방 정보를 찾을 수 없습니다');
       return;
     }
+    setQuoteSending(true);
     // 옵션 총액 + 전체 합계
     const optionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
     const totalAmount = plan.price + optionsTotal;
@@ -1188,6 +1193,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '발송 실패';
       toast.error(`견적서 발송 실패: ${msg}`);
+    } finally {
+      setQuoteSending(false);
     }
   };
 
@@ -1522,9 +1529,17 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
             <button
               onClick={handleSendQuote}
-              className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors"
+              disabled={quoteSending}
+              className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
             >
-              견적서 발송
+              {quoteSending ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  견적서 발송 중...
+                </>
+              ) : (
+                '견적서 발송'
+              )}
             </button>
           </div>
         </div>

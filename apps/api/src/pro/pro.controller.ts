@@ -200,4 +200,34 @@ export class ProController {
   incrementView(@Param('proProfileId') proProfileId: string) {
     return this.proService.incrementProfileView(proProfileId);
   }
+
+  // ─── Schedule Requests (고객이 구매한 대기중 요청) ─────────────────────────
+
+  @Get('schedule-requests')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내게 들어온 대기중 스케줄 요청 목록' })
+  getScheduleRequests(@Req() req) {
+    return this.proService.getScheduleRequests(req.user.id);
+  }
+
+  @Post('schedule-requests/:id/accept')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '스케줄 요청 수락' })
+  acceptScheduleRequest(@Req() req, @Param('id') id: string) {
+    return this.proService.acceptScheduleRequest(req.user.id, id);
+  }
+
+  @Post('schedule-requests/:id/reject')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '스케줄 요청 거절' })
+  rejectScheduleRequest(
+    @Req() req,
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.proService.rejectScheduleRequest(req.user.id, id, reason);
+  }
 }

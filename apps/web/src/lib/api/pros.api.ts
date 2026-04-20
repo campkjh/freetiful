@@ -52,4 +52,14 @@ export const prosApi = {
     cropHeight?: number;
   }) =>
     apiClient.put(`${BASE}/pro/profile/images/${id}/adjust`, options).then((r) => r.data),
+
+  // ─── 스케줄 요청 (고객이 구매해서 들어온 대기 요청) ─────────────────────
+  getScheduleRequests: () =>
+    apiClient.get<any[]>(`${BASE}/pro/schedule-requests`).then((r) => r.data),
+
+  acceptScheduleRequest: (id: string) =>
+    apiClient.post(`${BASE}/pro/schedule-requests/${id}/accept`).then((r) => r.data),
+
+  rejectScheduleRequest: (id: string, reason?: string) =>
+    apiClient.post(`${BASE}/pro/schedule-requests/${id}/reject`, { reason }).then((r) => r.data),
 };

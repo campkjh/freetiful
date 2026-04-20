@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { quotationApi } from '@/lib/api/quotation.api';
+import { prosApi } from '@/lib/api/pros.api';
 import { reviewApi } from '@/lib/api/review.api';
 import { scheduleApi } from '@/lib/api/schedule.api';
 import { apiClient } from '@/lib/api/client';
@@ -232,6 +233,9 @@ export default function ProDashboardPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
   const [inquiryRooms, setInquiryRooms] = useState<{ id: string; userName: string; image: string; message: string; receivedAt: string; unread: number }[]>([]);
+  const [scheduleRequests, setScheduleRequests] = useState<any[]>([]);
+  const [rejectSched, setRejectSched] = useState<{ id: string; userName: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -248,6 +252,53 @@ export default function ProDashboardPage() {
       setPuddingCount(storedPudding ? Number(storedPudding) : 0);
     } catch { /* ignore */ }
   }, []);
+
+  // 스케줄 요청 조회 (고객이 구매해서 대기중인 요청)
+  useEffect(() => {
+    if (!authUser) return;
+    prosApi.getScheduleRequests()
+      .then((data: any) => setScheduleRequests(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [authUser]);
+
+  const refreshScheduleRequests = () => {
+    prosApi.getScheduleRequests()
+      .then((data: any) => setScheduleRequests(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  };
+
+  const handleAcceptSchedule = async (id: string, goToChat = true) => {
+    try {
+      await prosApi.acceptScheduleRequest(id);
+      toast.success('예약이 확정되었습니다');
+      const req = scheduleRequests.find((r) => r.id === id);
+      setScheduleRequests((prev) => prev.filter((r) => r.id !== id));
+      if (goToChat && req?.clientId) {
+        // 해당 유저와의 채팅방을 찾아 이동
+        const room = await (await import('@/lib/api/chat.api')).chatApi.createRoom(req.clientId).catch(() => null);
+        const roomId = (room as any)?.data?.id;
+        if (roomId) router.push(`/chat/${roomId}`);
+        else refreshScheduleRequests();
+      } else {
+        refreshScheduleRequests();
+      }
+    } catch (e: any) {
+      toast.error(`수락 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    }
+  };
+
+  const handleRejectSchedule = async () => {
+    if (!rejectSched) return;
+    try {
+      await prosApi.rejectScheduleRequest(rejectSched.id, rejectReason.trim() || undefined);
+      toast.success('스케줄 요청이 거절되었습니다');
+      setScheduleRequests((prev) => prev.filter((r) => r.id !== rejectSched.id));
+      setRejectSched(null);
+      setRejectReason('');
+    } catch (e: any) {
+      toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    }
+  };
 
   // Fetch chat inquiries (customer 견적 요청) - 견적 요청 메시지 포함된 채팅방
   useEffect(() => {
@@ -487,7 +538,7 @@ export default function ProDashboardPage() {
         className="px-4 mt-5 grid grid-cols-2 gap-3"
       >
         {[
-          { icon: <img src="/images/new-quote.svg" alt="" width={24} height={24} />, label: '새 견적요청', value: `${pendingQuotes.length + inquiryRooms.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/inquiries' },
+          { icon: <img src="/images/new-quote.svg" alt="" width={24} height={24} />, label: '새 요청', value: `${pendingQuotes.length + inquiryRooms.length + scheduleRequests.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/inquiries' },
           { icon: <img src="/images/monthly-revenue.svg" alt="" width={24} height={24} />, label: '이번달 매출', value: `₩${monthlyRevenue.toLocaleString()}`, bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
           { icon: <img src="/images/profile-views.svg" alt="" width={24} height={24} />, label: '프로필 조회', value: `${profileViews}회`, bg: 'bg-purple-50', href: '/pro-dashboard/views' },
           { icon: <img src="/images/avg-rating.svg" alt="" width={24} height={24} />, label: '평균 평점', value: avgRating, bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
@@ -523,6 +574,45 @@ export default function ProDashboardPage() {
         </div>
 
         <div className="space-y-3">
+          {/* 결제 기반 스케줄 요청 (고객이 결제하여 대기중) */}
+          {scheduleRequests.map((req) => {
+            const d = new Date(req.date);
+            const dateLabel = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+            return (
+              <div key={`sched-${req.id}`} className="bg-white rounded-2xl border border-[#3180F7]/30 p-4 shadow-sm space-y-3">
+                <div className="flex items-start gap-3">
+                  <img src={req.clientImage || '/images/default-profile.svg'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">스케줄 요청</span>
+                      <p className="text-sm font-bold text-gray-900 truncate">{req.clientName}</p>
+                    </div>
+                    <p className="text-[13px] text-gray-700 font-medium">{req.title}</p>
+                    <div className="flex items-center gap-3 mt-1 text-[12px] text-gray-500">
+                      <span>📅 {dateLabel}</span>
+                      {req.eventLocation && <span>📍 {req.eventLocation}</span>}
+                    </div>
+                    <p className="text-[15px] font-bold text-[#3180F7] mt-2">{(req.amount || 0).toLocaleString()}원</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2 border-t border-gray-50">
+                  <button
+                    onClick={() => setRejectSched({ id: req.id, userName: req.clientName })}
+                    className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold active:scale-95 transition-transform"
+                  >
+                    거절
+                  </button>
+                  <button
+                    onClick={() => handleAcceptSchedule(req.id, true)}
+                    className="flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform"
+                  >
+                    수락 + 채팅 열기
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
           {/* 채팅 기반 견적 요청 (고객이 보낸 📋 견적 요청 메시지) */}
           {inquiryRooms.map((inq) => (
             <Link
@@ -547,7 +637,7 @@ export default function ProDashboardPage() {
             </Link>
           ))}
           <>
-            {pendingQuotes.length === 0 && inquiryRooms.length === 0 && (
+            {pendingQuotes.length === 0 && inquiryRooms.length === 0 && scheduleRequests.length === 0 && (
               <div
                 className="py-10 text-center"
               >
@@ -843,6 +933,41 @@ export default function ProDashboardPage() {
           </div>
         )}
       </>
+
+      {/* ── 스케줄 요청 거절 사유 모달 ── */}
+      {rejectSched && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => { setRejectSched(null); setRejectReason(''); }}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-t-3xl w-full shadow-xl">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+            </div>
+            <div className="px-5 pt-3 pb-8">
+              <h3 className="text-base font-bold text-gray-900 mb-1">스케줄 요청 거절</h3>
+              <p className="text-[13px] text-gray-500 mb-4">{rejectSched.userName}님의 스케줄 요청을 거절합니다.<br/>거절 사유를 작성해주세요.</p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="거절 사유를 입력해주세요 (예: 해당 날짜에 이미 다른 예약이 있습니다)"
+                className="w-full h-28 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[16px] outline-none focus:border-[#3180F7] resize-none"
+              />
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => { setRejectSched(null); setRejectReason(''); }}
+                  className="flex-1 h-12 rounded-xl bg-gray-100 text-gray-600 text-[15px] font-bold"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleRejectSchedule}
+                  className="flex-1 h-12 rounded-xl bg-red-500 text-white text-[15px] font-bold active:scale-95"
+                >
+                  거절하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Rejection Reason Modal ── */}
       <>

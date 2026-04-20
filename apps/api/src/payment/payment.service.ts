@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,6 +13,7 @@ import { randomUUID } from 'crypto';
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
   private readonly tossSecretKey: string;
   private readonly tossBaseUrl = 'https://api.tosspayments.com/v1/payments';
 
@@ -150,24 +152,94 @@ export class PaymentService {
       },
     });
 
-    // 연관된 견적서 상태를 paid로 업데이트
+    // 연관된 견적서 상태 + eventDate 조회
+    let eventDate: Date | null = null;
     if (payment.quotationId) {
-      await this.prisma.quotation.update({
+      const quotation = await this.prisma.quotation.update({
         where: { id: payment.quotationId },
         data: {
           status: 'paid',
           paymentId: payment.id,
         },
       });
+      eventDate = quotation.eventDate;
     }
 
-    // 결제 완료 알림: 고객 + 전문가
+    // 스케줄 요청 생성 (status=pending) — 프로가 수락/거절 결정
+    // eventDate 가 없으면 오늘 날짜로 기본값
+    const scheduleDate = eventDate || new Date();
+    // date 는 @db.Date 타입이라 시간 정보 제거
+    const dateOnly = new Date(Date.UTC(scheduleDate.getFullYear(), scheduleDate.getMonth(), scheduleDate.getDate()));
+    try {
+      await this.prisma.proSchedule.upsert({
+        where: {
+          proProfileId_date: {
+            proProfileId: payment.proProfileId,
+            date: dateOnly,
+          },
+        },
+        create: {
+          proProfileId: payment.proProfileId,
+          date: dateOnly,
+          status: 'pending',
+          paymentId: payment.id,
+          source: 'purchase',
+        },
+        update: {
+          status: 'pending',
+          paymentId: payment.id,
+          source: 'purchase',
+          note: null,
+        },
+      });
+    } catch (e) {
+      this.logger.error(`스케줄 요청 생성 실패: ${e}`);
+    }
+
+    // 채팅방 생성 (아직 없으면) — 수락 전이라도 대화 가능
+    try {
+      const existingRoom = await this.prisma.chatRoom.findFirst({
+        where: {
+          userId: payment.userId,
+          proProfileId: payment.proProfileId,
+          userDeletedAt: null,
+        },
+      });
+      if (!existingRoom) {
+        const pro = await this.prisma.proProfile.findUnique({
+          where: { id: payment.proProfileId },
+          select: { userId: true },
+        });
+        if (pro) {
+          await this.prisma.chatRoom.create({
+            data: {
+              userId: payment.userId,
+              proProfileId: payment.proProfileId,
+              members: {
+                createMany: { data: [{ userId: payment.userId }, { userId: pro.userId }] },
+              },
+              messages: {
+                create: {
+                  senderId: payment.userId,
+                  type: 'system',
+                  content: `📅 스케줄 요청 (${data.amount.toLocaleString()}원) — 프로의 수락을 기다리는 중입니다.`,
+                },
+              },
+            },
+          });
+        }
+      }
+    } catch (e) {
+      this.logger.error(`결제 후 채팅방 생성 실패: ${e}`);
+    }
+
+    // 알림: 고객 + 전문가
     try {
       this.notificationService.createNotification(
         payment.userId,
         'payment' as any,
         '결제가 완료되었습니다',
-        `${data.amount.toLocaleString()}원 결제가 성공적으로 처리되었습니다.`,
+        `${data.amount.toLocaleString()}원 결제가 완료되었습니다. 프로의 수락을 기다려주세요.`,
         { paymentId: payment.id },
       ).catch(() => {});
 
@@ -179,8 +251,8 @@ export class PaymentService {
         this.notificationService.createNotification(
           proProfile.userId,
           'payment' as any,
-          '새 결제가 도착했습니다',
-          `${data.amount.toLocaleString()}원 결제가 확정되었습니다.`,
+          '새 스케줄 요청이 도착했습니다 📅',
+          `${data.amount.toLocaleString()}원 스케줄 요청이 도착했습니다. 수락/거절을 선택해주세요.`,
           { paymentId: payment.id },
         ).catch(() => {});
       }
