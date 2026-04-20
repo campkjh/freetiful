@@ -55,17 +55,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
   const [navVisible, setNavVisible] = useState(true);
-  const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션
+  const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션 (한 번만)
   const [navExpanding, setNavExpanding] = useState(false);
   const [bizCollapsing, setBizCollapsing] = useState(false);
 
-  // 페이지 진입 시 nav 등장 애니메이션 트리거
+  // 최초 마운트 시 한 번만 등장 애니메이션, 탭 전환 시 재실행 안함
   useEffect(() => {
-    if (hideNav) return;
-    setNavMounted(false);
     const t = setTimeout(() => setNavMounted(true), 30);
     return () => clearTimeout(t);
-  }, [hideNav, pathname]);
+  }, []);
   const [isPro, setIsPro] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const lastScrollY = useRef(0);

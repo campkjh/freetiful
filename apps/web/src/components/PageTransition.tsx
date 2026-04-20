@@ -33,16 +33,18 @@ export default function PageTransition({ children }: { children: React.ReactNode
       const prevDetail = isDetailPath(prev);
       const currDetail = isDetailPath(pathname);
 
-      let cls: string;
+      let cls: string | null = null;
       if (!prevDetail && currDetail) cls = 'page-slide-in-right';
       else if (prevDetail && !currDetail) cls = 'page-slide-in-left';
-      else cls = 'page-fade-in';
+      // 메인↔메인(네비게이션 탭 전환)과 상세↔상세는 애니메이션 없음 (깜빡임 방지)
 
-      setAnimClass(cls);
-      // 애니메이션 종료 후 transform 제거 → sticky/fixed 복구
-      const t = setTimeout(() => setAnimClass(null), 420);
+      if (cls) {
+        setAnimClass(cls);
+        const t = setTimeout(() => setAnimClass(null), 420);
+        prevPath.current = pathname;
+        return () => clearTimeout(t);
+      }
       prevPath.current = pathname;
-      return () => clearTimeout(t);
     }
     prevPath.current = pathname;
   }, [pathname]);
