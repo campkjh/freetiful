@@ -40,12 +40,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const authUser = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [checked, setChecked] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isLoginPage = pathname === '/admin/login';
 
+  // zustand persist 하이드레이션 완료 대기 — localStorage 복원 전에 로그인 체크가 먼저 돌면
+  // 새로고침마다 /admin/login 으로 튕기는 문제 방지
   useEffect(() => {
+    const store: any = useAuthStore as any;
+    if (store.persist?.hasHydrated?.()) {
+      setHydrated(true);
+      return;
+    }
+    const unsub = store.persist?.onFinishHydration?.(() => setHydrated(true));
+    // 안전장치: 하이드레이션 이벤트가 오지 않는 환경을 대비해 다음 tick 에도 한 번 확인
+    const tm = setTimeout(() => setHydrated(true), 250);
+    return () => { unsub?.(); clearTimeout(tm); };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     if (isLoginPage) { setChecked(true); return; }
     if (!authUser) { router.replace('/admin/login'); return; }
     if (!authUser.email || !ADMIN_EMAILS.includes(authUser.email)) {
@@ -53,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
     setChecked(true);
-  }, [authUser, router, isLoginPage]);
+  }, [hydrated, authUser, router, isLoginPage]);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
