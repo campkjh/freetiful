@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
-// 네비게이션 바가 숨겨지는 상세 페이지 패턴 (layout.tsx와 동일)
 const DETAIL_PATTERNS = [
   /^\/chat\/.+/,
   /^\/pros\/.+/,
@@ -26,7 +25,7 @@ function isDetailPath(path: string): boolean {
 export default function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const prevPath = useRef<string | null>(null);
-  const [animClass, setAnimClass] = useState('');
+  const [animClass, setAnimClass] = useState<string | null>(null);
 
   useEffect(() => {
     const prev = prevPath.current;
@@ -34,31 +33,28 @@ export default function PageTransition({ children }: { children: React.ReactNode
       const prevDetail = isDetailPath(prev);
       const currDetail = isDetailPath(pathname);
 
-      if (!prevDetail && currDetail) {
-        // 메인 → 상세: 오른쪽에서 슬라이드 인
-        setAnimClass('page-slide-in-right');
-      } else if (prevDetail && !currDetail) {
-        // 상세 → 메인: 왼쪽에서 슬라이드 인 (뒤로가기 느낌)
-        setAnimClass('page-slide-in-left');
-      } else if (prevDetail && currDetail) {
-        // 상세 ↔ 상세: 페이드
-        setAnimClass('page-fade-in');
-      } else {
-        // 메인 ↔ 메인: 페이드
-        setAnimClass('page-fade-in');
-      }
+      let cls: string;
+      if (!prevDetail && currDetail) cls = 'page-slide-in-right';
+      else if (prevDetail && !currDetail) cls = 'page-slide-in-left';
+      else cls = 'page-fade-in';
 
-      // 애니메이션 후 클래스 제거
-      const t = setTimeout(() => setAnimClass(''), 450);
+      setAnimClass(cls);
+      // 애니메이션 종료 후 transform 제거 → sticky/fixed 복구
+      const t = setTimeout(() => setAnimClass(null), 420);
       prevPath.current = pathname;
       return () => clearTimeout(t);
     }
     prevPath.current = pathname;
   }, [pathname]);
 
+  // 애니메이션 중이 아닐 때는 래퍼 없이 그대로 (sticky/fixed 위치 보장)
+  if (animClass === null) {
+    return <>{children}</>;
+  }
+
   return (
     <>
-      <div key={pathname} className={animClass} style={{ willChange: 'transform, opacity' }}>
+      <div className={animClass}>
         {children}
       </div>
       <style jsx global>{`
@@ -71,8 +67,8 @@ export default function PageTransition({ children }: { children: React.ReactNode
           to { transform: translateX(0); opacity: 1; }
         }
         @keyframes pageFadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         .page-slide-in-right {
           animation: pageSlideInRight 0.4s cubic-bezier(0.22, 1, 0.36, 1);
