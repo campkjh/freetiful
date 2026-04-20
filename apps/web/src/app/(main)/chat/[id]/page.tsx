@@ -85,7 +85,14 @@ export default function ChatRoomPage() {
   const urlProImg = searchParams.get('img') ? decodeURIComponent(searchParams.get('img')!) : null;
   const authUser = useAuthStore((s) => s.user);
   const MY_ID = authUser?.id || '';
-  const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
+  // isPro 는 이 채팅방에서 내가 프로 측인지 판단 — User.role 이 general 로 바뀌어도
+  // 기존에 등록한 ProProfile 이 있어 채팅방의 proProfile.userId 와 내 id 가 일치하면 프로.
+  // roomProUserId 는 아래 useEffect 에서 room 로드 시 세팅됨.
+  const [roomProUserId, setRoomProUserId] = useState<string | null>(null);
+  const isPro =
+    (roomProUserId && roomProUserId === MY_ID) ||
+    authUser?.role === 'pro' ||
+    (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
   const { connect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
 
   // ─── Pre-warmed data 즉시 사용 (initial state만 계산) ───
@@ -177,13 +184,15 @@ export default function ChatRoomPage() {
       try {
         const res = await chatApi.getRoom(roomId);
         if (cancelled) return;
-        const room = res.data as ChatRoomItem;
+        const room = res.data as ChatRoomItem & { iAmPro?: boolean; proProfileId?: string };
         setChatPartner({
           id: room.otherUser.id,
           name: room.otherUser.name,
           profileImageUrl: room.otherUser.profileImageUrl || '/images/default-profile.svg',
           isActive: room.otherUser.isActive ?? false,
         });
+        // 이 채팅방에서 내가 프로(사회자) 측이면 견적서 발송 버튼 활성화
+        if (room.iAmPro) setRoomProUserId(MY_ID);
       } catch (err) {
         console.error('Failed to load room info', err);
       }

@@ -291,6 +291,8 @@ export class ChatService {
       otherUser,
       isFavorited: member?.isFavorited ?? false,
       unreadCount: member?.unreadCount ?? 0,
+      iAmPro: isProUser, // 이 채팅방에서 내가 프로(사회자) 측인지
+      proProfileId: room.proProfileId,
     };
   }
 
