@@ -55,6 +55,16 @@ export class ChatService {
   // ─── Chat Rooms ──────────────────────────────────────────────────────────
 
   async createRoom(userId: string, dto: CreateChatRoomDto) {
+    // 자기 자신과 채팅방 만들지 못하게 방어 (프로 본인이 자기 상세페이지를 본 경우)
+    const targetPro = await this.prisma.proProfile.findUnique({
+      where: { id: dto.proProfileId },
+      select: { userId: true },
+    });
+    if (!targetPro) throw new NotFoundException('전문가를 찾을 수 없습니다');
+    if (targetPro.userId === userId) {
+      throw new NotFoundException('본인과는 채팅을 시작할 수 없습니다');
+    }
+
     // 기존 룸 체크 + 필요한 joins을 한 번에 가져옴 (2번 쿼리 → 1번)
     const existingWithJoins = await this.prisma.chatRoom.findFirst({
       where: {

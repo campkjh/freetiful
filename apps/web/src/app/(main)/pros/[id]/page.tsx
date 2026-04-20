@@ -555,14 +555,11 @@ export default function ProDetailPage() {
     }
   }, [authUser, id]);
 
-  // Pre-warm chat room + 메시지까지 백그라운드에서 미리 로드 + chat 라우트 prefetch
+  // 채팅 번들만 prefetch (실제 createRoom 은 사용자가 "문의하기" 버튼 클릭 시점에 실행)
+  // 이전 버전은 여기서 preWarmChat(id) 을 호출해 방문만 해도 유령 방이 생기는 버그가 있었음
   useEffect(() => {
     if (!authUser || !id || id === 'my-pro') return;
-    const pre = preWarmChat(id);
-    // createRoom 끝나면 실제 /chat/[roomId] 번들도 prefetch
-    pre.roomIdPromise?.then((rid) => {
-      if (rid) router.prefetch(`/chat/${rid}`);
-    });
+    router.prefetch('/chat');
   }, [authUser, id, router]);
   const [openingChat, setOpeningChat] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -1463,6 +1460,12 @@ export default function ProDetailPage() {
                 onClick={async () => {
                   setShowTooltip(false);
                   if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; }
+                  // 본인의 프로 페이지면 차단
+                  const myProId = typeof window !== 'undefined' ? localStorage.getItem('freetiful-my-pro-id') : null;
+                  if (myProId && myProId === pro.id) {
+                    setOpeningChat(false);
+                    return;
+                  }
                   const nameParam = encodeURIComponent(pro.name || '');
                   const imgParam = encodeURIComponent(pro.profileImage || '');
                   const preWarmed = getPreWarmByProId(pro.id);
