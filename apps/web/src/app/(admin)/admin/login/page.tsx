@@ -48,17 +48,9 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex flex-col justify-center px-6 py-12 bg-white">
       <div className="w-full max-w-sm mx-auto">
         <div className="mb-10 text-center">
-          <div className="inline-flex items-center gap-2">
-            <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow-[0_4px_12px_rgba(49,130,246,0.28)]">
-              <span className="text-white text-[16px] font-black tracking-tight">F</span>
-            </div>
-            <span className="text-[24px] font-extrabold tracking-[-0.04em] text-[#191F28]">
-              프리티풀
-            </span>
-          </div>
-          <p className="mt-2 text-[12px] font-medium text-[#8B95A1] tracking-wide">
-            ADMIN CONSOLE
-          </p>
+          <span className="text-[26px] font-extrabold tracking-[-0.04em] text-[#191F28]">
+            프리티풀
+          </span>
         </div>
 
         <h2 className="text-[14px] font-semibold text-[#191F28] mb-6">로그인</h2>
