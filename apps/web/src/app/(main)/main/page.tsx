@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
@@ -489,6 +490,19 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
 export default function HomePage() {
   const authUser = useAuthStore((s) => s.user);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
+
+  // 프로 유저는 /pro-dashboard 로 자동 리다이렉트 (앱 재진입 시)
+  // userRole localStorage 도 체크 — 일반모드 전환한 경우는 유지
+  const router = useRouter();
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const localRole = localStorage.getItem('userRole');
+    const isPro = authUser?.role === 'pro' || localRole === 'pro';
+    const isGeneralByChoice = localRole === 'general';
+    if (isPro && !isGeneralByChoice) {
+      router.replace('/pro-dashboard');
+    }
+  }, [authUser, router]);
 
   // Fetch pro list from API
   useEffect(() => {

@@ -1415,12 +1415,12 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 <button
                   key={p}
                   onClick={() => setQuotePlan(p)}
-                  className={`flex-1 shrink-0 py-3 rounded-xl text-[13px] font-bold transition-colors ${
+                  className={`flex-1 shrink-0 py-3 rounded-xl text-[16px] font-bold transition-colors ${
                     quotePlan === p ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-500'
                   }`}
                 >
                   {PLAN_DATA[p]?.label}
-                  <span className="block text-[11px] font-medium mt-0.5 opacity-70">{((PLAN_DATA[p]?.price || 0) / 10000).toFixed(0)}만원</span>
+                  <span className="block text-[13px] font-medium mt-0.5 opacity-70">{((PLAN_DATA[p]?.price || 0) / 10000).toFixed(0)}만원</span>
                 </button>
               ))}
             </div>
@@ -1458,7 +1458,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
                     value={newOptName}
                     onChange={(e) => setNewOptName(e.target.value)}
                     placeholder="옵션명 (예: 사회, 리허설, 대본 …)"
-                    className="w-full h-10 bg-gray-50 border border-gray-200 rounded-xl px-3 text-[14px] outline-none focus:border-[#3180F7]"
+                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
                   />
                   {/* AI 자동 추천 태그 */}
                   {newOptName.trim() && (() => {
@@ -1471,7 +1471,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
                             key={s.name}
                             type="button"
                             onClick={() => { setNewOptName(s.name); setNewOptPrice(String(s.price)); }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#3180F7]/8 border border-[#3180F7]/30 text-[12px] text-[#3180F7] font-medium hover:bg-[#3180F7]/15 transition-colors"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#3180F7]/8 border border-[#3180F7]/30 text-[14px] text-[#3180F7] font-medium hover:bg-[#3180F7]/15 transition-colors"
                           >
                             <span>✨</span>
                             <span>{s.name}</span>
@@ -1488,7 +1488,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
                     value={newOptPrice}
                     onChange={(e) => setNewOptPrice(e.target.value)}
                     placeholder="가격 (원)"
-                    className="flex-1 h-10 bg-gray-50 border border-gray-200 rounded-xl px-3 text-[14px] outline-none focus:border-[#3180F7]"
+                    className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
                   />
                   <button
                     onClick={() => {
@@ -1499,7 +1499,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
                       setNewOptPrice('');
                     }}
                     disabled={!newOptName.trim()}
-                    className="h-10 px-5 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold disabled:opacity-40 shrink-0"
+                    className="h-12 px-5 rounded-xl bg-[#3180F7] text-white text-[16px] font-bold disabled:opacity-40 shrink-0"
                   >
                     추가
                   </button>
@@ -1522,7 +1522,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
             <button
               onClick={handleSendQuote}
-              className="w-full h-12 rounded-xl font-bold text-[15px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors"
+              className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors"
             >
               견적서 발송
             </button>
