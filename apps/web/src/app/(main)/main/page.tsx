@@ -9,17 +9,36 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 
+/* ─── 30초 이내 재방문 시 애니메이션 스킵 (모듈 레벨로 한 번만 계산) ─── */
+let _homeSkipResolved = false;
+let _homeSkipValue = false;
+function shouldSkipHomeAnim(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (_homeSkipResolved) return _homeSkipValue;
+  try {
+    const last = Number(sessionStorage.getItem('home-visited-at') || '0');
+    _homeSkipValue = !!(last && Date.now() - last < 30000);
+    sessionStorage.setItem('home-visited-at', String(Date.now()));
+  } catch { _homeSkipValue = false; }
+  _homeSkipResolved = true;
+  // 1초 후 플래그 리셋하여 다음 진입에 다시 평가
+  setTimeout(() => { _homeSkipResolved = false; }, 1000);
+  return _homeSkipValue;
+}
+
 /* ─── Scroll Reveal Hook ──────────────────────────────────── */
 function useReveal(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  // 재방문 시 처음부터 visible=true로 시작해 애니메이션 스킵
+  const [visible, setVisible] = useState(() => typeof window !== 'undefined' && shouldSkipHomeAnim());
   useEffect(() => {
+    if (visible) return; // 이미 visible이면 observer 불필요
     const el = ref.current;
     if (!el) return;
     const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVisible(true); }, { threshold });
     ob.observe(el);
     return () => ob.disconnect();
-  }, [threshold]);
+  }, [threshold, visible]);
   return { ref, visible };
 }
 
@@ -723,7 +742,7 @@ export default function HomePage() {
             <Link
               href="/quote"
               className="block relative rounded-2xl overflow-hidden opacity-0 aspect-[5.5/2.8] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.95] active:brightness-90"
-              style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
+              style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
               <video
                 src="/images/reference-video-1775801211148.mp4#t=0.001"
@@ -747,7 +766,7 @@ export default function HomePage() {
             <Link
               href="/quote?mode=event"
               className="relative rounded-2xl px-3 flex items-center -space-x-3 opacity-0 active:scale-[0.97] transition-transform"
-              style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
+              style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
               <RoundedRectBorderTrain color="#2B313D" />
               <video
@@ -781,7 +800,7 @@ export default function HomePage() {
         {/* 3. Category text tabs */}
         <div
           className="flex gap-2 overflow-x-auto scrollbar-hide px-[10px] py-2 opacity-0"
-          style={{ animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
+          style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
         >
           {['결혼식사회자', '행사 맞춤의뢰', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스'].map((tab) => {
             const active = selectedMobileTab === tab;
@@ -819,7 +838,7 @@ export default function HomePage() {
                 key={item.name}
                 href={item.href}
                 className="flex flex-col items-center gap-0.5 opacity-0"
-                style={{ animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
+                style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.5 + i * 0.06}s forwards` }}
               >
                 <div className="w-[52px] h-[52px] flex items-center justify-center overflow-hidden">
                   <img src={item.img} alt={item.name} className="w-full h-full object-contain" />
