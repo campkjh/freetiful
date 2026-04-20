@@ -406,11 +406,6 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
     const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === planKey);
     const planLabel = tpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : 'Premium');
     const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' ? '#8B5CF6' : '#3180F7';
-    const cardGradient = planKey === 'enterprise'
-      ? 'linear-gradient(165deg, #FBBF24 0%, #F59E0B 55%, #D97706 100%)'
-      : planKey === 'superior'
-      ? 'linear-gradient(165deg, #C4B5FD 0%, #8B5CF6 55%, #6D28D9 100%)'
-      : 'linear-gradient(165deg, #BFDBFE 0%, #A5B8FF 55%, #8CA2FF 100%)';
 
     return (
       <div
@@ -434,105 +429,51 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               animation: 'quoteCardFloat 4.5s ease-in-out 1.1s infinite alternate',
             }}
           >
-            {/* 카드 본체 — 반대 방향 마름모 (우측변 길고 좌측변 짧음) */}
+            {/* 카드 본체 — 프로필 사진으로 가득 찬 형태 */}
             <div
               className="absolute inset-0 rounded-[16px] overflow-hidden"
               style={{
-                background: cardGradient,
                 transformStyle: 'preserve-3d',
                 animation: 'quoteCardFly 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
                 transformOrigin: 'center center',
                 transform: 'rotateY(32deg) rotateX(8deg)',
-                // 더 옅은 다층 그림자
                 boxShadow: '0 14px 28px -12px rgba(0,0,0,0.18), 0 4px 10px -4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18)',
                 willChange: 'transform',
+                background: '#1F2937',
               }}
             >
-              {/* 카드 상단 freetiful 브랜드 */}
-              <p className="absolute top-3 left-3.5 text-white text-[11px] font-black tracking-wider" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
-                freetiful
-              </p>
-              {/* 우측 상단 EMV 칩 */}
-              <div
-                className="absolute top-3 right-3.5 w-6 h-5 rounded-[4px]"
-                style={{
-                  background: 'linear-gradient(135deg, #FFEAA7 0%, #D4A340 55%, #A57A2E 100%)',
-                  boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.2)',
-                }}
-              >
-                <div className="absolute inset-0.5 rounded-[2px]" style={{ background: 'repeating-linear-gradient(90deg, transparent 0, transparent 1.5px, rgba(0,0,0,0.15) 1.5px, rgba(0,0,0,0.15) 2px)' }} />
-              </div>
-
-              {/* 사회자 프로필 사진 — 카드 3D transform 상속 */}
+              {/* 프로필 사진 풀블리드 */}
               {(() => {
                 const proImg = (sys as any)?.proImage
                   || (isPro ? myProfileImage : chatPartner?.profileImageUrl)
                   || '/images/default-profile.svg';
                 return (
-                  <div
-                    className="absolute left-1/2 rounded-full overflow-hidden"
-                    style={{
-                      top: '28%',
-                      width: 56,
-                      height: 56,
-                      transform: 'translateX(-50%)',
-                      border: '2px solid rgba(255,255,255,0.6)',
-                      boxShadow: '0 4px 10px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.25)',
-                      background: 'rgba(255,255,255,0.1)',
-                    }}
-                  >
-                    <img
-                      src={proImg}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
-                    />
-                  </div>
+                  <img
+                    src={proImg}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
+                  />
                 );
               })()}
 
-              {/* 하단 플랜 라벨 (프로필 아래) */}
-              <p
-                className="absolute left-3 right-3 text-white font-black tracking-tighter leading-none text-center"
-                style={{
-                  bottom: 14,
-                  fontSize: 22,
-                  textShadow: '0 2px 6px rgba(0,0,0,0.25), 0 0 20px rgba(255,255,255,0.12)',
-                }}
-              >
-                {planLabel}
-              </p>
-
-              {/* 상단 하이라이트 (기울임 반영) */}
+              {/* 은은한 상단/하단 그라디언트 (사진 가독성 보조, 부유에 맞춰 진하기 변화) */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
-                  background: 'linear-gradient(242deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 55%, rgba(0,0,0,0.08) 85%, rgba(0,0,0,0.14) 100%)',
+                  background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 65%, rgba(0,0,0,0.3) 100%)',
+                  animation: 'quoteCardDim 4.5s ease-in-out 1.1s infinite alternate',
                 }}
               />
-              {/* 금속 글로우 */}
-              <div
-                className="absolute inset-0 pointer-events-none mix-blend-overlay"
-                style={{
-                  background: 'radial-gradient(ellipse at 70% 20%, rgba(255,255,255,0.35) 0%, transparent 55%)',
-                }}
-              />
-              {/* 빛반사 shimmer — 부유에 맞춰 대각선으로 흐름 */}
+
+              {/* 빛반사 shimmer — 부드럽고 자연스러운 대각선 광택 */}
               <div
                 className="absolute pointer-events-none"
                 style={{
-                  inset: '-20% -30%',
-                  background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.28) 46%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0.28) 54%, transparent 70%)',
-                  animation: 'quoteCardShimmer 4.5s ease-in-out 1.1s infinite alternate',
-                  mixBlendMode: 'overlay',
-                }}
-              />
-              {/* 딤 레이어 — 부유할 때 진해졌다 옅어짐 */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.18) 100%)',
-                  animation: 'quoteCardDim 4.5s ease-in-out 1.1s infinite alternate',
+                  inset: '-30% -40%',
+                  background: 'linear-gradient(110deg, transparent 42%, rgba(255,255,255,0.12) 48%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.12) 52%, transparent 58%)',
+                  animation: 'quoteCardShimmer 5s ease-in-out 1.1s infinite',
+                  mixBlendMode: 'screen',
                 }}
               />
             </div>
@@ -646,15 +587,16 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             0%   { opacity: 0.72; transform: translateX(-50%) scaleX(0.6) scaleY(0.55); filter: blur(3px); }
             100% { opacity: 0.3;  transform: translateX(-50%) scaleX(1.35) scaleY(1.25); filter: blur(9px); }
           }
-          /* 빛반사 — 대각선 광택이 카드 위를 쓸고 지나감 */
+          /* 빛반사 — 자연스럽게 사선으로 한 방향 흐름 + 긴 쉼 */
           @keyframes quoteCardShimmer {
-            0%   { transform: translate3d(-40%, -20%, 0) rotate(0deg); opacity: 0.4; }
-            50%  { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.9; }
-            100% { transform: translate3d(40%, 20%, 0) rotate(0deg); opacity: 0.4; }
+            0%   { transform: translate3d(-60%, -20%, 0); opacity: 0; }
+            15%  { opacity: 0.9; }
+            40%  { transform: translate3d(60%, 20%, 0); opacity: 0; }
+            100% { transform: translate3d(60%, 20%, 0); opacity: 0; }
           }
-          /* 딤 레이어 — 부유에 맞춰 하단이 진해졌다 옅어짐 */
+          /* 딤 레이어 — 부유에 맞춰 은은하게 진해졌다 옅어짐 */
           @keyframes quoteCardDim {
-            0%   { opacity: 0.4; }
+            0%   { opacity: 0.5; }
             100% { opacity: 1; }
           }
           /* 텍스트 — 우측에서 좌측으로 페이드인 (태그 전용) */
