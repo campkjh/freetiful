@@ -93,7 +93,46 @@ export default function ProEditPage() {
   const [selectedCompanyLogos, setSelectedCompanyLogos] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [awards, setAwards] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
+  const [videos, setVideos] = useState<string[]>([]);
+  const [showYoutubeSearch, setShowYoutubeSearch] = useState(false);
+  const [ytChannelQuery, setYtChannelQuery] = useState('');
+  const [ytChannels, setYtChannels] = useState<Array<{ id: string; title: string; description: string; thumbnail: string }>>([]);
+  const [ytVideos, setYtVideos] = useState<Array<{ id: string; title: string; thumbnail: string }>>([]);
+  const [ytSelectedChannel, setYtSelectedChannel] = useState<string | null>(null);
+  const [ytLoading, setYtLoading] = useState(false);
+
+  const searchYtChannels = async () => {
+    if (!ytChannelQuery.trim()) return;
+    setYtLoading(true);
+    setYtChannels([]);
+    setYtVideos([]);
+    setYtSelectedChannel(null);
+    try {
+      const res = await fetch(`/api/youtube?action=searchChannels&q=${encodeURIComponent(ytChannelQuery)}`);
+      const data = await res.json();
+      setYtChannels(data.channels || []);
+    } catch {} finally { setYtLoading(false); }
+  };
+
+  const loadYtVideos = async (channelId: string) => {
+    setYtSelectedChannel(channelId);
+    setYtLoading(true);
+    try {
+      const res = await fetch(`/api/youtube?action=channelVideos&channelId=${channelId}`);
+      const data = await res.json();
+      setYtVideos(data.videos || []);
+    } catch {} finally { setYtLoading(false); }
+  };
+
+  const addVideoUrl = (url: string) => {
+    if (!url.trim()) return;
+    if (videos.includes(url)) return;
+    setVideos((prev) => [...prev, url]);
+  };
+
+  const removeVideo = (url: string) => {
+    setVideos((prev) => prev.filter((v) => v !== url));
+  };
   const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>([]);
   const [toast, setToast] = useState('');
   const [showCategorySheet, setShowCategorySheet] = useState(false);
@@ -116,7 +155,12 @@ export default function ProEditPage() {
     setLanguages(lsJson('proRegister_languages', []));
     const savedAwards = lsJson('proRegister_awards', []);
     setAwards(Array.isArray(savedAwards) ? savedAwards.map((a: any) => typeof a === 'string' ? a : a.text || '').join('\n') : ls('proRegister_awards'));
-    setVideoUrl(ls('proRegister_videoUrl'));
+    const savedVideos = lsJson('proRegister_videos', null);
+    if (Array.isArray(savedVideos)) setVideos(savedVideos);
+    else {
+      const legacy = ls('proRegister_videoUrl');
+      if (legacy) setVideos([legacy]);
+    }
     setFaqItems(lsJson('proRegister_faq', []));
   }, []);
 
@@ -181,7 +225,8 @@ export default function ProEditPage() {
     localStorage.setItem('proRegister_companyLogos', JSON.stringify(selectedCompanyLogos));
     localStorage.setItem('proRegister_languages', JSON.stringify(languages));
     localStorage.setItem('proRegister_awards', awards);
-    localStorage.setItem('proRegister_videoUrl', videoUrl);
+    localStorage.setItem('proRegister_videos', JSON.stringify(videos));
+    localStorage.setItem('proRegister_videoUrl', videos[0] || '');
     localStorage.setItem('proRegister_faq', JSON.stringify(faqItems));
 
     setToast('저장되었습니다');
@@ -460,26 +505,164 @@ export default function ProEditPage() {
 
       {/* ─── 10. 소개영상 ─── */}
       <Section title="소개영상">
-        <div>
-          <input
-            type="url"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="YouTube 링크를 입력해주세요"
-            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
-          />
-          {videoUrl && videoUrl.includes('youtu') && (
-            <div className="mt-3 rounded-xl overflow-hidden bg-gray-100 aspect-video">
-              <iframe
-                src={videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/')}
-                className="w-full h-full"
-                allowFullScreen
-                title="소개 영상"
-              />
-            </div>
-          )}
+        <div className="space-y-3">
+          {videos.map((url, i) => {
+            const embedSrc = url.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/');
+            return (
+              <div key={i} className="relative">
+                <div className="rounded-xl overflow-hidden bg-gray-100 aspect-video">
+                  <iframe src={embedSrc} className="w-full h-full" allowFullScreen title={`영상 ${i + 1}`} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeVideo(url)}
+                  className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white active:scale-90"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            );
+          })}
+          {/* 영상 추가 버튼 */}
+          <button
+            type="button"
+            onClick={() => setShowYoutubeSearch(true)}
+            className="w-full h-12 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-[14px] font-medium text-gray-500 hover:border-[#3180F7] hover:text-[#3180F7] active:scale-[0.98] transition-all"
+          >
+            <Plus size={16} /> 영상 추가 (YouTube 검색)
+          </button>
+          {/* URL 직접 입력 */}
+          <div className="flex gap-2">
+            <input
+              type="url"
+              placeholder="또는 YouTube 링크 직접 입력"
+              className="flex-1 h-11 border border-gray-200 rounded-xl px-4 text-[14px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = (e.target as HTMLInputElement).value;
+                  if (val.trim()) { addVideoUrl(val.trim()); (e.target as HTMLInputElement).value = ''; }
+                }
+              }}
+            />
+          </div>
         </div>
       </Section>
+
+      {/* YouTube 검색 모달 */}
+      {showYoutubeSearch && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col" style={{ animation: 'slideInRight 0.3s ease' }}>
+          <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100">
+            <div className="flex items-center gap-3 mb-3">
+              <button onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }}>
+                <ChevronLeft size={24} className="text-gray-900" />
+              </button>
+              <h2 className="text-[18px] font-bold text-gray-900">YouTube 영상 검색</h2>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={ytChannelQuery}
+                onChange={(e) => setYtChannelQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && searchYtChannels()}
+                placeholder="채널명을 검색하세요"
+                className="flex-1 h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7]"
+                autoFocus
+              />
+              <button onClick={searchYtChannels} className="h-11 px-4 bg-[#3180F7] text-white rounded-xl text-[14px] font-bold shrink-0 active:scale-95">
+                검색
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {ytLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+
+            {!ytSelectedChannel && ytChannels.length > 0 && !ytLoading && (
+              <div className="p-4">
+                <p className="text-[12px] text-gray-400 font-bold uppercase mb-3">채널 선택</p>
+                <div className="space-y-2">
+                  {ytChannels.map((ch) => (
+                    <button
+                      key={ch.id}
+                      onClick={() => loadYtVideos(ch.id)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 text-left active:scale-[0.98] transition-all"
+                    >
+                      <img src={ch.thumbnail} alt="" className="w-10 h-10 rounded-full object-cover bg-gray-200" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-semibold text-gray-900 truncate">{ch.title}</p>
+                        <p className="text-[12px] text-gray-400 truncate">{ch.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {ytSelectedChannel && ytVideos.length > 0 && !ytLoading && (
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[12px] text-gray-400 font-bold uppercase">영상 선택</p>
+                  <button onClick={() => { setYtSelectedChannel(null); setYtVideos([]); }} className="text-[12px] text-[#3180F7] font-semibold">
+                    채널 다시 선택
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {ytVideos.map((v) => {
+                    const url = `https://www.youtube.com/watch?v=${v.id}`;
+                    const already = videos.includes(url);
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => { if (!already) addVideoUrl(url); }}
+                        className={`w-full rounded-xl overflow-hidden border text-left transition-all ${already ? 'border-[#3180F7] bg-blue-50/30' : 'border-gray-100'}`}
+                      >
+                        <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                          <img src={v.thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                          {already && (
+                            <div className="absolute top-2 right-2 w-7 h-7 bg-[#3180F7] rounded-full flex items-center justify-center shadow-md">
+                              <Check size={16} className="text-white stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <p className="text-[14px] font-semibold text-gray-900 line-clamp-2">{v.title}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!ytLoading && !ytChannelQuery && ytChannels.length === 0 && (
+              <div className="flex flex-col items-center py-16">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#DBEAFE"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="#3180F7"/></svg>
+                <p className="text-[14px] text-gray-500 mt-4">채널명을 검색해주세요</p>
+              </div>
+            )}
+            {!ytLoading && ytChannels.length === 0 && !ytSelectedChannel && ytChannelQuery && (
+              <p className="text-center text-gray-400 text-[14px] py-12">검색 결과가 없습니다</p>
+            )}
+          </div>
+
+          {videos.length > 0 && (
+            <div className="shrink-0 p-4 pb-8 bg-white border-t border-gray-100">
+              <button
+                onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }}
+                className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-[16px] active:scale-[0.98]"
+              >
+                완료 ({videos.length}개 영상)
+              </button>
+            </div>
+          )}
+
+          <style dangerouslySetInnerHTML={{ __html: `@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }` }} />
+        </div>
+      )}
 
       {/* ─── 11. FAQ ─── */}
       <Section title="FAQ">
