@@ -48,7 +48,11 @@ export class DiscoveryService implements OnModuleInit {
   /** 오늘의 추천 전문가 — 날짜 기반 매일 로테이션 */
   async getDailyRecommendation() {
     const pros = await this.prisma.proProfile.findMany({
-      where: { status: 'approved' },
+      where: {
+        status: 'approved',
+        user: { role: 'pro', isActive: true },
+        OR: [{ shortIntro: { not: null } }, { images: { some: {} } }],
+      },
       include: {
         user: { select: { id: true, name: true, profileImageUrl: true } },
         images: { where: { isPrimary: true }, take: 1 },
@@ -94,13 +98,25 @@ export class DiscoveryService implements OnModuleInit {
     const cached = this.getCached<any>(cacheKey);
     if (cached) return cached;
 
-    const where: any = { status: 'approved' };
+    // 공개 목록 조건:
+    // 1) 프로필 status = approved
+    // 2) User.role = 'pro' + isActive (일반 모드로 돌린 유저 / archived 제외)
+    // 3) 프로필에 최소한의 내용 (shortIntro 또는 이미지 최소 1장) — 빈 유령 프로필 제외
+    const where: any = {
+      status: 'approved',
+      user: { role: 'pro', isActive: true },
+      AND: [
+        { OR: [{ shortIntro: { not: null } }, { images: { some: {} } }] },
+      ],
+    };
     if (search) {
-      where.OR = [
-        { user: { name: { contains: search, mode: 'insensitive' } } },
-        { shortIntro: { contains: search, mode: 'insensitive' } },
-        { mainExperience: { contains: search, mode: 'insensitive' } },
-      ];
+      (where.AND as any[]).push({
+        OR: [
+          { user: { name: { contains: search, mode: 'insensitive' } } },
+          { shortIntro: { contains: search, mode: 'insensitive' } },
+          { mainExperience: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
     if (gender) where.gender = gender;
     if (featured) where.isFeatured = true;

@@ -4,11 +4,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { DiscoveryService } from '../discovery/discovery.service';
 import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly discovery: DiscoveryService,
+  ) {}
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -172,10 +176,16 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return this.prisma.user.update({
+    // role 전환 시 role 만 업데이트. discovery 목록은 user.role 로 필터하므로
+    // ProProfile.status 는 건드리지 않아도 자동으로 숨겨짐.
+    // (나중에 다시 pro 모드로 돌아오면 기존 approved 프로필 그대로 복구됨)
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { role },
     });
+    // discovery 캐시 전체 무효화 — 리스트에 즉시 반영되도록
+    this.discovery.invalidateCache();
+    return updated;
   }
 
   async deleteAccount(userId: string) {
