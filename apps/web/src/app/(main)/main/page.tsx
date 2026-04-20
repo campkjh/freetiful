@@ -485,10 +485,25 @@ export default function HomePage() {
 
   // Fetch pro list from API
   useEffect(() => {
+    // 캐시에서 즉시 표시 (두 번째 방문부터 무한 로딩 방지)
+    try {
+      const cached = localStorage.getItem('freetiful-pros-cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) setApiPros(parsed);
+      }
+    } catch {}
+
+    // 타임아웃: 8초 내 응답 없으면 빈 배열로 설정
+    const timeout = setTimeout(() => {
+      setApiPros((prev) => prev ?? []);
+    }, 8000);
+
     discoveryApi.getProList({ limit: 41, sort: 'rating' })
       .then((res) => {
+        clearTimeout(timeout);
         if (res.data?.length > 0) {
-          setApiPros(res.data.map((p: any, i: number) => ({
+          const mapped = res.data.map((p: any, i: number) => ({
             id: p.id,
             name: p.name,
             category: 'MC',
@@ -506,10 +521,19 @@ export default function HomePage() {
             available: true,
             youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
             isPartner: p.showPartnersLogo || p.isFeatured || false,
-          })));
+          }));
+          setApiPros(mapped);
+          try { localStorage.setItem('freetiful-pros-cache', JSON.stringify(mapped)); } catch {}
+        } else {
+          setApiPros([]);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        clearTimeout(timeout);
+        setApiPros([]);
+      });
+
+    return () => clearTimeout(timeout);
   }, []);
 
   // Use API data only - no mock fallback
