@@ -522,7 +522,15 @@ export default function HomePage() {
       .then((res) => {
         clearTimeout(timeout);
         if (res.data?.length > 0) {
-          const mapped = res.data.map((p: any, i: number) => ({
+          // userId 기준 중복 제거 (동일 유저의 여러 프로필 중 가장 최신 것만)
+          const seen = new Set<string>();
+          const deduped = res.data.filter((p: any) => {
+            const key = p.userId || p.id;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          const mapped = deduped.map((p: any, i: number) => ({
             id: p.id,
             name: p.name,
             category: 'MC',

@@ -34,7 +34,7 @@ export interface ProListItem {
 
 const cache = new Map<string, { data: any; ts: number }>();
 const inflight = new Map<string, Promise<any>>();
-const TTL = 600_000;
+const TTL = 60_000; // 1분 (편집 반영 빠르게)
 
 function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
@@ -58,11 +58,12 @@ export function getCachedProDetail(id: string): any | null {
 export function invalidateProCache(id?: string) {
   if (id) {
     cache.delete(`detail:${id}`);
+    return;
   }
-  // 리스트 캐시도 모두 삭제
+  // id 없으면 모든 detail + list 캐시 삭제
   const keys = Array.from(cache.keys());
   keys.forEach((k) => {
-    if (k.startsWith('list:') || (id && k === `detail:${id}`)) cache.delete(k);
+    if (k.startsWith('list:') || k.startsWith('detail:')) cache.delete(k);
   });
 }
 
