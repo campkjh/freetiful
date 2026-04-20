@@ -19,6 +19,7 @@ import { FavoriteModule } from './favorite/favorite.module';
 import { AdminModule } from './admin/admin.module';
 import { PuddingModule } from './pudding/pudding.module';
 import { RefDataModule } from './ref-data/ref-data.module';
+import { PlanTemplateModule } from './plan-template/plan-template.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { RefDataModule } from './ref-data/ref-data.module';
     AdminModule,
     PuddingModule,
     RefDataModule,
+    PlanTemplateModule,
   ],
 })
 export class AppModule {}

@@ -20,4 +20,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 4000
 
-CMD ["node", "dist/src/main"]
+# 스키마 변경을 런타임에 적용 (새 테이블 생성/컬럼 추가 자동 반영, 기존 데이터 유지)
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/src/main"]

@@ -5,25 +5,43 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, Check, Plus, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 
-const PLANS = [
-  { id: 'premium', label: 'Premium', defaultPrice: 450000, desc: '행사 1시간 진행' },
-  { id: 'superior', label: 'Superior', defaultPrice: 800000, desc: '행사 2시간 진행' },
-  { id: 'enterprise', label: 'Enterprise', defaultPrice: 1700000, desc: '6시간 풀타임' },
-  { id: 'test', label: 'Test', defaultPrice: 100, desc: '테스트용 (결제 플로우 확인)' },
+// 기본값 (API 로드 실패/지연 시 fallback). 어드민에서 수정 가능.
+type PlanTpl = { id: string; label: string; defaultPrice: number; desc: string; includedItems: string[] };
+const FALLBACK_PLANS: PlanTpl[] = [
+  { id: 'premium', label: 'Premium', defaultPrice: 450000, desc: '행사 1시간 진행', includedItems: ['사회 진행', '사전 미팅'] },
+  { id: 'superior', label: 'Superior', defaultPrice: 800000, desc: '행사 2시간 진행', includedItems: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'] },
+  { id: 'enterprise', label: 'Enterprise', defaultPrice: 1700000, desc: '6시간 풀타임', includedItems: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'] },
+  { id: 'test', label: 'Test', defaultPrice: 100, desc: '테스트용 (결제 플로우 확인)', includedItems: ['테스트 서비스'] },
 ];
-
-const COMMON_OPTIONS: Record<string, string[]> = {
-  premium: ['사회 진행', '사전 미팅'],
-  superior: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'],
-  enterprise: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'],
-  test: ['테스트 서비스'],
-};
 
 const TOTAL_STEPS = 7;
 const CURRENT_STEP = 6;
 
 export default function PricingPage() {
   const router = useRouter();
+  const [PLANS, setPLANS] = useState<PlanTpl[]>(FALLBACK_PLANS);
+  const COMMON_OPTIONS: Record<string, string[]> = Object.fromEntries(PLANS.map((p) => [p.id, p.includedItems]));
+
+  // 어드민 설정 플랜 로드
+  useEffect(() => {
+    import('@/lib/api/client').then(({ apiClient }) => {
+      apiClient.get('/api/v1/plan-templates')
+        .then((res: any) => {
+          const data = Array.isArray(res.data) ? res.data : [];
+          if (data.length > 0) {
+            setPLANS(data.map((t: any) => ({
+              id: t.planKey,
+              label: t.label,
+              defaultPrice: t.defaultPrice,
+              desc: t.description || '',
+              includedItems: Array.isArray(t.includedItems) ? t.includedItems : [],
+            })));
+          }
+        })
+        .catch(() => { /* fallback to FALLBACK_PLANS */ });
+    });
+  }, []);
+
   const [enabledPlans, setEnabledPlans] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('proRegister_enabledPlans');

@@ -1011,3 +1011,19 @@ model AdminAuditLog {
 
   @@map("admin_audit_logs")
 }
+
+// ─── Plan Templates (어드민이 일괄 관리하는 서비스 플랜) ───────────────
+model PlanTemplate {
+  id             String   @id @default(uuid())
+  planKey        String   @unique // premium, superior, enterprise, test 등
+  label          String   // 표시 이름 (Premium, Superior, ...)
+  description    String?  // 서브 설명 (행사 1시간 진행 등)
+  defaultPrice   Int      @default(0) // 기본 가격 (원)
+  includedItems  Json     @default("[]") // 포함 항목 string[] (사회 진행, 사전 미팅 등)
+  displayOrder   Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("plan_templates")
+}

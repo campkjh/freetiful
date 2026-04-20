@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   ExternalLink,
+  Package,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 
@@ -25,6 +26,7 @@ const ADMIN_EMAILS = ['admin@freetiful.com'];
 const NAV_ITEMS = [
   { href: '/admin', label: '대시보드', icon: LayoutDashboard, exact: true },
   { href: '/admin/pros', label: '전문가 관리', icon: UserCog },
+  { href: '/admin/plan-templates', label: '서비스 플랜', icon: Package },
   { href: '/admin/users', label: '유저 관리', icon: Users },
   { href: '/admin/bookings', label: '의뢰/예약', icon: ClipboardList },
   { href: '/admin/payments', label: '결제/정산', icon: CreditCard },

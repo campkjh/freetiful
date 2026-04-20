@@ -1153,18 +1153,32 @@ export default function ProfilePage() {
                     const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
                     const enabledPlans: string[] = JSON.parse(localStorage.getItem('proRegister_enabledPlans') || '[]');
                     const prices: Record<string, number> = JSON.parse(localStorage.getItem('proRegister_prices') || '{}');
-                    const PLAN_META: Record<string, { label: string; desc: string }> = {
-                      premium: { label: 'Premium', desc: '행사 1시간 진행' },
-                      superior: { label: 'Superior', desc: '행사 2시간 진행' },
-                      enterprise: { label: 'Enterprise', desc: '6시간 풀타임' },
-                      test: { label: 'Test', desc: '테스트용 (결제 플로우 확인)' },
+                    // 어드민 설정 템플릿을 우선으로 사용
+                    const { apiClient } = await import('@/lib/api/client');
+                    let planMetaMap: Record<string, { label: string; desc: string; defaultPrice: number }> = {};
+                    try {
+                      const res = await apiClient.get('/api/v1/plan-templates');
+                      const tpls = Array.isArray(res.data) ? res.data : [];
+                      for (const t of tpls) {
+                        planMetaMap[t.planKey] = { label: t.label, desc: t.description || '', defaultPrice: t.defaultPrice };
+                      }
+                    } catch {}
+                    // 하드코딩 폴백 (API 실패 시)
+                    const FALLBACK_META: Record<string, { label: string; desc: string; defaultPrice: number }> = {
+                      premium: { label: 'Premium', desc: '행사 1시간 진행', defaultPrice: 450000 },
+                      superior: { label: 'Superior', desc: '행사 2시간 진행', defaultPrice: 800000 },
+                      enterprise: { label: 'Enterprise', desc: '6시간 풀타임', defaultPrice: 1700000 },
+                      test: { label: 'Test', desc: '테스트용 (결제 플로우 확인)', defaultPrice: 100 },
                     };
                     const services = enabledPlans
-                      .map((id) => ({
-                        title: PLAN_META[id]?.label || id,
-                        description: PLAN_META[id]?.desc,
-                        basePrice: prices[id] ? Number(prices[id]) : undefined,
-                      }))
+                      .map((id) => {
+                        const meta = planMetaMap[id] || FALLBACK_META[id];
+                        return {
+                          title: meta?.label || id,
+                          description: meta?.desc,
+                          basePrice: prices[id] ? Number(prices[id]) : meta?.defaultPrice,
+                        };
+                      })
                       .filter((s) => s.title);
                     const faqs = Object.entries(faqContents)
                       .filter(([q, a]) => q && a)
