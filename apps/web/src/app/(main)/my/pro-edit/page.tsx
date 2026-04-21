@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star } from 'lucide-react';
+import { useAuthStore } from '@/lib/store/auth.store';
 /* ─── Constants ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
@@ -78,6 +79,7 @@ function TagChip({ label, selected, onToggle }: { label: string; selected: boole
 export default function ProEditPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const authUser = useAuthStore((s) => s.user);
 
   /* ── State ── */
   const [accountInfo, setAccountInfo] = useState<{ email: string; userId: string; proProfileId: string; status: string } | null>(null);
@@ -143,7 +145,8 @@ export default function ProEditPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
     // 1) localStorage 로 폼 즉시 채움 (체감 속도)
-    setName(ls('proRegister_name'));
+    // 이름은 authUser.name (로그인된 실계정 이름) 을 우선 사용. localStorage 는 fallback.
+    setName(authUser?.name || ls('proRegister_name'));
     setPhone(ls('proRegister_phone'));
     setGender(ls('proRegister_gender'));
     setCategory(ls('proRegister_category'));
@@ -194,7 +197,7 @@ export default function ProEditPage() {
         }
       } catch { /* 로컬 폼 유지 */ }
     })();
-  }, []);
+  }, [authUser?.id]);
 
   /* ── Formatters ── */
   const formatPhoneNumber = (value: string) => {
@@ -266,7 +269,7 @@ export default function ProEditPage() {
       const { prosApi } = await import('@/lib/api/pros.api');
       const awardsArray = awards.split('\n').filter(Boolean);
       await prosApi.submitRegistration({
-        name: name || undefined,
+        // name 은 서버에서 무시됨 (User.name = 가입 시 실계정 이름, 변경 불가)
         phone: phone || undefined,
         gender: gender || undefined,
         shortIntro: intro || undefined,
