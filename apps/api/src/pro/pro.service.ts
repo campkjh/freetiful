@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Multer } from 'multer';
@@ -9,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ImageService, ImageProcessOptions } from '../image/image.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { NotificationService } from '../notification/notification.service';
+import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
 export class ProService {
@@ -17,6 +20,8 @@ export class ProService {
     private imageService: ImageService,
     private discovery: DiscoveryService,
     private notification: NotificationService,
+    @Inject(forwardRef(() => PaymentService))
+    private paymentService: PaymentService,
   ) {}
 
   // ─── Profile (My) ────────────────────────────────────────────────────────
@@ -681,13 +686,30 @@ export class ProService {
     if (schedule.status !== 'pending') {
       throw new BadRequestException('이미 처리된 요청입니다.');
     }
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException('거절 사유를 입력해주세요. 사유는 고객에게 그대로 전달됩니다.');
+    }
     const updated = await this.prisma.proSchedule.update({
       where: { id: scheduleId },
       data: {
         status: 'unavailable',
-        note: reason || '사유 없음',
+        note: reason,
       },
     });
+
+    // 결제가 존재하면 자동 전액 환불
+    let refundedAmount = 0;
+    if (schedule.payment && schedule.payment.status === 'completed') {
+      try {
+        const refunded = await this.paymentService.refundAsSystem(
+          schedule.payment.id,
+          `사회자 거절: ${reason}`,
+        );
+        refundedAmount = Number((refunded as any)?.refundAmount || schedule.payment.amount || 0);
+      } catch (e) {
+        // 환불 실패해도 거절 처리는 진행 — 운영팀이 수동 환불
+      }
+    }
 
     // 채팅방에 거절 시스템 메시지 + 알림
     if (schedule.payment) {
@@ -704,7 +726,7 @@ export class ProService {
             roomId: room.id,
             senderId: userId,
             type: 'system',
-            content: `❌ 스케줄 요청이 거절되었습니다.${reason ? `\n사유: ${reason}` : ''}`,
+            content: `❌ 행사 예약이 거절되었습니다.\n사유: ${reason}${refundedAmount > 0 ? `\n\n${refundedAmount.toLocaleString()}원 전액 환불 처리됐습니다.` : ''}`,
           },
         });
         await this.prisma.chatRoom.update({
@@ -716,8 +738,8 @@ export class ProService {
       this.notification.createNotification(
         schedule.payment.userId,
         'booking' as any,
-        '스케줄 요청이 거절되었습니다',
-        reason || '다른 일정으로 수락이 어려우니 양해 부탁드립니다.',
+        '행사 예약이 거절되었습니다',
+        `${reason}${refundedAmount > 0 ? `\n${refundedAmount.toLocaleString()}원 환불 처리 완료` : ''}`,
         { scheduleId, paymentId: schedule.paymentId },
       ).catch(() => {});
     }

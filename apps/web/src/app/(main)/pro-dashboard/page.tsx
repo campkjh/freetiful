@@ -560,18 +560,21 @@ export default function ProDashboardPage() {
         ))}
       </div>
 
-      {/* ── 견적 요청 ── */}
+      {/* ── 새로운 행사 예약 (고객 결제 후 대기중) ── */}
       <div
         className="px-4 mt-8"
       >
         <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-base font-bold text-gray-900">새로운 견적 요청</h2>
-          {pendingQuotes.length > 0 && (
+          <h2 className="text-base font-bold text-gray-900">새로운 행사 예약</h2>
+          {scheduleRequests.length > 0 && (
             <span className="bg-[#3180F7] text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
-              {pendingQuotes.length}
+              {scheduleRequests.length}
             </span>
           )}
         </div>
+        <p className="text-[12px] text-gray-500 mb-3">
+          고객이 결제한 행사예요. 수락하면 예약 확정, 거절하면 사유와 함께 전액 환불됩니다.
+        </p>
 
         <div className="space-y-3">
           {/* 결제 기반 스케줄 요청 (고객이 결제하여 대기중) */}
@@ -613,84 +616,11 @@ export default function ProDashboardPage() {
             );
           })}
 
-          {/* 채팅 기반 견적 요청 (고객이 보낸 📋 견적 요청 메시지) */}
-          {inquiryRooms.map((inq) => (
-            <Link
-              key={`inq-${inq.id}`}
-              href={`/chat/${inq.id}`}
-              className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm block active:scale-[0.98] transition-transform"
-            >
-              <div className="flex items-start gap-3">
-                <img src={inq.image} alt={inq.userName} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#3180F7]">견적요청</span>
-                    <p className="text-sm font-bold text-gray-900 truncate">{inq.userName}</p>
-                    {inq.unread > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white ml-auto shrink-0">{inq.unread}</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-600 line-clamp-2">{inq.message}</p>
-                  <p className="text-[10px] text-gray-400 mt-2">{inq.receivedAt}</p>
-                </div>
-              </div>
-            </Link>
-          ))}
-          <>
-            {pendingQuotes.length === 0 && inquiryRooms.length === 0 && scheduleRequests.length === 0 && (
-              <div
-                className="py-10 text-center"
-              >
-                <p className="text-sm text-gray-400">대기 중인 견적 요청이 없습니다</p>
-              </div>
-            )}
-            {pendingQuotes.map((quote, idx) => (
-              <div
-                key={quote.id}
-                onPointerDown={(e) => handlePointerDown(quote.id, e)}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm select-none mb-3 last:mb-0"
-              >
-                {/* Top row */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <PersonIcon />
-                    <span className="text-sm font-bold text-gray-900">{quote.clientName}</span>
-                    <span className="text-xs text-gray-400">{quote.eventType}</span>
-                  </div>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${PLAN_COLORS[quote.plan].bg} ${PLAN_COLORS[quote.plan].text}`}
-                  >
-                    {quote.plan}
-                  </span>
-                </div>
-
-                {/* Details row */}
-                <div className="flex items-center gap-3 mb-3 text-xs text-gray-500">
-                  <span>{formatDate(quote.eventDate)}</span>
-                  <span className="text-gray-200">|</span>
-                  <span className="font-bold text-gray-900">{quote.budget}</span>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setRejectTarget(quote.id)}
-                    className="flex-1 py-2.5 rounded-xl bg-gray-100 text-sm font-bold text-gray-500 transition-colors active:bg-gray-200"
-                  >
-                    거절
-                  </button>
-                  <button
-                    onClick={() => setConfirmAccept(quote.id)}
-                    className="flex-1 py-2.5 rounded-xl bg-[#3180F7] text-sm font-bold text-white transition-colors active:bg-[#2060D0]"
-                  >
-                    수락
-                  </button>
-                </div>
-              </div>
-            ))}
-          </>
+          {scheduleRequests.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="text-sm text-gray-400">대기 중인 행사 예약이 없습니다</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -934,7 +864,7 @@ export default function ProDashboardPage() {
         )}
       </>
 
-      {/* ── 스케줄 요청 거절 사유 모달 ── */}
+      {/* ── 행사 예약 거절 (사유 입력 + 전액 환불) ── */}
       {rejectSched && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => { setRejectSched(null); setRejectReason(''); }}>
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-t-3xl w-full shadow-xl">
@@ -942,12 +872,17 @@ export default function ProDashboardPage() {
               <div className="w-10 h-1 bg-gray-200 rounded-full" />
             </div>
             <div className="px-5 pt-3 pb-8">
-              <h3 className="text-base font-bold text-gray-900 mb-1">스케줄 요청 거절</h3>
-              <p className="text-[13px] text-gray-500 mb-4">{rejectSched.userName}님의 스케줄 요청을 거절합니다.<br/>거절 사유를 작성해주세요.</p>
+              <h3 className="text-base font-bold text-gray-900 mb-1">행사 예약 거절</h3>
+              <p className="text-[13px] text-gray-500 mb-2">{rejectSched.userName}님의 행사 예약을 거절합니다.</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
+                <p className="text-[12px] text-amber-700 font-medium">
+                  거절 즉시 고객에게 <b>전액 환불</b>됩니다. 사유는 고객에게 그대로 전달됩니다.
+                </p>
+              </div>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="거절 사유를 입력해주세요 (예: 해당 날짜에 이미 다른 예약이 있습니다)"
+                placeholder="거절 사유 (예: 해당 날짜에 이미 다른 예약이 있어 수락이 어렵습니다)"
                 className="w-full h-28 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[16px] outline-none focus:border-[#3180F7] resize-none"
               />
               <div className="flex gap-2 mt-4">
@@ -959,9 +894,10 @@ export default function ProDashboardPage() {
                 </button>
                 <button
                   onClick={handleRejectSchedule}
-                  className="flex-1 h-12 rounded-xl bg-red-500 text-white text-[15px] font-bold active:scale-95"
+                  disabled={!rejectReason.trim()}
+                  className="flex-1 h-12 rounded-xl bg-red-500 text-white text-[15px] font-bold active:scale-95 disabled:opacity-40"
                 >
-                  거절하기
+                  거절 · 환불
                 </button>
               </div>
             </div>

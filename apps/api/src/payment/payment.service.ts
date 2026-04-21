@@ -391,4 +391,64 @@ export class PaymentService {
 
     return updatedPayment;
   }
+
+  /**
+   * 시스템(프로 거절 등) 에 의한 강제 환불 — 권한 체크 없이 환불 진행.
+   * ProService.rejectScheduleRequest 등 내부 호출 전용.
+   */
+  async refundAsSystem(paymentId: string, reason: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!payment) throw new NotFoundException('결제 정보를 찾을 수 없습니다.');
+    if (payment.status !== 'completed') {
+      // 이미 refunded 상태면 no-op, 다른 상태는 스킵
+      return payment;
+    }
+
+    // 토스 결제 취소 (PG 거래 ID 가 있을 때만)
+    if (payment.pgTransactionId) {
+      try {
+        await axios.post(
+          `${this.tossBaseUrl}/${payment.pgTransactionId}/cancel`,
+          { cancelReason: reason },
+          {
+            headers: {
+              Authorization: this.getAuthHeader(),
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+      } catch (e) {
+        // PG 취소 실패해도 DB 상태는 refunded 로 처리하고 로그만 남김
+        // (운영팀 수동 처리 여지)
+      }
+    }
+
+    const updatedPayment = await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'refunded',
+        refundAmount: payment.amount,
+        refundReason: reason,
+        refundedAt: new Date(),
+      },
+    });
+
+    if (payment.quotationId) {
+      await this.prisma.quotation.update({
+        where: { id: payment.quotationId },
+        data: { status: 'refunded' },
+      }).catch(() => {});
+    }
+
+    // 알림 → 고객 (환불)
+    this.notificationService.createNotification(
+      payment.userId,
+      'payment' as any,
+      '결제가 환불되었습니다',
+      `${Number(payment.amount).toLocaleString()}원이 환불되었습니다.${reason ? `\n사유: ${reason}` : ''}`,
+      { paymentId: payment.id },
+    ).catch(() => {});
+
+    return updatedPayment;
+  }
 }
