@@ -78,7 +78,10 @@ export class ImageService {
       throw new BadRequestException('파일 크기는 10MB를 초과할 수 없습니다.');
     }
 
-    let pipeline = sharp(file.buffer);
+    // .rotate() 를 먼저 호출해 EXIF Orientation 을 읽어 픽셀 데이터를 실제로 회전시키고
+    // EXIF 방향 태그를 제거한다. 이게 없으면 iPhone 세로 사진이 가로로 눕힌 상태로
+    // WebP 변환돼 브라우저에서 회전된 것처럼 보임.
+    let pipeline = sharp(file.buffer).rotate();
     const metadata = await pipeline.metadata();
 
     // ─── Crop ──────────────────────────────────────────────────────────
