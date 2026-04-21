@@ -26,7 +26,12 @@ export class AiService {
   private readonly client: GoogleGenerativeAI | null;
 
   constructor() {
-    const key = process.env.GEMINI_API_KEY;
+    // 이름 오타 방지: GEMINI_API_KEY / GEMINI_AI_KEY / GOOGLE_API_KEY 모두 인식
+    const key =
+      process.env.GEMINI_API_KEY ||
+      process.env.GEMINI_AI_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (key) {
       this.client = new GoogleGenerativeAI(key);
       this.logger.log('Gemini AI service enabled');
