@@ -1,9 +1,42 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, Eye, EyeOff, ImageOff } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Save, Eye, EyeOff, ImageOff, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from '../_components/adminFetch';
+
+// 파일 → 1600px 이하로 리사이즈 → webp data URL (품질 0.88)
+// 너무 큰 이미지는 거부 (원본 8MB 초과 시 에러)
+async function fileToResizedDataUrl(file: File, maxWidth = 1600, quality = 0.88): Promise<string> {
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error('파일이 너무 큽니다 (최대 8MB)');
+  }
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = () => { URL.revokeObjectURL(url); resolve(i); };
+    i.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽을 수 없습니다')); };
+    i.src = url;
+  });
+  const scale = Math.min(1, maxWidth / img.width);
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas 생성 실패');
+  ctx.drawImage(img, 0, 0, w, h);
+  // webp 우선, 미지원 브라우저는 jpeg 폴백
+  let dataUrl = canvas.toDataURL('image/webp', quality);
+  if (!dataUrl.startsWith('data:image/webp')) {
+    dataUrl = canvas.toDataURL('image/jpeg', quality);
+  }
+  // 최종 data URL 이 2.5MB 초과면 품질 낮춰 재시도
+  if (dataUrl.length > 2.5 * 1024 * 1024) {
+    dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+  }
+  return dataUrl;
+}
 
 interface Banner {
   id: string;
@@ -34,6 +67,32 @@ export default function AdminBannersPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(emptyDraft);
   const [creating, setCreating] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const rowFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const onPickDraftFile = async (file: File) => {
+    setProcessing(true);
+    try {
+      const dataUrl = await fileToResizedDataUrl(file);
+      setDraft((d) => ({ ...d, imageUrl: dataUrl }));
+      toast.success(`이미지 로드 (${Math.round(dataUrl.length / 1024)}KB)`);
+    } catch (e: any) {
+      toast.error(e?.message || '이미지 변환 실패');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const onPickRowFile = async (id: string, file: File) => {
+    try {
+      const dataUrl = await fileToResizedDataUrl(file);
+      updateField(id, { imageUrl: dataUrl });
+      toast.success(`이미지 교체 (${Math.round(dataUrl.length / 1024)}KB) — "저장" 버튼 눌러 반영`);
+    } catch (e: any) {
+      toast.error(e?.message || '이미지 변환 실패');
+    }
+  };
 
   const fetchList = async () => {
     setLoading(true);
@@ -121,37 +180,84 @@ export default function AdminBannersPage() {
       <div className="bg-white rounded-3xl p-6">
         <h2 className="text-[15px] font-bold text-[#191F28] mb-4">새 배너 등록</h2>
         <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-5">
-          {/* 프리뷰 */}
+          {/* 프리뷰 (클릭 시 파일 선택) */}
           <div>
-            <div className="aspect-[1170/300] rounded-2xl bg-[#F2F4F6] overflow-hidden flex items-center justify-center relative" style={draft.bgColor ? { backgroundColor: draft.bgColor } : undefined}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onPickDraftFile(f);
+                if (e.target) e.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={processing}
+              className="group relative aspect-[1170/300] w-full rounded-2xl bg-[#F2F4F6] overflow-hidden flex items-center justify-center disabled:opacity-50"
+              style={draft.bgColor ? { backgroundColor: draft.bgColor } : undefined}
+            >
               {draft.imageUrl ? (
-                <img
-                  src={draft.imageUrl}
-                  alt="미리보기"
-                  className="w-full h-full object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
+                <>
+                  <img
+                    src={draft.imageUrl}
+                    alt="미리보기"
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <span className="text-white text-[12px] font-semibold flex items-center gap-1.5">
+                      <Upload size={14} /> 파일 교체
+                    </span>
+                  </div>
+                </>
               ) : (
-                <div className="flex flex-col items-center gap-1 text-[#B0B8C1]">
-                  <ImageOff size={20} />
-                  <span className="text-[11px]">미리보기</span>
+                <div className="flex flex-col items-center gap-1.5 text-[#8B95A1]">
+                  <Upload size={22} />
+                  <span className="text-[12px] font-semibold">{processing ? '변환 중...' : '클릭해서 파일 선택'}</span>
+                  <span className="text-[10px] text-[#B0B8C1]">또는 아래에 URL 입력</span>
                 </div>
               )}
-            </div>
-            <p className="mt-2 text-[11px] text-[#8B95A1] text-center">비율 1170 × 300</p>
+            </button>
+            <p className="mt-2 text-[11px] text-[#8B95A1] text-center">비율 1170 × 300 권장 · 최대 8MB</p>
           </div>
 
           {/* 폼 */}
           <div className="space-y-3">
             <div>
-              <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">이미지 URL *</label>
-              <input
-                type="text"
-                value={draft.imageUrl}
-                onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })}
-                placeholder="/images/banner-1.png 또는 https://..."
-                className="w-full bg-[#F9FAFB] rounded-xl px-4 py-3 text-[14px] text-[#191F28] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#3182F6]"
-              />
+              <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
+                이미지 URL * <span className="text-[#B0B8C1] font-normal">(파일 선택 또는 직접 입력)</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={draft.imageUrl.startsWith('data:') ? `[업로드된 파일 · ${Math.round(draft.imageUrl.length / 1024)}KB]` : draft.imageUrl}
+                  onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })}
+                  readOnly={draft.imageUrl.startsWith('data:')}
+                  placeholder="/images/banner-1.png 또는 https://..."
+                  className="flex-1 bg-[#F9FAFB] rounded-xl px-4 py-3 text-[14px] text-[#191F28] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#3182F6]"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={processing}
+                  className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#E8F3FF] text-[#3182F6] text-[13px] font-semibold hover:bg-[#D6E9FF] disabled:opacity-50 whitespace-nowrap"
+                >
+                  <Upload size={14} /> {processing ? '처리 중' : '파일'}
+                </button>
+                {draft.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, imageUrl: '' })}
+                    className="px-3 py-3 rounded-xl bg-[#F2F4F6] text-[#8B95A1] text-[13px] font-semibold hover:bg-[#E5E8EB]"
+                  >
+                    비우기
+                  </button>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -270,13 +376,34 @@ export default function AdminBannersPage() {
                         className="bg-[#F9FAFB] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#3182F6]"
                       />
                     </div>
-                    <input
-                      type="text"
-                      value={item.imageUrl}
-                      onChange={(e) => updateField(item.id, { imageUrl: e.target.value })}
-                      placeholder="이미지 URL"
-                      className="w-full bg-[#F9FAFB] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#3182F6]"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        ref={(el) => { rowFileInputRefs.current[item.id] = el; }}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) onPickRowFile(item.id, f);
+                          if (e.target) e.target.value = '';
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={item.imageUrl.startsWith('data:') ? `[업로드된 파일 · ${Math.round(item.imageUrl.length / 1024)}KB]` : item.imageUrl}
+                        onChange={(e) => updateField(item.id, { imageUrl: e.target.value })}
+                        readOnly={item.imageUrl.startsWith('data:')}
+                        placeholder="이미지 URL"
+                        className="flex-1 bg-[#F9FAFB] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-[#3182F6]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => rowFileInputRefs.current[item.id]?.click()}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#E8F3FF] text-[#3182F6] text-[12px] font-semibold hover:bg-[#D6E9FF] whitespace-nowrap"
+                      >
+                        <Upload size={12} /> 파일
+                      </button>
+                    </div>
                     <div className="grid grid-cols-[1fr_1fr_90px_90px] gap-2">
                       <input
                         type="text"
