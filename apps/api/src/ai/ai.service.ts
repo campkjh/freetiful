@@ -111,7 +111,9 @@ JSON 형식으로 다음 필드를 출력:
         generationConfig: {
           temperature: 0.8,
           responseMimeType: 'application/json',
-        },
+          // thinking 끄기: 2.5 시리즈는 기본 thinking 활성 → 5-10초 추가 지연. 카피라이팅엔 불필요.
+          thinkingConfig: { thinkingBudget: 0 },
+        } as any,
       });
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
@@ -141,16 +143,22 @@ JSON 형식으로 다음 필드를 출력:
     try {
 
       // ─── 상세 페이지용 히어로 이미지 생성 (Gemini 2.5 Flash Image / "Nano Banana") ─────
+      // 이미지 생성은 15초+ 걸릴 수 있어 Vercel 프록시 타임아웃(30s)에 걸림 → 12s 하드 타임아웃.
       let detailHtml = String(parsed.detailHtml || '');
       try {
-        const heroUrl = await this.generateHeroImage({
+        const heroPromise = this.generateHeroImage({
           category: input.category,
           keywords: input.keywords || parsed.shortIntro,
           referenceImages: imageParts,
         });
+        const timeoutPromise = new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), 12000),
+        );
+        const heroUrl = await Promise.race([heroPromise, timeoutPromise]);
         if (heroUrl) {
-          // 히어로 이미지를 detailHtml 최상단에 삽입
           detailHtml = `<img src="${heroUrl}" alt="${input.name || '전문가'} 프로필" />\n${detailHtml}`;
+        } else {
+          this.logger.warn('Hero image generation timed out (>12s) — returning text-only');
         }
       } catch (e: any) {
         this.logger.warn(`Hero image generation skipped: ${e?.message || e}`);
