@@ -50,8 +50,8 @@ export class AiService {
       throw new BadRequestException('AI 기능이 아직 설정되지 않았습니다. 관리자에게 문의해주세요.');
     }
 
-    // 정식 모델명 — "-exp" 붙이면 deprecated. 환경변수로 덮어쓰기 가능.
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    // gemini-2.0-flash 는 신규 가입자에게 닫혀있음. 2.5-flash 가 무료 티어 현 정식 모델.
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     const model = this.client.getGenerativeModel({
       model: modelName,
       generationConfig: {
