@@ -190,7 +190,7 @@ export default function ProEditPage() {
       }
       setToast('AI 텍스트 완료 — 이미지 생성 중...');
 
-      // 히어로 이미지는 별도 요청 (15-30초 소요) — 텍스트는 이미 에디터에 반영됨
+      // 히어로 이미지는 별도 요청 (7-18초 소요) — 텍스트는 이미 에디터에 반영됨
       try {
         const hero = await aiApi.generateHeroImage({
           name: name || undefined,
@@ -198,23 +198,28 @@ export default function ProEditPage() {
           keywords: intro || out.shortIntro,
           imageDataUrls: photos.filter((p) => p?.startsWith('data:image/')).slice(0, 4),
         });
-        if (hero.url && detailEditorRef.current) {
-          const imgTag = `<img src="${hero.url}" alt="${name || '전문가'} 프로필" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:12px;" />`;
-          const currentHtml = detailEditorRef.current.innerHTML;
-          detailEditorRef.current.innerHTML = imgTag + currentHtml;
-          setDetailHtml(imgTag + currentHtml);
-          setToast('AI 생성 완료 — 내용 확인 후 저장해주세요');
+        console.log('[AI Hero] response:', hero);
+        if (hero.url) {
+          const imgTag = `<img src="${hero.url}" alt="${name || '전문가'} 프로필" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:12px;display:block;" />`;
+          if (detailEditorRef.current) {
+            const before = detailEditorRef.current.innerHTML;
+            detailEditorRef.current.innerHTML = imgTag + before;
+            console.log('[AI Hero] editor innerHTML set, length:', detailEditorRef.current.innerHTML.length);
+            setDetailHtml(imgTag + before);
+            detailEditorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          setToast(`AI 생성 완료 — 이미지 URL: ${hero.url}`);
         } else {
           const debugMsg = hero.debug?.join(' | ') || '원인 불명';
-          console.warn('[AI Hero]', debugMsg);
-          setToast(`이미지 생성 실패: ${debugMsg.slice(0, 80)}`);
+          console.warn('[AI Hero] no url, debug:', hero.debug);
+          setToast(`이미지 생성 실패: ${debugMsg.slice(0, 100)}`);
         }
       } catch (e: any) {
         const msg = e?.response?.data?.message || e?.message || '네트워크 오류';
-        console.warn('[AI Hero]', e);
-        setToast(`이미지 생성 실패: ${msg.slice(0, 80)}`);
+        console.warn('[AI Hero] error:', e);
+        setToast(`이미지 생성 실패: ${msg.slice(0, 100)}`);
       }
-      setTimeout(() => setToast(''), 6000);
+      setTimeout(() => setToast(''), 8000);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
       setToast(`AI 생성 실패: ${msg}`);
