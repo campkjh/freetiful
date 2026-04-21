@@ -56,6 +56,29 @@ export class ImageService {
   async onModuleInit() {
     // 로컬 폴백용 폴더는 항상 준비 (Supabase 연결 실패 시)
     await fs.mkdir(this.uploadDir, { recursive: true }).catch(() => {});
+
+    // Supabase 연결돼 있으면 버킷 자동 생성 시도 (없으면 만들고, 있으면 스킵)
+    if (this.supabase) {
+      try {
+        const { data: list } = await this.supabase.storage.listBuckets();
+        const exists = (list || []).some((b: any) => b.name === this.bucket);
+        if (!exists) {
+          const { error } = await this.supabase.storage.createBucket(this.bucket, {
+            public: true,
+            fileSizeLimit: 10 * 1024 * 1024,
+          });
+          if (error) {
+            this.logger.warn(`Bucket "${this.bucket}" 생성 실패: ${error.message}`);
+          } else {
+            this.logger.log(`Bucket "${this.bucket}" 자동 생성됨 (public)`);
+          }
+        } else {
+          this.logger.log(`Bucket "${this.bucket}" 사용 가능`);
+        }
+      } catch (e: any) {
+        this.logger.warn(`Supabase bucket init 실패: ${e?.message || e}`);
+      }
+    }
   }
 
   /** 버퍼를 Supabase Storage 에 업로드하고 공개 URL 반환. 실패 시 null. */
