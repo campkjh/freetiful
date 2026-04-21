@@ -179,54 +179,54 @@ export default function AdminBannersPage() {
       {/* 새 배너 등록 */}
       <div className="bg-white rounded-3xl p-6">
         <h2 className="text-[15px] font-bold text-[#191F28] mb-4">새 배너 등록</h2>
-        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-5">
-          {/* 프리뷰 (클릭 시 파일 선택) */}
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onPickDraftFile(f);
-                if (e.target) e.target.value = '';
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={processing}
-              className="group relative aspect-[1170/300] w-full rounded-2xl bg-[#F2F4F6] overflow-hidden flex items-center justify-center disabled:opacity-50"
-              style={draft.bgColor ? { backgroundColor: draft.bgColor } : undefined}
-            >
-              {draft.imageUrl ? (
-                <>
-                  <img
-                    src={draft.imageUrl}
-                    alt="미리보기"
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <span className="text-white text-[12px] font-semibold flex items-center gap-1.5">
-                      <Upload size={14} /> 파일 교체
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-1.5 text-[#8B95A1]">
-                  <Upload size={22} />
-                  <span className="text-[12px] font-semibold">{processing ? '변환 중...' : '클릭해서 파일 선택'}</span>
-                  <span className="text-[10px] text-[#B0B8C1]">또는 아래에 URL 입력</span>
-                </div>
-              )}
-            </button>
-            <p className="mt-2 text-[11px] text-[#8B95A1] text-center">비율 1170 × 300 권장 · 최대 8MB</p>
-          </div>
 
-          {/* 폼 */}
-          <div className="space-y-3">
+        {/* 프리뷰 (실제 배너 비율 1170:300 풀폭) */}
+        <div className="mb-5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onPickDraftFile(f);
+              if (e.target) e.target.value = '';
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={processing}
+            className="group relative aspect-[1170/300] w-full rounded-2xl bg-[#F2F4F6] overflow-hidden flex items-center justify-center disabled:opacity-50"
+            style={draft.bgColor ? { backgroundColor: draft.bgColor } : undefined}
+          >
+            {draft.imageUrl ? (
+              <>
+                <img
+                  src={draft.imageUrl}
+                  alt="미리보기"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <span className="text-white text-[13px] font-semibold flex items-center gap-1.5">
+                    <Upload size={14} /> 파일 교체
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-[#8B95A1]">
+                <Upload size={26} />
+                <span className="text-[14px] font-semibold">{processing ? '변환 중...' : '클릭해서 파일 선택'}</span>
+                <span className="text-[12px] text-[#B0B8C1]">또는 아래 URL 입력</span>
+              </div>
+            )}
+          </button>
+          <p className="mt-2 text-[12px] text-[#8B95A1] text-center">비율 1170 × 300 권장 · 최대 8MB · 클릭해서 업로드</p>
+        </div>
+
+        {/* 폼 */}
+        <div className="space-y-3">
             <div>
               <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
                 이미지 URL * <span className="text-[#B0B8C1] font-normal">(파일 선택 또는 직접 입력)</span>
@@ -330,7 +330,6 @@ export default function AdminBannersPage() {
                 <Plus size={16} /> {creating ? '등록 중...' : '등록'}
               </button>
             </div>
-          </div>
         </div>
       </div>
 
@@ -348,16 +347,16 @@ export default function AdminBannersPage() {
         ) : (
           <div className="divide-y divide-[#F2F4F6]">
             {items.map((item) => (
-              <div key={item.id} className="px-5 py-4">
-                <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_auto] gap-4 items-start">
-                  {/* 썸네일 */}
-                  <div className="aspect-[1170/300] rounded-xl bg-[#F2F4F6] overflow-hidden flex items-center justify-center" style={item.bgColor ? { backgroundColor: item.bgColor } : undefined}>
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <ImageOff size={20} className="text-[#B0B8C1]" />
-                    )}
-                  </div>
+              <div key={item.id} className="px-5 py-5 space-y-4">
+                {/* 썸네일 (풀폭, 실제 비율) */}
+                <div className="aspect-[1170/300] rounded-2xl bg-[#F2F4F6] overflow-hidden flex items-center justify-center" style={item.bgColor ? { backgroundColor: item.bgColor } : undefined}>
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageOff size={22} className="text-[#B0B8C1]" />
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
                   {/* 필드 */}
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
