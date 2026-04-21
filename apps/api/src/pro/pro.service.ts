@@ -4,6 +4,8 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  OnModuleInit,
+  Logger,
 } from '@nestjs/common';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Multer } from 'multer';
@@ -14,7 +16,8 @@ import { NotificationService } from '../notification/notification.service';
 import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
-export class ProService {
+export class ProService implements OnModuleInit {
+  private readonly logger = new Logger(ProService.name);
   constructor(
     private prisma: PrismaService,
     private imageService: ImageService,
@@ -23,6 +26,45 @@ export class ProService {
     @Inject(forwardRef(() => PaymentService))
     private paymentService: PaymentService,
   ) {}
+
+  // 서버 시작 시 기존 프로 유저들의 User.profileImageUrl 이 비어있으면
+  // 대표 ProProfileImage 의 URL 로 채워줌 (일회성 마이그레이션).
+  async onModuleInit() {
+    try {
+      const usersNeedingSync = await this.prisma.user.findMany({
+        where: {
+          profileImageUrl: null,
+          proProfile: { isNot: null },
+        },
+        select: { id: true, proProfile: { select: { id: true } } },
+        take: 200,
+      });
+      if (usersNeedingSync.length === 0) return;
+      let synced = 0;
+      for (const u of usersNeedingSync) {
+        if (!u.proProfile) continue;
+        const primary = await this.prisma.proProfileImage.findFirst({
+          where: { proProfileId: u.proProfile.id, isPrimary: true },
+          select: { imageUrl: true },
+        });
+        const fallback = !primary
+          ? await this.prisma.proProfileImage.findFirst({
+              where: { proProfileId: u.proProfile.id },
+              orderBy: { displayOrder: 'asc' },
+              select: { imageUrl: true },
+            })
+          : null;
+        const url = primary?.imageUrl || fallback?.imageUrl;
+        if (url) {
+          await this.prisma.user.update({ where: { id: u.id }, data: { profileImageUrl: url } });
+          synced++;
+        }
+      }
+      if (synced > 0) this.logger.log(`Synced ${synced} User.profileImageUrl from primary ProProfileImage`);
+    } catch (e: any) {
+      this.logger.warn(`profile image sync skipped: ${e?.message || e}`);
+    }
+  }
 
   // ─── Profile (My) ────────────────────────────────────────────────────────
 
