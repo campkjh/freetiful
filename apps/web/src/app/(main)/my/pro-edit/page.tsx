@@ -98,6 +98,26 @@ export default function ProEditPage() {
   const [awards, setAwards] = useState('');
   const [detailHtml, setDetailHtml] = useState('');
   const detailEditorRef = useRef<HTMLDivElement>(null);
+  const detailImageInputRef = useRef<HTMLInputElement>(null);
+  const detailColorInputRef = useRef<HTMLInputElement>(null);
+  const execDetailFormat = (command: string, value?: string) => {
+    detailEditorRef.current?.focus();
+    document.execCommand(command, false, value);
+    setDetailHtml(detailEditorRef.current?.innerHTML || '');
+  };
+  const onDetailImageSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      detailEditorRef.current?.focus();
+      document.execCommand('insertImage', false, base64);
+      setDetailHtml(detailEditorRef.current?.innerHTML || '');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
   const [videos, setVideos] = useState<string[]>([]);
   const [showYoutubeSearch, setShowYoutubeSearch] = useState(false);
   const [ytChannelQuery, setYtChannelQuery] = useState('');
@@ -812,16 +832,56 @@ export default function ProEditPage() {
         </div>
       )}
 
-      {/* ─── 10-1. 상세설명 (HTML 에디터 + AI 자동 생성) ─── */}
+      {/* ─── 10-1. 상세설명 (네이버 스마트에디터 스타일 + AI 자동 생성) ─── */}
       <Section title="상세설명" defaultOpen={false}>
         <div className="space-y-3">
           <p className="text-[12px] text-gray-400">프로필 상세페이지에 노출될 자기소개 영역입니다. 헤더의 "✨ AI 자동 생성" 버튼을 누르면 여기에 자동으로 채워집니다.</p>
+
+          {/* Toolbar — 네이버 스마트에디터 스타일 */}
+          <div className="bg-[#F9F9F9] rounded-xl px-3 py-2 flex items-center gap-0.5 flex-wrap">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('bold'); }} className="w-8 h-8 flex items-center justify-center font-bold text-gray-800 text-sm rounded hover:bg-gray-200" title="굵게">B</button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('italic'); }} className="w-8 h-8 flex items-center justify-center italic text-gray-800 text-sm rounded hover:bg-gray-200" title="기울임">I</button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('underline'); }} className="w-8 h-8 flex items-center justify-center underline text-gray-800 text-sm rounded hover:bg-gray-200" title="밑줄">U</button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('strikeThrough'); }} className="w-8 h-8 flex items-center justify-center line-through text-gray-800 text-sm rounded hover:bg-gray-200" title="취소선">S</button>
+            <div className="w-px h-5 bg-gray-300 mx-1" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('formatBlock', '<h3>'); }} className="px-2 h-8 flex items-center justify-center text-xs font-bold text-gray-700 rounded hover:bg-gray-200" title="제목">H</button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('formatBlock', '<p>'); }} className="px-2 h-8 flex items-center justify-center text-xs text-gray-700 rounded hover:bg-gray-200" title="본문">P</button>
+            <div className="w-px h-5 bg-gray-300 mx-1" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyLeft'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="왼쪽">
+              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="0" y="6" width="10" height="2" rx="1"/><rect x="0" y="12" width="13" height="2" rx="1"/></svg>
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyCenter'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="중앙">
+              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="3" y="6" width="10" height="2" rx="1"/><rect x="1.5" y="12" width="13" height="2" rx="1"/></svg>
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyRight'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="오른쪽">
+              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="6" y="6" width="10" height="2" rx="1"/><rect x="3" y="12" width="13" height="2" rx="1"/></svg>
+            </button>
+            <div className="w-px h-5 bg-gray-300 mx-1" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('insertUnorderedList'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="글머리기호">
+              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><circle cx="1.5" cy="2" r="1.5"/><rect x="5" y="1" width="11" height="2" rx="1"/><circle cx="1.5" cy="7" r="1.5"/><rect x="5" y="6" width="11" height="2" rx="1"/><circle cx="1.5" cy="12" r="1.5"/><rect x="5" y="11" width="11" height="2" rx="1"/></svg>
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('insertOrderedList'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 text-xs font-bold rounded hover:bg-gray-200" title="번호목록">1.</button>
+            <div className="w-px h-5 bg-gray-300 mx-1" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); detailColorInputRef.current?.click(); }} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200" title="글자색">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><text x="8" y="11" textAnchor="middle" fill="#1F2937" fontSize="10" fontWeight="bold">A</text><rect x="4" y="13" width="8" height="2" fill="#3180F7"/></svg>
+            </button>
+            <input ref={detailColorInputRef} type="color" className="hidden" onChange={(e) => execDetailFormat('foreColor', e.target.value)} />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); detailImageInputRef.current?.click(); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="사진 삽입">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            </button>
+            <input ref={detailImageInputRef} type="file" accept="image/*" className="hidden" onChange={onDetailImageSelected} />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); const url = window.prompt('링크 URL'); if (url) execDetailFormat('createLink', url); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="링크">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            </button>
+          </div>
+
+          {/* Editable content */}
           <div
             ref={detailEditorRef}
             contentEditable
             suppressContentEditableWarning
             onInput={(e) => setDetailHtml(e.currentTarget.innerHTML)}
-            className="min-h-[160px] p-4 border border-gray-200 rounded-xl text-[15px] text-gray-900 leading-relaxed outline-none focus:border-[#3180F7] [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_h3]:text-[16px] [&_h3]:font-bold [&_h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 empty:before:content-['상세_소개를_직접_작성하거나_AI_자동_생성을_눌러주세요'] empty:before:text-gray-300"
+            className="min-h-[180px] p-4 border border-gray-200 rounded-xl text-[15px] text-gray-900 leading-relaxed outline-none focus:border-[#3180F7] [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_h3]:text-[16px] [&_h3]:font-bold [&_h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#3180F7] [&_a]:underline empty:before:content-['상세_소개를_직접_작성하거나_AI_자동_생성을_눌러주세요'] empty:before:text-gray-300"
           />
         </div>
       </Section>

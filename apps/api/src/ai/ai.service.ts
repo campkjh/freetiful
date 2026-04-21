@@ -185,6 +185,10 @@ JSON 형식으로 다음 필드를 출력:
     if (!this.client) return null;
     const imageModel = this.client.getGenerativeModel({
       model: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image',
+      generationConfig: {
+        // Gemini 2.5 Flash Image 는 responseModalities 명시 필수
+        responseModalities: ['TEXT', 'IMAGE'] as any,
+      } as any,
     });
 
     const prompt = `Create a professional, warm banner image for a Korean event host/MC detail page.
