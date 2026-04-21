@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface GenerateProfileInput {
   name?: string;
@@ -25,7 +26,7 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly client: GoogleGenerativeAI | null;
 
-  constructor() {
+  constructor(private prisma: PrismaService) {
     // 이름 오타 방지: GEMINI_API_KEY / GEMINI_AI_KEY / GOOGLE_API_KEY 모두 인식
     const key =
       process.env.GEMINI_API_KEY ||
@@ -106,10 +107,27 @@ JSON 형식으로 다음 필드를 출력:
       const result = await model.generateContent([prompt, ...imageParts]);
       const text = result.response.text();
       const parsed = JSON.parse(text);
+
+      // ─── 상세 페이지용 히어로 이미지 생성 (Gemini 2.5 Flash Image / "Nano Banana") ─────
+      let detailHtml = String(parsed.detailHtml || '');
+      try {
+        const heroUrl = await this.generateHeroImage({
+          category: input.category,
+          keywords: input.keywords || parsed.shortIntro,
+          referenceImages: imageParts,
+        });
+        if (heroUrl) {
+          // 히어로 이미지를 detailHtml 최상단에 삽입
+          detailHtml = `<img src="${heroUrl}" alt="${input.name || '전문가'} 프로필" />\n${detailHtml}`;
+        }
+      } catch (e: any) {
+        this.logger.warn(`Hero image generation skipped: ${e?.message || e}`);
+      }
+
       return {
         shortIntro: String(parsed.shortIntro || '').slice(0, 50),
         mainExperience: String(parsed.mainExperience || ''),
-        detailHtml: String(parsed.detailHtml || ''),
+        detailHtml,
         faqs: Array.isArray(parsed.faqs)
           ? parsed.faqs.slice(0, 6).map((f: any) => ({
               question: String(f.question || ''),
@@ -120,6 +138,53 @@ JSON 형식으로 다음 필드를 출력:
     } catch (e: any) {
       this.logger.error(`Gemini generation failed: ${e?.message || e}`);
       throw new BadRequestException(`AI 생성 실패: ${e?.message || '알 수 없는 오류'}`);
+    }
+  }
+
+  /**
+   * Gemini 2.5 Flash Image (Nano Banana) 로 히어로 이미지 생성.
+   * 성공 시 /uploads/:id 공개 URL 반환, 실패 시 null.
+   */
+  private async generateHeroImage(input: {
+    category?: string;
+    keywords?: string;
+    referenceImages?: { inlineData: { mimeType: string; data: string } }[];
+  }): Promise<string | null> {
+    if (!this.client) return null;
+    const imageModel = this.client.getGenerativeModel({
+      model: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image',
+    });
+
+    const prompt = `Create a professional, warm banner image for a Korean event host/MC detail page.
+Style: photorealistic, soft lighting, modern, clean composition.
+Subject tone: ${input.keywords || input.category || '사회자'}.
+Wide aspect (16:9), uplifting mood, no text overlay.
+If reference photos are provided, match the person's vibe (not identity).`;
+
+    try {
+      const parts: any[] = [{ text: prompt }, ...(input.referenceImages || [])];
+      const result = await imageModel.generateContent(parts);
+      // 응답에서 inlineData 이미지 추출
+      const candidates = (result.response as any)?.candidates || [];
+      for (const cand of candidates) {
+        const parts = cand?.content?.parts || [];
+        for (const part of parts) {
+          if (part?.inlineData?.data) {
+            const mimeType = part.inlineData.mimeType || 'image/png';
+            const buffer = Buffer.from(part.inlineData.data, 'base64');
+            // DB 에 저장 → /uploads/:id 공개 URL
+            const record = await this.prisma.uploadedFile.create({
+              data: { mimeType, data: buffer, size: buffer.length },
+              select: { id: true },
+            });
+            return `/uploads/${record.id}`;
+          }
+        }
+      }
+      return null;
+    } catch (e: any) {
+      this.logger.warn(`generateHeroImage failed: ${e?.message || e}`);
+      return null;
     }
   }
 }

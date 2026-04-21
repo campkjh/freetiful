@@ -96,6 +96,8 @@ export default function ProEditPage() {
   const [selectedCompanyLogos, setSelectedCompanyLogos] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [awards, setAwards] = useState('');
+  const [detailHtml, setDetailHtml] = useState('');
+  const detailEditorRef = useRef<HTMLDivElement>(null);
   const [videos, setVideos] = useState<string[]>([]);
   const [showYoutubeSearch, setShowYoutubeSearch] = useState(false);
   const [ytChannelQuery, setYtChannelQuery] = useState('');
@@ -157,9 +159,11 @@ export default function ProEditPage() {
       // 기존 값이 비어있는 필드만 덮어쓰기 (사용자가 입력한 값 보호)
       if (!intro && out.shortIntro) setIntro(out.shortIntro);
       if (!awards && out.mainExperience) setAwards(out.mainExperience);
-      // detailHtml 은 별도 저장 없으므로 콘솔에 보여주고 사용자가 복사할 수 있게
+      // 상세설명 HTML 을 에디터에 주입 + state 동기화
       if (out.detailHtml) {
-        try { localStorage.setItem('proRegister_detailHtml', out.detailHtml); } catch {}
+        setDetailHtml(out.detailHtml);
+        if (detailEditorRef.current) detailEditorRef.current.innerHTML = out.detailHtml;
+        setTimeout(() => detailEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
       }
       if (faqItems.length === 0 && Array.isArray(out.faqs) && out.faqs.length > 0) {
         setFaqItems(out.faqs.map((f) => ({ q: f.question, a: f.answer })));
@@ -217,6 +221,10 @@ export default function ProEditPage() {
         if (p.shortIntro) setIntro(p.shortIntro);
         if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
         if (p.awards) setAwards(p.awards);
+        if (p.detailHtml) {
+          setDetailHtml(p.detailHtml);
+          if (detailEditorRef.current) detailEditorRef.current.innerHTML = p.detailHtml;
+        }
         if (p.gender) setGender(p.gender);
         if (p.youtubeUrl) {
           setVideos((prev) => prev.includes(p.youtubeUrl) ? prev : [p.youtubeUrl, ...prev]);
@@ -312,6 +320,7 @@ export default function ProEditPage() {
         mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : undefined,
         careerYears: careerYears || undefined,
         awards: awards || undefined,
+        detailHtml: detailHtml || undefined,
         youtubeUrl: videos[0] || undefined,
         photos: photos.length > 0 ? photos : undefined,
         mainPhotoIndex: mainPhotoIndex,
@@ -802,6 +811,20 @@ export default function ProEditPage() {
           <style dangerouslySetInnerHTML={{ __html: `@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }` }} />
         </div>
       )}
+
+      {/* ─── 10-1. 상세설명 (HTML 에디터 + AI 자동 생성) ─── */}
+      <Section title="상세설명" defaultOpen={false}>
+        <div className="space-y-3">
+          <p className="text-[12px] text-gray-400">프로필 상세페이지에 노출될 자기소개 영역입니다. 헤더의 "✨ AI 자동 생성" 버튼을 누르면 여기에 자동으로 채워집니다.</p>
+          <div
+            ref={detailEditorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={(e) => setDetailHtml(e.currentTarget.innerHTML)}
+            className="min-h-[160px] p-4 border border-gray-200 rounded-xl text-[15px] text-gray-900 leading-relaxed outline-none focus:border-[#3180F7] [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_h3]:text-[16px] [&_h3]:font-bold [&_h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 empty:before:content-['상세_소개를_직접_작성하거나_AI_자동_생성을_눌러주세요'] empty:before:text-gray-300"
+          />
+        </div>
+      </Section>
 
       {/* ─── 11. FAQ ─── */}
       <Section title="FAQ">
