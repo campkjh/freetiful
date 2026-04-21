@@ -51,15 +51,14 @@ export class AiService {
       throw new BadRequestException('AI 기능이 아직 설정되지 않았습니다. 관리자에게 문의해주세요.');
     }
 
-    // gemini-2.0-flash 는 신규 가입자에게 닫혀있음. 2.5-flash 가 무료 티어 현 정식 모델.
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const model = this.client.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
-        temperature: 0.8,
-        responseMimeType: 'application/json',
-      },
-    });
+    // 모델 시도 순서 — 앞 모델이 503/429 나면 다음 모델로 폴백
+    const modelNames = [
+      process.env.GEMINI_MODEL,
+      'gemini-2.5-flash',
+      'gemini-flash-latest',
+      'gemini-2.5-flash-lite',
+      'gemini-flash-lite-latest',
+    ].filter(Boolean) as string[];
 
     // 이미지 파트 구성 (Gemini vision 지원)
     const imageParts = (input.imageDataUrls || []).slice(0, 4).flatMap((url) => {
@@ -103,10 +102,43 @@ JSON 형식으로 다음 필드를 출력:
 - 이모지 사용 최소 (1-2개만).
 - HTML 은 인라인 스타일 없이 시맨틱 태그만.`;
 
+    // 재시도 + 모델 폴백: 각 모델에 대해 짧은 백오프로 2번 시도, 실패하면 다음 모델
+    let lastError: any = null;
+    let parsed: any = null;
+    outer: for (const modelName of modelNames) {
+      const model = this.client.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.8,
+          responseMimeType: 'application/json',
+        },
+      });
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const result = await model.generateContent([prompt, ...imageParts]);
+          const text = result.response.text();
+          parsed = JSON.parse(text);
+          this.logger.log(`Gemini generated with model=${modelName}, attempt=${attempt + 1}`);
+          break outer;
+        } catch (e: any) {
+          lastError = e;
+          const msg = String(e?.message || e);
+          // 503/429/504 는 다음 시도로, 그 외(401/400 등)는 바로 폭파
+          if (!/503|429|504|UNAVAILABLE|overloaded|high demand|retry/i.test(msg)) {
+            break outer;
+          }
+          this.logger.warn(`Gemini ${modelName} attempt ${attempt + 1} failed: ${msg.slice(0, 120)}`);
+          // 500ms 백오프
+          await new Promise((r) => setTimeout(r, 500 + attempt * 500));
+        }
+      }
+    }
+    if (!parsed) {
+      this.logger.error(`Gemini generation failed after all retries: ${lastError?.message || lastError}`);
+      throw new BadRequestException(`AI 생성 실패: ${lastError?.message || '모든 모델이 응답하지 않습니다'}`);
+    }
+
     try {
-      const result = await model.generateContent([prompt, ...imageParts]);
-      const text = result.response.text();
-      const parsed = JSON.parse(text);
 
       // ─── 상세 페이지용 히어로 이미지 생성 (Gemini 2.5 Flash Image / "Nano Banana") ─────
       let detailHtml = String(parsed.detailHtml || '');
