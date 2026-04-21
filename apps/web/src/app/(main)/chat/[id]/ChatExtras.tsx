@@ -467,8 +467,8 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
       >
         <div className="flex items-center gap-4" style={{ transformStyle: 'preserve-3d' }}>
           {/* ─── 좌측: 세로형 카드 컨테이너 (fly-in + float 합성) ─── */}
-          {/* 좌측으로 살짝 기울어진 래퍼 (Z축 회전만 담당, 내부 애니메이션과 충돌 없음) */}
-          <div className="relative shrink-0" style={{ transform: 'rotate(-4deg)', transformStyle: 'preserve-3d' }}>
+          {/* 좌측으로 살짝 기울어진 래퍼 — 중앙일 때만 기울기 유지, 아니면 평면 */}
+          <div className="relative shrink-0 quote-card-tilt" style={{ transformStyle: 'preserve-3d' }}>
           <div
             className="relative quote-card-float"
             style={{
@@ -479,12 +479,10 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
           >
             {/* 카드 본체 — 프로필 사진으로 가득 찬 형태 */}
             <div
-              className="absolute inset-0 rounded-[16px] overflow-hidden"
+              className="absolute inset-0 rounded-[16px] overflow-hidden quote-card-body"
               style={{
                 transformStyle: 'preserve-3d',
-                animation: 'quoteCardFly 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
                 transformOrigin: 'center center',
-                transform: 'rotateY(32deg) rotateX(8deg)',
                 boxShadow: '0 14px 28px -12px rgba(0,0,0,0.18), 0 4px 10px -4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18)',
                 willChange: 'transform',
                 background: '#1F2937',
@@ -620,18 +618,51 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             }
             100% {
               opacity: 1;
-              /* 반대 방향 + 강한 원근: 우측변 길고 좌측변 짧음 */
-              transform: translate3d(0, 0, 0) rotateY(32deg) rotateX(8deg) scale(1);
+              /* 평면 상태로 착지 — 중앙이면 CSS rule 의 rotateY(32)/rotateX(8) 로 transition */
+              transform: translate3d(0, 0, 0) rotateY(0deg) rotateX(0deg) scale(1);
               filter: blur(0);
             }
           }
-          /* 부유/shimmer/shadow/dim 은 기본 OFF — 뷰포트 중앙에 가장 가까운 카드만 ON */
+          .quote-card-root .quote-card-body {
+            animation: quoteCardFly 1.0s cubic-bezier(0.22, 1, 0.36, 1);
+          }
+          /* 기본 (중앙 아님) — 모든 3D/애니메이션 OFF, 평면 + 그림자 없음 */
+          .quote-card-root .quote-card-tilt {
+            transform: rotate(0deg);
+            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+          }
+          .quote-card-root .quote-card-body {
+            transform: rotateY(0deg) rotateX(0deg);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 0.5px 1px rgba(0,0,0,0.04);
+            transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s ease;
+          }
           .quote-card-root .quote-card-float { animation: none; }
-          .quote-card-root .quote-card-dim { animation: none; opacity: 0.65; }
-          .quote-card-root .quote-card-shimmer { animation: none; opacity: 0; }
-          .quote-card-root .quote-card-shadow { animation: none; opacity: 0.4; transform: translateX(-50%) scaleX(1) scaleY(0.9); filter: blur(6px); transition: opacity 0.35s ease, transform 0.35s ease, filter 0.35s ease; }
-          .quote-card-root .quote-card-dim { transition: opacity 0.35s ease; }
+          .quote-card-root .quote-card-dim {
+            animation: none;
+            opacity: 0.5;
+            transition: opacity 0.45s ease;
+          }
+          .quote-card-root .quote-card-shimmer {
+            animation: none;
+            opacity: 0;
+            transition: opacity 0.45s ease;
+          }
+          .quote-card-root .quote-card-shadow {
+            animation: none;
+            opacity: 0;
+            transform: translateX(-50%) scaleX(0.7) scaleY(0.6);
+            filter: blur(2px);
+            transition: opacity 0.45s ease, transform 0.45s ease, filter 0.45s ease;
+          }
 
+          /* 중앙 — 3D 기울기 + 부유/shimmer/shadow/dim 전부 ON */
+          .quote-card-root[data-near-center="true"] .quote-card-tilt {
+            transform: rotate(-4deg);
+          }
+          .quote-card-root[data-near-center="true"] .quote-card-body {
+            transform: rotateY(32deg) rotateX(8deg);
+            box-shadow: 0 14px 28px -12px rgba(0,0,0,0.18), 0 4px 10px -4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18);
+          }
           .quote-card-root[data-near-center="true"] .quote-card-float {
             animation: quoteCardFloat 4.5s ease-in-out 0.1s infinite alternate;
           }
@@ -644,6 +675,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
           }
           .quote-card-root[data-near-center="true"] .quote-card-shadow {
             animation: quoteCardShadow 5s ease-in-out 0.1s infinite alternate;
+            opacity: 1;
           }
 
           /* 부유 — 더 확실하게 보이도록 진폭 증가 */
