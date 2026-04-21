@@ -545,8 +545,8 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
 
           {/* ─── 우측: 텍스트 스택 (순차 페이드인) + 결제 버튼 ─── */}
           <div className="flex-1 min-w-0 flex flex-col gap-1">
-            {/* 태그 (플랜명) — 알약 형태 / 살짝 딤드 */}
-            <div style={{ animation: 'quoteTextInRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' }}>
+            {/* 태그 (플랜명 + 추가옵션 수) — 알약 형태 / 살짝 딤드 */}
+            <div className="flex items-center gap-1" style={{ animation: 'quoteTextInRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' }}>
               <span
                 className="inline-block py-1 rounded-full leading-none"
                 style={{
@@ -561,6 +561,23 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               >
                 {planLabel}
               </span>
+              {Array.isArray(sys.options) && sys.options.length > 0 && (
+                <span
+                  className="inline-block py-1 rounded-full leading-none"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    paddingLeft: 6,
+                    paddingRight: 6,
+                    color: '#B45309',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.2)',
+                  }}
+                  title={sys.options.map((o) => `${o.name} +${o.price.toLocaleString()}원`).join(', ')}
+                >
+                  +{sys.options.length}
+                </span>
+              )}
             </div>
             {/* 상품명 16pt weight 500 */}
             <p
