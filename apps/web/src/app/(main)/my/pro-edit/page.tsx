@@ -138,6 +138,42 @@ export default function ProEditPage() {
   };
   const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>([]);
   const [toast, setToast] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const handleAiGenerate = async () => {
+    if (aiLoading) return;
+    setAiLoading(true);
+    try {
+      const { aiApi } = await import('@/lib/api/ai.api');
+      const out = await aiApi.generateProfile({
+        name: name || undefined,
+        category: category || undefined,
+        careerYears,
+        selectedTags: selectedCategories,
+        languages,
+        awards: awards || undefined,
+        keywords: intro || undefined, // 기존 한줄소개를 톤 힌트로 전달
+        imageDataUrls: photos.filter((p) => p?.startsWith('data:image/')).slice(0, 4),
+      });
+      // 기존 값이 비어있는 필드만 덮어쓰기 (사용자가 입력한 값 보호)
+      if (!intro && out.shortIntro) setIntro(out.shortIntro);
+      if (!awards && out.mainExperience) setAwards(out.mainExperience);
+      // detailHtml 은 별도 저장 없으므로 콘솔에 보여주고 사용자가 복사할 수 있게
+      if (out.detailHtml) {
+        try { localStorage.setItem('proRegister_detailHtml', out.detailHtml); } catch {}
+      }
+      if (faqItems.length === 0 && Array.isArray(out.faqs) && out.faqs.length > 0) {
+        setFaqItems(out.faqs.map((f) => ({ q: f.question, a: f.answer })));
+      }
+      setToast('AI 생성 완료 — 내용 확인 후 저장해주세요');
+      setTimeout(() => setToast(''), 3000);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
+      setToast(`AI 생성 실패: ${msg}`);
+      setTimeout(() => setToast(''), 4000);
+    } finally {
+      setAiLoading(false);
+    }
+  };
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showCareerSheet, setShowCareerSheet] = useState(false);
 
@@ -326,6 +362,14 @@ export default function ProEditPage() {
             <ChevronLeft size={24} className="text-gray-700" />
           </button>
           <h1 className="text-[17px] font-bold text-gray-900">프로필 수정</h1>
+          <button
+            onClick={handleAiGenerate}
+            disabled={aiLoading}
+            className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#3180F7] to-[#8B5CF6] text-white text-[12px] font-bold shadow-sm active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+            title="사진·키워드로 소개글 자동 생성"
+          >
+            {aiLoading ? '생성 중...' : '✨ AI 자동 생성'}
+          </button>
         </div>
       </div>
 
