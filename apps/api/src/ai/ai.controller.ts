@@ -1,11 +1,10 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { AiService, GenerateProfileInput } from './ai.service';
 
+// pro-register 플로우(비로그인 상태)에서도 AI 생성이 필요하므로 JWT 가드 제거.
+// 남용 방지는 레이트 리밋으로 대응 (추후).
 @ApiTags('ai')
-@ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
 @Controller('ai')
 export class AiController {
   constructor(private ai: AiService) {}
