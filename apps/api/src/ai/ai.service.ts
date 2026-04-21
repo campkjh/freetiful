@@ -72,8 +72,8 @@ export class AiService {
     const tagsText = (input.selectedTags || []).join(', ') || '(미선택)';
     const languagesText = (input.languages || []).join(', ') || '(없음)';
 
-    const prompt = `당신은 한국의 행사 전문가(MC/사회자/쇼호스트 등) 플랫폼의 카피라이터입니다.
-아래 정보를 바탕으로 전문가 프로필 페이지에 들어갈 매력적인 소개 콘텐츠를 **한국어 존댓말**로 작성해주세요.
+    const prompt = `당신은 크몽/숨고 스타일 전문가 서비스 플랫폼의 상세페이지 디자이너이자 카피라이터입니다.
+아래 정보를 바탕으로 **상품 상세페이지 수준의 구조화된 HTML 콘텐츠**를 **한국어 존댓말**로 작성해주세요.
 
 [입력 정보]
 - 이름: ${input.name || '(미기재)'}
@@ -85,22 +85,63 @@ export class AiService {
 - 키워드/톤 힌트: ${input.keywords || '(없음)'}
 - 사진 ${imageParts.length}장 첨부됨 (얼굴/분위기 참조용)
 
-[요구사항]
-JSON 형식으로 다음 필드를 출력:
+[출력 형식 — 반드시 JSON]
 {
   "shortIntro": "50자 이내 한 줄 소개. 전문성과 매력을 함축.",
-  "mainExperience": "핵심 경력 3~5줄. 구체적 기관/행사명이 입력되었다면 활용하고, 없으면 경력 연차 기반으로 자연스럽게.",
-  "detailHtml": "상세 소개 HTML. h3/p/ul 등 기본 태그 사용. 400~600자. 전문성, 신뢰감, 개성을 담아 고객이 예약하고 싶도록. 과장·허위 금지. 사진을 참조해 분위기(따뜻한/격식있는/에너지있는)에 맞는 어조 선택.",
-  "faqs": [
-    { "question": "문의 가능한 질문", "answer": "150자 이내 답변" }
-  ]
+  "mainExperience": "핵심 경력 3~5줄. 구체적 기관/행사명이 있으면 활용, 없으면 경력 연차 기반으로 자연스럽게.",
+  "detailHtml": "아래 [상세페이지 HTML 템플릿] 을 기반으로 800~1200자 HTML.",
+  "faqs": [{ "question": "...", "answer": "..." }]
 }
 
-제약:
-- faqs 는 4개 작성. 첫 질문은 가격/예약 절차, 두번째는 행사 준비, 세번째는 경력/전문성, 네번째는 취소/환불 관련.
-- 거짓/과장 금지. 입력에 없는 수상내역 꾸미지 말 것.
-- 이모지 사용 최소 (1-2개만).
-- HTML 은 인라인 스타일 없이 시맨틱 태그만.`;
+[상세페이지 HTML 템플릿 — 이 구조를 그대로 따라 작성]
+메인 컬러 #3180F7 을 강조에 사용. 인라인 style 로만 스타일링 (외부 CSS 금지). 섹션 사이 <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;"/>.
+
+1. 인트로 섹션:
+   <div style="text-align:center;padding:16px 0;">
+     <div style="color:#3180F7;font-size:13px;font-weight:700;letter-spacing:0.1em;margin-bottom:8px;">INTRODUCTION</div>
+     <h3 style="font-size:22px;font-weight:700;line-height:1.4;margin:0 0 12px;">핵심 한 줄 캐치프레이즈 (분류+경력 강조)</h3>
+     <p style="color:#6b7280;font-size:14px;line-height:1.7;margin:0;">서비스 개요 2-3줄</p>
+   </div>
+
+2. CHECK POINT 섹션 3개 (01, 02, 03):
+   <div style="padding:20px 0;">
+     <div style="color:#3180F7;font-size:13px;font-weight:700;letter-spacing:0.1em;">CHECK POINT</div>
+     <div style="color:#3180F7;font-size:28px;font-weight:700;margin:4px 0 12px;">01</div>
+     <h3 style="font-size:18px;font-weight:700;margin:0 0 6px;">특징 제목<br/><span style="background:#3180F7;color:#fff;padding:2px 10px;border-radius:4px;font-size:15px;">핵심 키워드</span></h3>
+     <p style="color:#4b5563;font-size:14px;line-height:1.7;margin:12px 0 0;">특징 설명 2-3줄</p>
+   </div>
+   (02, 03 도 같은 구조. 각각 다른 강점: 예 — 경력/전문성, 서비스 품질, 고객 경험)
+
+3. 제공 서비스 섹션:
+   <div style="padding:20px 0;">
+     <div style="color:#3180F7;font-size:13px;font-weight:700;letter-spacing:0.1em;margin-bottom:4px;">WHAT'S INCLUDED</div>
+     <h3 style="font-size:20px;font-weight:700;margin:0 0 16px;">제공되는 서비스</h3>
+     <ul style="list-style:none;padding:0;margin:0;">
+       <li style="display:flex;gap:10px;padding:10px 12px;background:#f9fafb;border-radius:8px;margin-bottom:8px;"><span style="color:#3180F7;font-weight:700;">✓</span><span>서비스 항목 1</span></li>
+       ...(4-5개 항목)
+     </ul>
+   </div>
+
+4. 프로모션/옵션 박스:
+   <div style="background:linear-gradient(135deg,#3180F7,#1e5fd9);color:#fff;border-radius:12px;padding:20px;margin:16px 0;">
+     <div style="font-size:12px;opacity:0.9;letter-spacing:0.1em;margin-bottom:6px;">SPECIAL OFFER</div>
+     <h3 style="font-size:18px;font-weight:700;margin:0 0 8px;color:#fff;">프로모션 제목</h3>
+     <p style="font-size:14px;line-height:1.6;margin:0;opacity:0.95;">예: 평일 예약 시 10% 할인, 2시간 이상 예약 시 리허설 무료 제공 등</p>
+   </div>
+
+5. 만족도/강점 박스 (해당되면):
+   <div style="background:#eff6ff;border-left:4px solid #3180F7;padding:16px;border-radius:4px;margin:16px 0;">
+     <div style="color:#3180F7;font-weight:700;font-size:14px;margin-bottom:4px;">CUSTOMER SATISFACTION</div>
+     <p style="font-size:14px;color:#1f2937;line-height:1.6;margin:0;">신뢰감 있는 마무리 메시지 — 왜 저를 선택해야 하는지</p>
+   </div>
+
+[제약]
+- 모든 강조색은 **#3180F7** (파란색) 통일. 빨강/초록 사용 금지.
+- font-weight 최대 700. font-black(900) 금지.
+- faqs 4개: (1) 가격/예약, (2) 행사 준비, (3) 경력/전문성, (4) 취소/환불.
+- 거짓/과장 금지. 입력에 없는 수상내역/구체 실적 꾸미지 말 것.
+- 이모지는 ✓ ★ 외에는 사용 금지.
+- 인라인 style 만 사용, 외부 class 금지.`;
 
     // 재시도 + 모델 폴백: 각 모델에 대해 짧은 백오프로 2번 시도, 실패하면 다음 모델
     let lastError: any = null;
@@ -204,11 +245,14 @@ JSON 형식으로 다음 필드를 출력:
       'gemini-3.1-flash-image-preview',
     ].filter(Boolean) as string[];
 
-    const prompt = `Create a professional, warm banner image for a Korean event host/MC detail page.
-Style: photorealistic, soft lighting, modern, clean composition.
-Subject tone: ${input.keywords || input.category || '사회자'}.
-Wide aspect (16:9), uplifting mood, no text overlay.
-If reference photos are provided, match the person's vibe (not identity).`;
+    const prompt = `Create a professional hero banner image for a Korean service commerce detail page (like Kmong/Soomgo style).
+Style: clean, modern, e-commerce product detail page aesthetic. Photorealistic, soft natural lighting.
+Brand color accent: vivid blue (#3180F7) — incorporate as subtle background gradient, highlight, or mood.
+Subject: Korean ${input.category || '사회자'} (event host/MC) in professional attire, confident and warm expression.
+Context: ${input.keywords || 'professional event hosting'}.
+Composition: wide 16:9 aspect, centered subject or left-aligned with blue-tinted background space on right for potential text.
+Mood: trustworthy, premium, approachable. Minimalist background (soft gray/blue gradient, subtle studio lighting).
+Strict: no text overlay, no logos, no watermarks. If reference photos are provided, match vibe/age/gender only (not identity).`;
 
     for (const modelName of imageModels) {
       const imageModel = this.client.getGenerativeModel({
