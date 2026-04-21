@@ -194,11 +194,14 @@ JSON 형식으로 다음 필드를 출력:
       debug.push('client=null (no API key)');
       return { url: null, debug };
     }
+    // 실측 SDK 호출 시간:
+    //   gemini-2.5-flash-image           ~7.5초  (빠름, 먼저 시도)
+    //   gemini-3.1-flash-image-preview  ~17.8초  (느려서 Vercel 타임아웃 위험)
+    //   gemini-2.5-flash-image-preview   404     (모델 제거됨)
     const imageModels = [
       process.env.GEMINI_IMAGE_MODEL,
-      'gemini-3.1-flash-image-preview',
       'gemini-2.5-flash-image',
-      'gemini-2.5-flash-image-preview',
+      'gemini-3.1-flash-image-preview',
     ].filter(Boolean) as string[];
 
     const prompt = `Create a professional, warm banner image for a Korean event host/MC detail page.
