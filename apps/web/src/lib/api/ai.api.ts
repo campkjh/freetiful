@@ -33,6 +33,6 @@ export const aiApi = {
     apiClient.post<AiProfileOutput>(`${BASE}/generate-profile`, input, { timeout: 60000 }).then((r) => r.data),
   generateHeroImage: (input: AiHeroImageInput) =>
     apiClient
-      .post<{ url: string | null }>(`${BASE}/generate-hero-image`, input, { timeout: 90000 })
+      .post<{ url: string | null; debug: string[] }>(`${BASE}/generate-hero-image`, input, { timeout: 90000 })
       .then((r) => r.data),
 };

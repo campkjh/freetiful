@@ -172,12 +172,12 @@ JSON 형식으로 다음 필드를 출력:
       if (!match) return [];
       return [{ inlineData: { mimeType: match[1], data: match[2] } }];
     });
-    const url = await this.generateHeroImage({
+    const result = await this.generateHeroImage({
       category: input.category,
       keywords: input.keywords,
       referenceImages: imageParts,
     });
-    return { url };
+    return result;
   }
 
   /**
@@ -188,9 +188,12 @@ JSON 형식으로 다음 필드를 출력:
     category?: string;
     keywords?: string;
     referenceImages?: { inlineData: { mimeType: string; data: string } }[];
-  }): Promise<string | null> {
-    if (!this.client) return null;
-    // 최신 → 구 모델 폴백 체인. 앞 모델이 503/quota 나면 다음으로.
+  }): Promise<{ url: string | null; debug: string[] }> {
+    const debug: string[] = [];
+    if (!this.client) {
+      debug.push('client=null (no API key)');
+      return { url: null, debug };
+    }
     const imageModels = [
       process.env.GEMINI_IMAGE_MODEL,
       'gemini-3.1-flash-image-preview',
@@ -211,8 +214,11 @@ If reference photos are provided, match the person's vibe (not identity).`;
       });
       try {
         const parts: any[] = [{ text: prompt }, ...(input.referenceImages || [])];
+        const t0 = Date.now();
         const result = await imageModel.generateContent(parts);
+        const elapsed = Date.now() - t0;
         const candidates = (result.response as any)?.candidates || [];
+        debug.push(`${modelName}: ${elapsed}ms, candidates=${candidates.length}`);
         for (const cand of candidates) {
           const partList = cand?.content?.parts || [];
           for (const part of partList) {
@@ -223,16 +229,20 @@ If reference photos are provided, match the person's vibe (not identity).`;
                 data: { mimeType, data: buffer, size: buffer.length },
                 select: { id: true },
               });
-              this.logger.log(`Hero image generated via ${modelName}`);
-              return `/uploads/${record.id}`;
+              this.logger.log(`Hero image generated via ${modelName} in ${elapsed}ms`);
+              debug.push(`saved upload id=${record.id}`);
+              return { url: `/uploads/${record.id}`, debug };
             }
           }
         }
+        debug.push(`${modelName}: no inlineData in response`);
         this.logger.warn(`${modelName} returned no image data`);
       } catch (e: any) {
-        this.logger.warn(`generateHeroImage ${modelName} failed: ${String(e?.message || e).slice(0, 120)}`);
+        const msg = String(e?.message || e).slice(0, 200);
+        debug.push(`${modelName} error: ${msg}`);
+        this.logger.warn(`generateHeroImage ${modelName} failed: ${msg}`);
       }
     }
-    return null;
+    return { url: null, debug };
   }
 }

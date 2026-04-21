@@ -205,12 +205,16 @@ export default function ProEditPage() {
           setDetailHtml(imgTag + currentHtml);
           setToast('AI 생성 완료 — 내용 확인 후 저장해주세요');
         } else {
-          setToast('AI 텍스트 생성 완료 (이미지 생성 실패)');
+          const debugMsg = hero.debug?.join(' | ') || '원인 불명';
+          console.warn('[AI Hero]', debugMsg);
+          setToast(`이미지 생성 실패: ${debugMsg.slice(0, 80)}`);
         }
-      } catch {
-        setToast('AI 텍스트 생성 완료 (이미지 생성 실패)');
+      } catch (e: any) {
+        const msg = e?.response?.data?.message || e?.message || '네트워크 오류';
+        console.warn('[AI Hero]', e);
+        setToast(`이미지 생성 실패: ${msg.slice(0, 80)}`);
       }
-      setTimeout(() => setToast(''), 3000);
+      setTimeout(() => setToast(''), 6000);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
       setToast(`AI 생성 실패: ${msg}`);
