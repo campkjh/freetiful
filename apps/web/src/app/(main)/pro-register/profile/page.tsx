@@ -202,6 +202,46 @@ export default function ProfilePage() {
     setIsFormValid(intro.trim() !== '');
   }, [intro]);
 
+  // ─── AI 상세페이지 자동 생성 ───
+  const [aiLoading, setAiLoading] = useState(false);
+  const handleAiGenerate = async () => {
+    if (aiLoading) return;
+    setAiLoading(true);
+    try {
+      const { aiApi } = await import('@/lib/api/ai.api');
+      // 업로드된 사진 (base64 data URL 만 전달)
+      const photosRaw: string[] = (() => {
+        try { return JSON.parse(localStorage.getItem('proRegister_photos') || '[]'); }
+        catch { return []; }
+      })();
+      const imageDataUrls = photosRaw.filter((p) => typeof p === 'string' && p.startsWith('data:image/')).slice(0, 4);
+      const out = await aiApi.generateProfile({
+        name: userName || undefined,
+        category: localStorage.getItem('proRegister_category') || '사회자',
+        careerYears: careerYears ? parseInt(careerYears) : undefined,
+        selectedTags: selectedCategories,
+        languages: selectedLanguages,
+        awards: awardList.map((a) => a.text).filter(Boolean).join('\n') || undefined,
+        keywords: intro || undefined,
+        imageDataUrls,
+      });
+      // 에디터에 상세 HTML 주입 + state 동기화
+      if (out.detailHtml) {
+        setDescription(out.detailHtml);
+        if (editorRef.current) editorRef.current.innerHTML = out.detailHtml;
+      }
+      // 빈 필드만 채움
+      if (!intro && out.shortIntro) setIntro(out.shortIntro);
+      // 스크롤하여 에디터로 이동
+      setTimeout(() => editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
+      alert(`AI 생성 실패: ${msg}`);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const careerYearsOptions = Array.from({ length: 30 }, (_, i) => `${i + 1}년`);
 
   const filteredCompanies = COMPANY_LOGOS;
@@ -551,7 +591,18 @@ export default function ProfilePage() {
 
           {/* [선택]상세설명 */}
           <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <p className="text-sm font-bold text-gray-900 mb-3">[선택]상세설명</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-bold text-gray-900">[선택]상세설명</p>
+              <button
+                type="button"
+                onClick={handleAiGenerate}
+                disabled={aiLoading}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#3180F7] to-[#8B5CF6] text-white text-[11px] font-bold shadow-sm active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                title="사진·키워드로 상세페이지 자동 생성"
+              >
+                {aiLoading ? '생성 중...' : '✨ AI 자동 생성'}
+              </button>
+            </div>
 
             {/* Toolbar */}
             <div className="bg-[#F9F9F9] rounded-2xl px-4 py-3 mb-4 flex items-center gap-1 flex-wrap">
