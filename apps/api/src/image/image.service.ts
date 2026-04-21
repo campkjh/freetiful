@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface ProcessedImage {
   filename: string;
@@ -41,7 +42,7 @@ export class ImageService {
   private readonly supabase: SupabaseClient | null;
   private readonly bucket = process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
 
-  constructor() {
+  constructor(private prisma: PrismaService) {
     const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (url && key) {
@@ -49,8 +50,21 @@ export class ImageService {
       this.logger.log(`Supabase Storage enabled — bucket "${this.bucket}"`);
     } else {
       this.supabase = null;
-      this.logger.warn('Supabase Storage not configured — using local filesystem (files will be lost on Railway redeploy)');
+      this.logger.log('Using DB-backed storage (uploaded_files table) for persistent uploads');
     }
+  }
+
+  /** DB (Postgres bytea) 에 파일 저장 후 공개 URL 경로 반환 */
+  private async saveToDb(buffer: Buffer, mimeType: string): Promise<string> {
+    const record = await this.prisma.uploadedFile.create({
+      data: {
+        mimeType,
+        data: buffer,
+        size: buffer.length,
+      },
+      select: { id: true },
+    });
+    return `/uploads/${record.id}`;
   }
 
   async onModuleInit() {
@@ -200,11 +214,27 @@ export class ImageService {
       .webp({ quality, effort: 4 })
       .toBuffer();
 
-    // Supabase Storage 우선, 실패하면 로컬 디스크 폴백
-    let publicWebpUrl = await this.uploadToSupabase(webpFilename, webpBuffer, 'image/webp');
-    let publicOrigUrl = await this.uploadToSupabase(originalFilename, file.buffer, file.mimetype);
+    // 우선순위: Supabase Storage → DB (bytea, 항상 동작) → 로컬 디스크(레거시)
+    let publicWebpUrl: string | null = null;
+    let publicOrigUrl: string | null = null;
+
+    if (this.supabase) {
+      publicWebpUrl = await this.uploadToSupabase(webpFilename, webpBuffer, 'image/webp');
+      publicOrigUrl = await this.uploadToSupabase(originalFilename, file.buffer, file.mimetype);
+    }
 
     if (!publicWebpUrl) {
+      // DB 저장 — Railway Postgres 는 영구이므로 파일 유실 없음
+      try {
+        publicWebpUrl = await this.saveToDb(webpBuffer, 'image/webp');
+        publicOrigUrl = publicOrigUrl || (await this.saveToDb(file.buffer, file.mimetype).catch(() => null));
+      } catch (e: any) {
+        this.logger.warn(`DB save failed, falling back to filesystem: ${e?.message || e}`);
+      }
+    }
+
+    if (!publicWebpUrl) {
+      // 마지막 폴백: 로컬 디스크 (개발환경용 — 프로덕션에선 Railway 재배포 시 유실됨)
       const webpPath = path.join(this.uploadDir, webpFilename);
       const origPath = path.join(this.uploadDir, originalFilename);
       await fs.writeFile(webpPath, webpBuffer).catch(() => {});

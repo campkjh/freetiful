@@ -1043,3 +1043,14 @@ model Banner {
 
   @@map("banners")
 }
+
+// ─── Uploaded Files (DB 저장 — Railway 파일시스템 비영구 이슈 대응) ─────
+model UploadedFile {
+  id         String   @id @default(uuid())
+  mimeType   String
+  data       Bytes    // 파일 바이너리
+  size       Int
+  createdAt  DateTime @default(now())
+
+  @@map("uploaded_files")
+}
