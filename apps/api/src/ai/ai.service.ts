@@ -183,13 +183,13 @@ JSON 형식으로 다음 필드를 출력:
     referenceImages?: { inlineData: { mimeType: string; data: string } }[];
   }): Promise<string | null> {
     if (!this.client) return null;
-    const imageModel = this.client.getGenerativeModel({
-      model: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image',
-      generationConfig: {
-        // Gemini 2.5 Flash Image 는 responseModalities 명시 필수
-        responseModalities: ['TEXT', 'IMAGE'] as any,
-      } as any,
-    });
+    // 최신 → 구 모델 폴백 체인. 앞 모델이 503/quota 나면 다음으로.
+    const imageModels = [
+      process.env.GEMINI_IMAGE_MODEL,
+      'gemini-3.1-flash-image-preview',
+      'gemini-2.5-flash-image',
+      'gemini-2.5-flash-image-preview',
+    ].filter(Boolean) as string[];
 
     const prompt = `Create a professional, warm banner image for a Korean event host/MC detail page.
 Style: photorealistic, soft lighting, modern, clean composition.
@@ -197,30 +197,35 @@ Subject tone: ${input.keywords || input.category || '사회자'}.
 Wide aspect (16:9), uplifting mood, no text overlay.
 If reference photos are provided, match the person's vibe (not identity).`;
 
-    try {
-      const parts: any[] = [{ text: prompt }, ...(input.referenceImages || [])];
-      const result = await imageModel.generateContent(parts);
-      // 응답에서 inlineData 이미지 추출
-      const candidates = (result.response as any)?.candidates || [];
-      for (const cand of candidates) {
-        const parts = cand?.content?.parts || [];
-        for (const part of parts) {
-          if (part?.inlineData?.data) {
-            const mimeType = part.inlineData.mimeType || 'image/png';
-            const buffer = Buffer.from(part.inlineData.data, 'base64');
-            // DB 에 저장 → /uploads/:id 공개 URL
-            const record = await this.prisma.uploadedFile.create({
-              data: { mimeType, data: buffer, size: buffer.length },
-              select: { id: true },
-            });
-            return `/uploads/${record.id}`;
+    for (const modelName of imageModels) {
+      const imageModel = this.client.getGenerativeModel({
+        model: modelName,
+        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] as any } as any,
+      });
+      try {
+        const parts: any[] = [{ text: prompt }, ...(input.referenceImages || [])];
+        const result = await imageModel.generateContent(parts);
+        const candidates = (result.response as any)?.candidates || [];
+        for (const cand of candidates) {
+          const partList = cand?.content?.parts || [];
+          for (const part of partList) {
+            if (part?.inlineData?.data) {
+              const mimeType = part.inlineData.mimeType || 'image/png';
+              const buffer = Buffer.from(part.inlineData.data, 'base64');
+              const record = await this.prisma.uploadedFile.create({
+                data: { mimeType, data: buffer, size: buffer.length },
+                select: { id: true },
+              });
+              this.logger.log(`Hero image generated via ${modelName}`);
+              return `/uploads/${record.id}`;
+            }
           }
         }
+        this.logger.warn(`${modelName} returned no image data`);
+      } catch (e: any) {
+        this.logger.warn(`generateHeroImage ${modelName} failed: ${String(e?.message || e).slice(0, 120)}`);
       }
-      return null;
-    } catch (e: any) {
-      this.logger.warn(`generateHeroImage failed: ${e?.message || e}`);
-      return null;
     }
+    return null;
   }
 }
