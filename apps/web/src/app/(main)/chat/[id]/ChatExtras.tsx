@@ -512,14 +512,15 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                 }}
               />
 
-              {/* 빛반사 shimmer — 카드 안에만 흐르도록 래퍼로 clip */}
+              {/* 빛반사 shimmer — 자연스럽고 부드러운 빛번짐 (카드 안쪽으로만 clip) */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 16 }}>
                 <div
                   className="absolute quote-card-shimmer"
                   style={{
-                    inset: '-30% -40%',
-                    background: 'linear-gradient(110deg, transparent 42%, rgba(255,255,255,0.12) 48%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.12) 52%, transparent 58%)',
-                    mixBlendMode: 'screen',
+                    inset: '-40% -50%',
+                    background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.04) 42%, rgba(255,255,255,0.10) 48%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.10) 52%, rgba(255,255,255,0.04) 58%, transparent 70%)',
+                    mixBlendMode: 'soft-light',
+                    filter: 'blur(3px)',
                   }}
                 />
               </div>
@@ -671,7 +672,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             animation: quoteCardDim 4.5s ease-in-out 0.1s infinite alternate;
           }
           .quote-card-root[data-near-center="true"] .quote-card-shimmer {
-            animation: quoteCardShimmer 5s ease-in-out 0.1s infinite;
+            animation: quoteCardShimmer 7s cubic-bezier(0.45, 0, 0.55, 1) 0.6s infinite;
             opacity: 1;
           }
           .quote-card-root[data-near-center="true"] .quote-card-shadow {
@@ -689,12 +690,15 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             0%   { opacity: 0.72; transform: translateX(-50%) scaleX(0.6) scaleY(0.55); filter: blur(3px); }
             100% { opacity: 0.3;  transform: translateX(-50%) scaleX(1.35) scaleY(1.25); filter: blur(9px); }
           }
-          /* 빛반사 — 자연스럽게 사선으로 한 방향 흐름 + 긴 쉼 */
+          /* 빛반사 — 긴 쉼 + 은은한 페이드 인/아웃. 인위적인 "번쩍"이 아니라
+             햇빛이 사선으로 스며드는 느낌 */
           @keyframes quoteCardShimmer {
-            0%   { transform: translate3d(-60%, -20%, 0); opacity: 0; }
-            15%  { opacity: 0.9; }
-            40%  { transform: translate3d(60%, 20%, 0); opacity: 0; }
-            100% { transform: translate3d(60%, 20%, 0); opacity: 0; }
+            0%   { transform: translate3d(-70%, -25%, 0); opacity: 0; }
+            25%  { opacity: 0; }
+            45%  { transform: translate3d(-10%, -5%, 0); opacity: 0.55; }
+            55%  { transform: translate3d(10%, 5%, 0); opacity: 0.55; }
+            75%  { transform: translate3d(70%, 25%, 0); opacity: 0; }
+            100% { transform: translate3d(70%, 25%, 0); opacity: 0; }
           }
           /* 딤 레이어 — 부유에 맞춰 은은하게 진해졌다 옅어짐 */
           @keyframes quoteCardDim {
