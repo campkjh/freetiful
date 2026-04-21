@@ -458,7 +458,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
         ref={quoteRef}
         data-quote-card="true"
         data-near-center="false"
-        className="quote-card-root my-2 ml-14 max-w-[320px]"
+        className="quote-card-root my-2 ml-2 mr-auto max-w-[320px]"
         style={{
           perspective: '650px',
           perspectiveOrigin: '50% 45%',
@@ -626,33 +626,34 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
           .quote-card-root .quote-card-body {
             animation: quoteCardFly 1.0s cubic-bezier(0.22, 1, 0.36, 1);
           }
-          /* 기본 (중앙 아님) — 모든 3D/애니메이션 OFF, 평면 + 그림자 없음 */
+          /* 기본 (중앙 아님) — 모든 3D/애니메이션 OFF, 평면 + 그림자 없음.
+             전환은 천천히 부드럽게 (뚝딱거리지 않게) */
           .quote-card-root .quote-card-tilt {
             transform: rotate(0deg);
-            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: transform 1.1s cubic-bezier(0.4, 0, 0.15, 1);
           }
           .quote-card-root .quote-card-body {
             transform: rotateY(0deg) rotateX(0deg);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 0.5px 1px rgba(0,0,0,0.04);
-            transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            transition: transform 1.2s cubic-bezier(0.4, 0, 0.15, 1), box-shadow 1s cubic-bezier(0.4, 0, 0.15, 1);
           }
           .quote-card-root .quote-card-float { animation: none; }
           .quote-card-root .quote-card-dim {
             animation: none;
             opacity: 0.5;
-            transition: opacity 0.45s ease;
+            transition: opacity 0.9s cubic-bezier(0.4, 0, 0.15, 1);
           }
           .quote-card-root .quote-card-shimmer {
             animation: none;
             opacity: 0;
-            transition: opacity 0.45s ease;
+            transition: opacity 0.9s cubic-bezier(0.4, 0, 0.15, 1);
           }
           .quote-card-root .quote-card-shadow {
             animation: none;
             opacity: 0;
             transform: translateX(-50%) scaleX(0.7) scaleY(0.6);
             filter: blur(2px);
-            transition: opacity 0.45s ease, transform 0.45s ease, filter 0.45s ease;
+            transition: opacity 0.9s cubic-bezier(0.4, 0, 0.15, 1), transform 0.9s cubic-bezier(0.4, 0, 0.15, 1), filter 0.9s ease;
           }
 
           /* 중앙 — 3D 기울기 + 부유/shimmer/shadow/dim 전부 ON */
