@@ -130,6 +130,14 @@ export class ProService {
       },
     });
 
+    // 첫 업로드일 때 대표 사진을 User.profileImageUrl 에 반영
+    if (count === 0) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { profileImageUrl: image.imageUrl },
+      });
+    }
+
     return image;
   }
 
@@ -187,6 +195,21 @@ export class ProService {
         }),
       ),
     );
+
+    // 재정렬로 새 대표 사진이 바뀐 경우 User.profileImageUrl 동기화
+    const firstImageId = imageIds[0];
+    if (firstImageId) {
+      const firstImg = await this.prisma.proProfileImage.findFirst({
+        where: { id: firstImageId, proProfileId: profile.id },
+        select: { imageUrl: true },
+      });
+      if (firstImg?.imageUrl) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { profileImageUrl: firstImg.imageUrl },
+        });
+      }
+    }
 
     return this.getImages(userId);
   }
@@ -401,6 +424,15 @@ export class ProService {
             isPrimary: img.index === mainIdx,
             hasFace: true,
           },
+        });
+      }
+
+      // 대표 사진을 User.profileImageUrl 로 동기화 — 프로필 아바타(마이페이지/채팅/견적카드)에 반영됨
+      const primary = savedImages.find((img) => img.index === mainIdx) || savedImages[0];
+      if (primary) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { profileImageUrl: primary.path },
         });
       }
     }
