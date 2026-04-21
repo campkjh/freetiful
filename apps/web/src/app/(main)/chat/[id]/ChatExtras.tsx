@@ -381,10 +381,56 @@ function KakaoMapEmbed({ venue }: { venue: string }) {
   );
 }
 
+// 견적 카드 중 뷰포트 중앙에 가장 가까운 카드만 부유 애니메이션을 켠다.
+// 여러 인스턴스가 렌더될 때 서로 비교하기 위해 간단한 글로벌 레지스트리 사용.
+const quoteCardRegistry = new Set<HTMLElement>();
+let quoteScrollRaf = 0;
+function scheduleQuoteCenterUpdate() {
+  if (quoteScrollRaf) return;
+  quoteScrollRaf = requestAnimationFrame(() => {
+    quoteScrollRaf = 0;
+    if (typeof window === 'undefined') return;
+    const center = window.innerHeight / 2;
+    let best: HTMLElement | null = null;
+    let bestDist = Infinity;
+    quoteCardRegistry.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      const d = Math.abs(r.top + r.height / 2 - center);
+      if (d < bestDist) { bestDist = d; best = el; }
+    });
+    quoteCardRegistry.forEach((el) => {
+      if (el === best) el.setAttribute('data-near-center', 'true');
+      else el.setAttribute('data-near-center', 'false');
+    });
+  });
+}
+function useNearestQuoteCard<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    quoteCardRegistry.add(el);
+    scheduleQuoteCenterUpdate();
+    const onScroll = () => scheduleQuoteCenterUpdate();
+    const onResize = () => scheduleQuoteCenterUpdate();
+    // 창 스크롤 + 채팅 컨테이너 스크롤(캡처) 모두 커버
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('resize', onResize);
+    return () => {
+      quoteCardRegistry.delete(el);
+      window.removeEventListener('scroll', onScroll, { capture: true } as any);
+      window.removeEventListener('resize', onResize);
+      scheduleQuoteCenterUpdate();
+    };
+  }, []);
+  return ref;
+}
+
 // ─── SystemMessageCard ───
 export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null }) {
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
   useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
+  const quoteRef = useNearestQuoteCard<HTMLDivElement>();
 
   const sys = msg.system;
   if (!sys) return null;
@@ -409,7 +455,10 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
 
     return (
       <div
-        className="my-2 ml-14 max-w-[320px]"
+        ref={quoteRef}
+        data-quote-card="true"
+        data-near-center="false"
+        className="quote-card-root my-2 ml-14 max-w-[320px]"
         style={{
           perspective: '650px',
           perspectiveOrigin: '50% 45%',
@@ -421,12 +470,11 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
           {/* 좌측으로 살짝 기울어진 래퍼 (Z축 회전만 담당, 내부 애니메이션과 충돌 없음) */}
           <div className="relative shrink-0" style={{ transform: 'rotate(-4deg)', transformStyle: 'preserve-3d' }}>
           <div
-            className="relative"
+            className="relative quote-card-float"
             style={{
               width: 116,
               height: 180,
               transformStyle: 'preserve-3d',
-              animation: 'quoteCardFloat 4.5s ease-in-out 1.1s infinite alternate',
             }}
           >
             {/* 카드 본체 — 프로필 사진으로 가득 찬 형태 */}
@@ -459,22 +507,20 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
 
               {/* 은은한 상단/하단 그라디언트 (사진 가독성 보조, 부유에 맞춰 진하기 변화) */}
               <div
-                className="absolute inset-0 pointer-events-none"
+                className="absolute inset-0 pointer-events-none quote-card-dim"
                 style={{
                   borderRadius: 16,
                   background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 65%, rgba(0,0,0,0.3) 100%)',
-                  animation: 'quoteCardDim 4.5s ease-in-out 1.1s infinite alternate',
                 }}
               />
 
               {/* 빛반사 shimmer — 카드 안에만 흐르도록 래퍼로 clip */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 16 }}>
                 <div
-                  className="absolute"
+                  className="absolute quote-card-shimmer"
                   style={{
                     inset: '-30% -40%',
                     background: 'linear-gradient(110deg, transparent 42%, rgba(255,255,255,0.12) 48%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.12) 52%, transparent 58%)',
-                    animation: 'quoteCardShimmer 5s ease-in-out 1.1s infinite',
                     mixBlendMode: 'screen',
                   }}
                 />
@@ -483,7 +529,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
 
             {/* 바닥 그림자 — 전체적으로 더 옅게 */}
             <div
-              className="absolute"
+              className="absolute quote-card-shadow"
               style={{
                 left: '50%',
                 bottom: -18,
@@ -493,7 +539,6 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                 transform: 'translateX(-50%)',
                 filter: 'blur(5px)',
                 pointerEvents: 'none',
-                animation: 'quoteCardShadow 5s ease-in-out 1.1s infinite alternate',
               }}
             />
           </div>
@@ -580,6 +625,27 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               filter: blur(0);
             }
           }
+          /* 부유/shimmer/shadow/dim 은 기본 OFF — 뷰포트 중앙에 가장 가까운 카드만 ON */
+          .quote-card-root .quote-card-float { animation: none; }
+          .quote-card-root .quote-card-dim { animation: none; opacity: 0.65; }
+          .quote-card-root .quote-card-shimmer { animation: none; opacity: 0; }
+          .quote-card-root .quote-card-shadow { animation: none; opacity: 0.4; transform: translateX(-50%) scaleX(1) scaleY(0.9); filter: blur(6px); transition: opacity 0.35s ease, transform 0.35s ease, filter 0.35s ease; }
+          .quote-card-root .quote-card-dim { transition: opacity 0.35s ease; }
+
+          .quote-card-root[data-near-center="true"] .quote-card-float {
+            animation: quoteCardFloat 4.5s ease-in-out 0.1s infinite alternate;
+          }
+          .quote-card-root[data-near-center="true"] .quote-card-dim {
+            animation: quoteCardDim 4.5s ease-in-out 0.1s infinite alternate;
+          }
+          .quote-card-root[data-near-center="true"] .quote-card-shimmer {
+            animation: quoteCardShimmer 5s ease-in-out 0.1s infinite;
+            opacity: 1;
+          }
+          .quote-card-root[data-near-center="true"] .quote-card-shadow {
+            animation: quoteCardShadow 5s ease-in-out 0.1s infinite alternate;
+          }
+
           /* 부유 — 더 확실하게 보이도록 진폭 증가 */
           @keyframes quoteCardFloat {
             0%   { transform: translate3d(0, 0, 0); }
