@@ -7,6 +7,7 @@ interface BannerItem {
   subtitle: string;
   bgColor: string;
   image?: string;
+  linkUrl?: string | null;
 }
 
 interface StackBannerProps {
@@ -76,7 +77,18 @@ export default function StackBanner({ banners, autoPlayInterval = 4000 }: StackB
             className="absolute inset-0 rounded-2xl overflow-hidden shadow-lg"
             style={{ zIndex: visibleCount }}
           >
-            <BannerContent banner={banners[currentIndex]} onClick={next} />
+            <BannerContent
+              banner={banners[currentIndex]}
+              onClick={() => {
+                const link = banners[currentIndex].linkUrl;
+                if (link) {
+                  if (/^https?:\/\//.test(link)) window.open(link, '_blank');
+                  else window.location.href = link;
+                } else {
+                  next();
+                }
+              }}
+            />
             {/* Page indicator */}
             <div className="absolute bottom-4 left-6 flex gap-1.5">
               {banners.map((_, i) => (

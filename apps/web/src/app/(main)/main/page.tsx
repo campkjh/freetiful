@@ -577,10 +577,29 @@ export default function HomePage() {
   const rankScrollRef = useRef<HTMLDivElement>(null);
   const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
   const [bannerIdx, setBannerIdx] = useState(0);
+
+  // 배너: DB → API, 실패 시 하드코딩 폴백
+  const [banners, setBanners] = useState(BANNERS);
   useEffect(() => {
-    const timer = setInterval(() => setBannerIdx((i) => (i + 1) % BANNERS.length), 4000);
-    return () => clearInterval(timer);
+    let cancelled = false;
+    fetch('/api/v1/banners').then((r) => r.ok ? r.json() : null).then((data) => {
+      if (cancelled || !Array.isArray(data) || data.length === 0) return;
+      setBanners(data.map((b: any) => ({
+        id: b.id,
+        title: b.title || '',
+        subtitle: b.subtitle || '',
+        bgColor: b.bgColor || '',
+        image: b.imageUrl,
+        linkUrl: b.linkUrl || null,
+      })));
+    }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setBannerIdx((i) => (i + 1) % banners.length), 4000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
   const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
   const [viewedPros, setViewedPros] = useState<{ id: string; time: number }[]>([]);
   useEffect(() => {
@@ -866,10 +885,20 @@ export default function HomePage() {
             style={{ aspectRatio: '1170/300' }}
           >
             <div className="flex transition-transform duration-500 ease-out h-full"
-              style={{ width: `${BANNERS.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / BANNERS.length)}%)` }}
+              style={{ width: `${banners.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / banners.length)}%)` }}
             >
-              {BANNERS.map((b, i) => (
-                <div key={i} className="h-full shrink-0" style={{ width: `${100 / BANNERS.length}%` }}>
+              {banners.map((b, i) => (
+                <div
+                  key={b.id || i}
+                  className="h-full shrink-0 cursor-pointer"
+                  style={{ width: `${100 / banners.length}%` }}
+                  onClick={() => {
+                    const link = (b as any).linkUrl;
+                    if (!link) return;
+                    if (/^https?:\/\//.test(link)) window.open(link, '_blank');
+                    else window.location.href = link;
+                  }}
+                >
                   {b.image ? (
                     <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
                   ) : (
@@ -885,7 +914,7 @@ export default function HomePage() {
             </div>
             {/* 인디케이터 */}
             <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
-              {bannerIdx + 1} / {BANNERS.length}
+              {bannerIdx + 1} / {banners.length}
             </div>
           </div>
         </div>
@@ -917,7 +946,7 @@ export default function HomePage() {
             </div>
             {/* Hero visual — Stack Banner */}
             <div className="flex-1 max-w-lg">
-              <StackBanner banners={BANNERS} />
+              <StackBanner banners={banners} />
             </div>
           </div>
 
