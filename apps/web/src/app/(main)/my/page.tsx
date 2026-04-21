@@ -284,6 +284,12 @@ const MENU_SECTIONS = [
   },
 ];
 
+// 긴 이메일은 20자에서 잘라 ... 붙임 (실제 이메일 그대로 보여주면 공간 넘침)
+function truncateEmail(email: string, max = 20): string {
+  if (!email) return '';
+  return email.length <= max ? email : email.slice(0, max) + '...';
+}
+
 export default function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState({ name: '게스트', email: '', image: '/images/default-profile.svg', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
@@ -469,7 +475,7 @@ export default function MyPage() {
                 <p className="text-[17px] font-bold text-gray-900">사회자 {user.name}</p>
                 <span className="text-[10px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded" style={{ lineHeight: 1.2 }}>PRO</span>
               </div>
-              <p className="text-[13px] text-gray-400 mt-0.5">{user.email}</p>
+              <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
             </div>
             <ChevronRight size={20} className="text-gray-300 shrink-0" />
           </Link>
@@ -628,7 +634,7 @@ export default function MyPage() {
                 </span>
               )}
             </div>
-            <p className="text-[13px] text-gray-400 mt-0.5">{user.email}</p>
+            <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
           </div>
           <ChevronRight size={20} className="text-gray-300 shrink-0" />
         </Link>
