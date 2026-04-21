@@ -6,6 +6,10 @@ const nextConfig = {
   transpilePackages: ['@prettyful/types'],
   images: {
     domains: ['localhost', 'cdn.prettyful.co.kr', 'cdn.freetiful.co.kr', 'k.kakaocdn.net', 'lh3.googleusercontent.com', 'i.pravatar.cc', 'images.unsplash.com', 'picsum.photos', 'jnhwlzeyberhyv7s.public.blob.vercel-storage.com'],
+    // Supabase Storage 공개 URL (프로젝트별 고유 서브도메인) 전부 허용
+    remotePatterns: [
+      { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/public/**' },
+    ],
     formats: ['image/avif', 'image/webp'],
     unoptimized: true,
     minimumCacheTTL: 2678400,

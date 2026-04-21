@@ -27,6 +27,7 @@
     "@nestjs/websockets": "^10.3.0",
     "@prettyful/types": "*",
     "@prisma/client": "^5.11.0",
+    "@supabase/supabase-js": "^2.104.0",
     "axios": "^1.6.7",
     "bcrypt": "^5.1.1",
     "bull": "^4.12.2",

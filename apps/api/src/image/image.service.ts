@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import * as sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export interface ProcessedImage {
   filename: string;
@@ -33,11 +34,49 @@ export interface ImageProcessOptions {
 
 @Injectable()
 export class ImageService {
+  private readonly logger = new Logger(ImageService.name);
   private readonly uploadDir = path.join(process.cwd(), 'uploads');
   private readonly publicPath = '/uploads';
+  // Supabase Storage 설정 — env 있으면 파일시스템 대신 클라우드 스토리지 사용
+  private readonly supabase: SupabaseClient | null;
+  private readonly bucket = process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
+
+  constructor() {
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (url && key) {
+      this.supabase = createClient(url, key, { auth: { persistSession: false } });
+      this.logger.log(`Supabase Storage enabled — bucket "${this.bucket}"`);
+    } else {
+      this.supabase = null;
+      this.logger.warn('Supabase Storage not configured — using local filesystem (files will be lost on Railway redeploy)');
+    }
+  }
 
   async onModuleInit() {
-    await fs.mkdir(this.uploadDir, { recursive: true });
+    // 로컬 폴백용 폴더는 항상 준비 (Supabase 연결 실패 시)
+    await fs.mkdir(this.uploadDir, { recursive: true }).catch(() => {});
+  }
+
+  /** 버퍼를 Supabase Storage 에 업로드하고 공개 URL 반환. 실패 시 null. */
+  private async uploadToSupabase(filename: string, buffer: Buffer, contentType: string): Promise<string | null> {
+    if (!this.supabase) return null;
+    try {
+      const { error } = await this.supabase.storage.from(this.bucket).upload(filename, buffer, {
+        contentType,
+        upsert: true,
+        cacheControl: '31536000',
+      });
+      if (error) {
+        this.logger.warn(`Supabase upload failed: ${error.message}`);
+        return null;
+      }
+      const { data } = this.supabase.storage.from(this.bucket).getPublicUrl(filename);
+      return data.publicUrl;
+    } catch (e: any) {
+      this.logger.warn(`Supabase upload exception: ${e?.message || e}`);
+      return null;
+    }
   }
 
   /**
@@ -138,19 +177,26 @@ export class ImageService {
       .webp({ quality, effort: 4 })
       .toBuffer();
 
-    const webpPath = path.join(this.uploadDir, webpFilename);
-    const origPath = path.join(this.uploadDir, originalFilename);
+    // Supabase Storage 우선, 실패하면 로컬 디스크 폴백
+    let publicWebpUrl = await this.uploadToSupabase(webpFilename, webpBuffer, 'image/webp');
+    let publicOrigUrl = await this.uploadToSupabase(originalFilename, file.buffer, file.mimetype);
 
-    await fs.writeFile(webpPath, webpBuffer);
-    await fs.writeFile(origPath, file.buffer);
+    if (!publicWebpUrl) {
+      const webpPath = path.join(this.uploadDir, webpFilename);
+      const origPath = path.join(this.uploadDir, originalFilename);
+      await fs.writeFile(webpPath, webpBuffer).catch(() => {});
+      await fs.writeFile(origPath, file.buffer).catch(() => {});
+      publicWebpUrl = `${this.publicPath}/${webpFilename}`;
+      publicOrigUrl = publicOrigUrl || `${this.publicPath}/${originalFilename}`;
+    }
 
     const webpMeta = await sharp(webpBuffer).metadata();
 
     return {
       filename: webpFilename,
       originalFilename,
-      path: `${this.publicPath}/${webpFilename}`,
-      webpPath: `${this.publicPath}/${webpFilename}`,
+      path: publicWebpUrl,
+      webpPath: publicWebpUrl,
       width: webpMeta.width || 0,
       height: webpMeta.height || 0,
       size: webpBuffer.length,
@@ -244,6 +290,15 @@ export class ImageService {
    * Delete an image file from disk
    */
   async deleteFile(filename: string): Promise<void> {
+    // Supabase 쪽 먼저 삭제 시도
+    if (this.supabase) {
+      try {
+        await this.supabase.storage.from(this.bucket).remove([filename]);
+      } catch {
+        // ignore
+      }
+    }
+    // 로컬 폴백 파일도 삭제
     const filePath = path.join(this.uploadDir, filename);
     try {
       await fs.unlink(filePath);
