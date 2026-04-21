@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
 import { prosApi } from '@/lib/api/pros.api';
+import { apiClient } from '@/lib/api/client';
 
 /* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
 // 이미지 기반 아이콘 헬퍼
@@ -294,6 +295,8 @@ export default function MyPage() {
   const [isPro, setIsPro] = useState(false);
   const [couponCount, setCouponCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
+  // 프로 통계 (이번달 매출 / 총 리뷰 / 푸딩)
+  const [proStats, setProStats] = useState<{ revenue: number; reviews: number; pudding: number }>({ revenue: 0, reviews: 0, pudding: 0 });
 
   // 최근 30초 이내 방문 시 진입 애니메이션 스킵 (하위 페이지 뒤로가기 중복 방지)
   const skipAnim = (() => {
@@ -327,6 +330,18 @@ export default function MyPage() {
       usersApi.getPointBalance().then((res) => {
         setUser((prev) => ({ ...prev, points: res.balance }));
       }).catch(() => {});
+      // 프로 통계 병렬 로드 (이번달 매출 / 받은 리뷰 수 / 푸딩 잔액)
+      Promise.allSettled([
+        apiClient.get('/api/v1/pro/revenue'),
+        apiClient.get('/api/v1/review/mine', { params: { page: 1, limit: 1 } }),
+        apiClient.get('/api/v1/pro/pudding'),
+      ]).then(([rev, rev2, pud]) => {
+        setProStats((prev) => ({
+          revenue: rev.status === 'fulfilled' ? Number((rev.value as any)?.data?.thisMonth || 0) : prev.revenue,
+          reviews: rev2.status === 'fulfilled' ? Number((rev2.value as any)?.data?.total || 0) : prev.reviews,
+          pudding: pud.status === 'fulfilled' ? Number((pud.value as any)?.data?.balance || 0) : prev.pudding,
+        }));
+      });
     } else if (loggedIn) {
       setUser(getUserFromStorage());
     }
@@ -426,7 +441,8 @@ export default function MyPage() {
   };
 
   if (isPro) {
-    const proMockStats = { revenue: '2,400,000', reviews: 48, pudding: 320 };
+    // 상위 15% 여부는 정확 계산 불가 (어드민 랭킹 테이블 필요) — 푸딩>=100 이면 "상위권" 표현
+    const isTopRank = proStats.pudding >= 100;
     return (
       <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
         {/* Header */}
@@ -461,17 +477,17 @@ export default function MyPage() {
           {/* Pro Quick Stats */}
           <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.1s both' })}>
             <Link href="/my/revenue" className="flex-1 py-2 text-center">
-              <p className="text-[17px] font-bold text-gray-900">₩{proMockStats.revenue}</p>
+              <p className="text-[17px] font-bold text-gray-900">₩{proStats.revenue.toLocaleString()}</p>
               <p className="text-[11px] text-gray-400 mt-0.5">이번달 매출</p>
             </Link>
             <div className="w-px bg-gray-100" />
             <Link href="/my/reviews" className="flex-1 py-2 text-center">
-              <p className="text-[17px] font-bold text-gray-900">{proMockStats.reviews}</p>
+              <p className="text-[17px] font-bold text-gray-900">{proStats.reviews}</p>
               <p className="text-[11px] text-gray-400 mt-0.5">총 리뷰</p>
             </Link>
             <div className="w-px bg-gray-100" />
             <Link href="/my/pudding-charge" className="flex-1 py-2 text-center">
-              <p className="text-[17px] font-bold text-gray-900">{proMockStats.pudding}</p>
+              <p className="text-[17px] font-bold text-gray-900">{proStats.pudding}</p>
               <p className="text-[11px] text-gray-400 mt-0.5">푸딩</p>
             </Link>
           </div>
@@ -482,7 +498,9 @@ export default function MyPage() {
               <ProIconPudding />
               <p className="text-[13px] font-bold text-amber-800">푸딩 랭킹 시스템</p>
             </div>
-            <p className="text-[12px] text-amber-600 ml-[28px]">현재 보유: <strong>{proMockStats.pudding}개</strong> (상위 15%)</p>
+            <p className="text-[12px] text-amber-600 ml-[28px]">
+              현재 보유: <strong>{proStats.pudding}개</strong>{isTopRank ? ' (상위권)' : ''}
+            </p>
             <p className="text-[11px] text-amber-500 ml-[28px] mt-0.5">푸딩을 사용하면 프로필이 상단에 노출됩니다</p>
           </div>
         </div>

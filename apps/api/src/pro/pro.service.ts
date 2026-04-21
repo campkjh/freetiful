@@ -27,29 +27,20 @@ export class ProService {
   // ─── Profile (My) ────────────────────────────────────────────────────────
 
   async getProfile(userId: string) {
-    let profile = await this.prisma.proProfile.findUnique({
-      where: { userId },
-      include: {
-        images: { orderBy: { displayOrder: 'asc' } },
-        services: { orderBy: { displayOrder: 'asc' } },
-        faqs: { orderBy: { displayOrder: 'asc' } },
-        categories: { include: { category: true } },
-      },
-    });
+    const include = {
+      user: { select: { id: true, name: true, phone: true, email: true, profileImageUrl: true } },
+      images: { orderBy: { displayOrder: 'asc' as const } },
+      services: { orderBy: { displayOrder: 'asc' as const } },
+      faqs: { orderBy: { displayOrder: 'asc' as const } },
+      categories: { include: { category: true } },
+    };
+    let profile = await this.prisma.proProfile.findUnique({ where: { userId }, include });
 
     if (!profile) {
       await this.prisma.proProfile.create({
         data: { userId, status: 'draft' },
       });
-      profile = await this.prisma.proProfile.findUnique({
-        where: { userId },
-        include: {
-          images: { orderBy: { displayOrder: 'asc' } },
-          services: { orderBy: { displayOrder: 'asc' } },
-          faqs: { orderBy: { displayOrder: 'asc' } },
-          categories: { include: { category: true } },
-        },
-      });
+      profile = await this.prisma.proProfile.findUnique({ where: { userId }, include });
     }
 
     return profile;
