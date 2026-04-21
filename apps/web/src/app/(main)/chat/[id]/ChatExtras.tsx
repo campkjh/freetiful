@@ -427,7 +427,7 @@ function useNearestQuoteCard<T extends HTMLElement>() {
 }
 
 // ─── SystemMessageCard ───
-export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null }) {
+export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null, isLatestQuote = false }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null; isLatestQuote?: boolean }) {
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
   useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
   const quoteRef = useNearestQuoteCard<HTMLDivElement>();
@@ -603,22 +603,34 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               {formatKRW(sys.amount || 0)}
             </p>
             {!isPro && sys.quotationId && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const proId = chatPartner?.id;
-                  const amount = sys.amount || 0;
-                  const plan = sys.plan || 'premium';
-                  const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
-                  const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
-                  window.location.href = url;
-                }}
-                className="mt-2 self-start px-4 py-2.5 bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform shadow-[0_4px_12px_rgba(49,128,247,0.28)]"
-                style={{ borderRadius: 12, animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.84s both' }}
-              >
-                결제하기
-              </button>
+              isLatestQuote ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const proId = chatPartner?.id;
+                    const amount = sys.amount || 0;
+                    const plan = sys.plan || 'premium';
+                    const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
+                    const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
+                    window.location.href = url;
+                  }}
+                  className="mt-2 self-start px-4 py-2.5 bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform shadow-[0_4px_12px_rgba(49,128,247,0.28)]"
+                  style={{ borderRadius: 12, animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.84s both' }}
+                >
+                  결제하기
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="mt-2 self-start px-4 py-2.5 bg-gray-100 text-gray-400 text-[13px] font-medium cursor-not-allowed"
+                  style={{ borderRadius: 12 }}
+                  title="최신 견적서만 결제 가능합니다"
+                >
+                  만료된 견적
+                </button>
+              )
             )}
           </div>
         </div>

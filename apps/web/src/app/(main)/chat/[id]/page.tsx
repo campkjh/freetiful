@@ -587,7 +587,12 @@ export default function ChatRoomPage() {
               <p className="text-[13px] text-gray-400 mt-1">대화를 시작해보세요</p>
             </div>
           )}
-          {messages.map((msg, i) => {
+          {(() => {
+            // 가장 최근 견적 메시지의 id 를 미리 계산 — 그 견적에만 "결제하기" 버튼 활성화
+            const latestQuoteId = [...messages]
+              .filter((m) => m.type === 'system' && m.system?.kind === 'quote' && m.system?.quotationId)
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.id || null;
+            return messages.map((msg, i) => {
             const showDate = shouldShowDateDivider(messages, i);
 
             if (msg.type === 'system') {
@@ -600,7 +605,7 @@ export default function ChatRoomPage() {
                   )}
                   {msg.system ? (
                     <Suspense fallback={<SystemMessageFallback msg={msg} />}>
-                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} myProfileImage={authUser?.profileImageUrl || null} />
+                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} myProfileImage={authUser?.profileImageUrl || null} isLatestQuote={msg.id === latestQuoteId} />
                     </Suspense>
                   ) : (
                     <SystemMessageFallback msg={msg} />
@@ -761,7 +766,8 @@ export default function ChatRoomPage() {
                 </div>
               </div>
             );
-          })}
+          });
+          })()}
           <div ref={messagesEndRef} />
         </div>
       </div>
