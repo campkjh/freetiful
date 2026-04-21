@@ -140,45 +140,44 @@ JSON 형식으로 다음 필드를 출력:
       throw new BadRequestException(`AI 생성 실패: ${lastError?.message || '모든 모델이 응답하지 않습니다'}`);
     }
 
-    try {
+    // 히어로 이미지는 별도 엔드포인트에서 생성 (15초+ 걸려 Vercel 프록시 타임아웃 회피).
+    return {
+      shortIntro: String(parsed.shortIntro || '').slice(0, 50),
+      mainExperience: String(parsed.mainExperience || ''),
+      detailHtml: String(parsed.detailHtml || ''),
+      faqs: Array.isArray(parsed.faqs)
+        ? parsed.faqs.slice(0, 6).map((f: any) => ({
+            question: String(f.question || ''),
+            answer: String(f.answer || ''),
+          }))
+        : [],
+    };
+  }
 
-      // ─── 상세 페이지용 히어로 이미지 생성 (Gemini 2.5 Flash Image / "Nano Banana") ─────
-      // 이미지 생성은 15초+ 걸릴 수 있어 Vercel 프록시 타임아웃(30s)에 걸림 → 12s 하드 타임아웃.
-      let detailHtml = String(parsed.detailHtml || '');
-      try {
-        const heroPromise = this.generateHeroImage({
-          category: input.category,
-          keywords: input.keywords || parsed.shortIntro,
-          referenceImages: imageParts,
-        });
-        const timeoutPromise = new Promise<null>((resolve) =>
-          setTimeout(() => resolve(null), 12000),
-        );
-        const heroUrl = await Promise.race([heroPromise, timeoutPromise]);
-        if (heroUrl) {
-          detailHtml = `<img src="${heroUrl}" alt="${input.name || '전문가'} 프로필" />\n${detailHtml}`;
-        } else {
-          this.logger.warn('Hero image generation timed out (>12s) — returning text-only');
-        }
-      } catch (e: any) {
-        this.logger.warn(`Hero image generation skipped: ${e?.message || e}`);
-      }
-
-      return {
-        shortIntro: String(parsed.shortIntro || '').slice(0, 50),
-        mainExperience: String(parsed.mainExperience || ''),
-        detailHtml,
-        faqs: Array.isArray(parsed.faqs)
-          ? parsed.faqs.slice(0, 6).map((f: any) => ({
-              question: String(f.question || ''),
-              answer: String(f.answer || ''),
-            }))
-          : [],
-      };
-    } catch (e: any) {
-      this.logger.error(`Gemini generation failed: ${e?.message || e}`);
-      throw new BadRequestException(`AI 생성 실패: ${e?.message || '알 수 없는 오류'}`);
+  /**
+   * 히어로 이미지만 단독 생성 (상세페이지 상단 삽입용).
+   * 텍스트 생성과 분리된 엔드포인트 — 15초+ 걸릴 수 있어 별도 요청으로 처리.
+   */
+  async generateHeroImageForProfile(input: {
+    name?: string;
+    category?: string;
+    keywords?: string;
+    imageDataUrls?: string[];
+  }): Promise<{ url: string | null }> {
+    if (!this.client) {
+      throw new BadRequestException('AI 기능이 아직 설정되지 않았습니다.');
     }
+    const imageParts = (input.imageDataUrls || []).slice(0, 4).flatMap((url) => {
+      const match = url.match(/^data:(image\/[a-z]+);base64,(.+)$/i);
+      if (!match) return [];
+      return [{ inlineData: { mimeType: match[1], data: match[2] } }];
+    });
+    const url = await this.generateHeroImage({
+      category: input.category,
+      keywords: input.keywords,
+      referenceImages: imageParts,
+    });
+    return { url };
   }
 
   /**

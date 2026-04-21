@@ -19,4 +19,17 @@ export class AiController {
   async generateProfile(@Body() body: GenerateProfileInput) {
     return this.ai.generateProfile(body);
   }
+
+  @Post('generate-hero-image')
+  async generateHeroImage(
+    @Body()
+    body: {
+      name?: string;
+      category?: string;
+      keywords?: string;
+      imageDataUrls?: string[];
+    },
+  ) {
+    return this.ai.generateHeroImageForProfile(body);
+  }
 }

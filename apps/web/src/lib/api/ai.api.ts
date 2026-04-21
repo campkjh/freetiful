@@ -20,8 +20,19 @@ export interface AiProfileOutput {
   faqs: { question: string; answer: string }[];
 }
 
+export interface AiHeroImageInput {
+  name?: string;
+  category?: string;
+  keywords?: string;
+  imageDataUrls?: string[];
+}
+
 export const aiApi = {
   status: () => apiClient.get<{ enabled: boolean }>(`${BASE}/status`).then((r) => r.data),
   generateProfile: (input: AiProfileInput) =>
     apiClient.post<AiProfileOutput>(`${BASE}/generate-profile`, input, { timeout: 60000 }).then((r) => r.data),
+  generateHeroImage: (input: AiHeroImageInput) =>
+    apiClient
+      .post<{ url: string | null }>(`${BASE}/generate-hero-image`, input, { timeout: 90000 })
+      .then((r) => r.data),
 };

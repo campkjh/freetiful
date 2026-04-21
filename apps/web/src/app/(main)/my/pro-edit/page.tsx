@@ -188,7 +188,28 @@ export default function ProEditPage() {
       if (faqItems.length === 0 && Array.isArray(out.faqs) && out.faqs.length > 0) {
         setFaqItems(out.faqs.map((f) => ({ q: f.question, a: f.answer })));
       }
-      setToast('AI 생성 완료 — 내용 확인 후 저장해주세요');
+      setToast('AI 텍스트 완료 — 이미지 생성 중...');
+
+      // 히어로 이미지는 별도 요청 (15-30초 소요) — 텍스트는 이미 에디터에 반영됨
+      try {
+        const hero = await aiApi.generateHeroImage({
+          name: name || undefined,
+          category: category || undefined,
+          keywords: intro || out.shortIntro,
+          imageDataUrls: photos.filter((p) => p?.startsWith('data:image/')).slice(0, 4),
+        });
+        if (hero.url && detailEditorRef.current) {
+          const imgTag = `<img src="${hero.url}" alt="${name || '전문가'} 프로필" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:12px;" />`;
+          const currentHtml = detailEditorRef.current.innerHTML;
+          detailEditorRef.current.innerHTML = imgTag + currentHtml;
+          setDetailHtml(imgTag + currentHtml);
+          setToast('AI 생성 완료 — 내용 확인 후 저장해주세요');
+        } else {
+          setToast('AI 텍스트 생성 완료 (이미지 생성 실패)');
+        }
+      } catch {
+        setToast('AI 텍스트 생성 완료 (이미지 생성 실패)');
+      }
       setTimeout(() => setToast(''), 3000);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';

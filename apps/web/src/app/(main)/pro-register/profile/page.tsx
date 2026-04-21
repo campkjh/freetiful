@@ -234,6 +234,24 @@ export default function ProfilePage() {
       if (!intro && out.shortIntro) setIntro(out.shortIntro);
       // 스크롤하여 에디터로 이동
       setTimeout(() => editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+
+      // 히어로 이미지는 별도 요청 (15-30초 소요) — 텍스트는 이미 반영됨
+      try {
+        const hero = await aiApi.generateHeroImage({
+          name: userName || undefined,
+          category: localStorage.getItem('proRegister_category') || '사회자',
+          keywords: intro || out.shortIntro,
+          imageDataUrls,
+        });
+        if (hero.url && editorRef.current) {
+          const imgTag = `<img src="${hero.url}" alt="${userName || '전문가'} 프로필" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:12px;" />`;
+          const currentHtml = editorRef.current.innerHTML;
+          editorRef.current.innerHTML = imgTag + currentHtml;
+          setDescription(imgTag + currentHtml);
+        }
+      } catch {
+        // 이미지 실패는 텍스트 결과에 영향 없음 — silently skip
+      }
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
       alert(`AI 생성 실패: ${msg}`);
