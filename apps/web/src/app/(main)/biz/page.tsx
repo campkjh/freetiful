@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useT } from '@/lib/biz/i18n';
+import LanguageToggle from '@/components/biz/LanguageToggle';
 
 /* ─── Map (OpenStreetMap iframe, no API key needed) ──────── */
 function BizKakaoMap() {
@@ -526,15 +527,18 @@ export default function BizPage() {
             ))}
           </nav>
 
-          {/* 햄버거 메뉴 버튼 */}
-          <button
-            className="flex flex-col items-center justify-center gap-[5px] w-9 h-9"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <span className="block w-5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
-            <span className="block w-5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
-            <span className="block w-3.5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
-          </button>
+          {/* 언어 토글 + 햄버거 메뉴 버튼 */}
+          <div className="flex items-center gap-1">
+            <LanguageToggle />
+            <button
+              className="flex flex-col items-center justify-center gap-[5px] w-9 h-9"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <span className="block w-5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
+              <span className="block w-5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
+              <span className="block w-3.5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
+            </button>
+          </div>
 
         </div>
       </header>
