@@ -298,6 +298,11 @@ export default function CeoPage() {
                 image: '/images/director-kim-sy.png',
                 career: ['(前)인천국제공항 아나운서, 경력 11년차 아나운서', '(現)한국여성사회자협회장'],
               },
+              {
+                name: '박수용', role: '마케팅본부장', badge: 'HB',
+                image: '/images/director-park-sy.png',
+                career: [],
+              },
             ].map((person, i) => (
               <Reveal key={person.name} delay={i * 80}>
                 <div className="group">
@@ -359,14 +364,15 @@ export default function CeoPage() {
               <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gray-300" />
             </div>
 
-            {/* C-레벨 5개 그리드 */}
-            <div className="mt-0 md:mt-0 grid grid-cols-1 md:grid-cols-5 gap-6 md:gap-4">
+            {/* C-레벨 6개 그리드 */}
+            <div className="mt-0 md:mt-0 grid grid-cols-2 md:grid-cols-6 gap-6 md:gap-3">
               {[
                 { badge: 'COO', name: '신동혁', role: '최고운영책임자', teams: ['운영전략팀', '사업개발팀'] },
                 { badge: 'CFO', name: '김명옥', role: '최고재무책임자', teams: ['재무회계팀', '경영지원팀'] },
                 { badge: 'CTO', name: '김정훈', role: '최고기술책임자', teams: ['개발팀', '인프라팀'] },
                 { badge: 'CMO', name: '임하람', role: '최고마케팅책임자', teams: ['마케팅팀', '콘텐츠팀'] },
                 { badge: 'CPO', name: '김수연', role: '최고인재책임자', teams: ['인재개발팀', '전문가지원팀'] },
+                { badge: 'HB', name: '박수용', role: '마케팅본부장', teams: ['퍼포먼스팀', '브랜드팀'] },
               ].map((c, i) => (
                 <Reveal key={c.badge} delay={i * 80}>
                   <div className="flex flex-col items-center">
