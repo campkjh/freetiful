@@ -763,49 +763,8 @@ export default function HomePage() {
       {/* Spacer for fixed header */}
       <div className="lg:hidden h-[56px]" />
 
-      {/* ─── Mobile: Banner → Category Cards → Category Tabs → Icon Grid ─ */}
+      {/* ─── Mobile: Category Cards → Category Tabs → Icon Grid → Banner ─ */}
       <div className="lg:hidden">
-        {/* Slide Banner — 최상단 */}
-        <div className="px-[10px] pt-3 pb-1">
-          <div
-            className="relative w-full overflow-hidden rounded-2xl"
-            style={{ aspectRatio: '1170/300' }}
-          >
-            <div className="flex transition-transform duration-500 ease-out h-full"
-              style={{ width: `${banners.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / banners.length)}%)` }}
-            >
-              {banners.map((b, i) => (
-                <div
-                  key={b.id || i}
-                  className="h-full shrink-0 cursor-pointer"
-                  style={{ width: `${100 / banners.length}%` }}
-                  onClick={() => {
-                    const link = (b as any).linkUrl;
-                    if (!link) return;
-                    if (/^https?:\/\//.test(link)) window.open(link, '_blank');
-                    else window.location.href = link;
-                  }}
-                >
-                  {b.image ? (
-                    <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
-                  ) : (
-                    <div className={`w-full h-full ${b.bgColor} flex items-center px-6`}>
-                      <div>
-                        <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
-                        <p className="text-white text-[20px] font-bold mt-1">{b.subtitle}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {/* 인디케이터 */}
-            <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
-              {bannerIdx + 1} / {banners.length}
-            </div>
-          </div>
-        </div>
-
         {/* Category cards (결혼식사회자 영상 + 행사사회자) */}
         <div className="px-[10px] pt-3 pb-1">
           <div className="grid grid-cols-2 gap-3">
@@ -916,6 +875,47 @@ export default function HomePage() {
                 <span className="text-[12px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
               </Link>
             ))}
+          </div>
+        </div>
+
+        {/* 5. Slide Banner — 아이콘 그리드 아래, 관심있는 전문가 위 */}
+        <div className="px-[10px] pt-2 pb-1">
+          <div
+            className="relative w-full overflow-hidden rounded-2xl"
+            style={{ aspectRatio: '1170/300' }}
+          >
+            <div className="flex transition-transform duration-500 ease-out h-full"
+              style={{ width: `${banners.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / banners.length)}%)` }}
+            >
+              {banners.map((b, i) => (
+                <div
+                  key={b.id || i}
+                  className="h-full shrink-0 cursor-pointer"
+                  style={{ width: `${100 / banners.length}%` }}
+                  onClick={() => {
+                    const link = (b as any).linkUrl;
+                    if (!link) return;
+                    if (/^https?:\/\//.test(link)) window.open(link, '_blank');
+                    else window.location.href = link;
+                  }}
+                >
+                  {b.image ? (
+                    <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
+                  ) : (
+                    <div className={`w-full h-full ${b.bgColor} flex items-center px-6`}>
+                      <div>
+                        <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
+                        <p className="text-white text-[20px] font-bold mt-1">{b.subtitle}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* 인디케이터 */}
+            <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
+              {bannerIdx + 1} / {banners.length}
+            </div>
           </div>
         </div>
 
