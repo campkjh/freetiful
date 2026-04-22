@@ -64,7 +64,7 @@ function FaqItem({ question, answer, isOpen, onToggle, delay }: {
           <div className="px-6 pb-6 pl-[42px]">
             <div className="flex items-start gap-3">
               <span className="text-[14px] font-black text-blue-400 shrink-0 mt-0.5">A</span>
-              <p className="text-[14px] leading-[1.8] text-gray-500">{answer}</p>
+              <p className="text-[14px] leading-[1.5] text-gray-500">{answer}</p>
             </div>
           </div>
         </div>
@@ -310,7 +310,7 @@ export default function FaqPage() {
             </h1>
           </Reveal>
           <Reveal delay={400}>
-            <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-relaxed text-gray-400">
+            <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-normal text-gray-400">
               {t({
                 ko: '프리티풀 서비스에 대해 궁금한 점을 확인해보세요',
                 en: 'Find answers to common questions about Freetiful',

@@ -236,7 +236,7 @@ export default function CareersPage() {
             </h1>
           </Reveal>
           <Reveal delay={400}>
-            <p className="mx-auto mt-6 max-w-[480px] text-[15px] leading-relaxed text-gray-400">
+            <p className="mx-auto mt-6 max-w-[480px] text-[15px] leading-normal text-gray-400">
               {t({
                 ko: <>전국 1,000여 명의 전문 진행자와 함께하는<br />프리랜서 진행자 매칭 플랫폼, 프리티풀에서 함께 성장하세요.</>,
                 en: <>Grow together at Freetiful — a matching platform<br />with over 1,000 professional hosts nationwide.</>,
@@ -284,7 +284,7 @@ export default function CareersPage() {
                   <span className="text-[40px] font-black text-violet-100 shrink-0 w-[60px] transition-colors group-hover:text-violet-200">{v.num}</span>
                   <div className="pt-2">
                     <h3 className="text-[20px] font-bold text-gray-900">{v.title}</h3>
-                    <p className="mt-2 text-[14px] leading-relaxed text-gray-400">{v.desc}</p>
+                    <p className="mt-2 text-[14px] leading-normal text-gray-400">{v.desc}</p>
                   </div>
                 </div>
               </Reveal>
@@ -362,7 +362,7 @@ export default function CareersPage() {
                 <div className="group border border-gray-100 rounded-2xl p-6 transition-all duration-300 hover:border-gray-200 hover:shadow-sm">
                   <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${item.color} transition-transform duration-300 group-hover:scale-110`}>{item.icon}</div>
                   <h3 className="mt-4 text-[17px] font-bold text-gray-900">{item.title}</h3>
-                  <p className="mt-2 text-[13px] leading-relaxed text-gray-400">{item.desc}</p>
+                  <p className="mt-2 text-[13px] leading-normal text-gray-400">{item.desc}</p>
                 </div>
               </Reveal>
             ))}

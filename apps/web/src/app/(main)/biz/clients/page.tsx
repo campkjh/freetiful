@@ -294,7 +294,7 @@ export default function ClientsPage() {
             </h1>
           </Reveal>
           <Reveal delay={400}>
-            <p className="mx-auto mt-4 max-w-[500px] text-[15px] leading-relaxed text-gray-400">
+            <p className="mx-auto mt-4 max-w-[500px] text-[15px] leading-normal text-gray-400">
               {t({
                 ko: <>대한민국 대표 기업, 기관, 방송사가 선택한<br />프리티풀의 전문 진행자 매칭 서비스</>,
                 en: <>Trusted by Korea's leading companies,<br />institutions, and broadcasters</>,
@@ -427,7 +427,7 @@ export default function ClientsPage() {
               <Reveal key={i} delay={i * 100}>
                 <div className="border border-gray-100 rounded-2xl p-7 transition-all hover:border-gray-200 hover:shadow-sm h-full flex flex-col">
                   <div className="text-[28px] text-blue-200 font-serif leading-none mb-3">&ldquo;</div>
-                  <p className="text-[14px] leading-[1.8] text-gray-500 flex-1">{tm.quote}</p>
+                  <p className="text-[14px] leading-[1.5] text-gray-500 flex-1">{tm.quote}</p>
                   <div className="mt-5 pt-4 border-t border-gray-50 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
                       <span className="text-[13px] font-bold text-gray-500">{tm.author.charAt(0)}</span>
@@ -458,7 +458,7 @@ export default function ClientsPage() {
             </h2>
           </Reveal>
           <Reveal delay={100}>
-            <p className="mt-4 text-[14px] text-gray-400 leading-relaxed">
+            <p className="mt-4 text-[14px] text-gray-400 leading-normal">
               {t({
                 ko: <>검증된 전문 진행자와의 맞춤 매칭으로<br />어떤 행사든 완벽하게 만들어 드립니다.</>,
                 en: <>Custom matching with verified professional hosts<br />makes any event perfect.</>,

@@ -182,7 +182,7 @@ export default function HistoryPage() {
             </h1>
           </Reveal>
           <Reveal delay={400}>
-            <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-relaxed text-gray-400">
+            <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-normal text-gray-400">
               {t({
                 ko: '프리티풀의 발자취를 확인해보세요',
                 en: 'Discover the footsteps of Freetiful',
@@ -194,38 +194,52 @@ export default function HistoryPage() {
         </div>
       </section>
 
-      {/* ═══ Timeline ═══════════════════════════════════════════ */}
+      {/* ═══ Timeline — minimal vertical list ═══════════════════ */}
       <section className="py-24">
-        <div className="mx-auto max-w-[800px] px-6">
+        <div className="mx-auto max-w-[900px] px-6">
           {HISTORY.map((yearGroup, yi) => (
-            <div key={yearGroup.year} className="relative">
-              {/* Year Label */}
-              <Reveal delay={yi * 100}>
-                <div className="flex items-center gap-4 mb-10">
-                  <div className="flex items-center justify-center w-[80px] h-[80px] md:w-[100px] md:h-[100px] rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-200/50">
-                    <span className="text-[28px] md:text-[36px] font-black text-white">{yearGroup.year}</span>
-                  </div>
-                  <div className="h-px flex-1 bg-gray-100" />
+            <div key={yearGroup.year} className="relative mb-20 last:mb-0">
+              {/* Year — 큰 아웃라인 숫자, 미니멀 */}
+              <Reveal delay={yi * 80}>
+                <div className="flex items-baseline gap-4 mb-10">
+                  <span
+                    className="text-[72px] md:text-[96px] font-bold leading-none tracking-tight text-transparent"
+                    style={{ WebkitTextStroke: '1.5px #3180F7' }}
+                  >
+                    {yearGroup.year}
+                  </span>
+                  <div className="h-px flex-1 bg-gray-200" />
+                  <span className="text-[11px] font-medium text-gray-300 tracking-normal uppercase">
+                    {yearGroup.events.length} {t({ ko: '건', en: 'events', ja: '件', zh: '项' })}
+                  </span>
                 </div>
               </Reveal>
 
-              {/* Events */}
-              <div className="relative ml-[38px] md:ml-[48px] border-l-2 border-gray-100 pl-8 md:pl-10 pb-16 space-y-8">
+              {/* Events — 카드 없이 깔끔한 리스트, hover interaction */}
+              <div className="relative pl-6 md:pl-8 border-l border-gray-100">
                 {yearGroup.events.map((event, ei) => (
-                  <Reveal key={ei} delay={yi * 100 + ei * 80}>
-                    <div className="relative group">
-                      {/* Timeline dot */}
-                      <div className="absolute -left-[41px] md:-left-[45px] top-1.5 w-3 h-3 rounded-full bg-blue-500 border-[3px] border-white shadow-sm group-hover:scale-125 transition-transform" />
+                  <Reveal key={ei} delay={yi * 80 + ei * 60}>
+                    <div className="group relative py-5 first:pt-0 cursor-default">
+                      {/* 미니 도트 + 좌측 타임라인 위 hover line */}
+                      <span
+                        className="absolute -left-[25px] md:-left-[33px] top-7 w-2 h-2 rounded-full bg-white border-2 border-gray-200 transition-all duration-300 group-hover:border-[#3180F7] group-hover:scale-[1.8] group-hover:shadow-[0_0_0_6px_rgba(49,128,247,0.12)]"
+                      />
+                      {/* hover 시 좌측 세로 바 강조 */}
+                      <span className="absolute -left-px top-0 bottom-0 w-px bg-[#3180F7] scale-y-0 group-hover:scale-y-100 origin-top transition-transform duration-500 ease-out pointer-events-none" />
 
-                      <div className="border border-gray-100 rounded-2xl p-6 transition-all hover:border-gray-200 hover:shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-[12px] font-bold text-blue-500 bg-blue-50 px-2.5 py-1 rounded-full">
-                            {yearGroup.year}.{event.month}
-                          </span>
-                        </div>
-                        <h3 className="text-[17px] font-bold text-gray-900">{event.title}</h3>
-                        <p className="mt-2 text-[14px] leading-relaxed text-gray-400">{event.desc}</p>
+                      {/* 월 배지 + 제목 */}
+                      <div className="flex items-baseline gap-4">
+                        <span className="text-[11px] font-medium text-gray-300 tabular-nums tracking-normal shrink-0 transition-colors duration-300 group-hover:text-[#3180F7]">
+                          {event.month}
+                        </span>
+                        <h3 className="text-[16px] md:text-[18px] font-medium text-gray-800 transition-transform duration-300 group-hover:translate-x-1.5">
+                          {event.title}
+                        </h3>
                       </div>
+                      {/* 설명 — 기본 은은, hover 시 더 또렷 */}
+                      <p className="mt-1.5 ml-[36px] text-[13px] leading-normal text-gray-400 transition-colors duration-300 group-hover:text-gray-600">
+                        {event.desc}
+                      </p>
                     </div>
                   </Reveal>
                 ))}
@@ -233,14 +247,17 @@ export default function HistoryPage() {
             </div>
           ))}
 
-          {/* Future */}
+          {/* Future — 미니멀 */}
           <Reveal>
-            <div className="flex items-center gap-4 mt-4">
-              <div className="flex items-center justify-center w-[80px] h-[80px] md:w-[100px] md:h-[100px] rounded-2xl bg-gradient-to-br from-gray-200 to-gray-300 border-2 border-dashed border-gray-300">
-                <span className="text-[16px] md:text-[18px] font-black text-gray-400">NEXT</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-[16px] font-bold text-gray-300">{t({
+            <div className="mt-24 pt-12 border-t border-gray-100 flex flex-col md:flex-row md:items-baseline md:gap-6">
+              <span
+                className="text-[72px] md:text-[96px] font-bold leading-none tracking-tight text-transparent"
+                style={{ WebkitTextStroke: '1.5px #E5E7EB' }}
+              >
+                NEXT
+              </span>
+              <div className="mt-4 md:mt-0 md:pb-2">
+                <p className="text-[15px] font-medium text-gray-500">{t({
                   ko: '더 큰 도약을 준비하고 있습니다',
                   en: 'Preparing for a bigger leap',
                   ja: 'さらなる飛躍を準備しています',

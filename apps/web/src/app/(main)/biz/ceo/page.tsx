@@ -185,7 +185,7 @@ export default function CeoPage() {
             </h1>
           </Reveal>
           <Reveal delay={400}>
-            <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-relaxed text-gray-400">
+            <p className="mx-auto mt-4 max-w-[460px] text-[15px] leading-normal text-gray-400">
               {t({
                 ko: '프리티풀의 비전과 철학을 소개합니다',
                 en: "Our vision and philosophy",
@@ -229,7 +229,7 @@ export default function CeoPage() {
                 </h2>
               </Reveal>
               <Reveal delay={300}>
-                <div className="mt-8 space-y-5 text-[15px] leading-[1.85] text-gray-500">
+                <div className="mt-8 space-y-5 text-[15px] leading-[1.55] text-gray-500">
                   <p>{t({
                     ko: '안녕하세요. 프리티풀 대표이사 서나웅입니다.',
                     en: 'Hello. I am Naung Seo, CEO of Freetiful.',
@@ -495,7 +495,7 @@ export default function CeoPage() {
 
             {/* 설명 캡션 */}
             <Reveal delay={400}>
-              <p className="mt-12 text-center text-[13px] text-gray-500 leading-relaxed">
+              <p className="mt-12 text-center text-[13px] text-gray-500 leading-normal">
                 {t({
                   ko: <>각 부문별 전문 임원이 독립적으로 책임을 맡아,<br className="md:hidden" /> 빠른 의사결정과 실행력 있는 조직 운영을 지향합니다.</>,
                   en: <>Each domain is led independently by a specialized executive,<br className="md:hidden" /> enabling fast decisions and agile execution.</>,
@@ -545,7 +545,7 @@ export default function CeoPage() {
                 <div className="group border border-gray-100 bg-white rounded-2xl p-8 transition-all hover:border-gray-200 hover:shadow-sm h-full">
                   <span className="text-[36px] font-black text-blue-100 group-hover:text-blue-200 transition-colors">{v.num}</span>
                   <h3 className="mt-2 text-[18px] font-bold text-gray-900">{v.title}</h3>
-                  <p className="mt-3 text-[14px] leading-relaxed text-gray-400">{v.desc}</p>
+                  <p className="mt-3 text-[14px] leading-normal text-gray-400">{v.desc}</p>
                 </div>
               </Reveal>
             ))}
