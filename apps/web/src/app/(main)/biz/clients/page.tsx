@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronRight, X } from 'lucide-react';
 import LanguageToggle from '@/components/biz/LanguageToggle';
+import { useT } from '@/lib/biz/i18n';
 
 /* ─── Scroll-Reveal ───────────────────────────────────────── */
 function useReveal() {
@@ -166,6 +167,7 @@ const PARTNER_SVG_LOGOS = [
 
 /* ─── Page ─────────────────────────────────────────────────── */
 export default function ClientsPage() {
+  const t = useT();
   const [scrollY, setScrollY] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -233,14 +235,21 @@ export default function ClientsPage() {
             style={{ animation: 'menuSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
             <div className="flex items-center justify-between px-6 pt-6 pb-4">
-              <span className="text-[14px] font-bold text-gray-900">메뉴</span>
+              <span className="text-[14px] font-bold text-gray-900">{t({ ko: '메뉴', en: 'Menu', ja: 'メニュー', zh: '菜单' })}</span>
               <button onClick={() => setMobileMenuOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
             <div className="h-px bg-gray-100 mx-6" />
             <div className="flex-1 px-6 py-4 flex flex-col gap-1">
-              {MENU_ITEMS.map((item) => (
+              {[
+                { label: t({ ko: 'CEO 인사말',   en: "CEO's Message", ja: 'CEO 挨拶',         zh: 'CEO 致辞' }),     href: '/biz/ceo' },
+                { label: t({ ko: '연혁',         en: 'Milestones',    ja: '沿革',             zh: '发展历程' }),      href: '/biz/history' },
+                { label: t({ ko: '인재채용',     en: 'Careers',       ja: '採用情報',         zh: '人才招聘' }),      href: '/careers' },
+                { label: t({ ko: '주요소식',     en: 'News',          ja: 'お知らせ',         zh: '主要消息' }),      href: '/biz', hash: '자료실' },
+                { label: t({ ko: '자주묻는질문', en: 'FAQ',           ja: 'よくある質問',     zh: '常见问题' }),      href: '/biz/faq' },
+                { label: t({ ko: '고객사',       en: 'Clients',       ja: '取引先',           zh: '客户' }),          href: '/biz/clients' },
+              ].map((item) => (
                 <Link
                   key={item.label}
                   href={item.hash ? `${item.href}#${item.hash}` : item.href}
@@ -258,7 +267,7 @@ export default function ClientsPage() {
                 className="block w-full py-3 bg-gray-900 text-white text-[14px] font-bold rounded-full text-center active:scale-95 transition-transform"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                문의하기
+                {t({ ko: '문의하기', en: 'Contact Us', ja: 'お問合せ', zh: '联系我们' })}
               </Link>
             </div>
           </div>
@@ -276,14 +285,22 @@ export default function ClientsPage() {
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[36px] font-black leading-[1.15] tracking-tight md:text-[56px]">
-              <span className="text-gray-900">함께하는 </span>
-              <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">고객사</span>
+              {t({
+                ko: <><span className="text-gray-900">함께하는 </span><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">고객사</span></>,
+                en: <><span className="text-gray-900">Our </span><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">Clients</span></>,
+                ja: <><span className="text-gray-900">共に歩む</span><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">取引先</span></>,
+                zh: <><span className="text-gray-900">我们的</span><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">客户</span></>,
+              }) as any}
             </h1>
           </Reveal>
           <Reveal delay={400}>
             <p className="mx-auto mt-4 max-w-[500px] text-[15px] leading-relaxed text-gray-400">
-              대한민국 대표 기업, 기관, 방송사가 선택한<br />
-              프리티풀의 전문 진행자 매칭 서비스
+              {t({
+                ko: <>대한민국 대표 기업, 기관, 방송사가 선택한<br />프리티풀의 전문 진행자 매칭 서비스</>,
+                en: <>Trusted by Korea's leading companies,<br />institutions, and broadcasters</>,
+                ja: <>韓国を代表する企業・機関・放送局が選ぶ<br />Freetiful のプロ司会者マッチングサービス</>,
+                zh: <>韩国代表企业、机构、广播公司的共同选择<br />Freetiful 专业主持人匹配服务</>,
+              }) as any}
             </p>
           </Reveal>
         </div>
@@ -295,10 +312,10 @@ export default function ClientsPage() {
           <Reveal>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {[
-                { num: '500+', label: '누적 고객사' },
-                { num: '2,000+', label: '진행 행사' },
-                { num: '98%', label: '고객 만족도' },
-                { num: '1,000+', label: '전문 진행자' },
+                { num: '500+',   label: t({ ko: '누적 고객사',    en: 'Total Clients',      ja: '累計取引先',      zh: '累计客户' }) },
+                { num: '2,000+', label: t({ ko: '진행 행사',      en: 'Events Hosted',      ja: '実施イベント',    zh: '举办活动' }) },
+                { num: '98%',   label: t({ ko: '고객 만족도',    en: 'Client Satisfaction', ja: 'お客様満足度',    zh: '客户满意度' }) },
+                { num: '1,000+', label: t({ ko: '전문 진행자',    en: 'Pro Hosts',          ja: 'プロ司会者',      zh: '专业主持人' }) },
               ].map((stat, i) => (
                 <div key={i} className="text-center">
                   <p className="text-[32px] md:text-[40px] font-black bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">{stat.num}</p>
@@ -317,10 +334,15 @@ export default function ClientsPage() {
             <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">PARTNERS</p>
           </Reveal>
           <Reveal delay={100}>
-            <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">파트너사</h2>
+            <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">{t({ ko: '파트너사', en: 'Partners', ja: 'パートナー企業', zh: '合作伙伴' })}</h2>
           </Reveal>
           <Reveal delay={200}>
-            <p className="mt-3 text-[15px] text-gray-400 max-w-[500px]">프리티풀과 함께 성장하는 기업들입니다</p>
+            <p className="mt-3 text-[15px] text-gray-400 max-w-[500px]">{t({
+              ko: '프리티풀과 함께 성장하는 기업들입니다',
+              en: 'Companies growing together with Freetiful',
+              ja: 'Freetiful と共に成長する企業です',
+              zh: '与 Freetiful 共同成长的企业',
+            })}</p>
           </Reveal>
 
           {/* 파트너사 SVG 로고 */}
@@ -340,7 +362,12 @@ export default function ClientsPage() {
 
           {/* 프리티풀 파트너스와 함께한 기업들 */}
           <Reveal delay={100}>
-            <h3 className="mt-16 text-[22px] font-bold tracking-tight text-gray-900">프리티풀 파트너스와 함께한 기업들</h3>
+            <h3 className="mt-16 text-[22px] font-bold tracking-tight text-gray-900">{t({
+              ko: '프리티풀 파트너스와 함께한 기업들',
+              en: 'Companies that worked with Freetiful Partners',
+              ja: 'Freetiful パートナーと共にした企業',
+              zh: '与 Freetiful Partners 合作的企业',
+            })}</h3>
           </Reveal>
 
           {/* 기업 로고 */}
@@ -367,47 +394,47 @@ export default function ClientsPage() {
             <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">TESTIMONIALS</p>
           </Reveal>
           <Reveal delay={100}>
-            <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">고객 후기</h2>
+            <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">{t({ ko: '고객 후기', en: 'Customer Reviews', ja: 'お客様の声', zh: '客户评价' })}</h2>
           </Reveal>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2">
             {[
               {
-                quote: '프리티풀 덕분에 회사 송년회를 완벽하게 진행할 수 있었습니다. 전문 MC의 진행이 행사의 품격을 한층 높여주었습니다.',
-                author: '김OO',
-                role: '대기업 인사팀 과장',
-                company: '삼성전자',
+                quote: t({ ko: '프리티풀 덕분에 회사 송년회를 완벽하게 진행할 수 있었습니다. 전문 MC의 진행이 행사의 품격을 한층 높여주었습니다.', en: "Thanks to Freetiful, our company's year-end party went perfectly. The professional MC elevated the quality of the event.", ja: 'Freetiful のおかげで会社の忘年会を完璧に進行できました。プロ MC の進行がイベントの品格をさらに高めてくれました。', zh: '多亏 Freetiful,我们公司的年会完美举办。专业 MC 的主持让活动更加高档。' }),
+                author: t({ ko: '김OO', en: 'Mr. Kim', ja: '金OO', zh: '金先生' }),
+                role: t({ ko: '대기업 인사팀 과장', en: 'HR Manager, Large Corp.', ja: '大手企業 人事部課長', zh: '大企业人事部课长' }),
+                company: t({ ko: '삼성전자', en: 'Samsung Electronics', ja: 'サムスン電子', zh: '三星电子' }),
               },
               {
-                quote: '결혼식 사회자를 고민하다가 프리티풀을 알게 되었어요. AI 매칭으로 딱 맞는 분을 만나 최고의 결혼식이 되었습니다.',
-                author: '이OO',
-                role: '신부',
-                company: '웨딩 고객',
+                quote: t({ ko: '결혼식 사회자를 고민하다가 프리티풀을 알게 되었어요. AI 매칭으로 딱 맞는 분을 만나 최고의 결혼식이 되었습니다.', en: 'I was looking for a wedding MC and discovered Freetiful. The AI matching found the perfect host and made my wedding unforgettable.', ja: '結婚式の司会者を悩んでいて Freetiful を知りました。AI マッチングでぴったりの方に出会い、最高の結婚式になりました。', zh: '为婚礼主持犹豫时发现了 Freetiful。AI 匹配为我找到了最合适的主持,成就了最棒的婚礼。' }),
+                author: t({ ko: '이OO', en: 'Ms. Lee', ja: '李OO', zh: '李女士' }),
+                role: t({ ko: '신부', en: 'Bride', ja: '新婦', zh: '新娘' }),
+                company: t({ ko: '웨딩 고객', en: 'Wedding Client', ja: '結婚式のお客様', zh: '婚礼客户' }),
               },
               {
-                quote: '신제품 런칭 이벤트에 전문 쇼호스트를 섭외했는데, 기대 이상이었습니다. 매칭부터 행사 당일까지 매니저 분의 케어가 훌륭했습니다.',
-                author: '박OO',
-                role: '마케팅 팀장',
-                company: 'IT기업',
+                quote: t({ ko: '신제품 런칭 이벤트에 전문 쇼호스트를 섭외했는데, 기대 이상이었습니다. 매칭부터 행사 당일까지 매니저 분의 케어가 훌륭했습니다.', en: "We booked a professional show host for our product launch — the result exceeded expectations. The manager's support from matching to event day was exceptional.", ja: '新製品ローンチイベントにプロショーホストを依頼しましたが、期待以上でした。マッチングからイベント当日までマネージャーの対応が素晴らしかったです。', zh: '为新品发布会邀请了专业购物主持人,效果超出预期。从匹配到活动当天,经理的服务都非常出色。' }),
+                author: t({ ko: '박OO', en: 'Mr. Park', ja: '朴OO', zh: '朴先生' }),
+                role: t({ ko: '마케팅 팀장', en: 'Marketing Lead', ja: 'マーケティングチームリーダー', zh: '营销团队负责人' }),
+                company: t({ ko: 'IT기업', en: 'IT Company', ja: 'IT 企業', zh: 'IT 企业' }),
               },
               {
-                quote: '학술 컨퍼런스 진행자를 급하게 구해야 했는데, 프리티풀에서 하루 만에 완벽한 분을 매칭해주셨습니다. 정말 감사합니다.',
-                author: '최OO',
-                role: '학회 사무국장',
-                company: '대학 연구기관',
+                quote: t({ ko: '학술 컨퍼런스 진행자를 급하게 구해야 했는데, 프리티풀에서 하루 만에 완벽한 분을 매칭해주셨습니다. 정말 감사합니다.', en: 'I urgently needed a host for an academic conference, and Freetiful matched a perfect candidate within one day. Truly grateful.', ja: '学術カンファレンスの司会者を急募しなければならず、Freetiful で 1 日で最適な方をマッチングしていただきました。本当に感謝しています。', zh: '紧急需要学术会议主持人,Freetiful 一天内就为我匹配到了最合适的人选。非常感谢。' }),
+                author: t({ ko: '최OO', en: 'Mr. Choi', ja: '崔OO', zh: '崔先生' }),
+                role: t({ ko: '학회 사무국장', en: 'Conference Director', ja: '学会事務局長', zh: '学会事务局长' }),
+                company: t({ ko: '대학 연구기관', en: 'University Research', ja: '大学研究機関', zh: '大学研究机构' }),
               },
-            ].map((t, i) => (
+            ].map((tm, i) => (
               <Reveal key={i} delay={i * 100}>
                 <div className="border border-gray-100 rounded-2xl p-7 transition-all hover:border-gray-200 hover:shadow-sm h-full flex flex-col">
                   <div className="text-[28px] text-blue-200 font-serif leading-none mb-3">&ldquo;</div>
-                  <p className="text-[14px] leading-[1.8] text-gray-500 flex-1">{t.quote}</p>
+                  <p className="text-[14px] leading-[1.8] text-gray-500 flex-1">{tm.quote}</p>
                   <div className="mt-5 pt-4 border-t border-gray-50 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                      <span className="text-[13px] font-bold text-gray-500">{t.author.charAt(0)}</span>
+                      <span className="text-[13px] font-bold text-gray-500">{tm.author.charAt(0)}</span>
                     </div>
                     <div>
-                      <p className="text-[13px] font-bold text-gray-900">{t.author}</p>
-                      <p className="text-[11px] text-gray-400">{t.role} · {t.company}</p>
+                      <p className="text-[13px] font-bold text-gray-900">{tm.author}</p>
+                      <p className="text-[11px] text-gray-400">{tm.role} · {tm.company}</p>
                     </div>
                   </div>
                 </div>
@@ -422,14 +449,22 @@ export default function ClientsPage() {
         <div className="mx-auto max-w-[600px] px-6 text-center">
           <Reveal>
             <h2 className="text-[28px] font-black tracking-tight md:text-[36px]">
-              프리티풀과 함께<br />
-              <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">성공적인 행사를 만들어보세요</span>
+              {t({
+                ko: <>프리티풀과 함께<br /><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">성공적인 행사를 만들어보세요</span></>,
+                en: <>With Freetiful,<br /><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">create a successful event</span></>,
+                ja: <>Freetiful と共に<br /><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">成功するイベントを作りましょう</span></>,
+                zh: <>携手 Freetiful<br /><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">打造成功的活动</span></>,
+              }) as any}
             </h2>
           </Reveal>
           <Reveal delay={100}>
             <p className="mt-4 text-[14px] text-gray-400 leading-relaxed">
-              검증된 전문 진행자와의 맞춤 매칭으로<br />
-              어떤 행사든 완벽하게 만들어 드립니다.
+              {t({
+                ko: <>검증된 전문 진행자와의 맞춤 매칭으로<br />어떤 행사든 완벽하게 만들어 드립니다.</>,
+                en: <>Custom matching with verified professional hosts<br />makes any event perfect.</>,
+                ja: <>認証済みのプロ司会者とのカスタムマッチングで<br />どんなイベントも完璧に仕上げます。</>,
+                zh: <>通过与认证专业主持人的定制匹配,<br />任何活动都能完美呈现。</>,
+              }) as any}
             </p>
           </Reveal>
           <Reveal delay={200}>
@@ -438,13 +473,13 @@ export default function ClientsPage() {
                 href="/biz#문의폼"
                 className="inline-flex items-center justify-center gap-2 bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95"
               >
-                기업 문의하기
+                {t({ ko: '기업 문의하기', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}
               </Link>
               <Link
                 href="/biz"
                 className="inline-flex items-center justify-center gap-2 border border-gray-200 px-8 py-3.5 text-[14px] font-bold text-gray-500 rounded-full transition-all hover:border-gray-300 hover:text-gray-800 hover:bg-gray-50"
               >
-                회사소개 보기
+                {t({ ko: '회사소개 보기', en: 'About Us', ja: '会社紹介を見る', zh: '查看公司简介' })}
               </Link>
             </div>
           </Reveal>
@@ -457,13 +492,13 @@ export default function ClientsPage() {
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[16px] font-black text-gray-900">Freetiful</p>
-              <p className="mt-1 text-[11px] text-gray-300">프리티풀 | 서울 중구 퇴계로 36길 2, 본관 130호</p>
+              <p className="mt-1 text-[11px] text-gray-300">{t({ ko: '프리티풀', en: 'Freetiful', ja: 'Freetiful', zh: 'Freetiful' })} | {t({ ko: '서울 중구 퇴계로 36길 2, 본관 130호', en: 'Rm 130, Main Bldg, 2 Toegye-ro 36-gil, Jung-gu, Seoul', ja: 'ソウル中区退渓路36ギル2 本館130号', zh: '首尔中区退溪路36街2号 本馆130号' })}</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful. All rights reserved.</p>
             </div>
             <div className="flex gap-4 text-[12px] text-gray-300">
-              <Link href="/biz" className="transition-colors hover:text-gray-500">회사소개</Link>
-              <Link href="/careers" className="transition-colors hover:text-gray-500">채용</Link>
-              <Link href="/main" className="transition-colors hover:text-gray-500">홈으로</Link>
+              <Link href="/biz" className="transition-colors hover:text-gray-500">{t({ ko: '회사소개', en: 'About', ja: '会社紹介', zh: '公司简介' })}</Link>
+              <Link href="/careers" className="transition-colors hover:text-gray-500">{t({ ko: '채용', en: 'Careers', ja: '採用', zh: '招聘' })}</Link>
+              <Link href="/main" className="transition-colors hover:text-gray-500">{t({ ko: '홈으로', en: 'Home', ja: 'ホーム', zh: '返回首页' })}</Link>
             </div>
           </div>
         </div>
