@@ -634,7 +634,7 @@ export default function BizPage() {
         {/* 콘텐츠 */}
         <div className="relative z-10 text-center px-6">
           <Reveal>
-            <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-400">FREELANCER MC MATCHING PLATFORM</p>
+            <p className="mb-5 text-[11px] font-medium tracking-normal text-gray-400">FREELANCER MC MATCHING PLATFORM</p>
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[40px] font-bold leading-[1.1] tracking-tight md:text-[72px]">
@@ -751,7 +751,7 @@ export default function BizPage() {
       {/* ═══ 회사소개 ═══════════════════════════════════════════ */}
       <section id="회사소개" className="py-28">
         <div className="mx-auto max-w-[1100px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">ABOUT US</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">ABOUT US</p></Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
               {t({
@@ -817,7 +817,7 @@ export default function BizPage() {
           {/* 프리티풀 전문가들과 함께한 기업 */}
           <Reveal delay={100}>
             <div className="mt-20">
-              <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">OUR PARTNERS</p>
+              <p className="text-[11px] font-medium tracking-normal text-blue-500">OUR PARTNERS</p>
               <h3 className="mt-3 text-[28px] font-bold tracking-tight">
                 {t({
                   ko: <>프리티풀 전문가들과<br />함께한 기업</>,
@@ -854,7 +854,7 @@ export default function BizPage() {
         <div className="mx-auto max-w-[1100px] px-6">
           {/* CORE SERVICES 타이틀 + 카드 숨김 */}
           <div className="hidden">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">CORE SERVICES</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">CORE SERVICES</p></Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
               마이크가 필요한<br />모든 순간, 프리티풀
@@ -886,7 +886,7 @@ export default function BizPage() {
 
           {/* 일반 플랫폼 vs 프리티풀 비교 */}
           <Reveal delay={100}>
-            <h3 className="mt-20 text-[11px] font-bold tracking-[0.4em] text-gray-300">WHY FREETIFUL</h3>
+            <h3 className="mt-20 text-[11px] font-medium tracking-normal text-gray-300">WHY FREETIFUL</h3>
             <p className="mt-3 text-[20px] font-bold text-gray-900">왜 프리티풀이어야만 할까요?</p>
           </Reveal>
           {(() => {
@@ -932,7 +932,7 @@ export default function BizPage() {
           {/* 홍보 영상 */}
           <div className="mt-16">
             <Reveal delay={100}>
-              <p className="text-[11px] font-bold tracking-[0.4em] text-gray-300 text-center">PROMOTION VIDEO</p>
+              <p className="text-[11px] font-medium tracking-normal text-gray-300 text-center">PROMOTION VIDEO</p>
               <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900 text-center">{t({
                 ko: '프리티풀을 영상으로 만나보세요',
                 en: 'Watch Freetiful in action',
@@ -994,7 +994,7 @@ export default function BizPage() {
 
           {/* 서비스 소개 스크린 */}
           <Reveal delay={100}>
-            <h3 className="mt-24 text-[11px] font-bold tracking-[0.4em] text-gray-300">APP SCREENS</h3>
+            <h3 className="mt-24 text-[11px] font-medium tracking-normal text-gray-300">APP SCREENS</h3>
             <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900">{t({
               ko: '직관적인 앱으로 간편하게',
               en: 'Simple, intuitive app experience',
@@ -1034,7 +1034,7 @@ export default function BizPage() {
           </Reveal>
           <div className="mt-16 flex items-center gap-4">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
-            <span className="text-[10px] tracking-[0.5em] text-white/20 font-medium">FREETIFUL 2025</span>
+            <span className="text-[10px] tracking-normal text-white/20 font-medium">FREETIFUL 2025</span>
             <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
           </div>
         </div>
@@ -1078,7 +1078,7 @@ export default function BizPage() {
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
       <section id="연혁" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">MILESTONES</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">MILESTONES</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold tracking-tight">{t({
             ko: '성장의 발자취',
             en: 'Our Growth Journey',
@@ -1106,7 +1106,7 @@ export default function BizPage() {
 
           {/* Roadmap */}
           <Reveal delay={100}>
-            <h3 className="mt-20 text-[11px] font-bold tracking-[0.4em] text-gray-300">ROADMAP</h3>
+            <h3 className="mt-20 text-[11px] font-medium tracking-normal text-gray-300">ROADMAP</h3>
           </Reveal>
           <div className="mt-6 space-y-4">
             {[
@@ -1131,7 +1131,7 @@ export default function BizPage() {
       {/* ═══ 자료실 ═══════════════════════════════════════════ */}
       <section id="자료실" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[1000px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">RESOURCES</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">RESOURCES</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '자료실', en: 'Resources', ja: '資料室', zh: '资料库' })}</h2></Reveal>
 
           <div className="mt-12 grid gap-3 md:grid-cols-2">
@@ -1167,7 +1167,7 @@ export default function BizPage() {
       {/* ═══ 오시는길 ═══════════════════════════════════════════ */}
       <section id="오시는길" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">LOCATION</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">LOCATION</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '오시는길', en: 'How to Find Us', ja: 'アクセス', zh: '地理位置' })}</h2></Reveal>
 
           <div className="mt-12 w-full h-[320px] border border-gray-100 rounded-2xl overflow-hidden">
@@ -1189,7 +1189,7 @@ export default function BizPage() {
 
           <Reveal delay={200}>
             <div className="mt-8 bg-gray-50 rounded-2xl p-6">
-              <p className="text-[11px] font-bold tracking-[0.3em] text-gray-300 mb-4">{t({ ko: '교통편 안내', en: 'GETTING HERE', ja: '交通案内', zh: '交通指南' })}</p>
+              <p className="text-[11px] font-medium tracking-normal text-gray-300 mb-4">{t({ ko: '교통편 안내', en: 'GETTING HERE', ja: '交通案内', zh: '交通指南' })}</p>
               <div className="space-y-3 text-[13px] text-gray-500">
                 <p><span className="text-blue-500 font-bold">{t({ ko: '지하철', en: 'Subway', ja: '地下鉄', zh: '地铁' })}</span> — {t({ ko: '1호선·3호선·5호선 종로3가역 도보 5분', en: '5-min walk from Jongno 3-ga Station (Lines 1·3·5)', ja: '1号線・3号線・5号線 鍾路3街駅 徒歩5分', zh: '1号线·3号线·5号线 钟路3街站步行5分钟' })}</p>
                 <p><span className="text-emerald-500 font-bold">{t({ ko: '버스', en: 'Bus', ja: 'バス', zh: '公交' })}</span> — {t({ ko: '종로6가 정류장 하차', en: 'Get off at Jongno 6-ga stop', ja: '鍾路6街バス停下車', zh: '钟路6街站下车' })}</p>
@@ -1222,7 +1222,7 @@ export default function BizPage() {
             {/* CTA 영역 */}
             <div className="flex-1 text-center md:text-left">
               <Reveal delay={100}>
-                <p className="text-[11px] font-bold tracking-[0.4em] text-blue-400 mb-3">CONTACT US</p>
+                <p className="text-[11px] font-medium tracking-normal text-blue-400 mb-3">CONTACT US</p>
                 <h2 className="text-[32px] font-bold tracking-tight leading-[1.2] md:text-[40px]">
                   {t({
                     ko: <>당신의 특별한 순간,<br /><span className="text-blue-500">프리티풀</span>과 함께하세요</>,
@@ -1274,7 +1274,7 @@ export default function BizPage() {
       {/* ═══ 문의 폼 ═══════════════════════════════════════════ */}
       <section id="문의폼" className="py-28 bg-gray-50/60">
         <div id="문의" className="mx-auto max-w-[600px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">INQUIRY FORM</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">INQUIRY FORM</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '기업 문의', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}</h2></Reveal>
 
           <Reveal delay={200}>

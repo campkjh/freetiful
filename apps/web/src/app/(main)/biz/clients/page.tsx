@@ -281,7 +281,7 @@ export default function ClientsPage() {
 
         <div className="relative z-10 text-center px-6">
           <Reveal>
-            <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-400">OUR CLIENTS</p>
+            <p className="mb-5 text-[11px] font-medium tracking-normal text-gray-400">OUR CLIENTS</p>
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[36px] font-black leading-[1.15] tracking-tight md:text-[56px]">
@@ -331,7 +331,7 @@ export default function ClientsPage() {
       <section className="py-24 bg-gray-50/60">
         <div className="mx-auto max-w-[1100px] px-6">
           <Reveal>
-            <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">PARTNERS</p>
+            <p className="text-[11px] font-medium tracking-normal text-blue-500">PARTNERS</p>
           </Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">{t({ ko: '파트너사', en: 'Partners', ja: 'パートナー企業', zh: '合作伙伴' })}</h2>
@@ -391,7 +391,7 @@ export default function ClientsPage() {
       <section className="py-24">
         <div className="mx-auto max-w-[900px] px-6">
           <Reveal>
-            <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">TESTIMONIALS</p>
+            <p className="text-[11px] font-medium tracking-normal text-blue-500">TESTIMONIALS</p>
           </Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">{t({ ko: '고객 후기', en: 'Customer Reviews', ja: 'お客様の声', zh: '客户评价' })}</h2>

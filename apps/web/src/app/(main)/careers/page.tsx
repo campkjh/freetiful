@@ -223,7 +223,7 @@ export default function CareersPage() {
 
         <div className="relative z-10 text-center px-6">
           <Reveal>
-            <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-300">JOIN FREETIFUL</p>
+            <p className="mb-5 text-[11px] font-medium tracking-normal text-gray-300">JOIN FREETIFUL</p>
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[40px] font-black leading-[1.1] tracking-tight md:text-[72px]">
@@ -265,7 +265,7 @@ export default function CareersPage() {
       {/* ═══ 문화 ═══════════════════════════════════════════════ */}
       <section id="문화" className="py-28">
         <div className="mx-auto max-w-[1100px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-violet-500">OUR VALUES</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-violet-500">OUR VALUES</p></Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
               {t({
@@ -296,7 +296,7 @@ export default function CareersPage() {
       {/* ═══ 채용공고 ═══════════════════════════════════════════ */}
       <section id="채용공고" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[1100px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-violet-500">OPEN POSITIONS</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-violet-500">OPEN POSITIONS</p></Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
               {t({ ko: '채용 중인 포지션', en: 'Open Positions', ja: '募集中のポジション', zh: '招聘中的职位' })}
@@ -344,7 +344,7 @@ export default function CareersPage() {
       {/* ═══ 복지 ═══════════════════════════════════════════════ */}
       <section id="복지" className="py-28">
         <div className="mx-auto max-w-[1100px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-violet-500">BENEFITS</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-violet-500">BENEFITS</p></Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[34px] font-black tracking-tight md:text-[42px]">
               {t({
@@ -373,7 +373,7 @@ export default function CareersPage() {
       {/* ═══ 지원하기 ═══════════════════════════════════════════ */}
       <section id="지원하기" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[600px] px-6">
-          <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-violet-500">APPLY</p></Reveal>
+          <Reveal><p className="text-[11px] font-medium tracking-normal text-violet-500">APPLY</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-black">{t({ ko: '지원하기', en: 'Apply', ja: '応募', zh: '申请' })}</h2></Reveal>
           <Reveal delay={150}><p className="mt-3 text-[14px] text-gray-400">{t({
             ko: '프리티풀과 함께 성장할 인재를 기다립니다',

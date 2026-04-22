@@ -297,7 +297,7 @@ export default function FaqPage() {
 
         <div className="relative z-10 text-center px-6">
           <Reveal>
-            <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-400">FREQUENTLY ASKED QUESTIONS</p>
+            <p className="mb-5 text-[11px] font-medium tracking-normal text-gray-400">FREQUENTLY ASKED QUESTIONS</p>
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[36px] font-black leading-[1.15] tracking-tight md:text-[56px]">

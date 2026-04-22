@@ -177,7 +177,7 @@ export default function CeoPage() {
 
         <div className="relative z-10 text-center px-6">
           <Reveal>
-            <p className="mb-5 text-[11px] font-bold tracking-[0.4em] text-gray-400">CEO MESSAGE</p>
+            <p className="mb-5 text-[11px] font-medium tracking-normal text-gray-400">CEO MESSAGE</p>
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[36px] font-black leading-[1.15] tracking-tight md:text-[56px]">
@@ -304,7 +304,7 @@ export default function CeoPage() {
       <section className="py-24 bg-gray-50/60">
         <div className="mx-auto max-w-[1100px] px-6">
           <Reveal>
-            <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">LEADERSHIP</p>
+            <p className="text-[11px] font-medium tracking-normal text-blue-500">LEADERSHIP</p>
           </Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">{t({
@@ -392,7 +392,7 @@ export default function CeoPage() {
       <section className="py-24 bg-white">
         <div className="mx-auto max-w-[1100px] px-6">
           <Reveal>
-            <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">ORGANIZATION</p>
+            <p className="text-[11px] font-medium tracking-normal text-blue-500">ORGANIZATION</p>
           </Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[30px] font-bold tracking-tight md:text-[38px]">{t({
@@ -409,7 +409,7 @@ export default function CeoPage() {
               <div className="flex justify-center">
                 <div className="relative inline-block">
                   <div className="bg-[#3180F7] text-white rounded-xl px-10 py-5 text-center shadow-lg shadow-blue-500/20 min-w-[200px]">
-                    <p className="text-[11px] font-bold tracking-[0.3em] opacity-80">CEO</p>
+                    <p className="text-[11px] font-medium tracking-normal opacity-80">CEO</p>
                     <p className="mt-1 text-[20px] font-bold">{t({ ko: '서나웅', en: 'Naung Seo', ja: '徐ナウン', zh: '徐娜雄' })}</p>
                     <p className="text-[12px] opacity-90">{t({ ko: '대표이사', en: 'CEO', ja: '代表取締役', zh: '代表理事' })}</p>
                   </div>
@@ -471,7 +471,7 @@ export default function CeoPage() {
                     <div className="hidden md:block w-px h-6 bg-gray-300" />
                     {/* C-레벨 카드 */}
                     <div className="w-full bg-white border-2 border-[#3180F7]/20 rounded-xl px-4 py-4 text-center shadow-sm hover:shadow-md hover:border-[#3180F7]/40 transition-all">
-                      <p className="text-[10px] font-bold tracking-[0.25em] text-[#3180F7]">{c.badge}</p>
+                      <p className="text-[10px] font-medium tracking-normal text-[#3180F7]">{c.badge}</p>
                       <p className="mt-1 text-[16px] font-bold text-gray-900">{c.name}</p>
                       <p className="text-[11px] text-gray-500 leading-snug">{c.role}</p>
                     </div>
@@ -512,7 +512,7 @@ export default function CeoPage() {
       <section className="py-24 bg-gray-50/60">
         <div className="mx-auto max-w-[900px] px-6">
           <Reveal>
-            <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">OUR PHILOSOPHY</p>
+            <p className="text-[11px] font-medium tracking-normal text-blue-500">OUR PHILOSOPHY</p>
           </Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[30px] font-black tracking-tight md:text-[38px]">{t({ ko: '경영 철학', en: 'Management Philosophy', ja: '経営哲学', zh: '经营理念' })}</h2>
