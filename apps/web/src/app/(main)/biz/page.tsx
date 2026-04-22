@@ -11,6 +11,7 @@ import {
   Target, Heart, Star, Zap, X, ArrowRight, Copy, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useT } from '@/lib/biz/i18n';
 
 /* ─── Map (OpenStreetMap iframe, no API key needed) ──────── */
 function BizKakaoMap() {
@@ -135,7 +136,16 @@ const COMPANY_INFO = {
   tiktok: 'https://www.tiktok.com/@freetiful',
 };
 
-const NAV_SECTIONS = ['회사소개', '핵심서비스', '연혁', '자료실', '오시는길', '문의'];
+const NAV_SECTION_IDS = ['회사소개', '핵심서비스', '연혁', '자료실', '오시는길', '문의'] as const;
+
+const NAV_SECTION_LABELS = {
+  '회사소개':   { ko: '회사소개',   en: 'About',     ja: '会社紹介', zh: '公司简介' },
+  '핵심서비스': { ko: '핵심서비스', en: 'Services',  ja: 'サービス', zh: '核心服务' },
+  '연혁':       { ko: '연혁',       en: 'Milestones',ja: '沿革',     zh: '发展历程' },
+  '자료실':     { ko: '자료실',     en: 'Resources', ja: '資料',     zh: '资料库' },
+  '오시는길':   { ko: '오시는길',   en: 'Location',  ja: 'アクセス', zh: '地址' },
+  '문의':       { ko: '문의',       en: 'Contact',   ja: 'お問合せ', zh: '联系' },
+} as const;
 
 /* ─── Expert Marquee Images ──────────────────────────────── */
 const EXPERT_IMAGES_ROW1 = [
@@ -311,6 +321,7 @@ const HISTORY = [
 
 /* ─── Page ─────────────────────────────────────────────────── */
 export default function BizPage() {
+  const t = useT();
   const router = useRouter();
   const [activeSection, setActiveSection] = useState('회사소개');
   const [inquiry, setInquiry] = useState({ company: '', name: '', phone: '', email: '', type: '', message: '' });
@@ -434,7 +445,7 @@ export default function BizPage() {
   async function handleInquiry(e: React.FormEvent) {
     e.preventDefault();
     if (!inquiry.name || !inquiry.phone || !inquiry.message) {
-      toast.error('필수 항목을 입력해주세요');
+      toast.error(t({ ko: '필수 항목을 입력해주세요', en: 'Please fill in the required fields', ja: '必須項目を入力してください', zh: '请填写必填项' }));
       return;
     }
     setSending(true);
@@ -451,12 +462,12 @@ export default function BizPage() {
 
       const res = await fetch('/api/inquiry', { method: 'POST', body: formData });
       if (res.ok) {
-        toast.success('문의가 접수되었습니다. 빠른 시일 내에 연락드리겠습니다!');
+        toast.success(t({ ko: '문의가 접수되었습니다. 빠른 시일 내에 연락드리겠습니다!', en: "We've received your inquiry. We'll get back to you soon!", ja: 'お問合せを受け付けました。折り返しご連絡いたします!', zh: '已收到您的咨询。我们会尽快与您联系!' }));
         setInquiry({ company: '', name: '', phone: '', email: '', type: '', message: '' });
         setInquiryFile(null);
       } else {
         const data = await res.json();
-        toast.error(data.error || '문의 접수에 실패했습니다');
+        toast.error(data.error || t({ ko: '문의 접수에 실패했습니다', en: 'Failed to submit inquiry', ja: 'お問合せの送信に失敗しました', zh: '咨询提交失败' }));
       }
     } catch {
       toast.error('문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.');
@@ -496,7 +507,7 @@ export default function BizPage() {
           </Link>
 
           <nav className={`hidden items-center gap-0.5 md:flex transition-all duration-700 ${scrollY > 80 ? 'gap-0' : 'gap-1'}`}>
-            {NAV_SECTIONS.map((n) => (
+            {NAV_SECTION_IDS.map((n) => (
               <button
                 key={n}
                 onClick={() => scrollTo(n)}
@@ -508,7 +519,7 @@ export default function BizPage() {
                     : 'text-gray-400 hover:text-gray-700'
                 }`}
               >
-                {n}
+                {t(NAV_SECTION_LABELS[n])}
               </button>
             ))}
           </nav>
@@ -542,7 +553,7 @@ export default function BizPage() {
           >
             {/* 닫기 버튼 */}
             <div className="flex items-center justify-between px-6 pt-6 pb-4">
-              <span className="text-[14px] font-bold text-gray-900">메뉴</span>
+              <span className="text-[14px] font-bold text-gray-900">{t({ ko: '메뉴', en: 'Menu', ja: 'メニュー', zh: '菜单' })}</span>
               <button onClick={() => setMobileMenuOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -551,12 +562,12 @@ export default function BizPage() {
             {/* 메뉴 항목 */}
             <div className="flex-1 px-6 py-4 flex flex-col gap-1">
               {[
-                { label: 'CEO 인사말', href: '/biz/ceo' },
-                { label: '연혁', href: '/biz/history' },
-                { label: '인재채용', href: '/careers' },
-                { label: '주요소식', action: () => { scrollTo('자료실'); setMobileMenuOpen(false); } },
-                { label: '자주묻는질문', href: '/biz/faq' },
-                { label: '고객사', href: '/biz/clients' },
+                { label: t({ ko: 'CEO 인사말', en: "CEO's Message", ja: 'CEO 挨拶', zh: 'CEO 致辞' }), href: '/biz/ceo' },
+                { label: t({ ko: '연혁', en: 'Milestones', ja: '沿革', zh: '发展历程' }), href: '/biz/history' },
+                { label: t({ ko: '인재채용', en: 'Careers', ja: '採用情報', zh: '人才招聘' }), href: '/careers' },
+                { label: t({ ko: '주요소식', en: 'News', ja: 'お知らせ', zh: '主要消息' }), action: () => { scrollTo('자료실'); setMobileMenuOpen(false); } },
+                { label: t({ ko: '자주묻는질문', en: 'FAQ', ja: 'よくある質問', zh: '常见问题' }), href: '/biz/faq' },
+                { label: t({ ko: '고객사', en: 'Clients', ja: '取引先', zh: '客户' }), href: '/biz/clients' },
               ].map((item) =>
                 item.href ? (
                   <Link
@@ -586,7 +597,7 @@ export default function BizPage() {
                 onClick={() => { openInquiryMail(); setMobileMenuOpen(false); }}
                 className="w-full py-3 bg-gray-900 text-white text-[14px] font-bold rounded-full active:scale-95 transition-transform"
               >
-                문의하기
+                {t({ ko: '문의하기', en: 'Contact Us', ja: 'お問合せ', zh: '联系我们' })}
               </button>
             </div>
           </div>
@@ -621,23 +632,43 @@ export default function BizPage() {
           </Reveal>
           <Reveal delay={200}>
             <h1 className="text-[40px] font-bold leading-[1.1] tracking-tight md:text-[72px]">
-              <span className="text-gray-900">검증된 전문 진행자로</span><br />
-              <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">기업행사의 품격을 높이다</span>
+              <span className="text-gray-900">{t({
+                ko: '검증된 전문 진행자로',
+                en: 'Trusted MC experts',
+                ja: '検証されたプロ司会者で',
+                zh: '经过认证的专业主持人',
+              })}</span><br />
+              <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">{t({
+                ko: '기업행사의 품격을 높이다',
+                en: 'Elevate your corporate events',
+                ja: '企業イベントの品格を高める',
+                zh: '提升企业活动品格',
+              })}</span>
             </h1>
           </Reveal>
           <Reveal delay={400}>
             <p className="mx-auto mt-6 max-w-[520px] text-[15px] leading-relaxed text-gray-500">
-              KBS · SBS · MBC 방송사 출신 검증된 아나운서, MC, 쇼호스트<br />
-              전국 1,000여 명의 전문 진행자와 맞춤 매칭합니다.
+              {t({
+                ko: 'KBS · SBS · MBC 방송사 출신 검증된 아나운서, MC, 쇼호스트',
+                en: 'Verified announcers, MCs, and show hosts from KBS · SBS · MBC',
+                ja: 'KBS · SBS · MBC 放送局出身の認証済みアナウンサー、MC、ショーホスト',
+                zh: '来自 KBS · SBS · MBC 广播公司的认证主播、MC、购物主持人',
+              })}<br />
+              {t({
+                ko: '전국 1,000여 명의 전문 진행자와 맞춤 매칭합니다.',
+                en: 'Matched from a nationwide network of 1,000+ professionals.',
+                ja: '全国1,000名以上のプロ司会者とカスタムマッチング。',
+                zh: '与全国 1,000 余名专业主持人精准匹配。',
+              })}
             </p>
           </Reveal>
           <Reveal delay={600}>
             <div className="mt-10 flex justify-center gap-3">
               <button onClick={openInquiryMail} className="bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
-                기업 문의하기
+                {t({ ko: '기업 문의하기', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}
               </button>
               <button onClick={() => scrollTo('핵심서비스')} className="border border-gray-200 bg-white/80 backdrop-blur px-8 py-3.5 text-[14px] font-bold text-gray-500 rounded-full transition-all hover:border-gray-300 hover:text-gray-800 hover:bg-white">
-                서비스 알아보기
+                {t({ ko: '서비스 알아보기', en: 'Learn More', ja: 'サービスを見る', zh: '了解服务' })}
               </button>
             </div>
           </Reveal>
@@ -686,7 +717,7 @@ export default function BizPage() {
         className="md:hidden fixed right-3 top-1/2 -translate-y-1/2 z-40 flex flex-col items-end gap-3 transition-opacity duration-700"
         style={{ opacity: receptionFullscreen ? 0 : 1, pointerEvents: receptionFullscreen ? 'none' : 'auto' }}
       >
-        {NAV_SECTIONS.map((name) => {
+        {NAV_SECTION_IDS.map((name) => {
           const isActive = activeSection === name;
           return (
             <button
@@ -696,7 +727,7 @@ export default function BizPage() {
             >
               {isActive && (
                 <span className="text-[10px] font-bold text-gray-700 bg-white/90 backdrop-blur-sm shadow-sm rounded-full px-2 py-0.5 border border-gray-100">
-                  {name}
+                  {t(NAV_SECTION_LABELS[name])}
                 </span>
               )}
               <span
@@ -717,29 +748,40 @@ export default function BizPage() {
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">ABOUT US</p></Reveal>
           <Reveal delay={100}>
             <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
-              프리티풀을<br />소개합니다
+              {t({
+                ko: <>프리티풀을<br />소개합니다</>,
+                en: <>Introducing<br />Freetiful</>,
+                ja: <>Freetiful を<br />ご紹介します</>,
+                zh: <>Freetiful<br />公司简介</>,
+              }) as any}
             </h2>
           </Reveal>
           <Reveal delay={200}>
             <p className="mt-6 max-w-[680px] text-[15px] leading-[1.9] text-gray-400">
-              프리랜서 진행자 전문 매칭플랫폼 프리티풀입니다.
-              프리티풀은 <strong className="text-gray-600">Freelancer, Beautiful, 그리고 Pool</strong>이라는 세 단어에서 유래된 이름처럼,
-              여러분의 소중한 시간을 아름다운 순간으로 만들어드리는 프리랜서 진행자들이 모여 있는 플랫폼입니다.
+              {t({
+                ko: <>프리랜서 진행자 전문 매칭플랫폼 프리티풀입니다. 프리티풀은 <strong className="text-gray-600">Freelancer, Beautiful, 그리고 Pool</strong>이라는 세 단어에서 유래된 이름처럼, 여러분의 소중한 시간을 아름다운 순간으로 만들어드리는 프리랜서 진행자들이 모여 있는 플랫폼입니다.</>,
+                en: <>Freetiful is a specialized matching platform for freelance event hosts. The name comes from the three words <strong className="text-gray-600">Freelancer, Beautiful, and Pool</strong> — a curated pool of professionals who turn your precious moments into beautiful memories.</>,
+                ja: <>Freetiful はフリーランス司会者専門のマッチングプラットフォームです。<strong className="text-gray-600">Freelancer、Beautiful、Pool</strong> の三つの単語から生まれた名前の通り、皆様の大切な時間を美しい瞬間に変えるフリーランス司会者が集まるプラットフォームです。</>,
+                zh: <>Freetiful 是专业的自由主持人匹配平台。名称源自 <strong className="text-gray-600">Freelancer、Beautiful、Pool</strong> 三个单词——汇聚优秀自由主持人的人才库,将您珍贵的时刻变为美好的回忆。</>,
+              }) as any}
             </p>
             <p className="mt-4 max-w-[680px] text-[15px] leading-[1.9] text-gray-400">
-              결혼식·돌잔치 등의 가족행사부터 기업행사·국제행사, 체육대회·레크리에이션 진행까지
-              전국 <strong className="text-gray-600">1,000여 명의 아나운서, MC, 쇼호스트</strong>들과 함께하고 있습니다.
-              KBS, SBS, MBC 지상파 3사를 포함하여 각 방송사 출신의 검증된 사회자만을 고객과 연결합니다.
+              {t({
+                ko: <>결혼식·돌잔치 등의 가족행사부터 기업행사·국제행사, 체육대회·레크리에이션 진행까지 전국 <strong className="text-gray-600">1,000여 명의 아나운서, MC, 쇼호스트</strong>들과 함께하고 있습니다. KBS, SBS, MBC 지상파 3사를 포함하여 각 방송사 출신의 검증된 사회자만을 고객과 연결합니다.</>,
+                en: <>From family events like weddings and first-birthdays to corporate events, international conferences, sports events, and team-building activities, we work with <strong className="text-gray-600">over 1,000 announcers, MCs, and show hosts</strong> nationwide. We only connect clients with verified hosts from Korea's top broadcasters including KBS, SBS, and MBC.</>,
+                ja: <>結婚式・初誕生日などの家族イベントから、企業イベント・国際イベント、体育大会・レクリエーションまで、全国 <strong className="text-gray-600">1,000名以上のアナウンサー、MC、ショーホスト</strong> と共に活動しています。KBS、SBS、MBC の地上波3社をはじめ、放送局出身の認証済み司会者のみをお客様に紹介します。</>,
+                zh: <>从婚礼、周岁宴等家庭活动,到企业活动、国际活动、体育赛事、团建活动,我们与全国 <strong className="text-gray-600">1,000 余名主播、MC、购物主持人</strong> 合作。仅将 KBS、SBS、MBC 三大电视台等广播公司出身的认证主持人介绍给客户。</>,
+              }) as any}
             </p>
           </Reveal>
 
           {/* 핵심 수치 */}
           <div className="mt-16 grid grid-cols-2 gap-4 md:grid-cols-4">
             {[
-              { num: 1000, suffix: '+', label: '검증된 진행자', icon: <Users className="h-4 w-4" /> },
-              { num: 13000, suffix: '+', label: '결혼식 사회 경력', icon: <Star className="h-4 w-4" /> },
-              { num: 8, suffix: '개', label: '서비스 분야', icon: <Briefcase className="h-4 w-4" /> },
-              { num: 3, suffix: '사', label: '지상파 방송사 출신', icon: <Zap className="h-4 w-4" /> },
+              { num: 1000, suffix: '+', label: t({ ko: '검증된 진행자', en: 'Verified Hosts', ja: '認証済み司会者', zh: '认证主持人' }), icon: <Users className="h-4 w-4" /> },
+              { num: 13000, suffix: '+', label: t({ ko: '결혼식 사회 경력', en: 'Weddings Hosted', ja: '結婚式司会実績', zh: '婚礼主持经验' }), icon: <Star className="h-4 w-4" /> },
+              { num: 8, suffix: t({ ko: '개', en: '', ja: '分野', zh: '个' }), label: t({ ko: '서비스 분야', en: 'Service Areas', ja: 'サービス分野', zh: '服务领域' }), icon: <Briefcase className="h-4 w-4" /> },
+              { num: 3, suffix: t({ ko: '사', en: '', ja: '局', zh: '家' }), label: t({ ko: '지상파 방송사 출신', en: 'Major Broadcasters', ja: '地上波放送局出身', zh: '主流广播公司出身' }), icon: <Zap className="h-4 w-4" /> },
             ].map((s, i) => (
               <Reveal key={i} delay={i * 100}>
                 <div className="border border-gray-100 rounded-2xl bg-white p-5 transition-all hover:border-gray-200 hover:shadow-sm">
@@ -770,7 +812,14 @@ export default function BizPage() {
           <Reveal delay={100}>
             <div className="mt-20">
               <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">OUR PARTNERS</p>
-              <h3 className="mt-3 text-[28px] font-bold tracking-tight">프리티풀 전문가들과<br />함께한 기업</h3>
+              <h3 className="mt-3 text-[28px] font-bold tracking-tight">
+                {t({
+                  ko: <>프리티풀 전문가들과<br />함께한 기업</>,
+                  en: <>Companies that trust<br />our professionals</>,
+                  ja: <>Freetiful 専門家と<br />共にした企業</>,
+                  zh: <>与 Freetiful 专家<br />合作的企业</>,
+                }) as any}
+              </h3>
             </div>
           </Reveal>
           <div className="mt-10 space-y-3 overflow-hidden -mx-6">
@@ -989,7 +1038,12 @@ export default function BizPage() {
       <section id="연혁" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">MILESTONES</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold tracking-tight">성장의 발자취</h2></Reveal>
+          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold tracking-tight">{t({
+            ko: '성장의 발자취',
+            en: 'Our Growth Journey',
+            ja: '成長の足跡',
+            zh: '成长足迹',
+          })}</h2></Reveal>
 
           <div className="mt-14 space-y-6">
             {HISTORY.map((h, hi) => (
@@ -1015,9 +1069,9 @@ export default function BizPage() {
           </Reveal>
           <div className="mt-6 space-y-4">
             {[
-              { phase: '01', title: '전문가 매칭 플랫폼 고도화', desc: 'AI 매칭 정확도 향상, 전문가 카테고리 확장' },
-              { phase: '02', title: '전국 서비스 확대', desc: '수도권 중심에서 전국 서비스 커버리지 확장' },
-              { phase: '03', title: '종합 행사 솔루션', desc: '기획·공간·전문가·장비까지 원스톱 행사 플랫폼으로 진화' },
+              { phase: '01', title: t({ ko: '전문가 매칭 플랫폼 고도화', en: 'Matching Platform Upgrade', ja: 'マッチングプラットフォーム高度化', zh: '专家匹配平台升级' }), desc: t({ ko: 'AI 매칭 정확도 향상, 전문가 카테고리 확장', en: 'Improve AI matching accuracy and expand expert categories', ja: 'AIマッチング精度向上、専門家カテゴリー拡大', zh: '提高AI匹配准确度,扩展专家类别' }) },
+              { phase: '02', title: t({ ko: '전국 서비스 확대', en: 'Nationwide Service Expansion', ja: '全国サービス拡大', zh: '全国服务扩展' }), desc: t({ ko: '수도권 중심에서 전국 서비스 커버리지 확장', en: 'Expand coverage from capital region to nationwide', ja: '首都圏中心から全国サービスへ拡大', zh: '从首都圈扩展至全国服务覆盖' }) },
+              { phase: '03', title: t({ ko: '종합 행사 솔루션', en: 'Total Event Solution', ja: '総合イベントソリューション', zh: '综合活动解决方案' }), desc: t({ ko: '기획·공간·전문가·장비까지 원스톱 행사 플랫폼으로 진화', en: 'Evolve into a one-stop event platform covering planning, venues, experts, and equipment', ja: '企画・会場・専門家・機材まで、ワンストップイベントプラットフォームへ進化', zh: '发展为涵盖策划、场地、专家、设备的一站式活动平台' }) },
             ].map((p, i) => (
               <Reveal key={i} delay={i * 100}>
                 <div className="flex items-start gap-6 border border-gray-100 rounded-2xl p-6 transition-all hover:border-gray-200 hover:shadow-sm">
@@ -1037,15 +1091,15 @@ export default function BizPage() {
       <section id="자료실" className="py-28 bg-gray-50/60">
         <div className="mx-auto max-w-[1000px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">RESOURCES</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">자료실</h2></Reveal>
+          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '자료실', en: 'Resources', ja: '資料室', zh: '资料库' })}</h2></Reveal>
 
           <div className="mt-12 grid gap-3 md:grid-cols-2">
             {[
               { icon: <Download className="h-5 w-5" />, title: 'CI', desc: 'SVG', file: '/images/CI.svg' },
-              { icon: <Download className="h-5 w-5" />, title: 'BI 가이드라인', desc: 'PDF', file: '/images/freetiful_bi.pdf' },
-              { icon: <FileText className="h-5 w-5" />, title: '서비스 이용가이드', desc: '준비 중', file: '' },
-              { icon: <Briefcase className="h-5 w-5" />, title: '파트너 제안서', desc: '준비 중', file: '' },
-              { icon: <Shield className="h-5 w-5" />, title: '개인정보처리방침', desc: '', file: 'privacy' },
+              { icon: <Download className="h-5 w-5" />, title: t({ ko: 'BI 가이드라인', en: 'BI Guideline', ja: 'BI ガイドライン', zh: 'BI 指南' }), desc: 'PDF', file: '/images/freetiful_bi.pdf' },
+              { icon: <FileText className="h-5 w-5" />, title: t({ ko: '서비스 이용가이드', en: 'Service Guide', ja: 'サービス利用ガイド', zh: '服务使用指南' }), desc: t({ ko: '준비 중', en: 'Coming Soon', ja: '準備中', zh: '准备中' }), file: '' },
+              { icon: <Briefcase className="h-5 w-5" />, title: t({ ko: '파트너 제안서', en: 'Partner Proposal', ja: 'パートナー提案書', zh: '合作伙伴提案' }), desc: t({ ko: '준비 중', en: 'Coming Soon', ja: '準備中', zh: '准备中' }), file: '' },
+              { icon: <Shield className="h-5 w-5" />, title: t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' }), desc: '', file: 'privacy' },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 80}>
                 <div className="group relative">
