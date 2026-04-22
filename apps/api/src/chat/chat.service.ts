@@ -103,6 +103,8 @@ export class ChatService {
         otherUser,
         isFavorited: member?.isFavorited ?? false,
         unreadCount: member?.unreadCount ?? 0,
+        proProfileId: existingWithJoins.proProfileId,
+        iAmPro: isProUser,
       };
     }
 
@@ -169,6 +171,8 @@ export class ChatService {
       },
       isFavorited: false,
       unreadCount: 0,
+      proProfileId: room.proProfileId,
+      iAmPro: false, // createRoom 호출자는 항상 고객 측 (proProfile.userId === userId 면 위에서 차단됨)
     };
   }
 
@@ -249,6 +253,8 @@ export class ChatService {
         lastMessageAt: room.lastMessageAt,
         unreadCount: member?.unreadCount ?? 0,
         isFavorited: member?.isFavorited ?? false,
+        proProfileId: room.proProfileId,
+        iAmPro: isProUser,
       };
     });
 

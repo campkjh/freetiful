@@ -21,6 +21,10 @@ export interface ChatRoomItem {
   lastMessageAt: string | null;
   unreadCount: number;
   isFavorited: boolean;
+  /** 룸에 연결된 프로 프로필 ID — 결제/프로필 이동 시 사용 */
+  proProfileId?: string;
+  /** 내가 프로(사회자) 측인지 */
+  iAmPro?: boolean;
 }
 
 export interface MessageItem {
