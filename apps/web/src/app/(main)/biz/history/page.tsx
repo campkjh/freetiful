@@ -242,7 +242,7 @@ export default function HistoryPage() {
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[16px] font-black text-gray-900">Freetiful</p>
-              <p className="mt-1 text-[11px] text-gray-300">프리티풀 | 서울 중구 퇴계로 36길 2, 충무로관</p>
+              <p className="mt-1 text-[11px] text-gray-300">프리티풀 | 서울 중구 퇴계로 36길 2, 본관 130호</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful. All rights reserved.</p>
             </div>
             <div className="flex gap-4 text-[12px] text-gray-300">

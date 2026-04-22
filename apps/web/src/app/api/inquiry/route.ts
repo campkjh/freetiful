@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+// 구글 시트(Apps Script 웹앱) 에도 병렬 기록. 이메일 실패해도 시트 기록은 시도하고 반대도 마찬가지.
+async function logToGoogleSheet(payload: {
+  company: string; name: string; phone: string; email: string;
+  type: string; message: string; fileName: string;
+}) {
+  const url = process.env.GOOGLE_SHEETS_WEBHOOK_URL;
+  const secret = process.env.INQUIRY_SECRET;
+  if (!url) return { skipped: true };
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, secret: secret || '', timestamp: new Date().toISOString() }),
+  });
+  if (!res.ok) throw new Error(`Sheet webhook ${res.status}`);
+  return { ok: true };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -47,18 +64,35 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    await transporter.sendMail({
-      from: process.env.SMTP_USER,
-      to: 'support@freetiful.com, jaicylab2009@gmail.com, freetiful2025@gmail.com',
-      subject: `[Biz 문의] ${type || '기업 문의'} - ${company || name}`,
-      html: htmlBody,
-      replyTo: email || undefined,
-      attachments,
-    });
+    // 이메일 + 시트 기록을 병렬로 — 둘 중 하나 실패해도 나머지는 시도
+    const results = await Promise.allSettled([
+      transporter.sendMail({
+        from: process.env.SMTP_USER,
+        to: 'support@freetiful.com, jaicylab2009@gmail.com, freetiful2025@gmail.com',
+        subject: `[Biz 문의] ${type || '기업 문의'} - ${company || name}`,
+        html: htmlBody,
+        replyTo: email || undefined,
+        attachments,
+      }),
+      logToGoogleSheet({
+        company, name, phone, email, type, message,
+        fileName: file?.name || '',
+      }),
+    ]);
+
+    const emailFailed = results[0].status === 'rejected';
+    const sheetFailed = results[1].status === 'rejected';
+    if (emailFailed) console.error('Inquiry email error:', (results[0] as PromiseRejectedResult).reason);
+    if (sheetFailed) console.error('Inquiry sheet error:', (results[1] as PromiseRejectedResult).reason);
+
+    // 둘 다 실패해야만 에러 반환 — 하나라도 성공하면 접수 처리
+    if (emailFailed && sheetFailed) {
+      return NextResponse.json({ error: '문의 접수에 실패했습니다' }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    console.error('Inquiry email error:', err);
+    console.error('Inquiry route error:', err);
     return NextResponse.json({ error: '이메일 발송에 실패했습니다' }, { status: 500 });
   }
 }
