@@ -751,35 +751,55 @@ export default function BizPage() {
       {/* ═══ 회사소개 ═══════════════════════════════════════════ */}
       <section id="회사소개" className="py-28">
         <div className="mx-auto max-w-[1100px] px-6">
-          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">ABOUT US</p></Reveal>
-          <Reveal delay={100}>
-            <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
-              {t({
-                ko: <>프리티풀을<br />소개합니다</>,
-                en: <>Introducing<br />Freetiful</>,
-                ja: <>Freetiful を<br />ご紹介します</>,
-                zh: <>Freetiful<br />公司简介</>,
-              }) as any}
-            </h2>
-          </Reveal>
-          <Reveal delay={200}>
-            <p className="mt-6 max-w-[680px] text-[15px] leading-[1.9] text-gray-400">
-              {t({
-                ko: <>프리랜서 진행자 전문 매칭플랫폼 프리티풀입니다. 프리티풀은 <strong className="text-gray-600">Freelancer, Beautiful, 그리고 Pool</strong>이라는 세 단어에서 유래된 이름처럼, 여러분의 소중한 시간을 아름다운 순간으로 만들어드리는 프리랜서 진행자들이 모여 있는 플랫폼입니다.</>,
-                en: <>Freetiful is a specialized matching platform for freelance event hosts. The name comes from the three words <strong className="text-gray-600">Freelancer, Beautiful, and Pool</strong> — a curated pool of professionals who turn your precious moments into beautiful memories.</>,
-                ja: <>Freetiful はフリーランス司会者専門のマッチングプラットフォームです。<strong className="text-gray-600">Freelancer、Beautiful、Pool</strong> の三つの単語から生まれた名前の通り、皆様の大切な時間を美しい瞬間に変えるフリーランス司会者が集まるプラットフォームです。</>,
-                zh: <>Freetiful 是专业的自由主持人匹配平台。名称源自 <strong className="text-gray-600">Freelancer、Beautiful、Pool</strong> 三个单词——汇聚优秀自由主持人的人才库,将您珍贵的时刻变为美好的回忆。</>,
-              }) as any}
-            </p>
-            <p className="mt-4 max-w-[680px] text-[15px] leading-[1.9] text-gray-400">
-              {t({
-                ko: <>결혼식·돌잔치 등의 가족행사부터 기업행사·국제행사, 체육대회·레크리에이션 진행까지 전국 <strong className="text-gray-600">1,000여 명의 아나운서, MC, 쇼호스트</strong>들과 함께하고 있습니다. KBS, SBS, MBC 지상파 3사를 포함하여 각 방송사 출신의 검증된 사회자만을 고객과 연결합니다.</>,
-                en: <>From family events like weddings and first-birthdays to corporate events, international conferences, sports events, and team-building activities, we work with <strong className="text-gray-600">over 1,000 announcers, MCs, and show hosts</strong> nationwide. We only connect clients with verified hosts from Korea's top broadcasters including KBS, SBS, and MBC.</>,
-                ja: <>結婚式・初誕生日などの家族イベントから、企業イベント・国際イベント、体育大会・レクリエーションまで、全国 <strong className="text-gray-600">1,000名以上のアナウンサー、MC、ショーホスト</strong> と共に活動しています。KBS、SBS、MBC の地上波3社をはじめ、放送局出身の認証済み司会者のみをお客様に紹介します。</>,
-                zh: <>从婚礼、周岁宴等家庭活动,到企业活动、国际活动、体育赛事、团建活动,我们与全国 <strong className="text-gray-600">1,000 余名主播、MC、购物主持人</strong> 合作。仅将 KBS、SBS、MBC 三大电视台等广播公司出身的认证主持人介绍给客户。</>,
-              }) as any}
-            </p>
-          </Reveal>
+          {/* 좌측 텍스트 + 우측 이미지 2열 */}
+          <div className="grid gap-12 md:grid-cols-[1fr_minmax(0,420px)] md:items-center">
+            {/* 좌측: 텍스트 */}
+            <div>
+              <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">ABOUT US</p></Reveal>
+              <Reveal delay={100}>
+                <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
+                  {t({
+                    ko: <>프리티풀을<br />소개합니다</>,
+                    en: <>Introducing<br />Freetiful</>,
+                    ja: <>Freetiful を<br />ご紹介します</>,
+                    zh: <>Freetiful<br />公司简介</>,
+                  }) as any}
+                </h2>
+              </Reveal>
+              <Reveal delay={200}>
+                <p className="mt-6 text-[15px] leading-[1.9] text-gray-400">
+                  {t({
+                    ko: <>프리랜서 진행자 전문 매칭플랫폼 프리티풀입니다. 프리티풀은 <strong className="text-gray-600">Freelancer, Beautiful, 그리고 Pool</strong>이라는 세 단어에서 유래된 이름처럼, 여러분의 소중한 시간을 아름다운 순간으로 만들어드리는 프리랜서 진행자들이 모여 있는 플랫폼입니다.</>,
+                    en: <>Freetiful is a specialized matching platform for freelance event hosts. The name comes from the three words <strong className="text-gray-600">Freelancer, Beautiful, and Pool</strong> — a curated pool of professionals who turn your precious moments into beautiful memories.</>,
+                    ja: <>Freetiful はフリーランス司会者専門のマッチングプラットフォームです。<strong className="text-gray-600">Freelancer、Beautiful、Pool</strong> の三つの単語から生まれた名前の通り、皆様の大切な時間を美しい瞬間に変えるフリーランス司会者が集まるプラットフォームです。</>,
+                    zh: <>Freetiful 是专业的自由主持人匹配平台。名称源自 <strong className="text-gray-600">Freelancer、Beautiful、Pool</strong> 三个单词——汇聚优秀自由主持人的人才库,将您珍贵的时刻变为美好的回忆。</>,
+                  }) as any}
+                </p>
+                <p className="mt-4 text-[15px] leading-[1.9] text-gray-400">
+                  {t({
+                    ko: <>결혼식·돌잔치 등의 가족행사부터 기업행사·국제행사, 체육대회·레크리에이션 진행까지 전국 <strong className="text-gray-600">1,000여 명의 아나운서, MC, 쇼호스트</strong>들과 함께하고 있습니다. KBS, SBS, MBC 지상파 3사를 포함하여 각 방송사 출신의 검증된 사회자만을 고객과 연결합니다.</>,
+                    en: <>From family events like weddings and first-birthdays to corporate events, international conferences, sports events, and team-building activities, we work with <strong className="text-gray-600">over 1,000 announcers, MCs, and show hosts</strong> nationwide. We only connect clients with verified hosts from Korea's top broadcasters including KBS, SBS, and MBC.</>,
+                    ja: <>結婚式・初誕生日などの家族イベントから、企業イベント・国際イベント、体育大会・レクリエーションまで、全国 <strong className="text-gray-600">1,000名以上のアナウンサー、MC、ショーホスト</strong> と共に活動しています。KBS、SBS、MBC の地上波3社をはじめ、放送局出身の認証済み司会者のみをお客様に紹介します。</>,
+                    zh: <>从婚礼、周岁宴等家庭活动,到企业活动、国际活动、体育赛事、团建活动,我们与全国 <strong className="text-gray-600">1,000 余名主播、MC、购物主持人</strong> 合作。仅将 KBS、SBS、MBC 三大电视台等广播公司出身的认证主持人介绍给客户。</>,
+                  }) as any}
+                </p>
+              </Reveal>
+            </div>
+
+            {/* 우측: 사회자 3명 이미지 */}
+            <Reveal delay={150}>
+              <div className="relative w-full rounded-2xl overflow-hidden">
+                <Image
+                  src="/images/biz-about-hosts.png"
+                  alt="프리티풀 대표 전문 사회자"
+                  width={840}
+                  height={840}
+                  className="w-full h-auto object-contain"
+                  priority={false}
+                />
+              </div>
+            </Reveal>
+          </div>
 
           {/* 핵심 수치 */}
           <div className="mt-16 grid grid-cols-2 gap-4 md:grid-cols-4">
