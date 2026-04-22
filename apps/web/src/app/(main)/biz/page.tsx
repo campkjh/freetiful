@@ -897,8 +897,19 @@ export default function BizPage() {
             ))}
           </div>
 
-          {/* 홍보이미지 — 포스트잇 스타일 스캐터 그리드 */}
-          <PromoPostitScatter images={PROMO_IMAGES.slice(0, 8)} />
+          {/* 홍보이미지 캐러셀 */}
+          <Reveal delay={100}>
+            <div className="mt-20 -mx-6 overflow-hidden">
+              <div className="flex gap-4" style={{ width: 'max-content', animation: 'promoScroll 60s linear infinite' }}>
+                {[...PROMO_IMAGES, ...PROMO_IMAGES, ...PROMO_IMAGES].map((src, i) => (
+                  <div key={i} className="shrink-0 w-[280px] h-[200px] md:w-[360px] md:h-[240px] rounded-2xl overflow-hidden shadow-lg">
+                    <img src={src} alt="프리티풀 행사" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                  </div>
+                ))}
+              </div>
+              <style>{`@keyframes promoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }`}</style>
+            </div>
+          </Reveal>
 
 
           {/* 프리티풀 전문가들과 함께한 기업 */}
@@ -1172,6 +1183,9 @@ export default function BizPage() {
             ja: '成長の足跡',
             zh: '成长足迹',
           })}</h2></Reveal>
+
+          {/* 포스트잇 스캐터 그리드 — 좌/우에서 촤락 날아오는 인터렉션 */}
+          <PromoPostitScatter images={PROMO_IMAGES.slice(0, 8)} />
 
           {/* Minimal timeline — no cards */}
           <div className="mt-14 space-y-16">
