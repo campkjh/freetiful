@@ -327,6 +327,85 @@ export default function CeoPage() {
         </div>
       </section>
 
+      {/* ═══ 조직도 ═══════════════════════════════════════ */}
+      <section className="py-24 bg-white">
+        <div className="mx-auto max-w-[1100px] px-6">
+          <Reveal>
+            <p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">ORGANIZATION</p>
+          </Reveal>
+          <Reveal delay={100}>
+            <h2 className="mt-3 text-[30px] font-bold tracking-tight md:text-[38px]">조직도</h2>
+          </Reveal>
+
+          <div className="mt-14">
+            {/* CEO 카드 */}
+            <Reveal>
+              <div className="flex justify-center">
+                <div className="relative inline-block">
+                  <div className="bg-[#3180F7] text-white rounded-xl px-10 py-5 text-center shadow-lg shadow-blue-500/20 min-w-[200px]">
+                    <p className="text-[11px] font-bold tracking-[0.3em] opacity-80">CEO</p>
+                    <p className="mt-1 text-[20px] font-bold">서나웅</p>
+                    <p className="text-[12px] opacity-90">대표이사</p>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+
+            {/* CEO → C-레벨 수직 연결선 */}
+            <div className="mx-auto w-px h-10 bg-gray-300" />
+
+            {/* C-레벨 수평 연결선 (데스크톱) */}
+            <div className="hidden md:block relative mx-auto" style={{ maxWidth: '880px' }}>
+              <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gray-300" />
+            </div>
+
+            {/* C-레벨 5개 그리드 */}
+            <div className="mt-0 md:mt-0 grid grid-cols-1 md:grid-cols-5 gap-6 md:gap-4">
+              {[
+                { badge: 'COO', name: '신동혁', role: '최고운영책임자', teams: ['운영전략팀', '사업개발팀'] },
+                { badge: 'CFO', name: '김명옥', role: '최고재무책임자', teams: ['재무회계팀', '경영지원팀'] },
+                { badge: 'CTO', name: '김정훈', role: '최고기술책임자', teams: ['개발팀', '인프라팀'] },
+                { badge: 'CMO', name: '임하람', role: '최고마케팅책임자', teams: ['마케팅팀', '콘텐츠팀'] },
+                { badge: 'CPO', name: '김수연', role: '최고인재책임자', teams: ['인재개발팀', '전문가지원팀'] },
+              ].map((c, i) => (
+                <Reveal key={c.badge} delay={i * 80}>
+                  <div className="flex flex-col items-center">
+                    {/* 세로 연결선 (모바일 제외) */}
+                    <div className="hidden md:block w-px h-6 bg-gray-300" />
+                    {/* C-레벨 카드 */}
+                    <div className="w-full bg-white border-2 border-[#3180F7]/20 rounded-xl px-4 py-4 text-center shadow-sm hover:shadow-md hover:border-[#3180F7]/40 transition-all">
+                      <p className="text-[10px] font-bold tracking-[0.25em] text-[#3180F7]">{c.badge}</p>
+                      <p className="mt-1 text-[16px] font-bold text-gray-900">{c.name}</p>
+                      <p className="text-[11px] text-gray-500 leading-snug">{c.role}</p>
+                    </div>
+                    {/* 팀 연결선 */}
+                    <div className="w-px h-4 bg-gray-300" />
+                    {/* 산하 팀 */}
+                    <div className="w-full space-y-1.5">
+                      {c.teams.map((t) => (
+                        <div
+                          key={t}
+                          className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-center text-[12px] text-gray-700"
+                        >
+                          {t}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+
+            {/* 설명 캡션 */}
+            <Reveal delay={400}>
+              <p className="mt-12 text-center text-[13px] text-gray-500 leading-relaxed">
+                각 부문별 전문 임원이 독립적으로 책임을 맡아,<br className="md:hidden" /> 빠른 의사결정과 실행력 있는 조직 운영을 지향합니다.
+              </p>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
       {/* ═══ Philosophy / Vision ═══════════════════════════════ */}
       <section className="py-24 bg-gray-50/60">
         <div className="mx-auto max-w-[900px] px-6">
