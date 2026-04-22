@@ -1113,10 +1113,7 @@ export default function BizPage() {
                 {/* Year — 큰 아웃라인 숫자 */}
                 <Reveal delay={hi * 80}>
                   <div className="flex items-baseline gap-4 mb-8">
-                    <span
-                      className="text-[60px] md:text-[80px] font-bold leading-none tracking-tight text-transparent"
-                      style={{ WebkitTextStroke: '1.5px #3180F7' }}
-                    >
+                    <span className="text-[60px] md:text-[80px] font-bold leading-none tracking-tight text-[#3180F7]">
                       {h.year}
                     </span>
                     <div className="h-px flex-1 bg-gray-200" />

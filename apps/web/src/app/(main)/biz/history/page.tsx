@@ -202,10 +202,7 @@ export default function HistoryPage() {
               {/* Year — 큰 아웃라인 숫자, 미니멀 */}
               <Reveal delay={yi * 80}>
                 <div className="flex items-baseline gap-4 mb-10">
-                  <span
-                    className="text-[72px] md:text-[96px] font-bold leading-none tracking-tight text-transparent"
-                    style={{ WebkitTextStroke: '1.5px #3180F7' }}
-                  >
+                  <span className="text-[72px] md:text-[96px] font-bold leading-none tracking-tight text-[#3180F7]">
                     {yearGroup.year}
                   </span>
                   <div className="h-px flex-1 bg-gray-200" />
@@ -250,10 +247,7 @@ export default function HistoryPage() {
           {/* Future — 미니멀 */}
           <Reveal>
             <div className="mt-24 pt-12 border-t border-gray-100 flex flex-col md:flex-row md:items-baseline md:gap-6">
-              <span
-                className="text-[72px] md:text-[96px] font-bold leading-none tracking-tight text-transparent"
-                style={{ WebkitTextStroke: '1.5px #E5E7EB' }}
-              >
+              <span className="text-[72px] md:text-[96px] font-bold leading-none tracking-tight text-gray-200">
                 NEXT
               </span>
               <div className="mt-4 md:mt-0 md:pb-2">
