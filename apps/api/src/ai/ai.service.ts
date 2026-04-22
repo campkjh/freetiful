@@ -72,8 +72,8 @@ export class AiService {
     const tagsText = (input.selectedTags || []).join(', ') || '(미선택)';
     const languagesText = (input.languages || []).join(', ') || '(없음)';
 
-    const prompt = `당신은 크몽/숨고 스타일 전문가 서비스 플랫폼의 상세페이지 디자이너이자 카피라이터입니다.
-아래 정보를 바탕으로 **상품 상세페이지 수준의 구조화된 HTML 콘텐츠**를 **한국어 존댓말**로 작성해주세요.
+    const prompt = `당신은 토스(Toss) 커머스 스타일 상세페이지 디자이너이자 카피라이터입니다.
+아래 정보를 바탕으로 **토스 앱의 대회/상품 상세페이지처럼 여백이 넉넉하고 볼드한 헤딩 + 짧은 캡션 + 아이콘 리스트 행으로 이뤄진 HTML 콘텐츠**를 **한국어 존댓말**로 작성해주세요.
 
 [입력 정보]
 - 이름: ${input.name || '(미기재)'}
@@ -89,58 +89,86 @@ export class AiService {
 {
   "shortIntro": "50자 이내 한 줄 소개. 전문성과 매력을 함축.",
   "mainExperience": "핵심 경력 3~5줄. 구체적 기관/행사명이 있으면 활용, 없으면 경력 연차 기반으로 자연스럽게.",
-  "detailHtml": "아래 [상세페이지 HTML 템플릿] 을 기반으로 800~1200자 HTML.",
+  "detailHtml": "아래 [토스 스타일 HTML 템플릿] 을 그대로 따라 1,000~1,500자 HTML.",
   "faqs": [{ "question": "...", "answer": "..." }]
 }
 
-[상세페이지 HTML 템플릿 — 이 구조를 그대로 따라 작성]
-메인 컬러 #3180F7 을 강조에 사용. 인라인 style 로만 스타일링 (외부 CSS 금지). 섹션 사이 <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;"/>.
+[디자인 원칙 — 토스 스타일]
+- 전체적으로 **좌정렬**, 배경 흰색, 여백 넉넉 (섹션 간 padding 40~48px).
+- 본문 텍스트: 기본 #4b5563, 강조 #111827, 포인트 컬러 #3180F7 (파랑).
+- 섹션 헤딩은 **큰 bold** (26~30px), 위에 작은 gray 캡션("00 안내" 같은).
+- 카드 남발 금지 — 전체는 평면. 필요한 곳에만 옅은 회색(#f9fafb) 박스 사용.
+- 아이콘 리스트: 좌측 40x40 파랑 틴트 원형 배경에 이모지/✓, 우측에 제목(bold) + 값(우정렬) 2단 배치.
 
-1. 인트로 섹션:
-   <div style="text-align:center;padding:16px 0;">
-     <div style="color:#3180F7;font-size:13px;font-weight:700;letter-spacing:0.1em;margin-bottom:8px;">INTRODUCTION</div>
-     <h3 style="font-size:22px;font-weight:700;line-height:1.4;margin:0 0 12px;">핵심 한 줄 캐치프레이즈 (분류+경력 강조)</h3>
-     <p style="color:#6b7280;font-size:14px;line-height:1.7;margin:0;">서비스 개요 2-3줄</p>
-   </div>
+[토스 스타일 HTML 템플릿 — 이 순서로 작성]
 
-2. CHECK POINT 섹션 3개 (01, 02, 03):
-   <div style="padding:20px 0;">
-     <div style="color:#3180F7;font-size:13px;font-weight:700;letter-spacing:0.1em;">CHECK POINT</div>
-     <div style="color:#3180F7;font-size:28px;font-weight:700;margin:4px 0 12px;">01</div>
-     <h3 style="font-size:18px;font-weight:700;margin:0 0 6px;">특징 제목<br/><span style="background:#3180F7;color:#fff;padding:2px 10px;border-radius:4px;font-size:15px;">핵심 키워드</span></h3>
-     <p style="color:#4b5563;font-size:14px;line-height:1.7;margin:12px 0 0;">특징 설명 2-3줄</p>
-   </div>
-   (02, 03 도 같은 구조. 각각 다른 강점: 예 — 경력/전문성, 서비스 품질, 고객 경험)
+1) 히어로 (카드 없이, 중앙 정렬):
+<section style="text-align:center;padding:8px 0 32px;">
+  <div style="font-size:13px;color:#6b7280;margin-bottom:8px;">전문 사회자 소개</div>
+  <h2 style="font-size:28px;font-weight:700;line-height:1.25;margin:0 0 8px;color:#111827;">[경력+분류 기반 핵심 캐치프레이즈]</h2>
+  <p style="font-size:15px;color:#4b5563;margin:0;line-height:1.5;">[간단 2줄 요약]</p>
+</section>
 
-3. 제공 서비스 섹션:
-   <div style="padding:20px 0;">
-     <div style="color:#3180F7;font-size:13px;font-weight:700;letter-spacing:0.1em;margin-bottom:4px;">WHAT'S INCLUDED</div>
-     <h3 style="font-size:20px;font-weight:700;margin:0 0 16px;">제공되는 서비스</h3>
-     <ul style="list-style:none;padding:0;margin:0;">
-       <li style="display:flex;gap:10px;padding:10px 12px;background:#f9fafb;border-radius:8px;margin-bottom:8px;"><span style="color:#3180F7;font-weight:700;">✓</span><span>서비스 항목 1</span></li>
-       ...(4-5개 항목)
-     </ul>
-   </div>
+2) 전문 분야 섹션 (토스 "우승 조건" 스타일):
+<section style="padding:32px 0;">
+  <div style="font-size:13px;color:#6b7280;margin-bottom:6px;">전문 분야</div>
+  <h3 style="font-size:22px;font-weight:700;margin:0 0 4px;color:#3180F7;line-height:1.3;">[전문영역 요약 1줄]</h3>
+  <p style="font-size:14px;color:#6b7280;margin:0 0 20px;">[보조 설명 1줄 — 예: 결혼식, 기업행사, 쇼호스팅 등 N개 분야]</p>
+  <ul style="list-style:none;padding:0;margin:0;">
+    <li style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #f3f4f6;">
+      <span style="display:inline-flex;width:36px;height:36px;border-radius:10px;background:#eff6ff;color:#3180F7;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🎤</span>
+      <span style="flex:1;font-size:15px;font-weight:700;color:#111827;">[항목 제목]<br/><span style="font-weight:400;color:#6b7280;font-size:13px;">[짧은 부연]</span></span>
+      <span style="font-size:14px;font-weight:700;color:#111827;text-align:right;white-space:nowrap;">[우측 값 — 예: "13,000+건", "가능", "전국"]</span>
+    </li>
+    <!-- 항목 3~4개 -->
+  </ul>
+</section>
 
-4. 프로모션/옵션 박스:
-   <div style="background:linear-gradient(135deg,#3180F7,#1e5fd9);color:#fff;border-radius:12px;padding:20px;margin:16px 0;">
-     <div style="font-size:12px;opacity:0.9;letter-spacing:0.1em;margin-bottom:6px;">SPECIAL OFFER</div>
-     <h3 style="font-size:18px;font-weight:700;margin:0 0 8px;color:#fff;">프로모션 제목</h3>
-     <p style="font-size:14px;line-height:1.6;margin:0;opacity:0.95;">예: 평일 예약 시 10% 할인, 2시간 이상 예약 시 리허설 무료 제공 등</p>
-   </div>
+3) 제공 서비스 섹션 (토스 "대회 참여" 안내 스타일):
+<section style="padding:32px 0;">
+  <div style="font-size:13px;color:#6b7280;margin-bottom:6px;">포함 서비스</div>
+  <h3 style="font-size:22px;font-weight:700;margin:0 0 4px;color:#111827;line-height:1.3;">기본 진행에 포함돼요</h3>
+  <p style="font-size:14px;color:#6b7280;margin:0 0 20px;">[보조 설명 1줄]</p>
+  <ul style="list-style:none;padding:0;margin:0;">
+    <li style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;font-size:15px;color:#374151;line-height:1.6;">
+      <span style="color:#3180F7;font-weight:700;margin-top:2px;">✓</span>
+      <span>[서비스 항목 — 구체적으로]</span>
+    </li>
+    <!-- 4~6개 항목 -->
+  </ul>
+</section>
 
-5. 만족도/강점 박스 (해당되면):
-   <div style="background:#eff6ff;border-left:4px solid #3180F7;padding:16px;border-radius:4px;margin:16px 0;">
-     <div style="color:#3180F7;font-weight:700;font-size:14px;margin-bottom:4px;">CUSTOMER SATISFACTION</div>
-     <p style="font-size:14px;color:#1f2937;line-height:1.6;margin:0;">신뢰감 있는 마무리 메시지 — 왜 저를 선택해야 하는지</p>
-   </div>
+4) 진행 프로세스 섹션 (토스 "대회 기간" 스타일):
+<section style="padding:32px 0;">
+  <div style="font-size:13px;color:#6b7280;margin-bottom:6px;">진행 프로세스</div>
+  <h3 style="font-size:22px;font-weight:700;margin:0 0 20px;color:#3180F7;line-height:1.3;">문의부터 행사 당일까지</h3>
+  <ol style="list-style:none;padding:0;margin:0;counter-reset:step;">
+    <li style="display:flex;gap:14px;padding:12px 0;counter-increment:step;align-items:flex-start;">
+      <span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:#3180F7;color:#fff;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">1</span>
+      <div style="flex:1;"><p style="font-size:15px;font-weight:700;color:#111827;margin:0 0 2px;">[단계 제목]</p><p style="font-size:13px;color:#6b7280;margin:0;line-height:1.5;">[단계 설명 1줄]</p></div>
+    </li>
+    <!-- 4단계: 상담 → 계약 → 준비 → 진행 -->
+  </ol>
+</section>
+
+5) 유의사항 섹션 (토스 "취소될 수 있어요" 스타일):
+<section style="padding:32px 0;">
+  <h3 style="font-size:22px;font-weight:700;margin:0 0 16px;color:#111827;line-height:1.3;">예약 전 꼭 확인해주세요</h3>
+  <ul style="list-style:none;padding:0;margin:0;">
+    <li style="display:flex;gap:10px;padding:8px 0;font-size:14px;color:#4b5563;line-height:1.6;"><span style="color:#9ca3af;margin-top:8px;font-size:8px;">●</span><span>[유의사항 1 — 예약·취소 규정, 복장 등]</span></li>
+    <!-- 3~4개 항목 -->
+  </ul>
+</section>
 
 [제약]
-- 모든 강조색은 **#3180F7** (파란색) 통일. 빨강/초록 사용 금지.
-- font-weight 최대 700. font-black(900) 금지.
+- **토스 디자인 언어를 엄격히 따를 것**: 큰 bold 헤딩 + 작은 회색 캡션, 여백 넉넉, 평면 레이아웃, 포인트 컬러 #3180F7만.
+- font-weight 400 / 700 두 단계만 사용. font-black(900) 금지.
+- 모든 text 는 좌정렬 (히어로 섹션만 중앙 정렬).
+- gradient 배경 금지 (단색만).
+- 경계선(border-bottom: 1px solid #f3f4f6) 으로 구분, 카드 border-radius 남발 금지.
 - faqs 4개: (1) 가격/예약, (2) 행사 준비, (3) 경력/전문성, (4) 취소/환불.
 - 거짓/과장 금지. 입력에 없는 수상내역/구체 실적 꾸미지 말 것.
-- 이모지는 ✓ ★ 외에는 사용 금지.
+- 이모지는 🎤 🎁 🏆 ✓ 등 아이콘 용도로 최소 사용 (각 최대 1회).
 - 인라인 style 만 사용, 외부 class 금지.`;
 
     // 재시도 + 모델 폴백: 각 모델에 대해 짧은 백오프로 2번 시도, 실패하면 다음 모델
