@@ -307,16 +307,18 @@ function TiltedRow({ images, direction = 'left', speed = 35 }: { images: string[
   );
 }
 
-const HISTORY = [
+const HISTORY_DATA = [
   { year: '2026', events: [
-    '01월 프리티풀 브랜드 공식 론칭',
-    '01월 전문 행사인력 매칭 플랫폼 출시',
-    '02월 전문투자기관으로부터 Seed 투자 유치',
-    '02월 제휴업체 300여 곳과 전략적 파트너십 체결',
-    '03월 벤처기업 인증 획득',
-    '03월 프리티풀 정식 서비스 운영 개시',
+    { ko: '01월 프리티풀 브랜드 공식 론칭', en: 'Jan · Official brand launch',                ja: '1月 Freetiful ブランド公式ローンチ',      zh: '1月 Freetiful 品牌正式发布' },
+    { ko: '01월 전문 행사인력 매칭 플랫폼 출시', en: 'Jan · Event talent matching platform launched', ja: '1月 プロイベント人材マッチングプラットフォーム開始', zh: '1月 专业活动人才匹配平台上线' },
+    { ko: '02월 전문투자기관으로부터 Seed 투자 유치', en: 'Feb · Secured Seed investment from VC', ja: '2月 専門投資機関よりシード投資調達',      zh: '2月 从专业投资机构获得种子轮投资' },
+    { ko: '02월 제휴업체 300여 곳과 전략적 파트너십 체결', en: 'Feb · Strategic partnerships with 300+ affiliates', ja: '2月 提携先 300 社と戦略的パートナーシップ締結', zh: '2月 与 300 余家合作伙伴建立战略合作' },
+    { ko: '03월 벤처기업 인증 획득',          en: 'Mar · Certified as Venture Company',     ja: '3月 ベンチャー企業認証取得',               zh: '3月 获得风险企业认证' },
+    { ko: '03월 프리티풀 정식 서비스 운영 개시', en: 'Mar · Official service operation begins', ja: '3月 Freetiful 正式サービス運営開始',     zh: '3月 Freetiful 正式运营' },
   ]},
-  { year: '2025', events: ['12월 주식회사 커넥트풀 설립'] },
+  { year: '2025', events: [
+    { ko: '12월 주식회사 커넥트풀 설립', en: 'Dec · Connectful Inc. founded', ja: '12月 株式会社 Connectful 設立', zh: '12月 Connectful 株式会社成立' },
+  ]},
 ];
 
 /* ─── Page ─────────────────────────────────────────────────── */
@@ -927,7 +929,12 @@ export default function BizPage() {
           <div className="mt-16">
             <Reveal delay={100}>
               <p className="text-[11px] font-bold tracking-[0.4em] text-gray-300 text-center">PROMOTION VIDEO</p>
-              <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900 text-center">프리티풀을 영상으로 만나보세요</p>
+              <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900 text-center">{t({
+                ko: '프리티풀을 영상으로 만나보세요',
+                en: 'Watch Freetiful in action',
+                ja: 'Freetiful を動画でご覧ください',
+                zh: '通过视频了解 Freetiful',
+              })}</p>
             </Reveal>
 
             <div className="space-y-6">
@@ -939,8 +946,18 @@ export default function BizPage() {
                   </video>
                   <div className="p-4">
                     <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-violet-500 bg-violet-50 rounded-full mb-2">PLATFORM</span>
-                    <h4 className="text-[16px] font-bold text-gray-900">프리티풀 플랫폼 소개</h4>
-                    <p className="mt-1 text-[13px] text-gray-400 leading-relaxed">KBS·SBS·MBC 방송사 출신 검증된 진행자, 전국 1,000여 명과 함께하는 매칭 플랫폼</p>
+                    <h4 className="text-[16px] font-bold text-gray-900">{t({
+                      ko: '프리티풀 플랫폼 소개',
+                      en: 'Freetiful Platform Overview',
+                      ja: 'Freetiful プラットフォーム紹介',
+                      zh: 'Freetiful 平台简介',
+                    })}</h4>
+                    <p className="mt-1 text-[13px] text-gray-400 leading-relaxed">{t({
+                      ko: 'KBS·SBS·MBC 방송사 출신 검증된 진행자, 전국 1,000여 명과 함께하는 매칭 플랫폼',
+                      en: 'A matching platform with 1,000+ verified hosts from KBS·SBS·MBC',
+                      ja: 'KBS・SBS・MBC出身の認証済み司会者 1,000名以上と共に歩むマッチングプラットフォーム',
+                      zh: '汇聚来自 KBS·SBS·MBC 的 1,000 余名认证主持人的匹配平台',
+                    })}</p>
                   </div>
                 </div>
               </Reveal>
@@ -953,8 +970,18 @@ export default function BizPage() {
                   </video>
                   <div className="p-4">
                     <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-[#3180F7] bg-blue-50 rounded-full mb-2">APPLICATION</span>
-                    <h4 className="text-[16px] font-bold text-gray-900">프리티풀 어플리케이션 소개</h4>
-                    <p className="mt-1 text-[13px] text-gray-400 leading-relaxed">검증된 사회자를 직관적으로 비교하고, 실시간 소통으로 간편하게 매칭하세요</p>
+                    <h4 className="text-[16px] font-bold text-gray-900">{t({
+                      ko: '프리티풀 어플리케이션 소개',
+                      en: 'Freetiful App Overview',
+                      ja: 'Freetiful アプリ紹介',
+                      zh: 'Freetiful 应用程序简介',
+                    })}</h4>
+                    <p className="mt-1 text-[13px] text-gray-400 leading-relaxed">{t({
+                      ko: '검증된 사회자를 직관적으로 비교하고, 실시간 소통으로 간편하게 매칭하세요',
+                      en: 'Compare verified hosts intuitively and match instantly with real-time chat',
+                      ja: '認証済み司会者を直感的に比較し、リアルタイムチャットで簡単にマッチング',
+                      zh: '直观比较认证主持人,通过实时聊天轻松匹配',
+                    })}</p>
                   </div>
                 </div>
               </Reveal>
@@ -964,7 +991,12 @@ export default function BizPage() {
           {/* 서비스 소개 스크린 */}
           <Reveal delay={100}>
             <h3 className="mt-24 text-[11px] font-bold tracking-[0.4em] text-gray-300">APP SCREENS</h3>
-            <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900">직관적인 앱으로 간편하게</p>
+            <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900">{t({
+              ko: '직관적인 앱으로 간편하게',
+              en: 'Simple, intuitive app experience',
+              ja: '直感的なアプリで簡単に',
+              zh: '直观应用,简便体验',
+            })}</p>
           </Reveal>
         </div>
         <Reveal delay={200}>
@@ -1029,7 +1061,12 @@ export default function BizPage() {
             </div>
           </div>
           <div className="absolute bottom-8 left-0 right-0 flex justify-center animate-bounce z-30">
-            <span className="text-white/40 text-[11px] font-medium">아래로 스와이프하여 닫기</span>
+            <span className="text-white/40 text-[11px] font-medium">{t({
+              ko: '아래로 스와이프하여 닫기',
+              en: 'Swipe down to close',
+              ja: '下にスワイプして閉じる',
+              zh: '向下滑动关闭',
+            })}</span>
           </div>
         </div>
       )}
@@ -1046,7 +1083,7 @@ export default function BizPage() {
           })}</h2></Reveal>
 
           <div className="mt-14 space-y-6">
-            {HISTORY.map((h, hi) => (
+            {HISTORY_DATA.map((h, hi) => (
               <Reveal key={h.year} delay={hi * 120}>
                 <div className="flex items-start gap-8 border-l-2 border-blue-500 pl-8 py-3 transition-all hover:pl-10">
                   <span className="text-[36px] font-bold text-blue-100 shrink-0 w-[80px]">{h.year}</span>
@@ -1054,7 +1091,7 @@ export default function BizPage() {
                     {h.events.map((event, i) => (
                       <div key={i} className="flex items-center gap-3">
                         <CheckCircle className="h-4 w-4 shrink-0 text-blue-400" />
-                        <span className="text-[14px] text-gray-500">{event}</span>
+                        <span className="text-[14px] text-gray-500">{t(event)}</span>
                       </div>
                     ))}
                   </div>
@@ -1106,7 +1143,7 @@ export default function BizPage() {
                   <button
                     onClick={() => {
                       if (item.file === 'privacy') { setShowPrivacy(true); return; }
-                      if (!item.file) { toast('곧 제공될 예정입니다'); return; }
+                      if (!item.file) { toast(t({ ko: '곧 제공될 예정입니다', en: 'Coming soon', ja: '近日公開予定', zh: '即将上线' })); return; }
                       setPreviewFile(item.file);
                     }}
                     className="flex w-full items-center gap-4 bg-white border border-gray-100 rounded-2xl p-5 text-left transition-all hover:border-gray-200 hover:shadow-sm"
@@ -1127,7 +1164,7 @@ export default function BizPage() {
       <section id="오시는길" className="py-28">
         <div className="mx-auto max-w-[1000px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">LOCATION</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">오시는길</h2></Reveal>
+          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '오시는길', en: 'How to Find Us', ja: 'アクセス', zh: '地理位置' })}</h2></Reveal>
 
           <div className="mt-12 w-full h-[320px] border border-gray-100 rounded-2xl overflow-hidden">
             <BizKakaoMap />
@@ -1135,10 +1172,10 @@ export default function BizPage() {
 
           <div className="mt-8 grid gap-3 md:grid-cols-2">
             {[
-              { icon: <MapPin className="h-5 w-5" />, label: '주소', value: COMPANY_INFO.address, copyable: true },
-              { icon: <Phone className="h-5 w-5" />, label: '대표전화', value: COMPANY_INFO.phone, copyable: true },
-              { icon: <Mail className="h-5 w-5" />, label: '이메일', value: COMPANY_INFO.email, copyable: true },
-              { icon: <Clock className="h-5 w-5" />, label: '업무시간', value: '평일 09:00 - 18:00 (주말/공휴일 휴무)', copyable: false },
+              { icon: <MapPin className="h-5 w-5" />, label: t({ ko: '주소', en: 'Address', ja: '住所', zh: '地址' }), value: COMPANY_INFO.address, copyable: true },
+              { icon: <Phone className="h-5 w-5" />, label: t({ ko: '대표전화', en: 'Phone', ja: '代表電話', zh: '代表电话' }), value: COMPANY_INFO.phone, copyable: true },
+              { icon: <Mail className="h-5 w-5" />, label: t({ ko: '이메일', en: 'Email', ja: 'メール', zh: '邮箱' }), value: COMPANY_INFO.email, copyable: true },
+              { icon: <Clock className="h-5 w-5" />, label: t({ ko: '업무시간', en: 'Business Hours', ja: '営業時間', zh: '营业时间' }), value: t({ ko: '평일 09:00 - 18:00 (주말/공휴일 휴무)', en: 'Weekdays 09:00 - 18:00 (Closed weekends/holidays)', ja: '平日 09:00 - 18:00 (週末/祝日休み)', zh: '工作日 09:00 - 18:00 (周末/节假日休息)' }), copyable: false },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 80}>
                 <CopyableCard icon={item.icon} label={item.label} value={item.value} copyable={item.copyable} />
@@ -1148,10 +1185,10 @@ export default function BizPage() {
 
           <Reveal delay={200}>
             <div className="mt-8 bg-gray-50 rounded-2xl p-6">
-              <p className="text-[11px] font-bold tracking-[0.3em] text-gray-300 mb-4">교통편 안내</p>
+              <p className="text-[11px] font-bold tracking-[0.3em] text-gray-300 mb-4">{t({ ko: '교통편 안내', en: 'GETTING HERE', ja: '交通案内', zh: '交通指南' })}</p>
               <div className="space-y-3 text-[13px] text-gray-500">
-                <p><span className="text-blue-500 font-bold">지하철</span> — 1호선·3호선·5호선 종로3가역 도보 5분</p>
-                <p><span className="text-emerald-500 font-bold">버스</span> — 종로6가 정류장 하차</p>
+                <p><span className="text-blue-500 font-bold">{t({ ko: '지하철', en: 'Subway', ja: '地下鉄', zh: '地铁' })}</span> — {t({ ko: '1호선·3호선·5호선 종로3가역 도보 5분', en: '5-min walk from Jongno 3-ga Station (Lines 1·3·5)', ja: '1号線・3号線・5号線 鍾路3街駅 徒歩5分', zh: '1号线·3号线·5号线 钟路3街站步行5分钟' })}</p>
+                <p><span className="text-emerald-500 font-bold">{t({ ko: '버스', en: 'Bus', ja: 'バス', zh: '公交' })}</span> — {t({ ko: '종로6가 정류장 하차', en: 'Get off at Jongno 6-ga stop', ja: '鍾路6街バス停下車', zh: '钟路6街站下车' })}</p>
               </div>
             </div>
           </Reveal>
@@ -1183,12 +1220,20 @@ export default function BizPage() {
               <Reveal delay={100}>
                 <p className="text-[11px] font-bold tracking-[0.4em] text-blue-400 mb-3">CONTACT US</p>
                 <h2 className="text-[32px] font-bold tracking-tight leading-[1.2] md:text-[40px]">
-                  당신의 특별한 순간,<br />
-                  <span className="text-blue-500">프리티풀</span>과 함께하세요
+                  {t({
+                    ko: <>당신의 특별한 순간,<br /><span className="text-blue-500">프리티풀</span>과 함께하세요</>,
+                    en: <>Your special moments,<br />with <span className="text-blue-500">Freetiful</span></>,
+                    ja: <>あなたの特別な瞬間、<br /><span className="text-blue-500">Freetiful</span> と共に</>,
+                    zh: <>您的特别时刻,<br />与 <span className="text-blue-500">Freetiful</span> 同行</>,
+                  }) as any}
                 </h2>
                 <p className="mt-4 text-[14px] leading-[1.8] text-gray-400">
-                  아나운서·MC 섭외부터 행사기획까지<br />
-                  검증된 전문가가 함께합니다.
+                  {t({
+                    ko: <>아나운서·MC 섭외부터 행사기획까지<br />검증된 전문가가 함께합니다.</>,
+                    en: <>From booking announcers and MCs to full event planning,<br />verified professionals are with you.</>,
+                    ja: <>アナウンサー・MC のブッキングからイベント企画まで、<br />認証済みの専門家がサポートします。</>,
+                    zh: <>从主播、MC 预约到活动策划,<br />认证专业人士全程陪同。</>,
+                  }) as any}
                 </p>
               </Reveal>
 
@@ -1212,7 +1257,7 @@ export default function BizPage() {
                     <span className="absolute -inset-1 rounded-full bg-blue-500/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <span className="relative z-10 flex items-center gap-2">
                       <Send className="h-4 w-4" />
-                      지금 문의하기
+                      {t({ ko: '지금 문의하기', en: 'Contact Now', ja: '今すぐお問合せ', zh: '立即咨询' })}
                     </span>
                   </button>
                 </div>
@@ -1226,37 +1271,37 @@ export default function BizPage() {
       <section id="문의폼" className="py-28 bg-gray-50/60">
         <div id="문의" className="mx-auto max-w-[600px] px-6">
           <Reveal><p className="text-[11px] font-bold tracking-[0.4em] text-blue-500">INQUIRY FORM</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">기업 문의</h2></Reveal>
+          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '기업 문의', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}</h2></Reveal>
 
           <Reveal delay={200}>
             <form onSubmit={handleInquiry} className="mt-10 space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="회사명" value={inquiry.company} onChange={(e) => setInquiry({ ...inquiry, company: e.target.value })} />
-                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="담당자명 *" value={inquiry.name} onChange={(e) => setInquiry({ ...inquiry, name: e.target.value })} required />
+                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '회사명', en: 'Company', ja: '会社名', zh: '公司名称' })} value={inquiry.company} onChange={(e) => setInquiry({ ...inquiry, company: e.target.value })} />
+                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '담당자명 *', en: 'Contact Name *', ja: '担当者名 *', zh: '联系人 *' })} value={inquiry.name} onChange={(e) => setInquiry({ ...inquiry, name: e.target.value })} required />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="연락처 *" value={inquiry.phone} onChange={(e) => setInquiry({ ...inquiry, phone: e.target.value })} required />
-                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="이메일" value={inquiry.email} onChange={(e) => setInquiry({ ...inquiry, email: e.target.value })} />
+                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '연락처 *', en: 'Phone *', ja: '連絡先 *', zh: '联系电话 *' })} value={inquiry.phone} onChange={(e) => setInquiry({ ...inquiry, phone: e.target.value })} required />
+                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '이메일', en: 'Email', ja: 'メール', zh: '邮箱' })} value={inquiry.email} onChange={(e) => setInquiry({ ...inquiry, email: e.target.value })} />
               </div>
               <select
                 value={inquiry.type}
                 onChange={(e) => setInquiry({ ...inquiry, type: e.target.value })}
                 className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-50"
               >
-                <option value="">문의유형 선택</option>
-                <option value="wedding">결혼식 사회자 섭외</option>
-                <option value="enterprise">기업행사 / 공식행사</option>
-                <option value="festival">축제 / 체육대회</option>
-                <option value="broadcast">방송 / 라이브커머스</option>
-                <option value="partnership">제휴 / 파트너십</option>
-                <option value="other">기타</option>
+                <option value="">{t({ ko: '문의유형 선택', en: 'Select inquiry type', ja: 'お問合せ種別を選択', zh: '选择咨询类型' })}</option>
+                <option value="wedding">{t({ ko: '결혼식 사회자 섭외', en: 'Wedding MC Booking', ja: '結婚式司会者の依頼', zh: '婚礼主持人预约' })}</option>
+                <option value="enterprise">{t({ ko: '기업행사 / 공식행사', en: 'Corporate / Official Event', ja: '企業イベント / 公式行事', zh: '企业活动 / 官方活动' })}</option>
+                <option value="festival">{t({ ko: '축제 / 체육대회', en: 'Festival / Sports Event', ja: 'フェスティバル / 体育大会', zh: '节庆 / 体育赛事' })}</option>
+                <option value="broadcast">{t({ ko: '방송 / 라이브커머스', en: 'Broadcast / Live Commerce', ja: '放送 / ライブコマース', zh: '广播 / 直播电商' })}</option>
+                <option value="partnership">{t({ ko: '제휴 / 파트너십', en: 'Partnership', ja: '提携 / パートナーシップ', zh: '合作 / 合作伙伴' })}</option>
+                <option value="other">{t({ ko: '기타', en: 'Other', ja: 'その他', zh: '其他' })}</option>
               </select>
-              <textarea className="h-32 w-full resize-none border border-gray-200 rounded-xl bg-white px-4 py-3 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder="문의 내용 *" value={inquiry.message} onChange={(e) => setInquiry({ ...inquiry, message: e.target.value })} required />
+              <textarea className="h-32 w-full resize-none border border-gray-200 rounded-xl bg-white px-4 py-3 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '문의 내용 *', en: 'Message *', ja: 'お問合せ内容 *', zh: '咨询内容 *' })} value={inquiry.message} onChange={(e) => setInquiry({ ...inquiry, message: e.target.value })} required />
               {/* 파일 첨부 */}
               <div className="flex items-center gap-3">
                 <label className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 transition-colors text-[14px] text-gray-500">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-                  파일 첨부
+                  {t({ ko: '파일 첨부', en: 'Attach File', ja: 'ファイル添付', zh: '附件' })}
                   <input type="file" className="hidden" onChange={(e) => setInquiryFile(e.target.files?.[0] || null)} />
                 </label>
                 {inquiryFile && (
@@ -1276,10 +1321,15 @@ export default function BizPage() {
               >
                 <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 <span className="relative z-10 flex items-center gap-2">
-                  <Send className="h-4 w-4" /> {sending ? '전송 중...' : '문의하기'}
+                  <Send className="h-4 w-4" /> {sending ? t({ ko: '전송 중...', en: 'Sending...', ja: '送信中...', zh: '发送中...' }) : t({ ko: '문의하기', en: 'Submit', ja: 'お問合せ', zh: '提交' })}
                 </span>
               </button>
-              <p className="text-[11px] text-gray-300 text-center">문의 접수 후 영업일 기준 1~2일 내 담당자가 연락드립니다</p>
+              <p className="text-[11px] text-gray-300 text-center">{t({
+                ko: '문의 접수 후 영업일 기준 1~2일 내 담당자가 연락드립니다',
+                en: 'We will get back to you within 1-2 business days',
+                ja: 'お問合せ後、営業日 1~2 日以内に担当者よりご連絡いたします',
+                zh: '收到咨询后,我们将在 1-2 个工作日内回复您',
+              })}</p>
             </form>
           </Reveal>
         </div>
@@ -1291,17 +1341,17 @@ export default function BizPage() {
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[16px] font-bold text-gray-900">Freetiful <span className="text-gray-300 font-normal text-[12px]">for Business</span></p>
-              <p className="mt-1 text-[11px] text-gray-300">{COMPANY_INFO.name} | 대표 {COMPANY_INFO.ceo} | T {COMPANY_INFO.phone} | E {COMPANY_INFO.email}</p>
+              <p className="mt-1 text-[11px] text-gray-300">{COMPANY_INFO.name} | {t({ ko: '대표', en: 'CEO', ja: '代表', zh: '代表' })} {COMPANY_INFO.ceo} | T {COMPANY_INFO.phone} | E {COMPANY_INFO.email}</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful Inc. All rights reserved.</p>
             </div>
             <div className="flex flex-wrap gap-4 text-[12px] text-gray-300">
-              <a href={COMPANY_INFO.blog} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">블로그</a>
-              <a href={`https://instagram.com/${COMPANY_INFO.instagram}`} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">인스타그램</a>
-              <a href={COMPANY_INFO.youtube} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">유튜브</a>
-              <a href={COMPANY_INFO.tiktok} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">틱톡</a>
-              <button onClick={() => setShowPrivacy(true)} className="transition-colors hover:text-gray-500">개인정보처리방침</button>
-              <Link href="/careers" className="transition-colors hover:text-gray-500">인재채용</Link>
-              <Link href="/main" className="transition-colors hover:text-gray-500">홈으로</Link>
+              <a href={COMPANY_INFO.blog} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '블로그', en: 'Blog', ja: 'ブログ', zh: '博客' })}</a>
+              <a href={`https://instagram.com/${COMPANY_INFO.instagram}`} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '인스타그램', en: 'Instagram', ja: 'Instagram', zh: 'Instagram' })}</a>
+              <a href={COMPANY_INFO.youtube} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '유튜브', en: 'YouTube', ja: 'YouTube', zh: 'YouTube' })}</a>
+              <a href={COMPANY_INFO.tiktok} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '틱톡', en: 'TikTok', ja: 'TikTok', zh: 'TikTok' })}</a>
+              <button onClick={() => setShowPrivacy(true)} className="transition-colors hover:text-gray-500">{t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' })}</button>
+              <Link href="/careers" className="transition-colors hover:text-gray-500">{t({ ko: '인재채용', en: 'Careers', ja: '採用情報', zh: '人才招聘' })}</Link>
+              <Link href="/main" className="transition-colors hover:text-gray-500">{t({ ko: '홈으로', en: 'Home', ja: 'ホーム', zh: '返回首页' })}</Link>
             </div>
           </div>
         </div>
@@ -1352,10 +1402,10 @@ export default function BizPage() {
               {/* 네비 아이템들 */}
               <div className="flex-1 flex items-center justify-around overflow-hidden">
                 {[
-                  { id: '회사소개', iconSrc: '/images/company-intro.svg', label: '회사소개' },
-                  { id: '핵심서비스', iconSrc: '/images/service.svg', label: '서비스' },
-                  { id: '자료실', iconSrc: '/images/resources.svg', label: '자료실' },
-                  { id: '문의', iconSrc: '/images/inquiry.svg', label: '문의' },
+                  { id: '회사소개', iconSrc: '/images/company-intro.svg', label: t({ ko: '회사소개', en: 'About', ja: '会社紹介', zh: '公司简介' }) },
+                  { id: '핵심서비스', iconSrc: '/images/service.svg', label: t({ ko: '서비스', en: 'Services', ja: 'サービス', zh: '服务' }) },
+                  { id: '자료실', iconSrc: '/images/resources.svg', label: t({ ko: '자료실', en: 'Resources', ja: '資料', zh: '资料' }) },
+                  { id: '문의', iconSrc: '/images/inquiry.svg', label: t({ ko: '문의', en: 'Contact', ja: 'お問合せ', zh: '咨询' }) },
                 ].map((item, idx) => (
                   <button
                     key={item.id}
