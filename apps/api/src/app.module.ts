@@ -15,6 +15,7 @@ import { QuotationModule } from './quotation/quotation.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReviewModule } from './review/review.module';
 import { NotificationModule } from './notification/notification.module';
+import { PushModule } from './push/push.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { AdminModule } from './admin/admin.module';
 import { PuddingModule } from './pudding/pudding.module';
@@ -41,6 +42,7 @@ import { AiModule } from './ai/ai.module';
     PaymentModule,
     ReviewModule,
     NotificationModule,
+    PushModule,
     FavoriteModule,
     AdminModule,
     PuddingModule,
