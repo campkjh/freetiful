@@ -73,18 +73,18 @@ function HistorySidePeek({ images }: { images: string[] }) {
   const left = images.slice(0, Math.ceil(images.length / 2));
   const right = images.slice(Math.ceil(images.length / 2));
 
-  // 좌측 이미지 설정 (top% / rotate / size)
+  // 좌측 이미지 설정 (top% / rotate / size) — 다이나믹하게 회전/크기 편차 ↑
   const leftCfg = [
-    { top: '2%',  size: 180, rotate: -8, peek: 70 },
-    { top: '28%', size: 200, rotate: 5,  peek: 80 },
-    { top: '58%', size: 170, rotate: -6, peek: 65 },
-    { top: '82%', size: 190, rotate: 7,  peek: 75 },
+    { top: '0%',  size: 200, rotate: -22, peek: 85 },
+    { top: '22%', size: 160, rotate: 14,  peek: 62 },
+    { top: '48%', size: 220, rotate: -18, peek: 95 },
+    { top: '78%', size: 170, rotate: 25,  peek: 70 },
   ];
   const rightCfg = [
-    { top: '8%',  size: 190, rotate: 6,  peek: 75 },
-    { top: '34%', size: 180, rotate: -5, peek: 68 },
-    { top: '62%', size: 200, rotate: 8,  peek: 82 },
-    { top: '88%', size: 170, rotate: -7, peek: 66 },
+    { top: '5%',  size: 170, rotate: 18,  peek: 68 },
+    { top: '28%', size: 210, rotate: -15, peek: 90 },
+    { top: '56%', size: 160, rotate: 22,  peek: 60 },
+    { top: '82%', size: 200, rotate: -20, peek: 82 },
   ];
 
   const renderPhoto = (src: string, cfg: typeof leftCfg[number], idx: number, side: 'left' | 'right') => {
@@ -1188,7 +1188,7 @@ export default function BizPage() {
         {/* 좌/우 빼꼼 사진 — 섹션 전체 기준 */}
         <HistorySidePeek images={PROMO_IMAGES.slice(0, 8)} />
 
-        <div className="mx-auto max-w-[640px] px-6 relative z-10">
+        <div className="mx-auto max-w-[820px] px-6 relative z-10">
           <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">MILESTONES</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold tracking-tight">{t({
             ko: '성장의 발자취',
