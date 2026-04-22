@@ -55,6 +55,83 @@ function CopyableCard({ icon, label, value, copyable }: { icon: React.ReactNode;
   );
 }
 
+/* ─── PromoPostitScatter — 포스트잇 스캐터 그리드 ─────────── */
+function PromoPostitScatter({ images }: { images: string[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ob = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setVisible(true); },
+      { threshold: 0.1 },
+    );
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, []);
+
+  // 사전 계산: 각 카드의 회전/오프셋/방향 (결정적 — 렌더마다 동일)
+  const configs = images.map((src, i) => {
+    const fromLeft = i % 2 === 0;
+    const rotations = [-7, 5, -4, 6, -8, 4, -5, 7];
+    const yOffsets = [0, 12, -8, 16, -4, 10, -12, 6];
+    return {
+      src,
+      fromLeft,
+      rotate: rotations[i % rotations.length],
+      translateY: yOffsets[i % yOffsets.length],
+      delay: i * 90,
+    };
+  });
+
+  return (
+    <div ref={ref} className="mt-20">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
+        {configs.map((c, i) => (
+          <div
+            key={c.src}
+            className="group aspect-square cursor-pointer"
+            style={{
+              perspective: '800px',
+              transform: `translateY(${c.translateY}px)`,
+            }}
+          >
+            <div
+              className="relative w-full h-full transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:!rotate-0 hover:!translate-x-0 hover:scale-[1.05] hover:z-10 group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)]"
+              style={{
+                opacity: visible ? 1 : 0,
+                transform: visible
+                  ? `rotate(${c.rotate}deg)`
+                  : `translateX(${c.fromLeft ? '-120vw' : '120vw'}) rotate(${c.fromLeft ? -25 : 25}deg)`,
+                transition: `opacity 0.8s ease-out ${c.delay}ms, transform 1.1s cubic-bezier(0.22, 1, 0.36, 1) ${c.delay}ms, box-shadow 0.35s ease`,
+                boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+                background: '#fff',
+                padding: 8,
+                borderRadius: 4,
+              }}
+            >
+              <img
+                src={c.src}
+                alt="프리티풀 행사"
+                className="w-full h-full object-cover rounded-sm pointer-events-none select-none"
+                draggable={false}
+              />
+              {/* 상단 테이프 효과 */}
+              <span
+                className="absolute top-[-8px] left-1/2 -translate-x-1/2 w-12 h-4 rounded-sm opacity-60"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(49,128,247,0.35), rgba(49,128,247,0.15))',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Scroll-Reveal ───────────────────────────────────────── */
 function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -820,19 +897,9 @@ export default function BizPage() {
             ))}
           </div>
 
-          {/* 홍보이미지 캐러셀 */}
-          <Reveal delay={100}>
-            <div className="mt-20 -mx-6 overflow-hidden">
-              <div className="flex gap-4" style={{ width: 'max-content', animation: 'promoScroll 60s linear infinite' }}>
-                {[...PROMO_IMAGES, ...PROMO_IMAGES, ...PROMO_IMAGES].map((src, i) => (
-                  <div key={i} className="shrink-0 w-[280px] h-[200px] md:w-[360px] md:h-[240px] rounded-2xl overflow-hidden shadow-lg">
-                    <img src={src} alt="프리티풀 행사" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-                  </div>
-                ))}
-              </div>
-              <style>{`@keyframes promoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }`}</style>
-            </div>
-          </Reveal>
+          {/* 홍보이미지 — 포스트잇 스타일 스캐터 그리드 */}
+          <PromoPostitScatter images={PROMO_IMAGES.slice(0, 8)} />
+
 
           {/* 프리티풀 전문가들과 함께한 기업 */}
           <Reveal delay={100}>
