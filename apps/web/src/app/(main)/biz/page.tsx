@@ -55,8 +55,8 @@ function CopyableCard({ icon, label, value, copyable }: { icon: React.ReactNode;
   );
 }
 
-/* ─── PromoPostitScatter — 포스트잇 스캐터 그리드 ─────────── */
-function PromoPostitScatter({ images }: { images: string[] }) {
+/* ─── HistorySidePeek — 연혁 좌/우 빼꼼 사진 ───────────────── */
+function HistorySidePeek({ images }: { images: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -70,63 +70,73 @@ function PromoPostitScatter({ images }: { images: string[] }) {
     return () => ob.disconnect();
   }, []);
 
-  // 사전 계산: 각 카드의 회전/오프셋/방향 (결정적 — 렌더마다 동일)
-  const configs = images.map((src, i) => {
-    const fromLeft = i % 2 === 0;
-    const rotations = [-7, 5, -4, 6, -8, 4, -5, 7];
-    const yOffsets = [0, 12, -8, 16, -4, 10, -12, 6];
-    return {
-      src,
-      fromLeft,
-      rotate: rotations[i % rotations.length],
-      translateY: yOffsets[i % yOffsets.length],
-      delay: i * 90,
-    };
-  });
+  const left = images.slice(0, Math.ceil(images.length / 2));
+  const right = images.slice(Math.ceil(images.length / 2));
+
+  // 좌측 이미지 설정 (top% / rotate / size)
+  const leftCfg = [
+    { top: '2%',  size: 180, rotate: -8, peek: 70 },
+    { top: '28%', size: 200, rotate: 5,  peek: 80 },
+    { top: '58%', size: 170, rotate: -6, peek: 65 },
+    { top: '82%', size: 190, rotate: 7,  peek: 75 },
+  ];
+  const rightCfg = [
+    { top: '8%',  size: 190, rotate: 6,  peek: 75 },
+    { top: '34%', size: 180, rotate: -5, peek: 68 },
+    { top: '62%', size: 200, rotate: 8,  peek: 82 },
+    { top: '88%', size: 170, rotate: -7, peek: 66 },
+  ];
+
+  const renderPhoto = (src: string, cfg: typeof leftCfg[number], idx: number, side: 'left' | 'right') => {
+    const offScreenX = side === 'left' ? '-120vw' : '120vw';
+    const settledX = side === 'left'
+      ? `calc(-100% + ${cfg.peek}px)`   // 좌측: 본인 너비의 (100%-peek)px 만큼 왼쪽으로 밀려서 우측만 peek 만큼 보임
+      : `calc(100% - ${cfg.peek}px)`;   // 우측: 반대
+    const delay = idx * 120 + (side === 'right' ? 60 : 0);
+    return (
+      <div
+        key={src}
+        className="absolute group"
+        style={{
+          top: cfg.top,
+          [side === 'left' ? 'left' : 'right']: 0,
+          width: cfg.size,
+          height: cfg.size,
+        }}
+      >
+        <div
+          className="w-full h-full overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:!rotate-0 hover:scale-[1.08] hover:z-20"
+          style={{
+            opacity: visible ? 1 : 0,
+            transform: visible
+              ? `translateX(${settledX}) rotate(${cfg.rotate}deg)`
+              : `translateX(${offScreenX}) rotate(${side === 'left' ? -20 : 20}deg)`,
+            transition: `opacity 0.7s ease-out ${delay}ms, transform 1.1s cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms, box-shadow 0.4s ease`,
+            borderRadius: 24,
+            boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
+            transformOrigin: side === 'left' ? 'right center' : 'left center',
+          }}
+        >
+          <img
+            src={src}
+            alt=""
+            className="w-full h-full object-cover pointer-events-none select-none"
+            draggable={false}
+          />
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div ref={ref} className="mt-20">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
-        {configs.map((c, i) => (
-          <div
-            key={c.src}
-            className="group aspect-square cursor-pointer"
-            style={{
-              perspective: '800px',
-              transform: `translateY(${c.translateY}px)`,
-            }}
-          >
-            <div
-              className="relative w-full h-full transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:!rotate-0 hover:!translate-x-0 hover:scale-[1.05] hover:z-10 group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)]"
-              style={{
-                opacity: visible ? 1 : 0,
-                transform: visible
-                  ? `rotate(${c.rotate}deg)`
-                  : `translateX(${c.fromLeft ? '-120vw' : '120vw'}) rotate(${c.fromLeft ? -25 : 25}deg)`,
-                transition: `opacity 0.8s ease-out ${c.delay}ms, transform 1.1s cubic-bezier(0.22, 1, 0.36, 1) ${c.delay}ms, box-shadow 0.35s ease`,
-                boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
-                background: '#fff',
-                padding: 8,
-                borderRadius: 4,
-              }}
-            >
-              <img
-                src={c.src}
-                alt="프리티풀 행사"
-                className="w-full h-full object-cover rounded-sm pointer-events-none select-none"
-                draggable={false}
-              />
-              {/* 상단 테이프 효과 */}
-              <span
-                className="absolute top-[-8px] left-1/2 -translate-x-1/2 w-12 h-4 rounded-sm opacity-60"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(49,128,247,0.35), rgba(49,128,247,0.15))',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-                }}
-              />
-            </div>
-          </div>
-        ))}
+    <div ref={ref} className="hidden md:block pointer-events-auto">
+      {/* 좌측 컬럼 */}
+      <div className="absolute left-0 top-0 bottom-0 w-0">
+        {left.map((src, i) => renderPhoto(src, leftCfg[i % leftCfg.length], i, 'left'))}
+      </div>
+      {/* 우측 컬럼 */}
+      <div className="absolute right-0 top-0 bottom-0 w-0">
+        {right.map((src, i) => renderPhoto(src, rightCfg[i % rightCfg.length], i, 'right'))}
       </div>
     </div>
   );
@@ -1174,8 +1184,11 @@ export default function BizPage() {
       )}
 
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
-      <section id="연혁" className="py-28">
-        <div className="mx-auto max-w-[1000px] px-6">
+      <section id="연혁" className="py-28 relative overflow-hidden">
+        {/* 좌/우 빼꼼 사진 — 섹션 전체 기준 */}
+        <HistorySidePeek images={PROMO_IMAGES.slice(0, 8)} />
+
+        <div className="mx-auto max-w-[640px] px-6 relative z-10">
           <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">MILESTONES</p></Reveal>
           <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold tracking-tight">{t({
             ko: '성장의 발자취',
@@ -1183,9 +1196,6 @@ export default function BizPage() {
             ja: '成長の足跡',
             zh: '成长足迹',
           })}</h2></Reveal>
-
-          {/* 포스트잇 스캐터 그리드 — 좌/우에서 촤락 날아오는 인터렉션 */}
-          <PromoPostitScatter images={PROMO_IMAGES.slice(0, 8)} />
 
           {/* Minimal timeline — no cards */}
           <div className="mt-14 space-y-16">
