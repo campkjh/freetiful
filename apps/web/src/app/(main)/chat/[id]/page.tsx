@@ -125,6 +125,7 @@ export default function ChatRoomPage() {
   })();
   const initialPartner: ChatPartner | null = initialPreWarmed?.room ? {
     id: initialPreWarmed.room.otherUser.id,
+    proProfileId: (initialPreWarmed.room as any).proProfileId,
     name: initialPreWarmed.room.otherUser.name,
     profileImageUrl: initialPreWarmed.room.otherUser.profileImageUrl || '/images/default-profile.svg',
     isActive: initialPreWarmed.room.otherUser.isActive ?? false,
@@ -176,6 +177,7 @@ export default function ChatRoomPage() {
           if (pre.room) {
             setChatPartner({
               id: pre.room.otherUser.id,
+              proProfileId: proId,                  // pending-{proId} 의 proId 가 곧 pro profile ID
               name: pre.room.otherUser.name,
               profileImageUrl: pre.room.otherUser.profileImageUrl || '/images/default-profile.svg',
               isActive: pre.room.otherUser.isActive ?? false,
@@ -195,6 +197,7 @@ export default function ChatRoomPage() {
         if (storeRoom) {
           setChatPartner({
             id: storeRoom.otherUser.id,
+            proProfileId: (storeRoom as any).proProfileId,
             name: storeRoom.otherUser.name,
             profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-profile.svg',
             isActive: (storeRoom.otherUser as any).isActive ?? true,
@@ -207,6 +210,7 @@ export default function ChatRoomPage() {
         const room = res.data as ChatRoomItem & { iAmPro?: boolean; proProfileId?: string };
         setChatPartner({
           id: room.otherUser.id,
+          proProfileId: room.proProfileId,
           name: room.otherUser.name,
           profileImageUrl: room.otherUser.profileImageUrl || '/images/default-profile.svg',
           isActive: room.otherUser.isActive ?? false,

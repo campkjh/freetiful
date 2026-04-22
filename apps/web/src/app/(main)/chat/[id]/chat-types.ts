@@ -53,7 +53,8 @@ export interface Message {
 }
 
 export interface ChatPartner {
-  id: string;
+  id: string;                // otherUser.id — 유저 ID
+  proProfileId?: string;     // 룸에 연결된 프로 프로필 ID — 결제/프로필 이동 시 사용
   name: string;
   profileImageUrl: string;
   isActive: boolean;

@@ -608,7 +608,8 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    const proId = chatPartner?.id;
+                    // 결제 페이지는 pro profile ID 를 요구 — chatPartner.id (user ID) 가 아니라 proProfileId 사용
+                    const proId = chatPartner?.proProfileId || chatPartner?.id;
                     const amount = sys.amount || 0;
                     const plan = sys.plan || 'premium';
                     const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
