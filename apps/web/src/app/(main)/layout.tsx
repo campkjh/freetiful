@@ -322,6 +322,28 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     const origin = typeof window !== 'undefined' ? window.location.origin : '';
                     const KAKAO_KEY = 'dca1b472188890116c81a55eff590885';
                     const NAVER_KEY = 'R4WM7ZyC8hHuE_O7qLdy';
+
+                    // iOS/Android 네이티브 앱이면 네이티브 SDK로 라우팅
+                    const w = typeof window !== 'undefined' ? window : undefined;
+                    const ios = w?.webkit?.messageHandlers;
+                    const and = (w as unknown as { Android?: Record<string, () => void> })?.Android;
+                    if (provider === 'kakao') {
+                      if (ios?.kakaoLogin) { ios.kakaoLogin.postMessage({}); return; }
+                      if (and?.kakaoLogin) { and.kakaoLogin(); return; }
+                    } else if (provider === 'naver') {
+                      if (ios?.naverLogin) { ios.naverLogin.postMessage({}); return; }
+                      if (and?.naverLogin) { and.naverLogin(); return; }
+                    } else if (provider === 'google') {
+                      if (ios?.googleLogin) { ios.googleLogin.postMessage({}); return; }
+                      if (and?.googleLogin) { and.googleLogin(); return; }
+                    } else if (provider === 'apple') {
+                      if (ios?.appleLogin) { ios.appleLogin.postMessage({}); return; }
+                      // Android: Apple 네이티브 없음 → /login 웹 로그인 페이지로 이동
+                      router.push('/login');
+                      return;
+                    }
+
+                    // 브라우저 fallback — 웹 OAuth URL
                     if (provider === 'kakao') {
                       window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/kakao/callback')}&response_type=code`;
                     } else if (provider === 'naver') {

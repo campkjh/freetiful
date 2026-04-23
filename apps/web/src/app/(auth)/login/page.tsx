@@ -19,11 +19,13 @@ declare global {
         googleLogin?: { postMessage: (msg: object) => void };
       };
     };
-    FreetifulAndroid?: {
+    Android?: {
       kakaoLogin?: () => void;
       naverLogin?: () => void;
       appleLogin?: () => void;
       googleLogin?: () => void;
+      oneSignalLogin?: (userId: string) => void;
+      oneSignalLogout?: () => void;
     };
   }
 }
@@ -76,16 +78,35 @@ export default function LoginPage() {
 
     // iOS WKWebView / Android WebView: bridge to native SDK for app-to-app auto login
     const iosBridge = typeof window !== 'undefined' ? window.webkit?.messageHandlers : undefined;
-    const androidBridge = typeof window !== 'undefined' ? window.FreetifulAndroid : undefined;
-    if (provider === 'kakao' && iosBridge?.kakaoLogin) {
-      iosBridge.kakaoLogin.postMessage({});
-      return;
-    }
-    if (provider === 'kakao' && androidBridge?.kakaoLogin) {
-      androidBridge.kakaoLogin();
-      return;
-    }
+    const androidBridge = typeof window !== 'undefined' ? window.Android : undefined;
 
+    // 각 제공자별 네이티브 브릿지 우선 호출
+    const providerBridgeMap: Record<string, () => boolean> = {
+      kakao: () => {
+        if (iosBridge?.kakaoLogin) { iosBridge.kakaoLogin.postMessage({}); return true; }
+        if (androidBridge?.kakaoLogin) { androidBridge.kakaoLogin(); return true; }
+        return false;
+      },
+      google: () => {
+        if (iosBridge?.googleLogin) { iosBridge.googleLogin.postMessage({}); return true; }
+        if (androidBridge?.googleLogin) { androidBridge.googleLogin(); return true; }
+        return false;
+      },
+      naver: () => {
+        if (iosBridge?.naverLogin) { iosBridge.naverLogin.postMessage({}); return true; }
+        if (androidBridge?.naverLogin) { androidBridge.naverLogin(); return true; }
+        return false;
+      },
+      apple: () => {
+        // iOS: 네이티브 Apple 시트
+        if (iosBridge?.appleLogin) { iosBridge.appleLogin.postMessage({}); return true; }
+        // Android: Apple 네이티브 SDK 없음 — 웹 OAuth로 fallback (handled below)
+        return false;
+      },
+    };
+    if (providerBridgeMap[provider]?.()) return;
+
+    // 웹 OAuth fallback
     if (provider === 'kakao') {
       window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
     } else if (provider === 'naver') {
