@@ -61,7 +61,7 @@ class ViewController: UIViewController,
         contentController.addUserScript(userScript)
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -154,6 +154,12 @@ class ViewController: UIViewController,
         case "googleLogin": startGoogleLogin()
         case "appleLogin":  startAppleLogin()
         case "socialLogout": socialLogout()
+        case "oneSignalLogin":
+            // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
+            if let userId = message.body as? String, !userId.isEmpty {
+                print("📌 OneSignal.login(\(userId))")
+                DispatchQueue.main.async { OneSignal.login(userId) }
+            }
         default: break
         }
     }

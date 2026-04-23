@@ -7,6 +7,7 @@ import {
   initIOSPushBridge,
   registerPushSubscription,
   flushOneSignalPlayerId,
+  notifyIOSLogin,
 } from '@/lib/utils/push';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -24,7 +25,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     initIOSPushBridge();
-    if (useAuthStore.getState().accessToken) {
+    const state = useAuthStore.getState();
+    if (state.accessToken) {
+      notifyIOSLogin(state.user?.id);
       void registerPushSubscription();
       void flushOneSignalPlayerId();
     }

@@ -41,6 +41,42 @@ export async function registerPushSubscription(): Promise<PushSubscription | nul
   }
 }
 
+function getIOSHandler(name: string) {
+  if (typeof window === 'undefined') return null;
+  const mh = (window as unknown as {
+    webkit?: { messageHandlers?: Record<string, { postMessage: (body: unknown) => void }> };
+  }).webkit?.messageHandlers;
+  return mh?.[name] ?? null;
+}
+
+/**
+ * Notify the iOS WebView that a user is authenticated, so the native app can
+ * call `OneSignal.login(userId)` and set the external_id alias.
+ * Required because auto-login / webview-based login never triggers the native
+ * `callAPI()` flow in ViewController.swift, leaving OneSignal unmapped.
+ * No-op on non-iOS or when the handler isn't registered (older builds).
+ */
+export function notifyIOSLogin(userId: string | undefined | null) {
+  if (!userId) return;
+  const handler = getIOSHandler('oneSignalLogin');
+  if (!handler) return;
+  try {
+    handler.postMessage(userId);
+  } catch {}
+}
+
+/**
+ * Notify the iOS WebView that the user has logged out, so the native app can
+ * call `OneSignal.logout()` to clear the external_id alias on this device.
+ */
+export function notifyIOSLogout() {
+  const handler = getIOSHandler('socialLogout');
+  if (!handler) return;
+  try {
+    handler.postMessage('');
+  } catch {}
+}
+
 /**
  * Install the iOS WebView → web bridge for OneSignal Player ID.
  * The native app calls `window.bubble_fn_savePushId(playerId)` once permission
