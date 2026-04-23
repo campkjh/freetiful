@@ -24,7 +24,7 @@ export default function FavoritesPage() {
   const cached = typeof window !== 'undefined' ? getCachedFavoritesList() : null;
   const cachedPros: FavProItem[] = cached?.items?.length > 0
     ? cached.items.map((f: any) => {
-        const cat = f.proProfile?.categories?.[0]?.category?.name || '전문가';
+        const cat = f.proProfile?.categories?.[0]?.category?.name || '사회자';
         const name = f.proProfile?.user?.name || '';
         return {
           id: f.proProfile?.id || f.proProfileId,
@@ -56,7 +56,7 @@ export default function FavoritesPage() {
       .then((res: any) => {
         if (res?.items) {
           setFavPros(res.items.map((f: any) => {
-            const cat = f.proProfile?.categories?.[0]?.category?.name || '전문가';
+            const cat = f.proProfile?.categories?.[0]?.category?.name || '사회자';
             const name = f.proProfile?.user?.name || '';
             return {
               id: f.proProfile?.id || f.proProfileId,
@@ -108,7 +108,7 @@ export default function FavoritesPage() {
           .map((v) => {
             const p = byId.get(v.id);
             if (!p) return null;
-            const cat = p.categories?.[0] || '전문가';
+            const cat = p.categories?.[0] || '사회자';
             return {
               id: p.id,
               name: p.name,

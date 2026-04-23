@@ -1253,6 +1253,11 @@ export default function ProfilePage() {
                       .filter(([q, a]) => q && a)
                       .map(([question, answer]) => ({ question, answer }));
 
+                    let registeredRegions: string[] | undefined = undefined;
+                    try {
+                      const stored = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
+                      if (Array.isArray(stored) && stored.length > 0) registeredRegions = stored;
+                    } catch {}
                     await prosApi.submitRegistration({
                       name: localStorage.getItem('proRegister_name') || undefined,
                       phone: localStorage.getItem('proRegister_phone') || undefined,
@@ -1269,6 +1274,8 @@ export default function ProfilePage() {
                       services: services.length > 0 ? services : undefined,
                       faqs: faqs.length > 0 ? faqs : undefined,
                       languages: selectedLanguages.length > 0 ? selectedLanguages : undefined,
+                      category: localStorage.getItem('proRegister_category') || undefined,
+                      regions: registeredRegions,
                     });
                     submitSucceeded = true;
                   } catch (e: any) {

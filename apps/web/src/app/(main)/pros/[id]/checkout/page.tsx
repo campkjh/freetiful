@@ -69,8 +69,9 @@ export default function CheckoutPage() {
     return () => { alive = false; };
   }, [id]);
   const proInfo = {
-    name: pro?.name || fallbackInfo.name,
-    image: pro?.images?.[0] || pro?.profileImageUrl || fallbackInfo.image,
+    name: pro?.user?.name || pro?.name || fallbackInfo.name,
+    image: pro?.images?.[0]?.imageUrl || pro?.user?.profileImageUrl || fallbackInfo.image,
+    category: (pro?.categoryNames && pro.categoryNames[0]) || '사회자',
   };
 
   const planName = searchParams.get('plan') || 'Premium 패키지';
@@ -248,7 +249,7 @@ export default function CheckoutPage() {
               <img src={proInfo.image} alt={proInfo.name} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-bold text-gray-900">사회자 {proInfo.name}</p>
+              <p className="text-[14px] font-bold text-gray-900">{proInfo.category} {proInfo.name}</p>
               <p className="text-[12px] text-gray-500 mt-0.5">{planName}</p>
               <p className="text-[15px] font-bold text-gray-900 mt-1">{price.toLocaleString()}원 <span className="text-[12px] font-normal text-gray-400 ml-1">1개</span></p>
             </div>

@@ -73,6 +73,8 @@ export class ProController {
       services?: { title: string; description?: string; basePrice?: number }[];
       faqs?: { question: string; answer: string }[];
       languages?: string[];
+      category?: string;
+      regions?: string[];
     },
   ) {
     return this.proService.submitRegistration(req.user.id, body);

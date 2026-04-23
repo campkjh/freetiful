@@ -422,6 +422,10 @@ export class ProService implements OnModuleInit {
       services?: { title: string; description?: string; basePrice?: number }[];
       faqs?: { question: string; answer: string }[];
       languages?: string[];
+      /** 전문가 타입 (사회자 / 쇼호스트 / 축가·연주) */
+      category?: string;
+      /** 활동 지역 배열 */
+      regions?: string[];
     },
   ) {
     // 전화번호만 업데이트 가능. 이름은 User.name (가입 시 설정) 을 그대로 사용 —
@@ -562,6 +566,60 @@ export class ProService implements OnModuleInit {
             data: { proProfileId: profile.id, languageCode: code },
           }),
         ),
+      ]);
+    }
+
+    // 카테고리: 프로가 선택한 타입(사회자/쇼호스트/축가·연주)을 ProCategory 에 저장
+    if (typeof data.category === 'string' && data.category.trim()) {
+      const categoryName = data.category.trim();
+      // 'pro' 타입의 Category 를 이름으로 찾거나 생성
+      let category = await this.prisma.category.findFirst({
+        where: { type: 'pro', name: categoryName },
+        select: { id: true },
+      });
+      if (!category) {
+        category = await this.prisma.category.create({
+          data: { type: 'pro', name: categoryName, isActive: true },
+          select: { id: true },
+        });
+      }
+      await this.prisma.$transaction([
+        this.prisma.proCategory.deleteMany({ where: { proProfileId: profile.id } }),
+        this.prisma.proCategory.create({
+          data: { proProfileId: profile.id, categoryId: category.id },
+        }),
+      ]);
+    }
+
+    // 지역: 프로가 선택한 활동 지역 배열을 ProRegion 에 저장
+    if (Array.isArray(data.regions)) {
+      const uniqueRegions = Array.from(new Set(data.regions.filter(Boolean).map((r) => r.trim())));
+      const isNationwide = uniqueRegions.length === 0 || uniqueRegions.includes('전국');
+      const regionRecords: { id: string }[] = [];
+      for (const name of uniqueRegions) {
+        let region = await this.prisma.region.findFirst({
+          where: { name },
+          select: { id: true },
+        });
+        if (!region) {
+          region = await this.prisma.region.create({
+            data: { name, isNationwide: name === '전국' },
+            select: { id: true },
+          });
+        }
+        regionRecords.push(region);
+      }
+      await this.prisma.$transaction([
+        this.prisma.proRegion.deleteMany({ where: { proProfileId: profile.id } }),
+        ...regionRecords.map((r) =>
+          this.prisma.proRegion.create({
+            data: { proProfileId: profile.id, regionId: r.id },
+          }),
+        ),
+        this.prisma.proProfile.update({
+          where: { id: profile.id },
+          data: { isNationwide },
+        }),
       ]);
     }
 

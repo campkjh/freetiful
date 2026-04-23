@@ -81,6 +81,7 @@ interface ProDetailData {
   mainImage: string;
   images: string[];
   title: string;
+  categoryName?: string;
   isPrime: boolean;
   youtubeId?: string;
   youtubeVideos: { id: string; title: string }[];
@@ -109,7 +110,7 @@ interface ProDetailData {
     proReply?: { date: string; content: string };
   }[];
   recommendedPros: { id: string; name: string; role: string; rating: number; reviews: number; experience: number; image: string; tags: string[]; isPartner: boolean }[];
-  alsoViewed: { id: string; title: string; price: number; rating?: number; reviewCount?: number; author: string; image: string }[];
+  alsoViewed: { id: string; title: string; price: number; rating?: number; reviewCount?: number; author: string; image: string; category?: string }[];
 }
 
 // ─── Components ─────────────────────────────────────────────
@@ -435,6 +436,7 @@ export default function ProDetailPage() {
         const images = res.images?.map((img: any) => img.imageUrl) || [];
         const profileImg = res.user?.profileImageUrl || images[0] || '';
         const ytId = extractYoutubeId(res.youtubeUrl);
+        const proCategory: string = (res.categoryNames && res.categoryNames[0]) || '사회자';
         const services = res.services || [];
         // 어드민 PlanTemplate 을 단일 소스로 사용 — 프로의 ProService.title 로 매칭
         const tplByLabel = new Map(planTemplates.map((t) => [t.label.toLowerCase(), t]));
@@ -476,7 +478,7 @@ export default function ProDetailPage() {
         }));
 
         const descParts = [
-          `안녕하세요. 사회자 ${userName}입니다.`,
+          `안녕하세요. ${proCategory} ${userName}입니다.`,
           res.shortIntro ? `\n${res.shortIntro}` : '',
           res.mainExperience ? `\n\n주요 경력:\n• ${res.mainExperience.split('/').map((s: string) => s.trim()).join('\n• ')}` : '',
           res.detailHtml || '',
@@ -488,10 +490,11 @@ export default function ProDetailPage() {
           profileImage: profileImg,
           mainImage: images[0] || profileImg,
           images: images.length > 0 ? images : [profileImg].filter(Boolean),
-          title: `사회자 ${userName}`,
+          title: `${proCategory} ${userName}`,
+          categoryName: proCategory,
           isPrime: res.isFeatured || res.showPartnersLogo || false,
           youtubeId: ytId,
-          youtubeVideos: ytId ? [{ id: ytId, title: `${userName} 사회자 진행 영상` }] : [],
+          youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
           rating: res.avgRating || 0,
           reviewCount: res.reviewCount || 0,
           plans,
@@ -511,7 +514,7 @@ export default function ProDetailPage() {
             .map((p: any) => ({
               id: p.id,
               name: p.name,
-              role: '사회자',
+              role: (p.categories && p.categories[0]) || '사회자',
               rating: p.avgRating,
               reviews: p.reviewCount,
               experience: p.careerYears,
@@ -913,7 +916,7 @@ export default function ProDetailPage() {
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2.5">
               <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-xl object-cover" />
-              <p className="text-[18px] font-bold text-gray-900">사회자 {pro.name}</p>
+              <p className="text-[18px] font-bold text-gray-900">{pro.categoryName || '사회자'} {pro.name}</p>
             </div>
             {pro.isPrime && (
               <span className="flex items-center gap-1 bg-[#3180F7]/10 text-[#3180F7] text-[11px] font-bold px-2.5 py-1 rounded-full">
@@ -1156,7 +1159,7 @@ export default function ProDetailPage() {
               </div>
               <div className="mt-1.5">
                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-[2px] rounded-full mb-0.5"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
-                <p className="text-[13px] font-semibold text-gray-900 leading-tight">사회자 {item.author}</p>
+                <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.category || '사회자'} {item.author}</p>
                 {item.rating && (
                   <div className="flex items-center gap-1 mt-0.5">
                     <StarRating value={parseFloat(item.rating.toFixed(1))} size={10} />

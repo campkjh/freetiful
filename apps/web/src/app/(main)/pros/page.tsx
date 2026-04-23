@@ -487,7 +487,7 @@ function ProsListContent() {
                         </Link>
                         <div className="flex-1 min-w-0 flex flex-col">
                           <Link href={`/pros/${pro.id}`} className="flex-1">
-                            <p className="text-[16px] font-bold text-gray-900">{pro.categories[0] || '전문가'} {pro.name}</p>
+                            <p className="text-[16px] font-bold text-gray-900">{pro.categories[0]|| '사회자'} {pro.name}</p>
                             <div className="flex items-center gap-0.5 mt-1">
                               <Star size={13} className="fill-yellow-400 text-yellow-400" />
                               <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>

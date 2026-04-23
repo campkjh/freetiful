@@ -72,7 +72,7 @@ export default function BookingDetailPage() {
             proName: proUser.name || '',
             proImage: proImg,
             proPhone: proUser.phone || '',
-            category: q.category || q.proProfile?.categories?.[0]?.category?.name || '전문가',
+            category: q.category || q.proProfile?.categories?.[0]?.category?.name || '사회자',
             date: dateFmt,
             eventDate: dateStr,
             time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',

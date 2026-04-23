@@ -193,6 +193,9 @@ export class DiscoveryService implements OnModuleInit {
         images: { orderBy: { displayOrder: 'asc' } },
         services: { where: { isActive: true }, orderBy: { displayOrder: 'asc' } },
         faqs: { orderBy: { displayOrder: 'asc' } },
+        categories: { include: { category: { select: { name: true } } } },
+        regions: { include: { region: { select: { name: true } } } },
+        languages: { select: { languageCode: true } },
         reviews: {
           include: { reviewer: { select: { id: true, name: true, profileImageUrl: true } } },
           orderBy: { createdAt: 'desc' },
@@ -217,6 +220,9 @@ export class DiscoveryService implements OnModuleInit {
       ...pro,
       avgRating: Number(pro.avgRating),
       favoriteCount,
+      categoryNames: pro.categories.map((c) => c.category.name),
+      regionNames: pro.regions.map((r) => r.region.name),
+      languageCodes: pro.languages.map((l) => l.languageCode),
     };
     this.setCached(detailCacheKey, detailResult);
     return detailResult;

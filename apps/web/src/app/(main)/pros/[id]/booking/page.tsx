@@ -125,6 +125,7 @@ export default function BookingPage() {
   const proInfo = {
     name: pro?.user?.name || pro?.name || fallbackInfo.name,
     image: pro?.images?.[0]?.imageUrl || pro?.user?.profileImageUrl || fallbackInfo.image,
+    category: (pro?.categoryNames && pro.categoryNames[0]) || '사회자',
   };
 
   // 전문가가 등록한 서비스 우선, 없으면 어드민 플랜 템플릿으로 폴백
@@ -353,7 +354,7 @@ export default function BookingPage() {
                 <img src={proInfo.image} alt={proInfo.name} className="w-full h-full object-cover" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-bold text-gray-900">사회자 {proInfo.name}</p>
+                <p className="text-[15px] font-bold text-gray-900">{proInfo.category} {proInfo.name}</p>
                 <p className="text-[12px] text-gray-500 mt-0.5">{selectedOption?.name ?? ''}</p>
                 <p className="text-[17px] font-bold text-gray-900 mt-1">
                   {(selectedOption?.finalPrice ?? 0).toLocaleString()}원

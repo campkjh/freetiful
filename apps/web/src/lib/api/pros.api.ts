@@ -24,6 +24,8 @@ export const prosApi = {
     services?: { title: string; description?: string; basePrice?: number }[];
     faqs?: { question: string; answer: string }[];
     languages?: string[];
+    category?: string;
+    regions?: string[];
   }) =>
     apiClient.post(`${BASE}/pro/register`, data, { timeout: 60000 }).then((r) => r.data),
 

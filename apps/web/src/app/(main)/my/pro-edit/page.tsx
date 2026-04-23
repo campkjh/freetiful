@@ -362,6 +362,11 @@ export default function ProEditPage() {
     try {
       const { prosApi } = await import('@/lib/api/pros.api');
       const awardsArray = awards.split('\n').filter(Boolean);
+      let editRegions: string[] | undefined = undefined;
+      try {
+        const stored = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
+        if (Array.isArray(stored) && stored.length > 0) editRegions = stored;
+      } catch {}
       await prosApi.submitRegistration({
         // name 은 서버에서 무시됨 (User.name = 가입 시 실계정 이름, 변경 불가)
         phone: phone || undefined,
@@ -376,6 +381,8 @@ export default function ProEditPage() {
         mainPhotoIndex: mainPhotoIndex,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages.length > 0 ? languages : undefined,
+        category: category || undefined,
+        regions: editRegions,
       });
       // 캐시 무효화 (클라 + 서버 + 브라우저 HTTP) + 내 프로 ID 저장
       let myProId: string | null = null;

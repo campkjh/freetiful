@@ -337,7 +337,7 @@ export default function SchedulePage() {
                   id: `${p.id}-${q.id}`,
                   date: dateStr,
                   title: q.title || p.description || '행사',
-                  category: q.category || q.proProfile?.categories?.[0]?.category?.name || '전문가',
+                  category: q.category || q.proProfile?.categories?.[0]?.category?.name || '사회자',
                   proName: proUser.name || '',
                   proImage: proImg,
                   time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',
