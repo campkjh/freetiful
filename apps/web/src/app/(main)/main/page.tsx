@@ -583,9 +583,9 @@ function CategorySwiper() {
   const allCats = [
     { name: '외국어사회자', img: `${CAT_DIR}/foreign-mc.png`, href: '/pros?category=외국어사회자' },
     { name: '웨딩홀', img: `${CAT_DIR}/wedding-hall.png`, href: '/businesses?category=웨딩홀' },
-    { name: '스튜디오', img: `${CAT_DIR}/studio.png`, href: '/businesses?category=스튜디오' },
-    { name: '피부과', img: `${CAT_DIR}/derma.png`, href: '/businesses?category=피부과' },
     { name: '드레스', img: `${CAT_DIR}/dress.png`, href: '/businesses?category=드레스' },
+    { name: '피부과', img: `${CAT_DIR}/derma.png`, href: '/businesses?category=피부과' },
+    { name: '스튜디오', img: `${CAT_DIR}/studio.png`, href: '/businesses?category=스튜디오' },
     { name: '헤어', img: `${CAT_DIR}/hair.png`, href: '/businesses?category=헤어' },
     { name: '메이크업', img: `${CAT_DIR}/makeup.png`, href: '/businesses?category=메이크업' },
     { name: '가전', img: `${CAT_DIR}/appliance.png`, href: '/businesses?category=가전' },
