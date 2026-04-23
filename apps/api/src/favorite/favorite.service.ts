@@ -95,7 +95,12 @@ export class FavoriteService {
           },
         },
         images: {
-          where: { isPrimary: true },
+          orderBy: { displayOrder: 'asc' },
+          take: 1,
+        },
+        services: {
+          where: { isActive: true },
+          orderBy: { displayOrder: 'asc' },
           take: 1,
         },
         categories: {

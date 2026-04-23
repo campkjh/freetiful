@@ -646,6 +646,7 @@ function CategorySwiper() {
                         playsInline
                         preload="auto"
                         className="w-full h-full object-cover rounded-full"
+                        ref={(v) => { if (v) v.playbackRate = 0.5; }}
                       />
                     ) : (
                       <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
