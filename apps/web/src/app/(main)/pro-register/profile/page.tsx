@@ -1390,7 +1390,11 @@ export default function ProfilePage() {
               7일 이내에 승인 결과를 알려드립니다
             </motion.p>
             <motion.button
-              onClick={() => { router.push('/main'); }}
+              onClick={() => {
+                // 강제 새로고침으로 모든 화면의 프로필 이미지 캐시 무효화
+                try { localStorage.removeItem('freetiful-pros-cache'); } catch {}
+                window.location.href = '/main';
+              }}
               className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}

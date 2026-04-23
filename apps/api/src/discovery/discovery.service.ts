@@ -137,7 +137,8 @@ export class DiscoveryService implements OnModuleInit {
         where,
         include: {
           user: { select: { id: true, name: true, profileImageUrl: true } },
-          images: { orderBy: { displayOrder: 'asc' }, take: 4 },
+          // primary 먼저, 그 다음 displayOrder 순 — 프론트가 images[0]을 대표사진으로 사용
+          images: { orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }], take: 4 },
           services: { where: { isActive: true }, orderBy: { displayOrder: 'asc' }, take: 1 },
           categories: { include: { category: { select: { name: true } } } },
           regions: { include: { region: { select: { name: true, isNationwide: true } } } },
@@ -155,7 +156,8 @@ export class DiscoveryService implements OnModuleInit {
         id: p.id,
         userId: p.userId,
         name: p.user.name,
-        profileImageUrl: p.user.profileImageUrl,
+        // 대표(primary) ProProfileImage 가 항상 최우선. User.profileImageUrl은 폴백.
+        profileImageUrl: p.images[0]?.imageUrl || p.user.profileImageUrl,
         images: p.images.map((i) => i.imageUrl),
         shortIntro: p.shortIntro,
         mainExperience: p.mainExperience,
@@ -191,7 +193,8 @@ export class DiscoveryService implements OnModuleInit {
       where: { id: proProfileId },
       include: {
         user: { select: { id: true, name: true, profileImageUrl: true, email: true } },
-        images: { orderBy: { displayOrder: 'asc' } },
+        // primary 먼저 오도록 정렬
+        images: { orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }] },
         services: { where: { isActive: true }, orderBy: { displayOrder: 'asc' } },
         faqs: { orderBy: { displayOrder: 'asc' } },
         categories: { include: { category: { select: { name: true } } } },
