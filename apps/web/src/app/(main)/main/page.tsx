@@ -497,25 +497,22 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
 
 function CherryBlossomAnimation() {
   const petals = [
-    { left: '10%', delay: '0s',   duration: '3.5s', size: 12 },
-    { left: '35%', delay: '0.8s', duration: '4s',   size: 10 },
-    { left: '60%', delay: '1.6s', duration: '3.2s', size: 11 },
-    { left: '85%', delay: '2.4s', duration: '3.8s', size: 9 },
-    { left: '25%', delay: '2.0s', duration: '4.2s', size: 10 },
-    { left: '70%', delay: '0.4s', duration: '3.6s', size: 11 },
+    { top: '10%', delay: '0s',   duration: '4s',   size: 7 },
+    { top: '45%', delay: '1.5s', duration: '4.5s', size: 6 },
+    { top: '75%', delay: '2.8s', duration: '4.2s', size: 7 },
   ];
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-visible" style={{ top: -12, bottom: -12 }}>
+    <div className="absolute inset-0 pointer-events-none overflow-visible">
       {petals.map((p, i) => (
         <span
           key={i}
           className="absolute"
           style={{
-            left: p.left,
-            top: -10,
+            top: p.top,
+            left: -8,
             fontSize: p.size,
             lineHeight: 1,
-            animation: `petalFall ${p.duration} ${p.delay} linear infinite`,
+            animation: `petalDrift ${p.duration} ${p.delay} linear infinite`,
           }}
         >
           🌸
@@ -643,7 +640,6 @@ function CategorySwiper() {
                     <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
                     {item.name === '외국어사회자' && <LanguageBadge />}
                     {item.name === '헤어' && <CherryBlossomAnimation />}
-                    {item.name === '메이크업' && <SparkleAnimation />}
                   </div>
                   <span className="text-[12px] font-medium text-center leading-tight mt-1" style={{ color: '#51535C' }}>{item.name}</span>
                 </Link>
