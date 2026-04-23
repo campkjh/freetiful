@@ -1,31 +1,43 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 
 export default function UpdateNotifier() {
-  useEffect(() => {
-    let currentBuildId: string | null = null;
-    let notified = false;
+  const currentRef = useRef<string | null>(null);
+  const notifiedRef = useRef(false);
 
+  useEffect(() => {
     const check = async () => {
+      if (notifiedRef.current) return;
       try {
-        const res = await fetch('/api/build-id', { cache: 'no-store' });
+        const res = await fetch(`/api/build-id?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store' },
+        });
         if (!res.ok) return;
         const { buildId } = await res.json();
         if (!buildId) return;
-        if (currentBuildId === null) {
-          currentBuildId = buildId;
+        if (currentRef.current === null) {
+          currentRef.current = buildId;
           return;
         }
-        if (buildId !== currentBuildId && !notified) {
-          notified = true;
+        if (buildId !== currentRef.current) {
+          notifiedRef.current = true;
           toast(
             (t) => (
               <div className="flex items-center gap-3">
                 <span className="text-[14px] font-semibold">새 버전이 배포되었습니다</span>
                 <button
-                  onClick={() => { toast.dismiss(t.id); window.location.reload(); }}
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    // 캐시 무효화 후 새로고침
+                    if ('caches' in window) {
+                      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).finally(() => window.location.reload());
+                    } else {
+                      window.location.reload();
+                    }
+                  }}
                   className="bg-[#3180F7] text-white text-[13px] font-bold px-3 py-1.5 rounded-full active:scale-95"
                 >
                   업데이트
@@ -39,8 +51,19 @@ export default function UpdateNotifier() {
     };
 
     check();
-    const t = setInterval(check, 60_000);
-    return () => clearInterval(t);
+    const interval = setInterval(check, 30_000);
+
+    // 앱이 포그라운드로 돌아올 때 즉시 체크
+    const onVisibility = () => { if (document.visibilityState === 'visible') check(); };
+    const onFocus = () => check();
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   return null;
