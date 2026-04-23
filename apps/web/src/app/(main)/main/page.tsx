@@ -286,9 +286,10 @@ function Logo({ className }: { className?: string }) {
 interface ProData {
   id: string;
   name: string;
-  category: string;
-  role: string;
-  region: string;
+  categories: string[];
+  regions: string[];
+  languages: string[];
+  isNationwide: boolean;
   rating: number;
   reviews: number;
   pudding: number;
@@ -469,7 +470,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
             Partners
           </span>
         )}
-        <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[16px]">{pro.role} {pro.name}</h4>
+        <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[16px]">{pro.categories[0] || '전문가'} {pro.name}</h4>
         <div className="flex items-center gap-2 mt-0.5 mb-1">
           <div className="flex items-center gap-0.5">
             <Star size={11} className="fill-yellow-400 text-yellow-400" />
@@ -763,9 +764,10 @@ export default function HomePage() {
           const mapped = deduped.map((p: any, i: number) => ({
             id: p.id,
             name: p.name,
-            category: 'MC',
-            role: '사회자',
-            region: '전국',
+            categories: p.categories || [],
+            regions: p.regions || [],
+            languages: p.languages || [],
+            isNationwide: p.isNationwide ?? false,
             rating: p.avgRating,
             reviews: p.reviewCount,
             pudding: i + 1,
@@ -774,7 +776,7 @@ export default function HomePage() {
             intro: p.shortIntro || '',
             price: p.basePrice || 450000,
             experience: p.careerYears || 0,
-            tags: p.isFeatured ? ['인기', '추천'] : ['전국가능'],
+            tags: p.isFeatured ? ['인기', '추천'] : (p.isNationwide ? ['전국가능'] : []),
             available: true,
             youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
             isPartner: p.showPartnersLogo || p.isFeatured || false,
@@ -1241,7 +1243,7 @@ export default function HomePage() {
                       )}
                     </div>
                     <p className="text-[16px] font-bold text-gray-900 mt-1.5 text-center">{pro.name}</p>
-                    <p className="text-[14px] text-gray-400">{pro.category}</p>
+                    <p className="text-[14px] text-gray-400">{pro.categories[0] || '전문가'}</p>
                   </Link>
                 ))}
               </div>
@@ -1307,7 +1309,7 @@ export default function HomePage() {
                   <img src={trophy} alt="" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
                 </div>
                 <p className="text-[14px] font-bold text-gray-900 mt-4">{pro.name}</p>
-                <p className="text-[12px] text-gray-400">{pro.role}</p>
+                <p className="text-[12px] text-gray-400">{pro.categories[0] || '전문가'}</p>
               </Link>
             )) : (
               [
@@ -1372,7 +1374,7 @@ export default function HomePage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                   <div>
-                    <span className="text-[11px] font-medium text-gray-400">{pro.category}</span>
+                    <span className="text-[11px] font-medium text-gray-400">{pro.categories[0] || '전문가'}</span>
                     <p className="text-[15px] font-bold text-gray-900 leading-tight">{pro.name}</p>
                   </div>
                   <div className="flex items-center gap-0.5 mt-1">
@@ -1436,7 +1438,7 @@ export default function HomePage() {
                       <span className={`absolute bottom-1 right-1 z-[4] w-4 h-4 rounded-full border-[1.4px] border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[12px] font-medium text-gray-400">{pro.category}</span>
+                      <span className="text-[12px] font-medium text-gray-400">{pro.categories[0] || '전문가'}</span>
                       <p className="text-[16px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
                       <p className="text-[12px] mt-1">
                         {isNow ? (

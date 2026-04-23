@@ -12,9 +12,10 @@ import { getPlanTemplates } from '@/lib/api/plan-templates.api';
 interface ProItem {
   id: string;
   name: string;
-  category: string;
-  role: string;
-  region: string;
+  categories: string[];
+  regions: string[];
+  languages: string[];
+  isNationwide: boolean;
   rating: number;
   reviews: number;
   puddingRank: number;
@@ -41,19 +42,8 @@ const PRICE_RANGES = [
   { label: '50만원 이상', min: 500000, max: Infinity },
 ];
 
-// 외국어 가능 사회자 ID + 언어 매핑
-const PRO_LANGUAGES: Record<string, string[]> = {
-  '25': ['영어'], '5': ['영어'], '15': ['영어'], '23': ['영어'],
-  '1': ['영어'], '2': ['영어'], '36': ['영어'], '39': ['영어'],
-  '35': ['일본어'], '28': ['일본어'], '32': ['일본어'], '3': ['일본어'],
-  '22': ['중국어'], '13': ['중국어'], '10': ['중국어'],
-};
-const FOREIGN_LANG_PRO_IDS = Object.keys(PRO_LANGUAGES);
 const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
-const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주'];
-
-// 축가/연주 가능 사회자 (현재 데이터에 별도 카테고리 없어서 ID로 매핑)
-const SINGER_PRO_IDS = ['9', '18', '20', '30', '34', '38'];
+const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외국어사회자'];
 
 const PAGE_SIZE = 12;
 
@@ -67,12 +57,15 @@ function getRegisteredPro(): ProItem | null {
   const photos = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
   const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
   const regions = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
+  const category = localStorage.getItem('proRegister_category') || '';
+  const languages = JSON.parse(localStorage.getItem('proRegister_languages') || '[]');
   return {
     id: 'my-pro',
     name,
-    category: localStorage.getItem('proRegister_category') || 'MC',
-    role: localStorage.getItem('proRegister_category') || '사회자',
-    region: regions[0] || '전국',
+    categories: category ? [category] : [],
+    regions: regions,
+    languages: Array.isArray(languages) ? languages : [],
+    isNationwide: regions.length === 0,
     rating: 5.0,
     reviews: 0,
     puddingRank: 0,
@@ -111,9 +104,10 @@ function ProsListContent() {
           const mapped = deduped.map((p: ProListItem, idx: number) => ({
             id: p.id,
             name: p.name,
-            category: 'MC',
-            role: '사회자',
-            region: '전국',
+            categories: p.categories || [],
+            regions: p.regions || [],
+            languages: p.languages || [],
+            isNationwide: p.isNationwide ?? false,
             rating: p.avgRating || 0,
             reviews: p.reviewCount || 0,
             puddingRank: idx + 1,
@@ -140,8 +134,7 @@ function ProsListContent() {
   const isForeignFilter = categoryParam === '외국어사회자';
 
   // 카테고리 파라미터에 따라 초기 필터 설정
-  const initialType = categoryParam === '축가·연주' ? '축가/연주' : categoryParam === '쇼호스트' ? '쇼호스트' : '전체';
-  const initialLang = isForeignFilter ? '전체' : '전체'; // 외국어사회자는 별도 처리
+  const initialType = categoryParam === '축가·연주' ? '축가/연주' : categoryParam === '쇼호스트' ? '쇼호스트' : isForeignFilter ? '외국어사회자' : '전체';
 
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('pudding_rank');
@@ -183,11 +176,11 @@ function ProsListContent() {
     const priceRange = PRICE_RANGES[selectedPrice];
     const q = searchQuery.trim().toLowerCase();
     let results = ALL_PROS.filter((p) => {
-      if (selectedLang !== '전체' && !(PRO_LANGUAGES[p.id]?.includes(selectedLang))) return false;
-      if (selectedType === '축가/연주' && !SINGER_PRO_IDS.includes(p.id)) return false;
-      if (selectedType !== '전체' && selectedType !== '축가/연주' && p.role !== selectedType && p.category !== selectedType) return false;
-      if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !p.category.toLowerCase().includes(q)) return false;
-      if (selectedRegion !== '전체' && p.region !== selectedRegion && p.region !== '전국') return false;
+      if (selectedLang !== '전체' && !(p.languages || []).includes(selectedLang)) return false;
+      if (selectedType === '외국어사회자' && (!p.languages || p.languages.length === 0)) return false;
+      if (selectedType !== '전체' && selectedType !== '외국어사회자' && !(p.categories || []).includes(selectedType)) return false;
+      if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !(p.categories || []).some((c) => c.toLowerCase().includes(q))) return false;
+      if (selectedRegion !== '전체' && !p.isNationwide && !(p.regions || []).includes(selectedRegion)) return false;
       if (p.price < priceRange.min || p.price > priceRange.max) return false;
       return true;
     });
@@ -494,7 +487,7 @@ function ProsListContent() {
                         </Link>
                         <div className="flex-1 min-w-0 flex flex-col">
                           <Link href={`/pros/${pro.id}`} className="flex-1">
-                            <p className="text-[16px] font-bold text-gray-900">{pro.role} {pro.name}</p>
+                            <p className="text-[16px] font-bold text-gray-900">{pro.categories[0] || '전문가'} {pro.name}</p>
                             <div className="flex items-center gap-0.5 mt-1">
                               <Star size={13} className="fill-yellow-400 text-yellow-400" />
                               <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>

@@ -30,6 +30,10 @@ export interface ProListItem {
   puddingCount: number;
   gender: string;
   youtubeUrl: string | null;
+  isNationwide?: boolean;
+  categories?: string[];
+  regions?: string[];
+  languages?: string[];
 }
 
 const cache = new Map<string, { data: any; ts: number }>();

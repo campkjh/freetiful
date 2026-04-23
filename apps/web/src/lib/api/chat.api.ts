@@ -11,6 +11,7 @@ export interface ChatRoomItem {
     name: string;
     profileImageUrl: string | null;
     isActive?: boolean;
+    category?: string | null;
   };
   lastMessage: {
     id: string;

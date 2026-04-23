@@ -65,7 +65,7 @@ export default function ChatListPage() {
       otherUser: {
         id: r.otherUser.id,
         name: r.otherUser.name,
-        role: isProUser ? '고객' : '사회자',
+        role: isProUser ? '고객' : (r.otherUser.category || '전문가'),
         profileImageUrl: r.otherUser.profileImageUrl || '',
       },
       lastMessage: r.lastMessage?.content || '',

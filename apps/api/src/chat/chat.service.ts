@@ -216,6 +216,7 @@ export class ChatService {
             include: {
               user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
               images: { where: { isPrimary: true }, take: 1 },
+              categories: { include: { category: { select: { name: true } } } },
             },
           },
           user: { select: { id: true, name: true, profileImageUrl: true } },
@@ -236,12 +237,14 @@ export class ChatService {
       const member = room.members[0];
       const lastMsg = room.messages[0];
       const isProUser = room.proProfile.userId === userId;
+      const proCategory = room.proProfile.categories?.[0]?.category?.name;
       const otherUser = isProUser
-        ? { id: room.user.id, name: room.user.name, profileImageUrl: room.user.profileImageUrl }
+        ? { id: room.user.id, name: room.user.name, profileImageUrl: room.user.profileImageUrl, category: null as string | null }
         : {
             id: room.proProfile.user.id,
             name: room.proProfile.user.name,
             profileImageUrl: room.proProfile.user.profileImageUrl ?? room.proProfile.images[0]?.imageUrl,
+            category: proCategory ?? null,
           };
 
       return {
