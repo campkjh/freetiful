@@ -145,12 +145,155 @@ const EVENTS: Record<string, EventData> = {
     faqs: [],
     recommendCategory: '기업행사',
   },
+  'live-commerce': {
+    type: 'live-commerce',
+    title: '라이브커머스',
+    tagline: '매출을 만드는 실시간 진행',
+    heroImage: '/images/biz-about-hosts.png',
+    intro: '라이브 방송 전문 쇼호스트로 온라인 마켓의 매출을 극대화합니다.\n홈쇼핑/라방 경험이 풍부한 검증된 진행자를 매칭해드립니다.',
+    highlights: ['홈쇼핑 경력 쇼호스트', '실시간 호응·인터랙션', '상품 특징 정확한 전달', '시청자 참여 이벤트'],
+    plans: [
+      { label: 'Premium', price: 500000, duration: '1시간', desc: ['라이브 진행', '사전 상품 리뷰'] },
+      { label: 'Superior', price: 900000, duration: '2시간', desc: ['라이브 + 이벤트 진행', '스크립트 작성', '사전 미팅'] },
+      { label: 'Enterprise', price: 1800000, duration: '풀 패키지', desc: ['풀 라이브 운영', '전담 쇼호스트', '기획·연출 코디', '반복 방송 협의'] },
+    ],
+    faqs: [
+      { q: '상품 사전 리뷰는 얼마나 하나요?', a: '모든 플랜에서 라이브 전 최소 1회 상품 리뷰 미팅을 진행합니다.' },
+    ],
+    recommendCategory: '쇼호스트',
+  },
+  'official-event': {
+    type: 'official-event',
+    title: '공식행사',
+    tagline: '기업의 격을 높이는 전문 진행',
+    heroImage: '/images/biz-about-hosts.png',
+    intro: '개업식·론칭쇼·시상식 등 공식 행사의 품격을 지키는 전문 사회자.\n방송 경력자 중심으로 안정감 있는 진행을 보장합니다.',
+    highlights: ['현직 아나운서', '공식 의전 숙지', 'VIP 응대', '큐시트 정확 관리'],
+    plans: [
+      { label: 'Premium', price: 800000, duration: '2시간', desc: ['공식 행사 진행', '큐시트 준비'] },
+      { label: 'Superior', price: 1500000, duration: '4시간', desc: ['공식 행사 + Q&A', '맞춤 대본', '리허설'] },
+      { label: 'Enterprise', price: 3000000, duration: '풀데이', desc: ['풀타임 진행', '전담 코디', '영어/한국어 진행'] },
+    ],
+    faqs: [],
+    recommendCategory: '기업행사',
+  },
+  'year-end-party': {
+    type: 'year-end-party',
+    title: '송년회',
+    tagline: '한 해를 마무리하는 특별한 밤',
+    heroImage: '/images/biz-about-hosts.png',
+    intro: '송년회·신년회는 직원들의 결속력을 다지는 중요한 행사.\n분위기를 살리는 베테랑 사회자가 게임·시상을 한번에 진행합니다.',
+    highlights: ['경품 추첨 진행', '게임·레크리에이션', '감사 멘트 구성', '사장님 연설 지원'],
+    plans: [
+      { label: 'Premium', price: 500000, duration: '2시간', desc: ['송년회 진행', '기본 이벤트'] },
+      { label: 'Superior', price: 900000, duration: '3시간', desc: ['레크리에이션 + 경품추첨', '맞춤 대본'] },
+      { label: 'Enterprise', price: 1800000, duration: '5시간', desc: ['풀패키지', '게임·레크·경품', '전담 코디'] },
+    ],
+    faqs: [],
+    recommendCategory: '기업행사',
+  },
+  interpretation: {
+    type: 'interpretation',
+    title: '통번역',
+    tagline: '국제 행사의 다리',
+    heroImage: '/images/biz-about-hosts.png',
+    intro: '국제 컨퍼런스, 외빈 응대에 필요한 동시통역·순차통역 서비스.\n영어·중국어·일본어 등 다국어 MC를 함께 매칭합니다.',
+    highlights: ['원어민 수준 통역사', '동시통역 / 순차통역', '외국어 사회 병행', '다국어 큐시트'],
+    plans: [
+      { label: 'Premium', price: 600000, duration: '2시간', desc: ['순차통역 진행', '사전 자료 숙지'] },
+      { label: 'Superior', price: 1200000, duration: '4시간', desc: ['동시통역 1인', '외국어 MC 겸임'] },
+      { label: 'Enterprise', price: 2500000, duration: '풀데이', desc: ['동시통역 팀(2인)', '다국어 진행', '국제 의전'] },
+    ],
+    faqs: [
+      { q: '어느 언어까지 지원되나요?', a: '영어, 중국어, 일본어, 태국어, 베트남어, 스페인어, 아랍어 등 주요 언어 지원됩니다.' },
+    ],
+    recommendCategory: '외국어사회자',
+  },
+  'corporate-pt': {
+    type: 'corporate-pt',
+    title: '기업 PT',
+    tagline: '임팩트 있는 프레젠테이션 진행',
+    heroImage: '/images/biz-about-hosts.png',
+    intro: '투자 설명회·IR·제품 발표 등 기업 PT 행사 전문 진행.\n청중을 집중시키는 스피치 노하우를 제공합니다.',
+    highlights: ['IR·투자 행사 경력', '발표 스피치 코칭', '임원 Q&A 진행', '영상 큐 관리'],
+    plans: [
+      { label: 'Premium', price: 700000, duration: '1시간', desc: ['PT 진행', '발표자 소개'] },
+      { label: 'Superior', price: 1300000, duration: '2시간', desc: ['PT + 패널 토론', '맞춤 큐시트'] },
+      { label: 'Enterprise', price: 2500000, duration: '풀데이', desc: ['IR·Roadshow 진행', '다발표자 코디', '영어 진행'] },
+    ],
+    faqs: [],
+    recommendCategory: '기업행사',
+  },
+  recreation: {
+    type: 'recreation',
+    title: '레크리에이션',
+    tagline: '웃음이 끊이지 않는 현장',
+    heroImage: '/images/biz-about-hosts.png',
+    intro: '기업 워크숍·단합대회·팀 빌딩 등을 활력 넘치게 이끄는 레크리에이션 MC.\n참여형 프로그램으로 분위기를 달굽니다.',
+    highlights: ['게임 기획 상담', '그룹 미션 진행', '경품·시상 코디', '전 연령 맞춤'],
+    plans: [
+      { label: 'Premium', price: 500000, duration: '2시간', desc: ['기본 레크 진행', '게임 3종'] },
+      { label: 'Superior', price: 900000, duration: '3시간', desc: ['레크 + 팀 미션', '시상·경품'] },
+      { label: 'Enterprise', price: 1600000, duration: '풀데이', desc: ['풀타임 레크·팀 빌딩', '전담 진행팀'] },
+    ],
+    faqs: [],
+    recommendCategory: '기업행사',
+  },
+  'team-building': {
+    type: 'team-building',
+    title: '팀빌딩',
+    tagline: '팀워크를 다지는 특별한 시간',
+    heroImage: '/images/biz-about-hosts.png',
+    intro: '조직 활성화와 팀워크 강화를 위한 맞춤형 팀빌딩 프로그램.\n교육·게임·토론을 하나로 엮어 실질적 변화를 이끕니다.',
+    highlights: ['조직 컨설턴트 동반', '맞춤 프로그램 설계', '참여형 워크숍', '후속 리포트 제공'],
+    plans: [
+      { label: 'Premium', price: 800000, duration: '반나절', desc: ['팀빌딩 세션 진행', '아이스브레이킹'] },
+      { label: 'Superior', price: 1500000, duration: '종일', desc: ['풀데이 팀빌딩', '피드백 워크숍'] },
+      { label: 'Enterprise', price: 3000000, duration: '1박2일', desc: ['합숙 팀빌딩', '전 과정 코디', '사후 리포트'] },
+    ],
+    faqs: [],
+    recommendCategory: '기업행사',
+  },
+  workshop: {
+    type: 'workshop',
+    title: '워크숍',
+    tagline: '효과적인 교육·학습의 장',
+    heroImage: '/images/biz-about-hosts.png',
+    intro: '사내 교육, 리더십 세미나, 직무 교육 등을 전문 진행합니다.\n강의 퍼실리테이션·토론 운영에 능한 사회자가 참여합니다.',
+    highlights: ['퍼실리테이션 전문', '강사 섭외 지원', '커리큘럼 컨설팅', '결과물 문서화'],
+    plans: [
+      { label: 'Premium', price: 700000, duration: '반나절', desc: ['워크숍 퍼실리테이션', 'Q&A 진행'] },
+      { label: 'Superior', price: 1400000, duration: '종일', desc: ['풀데이 진행', '강사 코디', '결과 공유'] },
+      { label: 'Enterprise', price: 2800000, duration: '연속', desc: ['장기 워크숍', '커리큘럼 설계', '전담 팀'] },
+    ],
+    faqs: [],
+    recommendCategory: '기업행사',
+  },
+};
+
+// 한글 이름 → URL 슬러그 매핑 (쿼리 파라미터로 들어오는 경우 대응)
+const NAME_TO_SLUG: Record<string, string> = {
+  '라이브커머스': 'live-commerce',
+  '공식행사': 'official-event',
+  '송년회': 'year-end-party',
+  '통번역': 'interpretation',
+  '기업 PT': 'corporate-pt',
+  '레크리에이션': 'recreation',
+  '팀빌딩': 'team-building',
+  '체육대회': 'sports',
+  '워크숍': 'workshop',
+  '결혼식': 'wedding',
+  '기업행사': 'corporate',
+  '연례행사': 'party',
+  '컨퍼런스': 'academic',
 };
 
 export default function EventDetailPage() {
   const { type } = useParams<{ type: string }>();
   const router = useRouter();
-  const event = EVENTS[type] || EVENTS.wedding;
+  // type이 한글 이름이면 슬러그로 매핑, 아니면 그대로 사용
+  const resolvedType = NAME_TO_SLUG[decodeURIComponent(type)] || type;
+  const event = EVENTS[resolvedType] || EVENTS.wedding;
   const [activePlan, setActivePlan] = useState(1);
   const [headerSolid, setHeaderSolid] = useState(false);
   const [recommendedPros, setRecommendedPros] = useState<ProListItem[]>([]);

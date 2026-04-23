@@ -12,6 +12,7 @@ import { useChatStore } from '@/lib/store/chat.store';
 interface ChatRoom {
   id: string;
   otherUser: { id: string; name: string; role: string; profileImageUrl: string };
+  iAmPro: boolean;
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
@@ -57,15 +58,18 @@ export default function ChatListPage() {
   }, [authUser]);
 
   // Store의 apiRooms가 업데이트되면 local rooms state도 동기화
+  // 중요: role은 room별 iAmPro에 따라 결정 (글로벌 isPro 가 아님)
+  // 같은 유저가 한 룸에서는 고객, 다른 룸에서는 사회자일 수 있음
   useEffect(() => {
     if (!authUser) return;
-    const isProUser = authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro';
     setRooms(apiRooms.map((r) => ({
       id: r.id,
+      iAmPro: !!r.iAmPro,
       otherUser: {
         id: r.otherUser.id,
         name: r.otherUser.name,
-        role: isProUser ? '고객' : (r.otherUser.category || '사회자'),
+        // 내가 이 룸의 프로 측이면 상대는 '고객', 아니면 상대의 실제 카테고리
+        role: r.iAmPro ? '고객' : (r.otherUser.category || '사회자'),
         profileImageUrl: r.otherUser.profileImageUrl || '',
       },
       lastMessage: r.lastMessage?.content || '',
@@ -293,6 +297,11 @@ export default function ChatListPage() {
                   {isPC ? (
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                          room.iAmPro ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+                        }`}>
+                          {room.iAmPro ? 'PRO' : '고객'}
+                        </span>
                         <p className={`text-[14px] ${hasUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
                           {room.otherUser.role} {room.otherUser.name}님
                         </p>
@@ -309,7 +318,12 @@ export default function ChatListPage() {
                   ) : (
                     <>
                       <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
-                        <div className="flex items-center gap-2 mb-0.5">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                            room.iAmPro ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+                          }`}>
+                            {room.iAmPro ? 'PRO' : '고객'}
+                          </span>
                           <p className={`text-[15px] ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{room.otherUser.role} {room.otherUser.name}님</p>
                           <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
                         </div>

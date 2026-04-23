@@ -10,7 +10,7 @@ import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 
 type Tab = 'service' | 'portfolio' | 'recent';
 type ProCategory = '전체' | '사회자' | '쇼호스트' | '축가';
-type BizCategory = '전체' | '웨딩홀' | '스튜디오' | '드레스' | '헤메샵';
+type BizCategory = '전체' | '웨딩홀' | '드레스' | '피부과' | '스튜디오' | '헤어' | '메이크업' | '스냅';
 
 type FavProItem = { id: string; name: string; category: string; badge: string; intro: string; rating: number; reviews: number; image: string; price: number; subName: string };
 type FavBizItem = { id: string; name: string; category: string; image: string; address: string; rating: number; reviews: number; price: number };
@@ -161,9 +161,12 @@ export default function FavoritesPage() {
   const bizCategories: { key: BizCategory; count: number }[] = [
     { key: '전체', count: favBiz.length },
     { key: '웨딩홀', count: favBiz.filter((b) => b.category === '웨딩홀').length },
-    { key: '스튜디오', count: favBiz.filter((b) => b.category === '스튜디오').length },
     { key: '드레스', count: favBiz.filter((b) => b.category === '드레스').length },
-    { key: '헤메샵', count: favBiz.filter((b) => b.category === '헤메샵').length },
+    { key: '피부과', count: favBiz.filter((b) => b.category === '피부과').length },
+    { key: '스튜디오', count: favBiz.filter((b) => b.category === '스튜디오').length },
+    { key: '헤어', count: favBiz.filter((b) => b.category === '헤어').length },
+    { key: '메이크업', count: favBiz.filter((b) => b.category === '메이크업').length },
+    { key: '스냅', count: favBiz.filter((b) => b.category === '스냅').length },
   ];
 
   return (

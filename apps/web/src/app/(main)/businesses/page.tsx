@@ -29,7 +29,7 @@ interface RankItem {
 // ─── Mock Data ─────────────────────────────────────────────
 const REGIONS = ['전국', '경기', '서울', '부산', '인천', '대구', '충남/세종'];
 
-const SUB_CATEGORIES = ['전체', '웨딩홀', '스튜디오', '드레스', '헤메샵', '스냅영상', '피부과'];
+const SUB_CATEGORIES = ['전체', '웨딩홀', '드레스', '피부과', '스튜디오', '헤어', '메이크업', '스냅'];
 
 // ─── Advanced Filter Groups ───────────────────────────────
 const FILTER_GROUPS = [
