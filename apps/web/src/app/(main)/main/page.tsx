@@ -495,6 +495,27 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
   );
 }
 
+function LanguageBadge() {
+  const LANGS = ['English', '中文', '日本語', 'ภาษาไทย', 'العربية', 'Español'];
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % LANGS.length), 2000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span
+      className="absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold text-white whitespace-nowrap shadow-md"
+      style={{
+        background: 'linear-gradient(135deg, #3180F7, #5B9BFF)',
+        animation: 'langFade 2s ease-in-out infinite',
+      }}
+      key={idx}
+    >
+      {LANGS[idx]}
+    </span>
+  );
+}
+
 function CategorySwiper() {
   const CAT_DIR = '/images/category-icons';
   const allCats = [
@@ -553,8 +574,9 @@ function CategorySwiper() {
                   className="flex flex-col items-center gap-0.5 opacity-0"
                   style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + i * 0.04}s forwards` }}
                 >
-                  <div className="w-[60px] h-[60px] flex items-center justify-center overflow-hidden">
+                  <div className="w-[60px] h-[60px] flex items-center justify-center overflow-hidden relative">
                     <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
+                    {item.name === '외국어사회자' && <LanguageBadge />}
                   </div>
                   <span className="text-[12px] font-medium text-center leading-tight mt-1" style={{ color: '#51535C' }}>{item.name}</span>
                 </Link>

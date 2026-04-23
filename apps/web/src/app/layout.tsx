@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Providers from './providers';
 import AppToaster from '@/components/AppToaster';
+import UpdateNotifier from '@/components/UpdateNotifier';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           {children}
           <AppToaster />
+          <UpdateNotifier />
         </Providers>
       </body>
     </html>
