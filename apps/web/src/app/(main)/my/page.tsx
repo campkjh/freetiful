@@ -369,6 +369,12 @@ export default function MyPage() {
           // 프로가 설정한 카테고리를 추출 (categories 관계에서)
           const catName = profile?.categories?.[0]?.category?.name;
           if (catName) setProCategoryName(catName);
+          // User.profileImageUrl 을 프로 대표 이미지로 동기화 (카카오 기본 → 프로 대표 사진)
+          const primary = profile?.images?.find((img: any) => img.isPrimary) || profile?.images?.[0];
+          const effectiveImage = primary?.imageUrl || profile?.user?.profileImageUrl;
+          if (effectiveImage && authUser && effectiveImage !== authUser.profileImageUrl) {
+            useAuthStore.getState().setUser({ ...authUser, profileImageUrl: effectiveImage });
+          }
           if (status === 'approved') {
             localStorage.setItem('proRegistrationComplete', 'approved');
             setProRegistrationPending(false);
