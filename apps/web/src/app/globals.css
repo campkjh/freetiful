@@ -41,7 +41,7 @@ img:not([src]) {
 }
 
 @keyframes langFade {
-  0%, 100% { opacity: 0; transform: translate(-50%, -4px) scale(0.9); }
+  0%, 100% { opacity: 0; transform: translate(-50%, 4px) scale(0.9); }
   15%, 85% { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 

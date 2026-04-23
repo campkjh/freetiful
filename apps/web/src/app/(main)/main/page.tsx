@@ -504,9 +504,12 @@ function LanguageBadge() {
   }, []);
   return (
     <span
-      className="absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold text-white whitespace-nowrap shadow-md"
+      className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold text-white whitespace-nowrap"
       style={{
-        background: 'linear-gradient(135deg, #3180F7, #5B9BFF)',
+        background: 'rgba(17, 17, 17, 0.2)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255, 255, 255, 0.5)',
         animation: 'langFade 2s ease-in-out infinite',
       }}
       key={idx}
