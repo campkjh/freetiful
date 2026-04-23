@@ -1178,9 +1178,12 @@ export default function HomePage() {
         <section>
           {/* Mobile header */}
           <div className="lg:hidden flex items-end justify-between mb-1">
-            <div>
-              <h3 className="section-title">BEST 결혼식 사회자</h3>
-              <p className="section-subtitle mt-1">가장 많이 찾았던 전문가를 한눈에</p>
+            <div className="flex items-center gap-2">
+              <img src="/images/trophy.png" alt="" className="w-10 h-10 object-contain shrink-0" />
+              <div>
+                <h3 className="section-title">BEST 결혼식 사회자</h3>
+                <p className="section-subtitle mt-1">가장 많이 찾았던 전문가를 한눈에</p>
+              </div>
             </div>
             <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600 pb-0.5" style={{ transition: 'color 0.3s' }}>
               전체보기 <ChevronRight size={16} />

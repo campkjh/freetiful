@@ -31,11 +31,11 @@ export default function UpdateNotifier() {
                 <button
                   onClick={() => {
                     toast.dismiss(t.id);
-                    // 캐시 무효화 후 새로고침
-                    if ('caches' in window) {
-                      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).finally(() => window.location.reload());
+                    const reload = () => window.location.reload();
+                    if (typeof caches !== 'undefined') {
+                      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).finally(reload);
                     } else {
-                      window.location.reload();
+                      reload();
                     }
                   }}
                   className="bg-[#3180F7] text-white text-[13px] font-bold px-3 py-1.5 rounded-full active:scale-95"
