@@ -498,8 +498,19 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
 export default function HomePage() {
   const authUser = useAuthStore((s) => s.user);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
-  const [iosWebView, setIosWebView] = useState(false);
-  useEffect(() => { setIosWebView(isIOSWebView()); }, []);
+
+  /* hero 자동재생 영상 — iOS WebView는 autoPlay가 fullscreen 강제 트리거하므로
+     서버 HTML엔 autoPlay 없이 렌더 + iOS 아닌 경우만 JS로 play() 호출 */
+  const heroVideo1Ref = useRef<HTMLVideoElement | null>(null);
+  const heroVideo2Ref = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    if (isIOSWebView()) return; // iOS WebView: 정지 상태 유지 (fullscreen 버그 회피)
+    [heroVideo1Ref.current, heroVideo2Ref.current].forEach((v) => {
+      if (!v) return;
+      v.loop = true;
+      v.play().catch(() => undefined);
+    });
+  }, []);
 
   // 프로 유저는 /pro-dashboard 로 자동 리다이렉트 (앱 재진입 시)
   // userRole localStorage 도 체크 — 일반모드 전환한 경우는 유지
@@ -784,9 +795,8 @@ export default function HomePage() {
               style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
               <video
+                ref={heroVideo1Ref}
                 src="/images/reference-video-1775801211148.mp4#t=0.001"
-                // iOS WKWebView는 autoPlay를 fullscreen 플레이어로 강제 열기 때문에 비활성화
-                {...(iosWebView ? {} : { autoPlay: true, loop: true })}
                 muted
                 playsInline
                 preload="metadata"
@@ -813,9 +823,8 @@ export default function HomePage() {
             >
               <RoundedRectBorderTrain color="#2B313D" />
               <video
+                ref={heroVideo2Ref}
                 src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.001"
-                // iOS WKWebView는 autoPlay를 fullscreen 플레이어로 강제 열기 때문에 비활성화
-                {...(iosWebView ? {} : { autoPlay: true, loop: true })}
                 muted
                 playsInline
                 preload="metadata"
