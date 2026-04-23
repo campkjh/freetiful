@@ -399,6 +399,7 @@ export default function ProEditPage() {
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
         invalidateProCache(); // 클라 메모리 캐시 전체 삭제
+        try { localStorage.removeItem('freetiful-pros-cache'); } catch {}
         const { apiClient } = await import('@/lib/api/client');
         const { data: myPro } = await apiClient.get('/api/v1/pro/profile').catch(() => ({ data: null }));
         if (myPro?.id) {

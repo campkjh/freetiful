@@ -1305,7 +1305,7 @@ export default function ProfilePage() {
                       tags: selectedTags.length > 0 ? selectedTags : undefined,
                     });
                     submitSucceeded = true;
-                    // 백엔드 응답에 user가 포함됨 → auth store 즉시 갱신
+                    // 백엔드 응답에 user가 포함됨 → auth store 즉시 갱신 + discovery 캐시 무효화
                     try {
                       const { useAuthStore } = await import('@/lib/store/auth.store');
                       const newImg = submitResponse?.user?.profileImageUrl;
@@ -1313,6 +1313,10 @@ export default function ProfilePage() {
                       if (newImg && cur) {
                         useAuthStore.getState().setUser({ ...cur, profileImageUrl: newImg });
                       }
+                      // 홈/전문가 리스트에 최신 프로필 이미지 반영
+                      const { invalidateProCache } = await import('@/lib/api/discovery.api');
+                      invalidateProCache();
+                      try { localStorage.removeItem('freetiful-pros-cache'); } catch {}
                     } catch {}
                   } catch (e: any) {
                     submitError = e;
