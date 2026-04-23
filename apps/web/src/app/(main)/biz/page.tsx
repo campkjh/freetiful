@@ -1508,9 +1508,9 @@ export default function BizPage() {
           <div
             className="absolute pointer-events-none whitespace-nowrap"
             style={{
-              bottom: 'calc(100% + 0px)',
-              right: 'calc(12.5% - 25px)',
-              animation: 'bubbleBoing 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite',
+              bottom: 56,
+              right: '8%',
+              animation: 'bubbleBoingOnce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both, bubbleFloat 2.8s ease-in-out 1.5s infinite',
               zIndex: 51,
             }}
           >
@@ -1644,13 +1644,16 @@ export default function BizPage() {
           60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
           100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
         }
-        @keyframes bubbleBoing {
-          0% { transform: translateX(-50%) scale(0) translateY(4px); opacity: 0; }
-          35% { transform: translateX(-50%) scale(1.15) translateY(-2px); opacity: 1; }
-          50% { transform: translateX(-50%) scale(0.95) translateY(0px); }
-          65% { transform: translateX(-50%) scale(1.05) translateY(-1px); }
-          80% { transform: translateX(-50%) scale(1) translateY(0px); }
-          85%, 100% { transform: translateX(-50%) scale(1) translateY(-3px); opacity: 1; }
+        @keyframes bubbleBoingOnce {
+          0% { transform: scale(0) translateY(6px); opacity: 0; }
+          50% { transform: scale(1.15) translateY(-2px); opacity: 1; }
+          70% { transform: scale(0.95) translateY(0); }
+          85% { transform: scale(1.05) translateY(-1px); }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes bubbleFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
         }
         @keyframes textGradientShift {
           0% { background-position: 0% 50%; }
