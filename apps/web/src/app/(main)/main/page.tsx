@@ -642,11 +642,14 @@ function CategorySwiper() {
                         src="/images/wedding-hall-video.mp4"
                         autoPlay
                         muted
-                        loop
                         playsInline
                         preload="auto"
                         className="w-full h-full object-cover rounded-full"
                         ref={(v) => { if (v) v.playbackRate = 0.5; }}
+                        onEnded={(e) => {
+                          const v = e.currentTarget;
+                          setTimeout(() => { v.currentTime = 0; v.play().catch(() => {}); }, 1500);
+                        }}
                       />
                     ) : (
                       <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
