@@ -10,6 +10,14 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 
+/* iOS WKWebView 감지 — autoplay 영상 강제 풀스크린 우회용 */
+function isIOSWebView(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent;
+  // iOS 네이티브 WebView: Safari 토큰 없음 + iPhone/iPad/iPod UA
+  return /iPhone|iPad|iPod/.test(ua) && !/Safari/.test(ua) && !/CriOS/.test(ua);
+}
+
 /* ─── 30초 이내 재방문 시 애니메이션 스킵 (모듈 레벨로 한 번만 계산) ─── */
 let _homeSkipResolved = false;
 let _homeSkipValue = false;
@@ -490,6 +498,8 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
 export default function HomePage() {
   const authUser = useAuthStore((s) => s.user);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
+  const [iosWebView, setIosWebView] = useState(false);
+  useEffect(() => { setIosWebView(isIOSWebView()); }, []);
 
   // 프로 유저는 /pro-dashboard 로 자동 리다이렉트 (앱 재진입 시)
   // userRole localStorage 도 체크 — 일반모드 전환한 경우는 유지
@@ -775,9 +785,9 @@ export default function HomePage() {
             >
               <video
                 src="/images/reference-video-1775801211148.mp4#t=0.001"
-                autoPlay
+                // iOS WKWebView는 autoPlay를 fullscreen 플레이어로 강제 열기 때문에 비활성화
+                {...(iosWebView ? {} : { autoPlay: true, loop: true })}
                 muted
-                loop
                 playsInline
                 preload="metadata"
                 controls={false}
@@ -804,9 +814,9 @@ export default function HomePage() {
               <RoundedRectBorderTrain color="#2B313D" />
               <video
                 src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.001"
-                autoPlay
+                // iOS WKWebView는 autoPlay를 fullscreen 플레이어로 강제 열기 때문에 비활성화
+                {...(iosWebView ? {} : { autoPlay: true, loop: true })}
                 muted
-                loop
                 playsInline
                 preload="metadata"
                 controls={false}
