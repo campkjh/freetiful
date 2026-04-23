@@ -49,33 +49,63 @@ function getIOSHandler(name: string) {
   return mh?.[name] ?? null;
 }
 
-/**
- * Notify the iOS WebView that a user is authenticated, so the native app can
- * call `OneSignal.login(userId)` and set the external_id alias.
- * Required because auto-login / webview-based login never triggers the native
- * `callAPI()` flow in ViewController.swift, leaving OneSignal unmapped.
- * No-op on non-iOS or when the handler isn't registered (older builds).
- */
-export function notifyIOSLogin(userId: string | undefined | null) {
-  if (!userId) return;
-  const handler = getIOSHandler('oneSignalLogin');
-  if (!handler) return;
-  try {
-    handler.postMessage(userId);
-  } catch {}
+function getAndroidBridge():
+  | { oneSignalLogin?: (userId: string) => void; oneSignalLogout?: () => void }
+  | null {
+  if (typeof window === 'undefined') return null;
+  return (window as unknown as { Android?: Record<string, (...args: unknown[]) => void> })
+    .Android as never;
 }
 
 /**
- * Notify the iOS WebView that the user has logged out, so the native app can
+ * Notify the native WebView (iOS or Android) that a user is authenticated,
+ * so the native app can call `OneSignal.login(userId)` and set the external_id alias.
+ * Required because auto-login / webview-based login never triggers the native
+ * OAuth flow, leaving OneSignal unmapped.
+ * No-op on desktop browsers or when the handler isn't registered (older builds).
+ */
+export function notifyNativeLogin(userId: string | undefined | null) {
+  if (!userId) return;
+  // iOS
+  const iosHandler = getIOSHandler('oneSignalLogin');
+  if (iosHandler) {
+    try {
+      iosHandler.postMessage(userId);
+      return;
+    } catch {}
+  }
+  // Android
+  const android = getAndroidBridge();
+  if (android?.oneSignalLogin) {
+    try {
+      android.oneSignalLogin(userId);
+    } catch {}
+  }
+}
+
+/**
+ * Notify the native WebView that the user has logged out, so the native app can
  * call `OneSignal.logout()` to clear the external_id alias on this device.
  */
-export function notifyIOSLogout() {
-  const handler = getIOSHandler('socialLogout');
-  if (!handler) return;
-  try {
-    handler.postMessage('');
-  } catch {}
+export function notifyNativeLogout() {
+  const iosHandler = getIOSHandler('socialLogout');
+  if (iosHandler) {
+    try {
+      iosHandler.postMessage('');
+      return;
+    } catch {}
+  }
+  const android = getAndroidBridge();
+  if (android?.oneSignalLogout) {
+    try {
+      android.oneSignalLogout();
+    } catch {}
+  }
 }
+
+// Backwards-compatible aliases — existing call sites can keep using old names.
+export const notifyIOSLogin = notifyNativeLogin;
+export const notifyIOSLogout = notifyNativeLogout;
 
 /**
  * Install the iOS WebView → web bridge for OneSignal Player ID.
