@@ -626,6 +626,27 @@ export class ProService implements OnModuleInit {
       ]);
     }
 
+    // 프로필 저장 직후 — User.profileImageUrl 을 최신 대표 ProProfileImage 로 강제 동기화
+    // (카카오 가입자가 프로로 전환하면 Kakao 기본 프로필 → 프로 대표 사진으로 바뀜)
+    const primaryImage = await this.prisma.proProfileImage.findFirst({
+      where: { proProfileId: profile.id, isPrimary: true },
+      select: { imageUrl: true },
+    });
+    const fallbackImage = primaryImage
+      ? null
+      : await this.prisma.proProfileImage.findFirst({
+          where: { proProfileId: profile.id },
+          orderBy: { displayOrder: 'asc' },
+          select: { imageUrl: true },
+        });
+    const effectiveImage = primaryImage?.imageUrl ?? fallbackImage?.imageUrl;
+    if (effectiveImage) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { profileImageUrl: effectiveImage },
+      });
+    }
+
     // 저장 직후 디스커버리 캐시 (리스트 + 상세) 전부 무효화 — 변경사항 즉시 반영
     this.discovery.invalidateCache(profile.id);
     this.discovery.invalidateCache();

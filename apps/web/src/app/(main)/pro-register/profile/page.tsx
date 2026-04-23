@@ -1307,12 +1307,15 @@ export default function ProfilePage() {
                     submitSucceeded = true;
                     // 등록 직후 auth store를 최신 User.profileImageUrl로 갱신 (카카오 기본→대표사진)
                     try {
-                      const { usersApi } = await import('@/lib/api/users.api');
                       const { useAuthStore } = await import('@/lib/store/auth.store');
-                      const profile = await usersApi.getProfile();
-                      if (profile) {
+                      const { prosApi: _prosApi } = await import('@/lib/api/pros.api');
+                      // 1) 프로 프로필에서 대표 이미지 직접 조회 (백엔드가 response에 포함)
+                      const myProfile: any = await _prosApi.getMyProfile().catch(() => null);
+                      const primary = myProfile?.images?.find((img: any) => img.isPrimary) || myProfile?.images?.[0];
+                      const newUrl = primary?.imageUrl || myProfile?.user?.profileImageUrl;
+                      if (newUrl) {
                         const cur = useAuthStore.getState().user;
-                        if (cur) useAuthStore.getState().setUser({ ...cur, profileImageUrl: profile.profileImageUrl || cur.profileImageUrl });
+                        if (cur) useAuthStore.getState().setUser({ ...cur, profileImageUrl: newUrl });
                       }
                     } catch {}
                   } catch (e: any) {

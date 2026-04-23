@@ -404,10 +404,12 @@ export default function ProEditPage() {
           ]);
         }
         // User.profileImageUrl을 최신 대표사진으로 동기화 (카카오 기본 → 프로 등록 대표사진)
-        const { usersApi } = await import('@/lib/api/users.api');
-        const updated = await usersApi.getProfile();
-        if (updated && authUser) {
-          useAuthStore.getState().setUser({ ...authUser, profileImageUrl: updated.profileImageUrl || authUser.profileImageUrl });
+        // 프로 프로필에서 isPrimary 이미지 직접 추출 — User.profileImageUrl보다 신뢰도 높음
+        const myProfile: any = await prosApi.getMyProfile().catch(() => null);
+        const primary = myProfile?.images?.find((img: any) => img.isPrimary) || myProfile?.images?.[0];
+        const newUrl = primary?.imageUrl || myProfile?.user?.profileImageUrl;
+        if (newUrl && authUser) {
+          useAuthStore.getState().setUser({ ...authUser, profileImageUrl: newUrl });
         }
       } catch {}
       setToast('저장되었습니다');
