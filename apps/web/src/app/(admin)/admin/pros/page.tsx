@@ -104,8 +104,11 @@ export default function AdminProsPage() {
     try {
       const res: any = await adminFetch('POST', `/api/v1/admin/pros/${id}/pudding`, { amount, note });
       toast.success(`${amount > 0 ? '+' : ''}${amount} 지급 → 잔액 ${res?.newBalance ?? '?'}`);
-    } catch {
-      toast.error('푸딩 지급 실패');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || err?.message || '알 수 없는 오류';
+      toast.error(`푸딩 지급 실패${status ? ` (${status})` : ''}: ${msg}`);
+      console.error('푸딩 지급 실패:', err);
     }
   };
 
