@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
@@ -7,6 +7,8 @@ import axios from 'axios';
 
 @Injectable()
 export class NotificationService {
+  private readonly logger = new Logger(NotificationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
@@ -16,10 +18,13 @@ export class NotificationService {
   private async sendOneSignalPush(userId: string, title: string, body: string, data?: Record<string, any>) {
     const appId = this.config.get<string>('ONESIGNAL_APP_ID');
     const apiKey = this.config.get<string>('ONESIGNAL_REST_API_KEY');
-    if (!appId || !apiKey) return;
+    if (!appId || !apiKey) {
+      this.logger.warn(`[OneSignal] skip — appId=${!!appId} apiKey=${!!apiKey}`);
+      return;
+    }
 
     try {
-      await axios.post('https://onesignal.com/api/v1/notifications', {
+      const res = await axios.post('https://onesignal.com/api/v1/notifications', {
         app_id: appId,
         target_channel: 'push',
         include_aliases: { external_id: [userId] },
@@ -29,8 +34,10 @@ export class NotificationService {
       }, {
         headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
       });
-    } catch {
-      // push failure is non-fatal
+      this.logger.log(`[OneSignal] sent to external_id=${userId} → id=${res.data?.id} recipients=${res.data?.recipients ?? 'n/a'} errors=${JSON.stringify(res.data?.errors ?? null)}`);
+    } catch (e: unknown) {
+      const err = e as { response?: { status?: number; data?: unknown }; message?: string };
+      this.logger.error(`[OneSignal] FAIL external_id=${userId} status=${err.response?.status} data=${JSON.stringify(err.response?.data)} msg=${err.message}`);
     }
   }
 
@@ -101,6 +108,7 @@ export class NotificationService {
     body: string,
     data?: Record<string, any>,
   ) {
+    this.logger.log(`[createNotification] userId=${userId} type=${type} title="${title}"`);
     const [notification] = await Promise.all([
       this.prisma.notification.create({
         data: {
