@@ -1284,7 +1284,7 @@ export default function ProfilePage() {
                       const stored = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
                       if (Array.isArray(stored) && stored.length > 0) registeredRegions = stored;
                     } catch {}
-                    await prosApi.submitRegistration({
+                    const submitResponse: any = await prosApi.submitRegistration({
                       name: localStorage.getItem('proRegister_name') || undefined,
                       phone: localStorage.getItem('proRegister_phone') || undefined,
                       gender: localStorage.getItem('proRegister_gender') || undefined,
@@ -1305,17 +1305,13 @@ export default function ProfilePage() {
                       tags: selectedTags.length > 0 ? selectedTags : undefined,
                     });
                     submitSucceeded = true;
-                    // 등록 직후 auth store를 최신 User.profileImageUrl로 갱신 (카카오 기본→대표사진)
+                    // 백엔드 응답에 user가 포함됨 → auth store 즉시 갱신
                     try {
                       const { useAuthStore } = await import('@/lib/store/auth.store');
-                      const { prosApi: _prosApi } = await import('@/lib/api/pros.api');
-                      // 1) 프로 프로필에서 대표 이미지 직접 조회 (백엔드가 response에 포함)
-                      const myProfile: any = await _prosApi.getMyProfile().catch(() => null);
-                      const primary = myProfile?.images?.find((img: any) => img.isPrimary) || myProfile?.images?.[0];
-                      const newUrl = primary?.imageUrl || myProfile?.user?.profileImageUrl;
-                      if (newUrl) {
-                        const cur = useAuthStore.getState().user;
-                        if (cur) useAuthStore.getState().setUser({ ...cur, profileImageUrl: newUrl });
+                      const newImg = submitResponse?.user?.profileImageUrl;
+                      const cur = useAuthStore.getState().user;
+                      if (newImg && cur) {
+                        useAuthStore.getState().setUser({ ...cur, profileImageUrl: newImg });
                       }
                     } catch {}
                   } catch (e: any) {

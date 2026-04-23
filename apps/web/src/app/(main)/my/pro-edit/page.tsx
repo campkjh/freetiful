@@ -369,7 +369,7 @@ export default function ProEditPage() {
         const stored = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
         if (Array.isArray(stored) && stored.length > 0) editRegions = stored;
       } catch {}
-      await prosApi.submitRegistration({
+      const editResponse: any = await prosApi.submitRegistration({
         // name 은 서버에서 무시됨 (User.name = 가입 시 실계정 이름, 변경 불가)
         phone: phone || undefined,
         gender: gender || undefined,
@@ -387,6 +387,13 @@ export default function ProEditPage() {
         regions: editRegions,
         tags: tags.length > 0 ? tags : undefined,
       });
+      // 백엔드 응답에 updated user가 포함됨 — 즉시 auth store 갱신
+      try {
+        const newImg = editResponse?.user?.profileImageUrl;
+        if (newImg && authUser) {
+          useAuthStore.getState().setUser({ ...authUser, profileImageUrl: newImg });
+        }
+      } catch {}
       // 캐시 무효화 (클라 + 서버 + 브라우저 HTTP) + 내 프로 ID 저장
       let myProId: string | null = null;
       try {

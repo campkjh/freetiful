@@ -640,10 +640,17 @@ export class ProService implements OnModuleInit {
           select: { imageUrl: true },
         });
     const effectiveImage = primaryImage?.imageUrl ?? fallbackImage?.imageUrl;
+    let updatedUser = null as null | { id: string; name: string | null; email: string | null; phone: string | null; profileImageUrl: string | null };
     if (effectiveImage) {
-      await this.prisma.user.update({
+      updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data: { profileImageUrl: effectiveImage },
+        select: { id: true, name: true, email: true, phone: true, profileImageUrl: true },
+      });
+    } else {
+      updatedUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, email: true, phone: true, profileImageUrl: true },
       });
     }
 
@@ -651,7 +658,8 @@ export class ProService implements OnModuleInit {
     this.discovery.invalidateCache(profile.id);
     this.discovery.invalidateCache();
 
-    return profile;
+    // 프로필 이미지가 변경되었음을 프론트가 즉시 반영할 수 있게 user 포함 리턴
+    return { ...profile, user: updatedUser };
   }
 
   private async savePhotoFromDataUrl(dataUrl: string): Promise<{ path: string; originalPath: string } | null> {
