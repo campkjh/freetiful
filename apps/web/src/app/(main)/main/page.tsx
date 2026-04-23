@@ -495,6 +495,86 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
   );
 }
 
+function CategorySwiper() {
+  const CAT_DIR = '/images/프리티풀 카테고리 아이콘';
+  const allCats = [
+    { name: '외국어사회자', img: `${CAT_DIR}/외국어사회자.png`, href: '/pros?category=외국어사회자' },
+    { name: '웨딩홀', img: `${CAT_DIR}/웨딩홀.png`, href: '/businesses?category=웨딩홀' },
+    { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
+    { name: '피부과', img: `${CAT_DIR}/피부과.png`, href: '/businesses?category=피부과' },
+    { name: '드레스', img: '/images/cat-dress.png', href: '/businesses?category=드레스' },
+    { name: '헤어', img: `${CAT_DIR}/헤어.png`, href: '/businesses?category=헤어' },
+    { name: '메이크업', img: `${CAT_DIR}/메이크업.png`, href: '/businesses?category=메이크업' },
+    { name: '가전', img: `${CAT_DIR}/아파트.png`, href: '/businesses?category=가전' },
+    { name: '스냅', img: `${CAT_DIR}/스냅.png`, href: '/businesses?category=스냅' },
+    { name: '축가연주', img: `${CAT_DIR}/축가연주.png`, href: '/pros?category=축가·연주' },
+    { name: '한복', img: `${CAT_DIR}/한복.png`, href: '/businesses?category=한복' },
+    { name: '성형외과', img: `${CAT_DIR}/성형외과.png`, href: '/businesses?category=성형외과' },
+    { name: '보석', img: `${CAT_DIR}/보석.png`, href: '/businesses?category=보석' },
+    { name: '답례품', img: `${CAT_DIR}/보석.png`, href: '/businesses?category=답례품' },
+    { name: '자동차', img: `${CAT_DIR}/자동차.png`, href: '/businesses?category=자동차' },
+    { name: '신혼여행', img: `${CAT_DIR}/신혼여행.png`, href: '/businesses?category=신혼여행' },
+    { name: '가구', img: `${CAT_DIR}/아파트.png`, href: '/businesses?category=가구' },
+  ];
+  const PAGE_SIZE = 10;
+  const pages: typeof allCats[] = [];
+  for (let i = 0; i < allCats.length; i += PAGE_SIZE) pages.push(allCats.slice(i, i + PAGE_SIZE));
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activePage, setActivePage] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handler = () => {
+      const i = Math.round(el.scrollLeft / el.clientWidth);
+      setActivePage(i);
+    };
+    el.addEventListener('scroll', handler, { passive: true });
+    return () => el.removeEventListener('scroll', handler);
+  }, []);
+
+  return (
+    <div className="px-[10px] pb-2 pt-1">
+      <div ref={scrollRef} className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-[10px] px-[10px]" style={{ scrollBehavior: 'smooth' }}>
+        {pages.map((pageCats, pi) => (
+          <div key={pi} className="shrink-0 w-full snap-start">
+            <div className="grid grid-cols-5 gap-y-3 gap-x-1 py-2">
+              {pageCats.map((item, i) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="flex flex-col items-center gap-0.5 opacity-0"
+                  style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + i * 0.04}s forwards` }}
+                >
+                  <div className="w-[48px] h-[48px] flex items-center justify-center overflow-hidden">
+                    <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
+                  </div>
+                  <span className="text-[11px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* 페이지 인디케이터 */}
+      <div className="flex items-center justify-center gap-1.5 mt-2">
+        {pages.map((_, i) => (
+          <span
+            key={i}
+            className="block rounded-full transition-all duration-300"
+            style={{
+              width: i === activePage ? 18 : 6,
+              height: 6,
+              backgroundColor: i === activePage ? '#3180F7' : '#D1D5DB',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const authUser = useAuthStore((s) => s.user);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
@@ -878,56 +958,8 @@ export default function HomePage() {
         </div>
 
         {/* 4. Icon category grid — 5x2, 스와이프로 다음 페이지 */}
-        <div className="px-[10px] pb-2 pt-1">
-          {(() => {
-            const CAT_DIR = '/images/프리티풀 카테고리 아이콘';
-            const allCats = [
-              { name: '외국어사회자', img: `${CAT_DIR}/외국어사회자.png`, href: '/pros?category=외국어사회자' },
-              { name: '웨딩홀', img: `${CAT_DIR}/웨딩홀.png`, href: '/businesses?category=웨딩홀' },
-              { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
-              { name: '피부과', img: `${CAT_DIR}/피부과.png`, href: '/businesses?category=피부과' },
-              { name: '드레스', img: '/images/cat-dress.png', href: '/businesses?category=드레스' },
-              { name: '헤어', img: `${CAT_DIR}/헤어.png`, href: '/businesses?category=헤어' },
-              { name: '메이크업', img: `${CAT_DIR}/메이크업.png`, href: '/businesses?category=메이크업' },
-              { name: '가전', img: `${CAT_DIR}/아파트.png`, href: '/businesses?category=가전' },
-              { name: '스냅', img: `${CAT_DIR}/스냅.png`, href: '/businesses?category=스냅' },
-              { name: '축가연주', img: `${CAT_DIR}/축가연주.png`, href: '/pros?category=축가·연주' },
-              { name: '한복', img: `${CAT_DIR}/한복.png`, href: '/businesses?category=한복' },
-              { name: '성형외과', img: `${CAT_DIR}/성형외과.png`, href: '/businesses?category=성형외과' },
-              { name: '보석', img: `${CAT_DIR}/보석.png`, href: '/businesses?category=보석' },
-              { name: '답례품', img: `${CAT_DIR}/보석.png`, href: '/businesses?category=답례품' },
-              { name: '자동차', img: `${CAT_DIR}/자동차.png`, href: '/businesses?category=자동차' },
-              { name: '신혼여행', img: `${CAT_DIR}/신혼여행.png`, href: '/businesses?category=신혼여행' },
-              { name: '가구', img: `${CAT_DIR}/아파트.png`, href: '/businesses?category=가구' },
-            ];
-            const PAGE_SIZE = 10;
-            const pages: typeof allCats[] = [];
-            for (let i = 0; i < allCats.length; i += PAGE_SIZE) pages.push(allCats.slice(i, i + PAGE_SIZE));
-            return (
-              <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-[10px] px-[10px]" style={{ scrollBehavior: 'smooth' }}>
-                {pages.map((pageCats, pi) => (
-                  <div key={pi} className="shrink-0 w-full snap-start">
-                    <div className="grid grid-cols-5 gap-y-3 gap-x-1 py-2">
-                      {pageCats.map((item, i) => (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          className="flex flex-col items-center gap-0.5 opacity-0"
-                          style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + i * 0.04}s forwards` }}
-                        >
-                          <div className="w-[48px] h-[48px] flex items-center justify-center overflow-hidden">
-                            <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
-                          </div>
-                          <span className="text-[11px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-        </div>
+        <CategorySwiper />
+
 
         {/* 5. Slide Banner — 아이콘 그리드 아래, 관심있는 전문가 위 */}
         <div className="px-[10px] pt-2 pb-1">
