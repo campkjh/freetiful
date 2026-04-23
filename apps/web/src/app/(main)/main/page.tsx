@@ -689,9 +689,9 @@ function CategorySwiper() {
             onClick={() => scrollToPage(i)}
             className="block rounded-full transition-all duration-300"
             style={{
-              width: i === activePage ? 18 : 6,
-              height: 6,
-              backgroundColor: i === activePage ? '#3180F7' : '#D1D5DB',
+              width: i === activePage ? 28 : 4,
+              height: 3,
+              backgroundColor: i === activePage ? '#111111' : '#D1D5DB',
             }}
             aria-label={`페이지 ${i + 1}`}
           />
