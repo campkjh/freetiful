@@ -39,7 +39,11 @@ export const notificationApi = {
         const raw = localStorage.getItem(CACHE_KEY);
         if (raw) {
           const data = JSON.parse(raw);
-          if (Array.isArray(data?.items)) {
+          // 백엔드 응답: { data: [...], meta: {...} }
+          if (Array.isArray(data?.data)) {
+            data.data = data.data.filter((n: any) => n.id !== id);
+            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          } else if (Array.isArray(data?.items)) {
             data.items = data.items.filter((n: any) => n.id !== id);
             localStorage.setItem(CACHE_KEY, JSON.stringify(data));
           } else if (Array.isArray(data)) {

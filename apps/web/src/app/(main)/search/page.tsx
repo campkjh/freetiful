@@ -111,7 +111,7 @@ export default function SearchPage() {
               onChange={(e) => { setQuery(e.target.value); setHasSearched(false); }}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               placeholder="이름, 소개, 카테고리로 검색"
-              className="flex-1 bg-transparent text-[15px] text-gray-900 placeholder-gray-400 outline-none"
+              className="flex-1 bg-transparent text-[16px] text-gray-900 placeholder-gray-400 outline-none"
             />
             {query && (
               <button onClick={() => { setQuery(''); setHasSearched(false); }} className="p-0.5">

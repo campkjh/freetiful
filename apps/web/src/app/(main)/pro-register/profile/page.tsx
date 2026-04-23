@@ -1278,6 +1278,16 @@ export default function ProfilePage() {
                       regions: registeredRegions,
                     });
                     submitSucceeded = true;
+                    // 등록 직후 auth store를 최신 User.profileImageUrl로 갱신 (카카오 기본→대표사진)
+                    try {
+                      const { usersApi } = await import('@/lib/api/users.api');
+                      const { useAuthStore } = await import('@/lib/store/auth.store');
+                      const profile = await usersApi.getProfile();
+                      if (profile) {
+                        const cur = useAuthStore.getState().user;
+                        if (cur) useAuthStore.getState().setUser({ ...cur, profileImageUrl: profile.profileImageUrl || cur.profileImageUrl });
+                      }
+                    } catch {}
                   } catch (e: any) {
                     submitError = e;
                     console.error('submitRegistration failed', e);

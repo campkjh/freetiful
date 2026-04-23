@@ -400,6 +400,12 @@ export default function ProEditPage() {
             apiClient.get(`/api/v1/discovery/pros?_=${Date.now()}`),
           ]);
         }
+        // User.profileImageUrl을 최신 대표사진으로 동기화 (카카오 기본 → 프로 등록 대표사진)
+        const { usersApi } = await import('@/lib/api/users.api');
+        const updated = await usersApi.getProfile();
+        if (updated && authUser) {
+          useAuthStore.getState().setUser({ ...authUser, profileImageUrl: updated.profileImageUrl || authUser.profileImageUrl });
+        }
       } catch {}
       setToast('저장되었습니다');
       // 상세 페이지로 이동 (타임스탬프로 HTTP 캐시 버스트)

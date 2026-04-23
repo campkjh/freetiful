@@ -40,6 +40,7 @@ const HIDE_NAV_PATTERNS = [
   /^\/quote/,
   /^\/careers$/,
   /^\/schedule\/.+/,
+  /^\/search/,
 ];
 
 const HIDE_FOOTER_PATTERNS = [

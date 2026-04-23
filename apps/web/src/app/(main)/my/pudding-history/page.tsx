@@ -14,16 +14,7 @@ interface PuddingTransaction {
   category: string;
 }
 
-const MOCK_TRANSACTIONS: PuddingTransaction[] = [
-  { id: 'p1', type: 'use', description: '랭킹 부스트 사용', amount: -50, createdAt: Date.now() - 86400000 * 1, category: 'boost' },
-  { id: 'p2', type: 'earn', description: '프로모션 코드 적립', amount: 100, createdAt: Date.now() - 86400000 * 3, category: 'promo' },
-  { id: 'p3', type: 'use', description: '프로필 상단 노출', amount: -30, createdAt: Date.now() - 86400000 * 5, category: 'boost' },
-  { id: 'p4', type: 'earn', description: '월간 활동 보너스', amount: 50, createdAt: Date.now() - 86400000 * 7, category: 'bonus' },
-  { id: 'p5', type: 'earn', description: '리뷰 응답 보너스', amount: 20, createdAt: Date.now() - 86400000 * 10, category: 'review' },
-  { id: 'p6', type: 'use', description: '랭킹 부스트 사용', amount: -50, createdAt: Date.now() - 86400000 * 14, category: 'boost' },
-  { id: 'p7', type: 'earn', description: '푸딩 충전', amount: 200, createdAt: Date.now() - 86400000 * 20, category: 'charge' },
-  { id: 'p8', type: 'earn', description: '가입 환영 푸딩', amount: 100, createdAt: Date.now() - 86400000 * 30, category: 'welcome' },
-];
+const MOCK_TRANSACTIONS: PuddingTransaction[] = [];
 
 const CATEGORY_ICONS: Record<string, { icon: typeof Gift; color: string }> = {
   boost: { icon: Zap, color: '#F59E0B' },
@@ -42,7 +33,7 @@ function formatDate(ts: number): string {
 export default function PuddingHistoryPage() {
   const router = useRouter();
   const [totalPudding, setTotalPudding] = useState(0);
-  const [transactions, setTransactions] = useState<PuddingTransaction[]>(MOCK_TRANSACTIONS);
+  const [transactions, setTransactions] = useState<PuddingTransaction[]>([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -76,12 +67,7 @@ export default function PuddingHistoryPage() {
     function loadLocalData() {
       const storedPudding = getPudding();
       const storedHistory = getPuddingHistory();
-      if (storedPudding > 0) {
-        setTotalPudding(storedPudding);
-      } else {
-        const mockTotal = MOCK_TRANSACTIONS.reduce((sum, tx) => sum + tx.amount, 0);
-        setTotalPudding(mockTotal);
-      }
+      setTotalPudding(storedPudding);
       if (storedHistory.length > 0) {
         const convertedHistory: PuddingTransaction[] = storedHistory.map((tx) => ({
           id: tx.id,
@@ -91,7 +77,7 @@ export default function PuddingHistoryPage() {
           createdAt: tx.createdAt,
           category: tx.category,
         }));
-        setTransactions([...convertedHistory, ...MOCK_TRANSACTIONS]);
+        setTransactions(convertedHistory);
       }
     }
   }, []);
