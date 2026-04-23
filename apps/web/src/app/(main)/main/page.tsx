@@ -495,6 +495,69 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
   );
 }
 
+function CherryBlossomAnimation() {
+  const petals = [
+    { left: '10%', delay: '0s',   duration: '3.5s', size: 8 },
+    { left: '35%', delay: '0.8s', duration: '4s',   size: 6 },
+    { left: '60%', delay: '1.6s', duration: '3.2s', size: 7 },
+    { left: '85%', delay: '2.4s', duration: '3.8s', size: 5 },
+    { left: '25%', delay: '2.0s', duration: '4.2s', size: 6 },
+    { left: '70%', delay: '0.4s', duration: '3.6s', size: 7 },
+  ];
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-visible" style={{ top: -12, bottom: -12 }}>
+      {petals.map((p, i) => (
+        <svg
+          key={i}
+          width={p.size}
+          height={p.size}
+          viewBox="0 0 20 20"
+          className="absolute"
+          style={{
+            left: p.left,
+            top: -10,
+            animation: `petalFall ${p.duration} ${p.delay} linear infinite`,
+          }}
+        >
+          <path d="M10 2 C7 2 5 5 5 8 C5 11 7 13 10 13 C13 13 15 11 15 8 C15 5 13 2 10 2 Z" fill="#FFB7C5" opacity="0.85" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+function SparkleAnimation() {
+  const sparkles = [
+    { top: '10%', left: '15%', delay: '0s',   duration: '1.4s', size: 8 },
+    { top: '20%', left: '75%', delay: '0.3s', duration: '1.6s', size: 6 },
+    { top: '55%', left: '88%', delay: '0.7s', duration: '1.3s', size: 7 },
+    { top: '80%', left: '10%', delay: '1.0s', duration: '1.5s', size: 6 },
+    { top: '45%', left: '5%',  delay: '0.5s', duration: '1.2s', size: 5 },
+    { top: '75%', left: '70%', delay: '1.2s', duration: '1.4s', size: 7 },
+    { top: '30%', left: '45%', delay: '0.9s', duration: '1.5s', size: 5 },
+  ];
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-visible">
+      {sparkles.map((s, i) => (
+        <svg
+          key={i}
+          width={s.size}
+          height={s.size}
+          viewBox="0 0 20 20"
+          className="absolute"
+          style={{
+            top: s.top,
+            left: s.left,
+            animation: `sparkle ${s.duration} ${s.delay} ease-in-out infinite`,
+          }}
+        >
+          <path d="M10 0 L12 8 L20 10 L12 12 L10 20 L8 12 L0 10 L8 8 Z" fill="#FFD700" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
 function LanguageBadge() {
   const LANGS = ['English', '中文', '日本語', 'ภาษาไทย', 'العربية', 'Español'];
   const [idx, setIdx] = useState(0);
@@ -580,6 +643,8 @@ function CategorySwiper() {
                   <div className="w-[60px] h-[60px] flex items-center justify-center relative">
                     <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
                     {item.name === '외국어사회자' && <LanguageBadge />}
+                    {item.name === '헤어' && <CherryBlossomAnimation />}
+                    {item.name === '메이크업' && <SparkleAnimation />}
                   </div>
                   <span className="text-[12px] font-medium text-center leading-tight mt-1" style={{ color: '#51535C' }}>{item.name}</span>
                 </Link>
