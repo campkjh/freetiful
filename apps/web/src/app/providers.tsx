@@ -1,7 +1,13 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuthStore } from '@/lib/store/auth.store';
+import {
+  initIOSPushBridge,
+  registerPushSubscription,
+  flushOneSignalPlayerId,
+} from '@/lib/utils/push';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -15,6 +21,14 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
+
+  useEffect(() => {
+    initIOSPushBridge();
+    if (useAuthStore.getState().accessToken) {
+      void registerPushSubscription();
+      void flushOneSignalPlayerId();
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

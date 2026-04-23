@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiscoveryService } from '../discovery/discovery.service';
+import { NotificationService } from '../notification/notification.service';
 import { UserRole } from '@prisma/client';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly discovery: DiscoveryService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async getProfile(userId: string) {
@@ -102,13 +104,13 @@ export class UsersService {
       throw new BadRequestException('Amount must be positive');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const transaction = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
         where: { id: userId },
         data: { pointBalance: { increment: amount } },
       });
 
-      const transaction = await tx.pointTransaction.create({
+      return tx.pointTransaction.create({
         data: {
           userId,
           type,
@@ -117,9 +119,19 @@ export class UsersService {
           balanceAfter: user.pointBalance,
         },
       });
-
-      return transaction;
     });
+
+    this.notificationService
+      .createNotification(
+        userId,
+        'system' as any,
+        '포인트가 적립되었습니다 🪙',
+        `${amount.toLocaleString()}P 적립 — ${description}`,
+        { type: 'point_earned', amount, reason: description },
+      )
+      .catch(() => {});
+
+    return transaction;
   }
 
   async usePoints(userId: string, amount: number, description: string) {

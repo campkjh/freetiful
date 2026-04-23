@@ -3,7 +3,6 @@ import KakaoSDKCommon
 import KakaoSDKAuth
 import GoogleSignIn
 import NaverThirdPartyLogin
-import OneSignalFramework
 import UserNotifications
 import Firebase
 
@@ -14,7 +13,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        
+
         FirebaseApp.configure()
 
         // -----------------------------
@@ -40,18 +39,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         naver?.serviceUrlScheme = "naverfreetiful"
 
         // -----------------------------
-        // 🔔 OneSignal 초기화
+        // 🔔 OneSignal 초기화 (단일 소스: OneSignalManager)
         // -----------------------------
-        OneSignal.initialize("fcf1313b-36ee-40ab-8fbc-4da8727ae83f")
+        OneSignalManager.shared.initialize()
 
-        // 🔔 알림 권한 요청
-        OneSignal.Notifications.requestPermission({ accepted in
-            print("🔔 알림 허용 여부:", accepted)
-        }, fallbackToSettings: true)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            print("🧪 OneSignal ID:", OneSignal.User.pushSubscription.id ?? "nil")
-        }
         return true
     }
 

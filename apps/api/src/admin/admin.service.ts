@@ -695,23 +695,18 @@ export class AdminService {
     return { success: true };
   }
 
-  // ─── 행사일 리마인더 크론 (매일 오전 9시) ──────────────────────────────
-  @Cron('0 9 * * *')
+  // ─── 행사일 리마인더 크론 (한국시간 매일 오전 9시 — 당일 + D-3) ────────
+  @Cron('0 9 * * *', { timeZone: 'Asia/Seoul' })
   async sendEventReminders() {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const todayStr = now.toISOString().split('T')[0];
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const threeDaysLater = new Date();
+    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+    const threeDaysStr = threeDaysLater.toISOString().split('T')[0];
 
     const quotations = await this.prisma.quotation.findMany({
       where: {
         status: 'paid',
-        eventDate: {
-          gte: new Date(todayStr),
-          lte: new Date(tomorrowStr + 'T23:59:59'),
-        },
+        eventDate: { in: [new Date(todayStr), new Date(threeDaysStr)] },
       },
       include: {
         proProfile: { include: { user: { select: { id: true, name: true } } } },
@@ -721,10 +716,10 @@ export class AdminService {
     for (const q of quotations) {
       const eventDate = q.eventDate ? new Date(q.eventDate).toISOString().split('T')[0] : '';
       const isToday = eventDate === todayStr;
-      const title = isToday ? '오늘 행사가 있습니다! 🎉' : '내일 행사가 있습니다 📅';
+      const title = isToday ? '오늘 행사가 있습니다! 🎉' : '3일 뒤 행사가 예정되어 있습니다 📅';
       const body = isToday
         ? `오늘 ${q.proProfile.user.name} 사회자와 행사가 예정되어 있습니다.`
-        : `내일 ${q.proProfile.user.name} 사회자와 행사가 예정되어 있습니다.`;
+        : `3일 뒤 ${q.proProfile.user.name} 사회자와 행사가 예정되어 있습니다. 준비하세요!`;
 
       this.notificationService.createNotification(q.userId, 'system' as any, title, body, {
         quotationId: q.id,
@@ -735,6 +730,65 @@ export class AdminService {
       }).catch(() => {});
     }
 
-    this.logger.log(`Event reminders sent for ${quotations.length} quotations`);
+    this.logger.log(`Event reminders sent for ${quotations.length} quotations (today + D-3)`);
+  }
+
+  // ─── 후기 요청 크론 (한국시간 매일 오전 10시 — 행사 1일 후, 리뷰 없는 건) ──
+  @Cron('0 10 * * *', { timeZone: 'Asia/Seoul' })
+  async sendReviewRequestReminders() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    const quotations = await this.prisma.quotation.findMany({
+      where: {
+        status: 'paid',
+        eventDate: new Date(yesterdayStr),
+        paymentId: { not: null },
+      },
+      include: {
+        proProfile: { include: { user: { select: { name: true } } } },
+        payment: { include: { review: { select: { id: true } } } },
+      },
+    });
+
+    const pending = quotations.filter((q) => q.payment && !q.payment.review);
+    for (const q of pending) {
+      const proName = q.proProfile.user.name;
+      this.notificationService
+        .createNotification(
+          q.userId,
+          'review' as any,
+          '행사는 어떠셨나요? ⭐',
+          `${proName} 사회자와의 행사 후기를 남겨주세요.`,
+          { quotationId: q.id, proProfileId: q.proProfileId },
+        )
+        .catch(() => {});
+    }
+
+    this.logger.log(`Review request reminders sent for ${pending.length} quotations`);
+  }
+
+  // ─── 사회자 출석체크 크론 (한국시간 매일 오전 9시) ─────────────────────
+  @Cron('0 9 * * *', { timeZone: 'Asia/Seoul' })
+  async sendProDailyAttendanceReminder() {
+    const pros = await this.prisma.proProfile.findMany({
+      where: { status: 'approved' },
+      select: { userId: true },
+    });
+
+    for (const p of pros) {
+      this.notificationService
+        .createNotification(
+          p.userId,
+          'system' as any,
+          '오늘도 출석체크 하셨나요? 🍮',
+          '프리티풀에 접속해 푸딩을 받아보세요!',
+          { type: 'pro_attendance' },
+        )
+        .catch(() => {});
+    }
+
+    this.logger.log(`Pro daily attendance reminders sent to ${pros.length} pros`);
   }
 }

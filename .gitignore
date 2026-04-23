@@ -10,6 +10,8 @@ build
 !.env.example
 *.log
 .DS_Store
+._*
+*.tsbuildinfo
 coverage
 prisma/migrations/dev
 .vercel

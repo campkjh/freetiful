@@ -46,6 +46,18 @@ export class PushService {
     });
   }
 
+  async saveOneSignalPlayerId(
+    userId: string,
+    playerId: string,
+    platform: string = 'iOS',
+  ) {
+    return this.prisma.pushToken.upsert({
+      where: { userId_token: { userId, token: playerId } },
+      create: { userId, token: playerId, platform, isActive: true },
+      update: { platform, isActive: true },
+    });
+  }
+
   async sendWebPush(params: {
     userIds: string[];
     title: string;

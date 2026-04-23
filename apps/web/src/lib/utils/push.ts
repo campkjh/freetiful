@@ -1,4 +1,7 @@
 import { apiClient } from '../api/client';
+import { useAuthStore } from '../store/auth.store';
+
+const ONESIGNAL_PENDING_KEY = 'freetiful-onesignal-pending';
 
 /**
  * Subscribe the current (logged-in) browser to web push.
@@ -35,6 +38,57 @@ export async function registerPushSubscription(): Promise<PushSubscription | nul
   } catch (e) {
     console.error('Push subscription failed:', e);
     return null;
+  }
+}
+
+/**
+ * Install the iOS WebView → web bridge for OneSignal Player ID.
+ * The native app calls `window.bubble_fn_savePushId(playerId)` once permission
+ * is granted. We buffer the id in localStorage (since the user may not be logged
+ * in yet when iOS fires this) and flush to the API on next authenticated moment.
+ */
+export function initIOSPushBridge() {
+  if (typeof window === 'undefined') return;
+  (window as unknown as { bubble_fn_savePushId: (id: string) => void }).bubble_fn_savePushId = (
+    playerId: string,
+  ) => {
+    if (!playerId) return;
+    try {
+      localStorage.setItem(ONESIGNAL_PENDING_KEY, playerId);
+    } catch {}
+    void flushOneSignalPlayerId();
+  };
+}
+
+/**
+ * If the user is authenticated and a pending OneSignal Player ID exists in
+ * localStorage, POST it to the backend and clear the buffer. Safe to call at
+ * any time — no-ops when nothing to flush or user is anonymous.
+ */
+export async function flushOneSignalPlayerId(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const playerId = (() => {
+    try {
+      return localStorage.getItem(ONESIGNAL_PENDING_KEY);
+    } catch {
+      return null;
+    }
+  })();
+  if (!playerId) return;
+
+  const token = useAuthStore.getState().accessToken;
+  if (!token) return;
+
+  try {
+    await apiClient.post('/api/v1/push/onesignal/register', {
+      playerId,
+      platform: 'iOS',
+    });
+    try {
+      localStorage.removeItem(ONESIGNAL_PENDING_KEY);
+    } catch {}
+  } catch (e) {
+    console.error('OneSignal Player ID flush failed:', e);
   }
 }
 

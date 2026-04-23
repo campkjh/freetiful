@@ -1,0 +1,20 @@
+{
+  "name": "Freetiful",
+  "short_name": "Freetiful",
+  "description": "나의 특별한 행사를 완성하는 전문가",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#3180F7",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/images/logo-prettyful.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

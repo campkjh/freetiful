@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushService } from '../push/push.service';
 import { NotificationType } from '@prisma/client';
 import axios from 'axios';
 
@@ -9,6 +10,7 @@ export class NotificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly pushService: PushService,
   ) {}
 
   private async sendOneSignalPush(userId: string, title: string, body: string, data?: Record<string, any>) {
@@ -110,6 +112,15 @@ export class NotificationService {
         },
       }),
       this.sendOneSignalPush(userId, title, body, data),
+      this.pushService
+        .sendWebPush({
+          userIds: [userId],
+          title,
+          body,
+          event: String(type),
+          data,
+        })
+        .catch(() => undefined),
     ]);
     return notification;
   }
