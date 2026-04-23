@@ -496,25 +496,25 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
 }
 
 function CategorySwiper() {
-  const CAT_DIR = '/images/프리티풀 카테고리 아이콘';
+  const CAT_DIR = '/images/category-icons';
   const allCats = [
-    { name: '외국어사회자', img: `${CAT_DIR}/외국어사회자.png`, href: '/pros?category=외국어사회자' },
-    { name: '웨딩홀', img: `${CAT_DIR}/웨딩홀.png`, href: '/businesses?category=웨딩홀' },
+    { name: '외국어사회자', img: `${CAT_DIR}/foreign-mc.png`, href: '/pros?category=외국어사회자' },
+    { name: '웨딩홀', img: `${CAT_DIR}/wedding-hall.png`, href: '/businesses?category=웨딩홀' },
     { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
-    { name: '피부과', img: `${CAT_DIR}/피부과.png`, href: '/businesses?category=피부과' },
-    { name: '드레스', img: `${CAT_DIR}/드레스.png`, href: '/businesses?category=드레스' },
-    { name: '헤어', img: `${CAT_DIR}/헤어.png`, href: '/businesses?category=헤어' },
-    { name: '메이크업', img: `${CAT_DIR}/메이크업.png`, href: '/businesses?category=메이크업' },
-    { name: '가전', img: `${CAT_DIR}/가전.png`, href: '/businesses?category=가전' },
-    { name: '스냅', img: `${CAT_DIR}/스냅.png`, href: '/businesses?category=스냅' },
-    { name: '축가연주', img: `${CAT_DIR}/축가연주.png`, href: '/pros?category=축가·연주' },
-    { name: '한복', img: `${CAT_DIR}/한복.png`, href: '/businesses?category=한복' },
-    { name: '성형외과', img: `${CAT_DIR}/성형외과.png`, href: '/businesses?category=성형외과' },
-    { name: '보석', img: `${CAT_DIR}/보석.png`, href: '/businesses?category=보석' },
-    { name: '답례품', img: `${CAT_DIR}/답례품.png`, href: '/businesses?category=답례품' },
-    { name: '자동차', img: `${CAT_DIR}/자동차.png`, href: '/businesses?category=자동차' },
-    { name: '신혼여행', img: `${CAT_DIR}/신혼여행.png`, href: '/businesses?category=신혼여행' },
-    { name: '가구', img: `${CAT_DIR}/가구.png`, href: '/businesses?category=가구' },
+    { name: '피부과', img: `${CAT_DIR}/derma.png`, href: '/businesses?category=피부과' },
+    { name: '드레스', img: `${CAT_DIR}/dress.png`, href: '/businesses?category=드레스' },
+    { name: '헤어', img: `${CAT_DIR}/hair.png`, href: '/businesses?category=헤어' },
+    { name: '메이크업', img: `${CAT_DIR}/makeup.png`, href: '/businesses?category=메이크업' },
+    { name: '가전', img: `${CAT_DIR}/appliance.png`, href: '/businesses?category=가전' },
+    { name: '스냅', img: `${CAT_DIR}/snap.png`, href: '/businesses?category=스냅' },
+    { name: '축가연주', img: `${CAT_DIR}/singer.png`, href: '/pros?category=축가·연주' },
+    { name: '한복', img: `${CAT_DIR}/hanbok.png`, href: '/businesses?category=한복' },
+    { name: '성형외과', img: `${CAT_DIR}/plastic.png`, href: '/businesses?category=성형외과' },
+    { name: '보석', img: `${CAT_DIR}/jewelry.png`, href: '/businesses?category=보석' },
+    { name: '답례품', img: `${CAT_DIR}/gift.png`, href: '/businesses?category=답례품' },
+    { name: '자동차', img: `${CAT_DIR}/car.png`, href: '/businesses?category=자동차' },
+    { name: '신혼여행', img: `${CAT_DIR}/honeymoon.png`, href: '/businesses?category=신혼여행' },
+    { name: '가구', img: `${CAT_DIR}/furniture.png`, href: '/businesses?category=가구' },
   ];
   const PAGE_SIZE = 10;
   const pages: typeof allCats[] = [];
