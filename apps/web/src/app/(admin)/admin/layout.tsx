@@ -11,6 +11,7 @@ import {
   CreditCard,
   Star,
   Building2,
+  Heart,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -27,6 +28,7 @@ const ADMIN_EMAILS = ['admin@freetiful.com'];
 const NAV_ITEMS = [
   { href: '/admin', label: '대시보드', icon: LayoutDashboard, exact: true },
   { href: '/admin/pros', label: '전문가 관리', icon: UserCog },
+  { href: '/admin/partners', label: '웨딩 파트너 업체', icon: Heart },
   { href: '/admin/plan-templates', label: '서비스 플랜', icon: Package },
   { href: '/admin/banners', label: '배너 관리', icon: ImageIcon },
   { href: '/admin/users', label: '유저 관리', icon: Users },

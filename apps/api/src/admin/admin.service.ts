@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ProService } from '../pro/pro.service';
 import { DiscoveryService } from '../discovery/discovery.service';
+import { ImageService } from '../image/image.service';
+import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 
 const PROS = [
@@ -58,7 +60,276 @@ export class AdminService {
     private notificationService: NotificationService,
     private proService: ProService,
     private discoveryService: DiscoveryService,
+    private imageService: ImageService,
   ) {}
+
+  // ─── 웨딩 파트너 업체 (BusinessProfile) CRUD ────────────────────────────
+  // 어드민이 직접 업체를 등록/수정/삭제. 소유 유저가 없으면 placeholder User 자동 생성.
+  async getBusinesses(params: { page?: number; limit?: number; search?: string }) {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const where: any = {};
+    if (params.search) {
+      where.OR = [
+        { businessName: { contains: params.search, mode: 'insensitive' } },
+        { businessType: { contains: params.search, mode: 'insensitive' } },
+        { address: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.businessProfile.findMany({
+        where,
+        include: {
+          images: { orderBy: { displayOrder: 'asc' }, take: 1, select: { imageUrl: true } },
+          categories: { include: { category: { select: { id: true, name: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.businessProfile.count({ where }),
+    ]);
+
+    return {
+      data: data.map((b) => ({
+        id: b.id,
+        businessName: b.businessName,
+        businessType: b.businessType,
+        address: b.address,
+        phone: b.phone,
+        status: b.status,
+        createdAt: b.createdAt,
+        images: b.images.map((i) => ({ imageUrl: i.imageUrl })),
+        categories: b.categories.map((c) => ({ category: { name: c.category.name } })),
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getBusinessDetail(id: string) {
+    const business = await this.prisma.businessProfile.findUnique({
+      where: { id },
+      include: {
+        images: { orderBy: { displayOrder: 'asc' } },
+        categories: { include: { category: true } },
+      },
+    });
+    if (!business) throw new NotFoundException('업체를 찾을 수 없습니다');
+    return business;
+  }
+
+  async createBusiness(data: {
+    businessName: string;
+    businessType?: string;
+    address?: string;
+    addressDetail?: string;
+    phone?: string;
+    lat?: number | string;
+    lng?: number | string;
+    descriptionHtml?: string;
+    instagramUrl?: string;
+    websiteUrl?: string;
+    videoUrl?: string;
+    categoryNames?: string[];
+    status?: string;
+  }) {
+    if (!data.businessName || !data.businessName.trim()) {
+      throw new NotFoundException('업체명은 필수입니다');
+    }
+
+    // placeholder User (role=business) 자동 생성 — BusinessProfile.userId 제약 때문
+    const placeholderEmail = `biz-${randomUUID()}@freetiful.internal`;
+    const user = await this.prisma.user.create({
+      data: {
+        name: data.businessName,
+        email: placeholderEmail,
+        role: 'business',
+        referralCode: Math.random().toString(36).substring(2, 10).toUpperCase(),
+      },
+    });
+
+    // 카테고리 이름 → id 매핑 (type=business 에 한해)
+    const categoryIds: string[] = [];
+    if (Array.isArray(data.categoryNames) && data.categoryNames.length > 0) {
+      const cats = await this.prisma.category.findMany({
+        where: { type: 'business', name: { in: data.categoryNames } },
+        select: { id: true },
+      });
+      categoryIds.push(...cats.map((c) => c.id));
+    }
+
+    const profile = await this.prisma.businessProfile.create({
+      data: {
+        userId: user.id,
+        businessName: data.businessName,
+        status: (data.status as any) || 'approved',
+        businessType: data.businessType || null,
+        address: data.address || null,
+        addressDetail: data.addressDetail || null,
+        phone: data.phone || null,
+        lat: data.lat !== undefined && data.lat !== null && data.lat !== '' ? Number(data.lat) : null,
+        lng: data.lng !== undefined && data.lng !== null && data.lng !== '' ? Number(data.lng) : null,
+        descriptionHtml: data.descriptionHtml || null,
+        instagramUrl: data.instagramUrl || null,
+        websiteUrl: data.websiteUrl || null,
+        videoUrl: data.videoUrl || null,
+        approvedAt: (data.status as any) === 'approved' || !data.status ? new Date() : null,
+        categories: categoryIds.length
+          ? { create: categoryIds.map((categoryId) => ({ categoryId })) }
+          : undefined,
+      },
+      include: {
+        images: { orderBy: { displayOrder: 'asc' } },
+        categories: { include: { category: true } },
+      },
+    });
+    return profile;
+  }
+
+  async updateBusiness(
+    id: string,
+    data: {
+      businessName?: string;
+      businessType?: string;
+      address?: string;
+      addressDetail?: string;
+      phone?: string;
+      lat?: number | string | null;
+      lng?: number | string | null;
+      descriptionHtml?: string;
+      instagramUrl?: string;
+      websiteUrl?: string;
+      videoUrl?: string;
+      categoryNames?: string[];
+      status?: string;
+    },
+  ) {
+    const existing = await this.prisma.businessProfile.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('업체를 찾을 수 없습니다');
+
+    const allowed: any = {};
+    if (data.businessName !== undefined) allowed.businessName = data.businessName;
+    if (data.businessType !== undefined) allowed.businessType = data.businessType || null;
+    if (data.address !== undefined) allowed.address = data.address || null;
+    if (data.addressDetail !== undefined) allowed.addressDetail = data.addressDetail || null;
+    if (data.phone !== undefined) allowed.phone = data.phone || null;
+    if (data.lat !== undefined) allowed.lat = data.lat === null || data.lat === '' ? null : Number(data.lat);
+    if (data.lng !== undefined) allowed.lng = data.lng === null || data.lng === '' ? null : Number(data.lng);
+    if (data.descriptionHtml !== undefined) allowed.descriptionHtml = data.descriptionHtml || null;
+    if (data.instagramUrl !== undefined) allowed.instagramUrl = data.instagramUrl || null;
+    if (data.websiteUrl !== undefined) allowed.websiteUrl = data.websiteUrl || null;
+    if (data.videoUrl !== undefined) allowed.videoUrl = data.videoUrl || null;
+    if (data.status !== undefined) {
+      allowed.status = data.status as any;
+      if (data.status === 'approved' && !existing.approvedAt) allowed.approvedAt = new Date();
+    }
+
+    // 카테고리 갱신 — 전체 치환 방식 (요청에 categoryNames 포함된 경우에만)
+    if (Array.isArray(data.categoryNames)) {
+      const cats = await this.prisma.category.findMany({
+        where: { type: 'business', name: { in: data.categoryNames } },
+        select: { id: true },
+      });
+      await this.prisma.businessCategory.deleteMany({ where: { businessProfileId: id } });
+      if (cats.length > 0) {
+        await this.prisma.businessCategory.createMany({
+          data: cats.map((c) => ({ businessProfileId: id, categoryId: c.id })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    const profile = await this.prisma.businessProfile.update({
+      where: { id },
+      data: allowed,
+      include: {
+        images: { orderBy: { displayOrder: 'asc' } },
+        categories: { include: { category: true } },
+      },
+    });
+    return profile;
+  }
+
+  async deleteBusiness(id: string) {
+    const existing = await this.prisma.businessProfile.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('업체를 찾을 수 없습니다');
+    // cascade 가 images/categories 를 자동 삭제 — placeholder user 도 함께 정리
+    const userId = existing.userId;
+    await this.prisma.businessProfile.delete({ where: { id } });
+    // placeholder biz-*@freetiful.internal 유저만 삭제 (실제 유저 보호)
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (user?.email?.startsWith('biz-') && user.email.endsWith('@freetiful.internal')) {
+      await this.prisma.user.delete({ where: { id: userId } }).catch(() => {});
+    }
+    return { success: true };
+  }
+
+  async uploadBusinessImage(businessId: string, file: Express.Multer.File) {
+    const existing = await this.prisma.businessProfile.findUnique({ where: { id: businessId } });
+    if (!existing) throw new NotFoundException('업체를 찾을 수 없습니다');
+
+    const processed = await this.imageService.processImage(file, {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 85,
+      requireFace: false,
+    });
+
+    const last = await this.prisma.businessImage.findFirst({
+      where: { businessProfileId: businessId },
+      orderBy: { displayOrder: 'desc' },
+      select: { displayOrder: true },
+    });
+    const nextOrder = (last?.displayOrder ?? -1) + 1;
+
+    const img = await this.prisma.businessImage.create({
+      data: {
+        businessProfileId: businessId,
+        imageUrl: processed.path,
+        displayOrder: nextOrder,
+      },
+    });
+    return img;
+  }
+
+  async deleteBusinessImage(businessId: string, imageId: string) {
+    const img = await this.prisma.businessImage.findUnique({ where: { id: imageId } });
+    if (!img || img.businessProfileId !== businessId) {
+      throw new NotFoundException('이미지를 찾을 수 없습니다');
+    }
+    await this.prisma.businessImage.delete({ where: { id: imageId } });
+    return { success: true };
+  }
+
+  async reorderBusinessImages(businessId: string, imageIds: string[]) {
+    const images = await this.prisma.businessImage.findMany({
+      where: { businessProfileId: businessId, id: { in: imageIds } },
+      select: { id: true },
+    });
+    const validIds = new Set(images.map((i) => i.id));
+    await this.prisma.$transaction(
+      imageIds
+        .filter((id) => validIds.has(id))
+        .map((id, idx) =>
+          this.prisma.businessImage.update({
+            where: { id },
+            data: { displayOrder: idx },
+          }),
+        ),
+    );
+    return { success: true };
+  }
+
+  async getBusinessCategories() {
+    return this.prisma.category.findMany({
+      where: { type: 'business', isActive: true },
+      orderBy: { displayOrder: 'asc' },
+      select: { id: true, name: true, nameEn: true, iconUrl: true, displayOrder: true },
+    });
+  }
 
   async seedPros(): Promise<{ created: number; skipped: number; errors: number }> {
     const passwordHash = await bcrypt.hash('Pro1234!', 12);

@@ -7,10 +7,11 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ProModule } from '../pro/pro.module';
 import { DiscoveryModule } from '../discovery/discovery.module';
+import { ImageModule } from '../image/image.module';
 import { AdminGuard } from '../common/guards/admin.guard';
 
 @Module({
-  imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, JwtModule.register({}), ConfigModule],
+  imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, ImageModule, JwtModule.register({}), ConfigModule],
   controllers: [AdminController],
   providers: [AdminService, AdminGuard],
   exports: [AdminService],

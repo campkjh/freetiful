@@ -1,5 +1,18 @@
-import { Controller, Post, Get, Patch, Delete, Param, Query, Body, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminGuard } from '../common/guards/admin.guard';
 
@@ -147,5 +160,70 @@ export class AdminController {
   @Delete('reviews/:id')
   async deleteReview(@Param('id') id: string) {
     return this.adminService.deleteReview(id);
+  }
+
+  // ─── 웨딩 파트너 업체 (BusinessProfile) 관리 ─────────────────────────────
+  @Get('businesses')
+  async getBusinesses(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getBusinesses({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+    });
+  }
+
+  @Get('businesses/:id')
+  async getBusinessDetail(@Param('id') id: string) {
+    return this.adminService.getBusinessDetail(id);
+  }
+
+  @Post('businesses')
+  async createBusiness(@Body() body: any) {
+    return this.adminService.createBusiness(body);
+  }
+
+  @Patch('businesses/:id')
+  async updateBusiness(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateBusiness(id, body);
+  }
+
+  @Delete('businesses/:id')
+  async deleteBusiness(@Param('id') id: string) {
+    return this.adminService.deleteBusiness(id);
+  }
+
+  @Post('businesses/:id/images')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  async uploadBusinessImage(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.adminService.uploadBusinessImage(id, file);
+  }
+
+  @Delete('businesses/:id/images/:imageId')
+  async deleteBusinessImage(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+  ) {
+    return this.adminService.deleteBusinessImage(id, imageId);
+  }
+
+  @Patch('businesses/:id/images/reorder')
+  async reorderBusinessImages(
+    @Param('id') id: string,
+    @Body('ids') ids: string[],
+  ) {
+    return this.adminService.reorderBusinessImages(id, ids || []);
+  }
+
+  @Get('business-categories')
+  async getBusinessCategories() {
+    return this.adminService.getBusinessCategories();
   }
 }
