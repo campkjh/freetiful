@@ -20,6 +20,8 @@ import {
   ExternalLink,
   Package,
   Image as ImageIcon,
+  Megaphone,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 
@@ -36,6 +38,8 @@ const NAV_ITEMS = [
   { href: '/admin/payments', label: '결제/정산', icon: CreditCard },
   { href: '/admin/reviews', label: '리뷰', icon: Star },
   { href: '/admin/businesses', label: 'Biz 고객사', icon: Building2 },
+  { href: '/admin/announcements', label: '공지사항', icon: Megaphone },
+  { href: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -1,53 +1,67 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronDown, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { faqApi, type Faq } from '@/lib/api/faq.api';
 
-const FAQ_DATA = [
-  {
-    category: '서비스 이용',
-    items: [
-      { q: '프리티풀은 어떤 서비스인가요?', a: '프리티풀은 웨딩 MC, 가수, 쇼호스트 등 결혼식 전문가를 쉽고 빠르게 매칭해주는 플랫폼입니다. AI 기반 매칭 시스템으로 고객님의 취향에 맞는 전문가를 추천해드립니다.' },
-      { q: '전문가에게 어떻게 문의하나요?', a: '전문가 프로필 페이지에서 "문의하기" 버튼을 누르면 채팅방이 생성됩니다. 채팅을 통해 견적을 받고 상세 상담을 진행할 수 있습니다.' },
-      { q: '매칭 요청은 어떻게 하나요?', a: '홈 화면 또는 하단 "견적요청" 탭에서 원하는 카테고리와 조건을 선택하면 AI가 적합한 전문가를 매칭해드립니다.' },
-    ],
-  },
-  {
-    category: '결제/환불',
-    items: [
-      { q: '결제는 어떻게 진행되나요?', a: '전문가가 보낸 견적서에서 "결제하기" 버튼을 누르면 결제 페이지로 이동합니다. 카카오페이, 신용카드, 계좌이체 등 다양한 결제 수단을 지원합니다.' },
-      { q: '에스크로 결제란 무엇인가요?', a: '결제 금액을 프리티풀이 안전하게 보관한 뒤, 행사 완료 확인 후 전문가에게 정산하는 방식입니다. 고객님의 결제를 안전하게 보호합니다.' },
-      { q: '환불은 어떻게 하나요?', a: '행사일 7일 전까지 전액 환불 가능합니다. 7일~3일 전까지는 50% 환불, 3일 이내 및 당일은 환불이 불가합니다. 마이페이지 > 결제내역에서 환불 신청이 가능합니다.' },
-    ],
-  },
-  {
-    category: '계정',
-    items: [
-      { q: '소셜 로그인은 어떤 것을 지원하나요?', a: '카카오, 구글, 네이버, 애플 로그인을 지원합니다.' },
-      { q: '회원 탈퇴는 어떻게 하나요?', a: '마이페이지 > 설정 > 회원탈퇴에서 탈퇴할 수 있습니다. 탈퇴 후 30일간 데이터가 보관되며, 이후 영구 삭제됩니다.' },
-    ],
-  },
-];
+interface Section {
+  category: string;
+  items: Faq[];
+}
 
 export default function FaqPage() {
   const router = useRouter();
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  const categories = FAQ_DATA.map((s) => s.category);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
-  const filtered = FAQ_DATA.map((section) => ({
-    ...section,
-    items: section.items.filter((item) => {
-      const q = search.toLowerCase();
-      const matchSearch = !search || item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q);
-      const matchCategory = !activeCategory || section.category === activeCategory;
-      return matchSearch && matchCategory;
-    }),
-  })).filter((s) => s.items.length > 0);
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await faqApi.getList();
+        setFaqs(data);
+      } catch (e) {
+        setFaqs([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // 카테고리별 그룹핑
+  const sections: Section[] = useMemo(() => {
+    const map = new Map<string, Faq[]>();
+    for (const f of faqs) {
+      const arr = map.get(f.category) || [];
+      arr.push(f);
+      map.set(f.category, arr);
+    }
+    // 각 카테고리 내부 정렬은 서버가 해주지만 안전을 위해 한 번 더
+    return Array.from(map.entries()).map(([category, items]) => ({
+      category,
+      items: items.sort((a, b) => a.displayOrder - b.displayOrder),
+    }));
+  }, [faqs]);
+
+  const categories = sections.map((s) => s.category);
+
+  const filtered = sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        const q = search.toLowerCase();
+        const matchSearch =
+          !search || item.question.toLowerCase().includes(q) || item.answer.toLowerCase().includes(q);
+        const matchCategory = !activeCategory || section.category === activeCategory;
+        return matchSearch && matchCategory;
+      }),
+    }))
+    .filter((s) => s.items.length > 0);
 
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto pb-24" style={{ letterSpacing: '-0.02em' }}>
@@ -105,12 +119,17 @@ export default function FaqPage() {
 
       {/* FAQ 리스트 */}
       <div className="px-4 pt-2 space-y-5">
-        {filtered.map((section) => (
+        {loading && (
+          <div className="text-center py-16">
+            <p className="text-[14px] text-gray-400">불러오는 중...</p>
+          </div>
+        )}
+        {!loading && filtered.map((section) => (
           <div key={section.category}>
             <p className="text-[11px] font-bold tracking-wider text-gray-400 uppercase mb-2 px-1">{section.category}</p>
             <div className="space-y-2">
-              {section.items.map((item, idx) => {
-                const id = `${section.category}-${idx}`;
+              {section.items.map((item) => {
+                const id = item.id;
                 const isOpen = openId === id;
                 return (
                   <div
@@ -124,7 +143,7 @@ export default function FaqPage() {
                       className="flex items-center justify-between w-full px-4 py-4 text-left active:bg-gray-50 rounded-2xl transition-colors"
                     >
                       <span className={`text-[14px] pr-4 leading-snug ${isOpen ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                        {item.q}
+                        {item.question}
                       </span>
                       <ChevronDown
                         size={18}
@@ -134,13 +153,13 @@ export default function FaqPage() {
                     <div
                       className="overflow-hidden transition-all duration-400 ease-out"
                       style={{
-                        maxHeight: isOpen ? 300 : 0,
+                        maxHeight: isOpen ? 9999 : 0,
                         opacity: isOpen ? 1 : 0,
                       }}
                     >
                       <div className="mx-4 border-t border-gray-100" />
-                      <p className="px-4 pt-3 pb-4 text-[13px] text-gray-500 leading-[1.8]">
-                        {item.a}
+                      <p className="px-4 pt-3 pb-4 text-[13px] text-gray-500 leading-[1.8] whitespace-pre-line">
+                        {item.answer}
                       </p>
                     </div>
                   </div>
@@ -150,9 +169,11 @@ export default function FaqPage() {
           </div>
         ))}
 
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-[14px] text-gray-400">검색 결과가 없습니다</p>
+            <p className="text-[14px] text-gray-400">
+              {faqs.length === 0 ? '등록된 FAQ가 없습니다' : '검색 결과가 없습니다'}
+            </p>
           </div>
         )}
       </div>

@@ -74,10 +74,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
-    // Use zustand store first, fallback to localStorage for backwards compat
-    const isLoggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    // localStorage의 zustand persist 데이터에 user/accessToken이 있으면 로그인된 것으로 간주
+    // (authUser가 hydration 전에 null일 수 있으므로 persist 원본도 확인)
+    let hasPersistedToken = false;
+    try {
+      const raw = localStorage.getItem('prettyful-auth');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        hasPersistedToken = !!(parsed?.state?.accessToken || parsed?.state?.user);
+      }
+    } catch {}
+    const isLoggedIn = authUser !== null || hasPersistedToken || localStorage.getItem('freetiful-logged-in') === 'true';
     if (!isLoggedIn && needsAuth) {
-      // iOS 앱이면 네이티브 sheet 호출, 웹이면 기존 웹 모달
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {
         iosBridge.postMessage({});

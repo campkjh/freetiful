@@ -560,9 +560,10 @@ export default function BizPage() {
 
       const res = await fetch('/api/inquiry', { method: 'POST', body: formData });
       if (res.ok) {
-        toast.success(t({ ko: '문의가 접수되었습니다. 빠른 시일 내에 연락드리겠습니다!', en: "We've received your inquiry. We'll get back to you soon!", ja: 'お問合せを受け付けました。折り返しご連絡いたします!', zh: '已收到您的咨询。我们会尽快与您联系!' }));
         setInquiry({ company: '', name: '', phone: '', email: '', type: '', message: '' });
         setInquiryFile(null);
+        router.push('/biz/complete');
+        return;
       } else {
         const data = await res.json();
         toast.error(data.error || t({ ko: '문의 접수에 실패했습니다', en: 'Failed to submit inquiry', ja: 'お問合せの送信に失敗しました', zh: '咨询提交失败' }));
@@ -1502,6 +1503,35 @@ export default function BizPage() {
           opacity: receptionFullscreen ? 0 : 1,
         }}
       >
+        {/* 말풍선 — pill 바깥에 absolute로 배치 (overflow 영향 없음) */}
+        {!inquiryBubbleHidden && !bizNavCollapsing && (
+          <div
+            className="absolute pointer-events-none whitespace-nowrap"
+            style={{
+              bottom: 'calc(100% + 0px)',
+              right: 'calc(12.5% - 25px)',
+              animation: 'bubbleBoing 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite',
+              zIndex: 51,
+            }}
+          >
+            <div className="relative bg-white rounded-full px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.12)] border border-gray-100">
+              <span
+                className="text-[11px] font-bold"
+                style={{
+                  background: 'linear-gradient(90deg, #111111, #0052B5, #111111)',
+                  backgroundSize: '200% 100%',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  animation: 'textGradientShift 2.5s ease-in-out infinite',
+                }}
+              >
+                문의하기
+              </span>
+              <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] w-2 h-2 bg-white border-r border-b border-gray-100 rotate-45" />
+            </div>
+          </div>
+        )}
         <div
           className="max-w-lg mx-auto mb-2"
           style={{
@@ -1537,7 +1567,7 @@ export default function BizPage() {
               </button>
 
               {/* 네비 아이템들 */}
-              <div className="flex-1 flex items-center justify-around overflow-hidden">
+              <div className="flex-1 flex items-center justify-around">
                 {[
                   { id: '회사소개', iconSrc: '/images/company-intro.svg', label: t({ ko: '회사소개', en: 'About', ja: '会社紹介', zh: '公司简介' }) },
                   { id: '핵심서비스', iconSrc: '/images/service.svg', label: t({ ko: '서비스', en: 'Services', ja: 'サービス', zh: '服务' }) },
@@ -1563,31 +1593,6 @@ export default function BizPage() {
                       ...(bizNavExpanding ? { animation: `bizIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.08}s both` } : {}),
                     }}
                   >
-                    {/* 말풍선 */}
-                    {isInquiry && !inquiryBubbleHidden && (
-                      <div
-                        className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 whitespace-nowrap pointer-events-none"
-                        style={{ animation: 'bubbleBoing 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite' }}
-                      >
-                        <div className="relative bg-white rounded-full px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.12)] border border-gray-100">
-                          <span
-                            className="text-[11px] font-bold"
-                            style={{
-                              background: 'linear-gradient(90deg, #111111, #0052B5, #111111)',
-                              backgroundSize: '200% 100%',
-                              WebkitBackgroundClip: 'text',
-                              WebkitTextFillColor: 'transparent',
-                              backgroundClip: 'text',
-                              animation: 'textGradientShift 2.5s ease-in-out infinite',
-                            }}
-                          >
-                            문의하기
-                          </span>
-                          {/* 말풍선 꼬리 */}
-                          <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] w-2 h-2 bg-white border-r border-b border-gray-100 rotate-45" />
-                        </div>
-                      </div>
-                    )}
                     {isInquiry ? (
                       <div
                         className="w-5 h-5 relative"

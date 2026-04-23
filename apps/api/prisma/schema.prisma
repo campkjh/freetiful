@@ -974,25 +974,30 @@ model UserCoupon {
 model Announcement {
   id          String    @id @default(uuid())
   title       String
-  content     String?
+  content     String    @db.Text
+  tag         String?   // '필독', '업데이트', '안내', '이벤트', '점검' 등
   target      String    @default("all")
   isPinned    Boolean   @default(false)
-  isPublished Boolean   @default(false)
+  isPublished Boolean   @default(true)
   publishedAt DateTime?
   createdBy   String?
   createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
 
   @@map("announcements")
 }
 
 model Faq {
   id           String   @id @default(uuid())
-  category     String?
+  category     String   // '서비스 이용', '결제/환불', '계정' 등
   question     String
-  answer       String
+  answer       String   @db.Text
   target       String   @default("all")
   displayOrder Int      @default(0)
   isActive     Boolean  @default(true)
+  isPublished  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 
   @@map("faqs")
 }

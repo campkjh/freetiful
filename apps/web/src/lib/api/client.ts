@@ -48,10 +48,12 @@ apiClient.interceptors.response.use(
       return apiClient(original);
     } catch (e) {
       failedQueue.forEach((q) => q.reject(e));
-      useAuthStore.getState().logout();
-      // 어드민이면 admin 로그인으로, 아니면 홈으로 (보호 라우트면 layout이 모달 띄워줌)
-      const isOnAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
-      window.location.href = isOnAdmin ? '/admin/login' : '/main';
+      // 로그아웃 금지 — refresh 실패해도 사용자가 명시적으로 로그아웃할 때까지 세션 유지.
+      // 어드민 경로에서만 로그인 페이지로 보내고, 일반 사용자는 토큰 없이 API만 실패하게 둠.
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+        useAuthStore.getState().logout();
+        window.location.href = '/admin/login';
+      }
       return Promise.reject(e);
     } finally {
       failedQueue = [];

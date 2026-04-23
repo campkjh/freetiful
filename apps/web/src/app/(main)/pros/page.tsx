@@ -145,7 +145,7 @@ function ProsListContent() {
 
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('pudding_rank');
-  const [showFilter, setShowFilter] = useState(!!categoryParam);
+  const [showFilter, setShowFilter] = useState(false);
   const [selectedPrice, setSelectedPrice] = useState(0);
   const [selectedLang, setSelectedLang] = useState(isForeignFilter ? '영어' : '전체');
   const [selectedType, setSelectedType] = useState(initialType);
@@ -291,7 +291,7 @@ function ProsListContent() {
                 key="title"
                 className="text-[18px] font-bold text-gray-900 truncate"
               >
-                {selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
+                {isForeignFilter ? '외국어 사회자 통번역' : selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
               </h1>
             )}
           </>

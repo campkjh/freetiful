@@ -23,6 +23,8 @@ import { RefDataModule } from './ref-data/ref-data.module';
 import { PlanTemplateModule } from './plan-template/plan-template.module';
 import { BannerModule } from './banner/banner.module';
 import { AiModule } from './ai/ai.module';
+import { AnnouncementModule } from './announcement/announcement.module';
+import { FaqModule } from './faq/faq.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { AiModule } from './ai/ai.module';
     PlanTemplateModule,
     BannerModule,
     AiModule,
+    AnnouncementModule,
+    FaqModule,
   ],
 })
 export class AppModule {}
