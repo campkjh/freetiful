@@ -298,9 +298,9 @@ export default function ChatListPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                          room.iAmPro ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+                          room.iAmPro ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                         }`}>
-                          {room.iAmPro ? 'PRO' : '고객'}
+                          {room.iAmPro ? '고객' : 'PRO'}
                         </span>
                         <p className={`text-[14px] ${hasUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
                           {room.otherUser.role} {room.otherUser.name}님
@@ -320,9 +320,9 @@ export default function ChatListPage() {
                       <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                            room.iAmPro ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+                            room.iAmPro ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                           }`}>
-                            {room.iAmPro ? 'PRO' : '고객'}
+                            {room.iAmPro ? '고객' : 'PRO'}
                           </span>
                           <p className={`text-[15px] ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{room.otherUser.role} {room.otherUser.name}님</p>
                           <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
