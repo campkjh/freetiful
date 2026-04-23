@@ -92,6 +92,23 @@ export default function AdminProsPage() {
     } catch { toast.error('변경 실패'); }
   };
 
+  const handleAwardPudding = async (id: string, name: string) => {
+    const input = window.prompt(`${name} 에게 지급할 푸딩 수량 (양수=적립, 음수=차감)`, '100');
+    if (input === null) return;
+    const amount = Number(input);
+    if (!Number.isFinite(amount) || amount === 0) {
+      toast.error('0이 아닌 숫자를 입력하세요');
+      return;
+    }
+    const note = window.prompt('메모 (선택)', '어드민 수동 지급') || undefined;
+    try {
+      const res: any = await adminFetch('POST', `/api/v1/admin/pros/${id}/pudding`, { amount, note });
+      toast.success(`${amount > 0 ? '+' : ''}${amount} 지급 → 잔액 ${res?.newBalance ?? '?'}`);
+    } catch {
+      toast.error('푸딩 지급 실패');
+    }
+  };
+
 
   const totalPages = Math.ceil(total / LIMIT);
 
@@ -221,6 +238,13 @@ export default function AdminProsPage() {
                       >
                         <Edit3 size={12} /> 수정
                       </Link>
+                      <button
+                        onClick={() => handleAwardPudding(pro.id, pro.name)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors"
+                        title="푸딩 수동 지급/차감"
+                      >
+                        🍮 푸딩
+                      </button>
                       {pro.status !== 'approved' && (
                         <button
                           onClick={() => handleApprove(pro.id)}

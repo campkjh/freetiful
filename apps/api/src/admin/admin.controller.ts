@@ -88,6 +88,14 @@ export class AdminController {
     return this.adminService.toggleFeatured(id);
   }
 
+  @Post('pros/:id/pudding')
+  async awardPudding(
+    @Param('id') id: string,
+    @Body() body: { amount: number; note?: string },
+  ) {
+    return this.adminService.awardPudding(id, Number(body.amount) || 0, body.note);
+  }
+
   @Get('stats')
   async getStats() {
     return this.adminService.getStats();

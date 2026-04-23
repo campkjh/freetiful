@@ -696,6 +696,35 @@ export class AdminService {
     });
   }
 
+  /** 어드민 수동 푸딩 지급 (양수=적립, 음수=차감) + 트랜잭션 로그 */
+  async awardPudding(proProfileId: string, amount: number, note?: string) {
+    if (!Number.isFinite(amount) || amount === 0) {
+      throw new Error('amount는 0이 아닌 숫자여야 합니다.');
+    }
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { id: proProfileId },
+      select: { id: true, puddingCount: true },
+    });
+    if (!profile) throw new Error('Pro not found');
+    const nextCount = Math.max(0, profile.puddingCount + amount);
+    await this.prisma.$transaction([
+      this.prisma.proProfile.update({
+        where: { id: proProfileId },
+        data: { puddingCount: nextCount },
+      }),
+      this.prisma.puddingTransaction.create({
+        data: {
+          proProfileId,
+          type: amount > 0 ? 'admin_grant' : 'admin_deduct',
+          amount,
+          balanceAfter: nextCount,
+          note: note ?? '어드민 수동 지급',
+        },
+      }),
+    ]);
+    return { proProfileId, previousBalance: profile.puddingCount, amount, newBalance: nextCount };
+  }
+
   // ─── 통계 ────────────────────────────────────────────────────────────────
   async getStats() {
     const now = new Date();

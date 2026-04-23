@@ -435,7 +435,9 @@ export default function ProDetailPage() {
         try {
         const userName = res.user?.name || '전문가';
         const images = res.images?.map((img: any) => img.imageUrl) || [];
-        const profileImg = res.user?.profileImageUrl || images[0] || '';
+        // 파트너 등록 시 업로드한 대표사진(primary)을 우선 사용, 없으면 User 폴백
+        // images는 backend에서 [isPrimary desc, displayOrder asc]로 정렬되어 옴
+        const profileImg = images[0] || res.user?.profileImageUrl || '';
         const ytId = extractYoutubeId(res.youtubeUrl);
         const proCategory: string = (res.categoryNames && res.categoryNames[0]) || '사회자';
         const services = res.services || [];
