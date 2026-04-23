@@ -5,13 +5,14 @@ import KakaoSDKUser
 import KakaoSDKAuth
 import GoogleSignIn
 import NaverThirdPartyLogin
+import OneSignalFramework
 
 private let kWebAppURL = "https://freetiful.com"
+private let kAPIBase   = "https://freetiful.com/api/v1"
 
 struct NativeLoginView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isLoading = false
-    @State private var appleCoordinator: AppleNativeLoginCoordinator?
     @State private var naverCoordinator: NaverNativeLoginCoordinator?
 
     var body: some View {
@@ -63,7 +64,7 @@ struct NativeLoginView: View {
                             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                     }
 
-                    // Apple
+                    // Apple (web-based via Freetiful web login)
                     Button(action: handleAppleLogin) {
                         HStack(spacing: 6) {
                             Image(systemName: "apple.logo")
@@ -75,7 +76,8 @@ struct NativeLoginView: View {
                         .cornerRadius(14)
                     }
 
-                    Button("취소") { dismiss() }
+                    // "나중에 하기" — 시트 닫고 홈으로 이동 (Android 동일 UX)
+                    Button("나중에 하기") { goHome() }
                         .foregroundColor(.gray)
                         .padding(.top, 8)
                 }
@@ -91,12 +93,16 @@ struct NativeLoginView: View {
         }
     }
 
-    // MARK: - Kakao
+    // MARK: - Kakao (app-to-app SSO + 백엔드 /auth/login/kakao/native)
     func handleKakaoLogin() {
         isLoading = true
-        let handle: (OAuthToken?, Error?) -> Void = { _, error in
-            if error == nil { self.fetchKakaoUser() }
-            else { print("❌ 카카오 로그인 실패:", error!); self.isLoading = false }
+        let handle: (OAuthToken?, Error?) -> Void = { token, error in
+            if let token = token {
+                self.callAPI(endpoint: "/auth/login/kakao/native", body: ["accessToken": token.accessToken])
+            } else {
+                print("❌ 카카오 로그인 실패:", error?.localizedDescription ?? "unknown")
+                self.isLoading = false
+            }
         }
         if UserApi.isKakaoTalkLoginAvailable() {
             UserApi.shared.loginWithKakaoTalk(completion: handle)
@@ -105,56 +111,36 @@ struct NativeLoginView: View {
         }
     }
 
-    func fetchKakaoUser() {
-        UserApi.shared.me { user, error in
-            guard let user = user, error == nil else {
-                print("❌ 카카오 유저정보 실패:", error!); self.isLoading = false; return
-            }
-            let id = String(user.id ?? 0)
-            let email = user.kakaoAccount?.email ?? ""
-            let nickname = user.kakaoAccount?.profile?.nickname ?? "카카오 사용자"
-            self.navigateToMobilePage(path: "kakao", params: [
-                "kakaoId": id, "email": email, "nickname": nickname
-            ])
-        }
-    }
-
-    // MARK: - Google
+    // MARK: - Google (/auth/login/google — idToken)
     func handleGoogleLogin() {
         isLoading = true
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootVC = windowScene.windows.first?.rootViewController else {
             print("❌ Google: rootVC 없음"); isLoading = false; return
         }
-        // 네이티브 sheet 위에 Google이 뜰 수 있게 최상위 presenter 사용
         var presenter = rootVC
         while let presented = presenter.presentedViewController { presenter = presented }
 
         GIDSignIn.sharedInstance.signIn(withPresenting: presenter) { result, error in
-            guard let user = result?.user, error == nil else {
-                print("❌ 구글 로그인 실패:", error!); self.isLoading = false; return
+            guard let idToken = result?.user.idToken?.tokenString, error == nil else {
+                print("❌ 구글 로그인 실패:", error?.localizedDescription ?? "no idToken")
+                self.isLoading = false; return
             }
-            let googleId = user.userID ?? ""
-            let email = user.profile?.email ?? ""
-            let name = user.profile?.name ?? "구글 사용자"
-            self.navigateToMobilePage(path: "google", params: [
-                "googleId": googleId, "email": email, "name": name
-            ])
+            self.callAPI(endpoint: "/auth/login/google", body: ["idToken": idToken])
         }
     }
 
-    // MARK: - Naver
+    // MARK: - Naver (/auth/login/naver/native — accessToken)
     func handleNaverLogin() {
         isLoading = true
         let coordinator = NaverNativeLoginCoordinator { result in
             DispatchQueue.main.async {
                 switch result {
-                case .success(let (naverId, email, name)):
-                    self.navigateToMobilePage(path: "naver", params: [
-                        "naverId": naverId, "email": email, "name": name
-                    ])
+                case .success(let accessToken):
+                    self.callAPI(endpoint: "/auth/login/naver/native", body: ["accessToken": accessToken])
                 case .failure(let error):
-                    print("❌ 네이버 로그인 실패:", error); self.isLoading = false
+                    print("❌ 네이버 로그인 실패:", error)
+                    self.isLoading = false
                 }
                 self.naverCoordinator = nil
             }
@@ -163,42 +149,94 @@ struct NativeLoginView: View {
         coordinator.signIn()
     }
 
-    // MARK: - Apple
+    // MARK: - Apple: 웹 기반 로그인으로 이동 (네이티브 시트 사용 안 함)
     func handleAppleLogin() {
-        isLoading = true
-        let coordinator = AppleNativeLoginCoordinator { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let (appleUserId, fullName)):
-                    self.navigateToMobilePage(path: "apple", params: [
-                        "appleUserId": appleUserId,
-                        "fullName": fullName ?? ""
-                    ])
-                case .failure(let error):
-                    print("❌ 애플 로그인 실패:", error); self.isLoading = false
-                }
-                self.appleCoordinator = nil
-            }
-        }
-        self.appleCoordinator = coordinator
-        coordinator.signIn()
+        // 네이티브 Apple 시트 대신 Freetiful 웹 로그인 페이지로 이동.
+        // 거기서 Apple 버튼 → 웹 OAuth 흐름.
+        guard let webView = findWebView(),
+              let url = URL(string: "\(kWebAppURL)/login") else { return }
+        webView.load(URLRequest(url: url))
+        dismiss()
     }
 
-    // MARK: - Shared navigation
-    func navigateToMobilePage(path: String, params: [String: String]) {
-        let enc: (String) -> String = { $0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0 }
-        let query = params.map { "\($0.key)=\(enc($0.value))" }.joined(separator: "&")
-        let urlStr = "\(kWebAppURL)/auth/\(path)/mobile?\(query)"
-        DispatchQueue.main.async {
-            if let webView = self.findWebView(), let url = URL(string: urlStr) {
-                webView.load(URLRequest(url: url))
-                self.isLoading = false
-                self.dismiss()
-            } else {
-                print("❌ WebView 못 찾음")
-                self.isLoading = false
+    // MARK: - "나중에 하기" — 홈으로
+    func goHome() {
+        // 1) 시트 dismiss 전에 미리 WebView를 잡아두기 (sheet가 떠있을 때의 상태에서 가져옴)
+        let webView = findWebView()
+
+        // 2) 시트 닫기
+        dismiss()
+
+        // 3) 시트 dismiss 애니메이션 완료 후 WebView 네비게이션 수행.
+        //    webView.load(URLRequest)가 evaluateJavaScript보다 원자적.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            guard let webView = webView,
+                  let url = URL(string: "\(kWebAppURL)/main") else {
+                print("❌ goHome: WebView 못 찾음")
+                return
+            }
+            webView.load(URLRequest(url: url))
+        }
+    }
+
+    // MARK: - 공통: 백엔드 → JWT 수신 → localStorage 주입
+    /// iOS ViewController.callAPI()와 동등. 소셜 토큰을 백엔드에 POST →
+    /// JWT 응답 받아 WebView localStorage('prettyful-auth')에 주입.
+    /// OneSignal.login(userId)까지 처리하여 푸시 매핑도 완성.
+    private func callAPI(endpoint: String, body: [String: Any]) {
+        guard let url = URL(string: "\(kAPIBase)\(endpoint)") else { self.isLoading = false; return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.timeoutInterval = 15
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async { self.isLoading = false }
+            if let error = error {
+                print("❌ callAPI 네트워크:", error.localizedDescription); return
+            }
+            guard
+                let data = data,
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let tokens = json["tokens"] as? [String: Any],
+                let accessToken  = tokens["accessToken"]  as? String,
+                let refreshToken = tokens["refreshToken"] as? String,
+                let user = json["user"] as? [String: Any],
+                let userId = user["id"] as? String
+            else {
+                print("❌ callAPI 응답 파싱 실패:", String(data: data ?? Data(), encoding: .utf8) ?? "")
+                return
+            }
+
+            let userData = (try? JSONSerialization.data(withJSONObject: user)) ?? Data()
+            let userJSON = String(data: userData, encoding: .utf8) ?? "{}"
+
+            DispatchQueue.main.async {
+                // OneSignal external_id 매핑
+                OneSignal.login(userId)
+                // JWT 주입 + /main 이동 + sheet 닫기
+                self.injectJWT(accessToken: accessToken, refreshToken: refreshToken, userJSON: userJSON)
+            }
+        }.resume()
+    }
+
+    private func injectJWT(accessToken: String, refreshToken: String, userJSON: String) {
+        let safe = { (s: String) in s.replacingOccurrences(of: "\\", with: "\\\\")
+                                     .replacingOccurrences(of: "\"", with: "\\\"") }
+        let js = """
+        (function() {
+          var auth = { state: { user: \(userJSON), accessToken: "\(safe(accessToken))", refreshToken: "\(safe(refreshToken))" }, version: 0 };
+          localStorage.setItem('prettyful-auth', JSON.stringify(auth));
+          window.location.href = '\(kWebAppURL)/main';
+        })();
+        """
+        if let webView = findWebView() {
+            webView.evaluateJavaScript(js) { _, err in
+                if let err = err { print("❌ JS 주입 실패:", err) }
             }
         }
+        dismiss()
     }
 
     // MARK: - WebView Finder
@@ -217,51 +255,12 @@ struct NativeLoginView: View {
     }
 }
 
-// MARK: - Apple Sign In Coordinator
-class AppleNativeLoginCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
-    private let completion: (Result<(String, String?), Error>) -> Void
-    init(completion: @escaping (Result<(String, String?), Error>) -> Void) { self.completion = completion }
-
-    func signIn() {
-        let request = ASAuthorizationAppleIDProvider().createRequest()
-        request.requestedScopes = [.fullName, .email]
-        let controller = ASAuthorizationController(authorizationRequests: [request])
-        controller.delegate = self
-        controller.presentationContextProvider = self
-        controller.performRequests()
-    }
-
-    func authorizationController(controller: ASAuthorizationController,
-                                 didCompleteWithAuthorization authorization: ASAuthorization) {
-        guard let cred = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            completion(.failure(NSError(domain: "Apple", code: -1))); return
-        }
-        // cred.user 는 Apple이 발급하는 고유한 안정적인 사용자 ID (재로그인 시에도 동일)
-        let appleUserId = cred.user
-        let fn = cred.fullName?.givenName ?? ""
-        let ln = cred.fullName?.familyName ?? ""
-        let fullName = [fn, ln].filter { !$0.isEmpty }.joined(separator: " ")
-        completion(.success((appleUserId, fullName.isEmpty ? nil : fullName)))
-    }
-
-    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        completion(.failure(error))
-    }
-
-    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ?? UIWindow()
-    }
-}
-
-// MARK: - Naver Sign In Coordinator
+// MARK: - Naver Sign In Coordinator (access token만 반환 — 백엔드가 user info fetch)
 class NaverNativeLoginCoordinator: NSObject, NaverThirdPartyLoginConnectionDelegate {
-    private let completion: (Result<(String, String, String), Error>) -> Void
+    private let completion: (Result<String, Error>) -> Void
     private let naver = NaverThirdPartyLoginConnection.getSharedInstance()
 
-    init(completion: @escaping (Result<(String, String, String), Error>) -> Void) {
+    init(completion: @escaping (Result<String, Error>) -> Void) {
         self.completion = completion
         super.init()
     }
@@ -271,30 +270,20 @@ class NaverNativeLoginCoordinator: NSObject, NaverThirdPartyLoginConnectionDeleg
         naver?.requestThirdPartyLogin()
     }
 
-    func oauth20ConnectionDidFinishRequestACTokenWithAuthCode() { fetchUserInfo() }
-    func oauth20ConnectionDidFinishRequestACTokenWithRefreshToken() { fetchUserInfo() }
+    func oauth20ConnectionDidFinishRequestACTokenWithAuthCode() {
+        if let token = naver?.accessToken {
+            completion(.success(token))
+        } else {
+            completion(.failure(NSError(domain: "Naver", code: -2)))
+        }
+    }
+    func oauth20ConnectionDidFinishRequestACTokenWithRefreshToken() {
+        if let token = naver?.accessToken {
+            completion(.success(token))
+        }
+    }
     func oauth20ConnectionDidFinishDeleteToken() {}
     func oauth20Connection(_ oauthConnection: NaverThirdPartyLoginConnection?, didFailWithError error: Error?) {
         completion(.failure(error ?? NSError(domain: "Naver", code: -1)))
-    }
-
-    private func fetchUserInfo() {
-        guard let accessToken = naver?.accessToken else {
-            completion(.failure(NSError(domain: "Naver", code: -2))); return
-        }
-        let url = URL(string: "https://openapi.naver.com/v1/nid/me")!
-        var req = URLRequest(url: url)
-        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        URLSession.shared.dataTask(with: req) { [weak self] data, _, error in
-            guard let data = data, error == nil,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let response = json["response"] as? [String: Any] else {
-                self?.completion(.failure(error ?? NSError(domain: "Naver", code: -3))); return
-            }
-            let id = response["id"] as? String ?? ""
-            let email = response["email"] as? String ?? ""
-            let name = response["name"] as? String ?? response["nickname"] as? String ?? "네이버 사용자"
-            self?.completion(.success((id, email, name)))
-        }.resume()
     }
 }

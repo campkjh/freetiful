@@ -779,7 +779,11 @@ export default function HomePage() {
                 muted
                 loop
                 playsInline
-                preload="none"
+                preload="metadata"
+                controls={false}
+                disablePictureInPicture
+                webkit-playsinline="true"
+                x5-playsinline="true"
                 className="w-full h-full object-cover bg-gray-800"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
@@ -804,7 +808,11 @@ export default function HomePage() {
                 muted
                 loop
                 playsInline
-                preload="none"
+                preload="metadata"
+                controls={false}
+                disablePictureInPicture
+                webkit-playsinline="true"
+                x5-playsinline="true"
                 className="w-20 h-20 object-cover shrink-0 rounded-xl bg-gray-100"
                 style={{ transition: 'opacity 0.2s ease' }}
                 onTimeUpdate={(e) => {
