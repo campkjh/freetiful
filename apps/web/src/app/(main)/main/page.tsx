@@ -541,11 +541,11 @@ function CategorySwiper() {
   };
 
   return (
-    <div className="pl-[18px] pr-[10px] pb-2 pt-1 relative">
-      <div ref={scrollRef} className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -ml-[18px] -mr-[10px] pl-[18px] pr-[10px]" style={{ scrollBehavior: 'smooth' }}>
+    <div className="pb-2 pt-1 relative">
+      <div ref={scrollRef} className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
         {pages.map((pageCats, pi) => (
           <div key={pi} className="shrink-0 w-full snap-start">
-            <div className="grid grid-cols-5 gap-y-3 gap-x-1 py-2">
+            <div className="grid grid-cols-5 gap-y-3 gap-x-1 py-2 pl-[18px] pr-[10px]">
               {pageCats.map((item, i) => (
                 <Link
                   key={item.name}
