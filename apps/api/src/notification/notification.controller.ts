@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Query,
   UseGuards,
@@ -51,5 +52,17 @@ export class NotificationController {
   async getUnreadCount(@Req() req: Request) {
     const userId = (req.user as any).id;
     return this.notificationService.getUnreadCount(userId);
+  }
+
+  @Delete(':id')
+  async deleteNotification(@Req() req: Request, @Param('id') id: string) {
+    const userId = (req.user as any).id;
+    return this.notificationService.deleteNotification(userId, id);
+  }
+
+  @Delete()
+  async deleteAll(@Req() req: Request) {
+    const userId = (req.user as any).id;
+    return this.notificationService.deleteAll(userId);
   }
 }

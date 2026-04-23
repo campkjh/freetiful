@@ -426,6 +426,7 @@ export default function BizPage() {
   const [previewFile, setPreviewFile] = useState<string | null>(null);
   const [bizNavExpanding, setBizNavExpanding] = useState(false);
   const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
+  const [inquiryBubbleHidden, setInquiryBubbleHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [receptionFullscreen, setReceptionFullscreen] = useState(false);
   const [receptionExiting, setReceptionExiting] = useState(false);
@@ -529,7 +530,14 @@ export default function BizPage() {
 
   function scrollTo(id: string) {
     setActiveSection(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    const el = document.getElementById(id);
+    if (!el) return;
+    // 문의폼은 페이지 최하단이므로 마지막 위치까지 스크롤 — 중간 섹션이 sticky로 걸리지 않음
+    if (id === '문의폼') {
+      window.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
+    } else {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 
   async function handleInquiry(e: React.FormEvent) {
@@ -757,7 +765,7 @@ export default function BizPage() {
           </Reveal>
           <Reveal delay={600}>
             <div className="mt-10 flex justify-center gap-3">
-              <button onClick={openInquiryMail} className="bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
+              <button onClick={() => scrollTo('문의폼')} className="bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
                 {t({ ko: '기업 문의하기', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}
               </button>
               <button onClick={() => scrollTo('핵심서비스')} className="border border-gray-200 bg-white/80 backdrop-blur px-8 py-3.5 text-[14px] font-bold text-gray-500 rounded-full transition-all hover:border-gray-300 hover:text-gray-800 hover:bg-white">
@@ -1370,7 +1378,7 @@ export default function BizPage() {
               <Reveal delay={300}>
                 <div className="mt-8 flex justify-center md:justify-start">
                   <button
-                    onClick={openInquiryMail}
+                    onClick={() => scrollTo('문의폼')}
                     className="group relative px-10 py-4 text-[16px] font-bold text-white rounded-full overflow-hidden transition-all duration-300 active:scale-95"
                     style={{ background: 'linear-gradient(135deg, #3B82F6, #2563EB, #1D4ED8)' }}
                   >
@@ -1534,12 +1542,17 @@ export default function BizPage() {
                   { id: '회사소개', iconSrc: '/images/company-intro.svg', label: t({ ko: '회사소개', en: 'About', ja: '会社紹介', zh: '公司简介' }) },
                   { id: '핵심서비스', iconSrc: '/images/service.svg', label: t({ ko: '서비스', en: 'Services', ja: 'サービス', zh: '服务' }) },
                   { id: '자료실', iconSrc: '/images/resources.svg', label: t({ ko: '자료실', en: 'Resources', ja: '資料', zh: '资料' }) },
-                  { id: '문의', iconSrc: '/images/inquiry.svg', label: t({ ko: '문의', en: 'Contact', ja: 'お問合せ', zh: '咨询' }) },
-                ].map((item, idx) => (
+                  { id: '문의', iconSrc: '/images/inquiry.svg', label: t({ ko: '문의하기', en: 'Contact Us', ja: 'お問合せ', zh: '联系咨询' }) },
+                ].map((item, idx) => {
+                  const isInquiry = item.id === '문의';
+                  return (
                   <button
                     key={item.id}
-                    onClick={() => scrollTo(item.id === '문의' ? '문의폼' : item.id)}
-                    className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl text-gray-400 hover:text-gray-700 transition-all active:scale-90"
+                    onClick={() => {
+                      scrollTo(isInquiry ? '문의폼' : item.id);
+                      if (isInquiry) setInquiryBubbleHidden(true);
+                    }}
+                    className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl transition-all active:scale-90 ${isInquiry ? '' : 'text-gray-400 hover:text-gray-700'}`}
                     style={{
                       opacity: bizNavCollapsing ? 0 : 1,
                       transform: bizNavCollapsing ? 'scale(0.5)' : (bizNavExpanding ? undefined : 'scale(1)'),
@@ -1550,10 +1563,62 @@ export default function BizPage() {
                       ...(bizNavExpanding ? { animation: `bizIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.08}s both` } : {}),
                     }}
                   >
-                    <Image src={item.iconSrc} alt={item.label} width={20} height={20} className="opacity-60" />
-                    <span className="text-[9px] font-medium whitespace-nowrap">{item.label}</span>
+                    {/* 말풍선 */}
+                    {isInquiry && !inquiryBubbleHidden && (
+                      <div
+                        className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 whitespace-nowrap pointer-events-none"
+                        style={{ animation: 'bubbleBoing 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite' }}
+                      >
+                        <div className="relative bg-white rounded-full px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.12)] border border-gray-100">
+                          <span
+                            className="text-[11px] font-bold"
+                            style={{
+                              background: 'linear-gradient(90deg, #111111, #0052B5, #111111)',
+                              backgroundSize: '200% 100%',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text',
+                              animation: 'textGradientShift 2.5s ease-in-out infinite',
+                            }}
+                          >
+                            문의하기
+                          </span>
+                          {/* 말풍선 꼬리 */}
+                          <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] w-2 h-2 bg-white border-r border-b border-gray-100 rotate-45" />
+                        </div>
+                      </div>
+                    )}
+                    {isInquiry ? (
+                      <div
+                        className="w-5 h-5 relative"
+                        style={{
+                          WebkitMask: `url(${item.iconSrc}) no-repeat center / contain`,
+                          mask: `url(${item.iconSrc}) no-repeat center / contain`,
+                          background: 'linear-gradient(90deg, #0052B5, #111111, #0052B5)',
+                          backgroundSize: '200% 100%',
+                          animation: 'iconGradientShift 2s linear infinite',
+                        }}
+                      />
+                    ) : (
+                      <Image src={item.iconSrc} alt={item.label} width={20} height={20} className="opacity-60" />
+                    )}
+                    <span
+                      className={`text-[9px] font-medium whitespace-nowrap ${isInquiry ? '' : ''}`}
+                      style={isInquiry ? {
+                        background: 'linear-gradient(90deg, #0052B5, #111111, #0052B5)',
+                        backgroundSize: '200% 100%',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        animation: 'textGradientShift 2s linear infinite',
+                        fontWeight: 700,
+                      } : {}}
+                    >
+                      {item.label}
+                    </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1573,6 +1638,22 @@ export default function BizPage() {
           0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
           60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
           100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+        }
+        @keyframes bubbleBoing {
+          0% { transform: translateX(-50%) scale(0) translateY(4px); opacity: 0; }
+          35% { transform: translateX(-50%) scale(1.15) translateY(-2px); opacity: 1; }
+          50% { transform: translateX(-50%) scale(0.95) translateY(0px); }
+          65% { transform: translateX(-50%) scale(1.05) translateY(-1px); }
+          80% { transform: translateX(-50%) scale(1) translateY(0px); }
+          85%, 100% { transform: translateX(-50%) scale(1) translateY(-3px); opacity: 1; }
+        }
+        @keyframes textGradientShift {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+        @keyframes iconGradientShift {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
         }
         @keyframes receptionFadeIn {
           0% { opacity: 0; transform: scale(1.05); }

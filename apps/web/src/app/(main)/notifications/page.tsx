@@ -137,11 +137,14 @@ export default function NotificationsPage() {
   const handleDeleteAll = () => {
     setItems([]);
     setShowDeleteConfirm(false);
+    notificationApi.deleteAll().catch(() => {});
   };
 
   const handleDelete = (id: string) => {
     setItems(prev => prev.filter(n => n.id !== id));
     setSwipeStates(prev => { const next = { ...prev }; delete next[id]; return next; });
+    // 서버에도 삭제
+    notificationApi.deleteOne(id).catch(() => {});
   };
 
   const handleTouchStart = useCallback((id: string, e: React.TouchEvent) => {

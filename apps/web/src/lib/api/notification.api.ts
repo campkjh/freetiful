@@ -33,6 +33,29 @@ export const notificationApi = {
   markAllAsRead: () =>
     apiClient.post(`${BASE}/read-all`).then((r) => r.data),
 
+  deleteOne: (id: string) =>
+    apiClient.delete(`${BASE}/${id}`).then((r) => {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (Array.isArray(data?.items)) {
+            data.items = data.items.filter((n: any) => n.id !== id);
+            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          } else if (Array.isArray(data)) {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(data.filter((n: any) => n.id !== id)));
+          }
+        }
+      } catch {}
+      return r.data;
+    }),
+
+  deleteAll: () =>
+    apiClient.delete(`${BASE}`).then((r) => {
+      try { localStorage.removeItem(CACHE_KEY); localStorage.setItem(COUNT_KEY, '0'); } catch {}
+      return r.data;
+    }),
+
   getUnreadCount: () =>
     apiClient.get<{ count: number }>(`${BASE}/unread-count`).then((r) => {
       try { localStorage.setItem(COUNT_KEY, String(r.data?.count ?? 0)); } catch {}
