@@ -534,9 +534,15 @@ function CategorySwiper() {
     return () => el.removeEventListener('scroll', handler);
   }, []);
 
+  const scrollToPage = (pageIdx: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ left: el.clientWidth * pageIdx, behavior: 'smooth' });
+  };
+
   return (
-    <div className="px-[10px] pb-2 pt-1">
-      <div ref={scrollRef} className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-[10px] px-[10px]" style={{ scrollBehavior: 'smooth' }}>
+    <div className="pl-[18px] pr-[10px] pb-2 pt-1 relative">
+      <div ref={scrollRef} className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -ml-[18px] -mr-[10px] pl-[18px] pr-[10px]" style={{ scrollBehavior: 'smooth' }}>
         {pages.map((pageCats, pi) => (
           <div key={pi} className="shrink-0 w-full snap-start">
             <div className="grid grid-cols-5 gap-y-3 gap-x-1 py-2">
@@ -557,17 +563,36 @@ function CategorySwiper() {
           </div>
         ))}
       </div>
+      {/* 우측 플로팅 화살표 — glassmorphism */}
+      {activePage < pages.length - 1 && (
+        <button
+          onClick={() => scrollToPage(activePage + 1)}
+          className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-all z-10"
+          style={{
+            background: 'rgba(255, 255, 255, 0.55)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.6)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+          }}
+          aria-label="다음 카테고리"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      )}
       {/* 페이지 인디케이터 */}
       <div className="flex items-center justify-center gap-1.5 mt-2">
         {pages.map((_, i) => (
-          <span
+          <button
             key={i}
+            onClick={() => scrollToPage(i)}
             className="block rounded-full transition-all duration-300"
             style={{
               width: i === activePage ? 18 : 6,
               height: 6,
               backgroundColor: i === activePage ? '#3180F7' : '#D1D5DB',
             }}
+            aria-label={`페이지 ${i + 1}`}
           />
         ))}
       </div>
