@@ -34,6 +34,13 @@ export class NaverLoginDto {
   state: string;
 }
 
+export class NaverNativeLoginDto {
+  @ApiProperty({ description: 'Naver access token from iOS/Android native SDK' })
+  @IsString()
+  @IsNotEmpty()
+  accessToken: string;
+}
+
 export class AppleLoginDto {
   @ApiProperty()
   @IsString()

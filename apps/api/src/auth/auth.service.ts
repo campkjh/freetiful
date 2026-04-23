@@ -196,8 +196,17 @@ export class AuthService {
     const { data: tokenData } = await axios.get('https://nid.naver.com/oauth2.0/token', {
       params: { grant_type: 'authorization_code', client_id: this.config.get('NAVER_CLIENT_ID'), client_secret: this.config.get('NAVER_CLIENT_SECRET'), code, state },
     });
+    return this.naverProfileLogin(tokenData.access_token);
+  }
+
+  /** iOS/Android 네이티브 SDK에서 이미 발급받은 access token으로 로그인 */
+  async naverNativeLogin(accessToken: string) {
+    return this.naverProfileLogin(accessToken);
+  }
+
+  private async naverProfileLogin(accessToken: string) {
     const { data: profile } = await axios.get('https://openapi.naver.com/v1/nid/me', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     const u = profile.response;
     return this.socialLogin(AuthProvider.naver, {

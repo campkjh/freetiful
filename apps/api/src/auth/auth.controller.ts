@@ -16,6 +16,7 @@ import {
   KakaoNativeLoginDto,
   GoogleLoginDto,
   NaverLoginDto,
+  NaverNativeLoginDto,
   AppleLoginDto,
   EmailRegisterDto,
   EmailLoginDto,
@@ -49,9 +50,16 @@ export class AuthController {
   }
 
   @Post('login/naver')
-  @ApiOperation({ summary: 'Naver social login' })
+  @ApiOperation({ summary: 'Naver social login (web — authorization code)' })
   naverLogin(@Body() dto: NaverLoginDto) {
     return this.auth.naverLogin(dto.code, dto.state);
+  }
+
+  @Post('login/naver/native')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Naver social login (iOS/Android native SDK — access token)' })
+  naverNativeLogin(@Body() dto: NaverNativeLoginDto) {
+    return this.auth.naverNativeLogin(dto.accessToken);
   }
 
   @Post('login/apple')
