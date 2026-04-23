@@ -1508,7 +1508,7 @@ export default function BizPage() {
           <div
             className="absolute pointer-events-none whitespace-nowrap"
             style={{
-              bottom: 56,
+              bottom: 100,
               right: '8%',
               animation: 'bubbleBoingOnce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both, bubbleFloat 2.8s ease-in-out 1.5s infinite',
               zIndex: 51,
