@@ -18,12 +18,6 @@ interface Coupon {
   title: string;
 }
 
-const MOCK_COUPONS: Coupon[] = [
-  { id: '1', code: 'WELCOME10', type: 'percentage', value: 10, minOrder: 300000, maxDiscount: 50000, validUntil: '2026-04-30', isUsed: false, title: '신규 회원 10% 할인' },
-  { id: '2', code: 'SPRING2026', type: 'fixed', value: 30000, minOrder: 500000, maxDiscount: 30000, validUntil: '2026-05-31', isUsed: false, title: '봄맞이 3만원 할인' },
-  { id: '3', code: 'FIRST50', type: 'percentage', value: 5, minOrder: 300000, maxDiscount: 20000, validUntil: '2026-02-28', isUsed: true, title: '첫 결제 5% 할인' },
-];
-
 const CACHE_KEY = 'freetiful-coupon-cache';
 
 function getCache(): Coupon[] | null {
@@ -74,47 +68,29 @@ export default function CouponsPage() {
     if (authUser) {
       apiClient.get('/api/v1/users/coupons')
         .then((res) => {
-          const data = res.data?.data || res.data || [];
-          if (Array.isArray(data) && data.length > 0) {
-            const mapped: Coupon[] = data.map((c: any) => ({
-              id: c.id,
-              code: c.code || '',
-              type: c.discountType || c.type || 'fixed',
-              value: c.discountValue || c.value || 0,
-              minOrder: c.minOrderAmount || c.minOrder || 0,
-              maxDiscount: c.maxDiscount || 0,
-              validUntil: c.expiresAt ? new Date(c.expiresAt).toISOString().slice(0, 10) : c.validUntil || '',
-              isUsed: c.usedAt !== null && c.usedAt !== undefined,
-              title: c.name || c.title || '쿠폰',
-            }));
-            setCoupons(mapped);
-            setCache(mapped);
-          } else if (hasDemo) {
-            setCoupons(MOCK_COUPONS);
-            setCache(MOCK_COUPONS);
-          } else {
-            setCoupons([]);
-            setCache([]);
-          }
+          const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+          const mapped: Coupon[] = data.map((c: any) => ({
+            id: c.id,
+            code: c.code || '',
+            type: c.type || 'fixed',
+            value: c.value ?? 0,
+            minOrder: c.minOrderAmount ?? 0,
+            maxDiscount: c.maxDiscountAmount ?? 0,
+            validUntil: c.validUntil ? new Date(c.validUntil).toISOString().slice(0, 10) : '',
+            isUsed: !!c.isUsed,
+            title: c.title || '쿠폰',
+          }));
+          setCoupons(mapped);
+          setCache(mapped);
         })
-        .catch(() => {
-          if (hasDemo || authUser) {
-            setCoupons(MOCK_COUPONS);
-            setCache(MOCK_COUPONS);
-          } else {
-            setCoupons([]);
-          }
-        })
+        .catch(() => { setCoupons([]); })
         .finally(() => setIsLoading(false));
     } else {
-      if (hasDemo) {
-        setCoupons(MOCK_COUPONS);
-        setCache(MOCK_COUPONS);
-      } else {
-        setCoupons([]);
-      }
+      setCoupons([]);
       setIsLoading(false);
     }
+    // hasDemo 플래그 사용 안 함 — 실제 DB 기반
+    void hasDemo;
   }, [authUser]);
 
   const available = (coupons || []).filter((c) => !c.isUsed);

@@ -109,6 +109,8 @@ enum ScheduleStatus {
   unavailable
   booked
   pending
+  cancelled
+  completed
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────

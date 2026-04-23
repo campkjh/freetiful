@@ -222,4 +222,32 @@ export class UsersService {
 
     return { success: true };
   }
+
+  async getCoupons(userId: string) {
+    const rows = await this.prisma.userCoupon.findMany({
+      where: { userId },
+      include: { coupon: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const now = new Date();
+    return rows.map((r) => {
+      const expired = r.coupon.validUntil ? r.coupon.validUntil < now : false;
+      const title = r.coupon.type === 'percentage'
+        ? `${r.coupon.value}% 할인`
+        : `${r.coupon.value.toLocaleString()}원 할인`;
+      return {
+        id: r.id,
+        code: r.coupon.code,
+        title,
+        type: r.coupon.type,
+        value: r.coupon.value,
+        minOrderAmount: r.coupon.minOrderAmount,
+        maxDiscountAmount: r.coupon.maxDiscountAmount,
+        validUntil: r.coupon.validUntil,
+        isUsed: r.isUsed,
+        usedAt: r.usedAt,
+        status: r.isUsed ? 'used' : expired ? 'expired' : 'available',
+      };
+    });
+  }
 }

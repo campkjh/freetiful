@@ -14,36 +14,21 @@ interface SettlementRecord {
   date: string;
 }
 
-const MOCK_SETTLEMENTS: SettlementRecord[] = [
-  { id: 's1', month: '2026년 3월', amount: 2400000, status: '정산완료', date: '2026-04-10' },
-  { id: 's2', month: '2026년 2월', amount: 1800000, status: '정산완료', date: '2026-03-10' },
-  { id: 's3', month: '2026년 1월', amount: 2100000, status: '정산완료', date: '2026-02-10' },
-  { id: 's4', month: '2025년 12월', amount: 3200000, status: '정산완료', date: '2026-01-10' },
-  { id: 's5', month: '2026년 4월', amount: 1500000, status: '정산예정', date: '2026-05-10' },
-];
-
 export default function SettlementPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const [settlements, setSettlements] = useState(MOCK_SETTLEMENTS);
+  const [settlements, setSettlements] = useState<SettlementRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    apiClient.get('/api/v1/payment', { params: { status: 'completed' } })
+    if (!authUser) { setLoading(false); return; }
+    apiClient.get<SettlementRecord[]>('/api/v1/pro/settlements')
       .then((res) => {
-        const data = res.data;
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped: SettlementRecord[] = data.map((p: any, idx: number) => ({
-            id: p.id || `s${idx + 1}`,
-            month: p.month || p.settlementMonth || '',
-            amount: p.amount || 0,
-            status: p.status === 'completed' || p.status === '정산완료' ? '정산완료' as const : '정산예정' as const,
-            date: p.date || p.settlementDate || '',
-          }));
-          setSettlements(mapped);
-        }
+        setSettlements(Array.isArray(res.data) ? res.data : []);
       })
-      .catch(() => { /* fallback to mock data */ });
+      .catch(() => setSettlements([]))
+      .finally(() => setLoading(false));
   }, [authUser]);
 
   const totalSettled = settlements
@@ -74,6 +59,15 @@ export default function SettlementPage() {
       {/* Settlement List */}
       <div className="px-4 pt-5 pb-10">
         <p className="text-[16px] font-bold text-gray-900 mb-4">월별 정산</p>
+        {loading ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : settlements.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 text-[14px]">아직 정산 내역이 없습니다</div>
+        ) : (
         <div className="space-y-3">
           {settlements.map((s) => (
             <div key={s.id} className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-gray-50">
@@ -106,6 +100,7 @@ export default function SettlementPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

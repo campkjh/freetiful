@@ -555,6 +555,29 @@ function SparkleAnimation() {
   );
 }
 
+function ApplianceIconSwap() {
+  const icons = ['/images/category-icons/appliance.png', '/images/category-icons/appliance-2.png'];
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const src = icons[tick % icons.length];
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <img
+        key={tick}
+        src={src}
+        alt="가전"
+        className="absolute inset-0 w-full h-full object-contain"
+        style={{ animation: 'applianceSwoosh 0.55s cubic-bezier(0.22, 1, 0.36, 1) both' }}
+      />
+    </div>
+  );
+}
+
 function LanguageBadge() {
   const LANGS = ['English', '中文', '日本語', 'ภาษาไทย', 'العربية', 'Español'];
   const [idx, setIdx] = useState(0);
@@ -652,6 +675,8 @@ function CategorySwiper() {
                           setTimeout(() => { v.currentTime = 0; v.play().catch(() => {}); }, 1500);
                         }}
                       />
+                    ) : item.name === '가전' ? (
+                      <ApplianceIconSwap />
                     ) : (
                       <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
                     )}

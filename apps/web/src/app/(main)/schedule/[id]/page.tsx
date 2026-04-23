@@ -130,13 +130,21 @@ export default function BookingDetailPage() {
     '기타',
   ];
 
-  const handleCancelConfirm = () => {
+  const handleCancelConfirm = async () => {
     if (!cancelReason) { toast.error('취소 사유를 선택해주세요'); return; }
     if (!agreedPolicy) { toast.error('환불 규정에 동의해주세요'); return; }
 
-    setBookingStatus('cancelled');
-    setShowCancelModal(false);
-    setShowCompleteModal(true);
+    try {
+      const { apiClient } = await import('@/lib/api/client');
+      const paymentId = id.split('-')[0];
+      await apiClient.post(`/api/v1/payment/${paymentId}/cancel`, { reason: cancelReason });
+      setBookingStatus('cancelled');
+      setShowCancelModal(false);
+      setShowCompleteModal(true);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || '취소 처리 중 오류가 발생했습니다';
+      toast.error(msg);
+    }
   };
 
   return (

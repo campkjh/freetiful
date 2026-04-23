@@ -28,7 +28,7 @@ interface ScheduleItem {
   proImage: string;
   time: string;
   location: string;
-  status: 'confirmed' | 'pending' | 'completed';
+  status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
 }
 
 // 실제 스케줄은 API 응답(apiSchedules)으로 채워집니다. 목업 데이터 제거됨.
@@ -37,6 +37,7 @@ const STATUS_MAP = {
   confirmed: { label: '확정', color: 'text-blue-600', bg: 'bg-blue-50' },
   pending: { label: '대기', color: 'text-amber-600', bg: 'bg-amber-50' },
   completed: { label: '완료', color: 'text-gray-500', bg: 'bg-gray-100' },
+  cancelled: { label: '취소', color: 'text-red-500', bg: 'bg-red-50' },
 };
 
 function getKoreanHolidays(year: number, month: number): Record<number, string> {
@@ -93,12 +94,6 @@ interface ProBooking {
   status: 'confirmed' | 'pending' | 'completed';
 }
 
-const PRO_MOCK_BOOKINGS: ProBooking[] = [
-  { id: 'pb1', clientName: '김정훈', eventType: '결혼식 MC', date: '2026-04-10', time: '14:00 - 16:00', venue: '그랜드 웨딩홀', plan: '프리미엄', paymentStatus: '결제완료', amount: '800,000', status: 'confirmed' },
-  { id: 'pb2', clientName: '이수진', eventType: '결혼식 MC', date: '2026-04-18', time: '12:00 - 14:00', venue: '더 채플 하우스', plan: '스탠다드', paymentStatus: '대기', amount: '600,000', status: 'pending' },
-  { id: 'pb3', clientName: '박민서', eventType: '돌잔치 MC', date: '2026-04-22', time: '11:00 - 12:30', venue: '리츠칼튼 서울', plan: '베이직', paymentStatus: '결제완료', amount: '500,000', status: 'confirmed' },
-  { id: 'pb4', clientName: '최현우', eventType: '결혼식 MC', date: '2026-05-01', time: '13:00 - 15:00', venue: '반포 JW메리어트', plan: '프리미엄', paymentStatus: '대기', amount: '800,000', status: 'pending' },
-];
 
 const PRO_STATUS_MAP = {
   confirmed: { label: '확정', textColor: 'text-green-700', bgColor: 'bg-green-50' },
@@ -136,36 +131,40 @@ const ProIconWon = () => (
 
 function ProScheduleView() {
   const authUser = useAuthStore((s) => s.user);
-  const [hasDemoData, setHasDemoData] = useState(false);
-  const [apiBookings, setApiBookings] = useState<ProBooking[] | null>(null);
-  useEffect(() => {
-    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
-  }, []);
+  const [apiBookings, setApiBookings] = useState<ProBooking[]>([]);
   useEffect(() => {
     if (!authUser) return;
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     scheduleApi.getMySchedule(month)
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped: ProBooking[] = data.map((b: any) => ({
-            id: b.id,
-            clientName: b.clientName || b.title || '',
-            eventType: b.eventType || b.category || '',
+        if (!Array.isArray(data)) return;
+        // booked/completed/pending 등 실제 상태의 스케줄만
+        const rows = data.filter((b: any) => ['booked', 'pending', 'completed'].includes(b.status));
+        const mapped: ProBooking[] = rows.map((b: any) => {
+          let uiStatus: ProBooking['status'] = 'pending';
+          if (b.status === 'booked') uiStatus = 'confirmed';
+          else if (b.status === 'completed') uiStatus = 'completed';
+          else uiStatus = 'pending';
+          const timeStr = b.eventTime ? new Date(b.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+          return {
+            id: b.id || b.date,
+            clientName: b.clientName || '',
+            eventType: b.eventTitle || '행사',
             date: b.date,
-            time: b.time || '',
-            venue: b.venue || b.location || '',
-            plan: b.plan || '스탠다드',
-            paymentStatus: b.paymentStatus || '대기',
-            amount: b.amount || '0',
-            status: b.status || 'pending',
-          }));
-          setApiBookings(mapped);
-        }
+            time: timeStr,
+            venue: b.eventLocation || '',
+            plan: b.eventTitle || '',
+            paymentStatus: b.paymentStatus === 'completed' ? '결제완료' : '대기',
+            amount: b.amount ? Number(b.amount).toLocaleString() : '0',
+            status: uiStatus,
+          };
+        });
+        setApiBookings(mapped);
       })
-      .catch(() => { /* fallback to mock data */ });
+      .catch(() => setApiBookings([]));
   }, [authUser]);
-  const bookings = apiBookings || (hasDemoData ? PRO_MOCK_BOOKINGS : []);
+  const bookings = apiBookings;
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -317,7 +316,7 @@ export default function SchedulePage() {
                   proImage: '',
                   time: '',
                   location: '',
-                  status: p.status === 'completed' ? 'confirmed' : 'pending',
+                  status: p.status === 'refunded' ? 'cancelled' : p.status === 'completed' ? 'confirmed' : 'pending',
                 });
                 return;
               }
@@ -325,20 +324,20 @@ export default function SchedulePage() {
               qs.forEach((q: any) => {
                 const proUser = q.proProfile?.user || {};
                 const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
-                // eventDate가 없으면 결제일 기준
                 const eventDate = q.eventDate || p.createdAt;
                 const dateStr = new Date(eventDate).toISOString().slice(0, 10);
                 const eventDateObj = new Date(eventDate);
                 const now = new Date();
-                const status: 'confirmed' | 'pending' | 'completed' =
-                  p.status === 'completed' && eventDateObj < now ? 'completed'
+                const status: ScheduleItem['status'] =
+                  p.status === 'refunded' ? 'cancelled'
+                  : p.status === 'completed' && eventDateObj < now ? 'completed'
                   : p.status === 'completed' ? 'confirmed'
                   : 'pending';
                 mapped.push({
                   id: `${p.id}-${q.id}`,
                   date: dateStr,
                   title: q.title || p.description || '행사',
-                  category: q.category || 'MC',
+                  category: q.category || q.proProfile?.categories?.[0]?.category?.name || '전문가',
                   proName: proUser.name || '',
                   proImage: proImg,
                   time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',

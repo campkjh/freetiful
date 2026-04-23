@@ -26,12 +26,6 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   refunded: { label: '환불됨', color: 'bg-red-50 text-red-500' },
 };
 
-const MOCK_PURCHASES: PurchaseItem[] = [
-  { id: '1', proName: '김민준 MC', service: '웨딩 MC 패키지', amount: 500000, eventDate: '2026-04-05', status: 'upcoming', image: '/images/default-profile.svg', hasReview: false },
-  { id: '2', proName: '박준혁 가수', service: '웨딩 축가 3곡', amount: 300000, eventDate: '2026-03-15', status: 'completed', image: '/images/default-profile.svg', hasReview: true },
-  { id: '3', proName: '이서연 MC', service: '돌잔치 MC', amount: 400000, eventDate: '2026-02-28', status: 'completed', image: '/images/default-profile.svg', hasReview: false },
-];
-
 const CACHE_KEY = 'freetiful-purchase-cache';
 
 function getCache(): PurchaseItem[] | null {
@@ -85,51 +79,36 @@ export default function PurchaseHistoryPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    const hasDemo = localStorage.getItem('freetiful-has-demo-data') === 'true';
-    setHasDemoData(hasDemo);
-
-    // 백그라운드 fetch
     if (authUser) {
       apiClient.get('/api/v1/payment', { params: { limit: 50 } })
         .then((res) => {
           const data = res.data?.data || [];
-          if (data.length > 0) {
-            const mapped: PurchaseItem[] = data.map((p: any) => ({
+          const mapped: PurchaseItem[] = data.map((p: any) => {
+            const q = Array.isArray(p.quotations) ? p.quotations[0] : p.quotation;
+            const eventDate = q?.eventDate ? new Date(q.eventDate) : new Date(p.createdAt);
+            const now = new Date();
+            let status: PurchaseItem['status'];
+            if (p.status === 'refunded') status = 'refunded';
+            else if (p.status === 'completed') status = eventDate < now ? 'completed' : 'upcoming';
+            else status = 'paid';
+            return {
               id: p.id,
-              proName: p.quotation?.proProfile?.user?.name || '',
-              service: p.description || '결제',
-              amount: p.amount,
-              eventDate: p.quotation?.eventDate ? new Date(p.quotation.eventDate).toISOString().slice(0, 10) : new Date(p.createdAt).toISOString().slice(0, 10),
-              status: p.status === 'completed' ? 'completed' : p.status === 'refunded' ? 'refunded' : 'upcoming',
-              image: p.quotation?.proProfile?.user?.profileImageUrl || '',
+              proName: q?.proProfile?.user?.name || '',
+              service: p.description || q?.title || '결제',
+              amount: Number(p.amount ?? 0),
+              eventDate: eventDate.toISOString().slice(0, 10),
+              status,
+              image: q?.proProfile?.user?.profileImageUrl || q?.proProfile?.images?.[0]?.imageUrl || '',
               hasReview: false,
-            }));
-            setPurchases(mapped);
-            setCache(mapped);
-          } else if (hasDemo) {
-            setPurchases(MOCK_PURCHASES);
-            setCache(MOCK_PURCHASES);
-          } else {
-            setPurchases([]);
-            setCache([]);
-          }
+            };
+          });
+          setPurchases(mapped);
+          setCache(mapped);
         })
-        .catch(() => {
-          if (hasDemo) {
-            setPurchases(MOCK_PURCHASES);
-            setCache(MOCK_PURCHASES);
-          } else {
-            setPurchases([]);
-          }
-        })
+        .catch(() => { setPurchases([]); })
         .finally(() => setIsLoading(false));
     } else {
-      if (hasDemo) {
-        setPurchases(MOCK_PURCHASES);
-        setCache(MOCK_PURCHASES);
-      } else {
-        setPurchases([]);
-      }
+      setPurchases([]);
       setIsLoading(false);
     }
   }, [authUser]);

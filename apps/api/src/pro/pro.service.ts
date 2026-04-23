@@ -293,18 +293,34 @@ export class ProService implements OnModuleInit {
   async getSchedule(userId: string, month: string) {
     const profile = await this.getProfileByUserId(userId);
 
-    // Parse YYYY-MM to date range
     const [year, mon] = month.split('-').map(Number);
     const startDate = new Date(year, mon - 1, 1);
-    const endDate = new Date(year, mon, 0); // last day of month
+    const endDate = new Date(year, mon, 0);
 
     const schedules = await this.prisma.proSchedule.findMany({
       where: {
         proProfileId: profile.id,
         date: { gte: startDate, lte: endDate },
       },
+      include: {
+        payment: {
+          include: {
+            quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+          },
+        },
+      },
       orderBy: { date: 'asc' },
     });
+
+    // Payment.userId → User 조회 (Payment에 user relation이 없어서 수동 lookup)
+    const userIds = Array.from(new Set(schedules.map((s) => (s as any).payment?.userId).filter(Boolean))) as string[];
+    const users = userIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, profileImageUrl: true },
+        })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
 
     return schedules.map((s) => {
       let eventTitle: string | null = null;
@@ -315,15 +331,24 @@ export class ProService implements OnModuleInit {
           eventTitle = parsed.eventTitle ?? null;
           eventLocation = parsed.eventLocation ?? null;
         } catch {
-          // note is plain text, treat as eventTitle
           eventTitle = s.note;
         }
       }
+      const payment = (s as any).payment;
+      const q = payment?.quotations?.[0];
+      const client = payment?.userId ? userMap.get(payment.userId) : null;
       return {
+        id: s.id,
         date: s.date.toISOString().split('T')[0],
         status: s.status,
-        eventTitle,
-        eventLocation,
+        eventTitle: eventTitle ?? q?.title ?? null,
+        eventLocation: eventLocation ?? q?.eventLocation ?? null,
+        eventTime: q?.eventTime ?? null,
+        clientName: client?.name ?? null,
+        clientImage: client?.profileImageUrl ?? null,
+        amount: payment?.amount ? Number(payment.amount) : null,
+        paymentStatus: payment?.status ?? null,
+        paymentId: payment?.id ?? null,
       };
     });
   }
@@ -641,6 +666,127 @@ export class ProService implements OnModuleInit {
       data: { profileViews: { increment: 1 } },
     });
     return { ok: true };
+  }
+
+  // ─── Settlements ───────────────────────────────────────────────────────────
+
+  /**
+   * 월별 정산 집계 — 행사일 기준으로 묶어서 반환
+   * - status=completed 이면서 환불되지 않은 결제만 집계
+   * - 행사일이 오늘 이전이면 '정산완료', 아직 미래면 '정산예정'
+   */
+  async getSettlements(userId: string) {
+    const profile = await this.getProfileByUserId(userId);
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        proProfileId: profile.id,
+        status: 'completed',
+      },
+      include: {
+        quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const now = new Date();
+    const bucket = new Map<string, { amount: number; settled: boolean; latestEventDate: Date }>();
+    payments.forEach((p) => {
+      const q = (p as any).quotations?.[0];
+      const eventDate = q?.eventDate ? new Date(q.eventDate) : new Date(p.createdAt);
+      const key = `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}`;
+      const existing = bucket.get(key) ?? { amount: 0, settled: true, latestEventDate: eventDate };
+      existing.amount += Number(p.amount || 0);
+      // 이 달 행사가 하나라도 미래면 '정산예정'
+      if (eventDate > now) existing.settled = false;
+      if (eventDate > existing.latestEventDate) existing.latestEventDate = eventDate;
+      bucket.set(key, existing);
+    });
+
+    const settlements = Array.from(bucket.entries())
+      .map(([key, v]) => {
+        const [y, m] = key.split('-');
+        // 정산 지급 예정일 = 행사월 + 1개월 10일
+        const payDate = new Date(Number(y), Number(m), 10);
+        return {
+          id: key,
+          month: `${y}년 ${Number(m)}월`,
+          amount: v.amount,
+          status: v.settled ? '정산완료' : '정산예정',
+          date: payDate.toISOString().slice(0, 10),
+        };
+      })
+      .sort((a, b) => (a.id < b.id ? 1 : -1));
+
+    return settlements;
+  }
+
+  // ─── Analytics ────────────────────────────────────────────────────────────
+
+  async getAnalytics(userId: string) {
+    const profile = await this.getProfileByUserId(userId);
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const twoWeeksAgo = new Date(now);
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+    // 이번주/지난주 문의(채팅방) 수
+    const [weeklyInquiries, prevWeekInquiries, weeklyBookings] = await Promise.all([
+      this.prisma.chatRoom.count({
+        where: {
+          proProfileId: profile.id,
+          createdAt: { gte: weekAgo },
+        },
+      }),
+      this.prisma.chatRoom.count({
+        where: {
+          proProfileId: profile.id,
+          createdAt: { gte: twoWeeksAgo, lt: weekAgo },
+        },
+      }),
+      this.prisma.proSchedule.count({
+        where: {
+          proProfileId: profile.id,
+          status: { in: ['booked', 'completed'] },
+          date: { gte: weekAgo },
+        },
+      }),
+    ]);
+
+    // 프로필 조회수는 누적값만 DB에 있음 → 주간 값 근사치로 제공
+    const weeklyViews = Math.max(profile.profileViews || 0, 0);
+    const conversionRate = weeklyViews > 0
+      ? `${((weeklyInquiries / weeklyViews) * 100).toFixed(1)}%`
+      : '0%';
+
+    // 요일별 예약(booked/completed) 수 집계 — 지난 7일
+    const schedules = await this.prisma.proSchedule.findMany({
+      where: {
+        proProfileId: profile.id,
+        status: { in: ['booked', 'completed'] },
+        date: { gte: weekAgo },
+      },
+      select: { date: true },
+    });
+    const daysKo = ['일', '월', '화', '수', '목', '금', '토'];
+    const dailyMap = new Map<string, number>(daysKo.map((d) => [d, 0]));
+    schedules.forEach((s) => {
+      const label = daysKo[new Date(s.date).getDay()];
+      dailyMap.set(label, (dailyMap.get(label) || 0) + 1);
+    });
+    const daily = ['월', '화', '수', '목', '금', '토', '일'].map((day) => ({
+      day,
+      views: dailyMap.get(day) || 0,
+    }));
+
+    return {
+      weeklyViews,
+      weeklyInquiries,
+      weeklyBookings,
+      prevWeekInquiries,
+      conversionRate,
+      daily,
+    };
   }
 
   // ─── Schedule Requests (고객이 구매해서 들어온 대기 요청) ────────────────

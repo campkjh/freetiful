@@ -321,6 +321,9 @@ export class PaymentService {
   async cancelPayment(userId: string, paymentId: string, reason: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
+      include: {
+        quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
     });
 
     if (!payment) {
@@ -335,23 +338,48 @@ export class PaymentService {
       throw new BadRequestException('완료된 결제만 취소할 수 있습니다.');
     }
 
-    // 토스 결제 취소 API 호출
-    await axios.post(
-      `${this.tossBaseUrl}/${payment.pgTransactionId}/cancel`,
-      { cancelReason: reason },
-      {
-        headers: {
-          Authorization: this.getAuthHeader(),
-          'Content-Type': 'application/json',
-        },
-      },
-    );
+    // 환불 정책: 행사일 기준 D-day 계산
+    const quotation = (payment as any).quotations?.[0];
+    const eventDate = quotation?.eventDate ? new Date(quotation.eventDate) : null;
+    const amount = Number(payment.amount);
+    let refundAmount = amount;
+    let refundRate = 100;
+    if (eventDate) {
+      const now = new Date();
+      const diffDays = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays < 1) {
+        throw new BadRequestException('행사 당일에는 취소할 수 없습니다. 전문가에게 직접 연락해 주세요.');
+      }
+      if (diffDays >= 7) { refundRate = 100; refundAmount = amount; }
+      else if (diffDays >= 3) { refundRate = 90; refundAmount = Math.round(amount * 0.9); }
+      else { refundRate = 50; refundAmount = Math.round(amount * 0.5); }
+    }
+
+    // 토스 결제 취소 API (부분 환불 지원)
+    if (payment.pgTransactionId) {
+      try {
+        await axios.post(
+          `${this.tossBaseUrl}/${payment.pgTransactionId}/cancel`,
+          refundAmount < amount
+            ? { cancelReason: reason, cancelAmount: refundAmount }
+            : { cancelReason: reason },
+          {
+            headers: {
+              Authorization: this.getAuthHeader(),
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+      } catch (e) {
+        // PG 취소 실패해도 DB는 refunded 처리
+      }
+    }
 
     const updatedPayment = await this.prisma.payment.update({
       where: { id: payment.id },
       data: {
         status: 'refunded',
-        refundAmount: payment.amount,
+        refundAmount,
         refundReason: reason,
         refundedAt: new Date(),
       },
@@ -361,6 +389,35 @@ export class PaymentService {
       await this.prisma.quotation.update({
         where: { id: payment.quotationId },
         data: { status: 'refunded' },
+      }).catch(() => {});
+    }
+
+    // ProSchedule 상태 cancelled로
+    await this.prisma.proSchedule.updateMany({
+      where: { paymentId: payment.id },
+      data: { status: 'cancelled', note: `고객 취소: ${reason}` },
+    });
+
+    // 채팅방에 시스템 메시지
+    const room = await this.prisma.chatRoom.findFirst({
+      where: {
+        userId: payment.userId,
+        proProfileId: payment.proProfileId,
+        userDeletedAt: null,
+      },
+    });
+    if (room) {
+      await this.prisma.message.create({
+        data: {
+          roomId: room.id,
+          senderId: userId,
+          type: 'system',
+          content: `⚠️ 고객이 예약을 취소했습니다.\n사유: ${reason}\n환불 금액: ${refundAmount.toLocaleString()}원 (환불률 ${refundRate}%)`,
+        },
+      });
+      await this.prisma.chatRoom.update({
+        where: { id: room.id },
+        data: { lastMessageAt: new Date() },
       });
     }
 
@@ -370,7 +427,7 @@ export class PaymentService {
         payment.userId,
         'payment' as any,
         '결제가 환불되었습니다',
-        `${Number(payment.amount).toLocaleString()}원 환불이 처리되었습니다.`,
+        `${refundAmount.toLocaleString()}원 환불이 처리되었습니다. (환불률 ${refundRate}%)`,
         { paymentId: payment.id },
       ).catch(() => {});
 
@@ -381,15 +438,15 @@ export class PaymentService {
       if (proProfile) {
         this.notificationService.createNotification(
           proProfile.userId,
-          'payment' as any,
-          '결제가 환불되었습니다',
-          `${Number(payment.amount).toLocaleString()}원 결제가 고객 요청으로 환불 처리되었습니다.`,
+          'booking' as any,
+          '예약이 취소되었습니다',
+          `고객 요청으로 예약이 취소되었습니다.\n사유: ${reason}`,
           { paymentId: payment.id },
         ).catch(() => {});
       }
     } catch {}
 
-    return updatedPayment;
+    return { ...updatedPayment, refundRate };
   }
 
   /**

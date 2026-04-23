@@ -193,6 +193,24 @@ export class ProController {
     return this.proService.getRevenue(req.user.id);
   }
 
+  @Get('settlements')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '사회자 월별 정산 내역' })
+  getSettlements(@Req() req) {
+    return this.proService.getSettlements(req.user.id);
+  }
+
+  // ─── Analytics ────────────────────────────────────────────────────────────
+
+  @Get('analytics')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '사회자 대시보드 주간 통계 (조회수/문의/전환율)' })
+  getAnalytics(@Req() req) {
+    return this.proService.getAnalytics(req.user.id);
+  }
+
   // ─── Profile View Increment ───────────────────────────────────────────────
 
   @Post(':proProfileId/view')

@@ -65,6 +65,12 @@ img:not([src]) {
   50% { transform: scale(1); opacity: 1; }
 }
 
+@keyframes applianceSwoosh {
+  0%   { transform: translateX(120%) scale(0.9); opacity: 0; }
+  60%  { transform: translateX(-6%) scale(1.02); opacity: 1; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+
 @keyframes shimmer {
   0% { transform: translateX(-100%) skewX(-15deg); }
   100% { transform: translateX(200%) skewX(-15deg); }

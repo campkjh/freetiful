@@ -13,19 +13,6 @@ interface RankEntry {
   isCurrentUser?: boolean;
 }
 
-const MOCK_RANKING: RankEntry[] = [
-  { rank: 1, name: '박인애', pudding: 1280 },
-  { rank: 2, name: '성연채', pudding: 1050 },
-  { rank: 3, name: '이승진', pudding: 920 },
-  { rank: 4, name: '문정은', pudding: 850 },
-  { rank: 5, name: '김민지', pudding: 780 },
-  { rank: 6, name: '조하늘', pudding: 650 },
-  { rank: 7, name: '전혜인', pudding: 520 },
-  { rank: 8, name: '나연지', pudding: 450 },
-  { rank: 9, name: '정애란', pudding: 380 },
-  { rank: 10, name: '허수빈', pudding: 320 },
-];
-
 function getRankColor(rank: number) {
   if (rank === 1) return { bg: '#FEF3C7', text: '#D97706', icon: '#F59E0B' };
   if (rank === 2) return { bg: '#F3F4F6', text: '#6B7280', icon: '#9CA3AF' };
@@ -42,38 +29,20 @@ export default function PuddingRankingPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    // Try to fetch from API first
     apiClient.get('/api/v1/pro/pudding/rank')
       .then((res) => {
-        const data = res.data;
-        if (Array.isArray(data) && data.length > 0) {
-          return data.map((entry: any, idx: number) => ({
-            rank: entry.rank || idx + 1,
-            name: entry.name || '',
-            pudding: entry.pudding || entry.puddingCount || 0,
-          }));
-        }
-        return null;
-      })
-      .catch(() => null)
-      .then((apiData) => {
-        const source: RankEntry[] = apiData || MOCK_RANKING;
-        const userName = (() => {
-          try {
-            return authUser?.name || JSON.parse(localStorage.getItem('freetiful-user') || '{}').name || '';
-          } catch { return ''; }
-        })();
-        const updated = source.map(entry => ({
-          ...entry,
-          isCurrentUser: entry.name === userName,
+        const arr: any[] = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
+        const mapped: RankEntry[] = arr.map((entry: any, idx: number) => ({
+          rank: entry.puddingRank ?? entry.rank ?? idx + 1,
+          name: entry.user?.name ?? entry.name ?? '익명',
+          pudding: entry.puddingCount ?? entry.pudding ?? 0,
+          isCurrentUser: authUser ? (entry.user?.id === authUser.id) : false,
         }));
-        const found = updated.find(e => e.isCurrentUser);
-        if (!found && userName) {
-          updated.push({ rank: 15, name: userName, pudding: 320, isCurrentUser: true });
-        }
-        setRanking(updated);
-        setMyRank(found ? found.rank : 15);
-      });
+        const found = mapped.find((e) => e.isCurrentUser);
+        setRanking(mapped);
+        setMyRank(found ? found.rank : 0);
+      })
+      .catch(() => { setRanking([]); setMyRank(0); });
   }, [authUser]);
 
   return (
@@ -92,8 +61,14 @@ export default function PuddingRankingPage() {
       <div className="px-4 pt-2 pb-5">
         <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-4">
           <p className="text-[13px] text-amber-600">내 순위</p>
-          <p className="text-[28px] font-bold text-amber-800 mt-1">{myRank}위</p>
-          <p className="text-[12px] text-amber-500 mt-1">상위 {Math.min(myRank * 3, 100)}% | 보유 320개</p>
+          <p className="text-[28px] font-bold text-amber-800 mt-1">{myRank > 0 ? `${myRank}위` : '랭킹 없음'}</p>
+          {myRank > 0 && ranking.length > 0 && (
+            <p className="text-[12px] text-amber-500 mt-1">
+              상위 {Math.min(Math.round((myRank / ranking.length) * 100), 100)}%
+              {' | '}
+              보유 {ranking.find((e) => e.isCurrentUser)?.pudding.toLocaleString() || 0}개
+            </p>
+          )}
         </div>
       </div>
 

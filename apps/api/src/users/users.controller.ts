@@ -74,4 +74,10 @@ export class UsersController {
     const userId = (req.user as any).id;
     return this.usersService.deleteAccount(userId);
   }
+
+  @Get('coupons')
+  async getCoupons(@Req() req: Request) {
+    const userId = (req.user as any).id;
+    return this.usersService.getCoupons(userId);
+  }
 }

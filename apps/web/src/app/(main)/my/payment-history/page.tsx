@@ -17,12 +17,6 @@ interface PaymentItem {
   refundAmount?: number;
 }
 
-const MOCK_PAYMENTS: PaymentItem[] = [
-  { id: '1', title: '웨딩 MC 패키지', proName: '김민준 MC', amount: 500000, status: 'completed', date: '2026-03-20', method: '카카오페이' },
-  { id: '2', title: '웨딩 축가', proName: '박준혁 가수', amount: 300000, status: 'escrowed', date: '2026-03-18', method: '카드결제' },
-  { id: '3', title: '부케 패키지', proName: '정하린 플로리스트', amount: 150000, status: 'refunded', date: '2026-03-10', method: '카카오페이', refundAmount: 150000 },
-];
-
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   completed: { label: '결제완료', color: 'text-green-600 bg-green-50' },
   escrowed: { label: '에스크로', color: 'text-blue-600 bg-blue-50' },
@@ -76,48 +70,30 @@ export default function PaymentHistoryPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    const hasDemo = localStorage.getItem('freetiful-has-demo-data') === 'true';
     if (authUser) {
       apiClient.get('/api/v1/payment', { params: { limit: 50 } })
         .then((res) => {
           const data = res.data?.data || [];
-          if (data.length > 0) {
-            const mapped: PaymentItem[] = data.map((p: any) => ({
+          const mapped: PaymentItem[] = data.map((p: any) => {
+            const q = Array.isArray(p.quotations) ? p.quotations[0] : p.quotation;
+            return {
               id: p.id,
-              title: p.description || '결제',
-              proName: p.quotation?.proProfile?.user?.name || '',
-              amount: p.amount,
+              title: p.description || q?.title || '결제',
+              proName: q?.proProfile?.user?.name || '',
+              amount: Number(p.amount ?? 0),
               status: p.status,
               date: new Date(p.createdAt).toLocaleDateString('ko-KR'),
               method: p.paymentMethod || '',
-              refundAmount: p.refundAmount,
-            }));
-            setPayments(mapped);
-            setCache(mapped);
-          } else if (hasDemo) {
-            setPayments(MOCK_PAYMENTS);
-            setCache(MOCK_PAYMENTS);
-          } else {
-            setPayments([]);
-            setCache([]);
-          }
+              refundAmount: p.refundAmount ? Number(p.refundAmount) : undefined,
+            };
+          });
+          setPayments(mapped);
+          setCache(mapped);
         })
-        .catch(() => {
-          if (hasDemo) {
-            setPayments(MOCK_PAYMENTS);
-            setCache(MOCK_PAYMENTS);
-          } else {
-            setPayments([]);
-          }
-        })
+        .catch(() => { setPayments([]); })
         .finally(() => setIsLoading(false));
     } else {
-      if (hasDemo) {
-        setPayments(MOCK_PAYMENTS);
-        setCache(MOCK_PAYMENTS);
-      } else {
-        setPayments([]);
-      }
+      setPayments([]);
       setIsLoading(false);
     }
   }, [authUser]);
