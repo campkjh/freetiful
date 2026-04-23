@@ -497,30 +497,29 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
 
 function CherryBlossomAnimation() {
   const petals = [
-    { left: '10%', delay: '0s',   duration: '3.5s', size: 8 },
-    { left: '35%', delay: '0.8s', duration: '4s',   size: 6 },
-    { left: '60%', delay: '1.6s', duration: '3.2s', size: 7 },
-    { left: '85%', delay: '2.4s', duration: '3.8s', size: 5 },
-    { left: '25%', delay: '2.0s', duration: '4.2s', size: 6 },
-    { left: '70%', delay: '0.4s', duration: '3.6s', size: 7 },
+    { left: '10%', delay: '0s',   duration: '3.5s', size: 12 },
+    { left: '35%', delay: '0.8s', duration: '4s',   size: 10 },
+    { left: '60%', delay: '1.6s', duration: '3.2s', size: 11 },
+    { left: '85%', delay: '2.4s', duration: '3.8s', size: 9 },
+    { left: '25%', delay: '2.0s', duration: '4.2s', size: 10 },
+    { left: '70%', delay: '0.4s', duration: '3.6s', size: 11 },
   ];
   return (
     <div className="absolute inset-0 pointer-events-none overflow-visible" style={{ top: -12, bottom: -12 }}>
       {petals.map((p, i) => (
-        <svg
+        <span
           key={i}
-          width={p.size}
-          height={p.size}
-          viewBox="0 0 20 20"
           className="absolute"
           style={{
             left: p.left,
             top: -10,
+            fontSize: p.size,
+            lineHeight: 1,
             animation: `petalFall ${p.duration} ${p.delay} linear infinite`,
           }}
         >
-          <path d="M10 2 C7 2 5 5 5 8 C5 11 7 13 10 13 C13 13 15 11 15 8 C15 5 13 2 10 2 Z" fill="#FFB7C5" opacity="0.85" />
-        </svg>
+          🌸
+        </span>
       ))}
     </div>
   );
@@ -551,7 +550,7 @@ function SparkleAnimation() {
             animation: `sparkle ${s.duration} ${s.delay} ease-in-out infinite`,
           }}
         >
-          <path d="M10 0 L12 8 L20 10 L12 12 L10 20 L8 12 L0 10 L8 8 Z" fill="#FFD700" />
+          <path d="M10 0 L12 8 L20 10 L12 12 L10 20 L8 12 L0 10 L8 8 Z" fill="#3180F7" />
         </svg>
       ))}
     </div>
