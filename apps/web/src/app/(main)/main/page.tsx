@@ -547,10 +547,10 @@ function CategorySwiper() {
                   className="flex flex-col items-center gap-0.5 opacity-0"
                   style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + i * 0.04}s forwards` }}
                 >
-                  <div className="w-[48px] h-[48px] flex items-center justify-center overflow-hidden">
+                  <div className="w-[60px] h-[60px] flex items-center justify-center overflow-hidden">
                     <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
                   </div>
-                  <span className="text-[11px] font-medium text-center leading-tight" style={{ color: '#51535C' }}>{item.name}</span>
+                  <span className="text-[12px] font-medium text-center leading-tight mt-1" style={{ color: '#51535C' }}>{item.name}</span>
                 </Link>
               ))}
             </div>
