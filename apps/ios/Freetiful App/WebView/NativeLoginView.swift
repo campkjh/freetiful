@@ -14,6 +14,7 @@ struct NativeLoginView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isLoading = false
     @State private var naverCoordinator: NaverNativeLoginCoordinator?
+    @State private var appleCoordinator: AppleNativeLoginCoordinator?
 
     var body: some View {
         ZStack {
@@ -100,8 +101,10 @@ struct NativeLoginView: View {
             if let token = token {
                 self.callAPI(endpoint: "/auth/login/kakao/native", body: ["accessToken": token.accessToken])
             } else {
-                print("❌ 카카오 로그인 실패:", error?.localizedDescription ?? "unknown")
+                // 취소/실패 → 홈으로
+                print("❌ 카카오 로그인 취소·실패:", error?.localizedDescription ?? "unknown")
                 self.isLoading = false
+                self.goHome()
             }
         }
         if UserApi.isKakaoTalkLoginAvailable() {
@@ -116,15 +119,18 @@ struct NativeLoginView: View {
         isLoading = true
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootVC = windowScene.windows.first?.rootViewController else {
-            print("❌ Google: rootVC 없음"); isLoading = false; return
+            print("❌ Google: rootVC 없음"); isLoading = false; goHome(); return
         }
         var presenter = rootVC
         while let presented = presenter.presentedViewController { presenter = presented }
 
         GIDSignIn.sharedInstance.signIn(withPresenting: presenter) { result, error in
             guard let idToken = result?.user.idToken?.tokenString, error == nil else {
-                print("❌ 구글 로그인 실패:", error?.localizedDescription ?? "no idToken")
-                self.isLoading = false; return
+                // 취소/실패 → 홈으로
+                print("❌ 구글 로그인 취소·실패:", error?.localizedDescription ?? "no idToken")
+                self.isLoading = false
+                self.goHome()
+                return
             }
             self.callAPI(endpoint: "/auth/login/google", body: ["idToken": idToken])
         }
@@ -139,8 +145,10 @@ struct NativeLoginView: View {
                 case .success(let accessToken):
                     self.callAPI(endpoint: "/auth/login/naver/native", body: ["accessToken": accessToken])
                 case .failure(let error):
-                    print("❌ 네이버 로그인 실패:", error)
+                    // 취소/실패 → 홈으로
+                    print("❌ 네이버 로그인 취소·실패:", error)
                     self.isLoading = false
+                    self.goHome()
                 }
                 self.naverCoordinator = nil
             }
@@ -149,34 +157,34 @@ struct NativeLoginView: View {
         coordinator.signIn()
     }
 
-    // MARK: - Apple: 웹 기반 로그인으로 이동 (네이티브 시트 사용 안 함)
+    // MARK: - Apple (/auth/login/apple — identityToken)
     func handleAppleLogin() {
-        // 네이티브 Apple 시트 대신 Freetiful 웹 로그인 페이지로 이동.
-        // 거기서 Apple 버튼 → 웹 OAuth 흐름.
-        guard let webView = findWebView(),
-              let url = URL(string: "\(kWebAppURL)/login") else { return }
-        webView.load(URLRequest(url: url))
-        dismiss()
+        isLoading = true
+        let coordinator = AppleNativeLoginCoordinator { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let (identityToken, fullName)):
+                    var body: [String: Any] = ["identityToken": identityToken]
+                    if let name = fullName, !name.isEmpty { body["fullName"] = name }
+                    self.callAPI(endpoint: "/auth/login/apple", body: body)
+                case .failure(let error):
+                    // 취소/실패 → 홈으로
+                    print("❌ 애플 로그인 취소·실패:", error)
+                    self.isLoading = false
+                    self.goHome()
+                }
+                self.appleCoordinator = nil
+            }
+        }
+        self.appleCoordinator = coordinator
+        coordinator.signIn()
     }
 
     // MARK: - "나중에 하기" — 홈으로
+    /// ViewController가 observer로 수신해서 모달 닫고 /main으로 이동.
+    /// findWebView() 방식은 sheet 위의 scene을 집을 수 있어서 알림 패턴이 더 안정적.
     func goHome() {
-        // 1) 시트 dismiss 전에 미리 WebView를 잡아두기 (sheet가 떠있을 때의 상태에서 가져옴)
-        let webView = findWebView()
-
-        // 2) 시트 닫기
-        dismiss()
-
-        // 3) 시트 dismiss 애니메이션 완료 후 WebView 네비게이션 수행.
-        //    webView.load(URLRequest)가 evaluateJavaScript보다 원자적.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            guard let webView = webView,
-                  let url = URL(string: "\(kWebAppURL)/main") else {
-                print("❌ goHome: WebView 못 찾음")
-                return
-            }
-            webView.load(URLRequest(url: url))
-        }
+        NotificationCenter.default.post(name: .goHomeRequested, object: nil)
     }
 
     // MARK: - 공통: 백엔드 → JWT 수신 → localStorage 주입
@@ -213,30 +221,21 @@ struct NativeLoginView: View {
             let userJSON = String(data: userData, encoding: .utf8) ?? "{}"
 
             DispatchQueue.main.async {
-                // OneSignal external_id 매핑
+                // OneSignal external_id 매핑 (푸시용)
                 OneSignal.login(userId)
-                // JWT 주입 + /main 이동 + sheet 닫기
-                self.injectJWT(accessToken: accessToken, refreshToken: refreshToken, userJSON: userJSON)
+                // ViewController에게 JWT 주입을 위임 (WebView 참조 안정성 위해 NotificationCenter 사용)
+                NotificationCenter.default.post(
+                    name: .loginCompleted,
+                    object: nil,
+                    userInfo: [
+                        "accessToken": accessToken,
+                        "refreshToken": refreshToken,
+                        "userJSON": userJSON,
+                    ]
+                )
+                self.dismiss()
             }
         }.resume()
-    }
-
-    private func injectJWT(accessToken: String, refreshToken: String, userJSON: String) {
-        let safe = { (s: String) in s.replacingOccurrences(of: "\\", with: "\\\\")
-                                     .replacingOccurrences(of: "\"", with: "\\\"") }
-        let js = """
-        (function() {
-          var auth = { state: { user: \(userJSON), accessToken: "\(safe(accessToken))", refreshToken: "\(safe(refreshToken))" }, version: 0 };
-          localStorage.setItem('prettyful-auth', JSON.stringify(auth));
-          window.location.href = '\(kWebAppURL)/main';
-        })();
-        """
-        if let webView = findWebView() {
-            webView.evaluateJavaScript(js) { _, err in
-                if let err = err { print("❌ JS 주입 실패:", err) }
-            }
-        }
-        dismiss()
     }
 
     // MARK: - WebView Finder
@@ -285,5 +284,49 @@ class NaverNativeLoginCoordinator: NSObject, NaverThirdPartyLoginConnectionDeleg
     func oauth20ConnectionDidFinishDeleteToken() {}
     func oauth20Connection(_ oauthConnection: NaverThirdPartyLoginConnection?, didFailWithError error: Error?) {
         completion(.failure(error ?? NSError(domain: "Naver", code: -1)))
+    }
+}
+
+// MARK: - Apple Sign In Coordinator
+class AppleNativeLoginCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    /// .success((identityToken, fullName?)) — identityToken은 JWT, fullName은 첫 로그인 시에만 받을 수 있음
+    private let completion: (Result<(String, String?), Error>) -> Void
+
+    init(completion: @escaping (Result<(String, String?), Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func signIn() {
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        controller.performRequests()
+    }
+
+    func authorizationController(controller: ASAuthorizationController,
+                                 didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard let cred = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = cred.identityToken,
+              let identityToken = String(data: tokenData, encoding: .utf8) else {
+            completion(.failure(NSError(domain: "Apple", code: -1, userInfo: [NSLocalizedDescriptionKey: "identityToken 누락"])))
+            return
+        }
+        let fn = cred.fullName?.givenName ?? ""
+        let ln = cred.fullName?.familyName ?? ""
+        let fullName = [fn, ln].filter { !$0.isEmpty }.joined(separator: " ")
+        completion(.success((identityToken, fullName.isEmpty ? nil : fullName)))
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        completion(.failure(error))
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow } ?? UIWindow()
     }
 }

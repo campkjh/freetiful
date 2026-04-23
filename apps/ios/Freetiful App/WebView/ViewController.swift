@@ -43,6 +43,7 @@ class ViewController: UIViewController,
         setupWebView()
         setupLoading()
         loadHome()
+        observeGoHomeNotification()
     }
 
     // MARK: - WebView Setup
@@ -170,6 +171,52 @@ class ViewController: UIViewController,
         host.modalPresentationStyle = .formSheet
         DispatchQueue.main.async { [weak self] in
             self?.present(host, animated: true)
+        }
+    }
+
+    /// Sheet에서 "나중에 하기" 또는 OAuth 취소 시 보내는 알림 옵저버.
+    /// findWebView() 방식이 sheet 위의 scene을 집을 수 있어 WebView 참조가
+    /// 안정적인 VC 레벨에서 직접 /main으로 네비게이션한다.
+    func observeGoHomeNotification() {
+        NotificationCenter.default.addObserver(
+            forName: .goHomeRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self, let url = URL(string: "\(kWebBase)/main") else { return }
+            if let presented = self.presentedViewController {
+                presented.dismiss(animated: true) { self.webView.load(URLRequest(url: url)) }
+            } else {
+                self.webView.load(URLRequest(url: url))
+            }
+        }
+
+        /// Sheet에서 callAPI 성공 시 — JWT를 WebView localStorage에 주입해 자동로그인 준비.
+        /// Sheet 내부의 findWebView()는 모달 위 scene을 집을 수 있어서 VC 레벨에서 주입.
+        NotificationCenter.default.addObserver(
+            forName: .loginCompleted,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self = self,
+                  let info = note.userInfo,
+                  let accessToken  = info["accessToken"]  as? String,
+                  let refreshToken = info["refreshToken"] as? String,
+                  let userJSON     = info["userJSON"]     as? String else { return }
+            let escape: (String) -> String = { s in
+                s.replacingOccurrences(of: "\\", with: "\\\\")
+                 .replacingOccurrences(of: "\"", with: "\\\"")
+            }
+            let js = """
+            (function() {
+              var auth = { state: { user: \(userJSON), accessToken: "\(escape(accessToken))", refreshToken: "\(escape(refreshToken))" }, version: 0 };
+              localStorage.setItem('prettyful-auth', JSON.stringify(auth));
+              window.location.href = '\(kWebBase)/main';
+            })();
+            """
+            self.webView.evaluateJavaScript(js) { _, err in
+                if let err = err { print("❌ loginCompleted JS 주입 실패:", err) }
+            }
         }
     }
 

@@ -43,4 +43,9 @@ class OneSignalManager {
 
 extension Notification.Name {
     static let didReceivePushId = Notification.Name("didReceivePushId")
+    /// 네이티브 로그인 시트에서 "나중에 하기" / OAuth 취소 시 게시 — ViewController가 웹뷰를 /main으로 이동
+    static let goHomeRequested = Notification.Name("goHomeRequested")
+    /// 네이티브 소셜 로그인 성공 시 게시 — ViewController가 JWT를 localStorage에 주입 + /main 이동
+    /// userInfo: ["accessToken": String, "refreshToken": String, "userJSON": String]
+    static let loginCompleted = Notification.Name("loginCompleted")
 }
