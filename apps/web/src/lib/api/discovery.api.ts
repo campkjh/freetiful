@@ -34,6 +34,7 @@ export interface ProListItem {
   categories?: string[];
   regions?: string[];
   languages?: string[];
+  tags?: string[];
 }
 
 const cache = new Map<string, { data: any; ts: number }>();

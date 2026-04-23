@@ -95,6 +95,7 @@ export default function ProEditPage() {
   const [mainPhotoIndex, setMainPhotoIndex] = useState(0);
   const [selectedCompanyLogos, setSelectedCompanyLogos] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [awards, setAwards] = useState('');
   const [detailHtml, setDetailHtml] = useState('');
   const detailEditorRef = useRef<HTMLDivElement>(null);
@@ -271,6 +272,7 @@ export default function ProEditPage() {
         if (p.shortIntro) setIntro(p.shortIntro);
         if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
         if (p.awards) setAwards(p.awards);
+        if (Array.isArray(p.tags)) setTags(p.tags);
         if (p.detailHtml) {
           setDetailHtml(p.detailHtml);
           if (detailEditorRef.current) detailEditorRef.current.innerHTML = p.detailHtml;
@@ -383,6 +385,7 @@ export default function ProEditPage() {
         languages: languages.length > 0 ? languages : undefined,
         category: category || undefined,
         regions: editRegions,
+        tags: tags.length > 0 ? tags : undefined,
       });
       // 캐시 무효화 (클라 + 서버 + 브라우저 HTTP) + 내 프로 ID 저장
       let myProId: string | null = null;
@@ -701,6 +704,24 @@ export default function ProEditPage() {
             <TagChip key={lang} label={lang} selected={languages.includes(lang)} onToggle={() => toggleLanguage(lang)} />
           ))}
         </div>
+      </Section>
+
+      {/* ─── 태그 ─── */}
+      <Section title="태그 (프로필 카드에 표시됨)">
+        <p className="text-[12px] text-gray-400 mb-2.5">프로필 카드와 상세에 강조되는 태그입니다. 최대 4개 권장.</p>
+        <div className="flex flex-wrap gap-2">
+          {['즉시출근', '풀타임 가능', '출장 가능', '심야 가능', '주말 전문', '영어 진행', '당일예약', '긴급예약', '프리미엄', '신규'].map((tag) => (
+            <TagChip
+              key={tag}
+              label={tag}
+              selected={tags.includes(tag)}
+              onToggle={() => setTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : (prev.length < 6 ? [...prev, tag] : prev))}
+            />
+          ))}
+        </div>
+        {tags.length > 0 && (
+          <p className="mt-2 text-[11px] text-gray-400">선택됨: {tags.join(' · ')}</p>
+        )}
       </Section>
 
       {/* ─── 9. 수상내역 ─── */}

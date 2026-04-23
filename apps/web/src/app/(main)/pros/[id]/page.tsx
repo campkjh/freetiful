@@ -82,6 +82,7 @@ interface ProDetailData {
   images: string[];
   title: string;
   categoryName?: string;
+  tags?: string[];
   isPrime: boolean;
   youtubeId?: string;
   youtubeVideos: { id: string; title: string }[];
@@ -492,6 +493,7 @@ export default function ProDetailPage() {
           images: images.length > 0 ? images : [profileImg].filter(Boolean),
           title: `${proCategory} ${userName}`,
           categoryName: proCategory,
+          tags: Array.isArray(res.tagList) ? res.tagList : (Array.isArray(res.tags) ? res.tags : []),
           isPrime: res.isFeatured || res.showPartnersLogo || false,
           youtubeId: ytId,
           youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
@@ -925,6 +927,16 @@ export default function ProDetailPage() {
               </span>
             )}
           </div>
+          {/* 태그: DB에서 등록된 실제 태그만 표시 */}
+          {Array.isArray(pro.tags) && pro.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1.5 mb-1">
+              {pro.tags.map((t) => (
+                <span key={t} className="text-[11px] font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
         </Reveal>
 
         {/* Rating */}

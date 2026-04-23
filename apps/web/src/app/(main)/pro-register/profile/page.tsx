@@ -144,6 +144,7 @@ export default function ProfilePage() {
   const [videoError, setVideoError] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [videos, setVideos] = useState<string[]>([]);
   const [videoInput, setVideoInput] = useState('');
@@ -604,6 +605,31 @@ export default function ProfilePage() {
                   <span className="text-sm text-gray-700">{lang}</span>
                 </label>
               ))}
+            </div>
+          </motion.div>
+
+          {/* [선택]태그 */}
+          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
+            <p className="text-sm font-bold text-gray-900 mb-1">[선택]태그</p>
+            <p className="text-[12px] text-gray-400 mb-3">프로필 카드에 강조되는 태그입니다. 최대 6개.</p>
+            <div className="flex flex-wrap gap-2">
+              {['즉시출근', '풀타임 가능', '출장 가능', '심야 가능', '주말 전문', '영어 진행', '당일예약', '긴급예약', '프리미엄', '신규'].map((tag) => {
+                const active = selectedTags.includes(tag);
+                return (
+                  <button
+                    type="button"
+                    key={tag}
+                    onClick={() => setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : (prev.length < 6 ? [...prev, tag] : prev))}
+                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all active:scale-95 ${
+                      active
+                        ? 'bg-[#3180F7] text-white'
+                        : 'bg-white text-gray-600 border border-gray-200'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
             </div>
           </motion.div>
 
@@ -1276,6 +1302,7 @@ export default function ProfilePage() {
                       languages: selectedLanguages.length > 0 ? selectedLanguages : undefined,
                       category: localStorage.getItem('proRegister_category') || undefined,
                       regions: registeredRegions,
+                      tags: selectedTags.length > 0 ? selectedTags : undefined,
                     });
                     submitSucceeded = true;
                     // 등록 직후 auth store를 최신 User.profileImageUrl로 갱신 (카카오 기본→대표사진)

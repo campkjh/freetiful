@@ -318,6 +318,8 @@ model ProProfile {
   rejectionReason String?
   approvedAt     DateTime?
   createdAt      DateTime  @default(now())
+  // 프로가 등록 시 선택하는 자유 태그 (예: 즉시출근, 풀타임 가능, 출장 가능 등)
+  tags           String[]  @default([])
   updatedAt      DateTime  @updatedAt
 
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)

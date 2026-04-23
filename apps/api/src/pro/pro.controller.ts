@@ -75,6 +75,7 @@ export class ProController {
       languages?: string[];
       category?: string;
       regions?: string[];
+      tags?: string[];
     },
   ) {
     return this.proService.submitRegistration(req.user.id, body);

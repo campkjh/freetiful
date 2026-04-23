@@ -479,17 +479,16 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
           </div>
           <div className="flex items-center gap-0.5">
             <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
-            <span className="text-[11px] text-gray-400">{pro.pudding || Math.floor(Math.random() * 50 + 10)}</span>
+            <span className="text-[11px] text-gray-400">{pro.pudding ?? 0}</span>
           </div>
         </div>
         <div className="flex flex-wrap gap-1">
-          <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
+          {pro.experience > 0 && (
+            <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
+          )}
           {pro.tags.map((tag) => (
             <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
           ))}
-          {pro.available && (
-            <span className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>즉시출근</span>
-          )}
         </div>
       </div>
     </Link>
@@ -801,7 +800,10 @@ export default function HomePage() {
             intro: p.shortIntro || '',
             price: p.basePrice || 450000,
             experience: p.careerYears || 0,
-            tags: p.isFeatured ? ['인기', '추천'] : (p.isNationwide ? ['전국가능'] : []),
+            // 실제 DB tags 사용. 없으면 isFeatured/isNationwide 기반 폴백
+            tags: (Array.isArray(p.tags) && p.tags.length > 0)
+              ? p.tags
+              : (p.isFeatured ? ['인기'] : (p.isNationwide ? ['전국가능'] : [])),
             available: true,
             youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
             isPartner: p.showPartnersLogo || p.isFeatured || false,

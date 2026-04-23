@@ -171,6 +171,7 @@ export class DiscoveryService implements OnModuleInit {
         categories: p.categories.map((c) => c.category.name),
         regions: p.regions.map((r) => r.region.name),
         languages: p.languages.map((l) => l.languageCode),
+        tags: p.tags || [],
       })),
       total,
       page,
@@ -223,6 +224,7 @@ export class DiscoveryService implements OnModuleInit {
       categoryNames: pro.categories.map((c) => c.category.name),
       regionNames: pro.regions.map((r) => r.region.name),
       languageCodes: pro.languages.map((l) => l.languageCode),
+      tagList: pro.tags || [],
     };
     this.setCached(detailCacheKey, detailResult);
     return detailResult;

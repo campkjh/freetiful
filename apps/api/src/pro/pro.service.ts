@@ -426,6 +426,8 @@ export class ProService implements OnModuleInit {
       category?: string;
       /** 활동 지역 배열 */
       regions?: string[];
+      /** 자유 태그 (즉시출근, 풀타임 가능, 출장 가능 등) */
+      tags?: string[];
     },
   ) {
     // 전화번호만 업데이트 가능. 이름은 User.name (가입 시 설정) 을 그대로 사용 —
@@ -445,6 +447,7 @@ export class ProService implements OnModuleInit {
       ...(data.awards !== undefined ? { awards: data.awards } : {}),
       ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
       ...(data.detailHtml !== undefined ? { detailHtml: data.detailHtml } : {}),
+      ...(Array.isArray(data.tags) ? { tags: Array.from(new Set(data.tags.filter(Boolean))) } : {}),
     };
 
     // 기존 프로필 존재 여부 체크: approved 이면 status 유지, 아니면 pending
