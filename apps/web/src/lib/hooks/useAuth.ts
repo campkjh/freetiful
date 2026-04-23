@@ -62,7 +62,7 @@ export function useAuth() {
       } finally {
         notifyIOSLogout();
         storeLogout();
-        router.push('/login');
+        router.push('/main');
       }
     },
   };

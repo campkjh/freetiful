@@ -93,6 +93,17 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
   }, [pathname, needsAuth, authUser]);
 
+  // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
+  useEffect(() => {
+    const handler = () => {
+      const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
+      if (iosBridge) { iosBridge.postMessage({}); return; }
+      setShowLoginModal(true);
+    };
+    window.addEventListener('freetiful:show-login', handler);
+    return () => window.removeEventListener('freetiful:show-login', handler);
+  }, []);
+
   // 로그인 시 채팅 + 알림 프리페치
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
@@ -324,9 +335,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     const NAVER_KEY = 'R4WM7ZyC8hHuE_O7qLdy';
 
                     // iOS/Android 네이티브 앱이면 네이티브 SDK로 라우팅
-                    const w = typeof window !== 'undefined' ? window : undefined;
-                    const ios = w?.webkit?.messageHandlers;
-                    const and = (w as unknown as { Android?: Record<string, () => void> })?.Android;
+                    const w = typeof window !== 'undefined' ? (window as any) : undefined;
+                    const ios = w?.webkit?.messageHandlers as Record<string, { postMessage: (msg: object) => void } | undefined> | undefined;
+                    const and = w?.Android as Record<string, (() => void) | undefined> | undefined;
                     if (provider === 'kakao') {
                       if (ios?.kakaoLogin) { ios.kakaoLogin.postMessage({}); return; }
                       if (and?.kakaoLogin) { and.kakaoLogin(); return; }
@@ -338,20 +349,17 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       if (and?.googleLogin) { and.googleLogin(); return; }
                     } else if (provider === 'apple') {
                       if (ios?.appleLogin) { ios.appleLogin.postMessage({}); return; }
-                      // Android: Apple 네이티브 없음 → /login 웹 로그인 페이지로 이동
-                      router.push('/login');
+                      // Android/웹: Apple 네이티브 없음 — 모달만 닫고 종료 (Apple은 iOS 전용)
                       return;
                     }
 
-                    // 브라우저 fallback — 웹 OAuth URL
+                    // 브라우저 fallback — 웹 OAuth URL (kakao/naver만 지원)
                     if (provider === 'kakao') {
                       window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/kakao/callback')}&response_type=code`;
                     } else if (provider === 'naver') {
                       const state = Math.random().toString(36).substring(7);
                       sessionStorage.setItem('naver_state', state);
                       window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/naver/callback')}&response_type=code&state=${state}`;
-                    } else {
-                      router.push('/login');
                     }
                   }}
                   className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.96] transition-transform animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]`}
