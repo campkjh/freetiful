@@ -59,6 +59,16 @@ function getIOSHandler(name: string) {
 export function notifyIOSLogin(userId: string | undefined | null) {
   if (!userId) return;
   const handler = getIOSHandler('oneSignalLogin');
+  // Temporary diagnostic ping — tells us on the server whether the bridge fires
+  // and whether the iOS handler is actually registered. Remove once verified.
+  void apiClient
+    .post('/api/v1/push/debug-bridge', {
+      userId,
+      hasHandler: !!handler,
+      stage: 'notifyIOSLogin',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    })
+    .catch(() => undefined);
   if (!handler) return;
   try {
     handler.postMessage(userId);

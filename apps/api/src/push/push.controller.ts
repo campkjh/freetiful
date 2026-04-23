@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Logger, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -11,7 +11,21 @@ import { PushService } from './push.service';
 @UseGuards(JwtAuthGuard)
 @Controller('push')
 export class PushController {
+  private readonly logger = new Logger(PushController.name);
+
   constructor(private readonly pushService: PushService) {}
+
+  @Post('debug-bridge')
+  async debugBridge(
+    @Req() req: Request,
+    @Body() body: { userId?: string; hasHandler?: boolean; stage?: string; userAgent?: string },
+  ) {
+    const authUserId = (req.user as { id?: string })?.id;
+    this.logger.log(
+      `[BridgeDiag] stage=${body.stage} authUserId=${authUserId} bodyUserId=${body.userId} hasHandler=${body.hasHandler} UA=${(body.userAgent || '').slice(0, 80)}`,
+    );
+    return { ok: true };
+  }
 
   @Post('subscribe')
   async subscribe(@Req() req: Request, @Body() body: SubscribeDto) {
