@@ -298,6 +298,7 @@ export default function MyPage() {
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
   const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(null);
+  const [proCategoryName, setProCategoryName] = useState<string>('사회자');
   const [isPro, setIsPro] = useState(false);
   const [couponCount, setCouponCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
@@ -365,6 +366,9 @@ export default function MyPage() {
           const status = profile?.status as 'draft' | 'pending' | 'approved' | 'rejected' | undefined;
           if (!status) return;
           setProProfileStatus(status);
+          // 프로가 설정한 카테고리를 추출 (categories 관계에서)
+          const catName = profile?.categories?.[0]?.category?.name;
+          if (catName) setProCategoryName(catName);
           if (status === 'approved') {
             localStorage.setItem('proRegistrationComplete', 'approved');
             setProRegistrationPending(false);
@@ -446,7 +450,9 @@ export default function MyPage() {
     }
   };
 
-  if (isPro) {
+  // 승인된 프로만 PRO 뷰로 분기. role=pro 이지만 ProProfile 미승인인 경우는 일반 뷰로 폴백.
+  const isApprovedPro = isPro && proProfileStatus === 'approved';
+  if (isApprovedPro) {
     // 상위 15% 여부는 정확 계산 불가 (어드민 랭킹 테이블 필요) — 푸딩>=100 이면 "상위권" 표현
     const isTopRank = proStats.pudding >= 100;
     return (
@@ -472,7 +478,7 @@ export default function MyPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <p className="text-[17px] font-bold text-gray-900">사회자 {user.name}</p>
+                <p className="text-[17px] font-bold text-gray-900">{proCategoryName} {user.name}</p>
                 <span className="text-[10px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded" style={{ lineHeight: 1.2 }}>PRO</span>
               </div>
               <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
