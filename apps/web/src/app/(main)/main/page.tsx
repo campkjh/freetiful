@@ -710,10 +710,11 @@ export default function HomePage() {
   const heroVideo1Ref = useRef<HTMLVideoElement | null>(null);
   const heroVideo2Ref = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
-    if (isIOSWebView()) return; // iOS WebView: 정지 상태 유지 (fullscreen 버그 회피)
     [heroVideo1Ref.current, heroVideo2Ref.current].forEach((v) => {
       if (!v) return;
       v.loop = true;
+      v.muted = true;
+      (v as any).playsInline = true;
       v.play().catch(() => undefined);
     });
   }, []);
