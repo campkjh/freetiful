@@ -608,7 +608,7 @@ export default function ProDetailPage() {
   const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
-  const plan = pro?.plans?.[activePlan] ?? { id: 'premium', label: 'Premium', price: 450000, duration: '1시간', title: '행사 1시간 진행', desc: ['사회 진행'], workDays: 14, revisions: 1 };
+  const plan = pro?.plans?.[activePlan] ?? { id: 'premium', label: 'Premium', price: 0, duration: '-', title: '가격 문의', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
 
   // 방문 기록 저장
   useEffect(() => {
@@ -1000,12 +1000,20 @@ export default function ProDetailPage() {
         <div className="py-5">
           {/* Price */}
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[28px] font-bold text-gray-900 tabular-nums">
-              {plan.price.toLocaleString()}원
-            </span>
-            <span className="text-[14px] text-gray-400">(VAT 포함)</span>
+            {plan.price > 0 ? (
+              <>
+                <span className="text-[28px] font-bold text-gray-900 tabular-nums">
+                  {plan.price.toLocaleString()}원
+                </span>
+                <span className="text-[14px] text-gray-400">(VAT 포함)</span>
+              </>
+            ) : (
+              <span className="text-[22px] font-bold text-gray-400">가격 문의</span>
+            )}
           </div>
-          <p className="text-[12px] text-gray-400 mt-1">결제 시 수수료 10%(VAT포함)가 추가돼요.</p>
+          {plan.price > 0 && (
+            <p className="text-[12px] text-gray-400 mt-1">결제 시 수수료 10%(VAT포함)가 추가돼요.</p>
+          )}
 
           {/* Service title */}
           <div className="mt-6 mb-3">

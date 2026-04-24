@@ -98,6 +98,34 @@ export default function ProEditPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [awards, setAwards] = useState('');
   const [detailHtml, setDetailHtml] = useState('');
+
+  /* ── Pricing (Premium/Superior/Enterprise 등 어드민 템플릿 기반) ── */
+  type PlanTpl = { planKey: string; label: string; defaultPrice: number; description: string; includedItems: string[] };
+  const [planTemplates, setPlanTemplates] = useState<PlanTpl[]>([]);
+  const [enabledPlans, setEnabledPlans] = useState<Set<string>>(new Set());
+  const [planPrices, setPlanPrices] = useState<Record<string, number>>({});
+  const [customOptions, setCustomOptions] = useState<Record<string, { name: string; price: number }[]>>({});
+  const [activePlanTab, setActivePlanTab] = useState<string>('');
+  const [newOptName, setNewOptName] = useState('');
+  const [newOptPrice, setNewOptPrice] = useState('');
+  useEffect(() => {
+    import('@/lib/api/client').then(({ apiClient }) => {
+      apiClient.get('/api/v1/plan-templates')
+        .then((res: any) => {
+          const data = Array.isArray(res.data) ? res.data : [];
+          const tpls: PlanTpl[] = data.map((t: any) => ({
+            planKey: t.planKey,
+            label: t.label,
+            defaultPrice: Number(t.defaultPrice) || 0,
+            description: t.description || '',
+            includedItems: Array.isArray(t.includedItems) ? t.includedItems : [],
+          }));
+          setPlanTemplates(tpls);
+          if (!activePlanTab && tpls.length > 0) setActivePlanTab(tpls[0].planKey);
+        })
+        .catch(() => {});
+    });
+  }, []);
   const detailEditorRef = useRef<HTMLDivElement>(null);
   const detailImageInputRef = useRef<HTMLInputElement>(null);
   const detailColorInputRef = useRef<HTMLInputElement>(null);
@@ -313,6 +341,19 @@ export default function ProEditPage() {
         if (Array.isArray(p.languages) && p.languages.length > 0) {
           setLanguages(p.languages.map((l: any) => l.languageCode).filter(Boolean));
         }
+        // services → 가격 설정 (title 그대로 key 로 사용; 매핑은 UI 에서 템플릿과 매칭)
+        if (Array.isArray(p.services) && p.services.length > 0) {
+          const enabled = new Set<string>();
+          const prices: Record<string, number> = {};
+          for (const s of p.services) {
+            if (!s?.title) continue;
+            const key = String(s.title).toLowerCase();
+            enabled.add(key);
+            if (typeof s.basePrice === 'number' && s.basePrice > 0) prices[key] = s.basePrice;
+          }
+          if (enabled.size > 0) setEnabledPlans(enabled);
+          if (Object.keys(prices).length > 0) setPlanPrices(prices);
+        }
       } catch { /* 로컬 폼 유지 */ }
     })();
   }, [authUser?.id]);
@@ -388,6 +429,24 @@ export default function ProEditPage() {
       const awardsArray = awards.split('\n').filter(Boolean);
       // 전문영역 + 일반 태그 병합해서 tags 필드에 저장 (중복 제거)
       const mergedTags = Array.from(new Set([...selectedCategories, ...tags].filter(Boolean)));
+      // 서비스(플랜) 구성: 활성화된 플랜만 services[] 로 전송
+      const servicesPayload = Array.from(enabledPlans)
+        .map((key) => {
+          const tpl = planTemplates.find(
+            (t) => t.planKey.toLowerCase() === key || t.label.toLowerCase() === key,
+          );
+          const label = tpl?.label || key;
+          const basePrice = planPrices[key] || tpl?.defaultPrice || undefined;
+          const customs = customOptions[key] || [];
+          const descBase = tpl?.description || '';
+          const descCustom = customs.length > 0
+            ? (descBase ? ' · ' : '') + '추가옵션: ' + customs.map((o) => `${o.name}${o.price > 0 ? `(+${o.price.toLocaleString()}원)` : ''}`).join(', ')
+            : '';
+          const description = (descBase + descCustom).trim() || undefined;
+          return { title: label, description, basePrice };
+        })
+        .filter((s) => s.title);
+
       const editResponse: any = await prosApi.submitRegistration({
         // name 은 서버에서 무시됨 (User.name = 가입 시 실계정 이름, 변경 불가)
         phone: phone || undefined,
@@ -405,6 +464,7 @@ export default function ProEditPage() {
         category: category || undefined,
         regions: selectedRegions,
         tags: mergedTags.length > 0 ? mergedTags : undefined,
+        services: servicesPayload.length > 0 ? servicesPayload : undefined,
       });
       // 백엔드 응답에 updated user가 포함됨 — 즉시 auth store 갱신
       try {
@@ -764,6 +824,169 @@ export default function ProEditPage() {
         {tags.length > 0 && (
           <p className="mt-2 text-[11px] text-gray-400">선택됨: {tags.join(' · ')}</p>
         )}
+      </Section>
+
+      {/* ─── 가격 설정 (플랜 + 옵션) ─── */}
+      <Section title="가격 설정">
+        <div className="space-y-4">
+          {planTemplates.length === 0 ? (
+            <p className="text-[13px] text-gray-400">어드민에서 설정한 플랜 템플릿을 불러오는 중입니다…</p>
+          ) : (
+            <>
+              <div>
+                <p className="text-[12px] font-bold text-gray-500 mb-2">제공 플랜</p>
+                <div className="space-y-2">
+                  {planTemplates.map((t) => {
+                    const key = t.planKey.toLowerCase();
+                    const enabled = enabledPlans.has(key);
+                    return (
+                      <button
+                        key={t.planKey}
+                        onClick={() => {
+                          setEnabledPlans((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(key)) next.delete(key); else next.add(key);
+                            return next;
+                          });
+                          if (!enabled) setActivePlanTab(key);
+                        }}
+                        className="w-full flex items-center justify-between p-3 rounded-xl border-2 transition-colors"
+                        style={{
+                          borderColor: enabled ? '#3180F7' : '#E5E7EB',
+                          backgroundColor: enabled ? '#EFF6FF' : '#FFFFFF',
+                        }}
+                      >
+                        <div className="text-left">
+                          <p className={`text-[14px] font-bold ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>{t.label}</p>
+                          <p className={`text-[12px] ${enabled ? 'text-gray-500' : 'text-gray-300'}`}>
+                            {t.description} · 기본가 {t.defaultPrice.toLocaleString()}원
+                          </p>
+                        </div>
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: enabled ? '#3180F7' : '#E5E7EB' }}
+                        >
+                          {enabled && <Check size={12} className="text-white stroke-[3]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {enabledPlans.size > 0 && (
+                <div>
+                  <p className="text-[12px] font-bold text-gray-500 mb-2">플랜별 가격/옵션</p>
+                  {/* Plan tabs */}
+                  <div className="flex gap-1.5 overflow-x-auto scrollbar-hide mb-3">
+                    {planTemplates.filter((t) => enabledPlans.has(t.planKey.toLowerCase())).map((t) => {
+                      const key = t.planKey.toLowerCase();
+                      const active = activePlanTab === key;
+                      return (
+                        <button
+                          key={t.planKey}
+                          onClick={() => setActivePlanTab(key)}
+                          className={`shrink-0 px-3.5 py-1.5 text-[12px] font-bold rounded-full transition-colors ${active ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-500'}`}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Active plan detail */}
+                  {(() => {
+                    const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === activePlanTab);
+                    if (!tpl) return null;
+                    const key = tpl.planKey.toLowerCase();
+                    const currentPrice = planPrices[key] ?? tpl.defaultPrice;
+                    const opts = customOptions[key] || [];
+                    return (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-400 mb-1.5">가격 (원)</label>
+                          <input
+                            type="number"
+                            value={currentPrice}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value) || 0;
+                              setPlanPrices((prev) => ({ ...prev, [key]: v }));
+                            }}
+                            placeholder={`기본가 ${tpl.defaultPrice.toLocaleString()}`}
+                            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20"
+                          />
+                        </div>
+
+                        {tpl.includedItems.length > 0 && (
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-400 mb-1.5">공통 포함 (템플릿)</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {tpl.includedItems.map((it) => (
+                                <span key={it} className="px-2.5 py-1 rounded-full bg-gray-100 text-[12px] text-gray-600">{it}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-400 mb-1.5">추가 옵션</label>
+                          {opts.length > 0 && (
+                            <div className="space-y-1 mb-2">
+                              {opts.map((opt, i) => (
+                                <div key={i} className="flex items-center gap-2 py-1">
+                                  <span className="text-[13px] text-gray-700 flex-1">{opt.name}</span>
+                                  {opt.price > 0 && (
+                                    <span className="text-[12px] text-gray-500">+{opt.price.toLocaleString()}원</span>
+                                  )}
+                                  <button
+                                    onClick={() => setCustomOptions((prev) => ({ ...prev, [key]: (prev[key] || []).filter((_, j) => j !== i) }))}
+                                    className="text-gray-300"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newOptName}
+                              onChange={(e) => setNewOptName(e.target.value)}
+                              placeholder="옵션명"
+                              className="flex-1 h-10 border border-gray-200 rounded-xl px-3 text-[14px] text-gray-900 outline-none focus:border-[#3180F7]"
+                            />
+                            <input
+                              type="number"
+                              value={newOptPrice}
+                              onChange={(e) => setNewOptPrice(e.target.value)}
+                              placeholder="가격"
+                              className="w-24 h-10 border border-gray-200 rounded-xl px-3 text-[14px] text-gray-900 outline-none focus:border-[#3180F7]"
+                            />
+                            <button
+                              onClick={() => {
+                                if (!newOptName.trim()) return;
+                                setCustomOptions((prev) => ({
+                                  ...prev,
+                                  [key]: [...(prev[key] || []), { name: newOptName.trim(), price: parseInt(newOptPrice) || 0 }],
+                                }));
+                                setNewOptName('');
+                                setNewOptPrice('');
+                              }}
+                              className="h-10 px-3 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold"
+                            >
+                              추가
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </Section>
 
       {/* ─── 9. 수상내역 ─── */}

@@ -35,7 +35,7 @@ export default function FavoritesPage() {
           rating: Number(f.proProfile?.avgRating || 0),
           reviews: f.proProfile?.reviewCount || 0,
           image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
-          price: f.proProfile?.services?.[0]?.basePrice || 450000,
+          price: f.proProfile?.services?.[0]?.basePrice || 0,
           subName: `${cat} ${name}`,
         };
       })
@@ -67,7 +67,7 @@ export default function FavoritesPage() {
               rating: Number(f.proProfile?.avgRating || 0),
               reviews: f.proProfile?.reviewCount || 0,
               image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
-              price: f.proProfile?.services?.[0]?.basePrice || 450000,
+              price: f.proProfile?.services?.[0]?.basePrice || 0,
               subName: `${cat} ${name}`,
             };
           }));
@@ -118,7 +118,7 @@ export default function FavoritesPage() {
               rating: p.avgRating || 0,
               reviews: p.reviewCount || 0,
               image: p.profileImageUrl || p.images?.[0] || '',
-              price: p.basePrice || 450000,
+              price: p.basePrice || 0,
               subName: `${cat} ${p.name}`,
             } as FavProItem;
           })
