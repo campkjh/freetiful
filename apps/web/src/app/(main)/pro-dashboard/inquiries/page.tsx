@@ -32,9 +32,13 @@ interface MatchDeliveryView {
   eventCategoryName: string;
   eventDate: string | null;
   eventTime: string | null;
+  eventTimeEnd: string | null;
   eventLocation: string | null;
   budgetMin: number | null;
   budgetMax: number | null;
+  planLabel: string;
+  note: string;
+  moods: string[];
   styles: string[];
   personalities: string[];
   deliveredAt: string;
@@ -59,6 +63,16 @@ function formatDate(iso: string | null): string {
   const d = new Date(iso);
   const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
   return `${d.getMonth() + 1}/${d.getDate()} (${weekdays[d.getDay()]})`;
+}
+
+function formatTime(value: string | null): string {
+  if (!value) return '';
+  if (/^\d{2}:\d{2}$/.test(value)) return value;
+  const isoTime = value.match(/T(\d{2}:\d{2})/);
+  if (isoTime) return isoTime[1];
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function formatBudget(min: number | null, max: number | null): string {
@@ -105,24 +119,37 @@ export default function InquiriesPage() {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const mapped: MatchDeliveryView[] = items
           .filter((d: any) => d.status === 'pending' || d.status === 'viewed')
-          .map((d: any) => ({
-            id: d.id,
-            matchRequestId: d.matchRequestId,
-            status: d.status,
-            customerId: d.matchRequest?.user?.id || '',
-            customerName: d.matchRequest?.user?.name || '고객',
-            customerImage: d.matchRequest?.user?.profileImageUrl || '/images/default-profile.svg',
-            categoryName: d.matchRequest?.category?.name || '',
-            eventCategoryName: d.matchRequest?.eventCategory?.name || '',
-            eventDate: d.matchRequest?.eventDate || null,
-            eventTime: d.matchRequest?.eventTime || null,
-            eventLocation: d.matchRequest?.eventLocation || null,
-            budgetMin: d.matchRequest?.budgetMin ?? null,
-            budgetMax: d.matchRequest?.budgetMax ?? null,
-            styles: (d.matchRequest?.styles || []).map((s: any) => s.styleOption?.name || s.styleOption?.label || '').filter(Boolean),
-            personalities: (d.matchRequest?.personalities || []).map((p: any) => p.personalityOption?.name || p.personalityOption?.label || '').filter(Boolean),
-            deliveredAt: d.deliveredAt,
-          }));
+          .map((d: any) => {
+            const raw: any = typeof d.matchRequest?.rawUserInput === 'object' && d.matchRequest?.rawUserInput
+              ? d.matchRequest.rawUserInput
+              : {};
+            const moods = Array.isArray(raw.moods) ? raw.moods.filter(Boolean) : [];
+            const styles = (d.matchRequest?.styles || [])
+              .map((s: any) => s.styleOption?.name || s.styleOption?.label || '')
+              .filter(Boolean);
+            return {
+              id: d.id,
+              matchRequestId: d.matchRequestId,
+              status: d.status,
+              customerId: d.matchRequest?.user?.id || '',
+              customerName: d.matchRequest?.user?.name || '고객',
+              customerImage: d.matchRequest?.user?.profileImageUrl || '/images/default-profile.svg',
+              categoryName: d.matchRequest?.category?.name || '',
+              eventCategoryName: d.matchRequest?.eventCategory?.name || raw.eventType || '',
+              eventDate: d.matchRequest?.eventDate || raw.date || null,
+              eventTime: raw.timeStart || d.matchRequest?.eventTime || null,
+              eventTimeEnd: raw.timeEnd || null,
+              eventLocation: d.matchRequest?.eventLocation || raw.location || null,
+              budgetMin: d.matchRequest?.budgetMin ?? null,
+              budgetMax: d.matchRequest?.budgetMax ?? null,
+              planLabel: raw.planLabel || '',
+              note: raw.note || '',
+              moods,
+              styles,
+              personalities: (d.matchRequest?.personalities || []).map((p: any) => p.personalityOption?.name || p.personalityOption?.label || '').filter(Boolean),
+              deliveredAt: d.deliveredAt,
+            };
+          });
         setMatchDeliveries(mapped);
       })
       .catch(() => {})
@@ -234,20 +261,31 @@ export default function InquiriesPage() {
                       {[m.categoryName, m.eventCategoryName].filter(Boolean).join(' · ')}
                     </p>
                     <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
-                      <span className="flex items-center gap-1"><Calendar size={10} /> {formatDate(m.eventDate)}{m.eventTime ? ` ${m.eventTime}` : ''}</span>
+                      <span className="flex items-center gap-1">
+                        <Calendar size={10} /> {formatDate(m.eventDate)}
+                        {m.eventTime ? ` ${formatTime(m.eventTime)}${m.eventTimeEnd ? ` ~ ${formatTime(m.eventTimeEnd)}` : ''}` : ''}
+                      </span>
                       {m.eventLocation && <span className="flex items-center gap-1"><MapPin size={10} /> {m.eventLocation}</span>}
                     </div>
+                    {m.planLabel && (
+                      <p className="text-[12px] font-bold text-gray-700 mt-1.5">선택 플랜: {m.planLabel}</p>
+                    )}
                     <p className="text-[12px] font-bold text-[#3180F7] mt-1.5 flex items-center gap-1">
                       <DollarSign size={11} /> {formatBudget(m.budgetMin, m.budgetMax)}
                     </p>
-                    {(m.styles.length > 0 || m.personalities.length > 0) && (
+                    {(m.styles.length > 0 || m.personalities.length > 0 || m.moods.length > 0) && (
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {[...m.styles, ...m.personalities].slice(0, 6).map((tag, i) => (
+                        {[...m.moods, ...m.styles, ...m.personalities].slice(0, 8).map((tag, i) => (
                           <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
                             {tag}
                           </span>
                         ))}
                       </div>
+                    )}
+                    {m.note && (
+                      <p className="text-[12px] text-gray-600 mt-2 bg-gray-50 rounded-xl px-3 py-2 line-clamp-3">
+                        {m.note}
+                      </p>
                     )}
                   </div>
                 </div>

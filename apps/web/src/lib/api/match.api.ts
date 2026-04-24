@@ -14,6 +14,7 @@ export const matchApi = {
     type?: 'multi' | 'single';
     styleOptionIds?: string[];
     personalityOptionIds?: string[];
+    selectedProProfileIds?: string[];
     rawUserInput?: Record<string, unknown>;
   }) => apiClient.post(`${BASE}/request`, data).then((r) => r.data),
 

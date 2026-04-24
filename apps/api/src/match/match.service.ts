@@ -28,6 +28,7 @@ export class MatchService {
       type: 'multi' | 'single';
       styleOptionIds?: string[];
       personalityOptionIds?: string[];
+      selectedProProfileIds?: string[];
       rawUserInput?: any;
     },
   ) {
@@ -84,34 +85,68 @@ export class MatchService {
       },
     });
 
-    // 카테고리에 일치하는 승인된 사회자에게 fan-out — matchDelivery 생성 + 푸쉬 알림
-    void this.fanoutMatchRequestToPros(matchRequest.id, data.categoryId).catch(() => {});
+    // 선택한 전문가가 있으면 해당 전문가에게만, 없으면 카테고리 일치 전문가에게 fan-out
+    void this.fanoutMatchRequestToPros(
+      matchRequest.id,
+      data.categoryId,
+      data.selectedProProfileIds,
+    ).catch(() => {});
 
     return matchRequest;
   }
 
   /** 새 매칭 요청을 카테고리 일치하는 approved 사회자에게 분배 + 알림 */
-  private async fanoutMatchRequestToPros(matchRequestId: string, categoryId: string) {
-    let proCategories = await this.prisma.proCategory.findMany({
-      where: {
-        categoryId,
-        proProfile: { status: 'approved' },
-      },
-      include: {
-        proProfile: {
-          include: { user: { select: { id: true, name: true } } },
-        },
-      },
-      take: 20, // 무차별 fan-out 방지 — 상위 20명만
-    });
+  private async fanoutMatchRequestToPros(
+    matchRequestId: string,
+    categoryId: string,
+    selectedProProfileIds?: string[],
+  ) {
+    let deliveryTargets: Array<{
+      proProfileId: string;
+      categoryId: string;
+      proProfile: {
+        user?: { id?: string; name?: string | null } | null;
+      } | null;
+    }> = [];
 
-    if (proCategories.length === 0) {
+    const uniqueSelectedIds = Array.from(new Set(selectedProProfileIds || [])).filter(Boolean);
+
+    if (uniqueSelectedIds.length > 0) {
+      const selectedPros = await this.prisma.proProfile.findMany({
+        where: {
+          id: { in: uniqueSelectedIds },
+          status: 'approved',
+        },
+        include: { user: { select: { id: true, name: true } } },
+      });
+      deliveryTargets = selectedPros.map((proProfile) => ({
+        proProfileId: proProfile.id,
+        categoryId,
+        proProfile,
+      }));
+    } else {
+      const proCategories = await this.prisma.proCategory.findMany({
+        where: {
+          categoryId,
+          proProfile: { status: 'approved' },
+        },
+        include: {
+          proProfile: {
+            include: { user: { select: { id: true, name: true } } },
+          },
+        },
+        take: 20, // 무차별 fan-out 방지 — 상위 20명만
+      });
+      deliveryTargets = proCategories;
+    }
+
+    if (deliveryTargets.length === 0 && uniqueSelectedIds.length === 0) {
       const fallbackPros = await this.prisma.proProfile.findMany({
         where: { status: 'approved' },
         include: { user: { select: { id: true, name: true } } },
         take: 20,
       });
-      proCategories = fallbackPros.map((proProfile) => ({
+      deliveryTargets = fallbackPros.map((proProfile) => ({
         proProfileId: proProfile.id,
         categoryId,
         proProfile,
@@ -130,7 +165,7 @@ export class MatchService {
     const customerName = matchRequest.user?.name || '고객';
     const categoryName = matchRequest.category?.name || '서비스';
 
-    for (const pc of proCategories) {
+    for (const pc of deliveryTargets) {
       const proUserId = pc.proProfile?.user?.id;
       if (!proUserId) continue;
       try {

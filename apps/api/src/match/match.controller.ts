@@ -39,6 +39,7 @@ export class MatchController {
       type: 'multi' | 'single';
       styleOptionIds?: string[];
       personalityOptionIds?: string[];
+      selectedProProfileIds?: string[];
       rawUserInput?: any;
     },
   ) {

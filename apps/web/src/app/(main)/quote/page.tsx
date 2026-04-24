@@ -7,7 +7,8 @@ import toast from 'react-hot-toast';
 import { addPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
-import { chatApi } from '@/lib/api/chat.api';
+import { apiClient } from '@/lib/api/client';
+import { matchApi } from '@/lib/api/match.api';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { startOAuth } from '@/lib/auth/oauth';
 
@@ -90,6 +91,15 @@ type ProItem = {
   intro: string;
   youtubeId?: string;
   recentReviews: string[];
+  categories?: string[];
+};
+
+type MatchCategoryOption = {
+  id: string;
+  name: string;
+  nameEn?: string | null;
+  eventCategories?: Array<{ id: string; name: string }>;
+  styleOptions?: Array<{ id: string; name: string }>;
 };
 
 // API 실패 시에는 빈 배열로 폴백 (하드코딩 목업 데이터 제거됨)
@@ -154,6 +164,17 @@ function QuotePage() {
   // 어드민 플랜 템플릿 — 가격/이름/포함항목의 단일 소스
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
   useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
+  const [matchCategories, setMatchCategories] = useState<MatchCategoryOption[]>([]);
+  useEffect(() => {
+    let alive = true;
+    apiClient
+      .get('/api/v1/ref-data/match-options')
+      .then((res) => {
+        if (alive) setMatchCategories(Array.isArray(res.data?.categories) ? res.data.categories : []);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const PLANS = planTemplates.filter((t) => t.isActive).map((t) => {
     const style = PLAN_STYLES[t.planKey] || PLAN_FALLBACK_STYLE;
     return { id: t.planKey, label: t.label, price: t.defaultPrice, desc: t.description || '', icon: style.icon, color: style.color };
@@ -196,6 +217,40 @@ function QuotePage() {
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const toggleMood = (m: string) => setMoods((prev) => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n; });
+
+  const findMcCategory = (categories: MatchCategoryOption[]) =>
+    categories.find((c) => c.id === 'mc')
+    || categories.find((c) => c.name?.includes('사회자') || c.name?.toLowerCase().includes('mc'))
+    || categories[0];
+
+  const getMcCategory = () => findMcCategory(matchCategories);
+
+  const getEventCategoryId = (category: MatchCategoryOption | undefined, label: string) =>
+    category?.eventCategories?.find((e) => e.name === label || e.name.includes(label) || label.includes(e.name))?.id;
+
+  const getStyleOptionIds = (category: MatchCategoryOption | undefined, moodList: string[]) =>
+    (category?.styleOptions || [])
+      .filter((opt) => moodList.some((m) => opt.name === m || opt.name.includes(m) || m.includes(opt.name)))
+      .map((opt) => opt.id);
+
+  const saveQuoteDraft = () => {
+    if (typeof window === 'undefined') return;
+    const planObj = PLANS.find((p) => p.id === plan);
+    localStorage.setItem('freetiful-quote-draft', JSON.stringify({
+      source: 'quote_flow',
+      eventType: eventType || '결혼식',
+      plan,
+      planLabel: planObj?.label || plan,
+      planPrice: planObj?.price,
+      location,
+      date,
+      timeStart,
+      timeEnd,
+      moods: [...moods],
+      note,
+      savedAt: Date.now(),
+    }));
+  };
 
   // AI로 추가 요청사항 자동 작성 (로컬 템플릿 기반 — 입력된 조건으로 자연스러운 문장 생성)
   const handleAIWrite = () => {
@@ -243,13 +298,23 @@ function QuotePage() {
           intro: p.shortIntro || '',
           youtubeId: p.youtubeUrl?.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/)?.[1],
           recentReviews: [] as string[],
+          categories: p.categories || [],
         }));
+        const mcPros = all.filter((p) =>
+          !p.categories?.length || p.categories.some((c: string) => c.includes('사회자') || c.toLowerCase().includes('mc'))
+        );
+        const planMatched = mcPros.filter((p) => {
+          if (plan === 'enterprise') return p.experience >= 8;
+          if (plan === 'superior') return p.experience >= 4;
+          return true;
+        });
+        const candidates = planMatched.length > 0 ? planMatched : mcPros;
         // 조건 있으면 스코어 기반 정렬, 없으면 원래 순서 유지 (전부 노출)
         if (moodList.length === 0 && !plan) {
-          setFilteredPros(all.length > 0 ? all : MOCK_PROS);
+          setFilteredPros(candidates.length > 0 ? candidates : MOCK_PROS);
           return;
         }
-        const scored = all.map((p) => {
+        const scored = candidates.map((p) => {
           let score = p.rating * 10 + p.reviews * 0.05;
           if (moodList.length > 0) {
             const intro = (p.intro || '').toLowerCase();
@@ -361,60 +426,77 @@ function QuotePage() {
   const doSubmit = async () => {
     setSending(true);
     try {
-      const planLabel = PLANS.find((p) => p.id === plan)?.label || plan;
-      const msgContent = `📋 견적 요청\n\n행사 유형: ${eventType || '미정'}\n플랜: ${planLabel}\n일정: ${date} ${timeStart}${timeEnd ? ` ~ ${timeEnd}` : ''}\n장소: ${location || '미정'}${moods.size > 0 ? `\n분위기: ${[...moods].join(', ')}` : ''}${note ? `\n\n${note}` : ''}`;
+      const planObj = PLANS.find((p) => p.id === plan);
+      const planLabel = planObj?.label || plan;
+      const eventLabel = eventType || '결혼식';
+      const msgContent = `📋 견적 요청\n\n행사 유형: ${eventLabel}\n플랜: ${planLabel}\n일정: ${date} ${timeStart}${timeEnd ? ` ~ ${timeEnd}` : ''}\n장소: ${location || '미정'}${moods.size > 0 ? `\n분위기: ${[...moods].join(', ')}` : ''}${note ? `\n\n${note}` : ''}`;
 
       if (selectedPros.size > 0 && authUser) {
-        // filteredPros 는 실제 API 데이터(UUID) — MOCK_PROS 폴백일 때는 name 검색
-        const selectedIds = [...selectedPros];
-        const roomIds: string[] = [];
-
-        await Promise.allSettled(selectedIds.map(async (id) => {
-          try {
-            // 실제 UUID 형태면 바로 createRoom, 아니면 name으로 검색
-            let proProfileId: string | null = null;
-            const isUuid = /^[0-9a-f-]{30,}$/i.test(id);
-            if (isUuid) {
-              proProfileId = id;
-            } else {
-              const fallbackName = filteredPros.find((p) => p.id === id)?.name;
-              if (fallbackName) {
-                const result = await discoveryApi.getProList({ search: fallbackName, limit: 3 });
-                const match = (result as any)?.data?.find((p: any) => p.name === fallbackName || p.name?.includes(fallbackName.slice(0, 2)));
-                if (match?.id) proProfileId = match.id;
-              }
-            }
-            if (!proProfileId) return;
-            const roomRes = await chatApi.createRoom(proProfileId);
-            const roomId = (roomRes.data as any)?.id || (roomRes.data as any)?.roomId;
-            if (roomId) {
-              await chatApi.sendMessage(roomId, { type: 'text', content: msgContent });
-              roomIds.push(roomId);
-            }
-          } catch (e) {
-            console.error('견적 요청 전송 실패', id, e);
-          }
-        }));
-
-        if (roomIds.length === 0) {
-          toast.error('견적 요청 전송에 실패했습니다. 다시 시도해주세요.');
+        const selectedProProfileIds = [...selectedPros].filter((id) => /^[0-9a-f-]{30,}$/i.test(id));
+        if (selectedProProfileIds.length === 0) {
+          toast.error('선택한 사회자 정보를 확인할 수 없습니다. 다시 선택해주세요.');
           setSending(false);
           return;
         }
+
+        let category = getMcCategory();
+        if (!category?.id) {
+          const res = await apiClient.get('/api/v1/ref-data/match-options');
+          const categories = Array.isArray(res.data?.categories) ? res.data.categories : [];
+          setMatchCategories(categories);
+          category = findMcCategory(categories);
+        }
+        if (!category?.id) {
+          toast.error('견적 요청 기준 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+          setSending(false);
+          return;
+        }
+
+        const moodList = [...moods];
+        await matchApi.createRequest({
+          categoryId: category.id,
+          eventCategoryId: getEventCategoryId(category, eventLabel),
+          eventDate: date || undefined,
+          eventTime: timeStart || undefined,
+          eventLocation: location || undefined,
+          budgetMin: planObj?.price ? Math.floor(planObj.price * 0.8) : undefined,
+          budgetMax: planObj?.price ? Math.ceil(planObj.price * 1.2) : undefined,
+          type: selectedProProfileIds.length > 1 ? 'multi' : 'single',
+          styleOptionIds: getStyleOptionIds(category, moodList),
+          selectedProProfileIds,
+          rawUserInput: {
+            source: 'quote_flow',
+            eventType: eventLabel,
+            plan,
+            planLabel,
+            planPrice: planObj?.price,
+            location,
+            date,
+            timeStart,
+            timeEnd,
+            moods: moodList,
+            note,
+            selectedProProfileIds,
+            message: msgContent,
+          },
+        });
       } else if (selectedPros.size > 0 && !authUser) {
         toast.error('로그인 후 견적 요청이 가능합니다.');
         setSending(false);
         return;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('doSubmit 에러', e);
+      toast.error(e?.response?.data?.message || '견적 요청 전송에 실패했습니다. 다시 시도해주세요.');
+      setSending(false);
+      return;
     }
 
     setSending(false);
     localStorage.setItem('freetiful-quote-submitted', 'true');
     addPoints('quote_request', 200, '견적 요청 적립');
     toast.success(isEvent ? '행사 견적 요청이 접수되었습니다.' : `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.`);
-    router.push('/main');
+    router.push('/requests');
   };
 
   const handleSurveyComplete = async () => {
@@ -444,7 +526,10 @@ function QuotePage() {
   const nextStep = () => {
     if (step === 'type') setStep('plan');
     else if (step === 'plan') setStep('detail');
-    else if (step === 'detail') setStep(isEvent ? 'confirm' : 'pros');
+    else if (step === 'detail') {
+      saveQuoteDraft();
+      setStep(isEvent ? 'confirm' : 'pros');
+    }
     else if (step === 'pros') setStep('confirm');
   };
 
