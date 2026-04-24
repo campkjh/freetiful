@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight } from 'lucide-react';
+import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin } from 'lucide-react';
+import toast from 'react-hot-toast';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -825,6 +826,47 @@ export default function HomePage() {
   // Use API data only - no mock fallback
   const prosData = apiPros || [];
 
+  // 현재 위치 기반 지역 감지 (지역별 사회자 섹션에서 사용)
+  const [myRegion, setMyRegion] = useState<string | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const detectMyRegion = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      toast.error('이 브라우저는 위치 정보를 지원하지 않습니다');
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        // 대한민국 광역 지역 중심 좌표 (가장 가까운 지역으로 매핑)
+        const centers: Record<string, { lat: number; lng: number }> = {
+          '서울/경기': { lat: 37.55, lng: 127.0 },
+          '강원':     { lat: 37.82, lng: 128.16 },
+          '충청':     { lat: 36.50, lng: 127.25 },
+          '전라':     { lat: 35.30, lng: 126.90 },
+          '경상':     { lat: 35.80, lng: 128.60 },
+          '제주':     { lat: 33.40, lng: 126.55 },
+        };
+        let best = '서울/경기';
+        let minDist = Infinity;
+        for (const [name, c] of Object.entries(centers)) {
+          const d = Math.hypot(c.lat - lat, c.lng - lng);
+          if (d < minDist) { minDist = d; best = name; }
+        }
+        setMyRegion(best);
+        setGeoLoading(false);
+        toast.success(`${best} 지역 기반으로 표시합니다`);
+      },
+      () => {
+        setGeoLoading(false);
+        toast.error('위치 권한이 거부되었습니다');
+      },
+      { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+  };
+
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
@@ -1488,17 +1530,44 @@ export default function HomePage() {
         {/* ═══════════════════════════════════════════════════════════ */}
         {prosData.length > 0 && (() => {
           const REGIONS = ['전국', '서울/경기', '충청', '경상', '전라', '강원', '제주'];
+          // myRegion 이 있으면: 전국가능 + 해당 지역에 포함된 프로만
+          const regionFiltered = myRegion
+            ? prosData.filter((p: any) => p.isNationwide || (Array.isArray(p.regions) && p.regions.includes(myRegion)))
+            : prosData;
           return (
             <section>
               <Reveal>
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="section-title">지역별 사회자</h3>
-                    <p className="section-subtitle mt-1">원하는 지역의 전문가를 찾아보세요</p>
+                    <p className="section-subtitle mt-1">
+                      {myRegion
+                        ? `${myRegion} 지역에서 활동 가능한 전문가`
+                        : '원하는 지역의 전문가를 찾아보세요'}
+                    </p>
                   </div>
+                  {myRegion && (
+                    <button
+                      onClick={() => setMyRegion(null)}
+                      className="text-[12px] text-gray-400 font-medium shrink-0"
+                    >
+                      해제
+                    </button>
+                  )}
                 </div>
               </Reveal>
               <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] mb-4">
+                <button
+                  onClick={detectMyRegion}
+                  disabled={geoLoading}
+                  className={`shrink-0 flex items-center gap-1 px-3.5 py-1.5 text-[13px] font-bold ${
+                    myRegion ? 'bg-gray-900 text-white' : 'bg-[#3180F7] text-white'
+                  } disabled:opacity-60`}
+                  style={{ borderRadius: 20 }}
+                >
+                  <MapPin size={13} />
+                  {geoLoading ? '위치 확인 중...' : myRegion ? `내 위치 · ${myRegion}` : '내 위치로 찾기'}
+                </button>
                 {REGIONS.map((r) => (
                   <Link
                     key={r}
@@ -1510,13 +1579,19 @@ export default function HomePage() {
                   </Link>
                 ))}
               </div>
-              <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4">
-                {prosData.slice(0, 6).map((pro, i) => (
-                  <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                    <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
-                  </div>
-                ))}
-              </div>
+              {regionFiltered.length === 0 ? (
+                <div className="py-10 text-center text-[13px] text-gray-400">
+                  {myRegion} 지역에서 활동 가능한 전문가가 아직 없습니다
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4">
+                  {regionFiltered.slice(0, 6).map((pro, i) => (
+                    <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
+                      <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           );
         })()}
