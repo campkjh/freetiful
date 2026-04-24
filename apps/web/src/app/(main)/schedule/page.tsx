@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Calendar, List, MapPin, Clock } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { apiClient } from '@/lib/api/client';
 import { scheduleApi } from '@/lib/api/schedule.api';
 
 const DAYS_KR = ['일', '월', '화', '수', '목', '금', '토'];
@@ -32,6 +33,81 @@ interface ScheduleItem {
   time: string;
   location: string;
   status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
+}
+
+const SCHEDULE_CACHE_PREFIX = 'freetiful-schedule-cache-v1:';
+const SCHEDULE_CACHE_TTL = 2 * 60_000;
+
+function readScheduleCache<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(SCHEDULE_CACHE_PREFIX + key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.ts || Date.now() - parsed.ts > SCHEDULE_CACHE_TTL) {
+      localStorage.removeItem(SCHEDULE_CACHE_PREFIX + key);
+      return null;
+    }
+    return parsed.data as T;
+  } catch {
+    return null;
+  }
+}
+
+function writeScheduleCache(key: string, data: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SCHEDULE_CACHE_PREFIX + key, JSON.stringify({ data, ts: Date.now() }));
+  } catch {}
+}
+
+function mapPaymentsToSchedules(data: any[]): ScheduleItem[] {
+  const mapped: ScheduleItem[] = [];
+  data.forEach((p: any) => {
+    if (p.status === 'refunded') return;
+    const qs = Array.isArray(p.quotations) ? p.quotations : (p.quotation ? [p.quotation] : []);
+
+    if (qs.length === 0) {
+      const dateStr = new Date(p.createdAt).toISOString().slice(0, 10);
+      mapped.push({
+        id: p.id,
+        date: dateStr,
+        title: p.description || '결제 완료',
+        category: 'MC',
+        proName: '',
+        proImage: '',
+        time: '',
+        location: '',
+        status: p.status === 'completed' ? 'confirmed' : 'pending',
+      });
+      return;
+    }
+
+    qs.forEach((q: any) => {
+      const proUser = q.proProfile?.user || {};
+      const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
+      const eventDate = q.eventDate || p.createdAt;
+      const dateStr = new Date(eventDate).toISOString().slice(0, 10);
+      const eventDateObj = new Date(eventDate);
+      const now = new Date();
+      const status: ScheduleItem['status'] =
+        p.status === 'completed' && eventDateObj < now ? 'completed'
+        : p.status === 'completed' ? 'confirmed'
+        : 'pending';
+      mapped.push({
+        id: `${p.id}__${q.id}`,
+        date: dateStr,
+        title: q.title || p.description || '행사',
+        category: q.category || q.proProfile?.categories?.[0]?.category?.name || '사회자',
+        proName: proUser.name || '',
+        proImage: proImg,
+        time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',
+        location: q.eventLocation || '',
+        status,
+      });
+    });
+  });
+  return mapped;
 }
 
 // 실제 스케줄은 API 응답(apiSchedules)으로 채워집니다. 목업 데이터 제거됨.
@@ -135,11 +211,11 @@ const ProIconWon = () => (
 
 function ProScheduleView() {
   const authUser = useAuthStore((s) => s.user);
-  const [apiBookings, setApiBookings] = useState<ProBooking[]>([]);
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [apiBookings, setApiBookings] = useState<ProBooking[]>(() => readScheduleCache<ProBooking[]>(`pro:${month}`) || []);
   useEffect(() => {
     if (!authUser) return;
-    const now = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     scheduleApi.getMySchedule(month)
       .then((data) => {
         if (!Array.isArray(data)) return;
@@ -166,9 +242,10 @@ function ProScheduleView() {
           };
         });
         setApiBookings(mapped);
+        writeScheduleCache(`pro:${month}`, mapped);
       })
       .catch(() => setApiBookings([]));
-  }, [authUser]);
+  }, [authUser, month]);
   const bookings = apiBookings;
   return (
     <div className="min-h-screen bg-white">
@@ -285,7 +362,9 @@ export default function SchedulePage() {
   const authUser = useAuthStore((s) => s.user);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
-  const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>([]);
+  const today = new Date();
+  const initialMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>(() => readScheduleCache<ScheduleItem[]>(`user:${initialMonthKey}`) || []);
   useEffect(() => {
     setIsLoggedIn(authUser !== null);
     setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
@@ -295,84 +374,20 @@ export default function SchedulePage() {
   // 페이지 재진입 시에도 최신 데이터 반영되도록 visibility 기반 refetch 도 지원
   useEffect(() => {
     if (!authUser) return;
+    if (authUser.role === 'pro') return;
     let cancelled = false;
 
     const fetchGeneralSchedules = () => {
-    // 일반 유저: 결제 내역을 스케줄로 변환
-    if (authUser.role !== 'pro') {
-      import('@/lib/api/client').then(({ apiClient }) => {
-        apiClient.get('/api/v1/payment', { params: { limit: 100, _: Date.now() } })
-          .then((res: any) => {
-            const data = res.data?.data || [];
-            console.log('[Schedule] payments from API:', data.length, data);
-            if (!Array.isArray(data)) return;
-            const mapped: ScheduleItem[] = [];
-            data.forEach((p: any) => {
-              if (p.status === 'refunded') return;
-              // quotations는 배열 (payment.quotations[])
-              const qs = Array.isArray(p.quotations) ? p.quotations : (p.quotation ? [p.quotation] : []);
-
-              // quotation이 없으면 payment 자체를 사용
-              if (qs.length === 0) {
-                const dateStr = new Date(p.createdAt).toISOString().slice(0, 10);
-                mapped.push({
-                  id: p.id,
-                  date: dateStr,
-                  title: p.description || '결제 완료',
-                  category: 'MC',
-                  proName: '',
-                  proImage: '',
-                  time: '',
-                  location: '',
-                  status: p.status === 'refunded' ? 'cancelled' : p.status === 'completed' ? 'confirmed' : 'pending',
-                });
-                return;
-              }
-
-              qs.forEach((q: any) => {
-                const proUser = q.proProfile?.user || {};
-                const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
-                const eventDate = q.eventDate || p.createdAt;
-                const dateStr = new Date(eventDate).toISOString().slice(0, 10);
-                const eventDateObj = new Date(eventDate);
-                const now = new Date();
-                const status: ScheduleItem['status'] =
-                  p.status === 'refunded' ? 'cancelled'
-                  : p.status === 'completed' && eventDateObj < now ? 'completed'
-                  : p.status === 'completed' ? 'confirmed'
-                  : 'pending';
-                mapped.push({
-                  id: `${p.id}__${q.id}`,
-                  date: dateStr,
-                  title: q.title || p.description || '행사',
-                  category: q.category || q.proProfile?.categories?.[0]?.category?.name || '사회자',
-                  proName: proUser.name || '',
-                  proImage: proImg,
-                  time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',
-                  location: q.eventLocation || '',
-                  status,
-                });
-              });
-            });
-            if (cancelled) return;
-            console.log('[Schedule] mapped schedules:', mapped.length, mapped);
-            // 이전 스케일 데이터를 새 fetch 결과로 '항상' 교체 (빈 배열이라도 반영)
-            setApiSchedules(mapped);
-          })
-          .catch((err) => { console.error('[Schedule] payment API error:', err); });
-      });
-      return;
-    }
-
-    // Pro 유저: pro-dashboard 스케줄 API
-    const now = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    scheduleApi.getMySchedule(month)
-      .then((data) => {
-        if (cancelled) return;
-        setApiSchedules(Array.isArray(data) ? data : []);
-      })
-      .catch(() => { /* keep empty */ });
+      apiClient.get('/api/v1/payment', { params: { limit: 100 } })
+        .then((res: any) => {
+          const data = res.data?.data || [];
+          if (!Array.isArray(data)) return;
+          const mapped = mapPaymentsToSchedules(data);
+          if (cancelled) return;
+          setApiSchedules(mapped);
+          writeScheduleCache(`user:${initialMonthKey}`, mapped);
+        })
+        .catch((err) => { console.error('[Schedule] payment API error:', err); });
     };
 
     fetchGeneralSchedules();
@@ -386,9 +401,7 @@ export default function SchedulePage() {
       window.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('focus', fetchGeneralSchedules);
     };
-  }, [authUser]);
-
-  const today = new Date();
+  }, [authUser, initialMonthKey]);
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [selectedDate, setSelectedDate] = useState<string | null>(
