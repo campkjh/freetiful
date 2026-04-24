@@ -11,6 +11,7 @@ import RecommendedProBar from '@/components/RecommendedProBar';
 import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
+import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 
 const USER_NAV_ITEMS = [
   { href: '/main',      iconSrc: '/images/icon-home.svg',      label: '홈' },
@@ -92,6 +93,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     } catch {}
     const isLoggedIn = authUser !== null || hasPersistedToken;
     if (!isLoggedIn && needsAuth) {
+      rememberAuthReturnTo();
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {
         iosBridge.postMessage({});
@@ -117,6 +119,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
     const handler = () => {
+      rememberAuthReturnTo();
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) { iosBridge.postMessage({}); return; }
       setShowLoginModal(true);
@@ -392,37 +395,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   key={provider}
                   onClick={() => {
                     setShowLoginModal(false);
-                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                    const KAKAO_KEY = 'dca1b472188890116c81a55eff590885';
-                    const NAVER_KEY = 'R4WM7ZyC8hHuE_O7qLdy';
-
-                    // iOS/Android 네이티브 앱이면 네이티브 SDK로 라우팅
-                    const w = typeof window !== 'undefined' ? (window as any) : undefined;
-                    const ios = w?.webkit?.messageHandlers as Record<string, { postMessage: (msg: object) => void } | undefined> | undefined;
-                    const and = w?.Android as Record<string, (() => void) | undefined> | undefined;
-                    if (provider === 'kakao') {
-                      if (ios?.kakaoLogin) { ios.kakaoLogin.postMessage({}); return; }
-                      if (and?.kakaoLogin) { and.kakaoLogin(); return; }
-                    } else if (provider === 'naver') {
-                      if (ios?.naverLogin) { ios.naverLogin.postMessage({}); return; }
-                      if (and?.naverLogin) { and.naverLogin(); return; }
-                    } else if (provider === 'google') {
-                      if (ios?.googleLogin) { ios.googleLogin.postMessage({}); return; }
-                      if (and?.googleLogin) { and.googleLogin(); return; }
-                    } else if (provider === 'apple') {
+                    rememberAuthReturnTo();
+                    if (provider === 'apple') {
+                      const ios = (window as any)?.webkit?.messageHandlers as Record<string, { postMessage: (msg: object) => void } | undefined> | undefined;
                       if (ios?.appleLogin) { ios.appleLogin.postMessage({}); return; }
                       // Android/웹: Apple 네이티브 없음 — 모달만 닫고 종료 (Apple은 iOS 전용)
                       return;
                     }
-
-                    // 브라우저 fallback — 웹 OAuth URL (kakao/naver만 지원)
-                    if (provider === 'kakao') {
-                      window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/kakao/callback')}&response_type=code`;
-                    } else if (provider === 'naver') {
-                      const state = Math.random().toString(36).substring(7);
-                      sessionStorage.setItem('naver_state', state);
-                      window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}&redirect_uri=${encodeURIComponent(origin + '/auth/naver/callback')}&response_type=code&state=${state}`;
-                    }
+                    startOAuth(provider as 'kakao' | 'naver' | 'google');
                   }}
                   className={`w-full flex items-center justify-center gap-3 ${cls} font-bold py-3.5 rounded-2xl active:scale-[0.96] transition-transform animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]`}
                   style={{ animationDelay: delay }}

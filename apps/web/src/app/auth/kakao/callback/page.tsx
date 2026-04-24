@@ -1,11 +1,13 @@
 'use client';
 
 import { Suspense, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { consumeAuthReturnTo } from '@/lib/auth/oauth';
 
 function KakaoCallbackInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { kakaoLogin } = useAuth();
   const called = useRef(false);
 
@@ -15,8 +17,11 @@ function KakaoCallbackInner() {
     if (code) {
       called.current = true;
       kakaoLogin(code);
+    } else {
+      called.current = true;
+      router.replace(consumeAuthReturnTo('/main'));
     }
-  }, [searchParams, kakaoLogin]);
+  }, [searchParams, kakaoLogin, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

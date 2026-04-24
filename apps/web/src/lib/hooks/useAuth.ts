@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../store/auth.store';
 import { authApi } from '../api/auth.api';
 import { registerPushSubscription, flushOneSignalPlayerId, notifyIOSLogin, notifyIOSLogout } from '../utils/push';
+import { consumeAuthReturnTo } from '../auth/oauth';
 import type { LoginResponse } from '@prettyful/types';
 import toast from 'react-hot-toast';
 
@@ -18,11 +19,11 @@ export function useAuth() {
     void flushOneSignalPlayerId();
     // 소셜 로그인은 온보딩 스킵, 이메일 가입만 온보딩
     if (skipOnboarding || (!data.isNewUser && data.user.name)) {
-      router.push('/main');
+      router.replace(consumeAuthReturnTo('/main'));
     } else if (data.isNewUser && !data.user.name) {
-      router.push('/onboarding');
+      router.replace('/onboarding');
     } else {
-      router.push('/main');
+      router.replace(consumeAuthReturnTo('/main'));
     }
   };
 
@@ -31,6 +32,9 @@ export function useAuth() {
       handleLoginResponse(await call(), skipOnboarding);
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? fallbackMsg);
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/')) {
+        window.setTimeout(() => router.replace(consumeAuthReturnTo('/main')), 800);
+      }
     }
   };
 

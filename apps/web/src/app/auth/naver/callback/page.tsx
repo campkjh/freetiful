@@ -1,11 +1,13 @@
 'use client';
 
 import { Suspense, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { consumeAuthReturnTo } from '@/lib/auth/oauth';
 
 function NaverCallbackInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { naverLogin } = useAuth();
   const called = useRef(false);
 
@@ -16,8 +18,11 @@ function NaverCallbackInner() {
     if (code && state) {
       called.current = true;
       naverLogin(code, state);
+    } else {
+      called.current = true;
+      router.replace(consumeAuthReturnTo('/main'));
     }
-  }, [searchParams, naverLogin]);
+  }, [searchParams, naverLogin, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
