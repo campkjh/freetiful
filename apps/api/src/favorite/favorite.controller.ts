@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Post,
   Get,
   Param,
@@ -26,13 +27,22 @@ export class FavoriteController {
     return this.favoriteService.toggleFavorite(req.user.id, proProfileId);
   }
 
+  @Delete(':proProfileId')
+  removeFavorite(
+    @Request() req: any,
+    @Param('proProfileId') proProfileId: string,
+  ) {
+    return this.favoriteService.removeFavorite(req.user.id, proProfileId);
+  }
+
   @Get()
   getFavorites(
     @Request() req: any,
     @Query('page') page = 1,
     @Query('limit') limit = 20,
+    @Query('withTotal') withTotal = 'true',
   ) {
-    return this.favoriteService.getFavorites(req.user.id, +page, +limit);
+    return this.favoriteService.getFavorites(req.user.id, +page, +limit, String(withTotal) !== 'false');
   }
 
   @Get(':proProfileId/check')

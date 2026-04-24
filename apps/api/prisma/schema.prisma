@@ -957,6 +957,7 @@ model Favorite {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, targetType, targetId])
+  @@index([userId, targetType, createdAt])
   @@map("favorites")
 }
 

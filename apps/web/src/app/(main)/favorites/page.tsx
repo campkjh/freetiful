@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Heart, Star, MapPin, Building2, Trash2 } from 'lucide-react';
+import { Heart, Star, MapPin, Trash2 } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { favoriteApi, getCachedFavoritesList } from '@/lib/api/favorite.api';
-import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
+import { discoveryApi, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
 
 type Tab = 'service' | 'portfolio' | 'recent';
 type ProCategory = '전체' | '사회자' | '쇼호스트' | '축가';
@@ -15,68 +15,166 @@ type BizCategory = '전체' | '웨딩홀' | '드레스' | '피부과' | '스튜�
 type FavProItem = { id: string; name: string; category: string; badge: string; intro: string; rating: number; reviews: number; image: string; price: number; subName: string };
 type FavBizItem = { id: string; name: string; category: string; image: string; address: string; rating: number; reviews: number; price: number };
 
+const FAVORITES_PAGE_LIMIT = 50;
+const INITIAL_RENDER_LIMIT = 12;
+const RENDER_CHUNK_SIZE = 12;
+const RECENT_LOOKUP_LIMIT = 80;
+
+function dedupePros(items: FavProItem[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (!item.id || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function getCategoryName(categories: any) {
+  const first = categories?.[0];
+  if (typeof first === 'string') return first;
+  return first?.category?.name || first?.name || '사회자';
+}
+
+function mapFavoriteToPro(f: any): FavProItem | null {
+  const profile = f?.proProfile;
+  const id = profile?.id || f?.proProfileId;
+  if (!id) return null;
+
+  const cat = getCategoryName(profile?.categories);
+  const name = profile?.user?.name || profile?.name || '';
+  return {
+    id,
+    name,
+    category: cat,
+    badge: '',
+    intro: profile?.shortIntro || '',
+    rating: Number(profile?.avgRating || 0),
+    reviews: profile?.reviewCount || 0,
+    image: profile?.images?.[0]?.imageUrl || profile?.user?.profileImageUrl || '',
+    price: profile?.services?.[0]?.basePrice || 0,
+    subName: `${cat} ${name}`,
+  };
+}
+
+function mapPreviewToPro(p: ProListItem): FavProItem {
+  const cat = p.categories?.[0] || '사회자';
+  return {
+    id: p.id,
+    name: p.name,
+    category: cat,
+    badge: '',
+    intro: p.shortIntro || '',
+    rating: p.avgRating || 0,
+    reviews: p.reviewCount || 0,
+    image: p.profileImageUrl || p.images?.[0] || '',
+    price: p.basePrice || 0,
+    subName: `${cat} ${p.name}`,
+  };
+}
+
+function readStoredFavoriteIds() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function getInitialFavoritePros() {
+  const cached = typeof window !== 'undefined' ? getCachedFavoritesList() : null;
+  const cachedItems = Array.isArray(cached?.items) ? cached.items : [];
+  const cachedPros = cachedItems
+    .map(mapFavoriteToPro)
+    .filter((p: FavProItem | null): p is FavProItem => p !== null);
+  if (cachedPros.length > 0) return dedupePros(cachedPros);
+
+  return dedupePros(
+    readStoredFavoriteIds()
+      .map((id) => getCachedProPreview(id))
+      .filter((p): p is ProListItem => p !== null)
+      .map(mapPreviewToPro),
+  );
+}
+
+function getStoredRecentViews() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem('viewed-pros') || '[]');
+    return Array.isArray(parsed) ? parsed.filter((v): v is { id: string; time: number } => typeof v?.id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function getInitialRecentPros() {
+  return dedupePros(
+    getStoredRecentViews()
+      .map((v) => getCachedProPreview(v.id))
+      .filter((p): p is ProListItem => p !== null)
+      .map(mapPreviewToPro),
+  );
+}
+
 export default function FavoritesPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('service');
   const [proCategory, setProCategory] = useState<ProCategory>('전체');
   const [bizCategory, setBizCategory] = useState<BizCategory>('전체');
-  // 세션 캐시에서 initial state 생성 (재방문 시 skeleton 안 보임)
-  const cached = typeof window !== 'undefined' ? getCachedFavoritesList() : null;
-  const cachedPros: FavProItem[] = cached?.items?.length > 0
-    ? cached.items.map((f: any) => {
-        const cat = f.proProfile?.categories?.[0]?.category?.name || '사회자';
-        const name = f.proProfile?.user?.name || '';
-        return {
-          id: f.proProfile?.id || f.proProfileId,
-          name,
-          category: cat,
-          badge: '',
-          intro: f.proProfile?.shortIntro || '',
-          rating: Number(f.proProfile?.avgRating || 0),
-          reviews: f.proProfile?.reviewCount || 0,
-          image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
-          price: f.proProfile?.services?.[0]?.basePrice || 0,
-          subName: `${cat} ${name}`,
-        };
-      })
-    : [];
-  const [favPros, setFavPros] = useState<FavProItem[]>(cachedPros);
+  const initialProsRef = useRef<FavProItem[] | null>(null);
+  if (initialProsRef.current === null) initialProsRef.current = getInitialFavoritePros();
+  const hadInitialProsRef = useRef((initialProsRef.current?.length || 0) > 0);
+  const [favPros, setFavPros] = useState<FavProItem[]>(() => initialProsRef.current || []);
   const [favBiz, setFavBiz] = useState<FavBizItem[]>([]);
-  const [favLoading, setFavLoading] = useState(cachedPros.length === 0);
+  const [favLoading, setFavLoading] = useState(() => !hadInitialProsRef.current);
+  const [visibleProCount, setVisibleProCount] = useState(INITIAL_RENDER_LIMIT);
   const authUser = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const [authHydrated, setAuthHydrated] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return (useAuthStore as any).persist?.hasHydrated?.() ?? true;
+  });
 
   // Login check + load favorites
   useEffect(() => {
-    const loggedIn = authUser !== null;
-    setIsLoggedIn(loggedIn);
-    if (!loggedIn || !authUser) { setFavLoading(false); return; }
+    const persist = (useAuthStore as any).persist;
+    if (!persist?.onFinishHydration) {
+      setAuthHydrated(true);
+      return;
+    }
+    setAuthHydrated(persist.hasHydrated?.() ?? true);
+    return persist.onFinishHydration(() => setAuthHydrated(true));
+  }, []);
 
-    // 캐시된 데이터가 없으면 skeleton 유지, 있으면 이미 initial state로 표시 중
-    favoriteApi.getList({ limit: 50 })
+  useEffect(() => {
+    if (!authHydrated) return;
+    const loggedIn = Boolean(authUser || accessToken);
+    setIsLoggedIn(loggedIn);
+    if (!loggedIn) {
+      setFavPros([]);
+      setFavLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setFavLoading(!hadInitialProsRef.current);
+
+    // 캐시/프리뷰를 먼저 보여주고, 서버 데이터는 조용히 맞춰서 최신화.
+    favoriteApi.getList({ limit: FAVORITES_PAGE_LIMIT, withTotal: false }, { force: hadInitialProsRef.current })
       .then((res: any) => {
-        if (res?.items) {
-          setFavPros(res.items.map((f: any) => {
-            const cat = f.proProfile?.categories?.[0]?.category?.name || '사회자';
-            const name = f.proProfile?.user?.name || '';
-            return {
-              id: f.proProfile?.id || f.proProfileId,
-              name,
-              category: cat,
-              badge: '',
-              intro: f.proProfile?.shortIntro || '',
-              rating: Number(f.proProfile?.avgRating || 0),
-              reviews: f.proProfile?.reviewCount || 0,
-              image: f.proProfile?.images?.[0]?.imageUrl || f.proProfile?.user?.profileImageUrl || '',
-              price: f.proProfile?.services?.[0]?.basePrice || 0,
-              subName: `${cat} ${name}`,
-            };
-          }));
-        }
+        if (cancelled || !res?.items) return;
+        setFavPros(dedupePros(res.items.map(mapFavoriteToPro).filter((p: FavProItem | null): p is FavProItem => p !== null)));
       })
       .catch(() => {})
-      .finally(() => setFavLoading(false));
-  }, [authUser]);
-  const [recentPros, setRecentPros] = useState<FavProItem[]>([]);
+      .finally(() => {
+        if (!cancelled) setFavLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [authHydrated, authUser, accessToken]);
+  const [recentPros, setRecentPros] = useState<FavProItem[]>(() => getInitialRecentPros());
+  const recentLoadedRef = useRef(false);
   const [scrolled, setScrolled] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
 
@@ -95,55 +193,79 @@ export default function FavoritesPage() {
   }, []);
 
   useEffect(() => {
-    let stored: { id: string; time: number }[] = [];
-    try {
-      stored = JSON.parse(localStorage.getItem('viewed-pros') || '[]');
-    } catch {}
+    if (activeTab !== 'recent' || recentLoadedRef.current) return;
+    recentLoadedRef.current = true;
+    const stored = getStoredRecentViews();
     if (stored.length === 0) return;
 
-    discoveryApi.getProList({ limit: 80 })
+    discoveryApi.getProList({ limit: RECENT_LOOKUP_LIMIT })
       .then((res) => {
         const byId = new Map<string, ProListItem>((res.data || []).map((p) => [p.id, p]));
         const recent = stored
           .map((v) => {
             const p = byId.get(v.id);
             if (!p) return null;
-            const cat = p.categories?.[0] || '사회자';
-            return {
-              id: p.id,
-              name: p.name,
-              category: cat,
-              badge: '',
-              intro: p.shortIntro || '',
-              rating: p.avgRating || 0,
-              reviews: p.reviewCount || 0,
-              image: p.profileImageUrl || p.images?.[0] || '',
-              price: p.basePrice || 0,
-              subName: `${cat} ${p.name}`,
-            } as FavProItem;
+            return mapPreviewToPro(p);
           })
           .filter((p): p is FavProItem => p !== null);
         setRecentPros(recent);
       })
       .catch(() => {});
-  }, []);
+  }, [activeTab]);
 
-  const removePro = (id: string) => {
-    setFavPros((prev) => prev.filter((p) => p.id !== id));
+  const removePro = useCallback((id: string) => {
+    const previous = favPros;
+    let previousIds: string[] = [];
+    setFavPros(previous.filter((p) => p.id !== id));
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+      previousIds = Array.isArray(stored) ? stored : [];
       localStorage.setItem('freetiful-favorites', JSON.stringify(stored.filter((s) => s !== id)));
     } catch {}
-  };
+    favoriteApi.remove(id).catch(() => {
+      setFavPros(previous);
+      try { localStorage.setItem('freetiful-favorites', JSON.stringify(previousIds)); } catch {}
+    });
+  }, [favPros]);
   const removeBiz = (id: string) => setFavBiz((prev) => prev.filter((b) => b.id !== id));
 
-  const filteredPros = proCategory === '전체'
-    ? favPros
-    : favPros.filter((p) => p.category === proCategory);
+  const filteredPros = useMemo(() => (
+    proCategory === '전체'
+      ? favPros
+      : favPros.filter((p) => p.category === proCategory)
+  ), [favPros, proCategory]);
 
   const filteredBiz = bizCategory === '전체'
     ? favBiz
     : favBiz.filter((b) => b.category === bizCategory);
+
+  const visiblePros = useMemo(
+    () => filteredPros.slice(0, visibleProCount),
+    [filteredPros, visibleProCount],
+  );
+
+  useEffect(() => {
+    setVisibleProCount(INITIAL_RENDER_LIMIT);
+  }, [activeTab, proCategory, favPros.length]);
+
+  useEffect(() => {
+    if (activeTab !== 'service' || visibleProCount >= filteredPros.length) return;
+    let cancelled = false;
+    const win = window as any;
+    const id = typeof win.requestIdleCallback === 'function'
+      ? win.requestIdleCallback(() => {
+          if (!cancelled) setVisibleProCount((count) => Math.min(count + RENDER_CHUNK_SIZE, filteredPros.length));
+        }, { timeout: 220 })
+      : window.setTimeout(() => {
+          if (!cancelled) setVisibleProCount((count) => Math.min(count + RENDER_CHUNK_SIZE, filteredPros.length));
+        }, 90);
+
+    return () => {
+      cancelled = true;
+      if (typeof win.cancelIdleCallback === 'function') win.cancelIdleCallback(id);
+      else window.clearTimeout(id);
+    };
+  }, [activeTab, filteredPros.length, visibleProCount]);
 
   const tabs: { key: Tab; label: string; badge?: string }[] = [
     { key: 'service', label: '전문가' },
@@ -292,9 +414,9 @@ export default function FavoritesPage() {
               ))}
             </div>
           ) : filteredPros.length > 0 ? (
-            <div className="divide-y divide-gray-100">
-              {filteredPros.map((pro) => (
-                <ProCard key={pro.id} pro={pro} onRemove={removePro} />
+            <div className="divide-y divide-gray-100" data-natural-list>
+              {visiblePros.map((pro, index) => (
+                <ProCard key={pro.id} pro={pro} onRemove={removePro} priority={index < 3} />
               ))}
             </div>
           ) : (
@@ -319,7 +441,7 @@ export default function FavoritesPage() {
                   <div className="flex gap-3">
                     <Link href={`/businesses/${biz.id}`} className="shrink-0">
                       <div className="w-[140px] h-[140px] rounded-lg overflow-hidden bg-gray-100">
-                        <img src={biz.image} alt={biz.name} className="w-full h-full object-cover" />
+                        <img src={biz.image} alt={biz.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                       </div>
                     </Link>
                     <div className="flex-1 min-w-0 flex flex-col">
@@ -382,13 +504,13 @@ export default function FavoritesPage() {
   );
 }
 
-function ProCard({ pro, onRemove }: { pro: { id: string; name: string; category: string; badge: string; intro: string; rating: number; reviews: number; image: string; price: number; subName: string }; onRemove?: (id: string) => void }) {
+function ProCard({ pro, onRemove, priority = false }: { pro: { id: string; name: string; category: string; badge: string; intro: string; rating: number; reviews: number; image: string; price: number; subName: string }; onRemove?: (id: string) => void; priority?: boolean }) {
   return (
     <div className="px-4 py-3">
       <div className="flex gap-3">
         <Link href={`/pros/${pro.id}`} className="shrink-0">
           <div className="w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100">
-            <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
+            <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" loading={priority ? 'eager' : 'lazy'} decoding="async" />
           </div>
         </Link>
         <div className="flex-1 min-w-0 flex flex-col">

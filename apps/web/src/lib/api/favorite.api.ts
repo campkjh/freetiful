@@ -6,7 +6,10 @@ const BASE = '/api/v1/favorite';
 let listCache: any | null = null;
 let listInFlight: Promise<any> | null = null;
 const FAVORITES_STORAGE_KEY = 'freetiful-favorites-list-cache-v1';
-const FAVORITES_STORAGE_TTL = 2 * 60_000;
+const FAVORITES_STORAGE_TTL = 10 * 60_000;
+
+type FavoriteListParams = { page?: number; limit?: number; withTotal?: boolean };
+type FavoriteListOptions = { force?: boolean };
 
 function readStoredFavorites() {
   if (typeof window === 'undefined') return null;
@@ -45,6 +48,26 @@ export function invalidateFavoritesCache() {
   }
 }
 
+export function removeFavoriteFromCachedList(proProfileId: string) {
+  if (!Array.isArray(listCache?.items)) return;
+  listCache = {
+    ...listCache,
+    items: listCache.items.filter((item: any) => item?.proProfile?.id !== proProfileId && item?.proProfileId !== proProfileId),
+  };
+  writeStoredFavorites(listCache);
+}
+
+function fetchFavoritesList(params?: FavoriteListParams) {
+  if (listInFlight) return listInFlight;
+  listInFlight = apiClient.get(`${BASE}`, { params }).then((r) => {
+    listCache = r.data;
+    listInFlight = null;
+    writeStoredFavorites(r.data);
+    return r.data;
+  }).catch((e) => { listInFlight = null; throw e; });
+  return listInFlight;
+}
+
 export const favoriteApi = {
   toggle: (proProfileId: string) =>
     apiClient.post<{ isFavorited: boolean }>(`${BASE}/${proProfileId}`).then((r) => {
@@ -52,40 +75,27 @@ export const favoriteApi = {
       return r.data;
     }),
 
-  getList: (params?: { page?: number; limit?: number }) => {
+  remove: (proProfileId: string) =>
+    apiClient.delete<{ isFavorited: boolean }>(`${BASE}/${proProfileId}`).then((r) => {
+      removeFavoriteFromCachedList(proProfileId);
+      return r.data;
+    }),
+
+  getList: (params?: FavoriteListParams, options?: FavoriteListOptions) => {
+    if (options?.force) return fetchFavoritesList(params);
+
     // 캐시 있으면 바로 반환 + 백그라운드 refresh
     if (listCache) {
-      if (!listInFlight) {
-        listInFlight = apiClient.get(`${BASE}`, { params }).then((r) => {
-          listCache = r.data;
-          listInFlight = null;
-          writeStoredFavorites(r.data);
-          return r.data;
-        }).catch((e) => { listInFlight = null; throw e; });
-      }
+      fetchFavoritesList(params).catch(() => {});
       return Promise.resolve(listCache);
     }
     const stored = readStoredFavorites();
     if (stored) {
       listCache = stored;
-      if (!listInFlight) {
-        listInFlight = apiClient.get(`${BASE}`, { params }).then((r) => {
-          listCache = r.data;
-          listInFlight = null;
-          writeStoredFavorites(r.data);
-          return r.data;
-        }).catch((e) => { listInFlight = null; throw e; });
-      }
+      fetchFavoritesList(params).catch(() => {});
       return Promise.resolve(stored);
     }
-    if (listInFlight) return listInFlight;
-    listInFlight = apiClient.get(`${BASE}`, { params }).then((r) => {
-      listCache = r.data;
-      listInFlight = null;
-      writeStoredFavorites(r.data);
-      return r.data;
-    }).catch((e) => { listInFlight = null; throw e; });
-    return listInFlight;
+    return fetchFavoritesList(params);
   },
 
   check: (proProfileId: string) =>
