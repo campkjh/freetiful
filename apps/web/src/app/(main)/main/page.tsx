@@ -397,6 +397,22 @@ const BANNERS = [
 
 const CATEGORIES = ['전체', 'MC', '가수', '쇼호스트'];
 const EVENTS = ['결혼식', '돌잔치', '생신잔치', '기업행사', '강의/클래스'];
+const HOME_REGIONS = ['전국', '서울/경기', '충청', '경상', '전라', '강원', '제주'];
+
+function getRegionAliases(region: string) {
+  if (region === '서울/경기') return ['서울/경기', '서울', '경기', '인천', '수도권'];
+  if (region === '충청') return ['충청', '충북', '충남', '대전', '세종'];
+  if (region === '경상') return ['경상', '경북', '경남', '부산', '대구', '울산'];
+  if (region === '전라') return ['전라', '전북', '전남', '광주'];
+  return [region];
+}
+
+function matchesRegion(pro: ProData, region: string) {
+  if (region === '전국') return true;
+  if (pro.isNationwide) return true;
+  const aliases = getRegionAliases(region);
+  return Array.isArray(pro.regions) && pro.regions.some((r) => aliases.includes(r));
+}
 
 const MOBILE_CATEGORY_TABS = ['모두', '결혼식사회자', '관공서 행사', '컨퍼런스/세미나', '체육대회'];
 
@@ -874,7 +890,54 @@ export default function HomePage() {
 
   // 현재 위치 기반 지역 감지 (지역별 사회자 섹션에서 사용)
   const [myRegion, setMyRegion] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string>('전국');
+  const [regionalPros, setRegionalPros] = useState<ProData[]>([]);
+  const [regionalLoading, setRegionalLoading] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedRegion === '전국') {
+      setRegionalPros([]);
+      setRegionalLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setRegionalLoading(true);
+    discoveryApi.getProList({ limit: 12, sort: 'rating', region: selectedRegion })
+      .then((res) => {
+        if (cancelled) return;
+        const mapped = (res.data || []).map((p: any, i: number) => ({
+          id: p.id,
+          name: p.name,
+          categories: p.categories || [],
+          regions: p.regions || [],
+          languages: p.languages || [],
+          isNationwide: p.isNationwide ?? false,
+          rating: p.avgRating,
+          reviews: p.reviewCount,
+          pudding: i + 1,
+          image: p.images?.[0] || p.profileImageUrl || '',
+          images: p.images || [],
+          intro: p.shortIntro || '',
+          price: typeof p.basePrice === 'number' && p.basePrice > 0 ? p.basePrice : 0,
+          experience: p.careerYears || 0,
+          tags: (Array.isArray(p.tags) && p.tags.length > 0)
+            ? p.tags
+            : (p.isFeatured ? ['인기'] : (p.isNationwide ? ['전국가능'] : [])),
+          available: true,
+          youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
+          isPartner: p.showPartnersLogo || p.isFeatured || false,
+        }));
+        setRegionalPros(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setRegionalPros(prosData.filter((p) => matchesRegion(p, selectedRegion)));
+      })
+      .finally(() => {
+        if (!cancelled) setRegionalLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedRegion, prosData]);
 
   const detectMyRegion = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
@@ -932,6 +995,7 @@ export default function HomePage() {
         finish(() => {
           const matched = matchRegion(pos.coords.latitude, pos.coords.longitude);
           setMyRegion(matched);
+          setSelectedRegion(matched);
           toast.success(`${matched} 기준으로 표시합니다`);
         });
       },
@@ -1609,11 +1673,10 @@ export default function HomePage() {
         {/* 지역별 사회자                                              */}
         {/* ═══════════════════════════════════════════════════════════ */}
         {prosData.length > 0 && (() => {
-          const REGIONS = ['전국', '서울/경기', '충청', '경상', '전라', '강원', '제주'];
-          // myRegion 이 있으면: 전국가능 + 해당 지역에 포함된 프로만
-          const regionFiltered = myRegion
-            ? prosData.filter((p: any) => p.isNationwide || (Array.isArray(p.regions) && p.regions.includes(myRegion)))
-            : prosData;
+          const localFiltered = prosData.filter((p) => matchesRegion(p, selectedRegion));
+          const regionFiltered = selectedRegion === '전국'
+            ? prosData
+            : regionalPros.length > 0 ? regionalPros : localFiltered;
           return (
             <section>
               <Reveal>
@@ -1621,14 +1684,17 @@ export default function HomePage() {
                   <div>
                     <h3 className="section-title">지역별 사회자</h3>
                     <p className="section-subtitle mt-1">
-                      {myRegion
-                        ? `${myRegion} 지역에서 활동 가능한 전문가`
+                      {selectedRegion !== '전국'
+                        ? `${selectedRegion} 지역에서 활동 가능한 전문가`
                         : '원하는 지역의 전문가를 찾아보세요'}
                     </p>
                   </div>
-                  {myRegion && (
+                  {selectedRegion !== '전국' && (
                     <button
-                      onClick={() => setMyRegion(null)}
+                      onClick={() => {
+                        setMyRegion(null);
+                        setSelectedRegion('전국');
+                      }}
                       className="text-[12px] text-gray-400 font-medium shrink-0"
                     >
                       해제
@@ -1657,20 +1723,32 @@ export default function HomePage() {
                     {geoLoading ? '위치 확인 중...' : myRegion ? myRegion : '내 위치'}
                   </span>
                 </button>
-                {REGIONS.map((r) => (
-                  <Link
+                {HOME_REGIONS.map((r) => (
+                  <button
                     key={r}
-                    href={`/pros?region=${encodeURIComponent(r)}`}
-                    className="shrink-0 px-3.5 py-1.5 text-[13px] font-medium bg-gray-100 text-gray-700"
+                    onClick={() => setSelectedRegion(r)}
+                    className={`shrink-0 px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+                      selectedRegion === r ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'
+                    }`}
                     style={{ borderRadius: 20 }}
                   >
                     {r}
-                  </Link>
+                  </button>
                 ))}
               </div>
-              {regionFiltered.length === 0 ? (
+              {regionalLoading ? (
+                <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4">
+                  {[1,2,3,4,5,6].map((i) => (
+                    <div key={i}>
+                      <div className="skeleton mb-2" style={{ width: '100%', aspectRatio: '3/4', borderRadius: 12 }} />
+                      <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
+                      <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
+                    </div>
+                  ))}
+                </div>
+              ) : regionFiltered.length === 0 ? (
                 <div className="py-10 text-center text-[13px] text-gray-400">
-                  {myRegion} 지역에서 활동 가능한 전문가가 아직 없습니다
+                  {selectedRegion} 지역에서 활동 가능한 전문가가 아직 없습니다
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4">

@@ -88,12 +88,13 @@ export class DiscoveryService implements OnModuleInit {
     minPrice?: number;
     maxPrice?: number;
     featured?: boolean;
+    region?: string;
   }) {
     const page = Number(params.page) || 1;
     const limit = Math.min(Number(params.limit) || 20, 100);
-    const { search, sort = 'rating', gender, minPrice, maxPrice, featured } = params;
+    const { search, sort = 'rating', gender, minPrice, maxPrice, featured, region } = params;
 
-    const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured });
+    const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured, region });
     const cached = this.getCached<any>(cacheKey);
     if (cached) return cached;
 
@@ -116,6 +117,23 @@ export class DiscoveryService implements OnModuleInit {
     }
     if (gender) where.gender = gender;
     if (featured) where.isFeatured = true;
+    if (region && region !== '전국') {
+      const aliases =
+        region === '서울/경기' ? ['서울/경기', '서울', '경기', '인천', '수도권']
+        : region === '충청' ? ['충청', '충북', '충남', '대전', '세종']
+        : region === '경상' ? ['경상', '경북', '경남', '부산', '대구', '울산']
+        : region === '전라' ? ['전라', '전북', '전남', '광주']
+        : [region];
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { isNationwide: true },
+            { regions: { some: { region: { OR: [{ name: { in: aliases } }, { isNationwide: true }] } } } },
+          ],
+        },
+      ];
+    }
     if (minPrice || maxPrice) {
       where.services = {
         some: {

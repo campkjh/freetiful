@@ -119,6 +119,7 @@ export const discoveryApi = {
     sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding';
     gender?: string;
     featured?: boolean;
+    region?: string;
   }) => {
     const key = `list:${JSON.stringify(params || {})}`;
     return cached(key, () => apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, { params }).then((r) => r.data));

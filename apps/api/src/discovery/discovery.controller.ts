@@ -26,8 +26,9 @@ export class DiscoveryController {
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,
     @Query('featured') featured?: boolean,
+    @Query('region') region?: string,
   ) {
-    return this.discovery.getProList({ page, limit, search, sort, gender, minPrice, maxPrice, featured });
+    return this.discovery.getProList({ page, limit, search, sort, gender, minPrice, maxPrice, featured, region });
   }
 
   @Get('pros/:id')
