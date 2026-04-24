@@ -48,8 +48,10 @@ export default function BookingDetailPage() {
 
   useEffect(() => {
     setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
-    // id는 "paymentId-quotationId" 형태일 수 있음
-    const paymentId = id.split('-')[0];
+    // id 는 UUID 단독이거나 "paymentUuid__quotationUuid" 형태일 수 있음
+    // UUID 자체에 하이픈이 있어서 split('-')[0] 은 절대 안전하지 않음.
+    const rawId = String(id);
+    const paymentId = rawId.includes('__') ? rawId.split('__')[0] : rawId;
     import('@/lib/api/client').then(({ apiClient }) => {
       apiClient.get(`/api/v1/payment/${paymentId}`)
         .then((res: any) => {

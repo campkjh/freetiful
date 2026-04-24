@@ -340,7 +340,7 @@ export default function SchedulePage() {
                   : p.status === 'completed' ? 'confirmed'
                   : 'pending';
                 mapped.push({
-                  id: `${p.id}-${q.id}`,
+                  id: `${p.id}__${q.id}`,
                   date: dateStr,
                   title: q.title || p.description || '행사',
                   category: q.category || q.proProfile?.categories?.[0]?.category?.name || '사회자',
