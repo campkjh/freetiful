@@ -12,6 +12,9 @@ export const matchApi = {
     budgetMin?: number;
     budgetMax?: number;
     type?: 'multi' | 'single';
+    styleOptionIds?: string[];
+    personalityOptionIds?: string[];
+    rawUserInput?: Record<string, unknown>;
   }) => apiClient.post(`${BASE}/request`, data).then((r) => r.data),
 
   getMyRequests: () =>

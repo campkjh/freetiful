@@ -66,12 +66,19 @@ export default function BusinessListPage() {
         const data = res.data;
         const items = Array.isArray(data) ? data : data?.items;
         if (Array.isArray(items) && items.length > 0) {
-          setRankItems(items.map((b: any, i: number) => ({
+          setRankItems(items.map((b: any, i: number) => {
+            const categories = Array.isArray(b.categories)
+              ? b.categories.map((c: any) => c?.category?.name).filter(Boolean)
+              : [];
+            const primaryImage = Array.isArray(b.images) ? b.images[0]?.imageUrl : undefined;
+            const address = b.address || '';
+            const region = address.split(' ')[0] || categories[0] || '';
+            return {
             id: b.id || String(i),
             rank: b.rank || i + 1,
-            title: b.title || b.name || '',
-            region: b.region || '',
-            clinic: b.clinic || b.businessName || '',
+            title: b.title || b.name || b.businessName || '',
+            region: b.region || region,
+            clinic: b.clinic || categories.join(' · ') || region || b.businessType || '',
             rating: b.rating ?? 0,
             reviewCount: b.reviewCount ?? 0,
             originalPrice: b.originalPrice,
@@ -79,9 +86,10 @@ export default function BusinessListPage() {
             finalPrice: b.finalPrice ?? b.price ?? 0,
             hasAppPay: b.hasAppPay ?? false,
             hasAppBooking: b.hasAppBooking ?? false,
-            image: b.image || b.imageUrl || '/images/default-profile.svg',
+            image: b.image || b.imageUrl || primaryImage || '/images/default-profile.svg',
             verifiedBadge: b.verifiedBadge,
-          })));
+          };
+          }));
         }
       })
       .catch(() => { /* fallback to MOCK_RANK_ITEMS */ });

@@ -43,7 +43,7 @@ export default function ChatListPage() {
   const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
 
   useEffect(() => {
-    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);
     setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
 

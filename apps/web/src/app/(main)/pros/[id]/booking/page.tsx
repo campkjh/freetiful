@@ -8,6 +8,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { scheduleApi } from '@/lib/api/schedule.api';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import { startOAuth } from '@/lib/auth/oauth';
 
 // ─── Helpers ───────────────────────────────────────────────
 function getDaysOfWeek(year: number, month: number, holidays: Record<string, string>) {
@@ -271,7 +272,7 @@ export default function BookingPage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleBook = () => {
-    if (!(authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true')) {
+    if (!authUser) {
       setShowLoginModal(true);
       return;
     }
@@ -748,13 +749,7 @@ export default function BookingPage() {
               ].map(({ provider, label, bg, text, icon }) => (
                 <button
                   key={provider}
-                  onClick={() => {
-                    localStorage.setItem('freetiful-logged-in', 'true');
-                    localStorage.setItem('freetiful-user', JSON.stringify({ name: '', provider, createdAt: Date.now() }));
-                    localStorage.setItem('userRole', authUser?.role || 'general');
-                    setShowLoginModal(false);
-                    window.location.href = '/onboarding';
-                  }}
+                  onClick={() => startOAuth(provider as 'kakao' | 'naver' | 'google')}
                   className={`w-full flex items-center justify-center gap-3 ${bg} ${text} font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform`}
                 >{icon}{label}</button>
               ))}

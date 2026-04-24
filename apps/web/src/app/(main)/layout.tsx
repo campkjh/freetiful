@@ -90,7 +90,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         hasPersistedToken = !!(parsed?.state?.accessToken || parsed?.state?.user);
       }
     } catch {}
-    const isLoggedIn = authUser !== null || hasPersistedToken || localStorage.getItem('freetiful-logged-in') === 'true';
+    const isLoggedIn = authUser !== null || hasPersistedToken;
     if (!isLoggedIn && needsAuth) {
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {
@@ -127,7 +127,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   // 로그인 시 채팅 소켓 즉시 연결 + 룸/알림 프리페치
   useEffect(() => {
-    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = authUser !== null;
     if (loggedIn) {
       useChatStore.getState().connect();
       useChatStore.getState().fetchRooms();

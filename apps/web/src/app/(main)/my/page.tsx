@@ -315,7 +315,7 @@ export default function MyPage() {
   const animOrNone = (base: React.CSSProperties) => skipAnim ? undefined : base;
 
   useEffect(() => {
-    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);
 
     if (authUser) {

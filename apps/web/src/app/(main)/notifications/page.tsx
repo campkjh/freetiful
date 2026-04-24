@@ -105,7 +105,7 @@ export default function NotificationsPage() {
   });
   const authUser = useAuthStore((s) => s.user);
   useEffect(() => {
-    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);
 
     // Fetch from API first

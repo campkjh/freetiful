@@ -287,7 +287,7 @@ export default function SchedulePage() {
   const [isPro, setIsPro] = useState(false);
   const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>([]);
   useEffect(() => {
-    setIsLoggedIn(authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true');
+    setIsLoggedIn(authUser !== null);
     setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
   }, [authUser]);
 

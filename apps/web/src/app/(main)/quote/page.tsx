@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import { startOAuth } from '@/lib/auth/oauth';
 
 const stepVariants = {
   initial: { opacity: 0, x: 40 },
@@ -330,7 +331,7 @@ function QuotePage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleSubmitClick = () => {
-    if (authUser === null && localStorage.getItem('freetiful-logged-in') !== 'true') {
+    if (authUser === null) {
       setShowLoginModal(true);
       return;
     }
@@ -1045,7 +1046,7 @@ function QuotePage() {
                   { provider: 'naver', label: '네이버로 계속하기', cls: 'bg-[#03C75A] text-white' },
                   { provider: 'google', label: 'Google로 계속하기', cls: 'bg-white text-gray-700 border border-gray-200' },
                 ].map(({ provider, label, cls }) => (
-                  <button key={provider} onClick={() => { localStorage.setItem('freetiful-logged-in', 'true'); localStorage.setItem('freetiful-user', JSON.stringify({ name: '', provider, createdAt: Date.now() })); localStorage.setItem('userRole', 'general'); window.location.href = '/onboarding'; }} className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform`}>{label}</button>
+                  <button key={provider} onClick={() => startOAuth(provider as 'kakao' | 'naver' | 'google')} className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform`}>{label}</button>
                 ))}
               </div>
               <button onClick={() => setShowLoginModal(false)} className="w-full mt-4 text-[14px] text-gray-400 font-medium py-2 text-center">나중에 하기</button>

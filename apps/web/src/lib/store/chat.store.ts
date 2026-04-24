@@ -60,11 +60,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const token = useAuthStore.getState().accessToken;
     if (!token || get().socket) return;
 
+    const fallbackUrl =
+      typeof window !== 'undefined' && window.location.hostname === 'localhost'
+        ? 'http://localhost:4000'
+        : typeof window !== 'undefined'
+          ? window.location.origin
+          : '';
     const baseUrl =
+      process.env.NEXT_PUBLIC_SOCKET_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
-      (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-        ? window.location.origin
-        : 'http://localhost:4000');
+      fallbackUrl;
 
     const socket = io(baseUrl + '/chat', {
       auth: { token },

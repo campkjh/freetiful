@@ -92,7 +92,7 @@ export class MatchService {
 
   /** 새 매칭 요청을 카테고리 일치하는 approved 사회자에게 분배 + 알림 */
   private async fanoutMatchRequestToPros(matchRequestId: string, categoryId: string) {
-    const proCategories = await this.prisma.proCategory.findMany({
+    let proCategories = await this.prisma.proCategory.findMany({
       where: {
         categoryId,
         proProfile: { status: 'approved' },
@@ -104,6 +104,19 @@ export class MatchService {
       },
       take: 20, // 무차별 fan-out 방지 — 상위 20명만
     });
+
+    if (proCategories.length === 0) {
+      const fallbackPros = await this.prisma.proProfile.findMany({
+        where: { status: 'approved' },
+        include: { user: { select: { id: true, name: true } } },
+        take: 20,
+      });
+      proCategories = fallbackPros.map((proProfile) => ({
+        proProfileId: proProfile.id,
+        categoryId,
+        proProfile,
+      }));
+    }
 
     const matchRequest = await this.prisma.matchRequest.findUnique({
       where: { id: matchRequestId },

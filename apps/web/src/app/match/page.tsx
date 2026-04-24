@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check, Calendar, MapPin, Wallet, Sparkles } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiClient } from '@/lib/api/client';
+import { matchApi } from '@/lib/api/match.api';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 const STEPS = ['카테고리', '행사정보', '스타일', '확인'];
 
@@ -23,6 +27,20 @@ const EVENT_TYPES = [
 const STYLES = ['격식있는', '유머있는', '감동적인', '경쾌한', '차분한', '프로페셔널한'];
 const PERSONALITIES = ['친근한', '활발한', '신중한', '창의적인', '배려심있는', '카리스마있는'];
 
+interface MatchCategory {
+  id: string;
+  name: string;
+  nameEn?: string | null;
+  iconUrl?: string | null;
+  eventCategories?: { id: string; name: string }[];
+  styleOptions?: { id: string; name: string }[];
+}
+
+interface PersonalityOption {
+  id: string;
+  name: string;
+}
+
 const BUDGET_RANGES = [
   { label: '30~50만원', min: 300000, max: 500000 },
   { label: '50~80만원', min: 500000, max: 800000 },
@@ -33,8 +51,12 @@ const BUDGET_RANGES = [
 
 export default function MatchRequestPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const [categories, setCategories] = useState<MatchCategory[]>([]);
+  const [personalities, setPersonalities] = useState<PersonalityOption[]>([]);
 
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('');
@@ -45,6 +67,36 @@ export default function MatchRequestPage() {
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [selectedPersonalities, setSelectedPersonalities] = useState<string[]>([]);
   const [additionalNote, setAdditionalNote] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    apiClient
+      .get('/api/v1/ref-data/match-options')
+      .then((res) => {
+        if (!alive) return;
+        setCategories(Array.isArray(res.data?.categories) ? res.data.categories : []);
+        setPersonalities(Array.isArray(res.data?.personalities) ? res.data.personalities : []);
+      })
+      .catch(() => {
+        if (alive) toast.error('매칭 선택지를 불러오지 못했습니다.');
+      })
+      .finally(() => {
+        if (alive) setOptionsLoading(false);
+      });
+    return () => { alive = false; };
+  }, []);
+
+  const categoryOptions = useMemo(() => {
+    if (categories.length > 0) return categories;
+    return CATEGORIES.map((c) => ({ ...c, nameEn: null, eventCategories: [], styleOptions: [] }));
+  }, [categories]);
+
+  const currentCategory = categoryOptions.find((c) => c.id === selectedCategory);
+  const eventOptions = currentCategory?.eventCategories?.length ? currentCategory.eventCategories : EVENT_TYPES;
+  const styleOptions = currentCategory?.styleOptions?.length
+    ? currentCategory.styleOptions.map((s) => s.name)
+    : STYLES;
+  const personalityOptions = personalities.length > 0 ? personalities.map((p) => p.name) : PERSONALITIES;
 
   const toggleStyle = (s: string) =>
     setSelectedStyles((prev) =>
@@ -67,14 +119,52 @@ export default function MatchRequestPage() {
   };
 
   const handleSubmit = async () => {
+    if (!authUser) {
+      window.dispatchEvent(new Event('freetiful:show-login'));
+      toast.error('로그인 후 견적 요청이 가능합니다.');
+      return;
+    }
+    if (!selectedCategory) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    router.push('/chat');
+    try {
+      const budget = selectedBudget >= 0 ? BUDGET_RANGES[selectedBudget] : undefined;
+      const styleOptionIds = currentCategory?.styleOptions
+        ?.filter((s) => selectedStyles.includes(s.name))
+        .map((s) => s.id);
+      const personalityOptionIds = personalities
+        .filter((p) => selectedPersonalities.includes(p.name))
+        .map((p) => p.id);
+
+      await matchApi.createRequest({
+        categoryId: selectedCategory,
+        eventCategoryId: selectedEvent || undefined,
+        eventDate: eventDate || undefined,
+        eventTime: eventTime || undefined,
+        eventLocation: eventLocation || undefined,
+        budgetMin: budget?.min || undefined,
+        budgetMax: budget?.max || undefined,
+        type: 'multi',
+        styleOptionIds,
+        personalityOptionIds,
+        rawUserInput: {
+          styles: selectedStyles,
+          personalities: selectedPersonalities,
+          note: additionalNote,
+          eventName: getEventName(),
+          budgetLabel: getBudgetLabel(),
+        },
+      });
+      toast.success('견적 요청이 전문가들에게 전달되었습니다.');
+      router.push('/requests');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '견적 요청 생성에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getCategoryName = () => CATEGORIES.find((c) => c.id === selectedCategory)?.name || '';
-  const getEventName = () => EVENT_TYPES.find((e) => e.id === selectedEvent)?.name || '';
+  const getCategoryName = () => categoryOptions.find((c) => c.id === selectedCategory)?.name || '';
+  const getEventName = () => eventOptions.find((e) => e.id === selectedEvent)?.name || '';
   const getBudgetLabel = () => selectedBudget >= 0 ? BUDGET_RANGES[selectedBudget].label : '미정';
 
   return (
@@ -111,20 +201,27 @@ export default function MatchRequestPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-2">어떤 전문가를 찾으시나요?</h2>
             <p className="text-sm text-gray-500 mb-6">카테고리를 선택해주세요</p>
             <div className="space-y-3">
-              {CATEGORIES.map((cat) => (
+              {optionsLoading && (
+                <div className="p-4 rounded-2xl bg-gray-50 text-sm text-gray-400">선택지를 불러오는 중...</div>
+              )}
+              {!optionsLoading && categoryOptions.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
+                  onClick={() => {
+                    setSelectedCategory(cat.id);
+                    setSelectedEvent('');
+                    setSelectedStyles([]);
+                  }}
                   className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
                     selectedCategory === cat.id
                       ? 'border-primary-500 bg-primary-50'
                       : 'border-gray-100 bg-white hover:border-gray-200'
                   }`}
                 >
-                  <span className="text-3xl">{cat.icon}</span>
+                  <span className="text-3xl">{(cat as any).icon || '🎤'}</span>
                   <div className="text-left">
                     <p className="font-bold text-gray-900">{cat.name}</p>
-                    <p className="text-xs text-gray-500">{cat.description}</p>
+                    <p className="text-xs text-gray-500">{(cat as any).description || cat.nameEn || '전문가 매칭'}</p>
                   </div>
                   {selectedCategory === cat.id && (
                     <Check size={20} className="text-primary-500 ml-auto" />
@@ -145,7 +242,7 @@ export default function MatchRequestPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">행사 유형</label>
                 <div className="flex flex-wrap gap-2">
-                  {EVENT_TYPES.map((ev) => (
+                  {eventOptions.map((ev) => (
                     <button
                       key={ev.id}
                       onClick={() => setSelectedEvent(ev.id)}
@@ -231,7 +328,7 @@ export default function MatchRequestPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">진행 스타일</label>
                 <div className="flex flex-wrap gap-2">
-                  {STYLES.map((s) => (
+                  {styleOptions.map((s) => (
                     <button
                       key={s}
                       onClick={() => toggleStyle(s)}
@@ -250,7 +347,7 @@ export default function MatchRequestPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">성격 / 분위기</label>
                 <div className="flex flex-wrap gap-2">
-                  {PERSONALITIES.map((p) => (
+                  {personalityOptions.map((p) => (
                     <button
                       key={p}
                       onClick={() => togglePersonality(p)}
@@ -328,7 +425,7 @@ export default function MatchRequestPage() {
         {step < 3 ? (
           <button
             onClick={() => setStep(step + 1)}
-            disabled={!canProceed()}
+            disabled={optionsLoading || !canProceed()}
             className="btn-primary flex items-center justify-center gap-2"
           >
             다음 <ArrowRight size={16} />
@@ -336,7 +433,7 @@ export default function MatchRequestPage() {
         ) : (
           <button
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || optionsLoading}
             className="btn-primary flex items-center justify-center gap-2"
           >
             {loading ? (

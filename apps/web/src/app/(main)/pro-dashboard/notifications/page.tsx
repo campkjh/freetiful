@@ -151,7 +151,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') return;
+    if (!authUser) return;
     setLoading(true);
     notificationApi.getList({ page: 1, limit: 50 })
       .then((res: any) => {

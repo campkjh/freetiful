@@ -47,7 +47,7 @@ export default function FavoritesPage() {
 
   // Login check + load favorites
   useEffect(() => {
-    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);
     if (!loggedIn || !authUser) { setFavLoading(false); return; }
 

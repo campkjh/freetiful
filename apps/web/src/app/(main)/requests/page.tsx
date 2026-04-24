@@ -1,23 +1,69 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+import { matchApi } from '@/lib/api/match.api';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 type TabType = '전체' | '다수' | '단일' | '보관';
 
-// 실제 요청 데이터는 추후 API 연동 (MatchRequest 모듈) — mock 제거됨
-type MockRequest = { id: number; type: string; date: string; name: string; price: string; eventDate: string; location: string; note: string };
-const MOCK_REQUESTS: MockRequest[] = [];
+type RequestItem = {
+  id: string;
+  type: string;
+  date: string;
+  name: string;
+  price: string;
+  eventDate: string;
+  location: string;
+  note: string;
+  status: string;
+};
 
 const TABS: TabType[] = ['전체', '다수', '단일', '보관'];
 const PAGE_SIZE = 10;
 
 export default function RequestsPage() {
+  const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<TabType>('전체');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [hasDemoData, setHasDemoData] = useState(false);
-  useEffect(() => { setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true'); }, []);
+  const [requests, setRequests] = useState<RequestItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const requests = hasDemoData ? MOCK_REQUESTS : [];
+  useEffect(() => {
+    if (!authUser) {
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    matchApi.getMyRequests()
+      .then((items: any[]) => {
+        if (!alive) return;
+        setRequests((Array.isArray(items) ? items : []).map((r) => {
+          const budget = r.budgetMin || r.budgetMax
+            ? `${Number(r.budgetMin || 0).toLocaleString()}원 ~ ${r.budgetMax ? Number(r.budgetMax).toLocaleString() + '원' : ''}`
+            : '협의';
+          return {
+            id: r.id,
+            type: r.type === 'single' ? '단일문의' : '다수문의',
+            date: new Date(r.createdAt).toLocaleDateString('ko-KR'),
+            name: authUser.name || '고객',
+            price: budget,
+            eventDate: r.eventDate ? new Date(r.eventDate).toLocaleDateString('ko-KR') : '미정',
+            location: r.eventLocation || '미정',
+            note: r.rawUserInput?.note || [r.category?.name, r.eventCategory?.name].filter(Boolean).join(' · '),
+            status: r.status,
+          };
+        }));
+      })
+      .catch(() => toast.error('의뢰 목록을 불러오지 못했습니다.'))
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [authUser]);
+
   const filtered = requests.filter((r) => {
     if (activeTab === '전체') return true;
     if (activeTab === '다수') return r.type === '다수문의';
@@ -67,6 +113,15 @@ export default function RequestsPage() {
 
       {/* Request Cards */}
       <div className="px-4 space-y-3 pb-28">
+        {loading && (
+          <div className="bg-white rounded-2xl p-5 text-sm text-gray-400">의뢰를 불러오는 중...</div>
+        )}
+        {!loading && !authUser && (
+          <div className="bg-white rounded-2xl p-5 text-sm text-gray-500">로그인 후 의뢰 목록을 확인할 수 있습니다.</div>
+        )}
+        {!loading && authUser && visible.length === 0 && (
+          <div className="bg-white rounded-2xl p-5 text-sm text-gray-500">아직 등록된 의뢰가 없습니다.</div>
+        )}
         {visible.map((req) => (
           <div key={req.id} className="bg-white rounded-2xl p-5">
             {/* Date & Type */}
@@ -105,11 +160,14 @@ export default function RequestsPage() {
 
             {/* Buttons */}
             <div className="flex gap-3 mb-4">
-              <button className="flex-1 py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base">
-                견적보내기
+              <button
+                onClick={() => router.push('/chat')}
+                className="flex-1 py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base"
+              >
+                채팅 보기
               </button>
-              <button className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-2xl font-bold text-base">
-                보관
+              <button className="flex-1 py-4 bg-gray-100 text-gray-700 rounded-2xl font-bold text-base" disabled>
+                {req.status === 'matched' ? '매칭 완료' : '전달 중'}
               </button>
             </div>
 

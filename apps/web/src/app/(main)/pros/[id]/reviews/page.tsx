@@ -46,7 +46,7 @@ export default function ReviewsPage() {
     if (!id) return;
 
     // Fetch pro name
-    apiClient.get(`/api/v1/pros/${id}`)
+    apiClient.get(`/api/v1/discovery/pros/${id}`)
       .then((res) => {
         const name = res.data?.user?.name || res.data?.name || '';
         if (name) setProName(name);
