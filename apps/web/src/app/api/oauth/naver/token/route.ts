@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const NAVER_CLIENT_ID = 'R4WM7ZyC8hHuE_O7qLdy';
+const NAVER_CLIENT_ID = 'cnaly_pSLgjMyP3Itds_';
+const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || 'dmDCW1zGye';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const code = typeof body?.code === 'string' ? body.code : '';
   const state = typeof body?.state === 'string' ? body.state : '';
-  const clientSecret = process.env.NAVER_CLIENT_SECRET;
-  if (!code || !state || !clientSecret) {
+  if (!code || !state) {
     return NextResponse.json({ message: 'Invalid Naver OAuth request' }, { status: 400 });
   }
 
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: NAVER_CLIENT_ID,
-    client_secret: clientSecret,
+    client_secret: NAVER_CLIENT_SECRET,
     code,
     state,
   });

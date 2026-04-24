@@ -80,7 +80,7 @@ export function startOAuth(provider: Provider) {
   if (provider === 'naver') {
     if (ios?.naverLogin) { ios.naverLogin.postMessage({}); return; }
     if (and?.naverLogin) { and.naverLogin(); return; }
-    const key = 'R4WM7ZyC8hHuE_O7qLdy';
+    const key = 'cnaly_pSLgjMyP3Itds_';
     const state = Math.random().toString(36).substring(7);
     sessionStorage.setItem('naver_state', state);
     window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${key}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('naver'))}&response_type=code&state=${state}`;
