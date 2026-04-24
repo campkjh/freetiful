@@ -5,6 +5,33 @@ import { io, Socket } from 'socket.io-client';
 import { chatApi, type ChatRoomItem, type MessageItem } from '../api/chat.api';
 import { useAuthStore } from './auth.store';
 
+const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v1';
+const ROOM_CACHE_TTL = 2 * 60_000;
+
+function readRoomsCache(): { rooms: ChatRoomItem[]; ts: number } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(ROOM_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.rooms) || !parsed?.ts) return null;
+    if (Date.now() - parsed.ts > ROOM_CACHE_TTL) {
+      localStorage.removeItem(ROOM_CACHE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeRoomsCache(rooms: ChatRoomItem[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(ROOM_CACHE_KEY, JSON.stringify({ rooms, ts: Date.now() }));
+  } catch {}
+}
+
 interface ChatState {
   // Connection
   socket: Socket | null;
@@ -182,10 +209,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ roomsLoading: false });
       return;
     }
+
+    if (!hasFilters && rooms.length === 0) {
+      const cached = readRoomsCache();
+      if (cached) {
+        set({ rooms: cached.rooms, lastRoomsFetchAt: cached.ts, roomsLoading: false });
+        chatApi.getRooms(params)
+          .then((res) => {
+            const nextRooms = res.data.data;
+            set({ rooms: nextRooms, lastRoomsFetchAt: Date.now() });
+            writeRoomsCache(nextRooms);
+          })
+          .catch(() => {});
+        return;
+      }
+    }
+
     if (rooms.length > 0) {
       set({ roomsLoading: false });
       chatApi.getRooms(params)
-        .then((res) => set({ rooms: res.data.data, lastRoomsFetchAt: Date.now() }))
+        .then((res) => {
+          const nextRooms = res.data.data;
+          set({ rooms: nextRooms, lastRoomsFetchAt: Date.now() });
+          if (!hasFilters) writeRoomsCache(nextRooms);
+        })
         .catch(() => {});
       return;
     }
@@ -193,6 +240,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const res = await chatApi.getRooms(params);
       set({ rooms: res.data.data, lastRoomsFetchAt: Date.now() });
+      if (!hasFilters) writeRoomsCache(res.data.data);
     } finally {
       set({ roomsLoading: false });
     }

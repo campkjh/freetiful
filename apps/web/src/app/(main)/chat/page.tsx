@@ -38,7 +38,7 @@ export default function ChatListPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
-  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [roomsLoading, setRoomsLoading] = useState(() => useChatStore.getState().rooms.length === 0);
   const authUser = useAuthStore((s) => s.user);
   const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
 
@@ -47,15 +47,19 @@ export default function ChatListPage() {
     setIsLoggedIn(loggedIn);
     setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
 
-    if (!loggedIn || !authUser) { setRoomsLoading(false); }
-
-    if (authUser) {
-      connect();
-      fetchRooms().catch(() => {}).finally(() => setRoomsLoading(false));
+    if (!loggedIn || !authUser) {
+      disconnect();
+      setRoomsLoading(false);
+      return;
     }
 
-    return () => { disconnect(); };
-  }, [authUser]);
+    if (authUser) {
+      if (apiRooms.length > 0) setRoomsLoading(false);
+      fetchRooms().catch(() => {}).finally(() => setRoomsLoading(false));
+      const timer = window.setTimeout(() => connect(), 250);
+      return () => { window.clearTimeout(timer); };
+    }
+  }, [authUser, apiRooms.length, connect, disconnect, fetchRooms]);
 
   // Store의 apiRooms가 업데이트되면 local rooms state도 동기화
   // 중요: role은 room별 iAmPro에 따라 결정 (글로벌 isPro 가 아님)
@@ -79,6 +83,7 @@ export default function ChatListPage() {
       isArchived: false,
       isHidden: false,
     })));
+    if (apiRooms.length > 0) setRoomsLoading(false);
   }, [apiRooms, authUser]);
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
