@@ -53,7 +53,11 @@ export default function QuoteDetailPage() {
   const eventDate = quote.eventDate ? new Date(quote.eventDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }) : '-';
   const eventTime = quote.eventTime ? new Date(quote.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
   const isMyQuote = authUser?.role === 'pro' && quote.proProfile?.userId === authUser.id;
-  const canPay = !isMyQuote && quote.status === 'pending';
+  const proProfileId = quote.proProfile?.id;
+  const canPay = !isMyQuote && quote.status === 'pending' && !!proProfileId;
+  const checkoutHref = proProfileId
+    ? `/pros/${proProfileId}/checkout?quotationId=${encodeURIComponent(quote.id)}&price=${encodeURIComponent(String(quote.amount || 0))}&plan=${encodeURIComponent(quote.title || '견적 결제')}`
+    : null;
 
   return (
     <div className="bg-gray-50 min-h-screen pb-32" style={{ letterSpacing: '-0.02em' }}>
@@ -138,7 +142,7 @@ export default function QuoteDetailPage() {
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-4 pt-3 pb-safe">
         {canPay ? (
           <button
-            onClick={() => router.push(`/payment?quotationId=${quote.id}`)}
+            onClick={() => checkoutHref && router.push(checkoutHref)}
             className="w-full h-[52px] text-[16px] font-bold text-white active:scale-[0.98] transition-transform"
             style={{ backgroundColor: '#2B313D', borderRadius: 14 }}
           >
