@@ -95,6 +95,17 @@ export default function SettingsPage() {
   const [accountHolder, setAccountHolder] = useState('');
   const [savedAccount, setSavedAccount] = useState<{ bank: string; number: string; holder: string } | null>(null);
 
+  const refundAccountKey = authUser ? `freetiful-refund-account-${authUser.id}` : 'freetiful-refund-account';
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(refundAccountKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.bank && parsed?.number && parsed?.holder) setSavedAccount(parsed);
+      }
+    } catch {}
+  }, [refundAccountKey]);
+
   // 프로필 사진 업로드
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -258,7 +269,17 @@ export default function SettingsPage() {
               <p className="text-[14px] font-semibold text-gray-900">{savedAccount.bank}</p>
               <p className="text-[13px] text-gray-500 mt-0.5">{savedAccount.number} · {savedAccount.holder}</p>
             </div>
-            <button onClick={() => { setSavedAccount(null); setShowBankForm(false); }} className="text-[12px] text-red-500 font-bold">삭제</button>
+            <button
+              onClick={() => {
+                setSavedAccount(null);
+                setShowBankForm(false);
+                try { localStorage.removeItem(refundAccountKey); } catch {}
+                toast.success('계좌가 삭제되었습니다');
+              }}
+              className="text-[12px] text-red-500 font-bold"
+            >
+              삭제
+            </button>
           </div>
         ) : showBankForm ? (
           <div className="border border-gray-100 rounded-2xl p-4 space-y-3">
@@ -274,8 +295,14 @@ export default function SettingsPage() {
               <button onClick={() => setShowBankForm(false)} className="flex-1 h-11 bg-gray-100 text-gray-600 font-bold rounded-xl text-[14px] active:scale-[0.98]">취소</button>
               <button
                 onClick={() => {
-                  if (!bank || !accountNumber || !accountHolder) return;
-                  setSavedAccount({ bank, number: accountNumber, holder: accountHolder });
+                  if (!bank || !accountNumber || !accountHolder) {
+                    toast.error('은행, 계좌번호, 예금주명을 모두 입력해주세요');
+                    return;
+                  }
+                  const payload = { bank, number: accountNumber, holder: accountHolder };
+                  setSavedAccount(payload);
+                  try { localStorage.setItem(refundAccountKey, JSON.stringify(payload)); } catch {}
+                  setBank(''); setAccountNumber(''); setAccountHolder('');
                   setShowBankForm(false);
                   toast.success('계좌가 등록되었습니다');
                 }}

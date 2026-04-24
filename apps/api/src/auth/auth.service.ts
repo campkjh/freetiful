@@ -115,6 +115,19 @@ export class AuthService {
 
     if (authRecord) {
       user = authRecord.user;
+      // 레거시 합성 이메일이 아직 남아있으면 실제 이메일로 정정
+      const isLegacyEmail =
+        provider === AuthProvider.kakao &&
+        user.email === `kakao_${info.providerUserId}@kakao.freetiful.com`;
+      if (isLegacyEmail && normalizedEmail) {
+        const conflict = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+        if (!conflict || conflict.id === user.id) {
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: { email: normalizedEmail },
+          });
+        }
+      }
     } else {
       // 구 /auth/kakao/mobile 쉼(shim)이 만든 합성 이메일 유저를 먼저 찾아 실제 이메일로 마이그레이션
       // (kakao_{providerUserId}@kakao.freetiful.com 형식)
