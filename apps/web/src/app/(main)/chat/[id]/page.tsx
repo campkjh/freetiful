@@ -268,20 +268,12 @@ export default function ChatRoomPage() {
     };
   }, [roomId]);
 
-  // ─── WebSocket (첫 렌더 후 idle 시 연결) ───
+  // ─── WebSocket (즉시 연결 — 지연 시 실시간성 저하) ───
   useEffect(() => {
     if (!authUser || roomId.startsWith('pending-')) return;
-    const schedule = (typeof window !== 'undefined' && 'requestIdleCallback' in window)
-      ? (window as any).requestIdleCallback
-      : (cb: () => void) => setTimeout(cb, 50);
-    const handle = schedule(() => {
-      connect();
-      joinRoom(roomId);
-    });
+    connect();
+    joinRoom(roomId);
     return () => {
-      if (typeof window !== 'undefined' && 'cancelIdleCallback' in window && typeof handle === 'number') {
-        (window as any).cancelIdleCallback(handle);
-      }
       leaveRoom();
     };
   }, [authUser, roomId]);

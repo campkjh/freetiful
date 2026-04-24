@@ -60,10 +60,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const token = useAuthStore.getState().accessToken;
     if (!token || get().socket) return;
 
-    const socket = io(
-      (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000') + '/chat',
-      { auth: { token }, transports: ['websocket'] },
-    );
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL ||
+      (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+        ? window.location.origin
+        : 'http://localhost:4000');
+
+    const socket = io(baseUrl + '/chat', {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 300,
+      reconnectionDelayMax: 2000,
+      timeout: 8000,
+    });
 
     socket.on('connect', () => set({ isConnected: true }));
     socket.on('disconnect', () => set({ isConnected: false }));

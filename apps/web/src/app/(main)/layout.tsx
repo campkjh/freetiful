@@ -125,12 +125,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => window.removeEventListener('freetiful:show-login', handler);
   }, []);
 
-  // 로그인 시 채팅 + 알림 프리페치
+  // 로그인 시 채팅 소켓 즉시 연결 + 룸/알림 프리페치
   useEffect(() => {
     const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
     if (loggedIn) {
+      useChatStore.getState().connect();
       useChatStore.getState().fetchRooms();
-      // 알림 프리페치 (백그라운드)
       import('@/lib/api/notification.api').then(({ notificationApi }) => {
         notificationApi.prefetch();
       });

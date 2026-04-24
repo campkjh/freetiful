@@ -17,8 +17,18 @@ interface AuthenticatedSocket extends Socket {
 }
 
 @WebSocketGateway({
-  cors: { origin: ['http://localhost:3000', 'http://localhost:8081'], credentials: true },
+  cors: {
+    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? [
+      'http://localhost:3000',
+      'http://localhost:8081',
+      'https://freetiful.com',
+      'https://www.freetiful.com',
+    ],
+    credentials: true,
+  },
   namespace: '/chat',
+  pingInterval: 10000,
+  pingTimeout: 5000,
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
