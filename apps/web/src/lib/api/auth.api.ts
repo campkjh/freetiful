@@ -4,14 +4,14 @@ import type { LoginResponse, User } from '@prettyful/types';
 const BASE = '/api/v1/auth';
 
 export const authApi = {
-  kakaoLogin: (code: string, redirectUri?: string) =>
-    apiClient.post<LoginResponse>(`${BASE}/login/kakao`, { code, redirectUri }).then((r) => r.data),
+  kakaoLogin: (code: string, _redirectUri?: string) =>
+    apiClient.post<LoginResponse>(`${BASE}/login/kakao`, { code }).then((r) => r.data),
 
   googleLogin: (idToken: string) =>
     apiClient.post<LoginResponse>(`${BASE}/login/google`, { idToken }).then((r) => r.data),
 
-  naverLogin: (code: string, state: string, redirectUri?: string) =>
-    apiClient.post<LoginResponse>(`${BASE}/login/naver`, { code, state, redirectUri }).then((r) => r.data),
+  naverLogin: (code: string, state: string, _redirectUri?: string) =>
+    apiClient.post<LoginResponse>(`${BASE}/login/naver`, { code, state }).then((r) => r.data),
 
   appleLogin: (identityToken: string, fullName?: string) =>
     apiClient.post<LoginResponse>(`${BASE}/login/apple`, { identityToken, fullName }).then((r) => r.data),
