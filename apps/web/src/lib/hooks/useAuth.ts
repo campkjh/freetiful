@@ -8,6 +8,15 @@ import { consumeAuthReturnTo } from '../auth/oauth';
 import type { LoginResponse } from '@prettyful/types';
 import toast from 'react-hot-toast';
 
+function isRedirectUriRejected(error: any) {
+  const message = error?.response?.data?.message;
+  return (
+    error?.response?.status === 400 &&
+    Array.isArray(message) &&
+    message.some((item) => typeof item === 'string' && item.includes('redirectUri'))
+  );
+}
+
 export function useAuth() {
   const router = useRouter();
   const { setAuth, logout: storeLogout, user, refreshToken } = useAuthStore();
@@ -53,7 +62,15 @@ export function useAuth() {
             console.warn('[auth] kakao token exchange fallback failed; using API code login', e);
           }
         }
-        return authApi.kakaoLogin(code, redirectUri);
+        try {
+          return await authApi.kakaoLogin(code, redirectUri);
+        } catch (e) {
+          if (redirectUri && isRedirectUriRejected(e)) {
+            console.warn('[auth] kakao API code login does not accept redirectUri; retrying legacy payload', e);
+            return authApi.kakaoLogin(code);
+          }
+          throw e;
+        }
       }, '카카오 로그인에 실패했습니다.', true),
 
     googleLogin: (idToken: string) =>
@@ -72,7 +89,15 @@ export function useAuth() {
             console.warn('[auth] naver token exchange fallback failed; using API code login', e);
           }
         }
-        return authApi.naverLogin(code, state, redirectUri);
+        try {
+          return await authApi.naverLogin(code, state, redirectUri);
+        } catch (e) {
+          if (redirectUri && isRedirectUriRejected(e)) {
+            console.warn('[auth] naver API code login does not accept redirectUri; retrying legacy payload', e);
+            return authApi.naverLogin(code, state);
+          }
+          throw e;
+        }
       }, '네이버 로그인에 실패했습니다.', true),
 
     appleLogin: (identityToken: string, fullName?: string) =>
