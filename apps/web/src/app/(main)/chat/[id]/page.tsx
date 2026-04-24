@@ -513,7 +513,7 @@ export default function ChatRoomPage() {
       />
 
       {/* ─── Header (Floating Pill) z-30 ─── */}
-      <div className="absolute left-0 right-0 top-0 z-30 px-3 pt-3 pb-2 pt-safe pointer-events-none">
+      <div className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
         <div className="flex items-center gap-2 max-w-[680px] mx-auto pointer-events-auto">
           {/* 뒤로가기 */}
           <button
@@ -789,7 +789,7 @@ export default function ChatRoomPage() {
       />
 
       {/* ─── Input Bar (Floating Pill) z-30 ─── */}
-      <div className="absolute left-0 right-0 bottom-0 z-30 px-3 pb-3 pt-2 pb-safe pointer-events-none">
+      <div className="absolute left-0 right-0 bottom-0 z-30 pb-3 pt-2 pb-safe px-safe pointer-events-none">
         <div className="flex items-end gap-2 max-w-[680px] mx-auto pointer-events-auto">
           {isRecording ? (
             // Recording UI

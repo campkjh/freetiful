@@ -438,10 +438,23 @@ body::after {
     @apply border-t border-gray-100/80;
   }
 
-  /* ─── Bottom nav safe area ────────────────────────────────────────────── */
+  /* ─── Safe area utilities (iOS WKWebView + Android edge-to-edge WebView) ─ */
 
   .pb-safe {
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+  .pt-safe {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+  .pl-safe {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+  }
+  .pr-safe {
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+  .px-safe {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
   }
 }
 
