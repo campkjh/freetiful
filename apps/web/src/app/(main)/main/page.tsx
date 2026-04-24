@@ -1490,7 +1490,7 @@ export default function HomePage() {
           if (viewedProData.length === 0) return null;
           const isRecent = (time: number) => Date.now() - time < 1000 * 60 * 30; // 30분 이내
           return (
-            <section>
+            <section className="mb-4">
               <div className="flex items-center justify-between mb-1">
                 <div>
                   <h3 className="section-title">관심있는 전문가</h3>
