@@ -79,9 +79,16 @@ export function consumeAuthReturnTo(fallback = '/main') {
 
 function getKakaoSdk() {
   const kakao = (window as unknown as { Kakao?: KakaoSdk }).Kakao;
-  if (!kakao?.Auth?.login) return null;
-  if (!kakao.isInitialized?.()) kakao.init(KAKAO_JS_KEY);
-  return kakao;
+  if (!kakao?.init) return null;
+  if (!kakao.isInitialized?.()) {
+    try {
+      kakao.init(KAKAO_JS_KEY);
+    } catch (error) {
+      console.warn('[auth] kakao sdk init failed', error);
+      return null;
+    }
+  }
+  return kakao.Auth?.login ? kakao : null;
 }
 
 async function completeNativeOAuthLogin(provider: 'kakao' | 'naver', accessToken: string) {
