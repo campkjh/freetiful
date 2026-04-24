@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Star, ChevronDown, Search, SlidersHorizontal, X, ChevronUp } from 'lucide-react';
 import { Suspense } from 'react';
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { discoveryApi, getCachedProList, type ProListItem } from '@/lib/api/discovery.api';
 
 interface ProItem {
@@ -46,6 +47,8 @@ const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외�
 const PAGE_SIZE = 10;
 const INITIAL_PRO_LIST_PARAMS = { limit: 24, sort: 'pudding' as const, withTotal: false };
 const FULL_PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: false };
+const TAB_SPRING = { type: 'spring' as const, stiffness: 520, damping: 36, mass: 0.75 };
+const PANEL_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 function runListIdle(cb: () => void, timeout = 900) {
   if (typeof window === 'undefined') return 0;
@@ -79,6 +82,40 @@ function matchesRegion(pro: ProItem, region: string) {
   return (pro.regions || []).some((r) => aliases.includes(r));
 }
 
+function FilterPill({
+  active,
+  children,
+  onClick,
+  layoutId,
+  className = '',
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+  layoutId: string;
+  className?: string;
+}) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.95 }}
+      className={`relative isolate shrink-0 overflow-hidden rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
+        active ? 'border-transparent text-white' : 'border-gray-200 bg-white text-gray-600'
+      } ${className}`}
+    >
+      {active && (
+        <motion.span
+          layoutId={layoutId}
+          className="absolute inset-0 rounded-full bg-[#2B313D]"
+          transition={TAB_SPRING}
+        />
+      )}
+      <span className="relative">{children}</span>
+    </motion.button>
+  );
+}
+
 function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const prefetchStarted = useRef(false);
@@ -107,12 +144,14 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
   };
 
   return (
-    <div
+    <motion.div
+      layout="position"
       ref={ref}
       className={`px-4 py-3 transition-all duration-500 ease-out ${
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
       }`}
       style={{ transitionDelay: `${Math.min(index % PAGE_SIZE, 6) * 35}ms` }}
+      transition={{ layout: { duration: 0.22, ease: PANEL_EASE } }}
     >
       <Link
         href={`/pros/${pro.id}`}
@@ -171,7 +210,7 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
           </div>
         </div>
       </Link>
-    </div>
+    </motion.div>
   );
 }
 
@@ -295,11 +334,24 @@ function ProsListContent() {
   const [scrolled, setScrolled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [listSettled, setListSettled] = useState(true);
+  const tabSignature = `${selectedRegion}|${sortBy}|${selectedPrice}|${selectedLang}|${selectedType}`;
+  const didMountTabMotion = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setPage(1); }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType]);
+
+  useLayoutEffect(() => {
+    if (!didMountTabMotion.current) {
+      didMountTabMotion.current = true;
+      return;
+    }
+    setListSettled(false);
+    const frame = window.requestAnimationFrame(() => setListSettled(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [tabSignature]);
 
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
@@ -411,6 +463,7 @@ function ProsListContent() {
   }
 
   return (
+    <LayoutGroup id="pros-list-tabs">
     <div className="min-h-screen bg-white" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white">
@@ -461,8 +514,10 @@ function ProsListContent() {
         <div className="border-b border-gray-100">
           <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide items-center">
             {/* Filter toggle */}
-            <button
+            <motion.button
+              type="button"
               onClick={() => setShowFilter(!showFilter)}
+              whileTap={{ scale: 0.95 }}
               className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-[13px] font-medium rounded-full border transition-all active:scale-95 ${
                 hasActiveFilters
                   ? 'bg-[#2B313D] text-white border-[#2B313D]'
@@ -477,61 +532,59 @@ function ProsListContent() {
                 </span>
               )}
               <span
+                className={`transition-transform duration-300 ${showFilter ? 'rotate-180' : ''}`}
               >
                 <ChevronDown size={12} />
               </span>
-            </button>
+            </motion.button>
 
             <div className="w-px h-5 bg-gray-200 shrink-0" />
 
             {/* Region chips with animation */}
-            <>
-              {REGIONS.map((region) => {
-                const active = selectedRegion === region;
-                return (
-                  <button
-                    key={region}
-                    onClick={() => setSelectedRegion(region)}
-                    className={`relative isolate px-3 py-1.5 text-[13px] font-medium shrink-0 rounded-full transition-colors active:scale-95 ${
-                      active ? 'text-white' : 'text-gray-600 border border-gray-200'
-                    }`}
-                  >
-                    {active && (
-                      <span
-                        className="absolute inset-0 bg-[#2B313D] rounded-full"
-                        style={{ zIndex: -1 }}
-                      />
-                    )}
-                    <span className="relative">{region}</span>
-                  </button>
-                );
-              })}
-            </>
+            {REGIONS.map((region) => (
+              <FilterPill
+                key={region}
+                active={selectedRegion === region}
+                onClick={() => setSelectedRegion(region)}
+                layoutId="pros-region-active-pill"
+              >
+                {region}
+              </FilterPill>
+            ))}
           </div>
 
           {/* Expandable filter panel */}
-          <>
+          <AnimatePresence initial={false}>
             {showFilter && (
-              <div
+              <motion.div
+                key="pros-filter-panel"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.24, ease: PANEL_EASE }}
                 className="overflow-hidden"
               >
-                <div className="px-4 pt-2 pb-4 space-y-4 bg-gray-50/50">
+                <motion.div
+                  initial={{ y: -6 }}
+                  animate={{ y: 0 }}
+                  exit={{ y: -4 }}
+                  transition={{ duration: 0.2, ease: PANEL_EASE }}
+                  className="px-4 pt-2 pb-4 space-y-4 bg-gray-50/50"
+                >
                   {/* Price range */}
                   <div>
                     <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">가격대</p>
                     <div className="flex flex-wrap gap-2">
                       {PRICE_RANGES.map((range, i) => (
-                        <button
+                        <FilterPill
                           key={range.label}
+                          active={selectedPrice === i}
                           onClick={() => setSelectedPrice(i)}
-                          className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition-all active:scale-95 ${
-                            selectedPrice === i
-                              ? 'bg-[#2B313D] text-white'
-                              : 'bg-white text-gray-500 border border-gray-200'
-                          }`}
+                          layoutId="pros-price-active-pill"
+                          className="text-[12px]"
                         >
                           {range.label}
-                        </button>
+                        </FilterPill>
                       ))}
                     </div>
                   </div>
@@ -541,17 +594,15 @@ function ProsListContent() {
                     <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">정렬</p>
                     <div className="flex flex-wrap gap-2">
                       {SORT_OPTIONS.map(opt => (
-                        <button
+                        <FilterPill
                           key={opt.value}
+                          active={sortBy === opt.value}
                           onClick={() => setSortBy(opt.value)}
-                          className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition-all active:scale-95 ${
-                            sortBy === opt.value
-                              ? 'bg-[#2B313D] text-white'
-                              : 'bg-white text-gray-500 border border-gray-200'
-                          }`}
+                          layoutId="pros-sort-active-pill"
+                          className="text-[12px]"
                         >
                           {opt.label}
-                        </button>
+                        </FilterPill>
                       ))}
                     </div>
                   </div>
@@ -561,17 +612,15 @@ function ProsListContent() {
                     <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">전문가 유형</p>
                     <div className="flex flex-wrap gap-2">
                       {MC_TYPES.map(t => (
-                        <button
+                        <FilterPill
                           key={t}
+                          active={selectedType === t}
                           onClick={() => setSelectedType(t)}
-                          className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition-all active:scale-95 ${
-                            selectedType === t
-                              ? 'bg-[#2B313D] text-white'
-                              : 'bg-white text-gray-500 border border-gray-200'
-                          }`}
+                          layoutId="pros-type-active-pill"
+                          className="text-[12px]"
                         >
                           {t}
-                        </button>
+                        </FilterPill>
                       ))}
                     </div>
                   </div>
@@ -581,17 +630,15 @@ function ProsListContent() {
                     <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">외국어</p>
                     <div className="flex flex-wrap gap-2">
                       {LANGUAGES.map(lang => (
-                        <button
+                        <FilterPill
                           key={lang}
+                          active={selectedLang === lang}
                           onClick={() => setSelectedLang(lang)}
-                          className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition-all active:scale-95 ${
-                            selectedLang === lang
-                              ? 'bg-[#2B313D] text-white'
-                              : 'bg-white text-gray-500 border border-gray-200'
-                          }`}
+                          layoutId="pros-lang-active-pill"
+                          className="text-[12px]"
                         >
                           {lang}
-                        </button>
+                        </FilterPill>
                       ))}
                     </div>
                   </div>
@@ -606,17 +653,27 @@ function ProsListContent() {
                       필터 초기화
                     </button>
                   )}
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             )}
-          </>
+          </AnimatePresence>
         </div>
       </div>
 
       {/* Result count + sort dropdown */}
       <div className="px-4 py-3 flex items-center justify-between bg-white">
         <p className="text-[13px] text-gray-500">
-          전문가 <span className="font-bold text-gray-900">{filtered.length}</span>명
+          전문가{' '}
+          <motion.span
+            key={filtered.length}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.16, ease: PANEL_EASE }}
+            className="inline-block font-bold text-gray-900"
+          >
+            {filtered.length}
+          </motion.span>
+          명
         </p>
         <select
           value={sortBy}
@@ -630,14 +687,22 @@ function ProsListContent() {
       </div>
 
       {/* Pro List — 찜목록 스타일 (가로형 카드) */}
-      <div ref={listRef}>
+      <motion.div
+        ref={listRef}
+        animate={{
+          opacity: listSettled ? 1 : 0.72,
+          y: listSettled ? 0 : 8,
+          filter: listSettled ? 'blur(0px)' : 'blur(1.5px)',
+        }}
+        transition={{ duration: 0.22, ease: PANEL_EASE }}
+      >
         {filtered.length > 0 ? (
           <div>
-            <div className="divide-y divide-gray-100">
+            <motion.div layout className="divide-y divide-gray-100">
               {paginatedPros.map((pro, i) => (
                 <ProListCard key={pro.id} pro={pro} index={i} />
               ))}
-            </div>
+            </motion.div>
 
             {hasMore && (
               <div ref={loadMoreRef} className="px-4 py-5">
@@ -672,7 +737,7 @@ function ProsListContent() {
             </button>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Scroll to top FAB */}
       <>
@@ -686,6 +751,7 @@ function ProsListContent() {
         )}
       </>
     </div>
+    </LayoutGroup>
   );
 }
 
