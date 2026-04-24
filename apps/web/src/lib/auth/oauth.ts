@@ -2,17 +2,38 @@ import toast from 'react-hot-toast';
 
 type Provider = 'kakao' | 'naver' | 'google';
 const AUTH_RETURN_TO_KEY = 'freetiful-auth-return-to';
+const DEFAULT_WEB_ORIGIN = 'https://freetiful.com';
+
+function normalizeOrigin(value: string | null | undefined) {
+  return value?.replace(/\/+$/, '') || '';
+}
+
+export function getOAuthOrigin() {
+  const configured = normalizeOrigin(process.env.NEXT_PUBLIC_WEB_URL || process.env.NEXT_PUBLIC_APP_URL);
+  if (configured) return configured;
+  if (typeof window === 'undefined') return DEFAULT_WEB_ORIGIN;
+
+  const origin = normalizeOrigin(window.location.origin);
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+  const isPreview = window.location.hostname.endsWith('.vercel.app');
+  return isLocal || isPreview ? origin : origin.replace('://www.', '://');
+}
+
+export function getOAuthRedirectUri(provider: Exclude<Provider, 'google'>) {
+  return `${getOAuthOrigin()}/auth/${provider}/callback`;
+}
 
 export function normalizeAuthReturnTo(value: string | null | undefined, fallback = '/main') {
   if (!value) return fallback;
   try {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://freetiful.co.kr';
+    const origin = typeof window !== 'undefined' ? normalizeOrigin(window.location.origin) : DEFAULT_WEB_ORIGIN;
+    const allowedOrigins = new Set([origin, origin.replace('://www.', '://'), getOAuthOrigin()]);
     const raw = value.startsWith('http') ? new URL(value).pathname + new URL(value).search + new URL(value).hash : value;
     if (!raw.startsWith('/') || raw.startsWith('//')) return fallback;
     const pathname = raw.split(/[?#]/)[0] || '/';
     if (pathname === '/') return '/main';
     if (pathname.startsWith('/auth') || pathname.startsWith('/api') || pathname.startsWith('/_next')) return fallback;
-    if (value.startsWith('http') && new URL(value).origin !== origin) return fallback;
+    if (value.startsWith('http') && !allowedOrigins.has(normalizeOrigin(new URL(value).origin))) return fallback;
     return raw;
   } catch {
     return fallback;
@@ -44,7 +65,6 @@ export function startOAuth(provider: Provider) {
   if (typeof window === 'undefined') return;
 
   rememberAuthReturnTo();
-  const origin = window.location.origin;
   const w = window as any;
   const ios = w?.webkit?.messageHandlers as Record<string, { postMessage: (msg: object) => void } | undefined> | undefined;
   const and = w?.Android as Record<string, (() => void) | undefined> | undefined;
@@ -53,7 +73,7 @@ export function startOAuth(provider: Provider) {
     if (ios?.kakaoLogin) { ios.kakaoLogin.postMessage({}); return; }
     if (and?.kakaoLogin) { and.kakaoLogin(); return; }
     const key = 'dca1b472188890116c81a55eff590885';
-    window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${encodeURIComponent(origin + '/auth/kakao/callback')}&response_type=code`;
+    window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('kakao'))}&response_type=code`;
     return;
   }
 
@@ -63,7 +83,7 @@ export function startOAuth(provider: Provider) {
     const key = 'R4WM7ZyC8hHuE_O7qLdy';
     const state = Math.random().toString(36).substring(7);
     sessionStorage.setItem('naver_state', state);
-    window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${key}&redirect_uri=${encodeURIComponent(origin + '/auth/naver/callback')}&response_type=code&state=${state}`;
+    window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${key}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('naver'))}&response_type=code&state=${state}`;
     return;
   }
 

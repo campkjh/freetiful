@@ -40,14 +40,14 @@ export function useAuth() {
     user,
     isAuthenticated: user !== null,
 
-    kakaoLogin: (code: string) =>
-      withLogin(() => authApi.kakaoLogin(code), '카카오 로그인에 실패했습니다.', true),
+    kakaoLogin: (code: string, redirectUri?: string) =>
+      withLogin(() => authApi.kakaoLogin(code, redirectUri), '카카오 로그인에 실패했습니다.', true),
 
     googleLogin: (idToken: string) =>
       withLogin(() => authApi.googleLogin(idToken), '구글 로그인에 실패했습니다.', true),
 
-    naverLogin: (code: string, state: string) =>
-      withLogin(() => authApi.naverLogin(code, state), '네이버 로그인에 실패했습니다.', true),
+    naverLogin: (code: string, state: string, redirectUri?: string) =>
+      withLogin(() => authApi.naverLogin(code, state, redirectUri), '네이버 로그인에 실패했습니다.', true),
 
     appleLogin: (identityToken: string, fullName?: string) =>
       withLogin(() => authApi.appleLogin(identityToken, fullName), 'Apple 로그인에 실패했습니다.', true),

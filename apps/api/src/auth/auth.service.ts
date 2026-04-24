@@ -153,6 +153,20 @@ export class AuthService {
     return { user, tokens, isNewUser, needsPhone: !user.phone, needsName: !user.name };
   }
 
+  private resolveOAuthRedirectUri(configKey: string, redirectUri?: string) {
+    const fallback = this.config.get<string>(configKey);
+    const candidate = redirectUri?.trim() || fallback;
+    if (!candidate) return fallback;
+
+    try {
+      const url = new URL(candidate);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return fallback;
+      return candidate.replace(/\/+$/, '');
+    } catch {
+      return fallback;
+    }
+  }
+
   private async socialLogin(provider: AuthProvider, info: SocialUserInfo) {
     // 이메일 정규화 (대소문자/공백 차이로 중복 유저가 생기는 문제 방지)
     const normalizedEmail = info.providerEmail?.trim().toLowerCase() || undefined;
@@ -254,13 +268,13 @@ export class AuthService {
     return this.buildLoginResponse(user, tokens, isNewUser);
   }
 
-  async kakaoLogin(code: string) {
+  async kakaoLogin(code: string, redirectUri?: string) {
     const { data: tokenData } = await axios.post('https://kauth.kakao.com/oauth/token', null, {
       params: {
         grant_type: 'authorization_code',
         client_id: this.config.get('KAKAO_CLIENT_ID'),
         client_secret: this.config.get('KAKAO_CLIENT_SECRET'),
-        redirect_uri: this.config.get('KAKAO_REDIRECT_URI'),
+        redirect_uri: this.resolveOAuthRedirectUri('KAKAO_REDIRECT_URI', redirectUri),
         code,
       },
     });
@@ -297,9 +311,16 @@ export class AuthService {
     });
   }
 
-  async naverLogin(code: string, state: string) {
+  async naverLogin(code: string, state: string, redirectUri?: string) {
     const { data: tokenData } = await axios.get('https://nid.naver.com/oauth2.0/token', {
-      params: { grant_type: 'authorization_code', client_id: this.config.get('NAVER_CLIENT_ID'), client_secret: this.config.get('NAVER_CLIENT_SECRET'), code, state },
+      params: {
+        grant_type: 'authorization_code',
+        client_id: this.config.get('NAVER_CLIENT_ID'),
+        client_secret: this.config.get('NAVER_CLIENT_SECRET'),
+        code,
+        state,
+        redirect_uri: this.resolveOAuthRedirectUri('NAVER_REDIRECT_URI', redirectUri),
+      },
     });
     return this.naverProfileLogin(tokenData.access_token);
   }

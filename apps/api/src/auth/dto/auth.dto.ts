@@ -6,6 +6,11 @@ export class KakaoLoginDto {
   @IsString()
   @IsNotEmpty()
   code: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  redirectUri?: string;
 }
 
 export class KakaoNativeLoginDto {
@@ -32,6 +37,11 @@ export class NaverLoginDto {
   @IsString()
   @IsNotEmpty()
   state: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  redirectUri?: string;
 }
 
 export class NaverNativeLoginDto {

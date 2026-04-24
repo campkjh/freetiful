@@ -33,7 +33,7 @@ export class AuthController {
   @Post('login/kakao')
   @ApiOperation({ summary: 'Kakao social login (web — authorization code)' })
   kakaoLogin(@Body() dto: KakaoLoginDto) {
-    return this.auth.kakaoLogin(dto.code);
+    return this.auth.kakaoLogin(dto.code, dto.redirectUri);
   }
 
   @Post('login/kakao/native')
@@ -52,7 +52,7 @@ export class AuthController {
   @Post('login/naver')
   @ApiOperation({ summary: 'Naver social login (web — authorization code)' })
   naverLogin(@Body() dto: NaverLoginDto) {
-    return this.auth.naverLogin(dto.code, dto.state);
+    return this.auth.naverLogin(dto.code, dto.state, dto.redirectUri);
   }
 
   @Post('login/naver/native')

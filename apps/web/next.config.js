@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+function getApiBaseUrl() {
+  const raw = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '');
+  return raw?.replace(/\/api\/v1$/, '').replace(/\/api$/, '');
+}
+
 const nextConfig = {
   compress: true,
   poweredByHeader: false,
@@ -34,8 +39,20 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: '/auth/kakao', destination: '/auth/kakao/callback', permanent: false },
+      { source: '/oauth/kakao', destination: '/auth/kakao/callback', permanent: false },
+      { source: '/oauth/kakao/callback', destination: '/auth/kakao/callback', permanent: false },
+      { source: '/login/oauth2/code/kakao', destination: '/auth/kakao/callback', permanent: false },
+      { source: '/auth/naver', destination: '/auth/naver/callback', permanent: false },
+      { source: '/oauth/naver', destination: '/auth/naver/callback', permanent: false },
+      { source: '/oauth/naver/callback', destination: '/auth/naver/callback', permanent: false },
+      { source: '/login/oauth2/code/naver', destination: '/auth/naver/callback', permanent: false },
+    ];
+  },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiUrl = getApiBaseUrl();
     if (!apiUrl) return [];
     return [
       {
