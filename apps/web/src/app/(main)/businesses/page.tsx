@@ -48,6 +48,8 @@ const FILTER_GROUPS = [
 
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
+const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v1';
+const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 // ─── Page ──────────────────────────────────────────────────
 export default function BusinessListPage() {
@@ -61,12 +63,22 @@ export default function BusinessListPage() {
 
   // Fetch businesses from API
   useEffect(() => {
+    try {
+      const cached = localStorage.getItem(BUSINESS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.ts < BUSINESS_CACHE_TTL && Array.isArray(parsed.data)) {
+          setRankItems(parsed.data);
+        }
+      }
+    } catch {}
+
     apiClient.get('/api/v1/business')
       .then((res) => {
         const data = res.data;
         const items = Array.isArray(data) ? data : data?.items;
         if (Array.isArray(items) && items.length > 0) {
-          setRankItems(items.map((b: any, i: number) => {
+          const mapped = items.map((b: any, i: number) => {
             const categories = Array.isArray(b.categories)
               ? b.categories.map((c: any) => c?.category?.name).filter(Boolean)
               : [];
@@ -89,7 +101,9 @@ export default function BusinessListPage() {
             image: b.image || b.imageUrl || primaryImage || '/images/default-profile.svg',
             verifiedBadge: b.verifiedBadge,
           };
-          }));
+          });
+          setRankItems(mapped);
+          try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: mapped, ts: Date.now() })); } catch {}
         }
       })
       .catch(() => { /* fallback to MOCK_RANK_ITEMS */ });

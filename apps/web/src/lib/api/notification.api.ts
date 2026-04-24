@@ -3,6 +3,9 @@ import { apiClient } from './client';
 const BASE = '/api/v1/notification';
 const CACHE_KEY = 'freetiful-notifications-cache';
 const COUNT_KEY = 'freetiful-unread-count-cache';
+const PREFETCH_TTL = 30_000;
+let prefetchInFlight: Promise<void> | null = null;
+let lastPrefetchAt = 0;
 
 export function getCachedNotifications(): any[] | null {
   if (typeof window === 'undefined') return null;
@@ -68,6 +71,9 @@ export const notificationApi = {
 
   // 앱 시작 시 프리페치 (백그라운드)
   prefetch: async () => {
+    if (prefetchInFlight) return prefetchInFlight;
+    if (Date.now() - lastPrefetchAt < PREFETCH_TTL) return;
+    prefetchInFlight = (async () => {
     try {
       await Promise.all([
         apiClient.get(`${BASE}`, { params: { limit: 20 } }).then((r) => {
@@ -77,6 +83,12 @@ export const notificationApi = {
           try { localStorage.setItem(COUNT_KEY, String(r.data?.count ?? 0)); } catch {}
         }),
       ]);
-    } catch {}
+      lastPrefetchAt = Date.now();
+    } catch {
+    } finally {
+      prefetchInFlight = null;
+    }
+    })();
+    return prefetchInFlight;
   },
 };

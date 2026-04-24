@@ -84,7 +84,7 @@ function ProsListContent() {
   const [apiLoaded, setApiLoaded] = useState(false);
 
   useEffect(() => {
-    discoveryApi.getProList({ limit: 100, sort: 'pudding' })
+    discoveryApi.getProList({ limit: 80, sort: 'pudding' })
       .then((res) => {
         if (res?.data && res.data.length > 0) {
           // userId 중복 제거

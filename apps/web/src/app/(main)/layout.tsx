@@ -128,13 +128,25 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   // 로그인 시 채팅 소켓 즉시 연결 + 룸/알림 프리페치
   useEffect(() => {
     const loggedIn = authUser !== null;
-    if (loggedIn) {
-      useChatStore.getState().connect();
-      useChatStore.getState().fetchRooms();
+    if (!loggedIn) return;
+
+    useChatStore.getState().connect();
+    const runPrefetch = () => {
+      const chatState = useChatStore.getState();
+      if (chatState.rooms.length === 0 && !chatState.roomsLoading) {
+        chatState.fetchRooms();
+      }
       import('@/lib/api/notification.api').then(({ notificationApi }) => {
         notificationApi.prefetch();
       });
+    };
+
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(runPrefetch, { timeout: 2500 });
+      return () => window.cancelIdleCallback(id);
     }
+    const timeout = window.setTimeout(runPrefetch, 800);
+    return () => window.clearTimeout(timeout);
   }, [authUser]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;

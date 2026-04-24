@@ -229,8 +229,8 @@ function QuotePage() {
     let cancelled = false;
     setProsLoading(true);
     const moodList = Array.from(moods);
-    // limit 넉넉하게 (승인된 모든 사회자)
-    discoveryApi.getProList({ limit: 200, sort: 'rating' })
+    // 첫 화면 의사결정에 충분한 범위만 로드하고 공개 캐시를 재사용한다.
+    discoveryApi.getProList({ limit: 80, sort: 'rating' })
       .then((res) => {
         if (cancelled) return;
         const all = (res?.data || []).map((p: any) => ({

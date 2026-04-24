@@ -39,15 +39,45 @@ export interface ProListItem {
 
 const cache = new Map<string, { data: any; ts: number }>();
 const inflight = new Map<string, Promise<any>>();
-const TTL = 60_000; // 1분 (편집 반영 빠르게)
+const TTL = 5 * 60_000;
+const STORAGE_PREFIX = 'freetiful-discovery-cache:';
+
+function storageGet<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.ts || Date.now() - parsed.ts > TTL) {
+      localStorage.removeItem(STORAGE_PREFIX + key);
+      return null;
+    }
+    return parsed.data as T;
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(key: string, data: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify({ data, ts: Date.now() }));
+  } catch {}
+}
 
 function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return Promise.resolve(hit.data as T);
+  const stored = storageGet<T>(key);
+  if (stored) {
+    cache.set(key, { data: stored, ts: Date.now() });
+    return Promise.resolve(stored);
+  }
   const existing = inflight.get(key);
   if (existing) return existing as Promise<T>;
   const p = fetcher().then((data) => {
     cache.set(key, { data, ts: Date.now() });
+    storageSet(key, data);
     inflight.delete(key);
     return data;
   }).catch((e) => { inflight.delete(key); throw e; });
@@ -63,6 +93,7 @@ export function getCachedProDetail(id: string): any | null {
 export function invalidateProCache(id?: string) {
   if (id) {
     cache.delete(`detail:${id}`);
+    if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_PREFIX + `detail:${id}`);
     return;
   }
   // id 없으면 모든 detail + list 캐시 삭제
@@ -70,6 +101,11 @@ export function invalidateProCache(id?: string) {
   keys.forEach((k) => {
     if (k.startsWith('list:') || k.startsWith('detail:')) cache.delete(k);
   });
+  if (typeof window !== 'undefined') {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith(STORAGE_PREFIX))
+      .forEach((k) => localStorage.removeItem(k));
+  }
 }
 
 export const discoveryApi = {

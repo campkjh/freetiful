@@ -90,7 +90,7 @@ export class DiscoveryService implements OnModuleInit {
     featured?: boolean;
   }) {
     const page = Number(params.page) || 1;
-    const limit = Number(params.limit) || 20;
+    const limit = Math.min(Number(params.limit) || 20, 100);
     const { search, sort = 'rating', gender, minPrice, maxPrice, featured } = params;
 
     const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured });

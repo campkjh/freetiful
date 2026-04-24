@@ -13,6 +13,7 @@ interface ChatState {
   // Room list
   rooms: ChatRoomItem[];
   roomsLoading: boolean;
+  lastRoomsFetchAt: number;
 
   // Current room
   currentRoomId: string | null;
@@ -48,6 +49,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isConnected: false,
   rooms: [],
   roomsLoading: false,
+  lastRoomsFetchAt: 0,
   currentRoomId: null,
   messages: [],
   messagesLoading: false,
@@ -173,16 +175,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   fetchRooms: async (params) => {
-    const { rooms } = get();
+    const { rooms, roomsLoading, lastRoomsFetchAt } = get();
+    const hasFilters = !!(params?.search || params?.dateFrom || params?.dateTo);
+    if (!hasFilters && roomsLoading) return;
+    if (!hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < 30_000) {
+      set({ roomsLoading: false });
+      return;
+    }
     if (rooms.length > 0) {
       set({ roomsLoading: false });
-      chatApi.getRooms(params).then((res) => set({ rooms: res.data.data })).catch(() => {});
+      chatApi.getRooms(params)
+        .then((res) => set({ rooms: res.data.data, lastRoomsFetchAt: Date.now() }))
+        .catch(() => {});
       return;
     }
     set({ roomsLoading: true });
     try {
       const res = await chatApi.getRooms(params);
-      set({ rooms: res.data.data });
+      set({ rooms: res.data.data, lastRoomsFetchAt: Date.now() });
     } finally {
       set({ roomsLoading: false });
     }

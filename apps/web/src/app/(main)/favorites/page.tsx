@@ -101,7 +101,7 @@ export default function FavoritesPage() {
     } catch {}
     if (stored.length === 0) return;
 
-    discoveryApi.getProList({ limit: 100 })
+    discoveryApi.getProList({ limit: 80 })
       .then((res) => {
         const byId = new Map<string, ProListItem>((res.data || []).map((p) => [p.id, p]));
         const recent = stored
