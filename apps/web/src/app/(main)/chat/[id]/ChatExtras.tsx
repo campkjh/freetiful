@@ -428,6 +428,14 @@ function useNearestQuoteCard<T extends HTMLElement>() {
 
 // ─── SystemMessageCard ───
 export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null, isLatestQuote = false }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null; isLatestQuote?: boolean }) {
+  const [isPaid, setIsPaid] = useState<boolean>(false);
+  useEffect(() => {
+    const sys = msg.system;
+    if (sys?.kind !== 'quote' || !sys.quotationId) return;
+    quotationApi.getDetail(sys.quotationId)
+      .then((q: any) => { if (q?.status === 'paid') setIsPaid(true); })
+      .catch(() => {});
+  }, [msg.system]);
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
   useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
   const quoteRef = useNearestQuoteCard<HTMLDivElement>();
@@ -603,12 +611,22 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               {formatKRW(sys.amount || 0)}
             </p>
             {!isPro && sys.quotationId && (
-              isLatestQuote ? (
+              isPaid ? (
+                <div
+                  className="mt-2 self-start px-4 py-2.5 bg-emerald-50 text-emerald-600 text-[13px] font-bold inline-flex items-center gap-1.5"
+                  style={{ borderRadius: 12 }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/>
+                    <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  결제완료
+                </div>
+              ) : isLatestQuote ? (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // 결제 페이지는 pro profile ID 를 요구 — chatPartner.id (user ID) 가 아니라 proProfileId 사용
                     const proId = chatPartner?.proProfileId || chatPartner?.id;
                     const amount = sys.amount || 0;
                     const plan = sys.plan || 'premium';
