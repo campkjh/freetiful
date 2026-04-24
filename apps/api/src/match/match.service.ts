@@ -84,7 +84,60 @@ export class MatchService {
       },
     });
 
+    // 카테고리에 일치하는 승인된 사회자에게 fan-out — matchDelivery 생성 + 푸쉬 알림
+    void this.fanoutMatchRequestToPros(matchRequest.id, data.categoryId).catch(() => {});
+
     return matchRequest;
+  }
+
+  /** 새 매칭 요청을 카테고리 일치하는 approved 사회자에게 분배 + 알림 */
+  private async fanoutMatchRequestToPros(matchRequestId: string, categoryId: string) {
+    const proCategories = await this.prisma.proCategory.findMany({
+      where: {
+        categoryId,
+        proProfile: { status: 'approved' },
+      },
+      include: {
+        proProfile: {
+          include: { user: { select: { id: true, name: true } } },
+        },
+      },
+      take: 20, // 무차별 fan-out 방지 — 상위 20명만
+    });
+
+    const matchRequest = await this.prisma.matchRequest.findUnique({
+      where: { id: matchRequestId },
+      include: {
+        user: { select: { name: true } },
+        category: { select: { name: true } },
+      },
+    });
+    if (!matchRequest) return;
+
+    const customerName = matchRequest.user?.name || '고객';
+    const categoryName = matchRequest.category?.name || '서비스';
+
+    for (const pc of proCategories) {
+      const proUserId = pc.proProfile?.user?.id;
+      if (!proUserId) continue;
+      try {
+        await this.prisma.matchDelivery.create({
+          data: { matchRequestId, proProfileId: pc.proProfileId },
+        });
+      } catch {
+        // 중복 (같은 요청에 같은 pro 두 번) — 무시
+        continue;
+      }
+      this.notificationService
+        .createNotification(
+          proUserId,
+          'system' as any,
+          '새 매칭 요청이 도착했습니다 📋',
+          `${customerName}님이 ${categoryName} 견적을 요청했습니다.`,
+          { type: 'match_request', matchRequestId },
+        )
+        .catch(() => {});
+    }
   }
 
   /** 사용자의 매칭 요청 목록 */

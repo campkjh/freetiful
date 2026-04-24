@@ -96,6 +96,12 @@ export class AdminController {
     return this.adminService.awardPudding(id, Number(body.amount) || 0, body.note);
   }
 
+  /** 어드민 → 유저(들)에게 쿠폰 발급 + 푸쉬 알림 */
+  @Post('coupons/grant')
+  async grantCoupon(@Body() body: { userIds: string[]; couponId: string }) {
+    return this.adminService.grantCoupon(body.userIds || [], body.couponId);
+  }
+
   @Get('stats')
   async getStats() {
     return this.adminService.getStats();

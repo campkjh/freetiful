@@ -5,6 +5,7 @@ import { NotificationService } from '../notification/notification.service';
 import { ProService } from '../pro/pro.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { ImageService } from '../image/image.service';
+import { UsersService } from '../users/users.service';
 import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -61,7 +62,17 @@ export class AdminService {
     private proService: ProService,
     private discoveryService: DiscoveryService,
     private imageService: ImageService,
+    private usersService: UsersService,
   ) {}
+
+  /** 어드민이 특정 유저(또는 다수 유저)에게 쿠폰 발급 — UsersService 헬퍼 위임 */
+  async grantCoupon(userIds: string[], couponId: string) {
+    const results = await Promise.allSettled(
+      userIds.map((uid) => this.usersService.awardCoupon(uid, couponId)),
+    );
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    return { requested: userIds.length, succeeded, failed: userIds.length - succeeded };
+  }
 
   // ─── 웨딩 파트너 업체 (BusinessProfile) CRUD ────────────────────────────
   // 어드민이 직접 업체를 등록/수정/삭제. 소유 유저가 없으면 placeholder User 자동 생성.

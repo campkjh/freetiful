@@ -8,10 +8,11 @@ import { NotificationModule } from '../notification/notification.module';
 import { ProModule } from '../pro/pro.module';
 import { DiscoveryModule } from '../discovery/discovery.module';
 import { ImageModule } from '../image/image.module';
+import { UsersModule } from '../users/users.module';
 import { AdminGuard } from '../common/guards/admin.guard';
 
 @Module({
-  imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, ImageModule, JwtModule.register({}), ConfigModule],
+  imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, ImageModule, UsersModule, JwtModule.register({}), ConfigModule],
   controllers: [AdminController],
   providers: [AdminService, AdminGuard],
   exports: [AdminService],

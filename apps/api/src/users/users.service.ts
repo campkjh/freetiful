@@ -250,4 +250,33 @@ export class UsersService {
       };
     });
   }
+
+  /** 쿠폰 발급 + 푸쉬 알림 — 어드민/시스템 트리거에서 호출 */
+  async awardCoupon(userId: string, couponId: string) {
+    const coupon = await this.prisma.coupon.findUnique({ where: { id: couponId } });
+    if (!coupon) throw new NotFoundException('쿠폰을 찾을 수 없습니다.');
+
+    const userCoupon = await this.prisma.userCoupon.create({
+      data: { userId, couponId },
+    });
+
+    const desc = coupon.type === 'percentage'
+      ? `${coupon.value}% 할인 쿠폰이 발급되었습니다`
+      : `${coupon.value.toLocaleString()}원 할인 쿠폰이 발급되었습니다`;
+    const expiry = coupon.validUntil
+      ? ` · ${coupon.validUntil.toLocaleDateString('ko-KR')}까지`
+      : '';
+
+    this.notificationService
+      .createNotification(
+        userId,
+        'system' as any,
+        '새 쿠폰이 도착했어요 🎟️',
+        `${desc}${expiry}`,
+        { type: 'coupon_issued', couponId, code: coupon.code },
+      )
+      .catch(() => {});
+
+    return userCoupon;
+  }
 }
