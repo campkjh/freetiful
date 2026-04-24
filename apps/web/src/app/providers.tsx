@@ -4,10 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import {
-  initIOSPushBridge,
-  registerPushSubscription,
-  flushOneSignalPlayerId,
-  notifyIOSLogin,
+  initNativePushBridge,
+  syncPushRegistration,
 } from '@/lib/utils/push';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -24,13 +22,15 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    initIOSPushBridge();
+    initNativePushBridge();
     const state = useAuthStore.getState();
-    if (state.accessToken) {
-      notifyIOSLogin(state.user?.id);
-      void registerPushSubscription();
-      void flushOneSignalPlayerId();
-    }
+    if (state.accessToken) void syncPushRegistration(state.user?.id);
+    const unsubscribe = useAuthStore.subscribe((next, prev) => {
+      if (next.accessToken && next.accessToken !== prev.accessToken) {
+        void syncPushRegistration(next.user?.id);
+      }
+    });
+    return unsubscribe;
   }, []);
 
   return (

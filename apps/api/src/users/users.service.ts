@@ -8,6 +8,17 @@ import { DiscoveryService } from '../discovery/discovery.service';
 import { NotificationService } from '../notification/notification.service';
 import { UserRole } from '@prisma/client';
 
+const NOTIFICATION_SETTING_FIELDS = [
+  'chatPush',
+  'bookingPush',
+  'paymentPush',
+  'reviewPush',
+  'systemPush',
+  'marketingPush',
+  'marketingSms',
+  'marketingEmail',
+] as const;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -55,6 +66,40 @@ export class UsersService {
         }),
       },
     });
+  }
+
+  async getNotificationSettings(userId: string) {
+    await this.ensureUser(userId);
+    return this.prisma.notificationSettings.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
+  }
+
+  async updateNotificationSettings(
+    userId: string,
+    data: Partial<Record<(typeof NOTIFICATION_SETTING_FIELDS)[number], boolean>>,
+  ) {
+    await this.ensureUser(userId);
+    const next: Record<string, boolean> = {};
+    for (const field of NOTIFICATION_SETTING_FIELDS) {
+      if (data[field] !== undefined) next[field] = Boolean(data[field]);
+    }
+    return this.prisma.notificationSettings.upsert({
+      where: { userId },
+      create: { userId, ...next },
+      update: next,
+    });
+  }
+
+  private async ensureUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 
   async getPointBalance(userId: string) {

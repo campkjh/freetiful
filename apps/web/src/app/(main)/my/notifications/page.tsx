@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+import { usersApi, type NotificationSettings } from '@/lib/api/users.api';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { syncPushRegistration } from '@/lib/utils/push';
 
 interface NotifSetting {
   key: string;
@@ -24,13 +28,57 @@ const INITIAL_SETTINGS: NotifSetting[] = [
 
 export default function NotificationsSettingsPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
 
-  const toggle = (key: string) => {
-    setSettings((prev) =>
-      prev.map((s) => (s.key === key ? { ...s, enabled: !s.enabled } : s))
-    );
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushPermission(Notification.permission);
+    }
+    let cancelled = false;
+    usersApi.getNotificationSettings()
+      .then((data) => {
+        if (cancelled) return;
+        setSettings((prev) => prev.map((s) => ({
+          ...s,
+          enabled: Boolean(data[s.key as keyof NotificationSettings]),
+        })));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const requestPushPermission = async () => {
+    await syncPushRegistration(authUser?.id);
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushPermission(Notification.permission);
+      if (Notification.permission === 'granted') toast.success('푸시 알림이 활성화되었습니다');
+      else if (Notification.permission === 'denied') toast.error('브라우저 설정에서 알림 권한을 허용해주세요');
+    }
+  };
+
+  const toggle = async (key: string) => {
+    const current = settings.find((s) => s.key === key);
+    if (!current || savingKey) return;
+    const nextEnabled = !current.enabled;
+    setSavingKey(key);
+    setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, enabled: nextEnabled } : s)));
+    try {
+      const saved = await usersApi.updateNotificationSettings({ [key]: nextEnabled } as Partial<NotificationSettings>);
+      setSettings((prev) => prev.map((s) => ({
+        ...s,
+        enabled: Boolean(saved[s.key as keyof NotificationSettings]),
+      })));
+      if (nextEnabled && key.endsWith('Push')) void syncPushRegistration(authUser?.id);
+    } catch {
+      setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, enabled: current.enabled } : s)));
+      toast.error('알림 설정 저장에 실패했습니다');
+    } finally {
+      setSavingKey(null);
+    }
   };
 
   return (
@@ -44,6 +92,29 @@ export default function NotificationsSettingsPage() {
       </div>
 
       <div className="px-4 py-4 space-y-2">
+        <div
+          className="border border-blue-100 bg-blue-50 px-4 py-3.5 flex items-center justify-between"
+          style={{ borderRadius: 12 }}
+        >
+          <div>
+            <p className="text-sm font-bold text-gray-900">푸시 알림 권한</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              {pushPermission === 'granted'
+                ? '이 기기에서 푸시 수신 가능'
+                : pushPermission === 'denied'
+                  ? '브라우저/앱 설정에서 권한 허용 필요'
+                  : '알림을 받으려면 권한을 허용해주세요'}
+            </p>
+          </div>
+          <button
+            onClick={requestPushPermission}
+            className="px-3 py-2 rounded-lg bg-[#3180F7] text-white text-[12px] font-bold active:scale-95 transition-transform disabled:opacity-40"
+            disabled={pushPermission === 'granted'}
+          >
+            {pushPermission === 'granted' ? '활성화됨' : '허용'}
+          </button>
+        </div>
+
         {settings.map((s) => (
           <div
             key={s.key}
@@ -56,6 +127,7 @@ export default function NotificationsSettingsPage() {
             </div>
             <button
               onClick={() => toggle(s.key)}
+              disabled={savingKey === s.key}
               className="relative w-11 h-6 rounded-full transition-colors"
               style={{ backgroundColor: s.enabled ? '#2B313D' : '#E5E7EB' }}
             >

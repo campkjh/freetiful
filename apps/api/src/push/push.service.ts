@@ -30,9 +30,20 @@ export class PushService {
     private readonly config: ConfigService,
   ) {}
 
+  private getOneSignalConfig() {
+    const appId = this.config.get<string>('ONESIGNAL_APP_ID');
+    const restKey =
+      this.config.get<string>('ONESIGNAL_REST_API_KEY') ||
+      this.config.get<string>('ONESIGNAL_API_KEY') ||
+      this.config.get<string>('ONESIGNAL_REST_KEY');
+    return { appId, restKey };
+  }
+
   private ensureVapid(): boolean {
     if (this.vapidConfigured) return true;
-    const publicKey = this.config.get<string>('NEXT_PUBLIC_VAPID_PUBLIC_KEY');
+    const publicKey =
+      this.config.get<string>('NEXT_PUBLIC_VAPID_PUBLIC_KEY') ||
+      this.config.get<string>('VAPID_PUBLIC_KEY');
     const privateKey = this.config.get<string>('VAPID_PRIVATE_KEY');
     const subject =
       this.config.get<string>('VAPID_SUBJECT') || 'mailto:noreply@freetiful.com';
@@ -60,29 +71,32 @@ export class PushService {
     playerId: string,
     platform: string = 'iOS',
   ) {
+    const normalizedPlayerId = playerId?.trim();
+    const normalizedPlatform = platform?.trim() || 'native';
+    if (!normalizedPlayerId) return null;
+
     // 1) 같은 플랫폼의 옛날 ghost 토큰 DB에서 제거 (재설치/토큰 갱신 케이스)
     await this.prisma.pushToken.deleteMany({
       where: {
         userId,
-        platform,
-        NOT: { token: playerId },
+        platform: normalizedPlatform,
+        NOT: { token: normalizedPlayerId },
       },
     });
 
     // 2) 최신 토큰 upsert
     const record = await this.prisma.pushToken.upsert({
-      where: { userId_token: { userId, token: playerId } },
-      create: { userId, token: playerId, platform, isActive: true },
-      update: { platform, isActive: true },
+      where: { userId_token: { userId, token: normalizedPlayerId } },
+      create: { userId, token: normalizedPlayerId, platform: normalizedPlatform, isActive: true },
+      update: { platform: normalizedPlatform, isActive: true },
     });
 
     // 3) OneSignal에 external_id 강제 링크 (네이티브 OneSignal.login 실패해도 복구)
     // + 4) 같은 유저에 달린 ghost subscription 정리
-    const appId = this.config.get<string>('ONESIGNAL_APP_ID');
-    const restKey = this.config.get<string>('ONESIGNAL_REST_API_KEY');
+    const { appId, restKey } = this.getOneSignalConfig();
     if (appId && restKey) {
-      await this.linkExternalId(appId, restKey, playerId, userId);
-      await this.cleanupGhostSubscriptions(appId, restKey, userId, playerId);
+      await this.linkExternalId(appId, restKey, normalizedPlayerId, userId);
+      await this.cleanupGhostSubscriptions(appId, restKey, userId, normalizedPlayerId);
     }
 
     return record;
@@ -195,8 +209,7 @@ export class PushService {
       }),
     ]);
 
-    const appId = this.config.get<string>('ONESIGNAL_APP_ID');
-    const restKey = this.config.get<string>('ONESIGNAL_REST_API_KEY');
+    const { appId, restKey } = this.getOneSignalConfig();
     let oneSignalUser: unknown = null;
     if (appId && restKey) {
       try {
@@ -213,6 +226,11 @@ export class PushService {
 
     return {
       userId,
+      env: {
+        oneSignalAppId: !!appId,
+        oneSignalRestKey: !!restKey,
+        vapid: this.ensureVapid(),
+      },
       db: {
         webPushSubscriptions: webSubs.length,
         pushTokens: pushTokens.map((t) => ({
@@ -227,23 +245,34 @@ export class PushService {
 
   /** 테스트 푸시 발송 — 진단용 */
   async sendOneSignalTest(userId: string) {
-    const appId = this.config.get<string>('ONESIGNAL_APP_ID');
-    const restKey = this.config.get<string>('ONESIGNAL_REST_API_KEY');
+    const { appId, restKey } = this.getOneSignalConfig();
     if (!appId || !restKey) return { error: 'missing env' };
+    const payloadBase = {
+      app_id: appId,
+      target_channel: 'push',
+      headings: { en: 'Debug push test', ko: '디버그 테스트 🧪' },
+      contents: { en: 'If you see this, push works', ko: '이 알림 보이면 푸시 작동' },
+      data: { event: 'debug_test', url: '/notifications' },
+    };
     try {
       const res = await axios.post(
         'https://onesignal.com/api/v1/notifications',
-        {
-          app_id: appId,
-          target_channel: 'push',
-          include_aliases: { external_id: [userId] },
-          headings: { en: 'Debug push test', ko: '디버그 테스트 🧪' },
-          contents: { en: 'If you see this, push works', ko: '이 알림 보이면 푸시 작동' },
-          data: { event: 'debug_test' },
-        },
+        { ...payloadBase, include_aliases: { external_id: [userId] } },
         { headers: { Authorization: `Key ${restKey}`, 'Content-Type': 'application/json' } },
       );
-      return { status: res.status, data: res.data };
+      const recipients = Number(res.data?.recipients || 0);
+      if (recipients > 0) return { status: res.status, data: res.data, path: 'external_id' };
+
+      const subscriptionIds = await this.getOneSignalSubscriptionIds([userId]);
+      if (!subscriptionIds.length) {
+        return { status: res.status, data: res.data, path: 'external_id', warning: 'recipients=0 and no DB subscription fallback' };
+      }
+      const fallback = await axios.post(
+        'https://onesignal.com/api/v1/notifications',
+        { ...payloadBase, include_subscription_ids: subscriptionIds },
+        { headers: { Authorization: `Key ${restKey}`, 'Content-Type': 'application/json' } },
+      );
+      return { status: fallback.status, data: fallback.data, path: 'subscription_id', external: res.data };
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: unknown }; message?: string };
       return { error: err.message, status: err.response?.status, data: err.response?.data };

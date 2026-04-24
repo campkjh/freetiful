@@ -3,12 +3,29 @@ import type { User } from '@prettyful/types';
 
 const BASE = '/api/v1/users';
 
+export type NotificationSettings = {
+  chatPush: boolean;
+  bookingPush: boolean;
+  paymentPush: boolean;
+  reviewPush: boolean;
+  systemPush: boolean;
+  marketingPush: boolean;
+  marketingSms: boolean;
+  marketingEmail: boolean;
+};
+
 export const usersApi = {
   getProfile: () =>
     apiClient.get<User & { proProfile?: any; businessProfile?: any }>(`${BASE}/profile`).then((r) => r.data),
 
   updateProfile: (data: { name?: string; phone?: string; profileImageUrl?: string }) =>
     apiClient.put<User>(`${BASE}/profile`, data).then((r) => r.data),
+
+  getNotificationSettings: () =>
+    apiClient.get<NotificationSettings>(`${BASE}/notification-settings`).then((r) => r.data),
+
+  updateNotificationSettings: (data: Partial<NotificationSettings>) =>
+    apiClient.put<NotificationSettings>(`${BASE}/notification-settings`, data).then((r) => r.data),
 
   getPointBalance: () =>
     apiClient.get<{ balance: number }>(`${BASE}/points`).then((r) => r.data),

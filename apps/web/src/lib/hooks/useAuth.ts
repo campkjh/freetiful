@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../store/auth.store';
 import { authApi } from '../api/auth.api';
-import { registerPushSubscription, flushOneSignalPlayerId, notifyIOSLogin, notifyIOSLogout } from '../utils/push';
+import { notifyIOSLogout, syncPushRegistration } from '../utils/push';
 import { consumeAuthReturnTo } from '../auth/oauth';
 import type { LoginResponse } from '@prettyful/types';
 import toast from 'react-hot-toast';
@@ -14,9 +14,7 @@ export function useAuth() {
 
   const handleLoginResponse = (data: LoginResponse, skipOnboarding = false) => {
     setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
-    notifyIOSLogin(data.user.id);
-    void registerPushSubscription();
-    void flushOneSignalPlayerId();
+    void syncPushRegistration(data.user.id);
     // 소셜 로그인은 온보딩 스킵, 이메일 가입만 온보딩
     if (skipOnboarding || (!data.isNewUser && data.user.name)) {
       router.replace(consumeAuthReturnTo('/main'));

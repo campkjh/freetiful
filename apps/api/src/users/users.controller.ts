@@ -36,6 +36,21 @@ export class UsersController {
     return this.usersService.updateProfile(userId, body);
   }
 
+  @Get('notification-settings')
+  async getNotificationSettings(@Req() req: Request) {
+    const userId = (req.user as any).id;
+    return this.usersService.getNotificationSettings(userId);
+  }
+
+  @Put('notification-settings')
+  async updateNotificationSettings(
+    @Req() req: Request,
+    @Body() body: Record<string, boolean>,
+  ) {
+    const userId = (req.user as any).id;
+    return this.usersService.updateNotificationSettings(userId, body);
+  }
+
   @Get('points')
   async getPointBalance(@Req() req: Request) {
     const userId = (req.user as any).id;
