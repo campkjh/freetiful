@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { consumeAuthReturnTo } from '@/lib/auth/oauth';
+import { consumeAuthReturnTo, getOAuthRedirectUri } from '@/lib/auth/oauth';
 
 function KakaoCallbackInner() {
   const searchParams = useSearchParams();
@@ -16,7 +16,7 @@ function KakaoCallbackInner() {
     const code = searchParams.get('code');
     if (code) {
       called.current = true;
-      kakaoLogin(code);
+      kakaoLogin(code, getOAuthRedirectUri('kakao'));
     } else {
       called.current = true;
       router.replace(consumeAuthReturnTo('/main'));
