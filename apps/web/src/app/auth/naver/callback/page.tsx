@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { consumeAuthReturnTo, getOAuthRedirectUri } from '@/lib/auth/oauth';
+import { consumeAuthReturnTo } from '@/lib/auth/oauth';
 
 function NaverCallbackInner() {
   const searchParams = useSearchParams();
@@ -17,7 +17,7 @@ function NaverCallbackInner() {
     const state = searchParams.get('state');
     if (code && state) {
       called.current = true;
-      naverLogin(code, state, getOAuthRedirectUri('naver'));
+      naverLogin(code, state);
     } else {
       called.current = true;
       router.replace(consumeAuthReturnTo('/main'));
