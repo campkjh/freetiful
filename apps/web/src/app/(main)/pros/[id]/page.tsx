@@ -756,7 +756,7 @@ export default function ProDetailPage() {
   }
 
   return (
-    <div className="bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white" style={{ letterSpacing: '-0.02em', paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
       {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
       <div
         className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
@@ -1430,7 +1430,7 @@ export default function ProDetailPage() {
       {/* ─── Bottom Fixed Bar ─── */}
       <div
         className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none"
-        style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 12px), 20px)' }}
       >
         {/* 블러 배경 (별도 레이어로 분리) */}
         <div

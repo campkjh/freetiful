@@ -95,7 +95,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white" style={{ letterSpacing: '-0.02em' }}>
+    <div className="min-h-[100dvh] bg-white" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-100">
         <div className="h-[52px] flex items-center px-4 gap-3">
