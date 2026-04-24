@@ -761,7 +761,7 @@ export default function HomePage() {
   useEffect(() => {
     // 캐시에서 즉시 표시 (두 번째 방문부터 무한 로딩 방지)
     try {
-      const cached = localStorage.getItem('freetiful-pros-cache');
+      const cached = localStorage.getItem('freetiful-pros-cache-v2');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) setApiPros(parsed);
@@ -773,7 +773,7 @@ export default function HomePage() {
       setApiPros((prev) => prev ?? []);
     }, 8000);
 
-    discoveryApi.getProList({ limit: 41, sort: 'rating' })
+    discoveryApi.getProList({ limit: 41, sort: 'pudding' })
       .then((res) => {
         clearTimeout(timeout);
         if (res.data?.length > 0) {
@@ -809,7 +809,7 @@ export default function HomePage() {
             isPartner: p.showPartnersLogo || p.isFeatured || false,
           }));
           setApiPros(mapped);
-          try { localStorage.setItem('freetiful-pros-cache', JSON.stringify(mapped)); } catch {}
+          try { localStorage.setItem('freetiful-pros-cache-v2', JSON.stringify(mapped)); } catch {}
         } else {
           setApiPros([]);
         }
