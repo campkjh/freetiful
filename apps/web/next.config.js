@@ -84,8 +84,8 @@ const nextConfig = {
     if (!apiUrl) return [];
     return [
       {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
+        source: '/api/v1/:path*',
+        destination: `${apiUrl}/api/v1/:path*`,
       },
       // 업로드된 이미지(프로 프로필 사진, 채팅 이미지 등)는 Railway 에서 서빙됨
       {
