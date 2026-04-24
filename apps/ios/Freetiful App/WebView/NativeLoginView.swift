@@ -15,6 +15,8 @@ struct NativeLoginView: View {
     @State private var isLoading = false
     @State private var naverCoordinator: NaverNativeLoginCoordinator?
     @State private var appleCoordinator: AppleNativeLoginCoordinator?
+    // 로그인 성공으로 닫힌 건지, 드래그/취소로 닫힌 건지 구분
+    @State private var didLoginSuccessfully = false
 
     var body: some View {
         ZStack {
@@ -91,6 +93,12 @@ struct NativeLoginView: View {
                 ProgressView().scaleEffect(1.5)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.black.opacity(0.2))
+            }
+        }
+        // 시트가 드래그/취소로 닫힐 때도 홈으로 (로그인 성공 시는 goHome 건너뜀)
+        .onDisappear {
+            if !didLoginSuccessfully {
+                goHome()
             }
         }
     }
@@ -234,6 +242,8 @@ struct NativeLoginView: View {
                         "userJSON": userJSON,
                     ]
                 )
+                // onDisappear에서 goHome 호출 방지 (로그인 성공 경로임)
+                self.didLoginSuccessfully = true
                 self.dismiss()
             }
         }.resume()
