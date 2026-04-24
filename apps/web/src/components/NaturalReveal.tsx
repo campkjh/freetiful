@@ -9,18 +9,38 @@ const REVEAL_SELECTOR = [
   '.card-interactive',
   'main ul > li',
   'main tbody > tr',
-  'main .grid > *',
-  'main .space-y-2 > *',
-  'main .space-y-3 > *',
-  'main .space-y-4 > *',
-  'main .space-y-5 > *',
-  'main .space-y-6 > *',
+  'main [data-natural-list] > *',
+  'main [data-reveal-list] > *',
 ].join(',');
+
+function classText(el: HTMLElement) {
+  return typeof el.className === 'string' ? el.className : '';
+}
+
+function isPageManagedReveal(el: HTMLElement, root: Element) {
+  let current: HTMLElement | null = el;
+
+  while (current && current !== root) {
+    const cls = classText(current);
+    if (
+      cls.includes('section-reveal') ||
+      cls.includes('animate-fade-in') ||
+      cls.includes('animate-[') ||
+      (cls.includes('transition-all') && cls.includes('duration-700'))
+    ) {
+      return true;
+    }
+    current = current.parentElement;
+  }
+
+  return false;
+}
 
 function shouldReveal(el: HTMLElement) {
   if (el.dataset.naturalRevealBound === 'true') return false;
   if (el.closest('[data-no-natural-reveal], [data-natural-reveal-root="false"]')) return false;
   if (el.closest('[role="dialog"], [data-nav-pill]')) return false;
+  if (el.parentElement?.closest('[data-natural-reveal-bound="true"]')) return false;
   if (el.classList.contains('animate-pulse')) return false;
 
   const style = window.getComputedStyle(el);
@@ -42,8 +62,6 @@ export default function NaturalReveal() {
     let waitForMainObserver: MutationObserver | null = null;
 
     const setup = (root: Element) => {
-      const seenKey = `freetiful:natural-reveal:${pathname}`;
-      const seenThisPath = sessionStorage.getItem(seenKey) === '1';
       let initialSweep = true;
       let order = 0;
       const timers: number[] = [];
@@ -62,10 +80,10 @@ export default function NaturalReveal() {
 
       const bind = (el: HTMLElement) => {
         if (!shouldReveal(el)) return;
+        if (isPageManagedReveal(el, root)) return;
         el.dataset.naturalRevealBound = 'true';
 
-        if (initialSweep && seenThisPath) {
-          el.classList.add('natural-reveal-in');
+        if (initialSweep) {
           return;
         }
 
@@ -85,7 +103,6 @@ export default function NaturalReveal() {
 
       scan(root);
       initialSweep = false;
-      sessionStorage.setItem(seenKey, '1');
 
       const mutationObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
