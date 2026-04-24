@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.access_token) {
-    return NextResponse.json({ message: 'Kakao token exchange failed' }, { status: res.status || 502 });
+    return NextResponse.json({ message: 'Kakao token exchange failed' }, { status: res.ok ? 502 : res.status || 502 });
   }
 
   return NextResponse.json({ accessToken: data.access_token });
