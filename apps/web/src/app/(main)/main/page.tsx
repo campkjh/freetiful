@@ -1072,6 +1072,9 @@ export default function HomePage() {
   }, []);
 
   const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat);
+  const warmProsList = () => {
+    discoveryApi.getProList({ limit: 80, sort: 'pudding' }).catch(() => {});
+  };
 
   const toggleFavorite = (e: React.MouseEvent, proId: string) => {
     e.preventDefault();
@@ -1774,7 +1777,13 @@ export default function HomePage() {
                 <h3 className="section-title">인기 전문가</h3>
                 <p className="section-subtitle mt-1">고객 만족도가 높은 전문가를 만나보세요</p>
               </div>
-              <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
+              <Link
+                href="/pros"
+                onMouseEnter={warmProsList}
+                onTouchStart={warmProsList}
+                className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600"
+                style={{ transition: 'color 0.3s' }}
+              >
                 전체보기 <ChevronRight size={16} />
               </Link>
             </div>

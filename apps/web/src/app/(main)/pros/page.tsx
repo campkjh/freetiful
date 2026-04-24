@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, Star, MapPin, ChevronDown, Search, SlidersHorizontal, X, ChevronUp } from 'lucide-react';
+import { ChevronLeft, Star, ChevronDown, Search, SlidersHorizontal, X, ChevronUp } from 'lucide-react';
 import { Suspense } from 'react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
@@ -44,7 +44,105 @@ const PRICE_RANGES = [
 const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
 const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외국어사회자'];
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 10;
+
+function getRegionAliases(region: string) {
+  if (region === '전체') return [];
+  if (region === '서울/경기') return ['서울/경기', '서울', '경기', '인천', '수도권'];
+  if (region === '충청') return ['충청', '충북', '충남', '대전', '세종'];
+  if (region === '경상') return ['경상', '경북', '경남', '부산', '대구', '울산'];
+  if (region === '전라') return ['전라', '전북', '전남', '광주'];
+  return [region];
+}
+
+function matchesRegion(pro: ProItem, region: string) {
+  if (region === '전체') return true;
+  if (pro.isNationwide) return true;
+  const aliases = getRegionAliases(region);
+  return (pro.regions || []).some((r) => aliases.includes(r));
+}
+
+function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '120px 0px', threshold: 0.08 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`px-4 py-3 transition-all duration-500 ease-out ${
+        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
+      }`}
+      style={{ transitionDelay: `${Math.min(index % PAGE_SIZE, 6) * 35}ms` }}
+    >
+      <Link href={`/pros/${pro.id}`} className="group flex gap-3 rounded-xl active:scale-[0.985] transition-transform">
+        <div className="relative w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100 shrink-0">
+          <img
+            src={pro.image || '/images/default-profile.svg'}
+            alt={pro.name}
+            loading={index < 4 ? 'eager' : 'lazy'}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          {pro.isNationwide && (
+            <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-[#3180F7] shadow-sm">
+              전국
+            </span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0 flex flex-col py-0.5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[16px] font-bold text-gray-900 leading-tight">
+              {pro.categories[0] || '사회자'} {pro.name}
+            </p>
+            {pro.puddingRank > 0 && pro.puddingRank <= 10 && (
+              <span className="shrink-0 rounded-full bg-[#EAF3FF] px-2 py-0.5 text-[10px] font-bold text-[#3180F7]">
+                TOP {pro.puddingRank}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-0.5 mt-1">
+            <Star size={13} className="fill-yellow-400 text-yellow-400" />
+            <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
+            <span className="text-[13px] text-gray-400">({pro.reviews})</span>
+          </div>
+          <p className="text-[15px] font-bold text-gray-900 mt-1">
+            {pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}
+          </p>
+          <p className="text-[13px] text-gray-500 mt-2 line-clamp-2 leading-snug">
+            &ldquo;{pro.intro || '프리티풀 인증 전문가입니다'}&rdquo;
+          </p>
+          <div className="mt-auto pt-2 flex flex-wrap gap-1">
+            {pro.experience > 0 && (
+              <span className="rounded-[5px] bg-gray-100 px-1.5 py-1 text-[10px] font-semibold text-gray-600">
+                경력 {pro.experience}년
+              </span>
+            )}
+            {(pro.isNationwide ? ['전국가능'] : pro.regions.slice(0, 2)).map((tag) => (
+              <span key={tag} className="rounded-[5px] bg-gray-100 px-1.5 py-1 text-[10px] font-medium text-gray-500">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </Link>
+    </div>
+  );
+}
 
 // localStorage에서 등록된 사회자 데이터 가져오기
 function getRegisteredPro(): ProItem | null {
@@ -142,6 +240,7 @@ function ProsListContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setPage(1); }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType]);
 
@@ -174,7 +273,7 @@ function ProsListContent() {
       if (selectedType === '외국어사회자' && (!p.languages || p.languages.length === 0)) return false;
       if (selectedType !== '전체' && selectedType !== '외국어사회자' && !(p.categories || []).includes(selectedType)) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !(p.categories || []).some((c) => c.toLowerCase().includes(q))) return false;
-      if (selectedRegion !== '전체' && !p.isNationwide && !(p.regions || []).includes(selectedRegion)) return false;
+      if (!matchesRegion(p, selectedRegion)) return false;
       if (p.price < priceRange.min || p.price > priceRange.max) return false;
       return true;
     });
@@ -208,10 +307,21 @@ function ProsListContent() {
   const hasActiveFilters = selectedRegion !== '전체' || selectedPrice !== 0 || selectedLang !== '전체' || selectedType !== '전체';
   const activeFilterCount = (selectedRegion !== '전체' ? 1 : 0) + (selectedPrice !== 0 ? 1 : 0) + (selectedLang !== '전체' ? 1 : 0) + (selectedType !== '전체' ? 1 : 0);
 
-  const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-pros') : true);
-  useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-pros', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setPage((p) => p + 1);
+      },
+      { rootMargin: '480px 0px', threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, paginatedPros.length]);
 
-  if (loading) {
+  if (!apiLoaded && ALL_PROS.length === 0) {
     return (
       <div className="min-h-screen bg-white px-4 pt-14" style={{ letterSpacing: '-0.02em' }}>
         {/* Header skeleton */}
@@ -467,50 +577,17 @@ function ProsListContent() {
         {filtered.length > 0 ? (
           <div>
             <div className="divide-y divide-gray-100">
-              <>
-                {paginatedPros.map((pro, i) => (
-                  <div
-                    key={pro.id}
-                  >
-                    <div className="px-4 py-3">
-                      <div className="flex gap-3">
-                        <Link href={`/pros/${pro.id}`} className="shrink-0">
-                          <div className="w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100">
-                            <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
-                          </div>
-                        </Link>
-                        <div className="flex-1 min-w-0 flex flex-col">
-                          <Link href={`/pros/${pro.id}`} className="flex-1">
-                            <p className="text-[16px] font-bold text-gray-900">{pro.categories[0]|| '사회자'} {pro.name}</p>
-                            <div className="flex items-center gap-0.5 mt-1">
-                              <Star size={13} className="fill-yellow-400 text-yellow-400" />
-                              <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
-                              <span className="text-[13px] text-gray-400">({pro.reviews})</span>
-                            </div>
-                            <p className="text-[15px] font-bold text-gray-900 mt-1">{pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}</p>
-                            <p className="text-[13px] text-gray-500 mt-2 line-clamp-2 leading-snug">&ldquo;{pro.intro}&rdquo;</p>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </>
+              {paginatedPros.map((pro, i) => (
+                <ProListCard key={pro.id} pro={pro} index={i} />
+              ))}
             </div>
 
-            {/* Load More */}
             {hasMore && (
-              <div className="px-4 pb-6 pt-2">
-                <button
-                  onClick={() => setPage(p => p + 1)}
-                  className="w-full py-3.5 flex items-center justify-center gap-1.5 text-[14px] font-semibold text-gray-500 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  더보기
-                  <ChevronDown size={16} />
-                  <span className="text-[12px] text-gray-400 ml-1">
-                    {paginatedPros.length}/{filtered.length}
-                  </span>
-                </button>
+              <div ref={loadMoreRef} className="px-4 py-5">
+                <div className="flex items-center justify-center gap-2 text-[12px] font-medium text-gray-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-gray-300 animate-pulse" />
+                  {paginatedPros.length}/{filtered.length} 불러오는 중
+                </div>
               </div>
             )}
 
