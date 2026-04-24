@@ -34,6 +34,58 @@ export class AuthService {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
   }
 
+  /**
+   * 레거시 합성 이메일 유저(fromUserId)의 데이터를 현재 유저(toUserId) 로 이관.
+   * 카카오 앱 초기 /auth/kakao/mobile 쉼이 만든 별도 유저가 native 로그인 후
+   * 새 유저로 분리된 경우, 채팅방/멤버/결제 내역 등이 끊기지 않도록 병합.
+   */
+  private async mergeLegacyUserData(fromUserId: string, toUserId: string) {
+    // ChatRoom.userId 재매핑 (고객 측)
+    await this.prisma.chatRoom.updateMany({
+      where: { userId: fromUserId },
+      data: { userId: toUserId },
+    });
+    // ChatRoomMember 재매핑 — 중복(toUserId 가 이미 멤버) 은 먼저 삭제
+    const dupMembers = await this.prisma.chatRoomMember.findMany({
+      where: { userId: fromUserId },
+      select: { roomId: true },
+    });
+    if (dupMembers.length > 0) {
+      const roomIds = dupMembers.map((m) => m.roomId);
+      const existingToMembers = await this.prisma.chatRoomMember.findMany({
+        where: { userId: toUserId, roomId: { in: roomIds } },
+        select: { roomId: true },
+      });
+      const alreadyIn = new Set(existingToMembers.map((m) => m.roomId));
+      // to 가 이미 멤버인 룸에 대해서는 from 의 레코드를 제거
+      if (alreadyIn.size > 0) {
+        await this.prisma.chatRoomMember.deleteMany({
+          where: { userId: fromUserId, roomId: { in: Array.from(alreadyIn) } },
+        });
+      }
+      // 나머지는 userId 를 toUserId 로 교체
+      await this.prisma.chatRoomMember.updateMany({
+        where: { userId: fromUserId },
+        data: { userId: toUserId },
+      });
+    }
+    // ChatMessage.senderId 재매핑
+    await this.prisma.chatMessage.updateMany({
+      where: { senderId: fromUserId },
+      data: { senderId: toUserId },
+    });
+    // Payment.userId 재매핑 (있으면)
+    await this.prisma.payment.updateMany({
+      where: { userId: fromUserId },
+      data: { userId: toUserId },
+    }).catch(() => {});
+    // Quotation.userId 재매핑 (있으면)
+    await this.prisma.quotation.updateMany({
+      where: { userId: fromUserId },
+      data: { userId: toUserId },
+    }).catch(() => {});
+  }
+
   private async issueTokens(userId: string) {
     const accessToken = this.jwt.sign(
       { sub: userId },
@@ -126,6 +178,15 @@ export class AuthService {
             where: { id: user.id },
             data: { email: normalizedEmail },
           });
+        }
+      }
+      // 구 /auth/kakao/mobile 쉼 이후 native 로그인으로 별도 유저가 만들어진 케이스 →
+      // 레거시 유저(synthetic email)에 남아있는 채팅방/멤버 레코드를 현재 유저로 이관
+      if (provider === AuthProvider.kakao) {
+        const legacyEmail = `kakao_${info.providerUserId}@kakao.freetiful.com`;
+        const legacyUser = await this.prisma.user.findUnique({ where: { email: legacyEmail } });
+        if (legacyUser && legacyUser.id !== user.id) {
+          await this.mergeLegacyUserData(legacyUser.id, user.id).catch(() => {});
         }
       }
     } else {
