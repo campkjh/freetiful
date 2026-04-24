@@ -116,7 +116,7 @@ interface ProDetailData {
 
 // ─── Components ─────────────────────────────────────────────
 
-function RadarChart({ scores }: { scores: { label: string; value: number }[] }) {
+function RadarChart({ scores, empty = false }: { scores: { label: string; value: number }[]; empty?: boolean }) {
   const { ref, visible } = useReveal(0.3);
   const cx = 130;
   const cy = 130;
@@ -124,15 +124,24 @@ function RadarChart({ scores }: { scores: { label: string; value: number }[] }) 
   const n = scores.length;
   const total = scores.reduce((sum, s) => sum + s.value * (100 / 5), 0);
   const maxValue = Math.max(...scores.map((s) => s.value));
-  const bestIndices = scores.map((s, i) => s.value === maxValue ? i : -1).filter((i) => i >= 0);
+  const bestIndices = empty ? [] : scores.map((s, i) => s.value === maxValue ? i : -1).filter((i) => i >= 0);
 
   const getPoint = (i: number, scale: number) => {
     const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
     return { x: cx + Math.cos(angle) * r * scale, y: cy + Math.sin(angle) * r * scale };
   };
 
-  const bgPath = scores.map((_, i) => { const p = getPoint(i, 1); return `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`; }).join(' ') + ' Z';
-  const dataPath = scores.map((s, i) => { const p = getPoint(i, visible ? s.value / 5 : 0); return `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`; }).join(' ') + ' Z';
+  // 빈 상태에서는 3점 수준의 회색 레이다를 형태만 잡아 보여줌
+  const placeholderValue = 3;
+  const dataPath = scores.map((s, i) => {
+    const v = empty ? placeholderValue : s.value;
+    const p = getPoint(i, visible ? v / 5 : 0);
+    return `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`;
+  }).join(' ') + ' Z';
+
+  const fillColor = empty ? 'rgba(156,163,175,0.18)' : 'rgba(49,128,247,0.2)';
+  const strokeColor = empty ? '#9CA3AF' : '#3180F7';
+  const accentColor = empty ? '#9CA3AF' : '#3180F7';
 
   return (
     <div ref={ref} className="bg-gray-50 rounded-2xl p-5 mb-3">
@@ -140,14 +149,23 @@ function RadarChart({ scores }: { scores: { label: string; value: number }[] }) 
         {/* Left: total + tags */}
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-bold text-gray-500">총 포텐셜점수</p>
-          <p className="text-[28px] font-bold text-[#3180F7] leading-tight">{Math.round(total)}점</p>
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {scores.map((s) => (
-              <span key={s.label} className="px-2 h-[26px] rounded-full bg-white text-[10px] font-medium text-gray-600 flex items-center gap-1 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-                {s.label} <span className="font-bold text-[#3180F7]">{s.value.toFixed(1)}</span>
-              </span>
-            ))}
-          </div>
+          {empty ? (
+            <>
+              <p className="text-[28px] font-bold text-gray-300 leading-tight">—</p>
+              <p className="text-[12px] text-gray-400 mt-1 leading-snug">아직 충분한 평가가<br/>없습니다</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[28px] font-bold text-[#3180F7] leading-tight">{Math.round(total)}점</p>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {scores.map((s) => (
+                  <span key={s.label} className="px-2 h-[26px] rounded-full bg-white text-[10px] font-medium text-gray-600 flex items-center gap-1 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                    {s.label} <span className="font-bold text-[#3180F7]">{s.value.toFixed(1)}</span>
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right: radar chart SVG */}
@@ -168,15 +186,16 @@ function RadarChart({ scores }: { scores: { label: string; value: number }[] }) 
             {/* Data fill */}
             <path
               d={dataPath}
-              fill="rgba(49,128,247,0.2)"
-              stroke="#3180F7"
+              fill={fillColor}
+              stroke={strokeColor}
               strokeWidth="2"
               strokeLinejoin="round"
+              strokeDasharray={empty ? '4 4' : undefined}
               style={{ transition: 'all 1.2s cubic-bezier(0.22, 1, 0.36, 1)' }}
             />
 
             {/* Data dots */}
-            {scores.map((s, i) => {
+            {!empty && scores.map((s, i) => {
               const p = getPoint(i, visible ? s.value / 5 : 0);
               return (
                 <circle
@@ -184,7 +203,7 @@ function RadarChart({ scores }: { scores: { label: string; value: number }[] }) 
                   cx={p.x}
                   cy={p.y}
                   r={3}
-                  fill="#3180F7"
+                  fill={accentColor}
                   style={{ transition: `all 1.2s cubic-bezier(0.22, 1, 0.36, 1) ${i * 80}ms` }}
                 />
               );
@@ -202,7 +221,7 @@ function RadarChart({ scores }: { scores: { label: string; value: number }[] }) 
                     textAnchor="middle"
                     dominantBaseline="middle"
                     className="text-[13px] font-semibold"
-                    fill={isBest ? '#1a1a1a' : '#6B7280'}
+                    fill={empty ? '#9CA3AF' : (isBest ? '#1a1a1a' : '#6B7280')}
                   >
                     {s.label}
                   </text>
@@ -1259,7 +1278,7 @@ export default function ProDetailPage() {
           <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
         </div>
 
-        {/* Radar Chart - derived from review scores (리뷰에 점수가 있을 때만 노출) */}
+        {/* Radar Chart - 리뷰 세부 점수 평균. 데이터가 없으면 회색 빈 상태로 안내 */}
         {(() => {
           const reviewsWithScores = pro.reviews.filter(r => r.scores);
           const keys = ['경력', '만족도', '위트', '발성', '이미지', '구성력'];
@@ -1269,11 +1288,10 @@ export default function ProDetailPage() {
           };
           const scoreItems = keys.map((label) => ({ label, value: avgScore(label) }));
           const hasAnyScore = scoreItems.some((s) => s.value > 0);
-          if (!hasAnyScore) return null;
           return (
             <>
-              <RadarChart scores={scoreItems} />
-              <ScoreBars items={scoreItems} />
+              <RadarChart scores={scoreItems} empty={!hasAnyScore} />
+              {hasAnyScore && <ScoreBars items={scoreItems} />}
             </>
           );
         })()}
