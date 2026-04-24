@@ -115,27 +115,58 @@ export class AuthService {
 
     if (authRecord) {
       user = authRecord.user;
-    } else if (normalizedEmail) {
-      // 1차: 정규화된 이메일로 정확히 일치하는 유저 검색
-      let existing = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
-      // 2차: 대소문자 무관하게 검색 (기존 DB 의 대소문자 혼재 대응)
-      if (!existing) {
-        existing = await this.prisma.user.findFirst({
-          where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+    } else {
+      // 구 /auth/kakao/mobile 쉼(shim)이 만든 합성 이메일 유저를 먼저 찾아 실제 이메일로 마이그레이션
+      // (kakao_{providerUserId}@kakao.freetiful.com 형식)
+      const legacyEmail =
+        provider === AuthProvider.kakao
+          ? `kakao_${info.providerUserId}@kakao.freetiful.com`
+          : undefined;
+      const legacyUser = legacyEmail
+        ? await this.prisma.user.findUnique({ where: { email: legacyEmail } })
+        : null;
+
+      if (legacyUser) {
+        user = await this.prisma.user.update({
+          where: { id: legacyUser.id },
+          data: {
+            email: normalizedEmail ?? null,
+            ...(info.name && !legacyUser.name ? { name: info.name } : {}),
+            ...(info.profileImageUrl && !legacyUser.profileImageUrl
+              ? { profileImageUrl: info.profileImageUrl }
+              : {}),
+          },
         });
-      }
-      if (existing) {
         await this.prisma.authProviderRecord.create({
-          data: { userId: existing.id, provider, providerUserId: info.providerUserId, providerEmail: normalizedEmail },
+          data: {
+            userId: user.id,
+            provider,
+            providerUserId: info.providerUserId,
+            providerEmail: normalizedEmail,
+          },
         });
-        user = existing;
+      } else if (normalizedEmail) {
+        // 1차: 정규화된 이메일로 정확히 일치하는 유저 검색
+        let existing = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+        // 2차: 대소문자 무관하게 검색 (기존 DB 의 대소문자 혼재 대응)
+        if (!existing) {
+          existing = await this.prisma.user.findFirst({
+            where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+          });
+        }
+        if (existing) {
+          await this.prisma.authProviderRecord.create({
+            data: { userId: existing.id, provider, providerUserId: info.providerUserId, providerEmail: normalizedEmail },
+          });
+          user = existing;
+        } else {
+          user = await this.createUser(provider, { ...info, providerEmail: normalizedEmail }, { email: normalizedEmail });
+          isNewUser = true;
+        }
       } else {
-        user = await this.createUser(provider, { ...info, providerEmail: normalizedEmail }, { email: normalizedEmail });
+        user = await this.createUser(provider, info);
         isNewUser = true;
       }
-    } else {
-      user = await this.createUser(provider, info);
-      isNewUser = true;
     }
 
     const tokens = await this.issueTokens(user.id);
