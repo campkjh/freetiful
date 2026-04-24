@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Providers from './providers';
 import AppToaster from '@/components/AppToaster';
 import UpdateNotifier from '@/components/UpdateNotifier';
@@ -16,6 +16,13 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     type: 'website',
   },
+};
+
+// viewport-fit=cover — iOS/Android WebView에서 env(safe-area-inset-*) 활성화
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
