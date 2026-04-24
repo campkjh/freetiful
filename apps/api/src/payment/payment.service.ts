@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { PuddingService } from '../pudding/pudding.service';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 
@@ -21,6 +22,7 @@ export class PaymentService {
     private prisma: PrismaService,
     private config: ConfigService,
     private notificationService: NotificationService,
+    private pudding: PuddingService,
   ) {
     this.tossSecretKey = this.config.get<string>('TOSS_SECRET_KEY', '');
   }
@@ -257,6 +259,9 @@ export class PaymentService {
         ).catch(() => {});
       }
     } catch {}
+
+    // 거래 성사 푸딩 +300 (결제 완료 시점 — 프로의 수락 여부와 무관하게 "거래 성사"로 간주)
+    this.pudding.awardDealCompleted(payment.proProfileId, payment.id).catch(() => {});
 
     return updatedPayment;
   }

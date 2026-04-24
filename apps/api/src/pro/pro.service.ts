@@ -14,6 +14,7 @@ import { ImageService, ImageProcessOptions } from '../image/image.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { NotificationService } from '../notification/notification.service';
 import { PaymentService } from '../payment/payment.service';
+import { PuddingService } from '../pudding/pudding.service';
 
 @Injectable()
 export class ProService implements OnModuleInit {
@@ -25,6 +26,7 @@ export class ProService implements OnModuleInit {
     private notification: NotificationService,
     @Inject(forwardRef(() => PaymentService))
     private paymentService: PaymentService,
+    private pudding: PuddingService,
   ) {}
 
   // 서버 시작 시 기존 프로 유저들의 User.profileImageUrl 이 비어있으면
@@ -751,10 +753,19 @@ export class ProService implements OnModuleInit {
   }
 
   async incrementProfileView(proProfileId: string) {
-    await this.prisma.proProfile.update({
+    const before = await this.prisma.proProfile.findUnique({
+      where: { id: proProfileId },
+      select: { profileViews: true },
+    });
+    const beforeCount = before?.profileViews || 0;
+    const updated = await this.prisma.proProfile.update({
       where: { id: proProfileId },
       data: { profileViews: { increment: 1 } },
+      select: { profileViews: true },
     });
+    // 100회 경계 넘을 때마다 푸딩 +100 지급 (fire-and-forget)
+    this.pudding.awardProfileViewsIfCrossed100(proProfileId, beforeCount, updated.profileViews)
+      .catch(() => {});
     return { ok: true };
   }
 

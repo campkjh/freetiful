@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
+import { PuddingService } from '../pudding/pudding.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CreateChatRoomDto,
@@ -28,6 +29,7 @@ export class ChatService {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private imageService: ImageService,
+    private pudding: PuddingService,
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
@@ -160,6 +162,9 @@ export class ChatService {
       `${inquiryUser?.name || '고객'}님이 채팅 문의를 보냈습니다.`,
       { roomId: room.id },
     ).catch(() => {});
+
+    // 새 채팅 도착 푸딩 +50 (pro 입장)
+    this.pudding.awardNewChatReceived(room.proProfileId, room.id).catch(() => {});
 
     // 추가 쿼리 없이 응답 조립 (이미 pro join을 받아놨음)
     return {
@@ -592,6 +597,22 @@ export class ChatService {
           preview || '새 메시지가 도착했습니다.',
           { roomId, messageId: message.id },
         ).catch(() => {});
+      }
+    } catch {}
+
+    // 프로가 고객에게 답변 시 푸딩 +50 (해당 고객에 대해 1회)
+    try {
+      const room = await this.prisma.chatRoom.findUnique({
+        where: { id: roomId },
+        select: {
+          userId: true,
+          proProfileId: true,
+          proProfile: { select: { userId: true, id: true } },
+        },
+      });
+      if (room?.proProfile?.userId === userId && room.userId) {
+        // 발신자가 이 방의 프로 → 고객에게 보낸 답변
+        this.pudding.awardRepliedToCustomer(room.proProfileId, room.userId).catch(() => {});
       }
     } catch {}
 

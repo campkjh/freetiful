@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PuddingService } from './pudding.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -30,5 +30,16 @@ export class PuddingController {
   @Get('pro/pudding/rank')
   getRankings(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.pudding.getRankings(+page, +limit);
+  }
+
+  @Post('pro/pudding/attendance')
+  async checkAttendance(@Request() req: any) {
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+    if (!profile) return { granted: false, alreadyToday: false, amount: 0 };
+    const result = await this.pudding.awardDailyAttendance(profile.id);
+    return { ...result, amount: result.granted ? 50 : 0 };
   }
 }

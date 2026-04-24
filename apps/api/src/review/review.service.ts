@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { PuddingService } from '../pudding/pudding.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class ReviewService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private pudding: PuddingService,
   ) {}
 
   /** 리뷰 작성 */
@@ -121,6 +123,9 @@ export class ReviewService {
       { reviewId: review.id, proProfileId: data.proProfileId },
     ).catch(() => {});
 
+    // 리뷰 받음 푸딩 +100
+    this.pudding.awardReviewReceived(data.proProfileId, review.id).catch(() => {});
+
     return review;
   }
 
@@ -199,6 +204,9 @@ export class ReviewService {
       `${proName} 사회자가 회원님의 리뷰에 답글을 달았습니다.`,
       { reviewId, proProfileId },
     ).catch(() => {});
+
+    // 리뷰 답글 푸딩 +100 (같은 리뷰 중복 방지)
+    this.pudding.awardReviewReply(proProfileId, reviewId).catch(() => {});
 
     return updated;
   }

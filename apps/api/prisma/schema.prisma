@@ -93,6 +93,14 @@ enum PuddingReason {
   perfect_review
   info_registered
   referral_joined
+  // 2026-04 신규: 활동 기반 지급 규칙
+  daily_attendance      // 매일 출석체크 +50
+  review_received       // 고객 리뷰 작성 +100
+  deal_completed        // 거래 성사 +300
+  new_chat_received     // 새 채팅 도착 +50
+  replied_to_customer   // 고객 채팅에 답변 (1회/고객) +50
+  review_reply          // 고객 리뷰에 답글 +100
+  profile_views_100     // 프로필 조회 100회 단위 +100
 }
 
 enum NotificationType {

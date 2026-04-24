@@ -429,14 +429,25 @@ export default function ProDashboardPage() {
     }).catch(() => {});
   }, [authUser]);
 
-  // Fetch pudding from API
+  // Fetch pudding from API + 일일 출석체크 (하루 1회 +50)
   useEffect(() => {
     if (!authUser) return;
-    apiClient.get('/api/v1/pro/pudding')
+    // 1) 출석체크 먼저 (granted 시 toast)
+    apiClient.post('/api/v1/pro/pudding/attendance')
       .then((res) => {
-        if (res.data?.balance != null) setPuddingCount(res.data.balance);
+        if (res.data?.granted) {
+          toast.success('출석체크 완료! +50 푸딩 🍮', { duration: 2500 });
+        }
       })
-      .catch(() => { /* fallback */ });
+      .catch(() => { /* silently ignore */ })
+      .finally(() => {
+        // 2) balance 조회 (출석체크 후 최신값)
+        apiClient.get('/api/v1/pro/pudding')
+          .then((res) => {
+            if (res.data?.balance != null) setPuddingCount(res.data.balance);
+          })
+          .catch(() => {});
+      });
   }, [authUser]);
 
   // Fetch revenue stats

@@ -6,9 +6,10 @@ import { ChatGateway } from './chat.gateway';
 import { NotificationModule } from '../notification/notification.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ImageModule } from '../image/image.module';
+import { PuddingModule } from '../pudding/pudding.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, NotificationModule, ImageModule],
+  imports: [AuthModule, PrismaModule, NotificationModule, ImageModule, PuddingModule],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway],
   exports: [ChatService],
