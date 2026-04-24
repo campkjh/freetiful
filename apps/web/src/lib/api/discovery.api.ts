@@ -121,6 +121,39 @@ export function getCachedProList(params?: ProListParams): { data: ProListItem[];
   return stored;
 }
 
+export function getCachedProSearchPool(): ProListItem[] {
+  const seen = new Set<string>();
+  const rows: ProListItem[] = [];
+  const addRows = (payload: any) => {
+    getRowsFromListPayload(payload).forEach((item) => {
+      if (!item?.id || seen.has(item.id)) return;
+      seen.add(item.id);
+      rows.push(item);
+    });
+  };
+
+  const now = Date.now();
+  cache.forEach((value, key) => {
+    if (!key.startsWith('list:') || now - value.ts >= TTL) return;
+    addRows(value.data);
+  });
+
+  if (typeof window !== 'undefined') {
+    try {
+      Object.keys(localStorage).forEach((key) => {
+        if (!key.startsWith(STORAGE_PREFIX + 'list:')) return;
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.ts || now - parsed.ts > TTL) return;
+        addRows(parsed.data);
+      });
+    } catch {}
+  }
+
+  return rows;
+}
+
 export function getCachedProPreview(id: string): ProListItem | null {
   const preview = previewCache.get(id);
   if (preview && Date.now() - preview.ts < TTL) return preview.data;

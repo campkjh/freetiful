@@ -102,7 +102,8 @@ export class DiscoveryService implements OnModuleInit {
   }) {
     const page = Number(params.page) || 1;
     const limit = Math.min(Number(params.limit) || 20, 100);
-    const { search, sort = 'rating', gender, minPrice, maxPrice, featured, region } = params;
+    const { sort = 'rating', gender, minPrice, maxPrice, featured, region } = params;
+    const search = params.search?.trim();
     const withTotal = params.withTotal !== false;
 
     const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured, region, withTotal });
@@ -124,6 +125,11 @@ export class DiscoveryService implements OnModuleInit {
         { user: { name: { contains: search, mode: 'insensitive' } } },
         { shortIntro: { contains: search, mode: 'insensitive' } },
         { mainExperience: { contains: search, mode: 'insensitive' } },
+        { categories: { some: { category: { name: { contains: search, mode: 'insensitive' } } } } },
+        { regions: { some: { region: { name: { contains: search, mode: 'insensitive' } } } } },
+        { services: { some: { isActive: true, title: { contains: search, mode: 'insensitive' } } } },
+        { services: { some: { isActive: true, description: { contains: search, mode: 'insensitive' } } } },
+        { tags: { has: search } },
       ];
     }
     if (gender) where.gender = gender;

@@ -1124,7 +1124,7 @@ export default function HomePage() {
 
   const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat);
   const warmProsList = () => {
-    discoveryApi.getProList({ limit: 80, sort: 'pudding', withTotal: false }).catch(() => {});
+    discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false }).catch(() => {});
   };
 
   const toggleFavorite = (e: React.MouseEvent, proId: string) => {
@@ -1230,6 +1230,8 @@ export default function HomePage() {
           {/* Search bar - expands with bounce */}
           <Link
             href="/search"
+            onTouchStart={warmProsList}
+            onMouseEnter={warmProsList}
             className="flex items-center gap-2 bg-surface-100 rounded-full px-3 py-2.5 hover:bg-surface-200/80"
             style={{
               flex: 1,
