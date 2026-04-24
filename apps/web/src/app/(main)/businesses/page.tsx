@@ -12,6 +12,7 @@ import { apiClient } from '@/lib/api/client';
 interface RankItem {
   id: string;
   rank: number;
+  category: string;
   title: string;
   region: string;
   clinic: string;
@@ -55,7 +56,7 @@ const BUSINESS_CACHE_TTL = 5 * 60_000;
 export default function BusinessListPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-biz') : true);
-  const [selectedRegion, setSelectedRegion] = useState('경기');
+  const [selectedRegion, setSelectedRegion] = useState('전국');
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -86,21 +87,22 @@ export default function BusinessListPage() {
             const address = b.address || '';
             const region = address.split(' ')[0] || categories[0] || '';
             return {
-            id: b.id || String(i),
-            rank: b.rank || i + 1,
-            title: b.title || b.name || b.businessName || '',
-            region: b.region || region,
-            clinic: b.clinic || categories.join(' · ') || region || b.businessType || '',
-            rating: b.rating ?? 0,
-            reviewCount: b.reviewCount ?? 0,
-            originalPrice: b.originalPrice,
-            discountPercent: b.discountPercent,
-            finalPrice: b.finalPrice ?? b.price ?? 0,
-            hasAppPay: b.hasAppPay ?? false,
-            hasAppBooking: b.hasAppBooking ?? false,
-            image: b.image || b.imageUrl || primaryImage || '/images/default-profile.svg',
-            verifiedBadge: b.verifiedBadge,
-          };
+              id: b.id || String(i),
+              rank: b.rank || i + 1,
+              category: categories[0] || b.businessType || '전체',
+              title: b.title || b.name || b.businessName || '',
+              region: b.region || region,
+              clinic: b.clinic || categories.join(' · ') || region || b.businessType || '',
+              rating: b.rating ?? 0,
+              reviewCount: b.reviewCount ?? 0,
+              originalPrice: b.originalPrice,
+              discountPercent: b.discountPercent,
+              finalPrice: b.finalPrice ?? b.price ?? 0,
+              hasAppPay: b.hasAppPay ?? false,
+              hasAppBooking: b.hasAppBooking ?? false,
+              image: b.image || b.imageUrl || primaryImage || '/images/default-profile.svg',
+              verifiedBadge: b.verifiedBadge,
+            };
           });
           setRankItems(mapped);
           try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: mapped, ts: Date.now() })); } catch {}
@@ -146,6 +148,16 @@ export default function BusinessListPage() {
   };
 
   const totalActiveFilters = Object.values(filters).reduce((sum, set) => sum + set.size, 0);
+  const activeFilterValues = Object.values(filters).flatMap((set) => Array.from(set));
+  const visibleRankItems = rankItems.filter((item) => {
+    const categoryMatched = selectedCategory === '전체' || item.category === selectedCategory || item.clinic.includes(selectedCategory);
+    const regionMatched = selectedRegion === '전국' || selectedRegion === '내 위치' || item.region.includes(selectedRegion);
+    const detailMatched = activeFilterValues.length === 0 || activeFilterValues.some((value) => {
+      const target = `${item.title} ${item.region} ${item.clinic} ${item.category}`;
+      return target.includes(value);
+    });
+    return categoryMatched && regionMatched && detailMatched;
+  });
 
   if (loading) {
     return (
@@ -386,7 +398,7 @@ export default function BusinessListPage() {
 
       {/* ─── Rank Items ─── */}
       <div className="divide-y divide-gray-50">
-        {rankItems.map((item) => (
+        {visibleRankItems.map((item) => (
           <Link
             key={item.id}
             href={`/businesses/${item.id}`}
@@ -487,6 +499,21 @@ export default function BusinessListPage() {
           </Link>
         ))}
       </div>
+      {visibleRankItems.length === 0 && (
+        <div className="px-4 py-16 text-center">
+          <p className="text-[14px] font-semibold text-gray-500">조건에 맞는 업체가 없습니다</p>
+          <button
+            onClick={() => {
+              setSelectedCategory('전체');
+              setSelectedRegion('전국');
+              clearAllFilters();
+            }}
+            className="mt-3 px-4 h-[36px] rounded-full bg-gray-900 text-white text-[13px] font-bold active:scale-95 transition-transform"
+          >
+            필터 초기화
+          </button>
+        </div>
+      )}
 
       {/* ─── Scroll to Top ─── */}
       <button

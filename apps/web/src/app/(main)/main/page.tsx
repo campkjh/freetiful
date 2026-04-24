@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { apiClient } from '@/lib/api/client';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 
@@ -321,7 +322,8 @@ interface BusinessPartner {
 const BIZ_CATEGORIES = ['전체', '웨딩홀', '드레스', '피부과', '스튜디오', '헤어', '메이크업', '스냅'];
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
-const MOCK_BUSINESSES: BusinessPartner[] = [];
+const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v1';
+const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 function BusinessCard({ biz }: { biz: BusinessPartner }) {
   // 가상의 리뷰 데이터 (나중에 실제 데이터로 교체)
@@ -826,6 +828,49 @@ export default function HomePage() {
 
   // Use API data only - no mock fallback
   const prosData = apiPros || [];
+  const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
+
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(BUSINESS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.ts < BUSINESS_CACHE_TTL && Array.isArray(parsed.data)) {
+          setBusinesses(parsed.data);
+        }
+      }
+    } catch {}
+
+    let cancelled = false;
+    apiClient.get('/api/v1/business', { params: { limit: 12 } })
+      .then((res) => {
+        if (cancelled) return;
+        const items = Array.isArray(res.data) ? res.data : res.data?.items;
+        if (!Array.isArray(items)) return;
+        const mapped: BusinessPartner[] = items.map((b: any, i: number) => {
+          const categories = Array.isArray(b.categories)
+            ? b.categories.map((c: any) => c?.category?.name).filter(Boolean)
+            : [];
+          const primaryImage = Array.isArray(b.images) ? b.images[0]?.imageUrl : undefined;
+          const address = b.address || '';
+          return {
+            id: b.id || String(i),
+            category: categories[0] || b.businessType || '웨딩홀',
+            name: b.businessName || b.name || b.title || '웨딩 파트너',
+            location: address.split(' ')[0] || b.region || '전국',
+            images: [b.image || b.imageUrl || primaryImage || '/images/default-profile.svg'],
+            tags: categories.length > 0 ? categories.slice(0, 3) : [b.businessType || '파트너'],
+            originalPrice: b.originalPrice ?? 0,
+            discountPercent: b.discountPercent ?? 0,
+          };
+        }).filter((b: BusinessPartner) => b.name.trim().length > 0);
+        setBusinesses(mapped);
+        try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: mapped, ts: Date.now() })); } catch {}
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, []);
 
   // 현재 위치 기반 지역 감지 (지역별 사회자 섹션에서 사용)
   const [myRegion, setMyRegion] = useState<string | null>(null);
@@ -962,7 +1007,7 @@ export default function HomePage() {
     return () => ro.disconnect();
   }, []);
 
-  const filteredBiz = MOCK_BUSINESSES.filter((b) => !selectedBizCat || b.category === selectedBizCat);
+  const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat);
 
   const toggleFavorite = (e: React.MouseEvent, proId: string) => {
     e.preventDefault();
