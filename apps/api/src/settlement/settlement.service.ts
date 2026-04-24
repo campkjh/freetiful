@@ -23,13 +23,12 @@ export class SettlementService {
     const where: any = { proProfileId: profile.id };
     if (params?.status) where.status = params.status;
 
-    const [data, totalCount, aggregates] = await Promise.all([
+    const [rawData, totalCount, aggregates] = await Promise.all([
       this.prisma.settlementLog.findMany({
         where,
         include: {
           payment: {
             include: {
-              user: { select: { id: true, name: true } },
               quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
             },
           },
@@ -46,6 +45,20 @@ export class SettlementService {
         _count: true,
       }),
     ]);
+
+    // Payment → user 관계가 스키마에 없어서 별도로 User 조회 후 머지
+    const userIds = Array.from(new Set(rawData.map((r) => r.payment.userId)));
+    const users = userIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const data = rawData.map((r) => ({
+      ...r,
+      payment: { ...r.payment, user: userMap.get(r.payment.userId) || null },
+    }));
 
     const pendingAgg = aggregates.find((a) => a.status === 'pending');
     const settledAgg = aggregates.find((a) => a.status === 'settled');
@@ -74,7 +87,7 @@ export class SettlementService {
     const limit = params?.limit || 30;
     const page = params?.page || 1;
 
-    const [data, total, aggregates] = await Promise.all([
+    const [rawData, total, aggregates] = await Promise.all([
       this.prisma.settlementLog.findMany({
         where,
         include: {
@@ -87,9 +100,9 @@ export class SettlementService {
           payment: {
             select: {
               id: true,
+              userId: true,
               amount: true,
               createdAt: true,
-              user: { select: { id: true, name: true } },
               quotations: { select: { title: true, eventDate: true }, orderBy: { createdAt: 'desc' }, take: 1 },
             },
           },
@@ -106,6 +119,20 @@ export class SettlementService {
         _count: true,
       }),
     ]);
+
+    // Payment.user 관계가 스키마에 없어서 별도 쿼리로 User 머지
+    const userIds = Array.from(new Set(rawData.map((r) => r.payment.userId)));
+    const users = userIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const data = rawData.map((r) => ({
+      ...r,
+      payment: { ...r.payment, user: userMap.get(r.payment.userId) || null },
+    }));
 
     const summary = {
       pendingCount: aggregates.find((a) => a.status === 'pending')?._count || 0,
