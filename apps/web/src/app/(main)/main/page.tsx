@@ -20,20 +20,25 @@ function isIOSWebView(): boolean {
   return /iPhone|iPad|iPod/.test(ua) && !/Safari/.test(ua) && !/CriOS/.test(ua);
 }
 
-/* ─── 30초 이내 재방문 시 애니메이션 스킵 (모듈 레벨로 한 번만 계산) ─── */
-let _homeSkipResolved = false;
+/* ─── 홈 애니메이션은 세션 첫 진입 때만 실행 ───────────────────── */
+let _homeSkipPrepared = false;
 let _homeSkipValue = false;
-function shouldSkipHomeAnim(): boolean {
+function prepareHomeAnimationDecision() {
   if (typeof window === 'undefined') return false;
-  if (_homeSkipResolved) return _homeSkipValue;
+  if (_homeSkipPrepared) return _homeSkipValue;
   try {
-    const last = Number(sessionStorage.getItem('home-visited-at') || '0');
-    _homeSkipValue = !!(last && Date.now() - last < 30000);
-    sessionStorage.setItem('home-visited-at', String(Date.now()));
+    const alreadyPlayed = sessionStorage.getItem('home-animation-played') === '1';
+    _homeSkipValue = alreadyPlayed;
+    if (!alreadyPlayed) sessionStorage.setItem('home-animation-played', '1');
   } catch { _homeSkipValue = false; }
-  _homeSkipResolved = true;
-  // 1초 후 플래그 리셋하여 다음 진입에 다시 평가
-  setTimeout(() => { _homeSkipResolved = false; }, 1000);
+  _homeSkipPrepared = true;
+  return _homeSkipValue;
+}
+function resetHomeAnimationDecision() {
+  _homeSkipPrepared = false;
+}
+function shouldSkipHomeAnim(): boolean {
+  prepareHomeAnimationDecision();
   return _homeSkipValue;
 }
 
@@ -434,13 +439,14 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
   toggleFavorite: (e: React.MouseEvent, id: string) => void;
   index: number;
 }) {
+  const skipAnim = shouldSkipHomeAnim();
   return (
     <Link
       href={`/pros/${pro.id}`}
       onTouchStart={() => discoveryApi.getProDetail(pro.id)}
       onMouseEnter={() => discoveryApi.getProDetail(pro.id)}
-      className="block opacity-0 animate-fade-in group card-press"
-      style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
+      className={`block group card-press ${skipAnim ? 'opacity-100' : 'opacity-0 animate-fade-in'}`}
+      style={skipAnim ? undefined : { animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
     >
       <div className="relative rounded-xl overflow-hidden">
         {/* Mobile: single 3:4 image */}
@@ -746,8 +752,10 @@ function CategorySwiper() {
 }
 
 export default function HomePage() {
+  prepareHomeAnimationDecision();
   const authUser = useAuthStore((s) => s.user);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
+  useEffect(() => () => resetHomeAnimationDecision(), []);
 
   /* hero 자동재생 영상 — iOS WebView는 autoPlay가 fullscreen 강제 트리거하므로
      서버 HTML엔 autoPlay 없이 렌더 + iOS 아닌 경우만 JS로 play() 호출 */
