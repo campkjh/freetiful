@@ -194,10 +194,13 @@ export class NotificationService {
   }
 
   async deleteNotification(userId: string, notificationId: string) {
-    await this.prisma.notification.deleteMany({
+    const result = await this.prisma.notification.deleteMany({
       where: { id: notificationId, userId },
     });
-    return { ok: true };
+    if (result.count === 0) {
+      throw new NotFoundException('Notification not found');
+    }
+    return { ok: true, deletedCount: result.count };
   }
 
   async deleteAll(userId: string) {

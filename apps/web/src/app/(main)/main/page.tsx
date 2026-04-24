@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
+import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
 
 /* iOS WKWebView 감지 — autoplay 영상 강제 풀스크린 우회용 */
 function isIOSWebView(): boolean {
@@ -754,8 +755,31 @@ function CategorySwiper() {
 export default function HomePage() {
   prepareHomeAnimationDecision();
   const authUser = useAuthStore((s) => s.user);
+  const [unreadNotifications, setUnreadNotifications] = useState(() => getCachedUnreadCount());
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
   useEffect(() => () => resetHomeAnimationDecision(), []);
+
+  useEffect(() => {
+    if (!authUser) {
+      setUnreadNotifications(0);
+      return;
+    }
+
+    const syncUnreadCount = () => {
+      setUnreadNotifications(getCachedUnreadCount());
+    };
+    syncUnreadCount();
+    notificationApi.getUnreadCount()
+      .then((res) => setUnreadNotifications(res.count ?? 0))
+      .catch(() => {});
+
+    window.addEventListener('freetiful:notifications-changed', syncUnreadCount);
+    window.addEventListener('focus', syncUnreadCount);
+    return () => {
+      window.removeEventListener('freetiful:notifications-changed', syncUnreadCount);
+      window.removeEventListener('focus', syncUnreadCount);
+    };
+  }, [authUser]);
 
   /* hero 자동재생 영상 — iOS WebView는 autoPlay가 fullscreen 강제 트리거하므로
      서버 HTML엔 autoPlay 없이 렌더 + iOS 아닌 경우만 JS로 play() 호출 */
@@ -1229,7 +1253,9 @@ export default function HomePage() {
             }}
           >
             <Bell size={20} className="text-gray-700" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary-500 rounded-full ring-2 ring-white" />
+            {unreadNotifications > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary-500 rounded-full ring-2 ring-white" />
+            )}
           </Link>
         </div>
       </div>

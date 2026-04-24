@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -150,24 +150,32 @@ export default function NotificationsPage() {
   });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const loadNotifications = useCallback(async () => {
     if (!authUser) return;
     setLoading(true);
-    notificationApi.getList({ page: 1, limit: 50 })
-      .then((res: any) => {
-        const items = res?.data || (Array.isArray(res) ? res : []);
-        setNotifications(items.map(mapFromApi));
-      })
-      .catch(() => { /* keep cache */ })
-      .finally(() => setLoading(false));
+    try {
+      const res: any = await notificationApi.getList({ page: 1, limit: 50 });
+      const items = res?.data || (Array.isArray(res) ? res : []);
+      setNotifications(items.map(mapFromApi));
+    } finally {
+      setLoading(false);
+    }
   }, [authUser]);
+
+  useEffect(() => {
+    loadNotifications().catch(() => { /* keep cache */ });
+  }, [loadNotifications]);
 
   async function handleDelete(id: string) {
     // Optimistic
+    const previousNotifications = notifications;
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     try {
       await notificationApi.deleteOne(id);
-    } catch { /* 실패 시 재로드 */ }
+    } catch {
+      setNotifications(previousNotifications);
+      loadNotifications().catch(() => {});
+    }
   }
 
   async function handleNotifClick(notif: Notification) {
@@ -199,7 +207,9 @@ export default function NotificationsPage() {
             <button
               onClick={() => {
                 setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-                notificationApi.markAllAsRead().catch(() => {});
+                notificationApi.markAllAsRead().catch(() => {
+                  loadNotifications().catch(() => {});
+                });
               }}
               className="ml-auto text-[11px] text-[#3180F7] font-medium"
             >

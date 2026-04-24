@@ -96,7 +96,6 @@ function mapNotif(n: any): Notification {
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   // 캐시된 알림을 즉시 표시
   const [items, setItems] = useState<Notification[]>(() => {
     const cached: any = getCachedNotifications();
@@ -104,23 +103,20 @@ export default function NotificationsPage() {
     return [];
   });
   const authUser = useAuthStore((s) => s.user);
-  useEffect(() => {
-    const loggedIn = authUser !== null;
-    setIsLoggedIn(loggedIn);
 
-    // Fetch from API first
-    if (authUser) {
-      notificationApi.getList({ limit: 50 })
-        .then((res: any) => {
-          if (res.data?.length > 0) {
-            setItems(res.data.map(mapNotif));
-            return;
-          }
-        })
-        .catch(() => {});
+  const loadNotifications = useCallback(async () => {
+    if (!authUser) {
+      setItems([]);
+      return;
     }
-
+    const res: any = await notificationApi.getList({ limit: 50 });
+    const nextItems = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+    setItems(nextItems.map(mapNotif));
   }, [authUser]);
+
+  useEffect(() => {
+    loadNotifications().catch(() => {});
+  }, [loadNotifications]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -134,17 +130,28 @@ export default function NotificationsPage() {
     ? items.filter(n => n.title.includes(searchQuery) || n.body.includes(searchQuery))
     : items;
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = async () => {
+    const previousItems = items;
     setItems([]);
     setShowDeleteConfirm(false);
-    notificationApi.deleteAll().catch(() => {});
+    try {
+      await notificationApi.deleteAll();
+    } catch {
+      setItems(previousItems);
+      loadNotifications().catch(() => {});
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    const previousItems = items;
     setItems(prev => prev.filter(n => n.id !== id));
     setSwipeStates(prev => { const next = { ...prev }; delete next[id]; return next; });
-    // 서버에도 삭제
-    notificationApi.deleteOne(id).catch(() => {});
+    try {
+      await notificationApi.deleteOne(id);
+    } catch {
+      setItems(previousItems);
+      loadNotifications().catch(() => {});
+    }
   };
 
   const handleTouchStart = useCallback((id: string, e: React.TouchEvent) => {
