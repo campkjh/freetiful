@@ -228,11 +228,6 @@ export class DiscoveryService implements OnModuleInit {
 
     if (!pro) return null;
 
-    // 찜 갯수 동적 계산
-    const favoriteCount = await this.prisma.favorite.count({
-      where: { targetType: 'pro', targetId: proProfileId },
-    });
-
     this.prisma.proProfile.update({
       where: { id: proProfileId },
       data: { profileViews: { increment: 1 } },
@@ -241,7 +236,6 @@ export class DiscoveryService implements OnModuleInit {
     const detailResult = {
       ...pro,
       avgRating: Number(pro.avgRating),
-      favoriteCount,
       categoryNames: pro.categories.map((c) => c.category.name),
       regionNames: pro.regions.map((r) => r.region.name),
       languageCodes: pro.languages.map((l) => l.languageCode),

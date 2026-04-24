@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { discoveryApi, getCachedProDetail } from '@/lib/api/discovery.api';
+import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
 import { getPlanTemplates, getPlanTemplatesSync, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 import { chatApi } from '@/lib/api/chat.api';
@@ -130,6 +130,59 @@ function mapRecommendedPros(items: any[] = [], currentId: string) {
       tags: p.shortIntro ? p.shortIntro.split(' ').slice(0, 3) : [],
       isPartner: p.isFeatured,
     }));
+}
+
+function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDetailData {
+  const images = [p.profileImageUrl, ...(p.images || [])].filter(Boolean);
+  const proCategory = p.categories?.[0] || '사회자';
+  const plans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
+    id: t.planKey,
+    label: t.label,
+    price: t.defaultPrice || p.basePrice || 0,
+    duration: t.description || '',
+    title: t.description || `${t.label} 패키지`,
+    desc: t.includedItems?.length ? t.includedItems : ['사회 진행'],
+    workDays: 14,
+    revisions: idx + 1,
+  }));
+
+  return {
+    id: p.id,
+    name: p.name,
+    profileImage: images[0] || '/images/default-profile.svg',
+    mainImage: images[0] || '/images/default-profile.svg',
+    images: images.length > 0 ? images : ['/images/default-profile.svg'],
+    title: `${proCategory} ${p.name}`,
+    categoryName: proCategory,
+    tags: p.tags || [],
+    isPrime: p.isFeatured || false,
+    youtubeId: extractYoutubeId(p.youtubeUrl),
+    youtubeVideos: [],
+    rating: p.avgRating || 0,
+    reviewCount: p.reviewCount || 0,
+    plans: plans.length > 0 ? plans : [{
+      id: 'base',
+      label: '기본',
+      price: p.basePrice || 0,
+      duration: '',
+      title: '기본 진행 패키지',
+      desc: ['사회 진행'],
+      workDays: 14,
+      revisions: 1,
+    }],
+    description: [p.shortIntro, p.mainExperience].filter(Boolean).join('\n\n') || `안녕하세요. ${proCategory} ${p.name}입니다.`,
+    expertStats: {
+      totalDeals: p.reviewCount || 0,
+      satisfaction: p.avgRating ? Math.round((p.avgRating / 5) * 100) : 0,
+      memberType: '기업',
+      taxInvoice: '프리티풀 발행',
+      responseTime: '1시간 이내',
+      contactTime: '언제나 가능',
+    },
+    reviews: [],
+    recommendedPros: [],
+    alsoViewed: [],
+  };
 }
 
 function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPros: ProDetailData['recommendedPros'] = []): ProDetailData {
@@ -544,11 +597,15 @@ export default function ProDetailPage() {
     const skipCache = myProId === id;
     const effectivePlanTemplates = getPlanTemplatesSync();
     const cachedDetail = !skipCache ? getCachedProDetail(id) : null;
+    const cachedPreview = !skipCache ? getCachedProPreview(id) : null;
     if (cachedDetail) {
       try {
         setPro(mapApiProDetail(cachedDetail, effectivePlanTemplates));
         setApiLoading(false);
       } catch {}
+    } else if (cachedPreview) {
+      setPro(mapListProPreview(cachedPreview, effectivePlanTemplates));
+      setApiLoading(false);
     }
 
     let cancelled = false;
@@ -581,7 +638,7 @@ export default function ProDetailPage() {
       })
       .catch((err) => {
         console.error('ProDetail load error:', err);
-        if (!cachedDetail) setApiError(true);
+        if (!cachedDetail && !cachedPreview) setApiError(true);
       })
       .finally(() => setApiLoading(false));
     return () => { cancelled = true; };
@@ -658,22 +715,32 @@ export default function ProDetailPage() {
       { id: 'info', ref: infoRef },
       { id: 'reviews', ref: reviewsRef },
     ];
+    let ticking = false;
+    let rafId = 0;
     const onScroll = () => {
-      const scrollY = window.scrollY + 120;
-      let current: 'desc' | 'info' | 'reviews' = 'desc';
-      sections.forEach(({ id, ref }) => {
-        if (ref.current && ref.current.offsetTop <= scrollY) current = id;
+      if (ticking) return;
+      ticking = true;
+      rafId = requestAnimationFrame(() => {
+        const nextScrollY = window.scrollY + 120;
+        let current: 'desc' | 'info' | 'reviews' = 'desc';
+        sections.forEach(({ id, ref }) => {
+          if (ref.current && ref.current.offsetTop <= nextScrollY) current = id;
+        });
+        setActiveSection(current);
+        setScrollY(window.scrollY);
+        // Solid header when gallery's bottom passes the top of viewport
+        if (galleryRef.current) {
+          const galleryBottom = galleryRef.current.offsetTop + galleryRef.current.offsetHeight;
+          setHeaderSolid(window.scrollY > galleryBottom - 60);
+        }
+        ticking = false;
       });
-      setActiveSection(current);
-      setScrollY(window.scrollY);
-      // Solid header when gallery's bottom passes the top of viewport
-      if (galleryRef.current) {
-        const galleryBottom = galleryRef.current.offsetTop + galleryRef.current.offsetHeight;
-        setHeaderSolid(window.scrollY > galleryBottom - 60);
-      }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   // Body scroll lock when modals open

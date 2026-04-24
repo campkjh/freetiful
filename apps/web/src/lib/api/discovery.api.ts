@@ -87,7 +87,35 @@ function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 
 export function getCachedProDetail(id: string): any | null {
   const hit = cache.get(`detail:${id}`);
-  return hit && Date.now() - hit.ts < TTL ? hit.data : null;
+  if (hit && Date.now() - hit.ts < TTL) return hit.data;
+  return storageGet(`detail:${id}`);
+}
+
+export function getCachedProPreview(id: string): ProListItem | null {
+  const findInPayload = (payload: any): ProListItem | null => {
+    const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+    return rows.find((item: any) => item?.id === id) || null;
+  };
+
+  for (const [key, value] of cache.entries()) {
+    if (!key.startsWith('list:') || Date.now() - value.ts >= TTL) continue;
+    const found = findInPayload(value.data);
+    if (found) return found;
+  }
+
+  if (typeof window === 'undefined') return null;
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (!key.startsWith(STORAGE_PREFIX + 'list:')) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.ts || Date.now() - parsed.ts > TTL) continue;
+      const found = findInPayload(parsed.data);
+      if (found) return found;
+    }
+  } catch {}
+  return null;
 }
 
 export function invalidateProCache(id?: string) {
