@@ -37,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"
         />
+        <script defer src="https://developers.kakao.com/sdk/js/kakao.min.js" />
         <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17930822929" />
         <script
           dangerouslySetInnerHTML={{

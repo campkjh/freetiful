@@ -43,10 +43,13 @@ export function useAuth() {
     kakaoLogin: (code: string, redirectUri?: string) =>
       withLogin(async () => {
         if (redirectUri) {
+          let exchanged = false;
           try {
             const token = await authApi.exchangeKakaoCode(code, redirectUri);
+            exchanged = true;
             return await authApi.kakaoNativeLogin(token.accessToken);
           } catch (e) {
+            if (exchanged) throw e;
             console.warn('[auth] kakao token exchange fallback failed; using API code login', e);
           }
         }
@@ -59,10 +62,13 @@ export function useAuth() {
     naverLogin: (code: string, state: string, redirectUri?: string) =>
       withLogin(async () => {
         if (redirectUri) {
+          let exchanged = false;
           try {
             const token = await authApi.exchangeNaverCode(code, state);
+            exchanged = true;
             return await authApi.naverNativeLogin(token.accessToken);
           } catch (e) {
+            if (exchanged) throw e;
             console.warn('[auth] naver token exchange fallback failed; using API code login', e);
           }
         }

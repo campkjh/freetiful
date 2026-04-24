@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const NAVER_CLIENT_ID = 'cnaly_pSLgjMyP3Itds_';
-const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || 'dmDCW1zGye';
+const NAVER_CLIENT_SECRET = 'dmDCW1zGye';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
