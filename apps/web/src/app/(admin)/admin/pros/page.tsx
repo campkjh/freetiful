@@ -24,6 +24,7 @@ const statusLabel: Record<string, { text: string; className: string }> = {
   pending: { text: '대기', className: 'bg-yellow-50 text-yellow-600' },
   rejected: { text: '반려', className: 'bg-red-50 text-red-600' },
   draft: { text: '임시저장', className: 'bg-gray-50 text-gray-500' },
+  suspended: { text: '중지', className: 'bg-slate-100 text-slate-600' },
 };
 
 
@@ -163,7 +164,7 @@ export default function AdminProsPage() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {['전체', 'pending', 'approved', 'rejected'].map((st) => (
+            {['전체', 'pending', 'approved', 'rejected', 'draft', 'suspended'].map((st) => (
               <button
                 key={st}
                 onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st); }}
@@ -171,7 +172,7 @@ export default function AdminProsPage() {
                   filterStatus === st ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {st === '전체' ? '전체' : st === 'pending' ? '대기' : st === 'approved' ? '승인' : '반려'}
+                {st === '전체' ? '전체' : st === 'pending' ? '대기' : st === 'approved' ? '승인' : st === 'rejected' ? '반려' : st === 'draft' ? '임시' : '중지'}
               </button>
             ))}
           </div>
@@ -321,4 +322,3 @@ function ProAvatar({ src, name }: { src?: string | null; name: string }) {
     />
   );
 }
-

@@ -142,6 +142,16 @@ export class AdminController {
     return this.adminService.archiveUser(id);
   }
 
+  @Get('users/:id')
+  async getUserDetail(@Param('id') id: string) {
+    return this.adminService.getUserDetail(id);
+  }
+
+  @Patch('users/:id')
+  async updateUser(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateUser(id, body);
+  }
+
   @Post('cleanup-empty-profiles')
   async cleanupEmptyProfiles() {
     return this.adminService.cleanupEmptyProProfiles();
@@ -174,6 +184,81 @@ export class AdminController {
   @Delete('reviews/:id')
   async deleteReview(@Param('id') id: string) {
     return this.adminService.deleteReview(id);
+  }
+
+  @Patch('quotations/:id')
+  async updateQuotation(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateQuotation(id, body);
+  }
+
+  @Delete('quotations/:id')
+  async deleteQuotation(@Param('id') id: string) {
+    return this.adminService.deleteQuotation(id);
+  }
+
+  @Patch('payments/:id')
+  async updatePayment(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updatePayment(id, body);
+  }
+
+  @Delete('payments/:id')
+  async deletePayment(@Param('id') id: string) {
+    return this.adminService.deletePayment(id);
+  }
+
+  @Patch('schedules/:id')
+  async updateSchedule(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateSchedule(id, body);
+  }
+
+  @Delete('schedules/:id')
+  async deleteSchedule(@Param('id') id: string) {
+    return this.adminService.deleteSchedule(id);
+  }
+
+  @Patch('match-requests/:id')
+  async updateMatchRequest(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateMatchRequest(id, body);
+  }
+
+  @Delete('match-requests/:id')
+  async deleteMatchRequest(@Param('id') id: string) {
+    return this.adminService.deleteMatchRequest(id);
+  }
+
+  @Patch('match-deliveries/:id')
+  async updateMatchDelivery(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateMatchDelivery(id, body);
+  }
+
+  @Delete('match-deliveries/:id')
+  async deleteMatchDelivery(@Param('id') id: string) {
+    return this.adminService.deleteMatchDelivery(id);
+  }
+
+  @Delete('favorites/:id')
+  async deleteFavorite(@Param('id') id: string) {
+    return this.adminService.deleteFavorite(id);
+  }
+
+  @Patch('notifications/:id')
+  async updateNotification(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateNotification(id, body);
+  }
+
+  @Delete('notifications/:id')
+  async deleteNotification(@Param('id') id: string) {
+    return this.adminService.deleteNotification(id);
+  }
+
+  @Delete('chat-rooms/:id')
+  async deleteChatRoom(@Param('id') id: string) {
+    return this.adminService.deleteChatRoom(id);
+  }
+
+  @Delete('messages/:id')
+  async deleteMessage(@Param('id') id: string) {
+    return this.adminService.deleteMessage(id);
   }
 
   // ─── 웨딩 파트너 업체 (BusinessProfile) 관리 ─────────────────────────────

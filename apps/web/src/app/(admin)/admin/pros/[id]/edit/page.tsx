@@ -93,6 +93,7 @@ export default function AdminProEditPage() {
   const [isFeatured, setIsFeatured] = useState(false);
   const [showPartnersLogo, setShowPartnersLogo] = useState(false);
   const [basePrice, setBasePrice] = useState(0);
+  const [adminRelations, setAdminRelations] = useState<any>(null);
 
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showCareerSheet, setShowCareerSheet] = useState(false);
@@ -124,11 +125,14 @@ export default function AdminProEditPage() {
         })));
         setFaqItems((d.faqs || []).map((f: any) => ({ q: f.question || '', a: f.answer || '' })));
         setSelectedCategories((d.categories || []).map((c: any) => c.category?.name).filter(Boolean));
+        setCategory((d.categories || [])[0]?.category?.name || '');
+        setSelectedRegions((d.regions || []).map((r: any) => r.region?.name).filter(Boolean));
         setVideos(d.youtubeUrl ? [d.youtubeUrl] : []);
         setStatus(d.status || 'pending');
         setIsFeatured(!!d.isFeatured);
         setShowPartnersLogo(!!d.showPartnersLogo);
-        setBasePrice(d.basePrice || 0);
+        setBasePrice(d.services?.[0]?.basePrice || 0);
+        setAdminRelations(d.adminRelations || null);
       } catch (e: any) {
         setErr(e?.response?.data?.message || e?.message || '로드 실패');
       } finally {
@@ -208,12 +212,38 @@ export default function AdminProEditPage() {
     setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   const removeService = (i: number) => setServices((prev) => prev.filter((_, idx) => idx !== i));
 
+  const refreshRelations = async () => {
+    if (!proId) return;
+    const d = await adminFetch('GET', `/api/v1/admin/pros/${proId}`);
+    setAdminRelations(d.adminRelations || null);
+  };
+
+  const runAdminAction = async (label: string, method: string, path: string, body?: any, confirmText?: string) => {
+    if (confirmText && !confirm(confirmText)) return;
+    try {
+      await adminFetch(method, path, body);
+      toast.success(label);
+      await refreshRelations();
+    } catch (e: any) {
+      toast.error(`${label} 실패: ${e?.response?.data?.message || e?.message || ''}`, { duration: 6000 });
+    }
+  };
+
   /* ── Save ── */
   const handleSave = async () => {
     if (!proId || saving) return;
     setSaving(true);
     try {
       const awardsArray = awards.split('\n').filter(Boolean);
+      const normalizedServices = services.filter((s) => s.title).map((s) => ({
+        title: s.title,
+        description: s.description || undefined,
+        basePrice: s.basePrice || undefined,
+      }));
+      if (basePrice > 0) {
+        if (normalizedServices.length > 0) normalizedServices[0] = { ...normalizedServices[0], basePrice };
+        else normalizedServices.push({ title: '기본 플랜', description: undefined, basePrice });
+      }
       const payload = {
         name: name || undefined,
         phone: phone || undefined,
@@ -226,13 +256,12 @@ export default function AdminProEditPage() {
         detailHtml: detailHtml || undefined,
         photos: photos.length > 0 ? photos : undefined,
         mainPhotoIndex,
-        services: services.filter((s) => s.title).map((s) => ({
-          title: s.title,
-          description: s.description || undefined,
-          basePrice: s.basePrice || undefined,
-        })),
+        services: normalizedServices,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages.length > 0 ? languages : [],
+        category: category || selectedCategories[0] || undefined,
+        regions: selectedRegions,
+        tags: selectedCategories,
         // 어드민 전용
         status,
         isFeatured,
@@ -284,8 +313,8 @@ export default function AdminProEditPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-[12px] font-bold text-gray-400 mb-1.5">상태</label>
-            <div className="grid grid-cols-4 gap-2">
-              {(['draft', 'pending', 'approved', 'rejected'] as const).map((s) => (
+            <div className="grid grid-cols-5 gap-2">
+              {(['draft', 'pending', 'approved', 'rejected', 'suspended'] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setStatus(s)}
@@ -295,7 +324,7 @@ export default function AdminProEditPage() {
                     color: status === s ? '#FFFFFF' : '#6B7280',
                   }}
                 >
-                  {s === 'approved' ? '승인' : s === 'pending' ? '대기' : s === 'rejected' ? '반려' : '임시'}
+                  {s === 'approved' ? '승인' : s === 'pending' ? '대기' : s === 'rejected' ? '반려' : s === 'suspended' ? '중지' : '임시'}
                 </button>
               ))}
             </div>
@@ -318,6 +347,120 @@ export default function AdminProEditPage() {
             />
           </div>
         </div>
+      </Section>
+
+      <Section title="연동 데이터 / 인과관계">
+        <div className="space-y-5">
+          <AdminRelationSummary relations={adminRelations} />
+
+          <AdminRelationGroup title="찜한 유저" items={adminRelations?.favorites || []}>
+            {(fav: any) => (
+              <AdminRelationRow
+                key={fav.id}
+                title={fav.user?.name || fav.user?.email || fav.id}
+                meta={`${fav.user?.email || ''} · ${new Date(fav.createdAt).toLocaleDateString('ko-KR')}`}
+              >
+                <button onClick={() => runAdminAction('찜 삭제 완료', 'DELETE', `/api/v1/admin/favorites/${fav.id}`, undefined, '이 찜 데이터를 삭제할까요?')} className="admin-danger-btn">삭제</button>
+              </AdminRelationRow>
+            )}
+          </AdminRelationGroup>
+
+          <AdminRelationGroup title="채팅방" items={adminRelations?.chatRooms || []}>
+            {(room: any) => (
+              <AdminRelationRow
+                key={room.id}
+                title={room.user?.name || room.user?.email || room.id}
+                meta={`메시지 ${room._count?.messages || 0} · 견적 ${room._count?.quotations || 0} · ${room.lastMessageAt ? new Date(room.lastMessageAt).toLocaleDateString('ko-KR') : '대화 없음'}`}
+              >
+                <button onClick={() => runAdminAction('채팅방 숨김 완료', 'DELETE', `/api/v1/admin/chat-rooms/${room.id}`, undefined, '양쪽 채팅 목록에서 이 채팅방을 숨김 처리할까요?')} className="admin-danger-btn">숨김</button>
+              </AdminRelationRow>
+            )}
+          </AdminRelationGroup>
+
+          <AdminRelationGroup title="견적" items={adminRelations?.quotations || []}>
+            {(q: any) => (
+              <AdminRelationRow
+                key={q.id}
+                title={`${q.user?.name || '유저'} · ${Number(q.amount || 0).toLocaleString()}원`}
+                meta={`${q.title || '제목 없음'} · ${new Date(q.createdAt).toLocaleDateString('ko-KR')}`}
+              >
+                <AdminStatusSelect value={q.status} options={['pending', 'accepted', 'paid', 'cancelled', 'refunded', 'expired']} onChange={(status) => runAdminAction('견적 상태 변경 완료', 'PATCH', `/api/v1/admin/quotations/${q.id}`, { status })} />
+                <button onClick={() => runAdminAction('견적 삭제 완료', 'DELETE', `/api/v1/admin/quotations/${q.id}`, undefined, '견적을 삭제할까요?')} className="admin-danger-btn">삭제</button>
+              </AdminRelationRow>
+            )}
+          </AdminRelationGroup>
+
+          <AdminRelationGroup title="결제" items={adminRelations?.payments || []}>
+            {(p: any) => (
+              <AdminRelationRow
+                key={p.id}
+                title={`${p.user?.name || '유저'} · ${Number(p.amount || 0).toLocaleString()}원`}
+                meta={`${p.method || 'method 없음'} · ${new Date(p.createdAt).toLocaleDateString('ko-KR')}`}
+              >
+                <AdminStatusSelect value={p.status} options={['pending', 'completed', 'failed', 'refunded', 'escrowed', 'settled']} onChange={(status) => runAdminAction('결제 상태 변경 완료', 'PATCH', `/api/v1/admin/payments/${p.id}`, { status })} />
+                <button onClick={() => runAdminAction('결제 삭제 완료', 'DELETE', `/api/v1/admin/payments/${p.id}`, undefined, '결제와 연결 리뷰를 삭제하고 견적/스케줄 연결을 해제할까요?')} className="admin-danger-btn">삭제</button>
+              </AdminRelationRow>
+            )}
+          </AdminRelationGroup>
+
+          <AdminRelationGroup title="스케줄" items={adminRelations?.schedules || []}>
+            {(s: any) => (
+              <AdminRelationRow
+                key={s.id}
+                title={`${new Date(s.date).toLocaleDateString('ko-KR')} · ${s.status}`}
+                meta={`${s.source || 'manual'}${s.note ? ` · ${s.note}` : ''}`}
+              >
+                <AdminStatusSelect value={s.status} options={['available', 'unavailable', 'booked', 'pending', 'cancelled', 'completed']} onChange={(status) => runAdminAction('스케줄 상태 변경 완료', 'PATCH', `/api/v1/admin/schedules/${s.id}`, { status })} />
+                <button onClick={() => runAdminAction('스케줄 삭제 완료', 'DELETE', `/api/v1/admin/schedules/${s.id}`, undefined, '스케줄을 삭제할까요?')} className="admin-danger-btn">삭제</button>
+              </AdminRelationRow>
+            )}
+          </AdminRelationGroup>
+
+          <AdminRelationGroup title="매칭 전달" items={adminRelations?.matchDeliveries || []}>
+            {(d: any) => (
+              <AdminRelationRow
+                key={d.id}
+                title={`${d.matchRequest?.user?.name || '유저'} · ${d.matchRequest?.eventLocation || '장소 없음'}`}
+                meta={`${d.matchRequest?.category?.name || '카테고리'} · ${new Date(d.deliveredAt).toLocaleDateString('ko-KR')}`}
+              >
+                <AdminStatusSelect value={d.status} options={['pending', 'viewed', 'replied', 'declined', 'expired']} onChange={(status) => runAdminAction('매칭 전달 상태 변경 완료', 'PATCH', `/api/v1/admin/match-deliveries/${d.id}`, { status })} />
+                <button onClick={() => runAdminAction('매칭 전달 삭제 완료', 'DELETE', `/api/v1/admin/match-deliveries/${d.id}`, undefined, '이 사회자에게 전달된 매칭 데이터를 삭제할까요?')} className="admin-danger-btn">삭제</button>
+              </AdminRelationRow>
+            )}
+          </AdminRelationGroup>
+
+          <AdminRelationGroup title="리뷰" items={adminRelations?.reviews || []}>
+            {(r: any) => (
+              <AdminRelationRow
+                key={r.id}
+                title={`${r.reviewer?.name || '유저'} · ${Number(r.avgRating || 0).toFixed(1)}점`}
+                meta={`${r.comment || '내용 없음'} · ${new Date(r.createdAt).toLocaleDateString('ko-KR')}`}
+              >
+                <button onClick={() => runAdminAction('리뷰 삭제 완료', 'DELETE', `/api/v1/admin/reviews/${r.id}`, undefined, '리뷰를 삭제할까요?')} className="admin-danger-btn">삭제</button>
+              </AdminRelationRow>
+            )}
+          </AdminRelationGroup>
+
+          <AdminRelationGroup title="푸딩/정산 로그" items={[...(adminRelations?.puddingTransactions || []), ...(adminRelations?.settlementLogs || [])]}>
+            {(item: any) => (
+              <AdminRelationRow
+                key={item.id}
+                title={item.type ? `${item.type} · ${item.amount}` : `${item.status} · ${Number(item.netAmount || 0).toLocaleString()}원`}
+                meta={new Date(item.createdAt).toLocaleDateString('ko-KR')}
+              />
+            )}
+          </AdminRelationGroup>
+        </div>
+        <style jsx>{`
+          .admin-danger-btn {
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: #fef2f2;
+            color: #dc2626;
+            font-size: 12px;
+            font-weight: 800;
+          }
+        `}</style>
       </Section>
 
       {/* ─── 1. 기본 정보 ─── */}
@@ -801,5 +944,65 @@ export default function AdminProEditPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function AdminRelationSummary({ relations }: { relations: any }) {
+  const entries = [
+    ['찜', relations?.favorites?.length || 0],
+    ['채팅', relations?.chatRooms?.length || 0],
+    ['견적', relations?.quotations?.length || 0],
+    ['결제', relations?.payments?.length || 0],
+    ['스케줄', relations?.schedules?.length || 0],
+    ['매칭', relations?.matchDeliveries?.length || 0],
+    ['리뷰', relations?.reviews?.length || 0],
+    ['정산', relations?.settlementLogs?.length || 0],
+  ];
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {entries.map(([label, value]) => (
+        <div key={label} className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+          <p className="text-[10px] font-bold text-gray-400">{label}</p>
+          <p className="mt-1 text-[18px] font-extrabold text-gray-900">{value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdminRelationGroup({ title, items, children }: { title: string; items: any[]; children: (item: any) => React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[12px] font-extrabold text-gray-400 mb-2">{title}</p>
+      {items.length === 0 ? (
+        <p className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-3 text-[13px] text-gray-400">데이터가 없습니다</p>
+      ) : (
+        <div className="space-y-2">{items.slice(0, 20).map(children)}</div>
+      )}
+    </div>
+  );
+}
+
+function AdminRelationRow({ title, meta, children }: { title: string; meta?: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-bold text-gray-900 truncate">{title}</p>
+        {meta && <p className="text-[11px] text-gray-500 truncate mt-0.5">{meta}</p>}
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function AdminStatusSelect({ value, options, onChange }: { value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <select
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-8 rounded-lg border border-gray-200 px-2 text-[12px] font-bold text-gray-700 bg-white"
+    >
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
   );
 }

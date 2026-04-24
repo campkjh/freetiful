@@ -483,15 +483,131 @@ export class AdminService {
     const profile = await this.prisma.proProfile.findUnique({
       where: { id: proProfileId },
       include: {
-        user: { select: { id: true, email: true, name: true, phone: true, profileImageUrl: true } },
+        user: { select: { id: true, email: true, name: true, phone: true, profileImageUrl: true, role: true, isActive: true, isBanned: true } },
         images: { orderBy: { displayOrder: 'asc' } },
-        services: true,
-        faqs: true,
+        services: { orderBy: { displayOrder: 'asc' } },
+        faqs: { orderBy: { displayOrder: 'asc' } },
         categories: { include: { category: true } },
+        regions: { include: { region: true } },
+        languages: true,
+        _count: {
+          select: {
+            images: true,
+            services: true,
+            reviews: true,
+            quotations: true,
+            chatRooms: true,
+            schedules: true,
+            matchDeliveries: true,
+            puddingTransactions: true,
+          },
+        },
       },
     });
     if (!profile) throw new NotFoundException('전문가를 찾을 수 없습니다');
-    return profile;
+    const adminRelations = await this.getProAdminRelations(proProfileId);
+    return { ...profile, adminRelations };
+  }
+
+  private async getProAdminRelations(proProfileId: string) {
+    const [
+      favorites,
+      chatRooms,
+      quotations,
+      payments,
+      schedules,
+      reviews,
+      matchDeliveries,
+      puddingTransactions,
+      settlementLogs,
+    ] = await Promise.all([
+      this.prisma.favorite.findMany({
+        where: { targetType: 'pro', targetId: proProfileId },
+        include: { user: { select: { id: true, name: true, email: true, phone: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.chatRoom.findMany({
+        where: { proProfileId },
+        include: {
+          user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+          matchRequest: { select: { id: true, eventDate: true, eventLocation: true, status: true } },
+          _count: { select: { messages: true, quotations: true } },
+        },
+        orderBy: { lastMessageAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.quotation.findMany({
+        where: { proProfileId },
+        include: {
+          payment: { select: { id: true, amount: true, status: true, createdAt: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.payment.findMany({
+        where: { proProfileId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.proSchedule.findMany({
+        where: { proProfileId },
+        include: { payment: { select: { id: true, amount: true, status: true } } },
+        orderBy: { date: 'desc' },
+        take: 80,
+      }),
+      this.prisma.review.findMany({
+        where: { proProfileId },
+        include: {
+          reviewer: { select: { id: true, name: true, email: true } },
+          payment: { select: { id: true, amount: true, status: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.matchDelivery.findMany({
+        where: { proProfileId },
+        include: {
+          matchRequest: {
+            include: {
+              user: { select: { id: true, name: true, email: true, phone: true } },
+              category: { select: { id: true, name: true } },
+            },
+          },
+        },
+        orderBy: { deliveredAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.puddingTransaction.findMany({
+        where: { proProfileId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.settlementLog.findMany({
+        where: { proProfileId },
+        include: { payment: { select: { id: true, amount: true, status: true, createdAt: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
+
+    const userIds = Array.from(new Set([...quotations.map((q) => q.userId), ...payments.map((p) => p.userId)].filter(Boolean)));
+    const users = userIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, email: true, phone: true } })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    return {
+      favorites,
+      chatRooms,
+      quotations: quotations.map((q) => ({ ...q, user: userMap.get(q.userId) || null })),
+      payments: payments.map((p) => ({ ...p, user: userMap.get(p.userId) || null })),
+      schedules,
+      reviews,
+      matchDeliveries,
+      puddingTransactions,
+      settlementLogs,
+    };
   }
 
   // ─── Pro 프로필 업데이트 (어드민이 직접 수정) ────────────────────────────────
@@ -500,7 +616,7 @@ export class AdminService {
     const editableFields = [
       'shortIntro', 'mainExperience', 'careerYears', 'awards',
       'youtubeUrl', 'detailHtml', 'gender',
-      'isFeatured', 'showPartnersLogo', 'status', 'basePrice',
+      'isFeatured', 'showPartnersLogo', 'status',
     ];
     for (const k of editableFields) if (data[k] !== undefined) allowed[k] = data[k];
 
@@ -551,6 +667,9 @@ export class AdminService {
       services: Array.isArray(data.services) ? data.services : undefined,
       faqs: Array.isArray(data.faqs) ? data.faqs : undefined,
       languages: Array.isArray(data.languages) ? data.languages : undefined,
+      category: typeof data.category === 'string' ? data.category : undefined,
+      regions: Array.isArray(data.regions) ? data.regions : undefined,
+      tags: Array.isArray(data.tags) ? data.tags : undefined,
     });
 
     // 어드민은 User.name 을 직접 바꿀 수 있음 (일반 pro-edit 에서는 불가)
@@ -569,8 +688,6 @@ export class AdminService {
       adminOnly.status = data.status;
       if (data.status === 'approved') adminOnly.approvedAt = new Date();
     }
-    if (data.basePrice !== undefined) adminOnly.basePrice = Number(data.basePrice);
-
     if (Object.keys(adminOnly).length > 0) {
       await this.prisma.proProfile.update({
         where: { id: proProfileId },
@@ -829,6 +946,249 @@ export class AdminService {
     };
   }
 
+  async getUserDetail(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        authProviders: { select: { id: true, provider: true, providerEmail: true, createdAt: true } },
+        notificationSettings: true,
+        refundAccount: true,
+        businessProfile: {
+          include: {
+            images: { orderBy: { displayOrder: 'asc' }, take: 3 },
+            categories: { include: { category: true } },
+          },
+        },
+        proProfile: {
+          include: {
+            images: { orderBy: { displayOrder: 'asc' }, take: 5 },
+            services: { orderBy: { displayOrder: 'asc' } },
+            categories: { include: { category: true } },
+            regions: { include: { region: true } },
+            languages: true,
+            _count: {
+              select: {
+                reviews: true,
+                quotations: true,
+                chatRooms: true,
+                schedules: true,
+                matchDeliveries: true,
+                puddingTransactions: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            favorites: true,
+            chatRooms: true,
+            sentMessages: true,
+            notifications: true,
+            reviews: true,
+            matchRequests: true,
+            pointTransactions: true,
+            userCoupons: true,
+          },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('유저를 찾을 수 없습니다');
+
+    const [
+      favorites,
+      chatRooms,
+      matchRequests,
+      quotations,
+      payments,
+      reviews,
+      notifications,
+      pointTransactions,
+      userCoupons,
+    ] = await Promise.all([
+      this.prisma.favorite.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 80,
+      }),
+      this.prisma.chatRoom.findMany({
+        where: { userId },
+        include: {
+          proProfile: {
+            include: {
+              user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+              images: { orderBy: { displayOrder: 'asc' }, take: 1 },
+            },
+          },
+          matchRequest: { select: { id: true, eventDate: true, eventLocation: true, status: true } },
+          _count: { select: { messages: true, quotations: true } },
+        },
+        orderBy: { lastMessageAt: 'desc' },
+        take: 80,
+      }),
+      this.prisma.matchRequest.findMany({
+        where: { userId },
+        include: {
+          category: { select: { id: true, name: true } },
+          eventCategory: { select: { id: true, name: true } },
+          deliveries: {
+            include: {
+              proProfile: { include: { user: { select: { id: true, name: true, email: true } } } },
+            },
+            take: 20,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.quotation.findMany({
+        where: { userId },
+        include: {
+          proProfile: { include: { user: { select: { id: true, name: true, email: true } } } },
+          payment: { select: { id: true, amount: true, status: true, createdAt: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 80,
+      }),
+      this.prisma.payment.findMany({
+        where: { userId },
+        include: {
+          schedules: true,
+          quotations: { select: { id: true, title: true, eventDate: true, eventLocation: true, status: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 80,
+      }),
+      this.prisma.review.findMany({
+        where: { reviewerId: userId },
+        include: {
+          proProfile: { include: { user: { select: { id: true, name: true, email: true } } } },
+          payment: { select: { id: true, amount: true, status: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 80,
+      }),
+      this.prisma.pointTransaction.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.userCoupon.findMany({
+        where: { userId },
+        include: { coupon: true },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
+
+    const favoriteProIds = favorites.filter((f) => f.targetType === 'pro').map((f) => f.targetId);
+    const favoriteBusinessIds = favorites.filter((f) => f.targetType === 'business').map((f) => f.targetId);
+    const [favoritePros, favoriteBusinesses, paymentPros] = await Promise.all([
+      favoriteProIds.length
+        ? this.prisma.proProfile.findMany({
+            where: { id: { in: favoriteProIds } },
+            include: {
+              user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+              images: { orderBy: { displayOrder: 'asc' }, take: 1 },
+            },
+          })
+        : Promise.resolve([]),
+      favoriteBusinessIds.length
+        ? this.prisma.businessProfile.findMany({
+            where: { id: { in: favoriteBusinessIds } },
+            include: { images: { orderBy: { displayOrder: 'asc' }, take: 1 } },
+          })
+        : Promise.resolve([]),
+      payments.length
+        ? this.prisma.proProfile.findMany({
+            where: { id: { in: Array.from(new Set(payments.map((p) => p.proProfileId))) } },
+            include: { user: { select: { id: true, name: true, email: true } } },
+          })
+        : Promise.resolve([]),
+    ]);
+    const favoriteProMap = new Map(favoritePros.map((p) => [p.id, p]));
+    const favoriteBusinessMap = new Map(favoriteBusinesses.map((b) => [b.id, b]));
+    const paymentProMap = new Map(paymentPros.map((p) => [p.id, p]));
+
+    return {
+      user,
+      relations: {
+        favorites: favorites.map((f) => ({
+          ...f,
+          target:
+            f.targetType === 'pro'
+              ? favoriteProMap.get(f.targetId) || null
+              : favoriteBusinessMap.get(f.targetId) || null,
+        })),
+        chatRooms,
+        matchRequests,
+        quotations,
+        payments: payments.map((p) => ({ ...p, proProfile: paymentProMap.get(p.proProfileId) || null })),
+        reviews,
+        notifications,
+        pointTransactions,
+        userCoupons,
+      },
+    };
+  }
+
+  async updateUser(userId: string, data: any) {
+    const allowed: any = {};
+    const editableFields = [
+      'name',
+      'email',
+      'phone',
+      'role',
+      'profileImageUrl',
+      'isActive',
+      'isBanned',
+      'banReason',
+      'pointBalance',
+      'referralCode',
+    ];
+    for (const field of editableFields) {
+      if (data[field] !== undefined) allowed[field] = data[field] === '' ? null : data[field];
+    }
+    if (allowed.pointBalance !== undefined) allowed.pointBalance = Number(allowed.pointBalance) || 0;
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: allowed,
+    });
+
+    if (data.notificationSettings && typeof data.notificationSettings === 'object') {
+      const settingsFields = [
+        'chatPush',
+        'bookingPush',
+        'paymentPush',
+        'reviewPush',
+        'systemPush',
+        'marketingPush',
+        'marketingSms',
+        'marketingEmail',
+      ];
+      const settings: any = {};
+      for (const field of settingsFields) {
+        if (data.notificationSettings[field] !== undefined) {
+          settings[field] = Boolean(data.notificationSettings[field]);
+        }
+      }
+      if (Object.keys(settings).length > 0) {
+        await this.prisma.notificationSettings.upsert({
+          where: { userId },
+          update: settings,
+          create: { userId, ...settings },
+        });
+      }
+    }
+
+    return this.getUserDetail(user.id);
+  }
+
   // ─── 유저 권한 변경 ──────────────────────────────────────────────────────
   async updateUserRole(userId: string, role: string) {
     return this.prisma.user.update({ where: { id: userId }, data: { role: role as any } });
@@ -1004,6 +1364,129 @@ export class AdminService {
   async deleteReview(reviewId: string) {
     await this.prisma.review.delete({ where: { id: reviewId } });
     return { success: true };
+  }
+
+  async updateQuotation(id: string, data: any) {
+    const allowed: any = {};
+    const fields = ['amount', 'title', 'description', 'eventLocation', 'validUntil', 'status'];
+    for (const field of fields) {
+      if (data[field] !== undefined) allowed[field] = data[field] === '' ? null : data[field];
+    }
+    if (allowed.amount !== undefined) allowed.amount = Number(allowed.amount) || 0;
+    if (data.eventDate !== undefined) allowed.eventDate = data.eventDate ? new Date(data.eventDate) : null;
+    if (data.eventTime !== undefined) allowed.eventTime = data.eventTime ? new Date(`1970-01-01T${data.eventTime}`) : null;
+    return this.prisma.quotation.update({ where: { id }, data: allowed });
+  }
+
+  async deleteQuotation(id: string) {
+    await this.prisma.quotation.delete({ where: { id } });
+    return { success: true };
+  }
+
+  async updatePayment(id: string, data: any) {
+    const allowed: any = {};
+    const fields = ['amount', 'platformFee', 'netAmount', 'method', 'status', 'refundAmount', 'refundReason'];
+    for (const field of fields) {
+      if (data[field] !== undefined) allowed[field] = data[field] === '' ? null : data[field];
+    }
+    for (const field of ['amount', 'platformFee', 'netAmount', 'refundAmount']) {
+      if (allowed[field] !== undefined && allowed[field] !== null) allowed[field] = Number(allowed[field]) || 0;
+    }
+    if (allowed.status === 'refunded' && !data.refundedAt) allowed.refundedAt = new Date();
+    if (data.refundedAt !== undefined) allowed.refundedAt = data.refundedAt ? new Date(data.refundedAt) : null;
+    if (data.escrowReleasedAt !== undefined) allowed.escrowReleasedAt = data.escrowReleasedAt ? new Date(data.escrowReleasedAt) : null;
+    if (data.settledAt !== undefined) allowed.settledAt = data.settledAt ? new Date(data.settledAt) : null;
+    return this.prisma.payment.update({ where: { id }, data: allowed });
+  }
+
+  async deletePayment(id: string) {
+    await this.prisma.$transaction([
+      this.prisma.quotation.updateMany({ where: { paymentId: id }, data: { paymentId: null } }),
+      this.prisma.proSchedule.updateMany({ where: { paymentId: id }, data: { paymentId: null } }),
+      this.prisma.review.deleteMany({ where: { paymentId: id } }),
+      this.prisma.payment.delete({ where: { id } }),
+    ]);
+    return { success: true };
+  }
+
+  async updateSchedule(id: string, data: any) {
+    const allowed: any = {};
+    if (data.date !== undefined) allowed.date = data.date ? new Date(data.date) : undefined;
+    if (data.status !== undefined) allowed.status = data.status;
+    if (data.note !== undefined) allowed.note = data.note || null;
+    if (data.source !== undefined) allowed.source = data.source || 'admin';
+    if (data.paymentId !== undefined) allowed.paymentId = data.paymentId || null;
+    return this.prisma.proSchedule.update({ where: { id }, data: allowed });
+  }
+
+  async deleteSchedule(id: string) {
+    await this.prisma.proSchedule.delete({ where: { id } });
+    return { success: true };
+  }
+
+  async updateMatchDelivery(id: string, data: any) {
+    const allowed: any = {};
+    if (data.status !== undefined) allowed.status = data.status;
+    if (data.viewedAt !== undefined) allowed.viewedAt = data.viewedAt ? new Date(data.viewedAt) : null;
+    if (data.repliedAt !== undefined) allowed.repliedAt = data.repliedAt ? new Date(data.repliedAt) : null;
+    return this.prisma.matchDelivery.update({ where: { id }, data: allowed });
+  }
+
+  async deleteMatchDelivery(id: string) {
+    await this.prisma.matchDelivery.delete({ where: { id } });
+    return { success: true };
+  }
+
+  async updateMatchRequest(id: string, data: any) {
+    const allowed: any = {};
+    if (data.status !== undefined) allowed.status = data.status;
+    if (data.eventLocation !== undefined) allowed.eventLocation = data.eventLocation || null;
+    if (data.eventDate !== undefined) allowed.eventDate = data.eventDate ? new Date(data.eventDate) : null;
+    if (data.budgetMin !== undefined) allowed.budgetMin = data.budgetMin === '' ? null : Number(data.budgetMin);
+    if (data.budgetMax !== undefined) allowed.budgetMax = data.budgetMax === '' ? null : Number(data.budgetMax);
+    return this.prisma.matchRequest.update({ where: { id }, data: allowed });
+  }
+
+  async deleteMatchRequest(id: string) {
+    await this.prisma.matchRequest.delete({ where: { id } });
+    return { success: true };
+  }
+
+  async deleteFavorite(id: string) {
+    await this.prisma.favorite.delete({ where: { id } });
+    return { success: true };
+  }
+
+  async deleteNotification(id: string) {
+    await this.prisma.notification.delete({ where: { id } });
+    return { success: true };
+  }
+
+  async updateNotification(id: string, data: any) {
+    const isRead = Boolean(data.isRead);
+    return this.prisma.notification.update({
+      where: { id },
+      data: {
+        ...(data.title !== undefined ? { title: data.title || null } : {}),
+        ...(data.body !== undefined ? { body: data.body || null } : {}),
+        ...(data.isRead !== undefined ? { isRead, readAt: isRead ? new Date() : null } : {}),
+      },
+    });
+  }
+
+  async deleteChatRoom(id: string) {
+    const now = new Date();
+    return this.prisma.chatRoom.update({
+      where: { id },
+      data: { userDeletedAt: now, proDeletedAt: now },
+    });
+  }
+
+  async deleteMessage(id: string) {
+    return this.prisma.message.update({
+      where: { id },
+      data: { isDeleted: true, deletedAt: new Date(), content: null },
+    });
   }
 
   // ─── 행사일 리마인더 크론 (한국시간 매일 오전 9시 — 당일 + D-3) ────────

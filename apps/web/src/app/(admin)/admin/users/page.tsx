@@ -17,7 +17,7 @@ interface UserItem {
   paymentCount: number;
   proProfile: null | {
     id: string;
-    status: 'draft' | 'pending' | 'approved' | 'rejected';
+    status: 'draft' | 'pending' | 'approved' | 'rejected' | 'suspended';
     hasIntro: boolean;
     imageCount: number;
     serviceCount: number;
@@ -303,6 +303,7 @@ export default function AdminUsersPage() {
                             user.proProfile.status === 'approved' ? 'bg-emerald-50 text-emerald-600'
                             : user.proProfile.status === 'pending' ? 'bg-amber-50 text-amber-600'
                             : user.proProfile.status === 'rejected' ? 'bg-red-50 text-red-500'
+                            : user.proProfile.status === 'suspended' ? 'bg-slate-100 text-slate-600'
                             : 'bg-gray-100 text-gray-500'
                           }`}>{user.proProfile.status}</span>
                           <span className="text-[10px] text-gray-400">
@@ -321,12 +322,17 @@ export default function AdminUsersPage() {
                       {new Date(user.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' })}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleDelete(user.id, user.name)}
-                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <Link href={`/admin/users/${user.id}`} className="px-2 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100">
+                          상세
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(user.id, user.name)}
+                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
