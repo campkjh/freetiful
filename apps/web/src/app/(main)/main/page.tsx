@@ -1028,6 +1028,9 @@ export default function HomePage() {
   const rankScrollRef = useRef<HTMLDivElement>(null);
   const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
   const [bannerIdx, setBannerIdx] = useState(0);
+  const [bannerDragOffset, setBannerDragOffset] = useState(0);
+  const bannerPointerStartRef = useRef<{ x: number; y: number; active: boolean } | null>(null);
+  const bannerSwipeLockRef = useRef(false);
 
   // 배너: DB → API, 실패 시 하드코딩 폴백
   const [banners, setBanners] = useState(BANNERS);
@@ -1048,9 +1051,25 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setBannerIdx((i) => (i + 1) % banners.length), 4000);
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setBannerIdx((i) => (bannerPointerStartRef.current?.active ? i : (i + 1) % banners.length));
+    }, 4000);
     return () => clearInterval(timer);
   }, [banners.length]);
+
+  const moveBanner = (direction: 1 | -1) => {
+    if (banners.length <= 1) return;
+    setBannerIdx((current) => (current + direction + banners.length) % banners.length);
+  };
+
+  const finishBannerSwipe = (dx: number, dy: number) => {
+    setBannerDragOffset(0);
+    if (Math.abs(dx) < 34 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    bannerSwipeLockRef.current = true;
+    moveBanner(dx < 0 ? 1 : -1);
+    window.setTimeout(() => { bannerSwipeLockRef.current = false; }, 260);
+  };
   const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
   const [viewedPros, setViewedPros] = useState<{ id: string; time: number }[]>([]);
   useEffect(() => {
@@ -1317,11 +1336,40 @@ export default function HomePage() {
         {/* 5. Slide Banner — 아이콘 그리드 아래, 관심있는 전문가 위 */}
         <div className="px-[10px] pt-2 pb-1">
           <div
-            className="relative w-full overflow-hidden rounded-2xl"
-            style={{ aspectRatio: '1170/300' }}
+            className="relative w-full overflow-hidden rounded-2xl select-none"
+            style={{ aspectRatio: '1170/300', touchAction: 'pan-y' }}
+            onPointerDown={(e) => {
+              if (banners.length <= 1) return;
+              bannerPointerStartRef.current = { x: e.clientX, y: e.clientY, active: true };
+              setBannerDragOffset(0);
+              if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              const start = bannerPointerStartRef.current;
+              if (!start?.active) return;
+              const dx = e.clientX - start.x;
+              const dy = e.clientY - start.y;
+              if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
+              setBannerDragOffset(Math.max(-110, Math.min(110, dx)));
+            }}
+            onPointerUp={(e) => {
+              const start = bannerPointerStartRef.current;
+              if (!start?.active) return;
+              bannerPointerStartRef.current = null;
+              finishBannerSwipe(e.clientX - start.x, e.clientY - start.y);
+            }}
+            onPointerCancel={() => {
+              bannerPointerStartRef.current = null;
+              setBannerDragOffset(0);
+            }}
           >
-            <div className="flex transition-transform duration-500 ease-out h-full"
-              style={{ width: `${banners.length * 100}%`, transform: `translateX(-${bannerIdx * (100 / banners.length)}%)` }}
+            <div
+              className="flex h-full"
+              style={{
+                width: `${banners.length * 100}%`,
+                transform: `translateX(-${bannerIdx * (100 / banners.length)}%) translateX(${bannerDragOffset}px)`,
+                transition: bannerDragOffset === 0 ? 'transform 0.5s ease-out' : 'none',
+              }}
             >
               {banners.map((b, i) => (
                 <div
@@ -1329,6 +1377,7 @@ export default function HomePage() {
                   className="h-full shrink-0 cursor-pointer"
                   style={{ width: `${100 / banners.length}%` }}
                   onClick={() => {
+                    if (bannerSwipeLockRef.current) return;
                     const link = (b as any).linkUrl;
                     if (!link) return;
                     if (/^https?:\/\//.test(link)) window.open(link, '_blank');
