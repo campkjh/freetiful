@@ -4,6 +4,23 @@ function getApiBaseUrl() {
   return raw?.replace(/\/api\/v1$/, '').replace(/\/api$/, '');
 }
 
+function oauthCompatibilityRedirects(provider) {
+  const callback = `/auth/${provider}/callback`;
+  return [
+    { source: `/${provider}`, destination: callback, permanent: false },
+    { source: `/${provider}/callback`, destination: callback, permanent: false },
+    { source: `/callback/${provider}`, destination: callback, permanent: false },
+    { source: `/auth/callback/${provider}`, destination: callback, permanent: false },
+    { source: `/oauth/callback/${provider}`, destination: callback, permanent: false },
+    { source: `/oauth2/callback/${provider}`, destination: callback, permanent: false },
+    { source: `/login/${provider}/callback`, destination: callback, permanent: false },
+    { source: `/login/oauth/${provider}/callback`, destination: callback, permanent: false },
+    { source: `/login/oauth2/code/${provider}`, destination: callback, permanent: false },
+    { source: `/users/auth/${provider}/callback`, destination: callback, permanent: false },
+    { source: `/api/auth/${provider}/callback`, destination: callback, permanent: false },
+  ];
+}
+
 const nextConfig = {
   compress: true,
   poweredByHeader: false,
@@ -41,14 +58,25 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      { source: '/login', destination: '/main', permanent: false },
+      { source: '/signin', destination: '/main', permanent: false },
+      { source: '/sign-in', destination: '/main', permanent: false },
+      { source: '/signup', destination: '/main', permanent: false },
+      { source: '/sign-up', destination: '/main', permanent: false },
       { source: '/auth/kakao', destination: '/auth/kakao/callback', permanent: false },
+      { source: '/auth/kakao/mobile/callback', destination: '/auth/kakao/mobile', permanent: false },
+      { source: '/kakao/mobile', destination: '/auth/kakao/mobile', permanent: false },
+      { source: '/kakao/mobile/callback', destination: '/auth/kakao/mobile', permanent: false },
       { source: '/oauth/kakao', destination: '/auth/kakao/callback', permanent: false },
       { source: '/oauth/kakao/callback', destination: '/auth/kakao/callback', permanent: false },
-      { source: '/login/oauth2/code/kakao', destination: '/auth/kakao/callback', permanent: false },
       { source: '/auth/naver', destination: '/auth/naver/callback', permanent: false },
+      { source: '/auth/naver/mobile/callback', destination: '/auth/naver/mobile', permanent: false },
+      { source: '/naver/mobile', destination: '/auth/naver/mobile', permanent: false },
+      { source: '/naver/mobile/callback', destination: '/auth/naver/mobile', permanent: false },
       { source: '/oauth/naver', destination: '/auth/naver/callback', permanent: false },
       { source: '/oauth/naver/callback', destination: '/auth/naver/callback', permanent: false },
-      { source: '/login/oauth2/code/naver', destination: '/auth/naver/callback', permanent: false },
+      ...oauthCompatibilityRedirects('kakao'),
+      ...oauthCompatibilityRedirects('naver'),
     ];
   },
   async rewrites() {
