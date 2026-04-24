@@ -266,16 +266,13 @@ export class DiscoveryService implements OnModuleInit {
         // 대표(primary) 이미지가 images[0] 에 오도록 정렬
         images: {
           orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
+          take: 12,
           select: { id: true, imageUrl: true, displayOrder: true, isPrimary: true },
         },
         services: {
           where: { isActive: true },
           orderBy: { displayOrder: 'asc' },
           select: { id: true, title: true, description: true, basePrice: true, priceUnit: true, displayOrder: true, isActive: true },
-        },
-        faqs: {
-          orderBy: { displayOrder: 'asc' },
-          select: { id: true, question: true, answer: true, displayOrder: true },
         },
         categories: { select: { category: { select: { name: true } } } },
         regions: { select: { region: { select: { name: true } } } },

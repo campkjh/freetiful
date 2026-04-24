@@ -40,8 +40,21 @@ export interface ProListItem {
 
 const cache = new Map<string, { data: any; ts: number }>();
 const inflight = new Map<string, Promise<any>>();
+const previewCache = new Map<string, { data: ProListItem; ts: number }>();
 const TTL = 5 * 60_000;
 const STORAGE_PREFIX = 'freetiful-discovery-cache:';
+
+function getRowsFromListPayload(payload: any): ProListItem[] {
+  return Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+}
+
+function indexProPreviews(payload: any, ts = Date.now()) {
+  const rows = getRowsFromListPayload(payload);
+  if (rows.length === 0) return;
+  rows.forEach((item) => {
+    if (item?.id) previewCache.set(item.id, { data: item, ts });
+  });
+}
 
 function storageGet<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
@@ -71,13 +84,16 @@ function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   if (hit && Date.now() - hit.ts < TTL) return Promise.resolve(hit.data as T);
   const stored = storageGet<T>(key);
   if (stored) {
-    cache.set(key, { data: stored, ts: Date.now() });
+    const ts = Date.now();
+    cache.set(key, { data: stored, ts });
+    if (key.startsWith('list:')) indexProPreviews(stored, ts);
     return Promise.resolve(stored);
   }
   const existing = inflight.get(key);
   if (existing) return existing as Promise<T>;
   const p = fetcher().then((data) => {
     cache.set(key, { data, ts: Date.now() });
+    if (key.startsWith('list:')) indexProPreviews(data);
     storageSet(key, data);
     inflight.delete(key);
     return data;
@@ -97,20 +113,23 @@ export function getCachedProList(params?: ProListParams): { data: ProListItem[];
   const hit = cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.data;
   const stored = storageGet<{ data: ProListItem[]; total: number; hasMore: boolean }>(key);
-  if (stored) cache.set(key, { data: stored, ts: Date.now() });
+  if (stored) {
+    const ts = Date.now();
+    cache.set(key, { data: stored, ts });
+    indexProPreviews(stored, ts);
+  }
   return stored;
 }
 
 export function getCachedProPreview(id: string): ProListItem | null {
-  const findInPayload = (payload: any): ProListItem | null => {
-    const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
-    return rows.find((item: any) => item?.id === id) || null;
-  };
+  const preview = previewCache.get(id);
+  if (preview && Date.now() - preview.ts < TTL) return preview.data;
 
   for (const [key, value] of cache.entries()) {
     if (!key.startsWith('list:') || Date.now() - value.ts >= TTL) continue;
-    const found = findInPayload(value.data);
-    if (found) return found;
+    indexProPreviews(value.data, value.ts);
+    const found = previewCache.get(id);
+    if (found) return found.data;
   }
 
   if (typeof window === 'undefined') return null;
@@ -121,11 +140,17 @@ export function getCachedProPreview(id: string): ProListItem | null {
       if (!raw) continue;
       const parsed = JSON.parse(raw);
       if (!parsed?.ts || Date.now() - parsed.ts > TTL) continue;
-      const found = findInPayload(parsed.data);
-      if (found) return found;
+      indexProPreviews(parsed.data, parsed.ts);
+      const found = previewCache.get(id);
+      if (found) return found.data;
     }
   } catch {}
   return null;
+}
+
+export function primeProPreview(item: ProListItem) {
+  if (!item?.id) return;
+  previewCache.set(item.id, { data: item, ts: Date.now() });
 }
 
 export function invalidateProCache(id?: string) {

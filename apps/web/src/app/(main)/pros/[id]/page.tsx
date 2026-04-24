@@ -283,6 +283,20 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
   };
 }
 
+function getInitialProDetail(id: string | undefined): ProDetailData | null {
+  if (!id || id === 'my-pro') return null;
+  const planTemplates = getPlanTemplatesSync();
+  const cachedDetail = getCachedProDetail(id);
+  if (cachedDetail) {
+    try {
+      return mapApiProDetail(cachedDetail, planTemplates);
+    } catch {}
+  }
+  const cachedPreview = getCachedProPreview(id);
+  if (cachedPreview) return mapListProPreview(cachedPreview, planTemplates);
+  return null;
+}
+
 // ─── Components ─────────────────────────────────────────────
 
 function RadarChart({ scores, empty = false }: { scores: { label: string; value: number }[]; empty?: boolean }) {
@@ -528,9 +542,10 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
 export default function ProDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [pro, setPro] = useState<ProDetailData | null>(null);
+  const [initialPro] = useState(() => getInitialProDetail(id));
+  const [pro, setPro] = useState<ProDetailData | null>(() => initialPro);
   const [apiError, setApiError] = useState(false);
-  const [apiLoading, setApiLoading] = useState(true);
+  const [apiLoading, setApiLoading] = useState(() => !initialPro);
 
   // 어드민 설정 플랜 템플릿 로드 (모든 플랜 가격/이름/포함항목의 단일 소스)
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>(() => getPlanTemplatesSync());
@@ -659,9 +674,7 @@ export default function ProDetailPage() {
   }, [id]);
 
   const [activeImage, setActiveImage] = useState(0);
-  const [activePlan, setActivePlan] = useState(() => {
-    return (pro?.plans?.length || 0) > 1 ? 1 : 0;
-  });
+  const [activePlan, setActivePlan] = useState(() => ((initialPro?.plans?.length || 0) > 1 ? 1 : 0));
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -719,6 +732,15 @@ export default function ProDetailPage() {
   const touchStartX = useRef<number | null>(null);
 
   const plan = pro?.plans?.[activePlan] ?? { id: 'premium', label: 'Premium', price: 0, duration: '-', title: '가격 문의', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
+
+  useEffect(() => {
+    if (!pro?.plans?.length) return;
+    setActivePlan((current) => {
+      if (current >= pro.plans.length) return 0;
+      if (current === 0 && pro.plans.length > 1) return 1;
+      return current;
+    });
+  }, [pro?.id, pro?.plans?.length]);
 
   // 방문 기록 저장
   useEffect(() => {
@@ -998,14 +1020,19 @@ export default function ProDetailPage() {
                 }}
                 className="relative w-full h-full shrink-0 block"
               >
-                <Image
-                  src={src}
-                  alt={pro.name}
-                  fill
-                  className="object-cover"
-                  priority={i === 0}
-                  sizes="100vw"
-                />
+                {i === 0 || Math.abs(i - activeImage) <= 1 ? (
+                  <Image
+                    src={src}
+                    alt={pro.name}
+                    fill
+                    className="object-cover"
+                    priority={i === 0}
+                    loading={i === 0 ? undefined : 'lazy'}
+                    sizes="100vw"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-100" />
+                )}
               </button>
             ))}
           </div>

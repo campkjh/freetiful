@@ -44,7 +44,24 @@ const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
 const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외국어사회자'];
 
 const PAGE_SIZE = 10;
-const PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: false };
+const INITIAL_PRO_LIST_PARAMS = { limit: 24, sort: 'pudding' as const, withTotal: false };
+const FULL_PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: false };
+
+function runListIdle(cb: () => void, timeout = 900) {
+  if (typeof window === 'undefined') return 0;
+  const win = window as typeof window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+  return win.requestIdleCallback ? win.requestIdleCallback(cb, { timeout }) : window.setTimeout(cb, 250);
+}
+
+function cancelListIdle(handle: number) {
+  if (typeof window === 'undefined' || !handle) return;
+  const win = window as typeof window & { cancelIdleCallback?: (handle: number) => void };
+  if (win.cancelIdleCallback) win.cancelIdleCallback(handle);
+  window.clearTimeout(handle);
+}
 
 function getRegionAliases(region: string) {
   if (region === '전체') return [];
@@ -64,6 +81,7 @@ function matchesRegion(pro: ProItem, region: string) {
 
 function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
   const ref = useRef<HTMLDivElement>(null);
+  const prefetchStarted = useRef(false);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -82,6 +100,12 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
     return () => observer.disconnect();
   }, []);
 
+  const warmDetail = () => {
+    if (prefetchStarted.current || pro.id === 'my-pro') return;
+    prefetchStarted.current = true;
+    discoveryApi.getProDetail(pro.id).catch(() => {});
+  };
+
   return (
     <div
       ref={ref}
@@ -90,7 +114,13 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
       }`}
       style={{ transitionDelay: `${Math.min(index % PAGE_SIZE, 6) * 35}ms` }}
     >
-      <Link href={`/pros/${pro.id}`} className="group flex gap-3 rounded-xl active:scale-[0.985] transition-transform">
+      <Link
+        href={`/pros/${pro.id}`}
+        onMouseEnter={warmDetail}
+        onTouchStart={warmDetail}
+        onFocus={warmDetail}
+        className="group flex gap-3 rounded-xl active:scale-[0.985] transition-transform"
+      >
         <div className="relative w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100 shrink-0">
           <img
             src={pro.image || '/images/default-profile.svg'}
@@ -203,10 +233,10 @@ function mapApiPros(items: ProListItem[]): ProItem[] {
 function ProsListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const registeredPro = getRegisteredPro();
+  const registeredPro = useMemo(() => getRegisteredPro(), []);
   const initialCachedProsRef = useRef<ProItem[] | null>(null);
   if (initialCachedProsRef.current === null) {
-    const cached = getCachedProList(PRO_LIST_PARAMS);
+    const cached = getCachedProList(FULL_PRO_LIST_PARAMS) || getCachedProList(INITIAL_PRO_LIST_PARAMS);
     initialCachedProsRef.current = cached?.data?.length ? mapApiPros(cached.data) : [];
   }
   const [apiPros, setApiPros] = useState<ProItem[]>(() => initialCachedProsRef.current || []);
@@ -214,23 +244,40 @@ function ProsListContent() {
 
   useEffect(() => {
     let cancelled = false;
-    discoveryApi.getProList(PRO_LIST_PARAMS)
-      .then((res) => {
-        if (cancelled) return;
-        if (res?.data && res.data.length > 0) {
-          setApiPros(mapApiPros(res.data));
-        }
-        setApiLoaded(true);
-      })
-      .catch(() => { if (!cancelled) setApiLoaded(true); });
-    return () => { cancelled = true; };
+    let idleHandle = 0;
+    const apply = (res: { data?: ProListItem[] } | null | undefined) => {
+      if (cancelled) return;
+      if (res?.data && res.data.length > 0) setApiPros(mapApiPros(res.data));
+    };
+    const loadFull = () => {
+      discoveryApi.getProList(FULL_PRO_LIST_PARAMS).then(apply).catch(() => {});
+    };
+
+    if (initialCachedProsRef.current?.length) {
+      setApiLoaded(true);
+      idleHandle = runListIdle(loadFull);
+    } else {
+      discoveryApi.getProList(INITIAL_PRO_LIST_PARAMS)
+        .then((res) => {
+          apply(res);
+          if (!cancelled) idleHandle = runListIdle(loadFull);
+        })
+        .catch(() => {})
+        .finally(() => { if (!cancelled) setApiLoaded(true); });
+    }
+
+    return () => {
+      cancelled = true;
+      cancelListIdle(idleHandle);
+    };
   }, []);
 
   // API에 프로들이 있으면 localStorage 본인 프로(my-pro) 중복 표시 안함
   // 본인 프로는 API에서 자동으로 나오므로 localStorage 버전 제거
-  const ALL_PROS = apiPros.length > 0
-    ? apiPros
-    : (registeredPro ? [registeredPro] : []);
+  const ALL_PROS = useMemo(
+    () => (apiPros.length > 0 ? apiPros : (registeredPro ? [registeredPro] : [])),
+    [apiPros, registeredPro],
+  );
   const initialRegion = searchParams.get('region') || '전체';
   const categoryParam = searchParams.get('category') || '';
   const isForeignFilter = categoryParam === '외국어사회자';
