@@ -141,9 +141,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       });
     };
 
-    if ('requestIdleCallback' in window) {
-      const id = window.requestIdleCallback(runPrefetch, { timeout: 2500 });
-      return () => window.cancelIdleCallback(id);
+    const win = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (win.requestIdleCallback) {
+      const id = win.requestIdleCallback(runPrefetch, { timeout: 2500 });
+      return () => win.cancelIdleCallback?.(id);
     }
     const timeout = window.setTimeout(runPrefetch, 800);
     return () => window.clearTimeout(timeout);
