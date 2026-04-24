@@ -240,7 +240,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         >
           <div
             className="mx-auto mb-1"
-            style={{ display: 'flex', justifyContent: 'flex-start', maxWidth: 512 }}
+            style={{ display: 'flex', justifyContent: 'center', width: '100%', maxWidth: 512 }}
           >
             <div
               data-nav-pill

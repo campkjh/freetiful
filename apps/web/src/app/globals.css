@@ -218,6 +218,12 @@ img:not([src]) {
     text-size-adjust: 100%;
   }
 
+  /* Android Chrome 에서 100vh 는 툴바 유무에 따라 계산이 튄다.
+     Tailwind 의 min-h-screen / h-screen 을 dvh 로 오버라이드 —
+     구형 브라우저는 vh 폴백, Chrome 108+·Safari 15.4+ 는 dvh 사용. */
+  .min-h-screen { min-height: 100vh; min-height: 100dvh; }
+  .h-screen { height: 100vh; height: 100dvh; }
+
   body {
     @apply text-gray-900 bg-surface-50;
     letter-spacing: -0.01em;
