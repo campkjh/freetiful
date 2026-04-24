@@ -18,8 +18,16 @@ const DETAIL_PATTERNS = [
   /^\/schedule\/.+/,
 ];
 
+const ROUTES_WITH_LOCAL_ENTRY_MOTION = [
+  /^\/pros\/[^/]+$/,
+];
+
 function isDetailPath(path: string): boolean {
   return DETAIL_PATTERNS.some((p) => p.test(path));
+}
+
+function hasLocalEntryMotion(path: string): boolean {
+  return ROUTES_WITH_LOCAL_ENTRY_MOTION.some((p) => p.test(path));
 }
 
 export default function PageTransition({ children }: { children: React.ReactNode }) {
@@ -32,6 +40,10 @@ export default function PageTransition({ children }: { children: React.ReactNode
     const prev = prevPath.current;
     prevPath.current = pathname;
     if (prev === null || prev === pathname) return;
+
+    // 사회자 상세는 페이지 내부 Reveal이 이미 진입 모션을 담당한다.
+    // 공통 슬라이드까지 같이 걸리면 진입 애니메이션이 두 번 보인다.
+    if (hasLocalEntryMotion(prev) || hasLocalEntryMotion(pathname)) return;
 
     // 같은 루트 섹션 내 이동(예: /chat/pending-xxx → /chat/real-id, /chat → /chat/xxx)
     // 은 애니메이션 생략 — 채팅방 진입 시 router.push + router.replace 로
