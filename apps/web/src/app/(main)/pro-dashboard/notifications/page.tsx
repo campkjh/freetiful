@@ -1,7 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { notificationApi, getCachedNotifications } from '@/lib/api/notification.api';
+
 /* ─── Icons ─── */
 
 const BackIcon = () => (
@@ -49,6 +53,13 @@ const CalendarNotifIcon = () => (
   </svg>
 );
 
+const ChatNotifIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#4A8AF4"/>
+    <circle cx="8.5" cy="12" r="1" fill="white"/><circle cx="11.5" cy="12" r="1" fill="white"/><circle cx="14.5" cy="12" r="1" fill="white"/>
+  </svg>
+);
+
 const InfoNotifIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
     <circle cx="12" cy="12" r="10" fill="#6B7280" />
@@ -66,51 +77,109 @@ const TrashMiniIcon = () => (
   </svg>
 );
 
-/* ─── Data ─── */
+/* ─── Types ─── */
+
+type NotifType = 'chat' | 'booking' | 'payment' | 'review' | 'system' | 'marketing';
 
 interface Notification {
   id: string;
-  type: 'quote' | 'payment' | 'review' | 'schedule' | 'system';
+  type: NotifType;
   title: string;
   body: string;
   time: string;
   read: boolean;
+  data?: any;
 }
 
-const INITIAL_NOTIFICATIONS: Notification[] = [
-  { id: 'n1', type: 'quote', title: '새 견적 요청', body: '홍** 님이 결혼식 MC 견적을 요청했습니다.', time: '10분 전', read: false },
-  { id: 'n2', type: 'payment', title: '결제 완료', body: '최** 님의 웨딩 MC 결제가 완료되었습니다. ₩1,800,000', time: '2시간 전', read: false },
-  { id: 'n3', type: 'review', title: '새 리뷰', body: '김** 님이 5점 리뷰를 남겼습니다.', time: '3시간 전', read: false },
-  { id: 'n4', type: 'schedule', title: '일정 리마인더', body: '4/19(토) 시에나호텔 웨딩 MC가 일주일 남았습니다.', time: '5시간 전', read: true },
-  { id: 'n5', type: 'system', title: '시스템 공지', body: '프로필 인증 마감일이 7일 남았습니다. 서류를 업로드해주세요.', time: '1일 전', read: true },
-  { id: 'n6', type: 'quote', title: '새 견적 요청', body: '김** 님이 돌잔치 MC 견적을 요청했습니다.', time: '1일 전', read: true },
-  { id: 'n7', type: 'payment', title: '정산 완료', body: '3월 정산금 ₩5,900,000이 입금되었습니다.', time: '2일 전', read: true },
-  { id: 'n8', type: 'system', title: '시스템 공지', body: '새로운 기능이 추가되었습니다. 대시보드를 확인해보세요.', time: '3일 전', read: true },
-];
-
-const ICON_MAP: Record<string, React.ReactNode> = {
-  quote: <DocumentNotifIcon />,
+const ICON_MAP: Record<NotifType, React.ReactNode> = {
+  chat: <ChatNotifIcon />,
+  booking: <CalendarNotifIcon />,
   payment: <PaymentNotifIcon />,
   review: <StarNotifIcon />,
-  schedule: <CalendarNotifIcon />,
   system: <InfoNotifIcon />,
+  marketing: <DocumentNotifIcon />,
 };
 
-const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
-const fadeUp = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
+function formatRelativeTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  const diff = Date.now() - t;
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '방금';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}일 전`;
+  return new Date(iso).toLocaleDateString('ko-KR');
+}
+
+function resolveLink(type: NotifType, data: any): string | undefined {
+  if (data?.link) return data.link;
+  if (data?.chatRoomId) return `/chat/${data.chatRoomId}`;
+  if (data?.quotationId) return '/pro-dashboard/inquiries';
+  if (data?.matchRequestId) return '/pro-dashboard/inquiries';
+  if (type === 'chat') return '/chat';
+  if (type === 'booking') return '/schedule';
+  if (type === 'review') return '/pro-dashboard/reviews';
+  if (type === 'payment') return '/pro-dashboard/revenue';
+  if (type === 'system') return '/my/announcements';
+  return undefined;
+}
+
+function mapFromApi(n: any): Notification {
+  return {
+    id: n.id,
+    type: (n.type || 'system') as NotifType,
+    title: n.title || '',
+    body: n.body || '',
+    time: formatRelativeTime(n.createdAt || new Date().toISOString()),
+    read: !!n.isRead,
+    data: n.data,
+  };
+}
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+  const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
+  // 캐시 즉시 표시
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const cached: any = getCachedNotifications();
+    if (cached && Array.isArray(cached.data)) return cached.data.map(mapFromApi);
+    if (Array.isArray(cached)) return cached.map(mapFromApi);
+    return [];
+  });
+  const [loading, setLoading] = useState(false);
 
-  function handleDelete(id: string) {
+  useEffect(() => {
+    if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') return;
+    setLoading(true);
+    notificationApi.getList({ page: 1, limit: 50 })
+      .then((res: any) => {
+        const items = res?.data || (Array.isArray(res) ? res : []);
+        setNotifications(items.map(mapFromApi));
+      })
+      .catch(() => { /* keep cache */ })
+      .finally(() => setLoading(false));
+  }, [authUser]);
+
+  async function handleDelete(id: string) {
+    // Optimistic
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await notificationApi.deleteOne(id);
+    } catch { /* 실패 시 재로드 */ }
   }
 
-  function handleDragEnd(id: string, info: { offset: { x: number } }) {
-    if (info.offset.x < -100) {
-      handleDelete(id);
+  async function handleNotifClick(notif: Notification) {
+    if (!notif.read) {
+      setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, read: true } : n));
+      notificationApi.markAsRead(notif.id).catch(() => {});
     }
+    const link = resolveLink(notif.type, notif.data);
+    if (link) router.push(link);
   }
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="bg-gray-50 min-h-screen pb-28">
@@ -121,66 +190,72 @@ export default function NotificationsPage() {
             <div><BackIcon /></div>
           </Link>
           <h1 className="text-lg font-bold text-gray-900">알림</h1>
-          {notifications.filter((n) => !n.read).length > 0 && (
+          {unreadCount > 0 && (
             <span className="bg-[#EF4444] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              {notifications.filter((n) => !n.read).length}
+              {unreadCount}
             </span>
+          )}
+          {unreadCount > 0 && (
+            <button
+              onClick={() => {
+                setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+                notificationApi.markAllAsRead().catch(() => {});
+              }}
+              className="ml-auto text-[11px] text-[#3180F7] font-medium"
+            >
+              모두 읽음
+            </button>
           )}
         </div>
       </div>
 
       {/* Notification List */}
       <div className="px-4 mt-2">
-        <div>
-          <>
-            {notifications.length === 0 ? (
-              <div className="py-16 text-center">
-                <div className="flex justify-center mb-3">
-                  <img src="/images/notification-settings.svg" alt="" width={48} height={48} className="shrink-0" />
-                </div>
-                <p className="text-sm text-gray-400">알림이 없습니다</p>
-              </div>
-            ) : (
-              notifications.map((notif, idx) => (
+        {loading && notifications.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-sm text-gray-400">불러오는 중…</p>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="py-16 text-center">
+            <div className="flex justify-center mb-3">
+              <img src="/images/notification-settings.svg" alt="" width={48} height={48} className="shrink-0" />
+            </div>
+            <p className="text-sm text-gray-400">알림이 없습니다</p>
+          </div>
+        ) : (
+          notifications.map((notif, idx) => (
+            <div key={notif.id} className="relative overflow-hidden">
+              <div className={`relative bg-gray-50 flex items-start ${idx < notifications.length - 1 ? 'border-b border-gray-100' : ''} ${!notif.read ? 'bg-blue-50/30' : ''}`}>
                 <div
-                  key={notif.id}
-                  className="relative overflow-hidden"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleNotifClick(notif)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleNotifClick(notif); }}
+                  className="flex-1 text-left py-4 flex items-start gap-3 cursor-pointer"
                 >
-                  {/* Delete background */}
-                  <div className="absolute inset-0 bg-red-50 flex items-center justify-end pr-5 rounded-xl">
-                    <TrashMiniIcon />
-                  </div>
-
-                  {/* Swipeable card */}
-                  <div
-                    className={`relative bg-gray-50 ${idx < notifications.length - 1 ? 'border-b border-gray-100' : ''}`}
-                  >
-                    <div className={`py-4 flex items-start gap-3 ${!notif.read ? 'bg-blue-50/30' : ''}`}>
-                      {/* Icon */}
-                      <div className="shrink-0 mt-0.5">
-                        {ICON_MAP[notif.type]}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className={`text-sm ${!notif.read ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                            {notif.title}
-                          </p>
-                          {!notif.read && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#3180F7] shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.body}</p>
-                        <p className="text-[10px] text-gray-300 mt-1">{notif.time}</p>
-                      </div>
+                  <div className="shrink-0 mt-0.5">{ICON_MAP[notif.type]}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className={`text-sm ${!notif.read ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                        {notif.title}
+                      </p>
+                      {!notif.read && <div className="w-1.5 h-1.5 rounded-full bg-[#3180F7] shrink-0" />}
                     </div>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.body}</p>
+                    <p className="text-[10px] text-gray-300 mt-1">{notif.time}</p>
                   </div>
                 </div>
-              ))
-            )}
-          </>
-        </div>
+                <button
+                  onClick={() => handleDelete(notif.id)}
+                  className="shrink-0 p-3 opacity-50 hover:opacity-100 self-center"
+                  aria-label="삭제"
+                >
+                  <TrashMiniIcon />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
