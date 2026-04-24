@@ -1705,6 +1705,38 @@ export default function ChatExtras(props: ChatExtrasProps) {
               ))}
             </div>
 
+            {/* ─── 행사 정보 (행사일이 스케줄링에 사용됨) ─── */}
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">행사 정보</p>
+            <div className="space-y-2 mb-4">
+              <input
+                type="text"
+                value={quoteEventName}
+                onChange={(e) => setQuoteEventName(e.target.value)}
+                placeholder="행사명 (예: 김철수·이영희 결혼식)"
+                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={quoteEventDate}
+                  onChange={(e) => setQuoteEventDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
+                />
+                <input
+                  type="time"
+                  value={quoteEventTime}
+                  onChange={(e) => setQuoteEventTime(e.target.value)}
+                  className="w-[130px] h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
+                />
+              </div>
+              {!quoteEventDate && (
+                <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                  ⚠️ 행사일을 설정해야 스케줄에 자동 등록됩니다
+                </p>
+              )}
+            </div>
+
             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">포함 서비스</p>
             <div className="bg-gray-50 rounded-xl p-3 mb-4 space-y-1">
               {(PLAN_DATA[quotePlan]?.items || []).map((item, i) => (
