@@ -23,9 +23,10 @@ struct NativeLoginView: View {
             VStack(spacing: 20) {
                 Spacer()
 
-                Text("Freetiful")
-                    .font(.system(size: 32, weight: .black))
-                    .foregroundColor(Color(red: 0.24, green: 0.51, blue: 0.97))
+                Image("logo-wordmark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 40)
 
                 Text("나의 특별한 행사를 완성하는 전문가")
                     .font(.system(size: 14))

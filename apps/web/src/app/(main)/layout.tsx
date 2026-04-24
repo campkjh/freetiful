@@ -91,6 +91,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       if (iosBridge) {
         iosBridge.postMessage({});
         setShowLoginModal(false);
+        // iOS 네이티브 모달은 취소 이벤트를 웹으로 전달하지 않음 → 취소 시 홈에 남도록 선제 이동
+        router.replace('/main');
       } else {
         setShowLoginModal(true);
       }
@@ -327,7 +329,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-            <h2 className="text-[28px] font-black text-center mb-1.5 animate-[loginItemUp_0.4s_ease_0.05s_both]" style={{ color: '#3D82F7' }}>Freetiful</h2>
+            <Image src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" width={137} height={40} priority className="mx-auto mb-1.5 animate-[loginItemUp_0.4s_ease_0.05s_both]" style={{ height: 40, width: 'auto' }} />
             <p className="text-[13px] text-gray-500 text-center mb-7 animate-[loginItemUp_0.4s_ease_0.1s_both]">나의 특별한 행사를 완성하는 전문가</p>
             <div className="space-y-2.5">
               {[
