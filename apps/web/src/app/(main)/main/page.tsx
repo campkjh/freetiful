@@ -746,13 +746,14 @@ export default function HomePage() {
   }, []);
 
   // 프로 유저는 /pro-dashboard 로 자동 리다이렉트 (앱 재진입 시)
-  // userRole localStorage 도 체크 — 일반모드 전환한 경우는 유지
+  // userRole / viewAsUser localStorage 체크 — 일반모드 전환한 경우는 유지
   const router = useRouter();
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const localRole = localStorage.getItem('userRole');
     const isPro = authUser?.role === 'pro' || localRole === 'pro';
-    const isGeneralByChoice = localRole === 'general';
+    const isGeneralByChoice =
+      localRole === 'general' || localStorage.getItem('viewAsUser') === 'true';
     if (isPro && !isGeneralByChoice) {
       router.replace('/pro-dashboard');
     }
@@ -836,34 +837,48 @@ export default function HomePage() {
       return;
     }
     setGeoLoading(true);
+    // 광역 지역 박스 (위경도 대략 경계) — 포함 판정이 중심거리 계산보다 정확
+    const regionBoxes: { name: string; minLat: number; maxLat: number; minLng: number; maxLng: number }[] = [
+      { name: '제주',     minLat: 33.0, maxLat: 33.6, minLng: 126.0, maxLng: 127.0 },
+      { name: '서울/경기', minLat: 36.9, maxLat: 38.3, minLng: 126.4, maxLng: 127.9 },
+      { name: '강원',     minLat: 37.0, maxLat: 38.7, minLng: 127.7, maxLng: 129.4 },
+      { name: '충청',     minLat: 35.9, maxLat: 37.2, minLng: 126.0, maxLng: 128.0 },
+      { name: '전라',     minLat: 34.2, maxLat: 36.2, minLng: 125.5, maxLng: 127.9 },
+      { name: '경상',     minLat: 34.5, maxLat: 37.1, minLng: 127.6, maxLng: 129.6 },
+    ];
+    const centers: Record<string, { lat: number; lng: number }> = {
+      '서울/경기': { lat: 37.55, lng: 127.0 },
+      '강원':     { lat: 37.82, lng: 128.16 },
+      '충청':     { lat: 36.50, lng: 127.25 },
+      '전라':     { lat: 35.30, lng: 126.90 },
+      '경상':     { lat: 35.80, lng: 128.60 },
+      '제주':     { lat: 33.40, lng: 126.55 },
+    };
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        // 대한민국 광역 지역 중심 좌표 (가장 가까운 지역으로 매핑)
-        const centers: Record<string, { lat: number; lng: number }> = {
-          '서울/경기': { lat: 37.55, lng: 127.0 },
-          '강원':     { lat: 37.82, lng: 128.16 },
-          '충청':     { lat: 36.50, lng: 127.25 },
-          '전라':     { lat: 35.30, lng: 126.90 },
-          '경상':     { lat: 35.80, lng: 128.60 },
-          '제주':     { lat: 33.40, lng: 126.55 },
-        };
-        let best = '서울/경기';
-        let minDist = Infinity;
-        for (const [name, c] of Object.entries(centers)) {
-          const d = Math.hypot(c.lat - lat, c.lng - lng);
-          if (d < minDist) { minDist = d; best = name; }
+        // 1) 박스 안에 들어오면 그 지역으로 확정
+        let matched = regionBoxes.find((b) => lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng)?.name;
+        // 2) 어느 박스에도 안 속하면 가장 가까운 중심으로 폴백
+        if (!matched) {
+          let minDist = Infinity;
+          for (const [name, c] of Object.entries(centers)) {
+            const d = Math.hypot(c.lat - lat, c.lng - lng);
+            if (d < minDist) { minDist = d; matched = name; }
+          }
         }
-        setMyRegion(best);
+        setMyRegion(matched ?? '서울/경기');
         setGeoLoading(false);
-        toast.success(`${best} 지역 기반으로 표시합니다`);
+        toast.success(`${matched} 기준으로 표시합니다`);
       },
-      () => {
+      (err) => {
         setGeoLoading(false);
-        toast.error('위치 권한이 거부되었습니다');
+        if (err.code === err.PERMISSION_DENIED) toast.error('위치 권한이 거부되었습니다');
+        else if (err.code === err.TIMEOUT) toast.error('위치 확인 시간 초과');
+        else toast.error('위치를 확인할 수 없습니다');
       },
-      { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 10 * 60 * 1000 },
     );
   };
 
@@ -1560,13 +1575,22 @@ export default function HomePage() {
                 <button
                   onClick={detectMyRegion}
                   disabled={geoLoading}
-                  className={`shrink-0 flex items-center gap-1 px-3.5 py-1.5 text-[13px] font-bold ${
+                  className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-bold overflow-hidden ${
                     myRegion ? 'bg-gray-900 text-white' : 'bg-[#3180F7] text-white'
-                  } disabled:opacity-60`}
+                  } disabled:opacity-80 transition-colors`}
                   style={{ borderRadius: 20 }}
                 >
-                  <MapPin size={13} />
-                  {geoLoading ? '위치 확인 중...' : myRegion ? `내 위치 · ${myRegion}` : '내 위치로 찾기'}
+                  <MapPin
+                    size={13}
+                    fill="currentColor"
+                    className={geoLoading ? 'animate-[geoPulse_1s_ease-in-out_infinite]' : ''}
+                  />
+                  <span
+                    key={geoLoading ? 'loading' : myRegion ? `region-${myRegion}` : 'idle'}
+                    className="animate-[geoLabelIn_0.35s_cubic-bezier(0.22,1,0.36,1)] inline-block"
+                  >
+                    {geoLoading ? '위치 확인 중...' : myRegion ? myRegion : '내 위치'}
+                  </span>
                 </button>
                 {REGIONS.map((r) => (
                   <Link
