@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { quotationApi } from '@/lib/api/quotation.api';
 
@@ -106,6 +107,7 @@ const modalSheet = {
 };
 
 export default function QuotesPage() {
+  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [tab, setTab] = useState<'pending' | 'accepted' | 'rejected'>('pending');
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -244,7 +246,11 @@ export default function QuotesPage() {
                   onPointerDown={(e) => handlePointerDown(quote.id, e)}
                   onPointerUp={handlePointerUp}
                   onPointerCancel={handlePointerUp}
-                  className={`py-4 select-none ${idx < filtered.length - 1 ? 'border-b border-gray-100' : ''}`}
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest('button')) return;
+                    router.push(`/quote/${quote.id}`);
+                  }}
+                  className={`py-4 select-none cursor-pointer ${idx < filtered.length - 1 ? 'border-b border-gray-100' : ''}`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">

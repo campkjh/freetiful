@@ -156,6 +156,10 @@ export class PaymentService {
 
     // 연관된 견적서 상태 + eventDate 조회
     let eventDate: Date | null = null;
+    // chatRoomId 유무로 '채팅 견적 결제' vs '직접 구매' 판별
+    // - 채팅 견적 결제(프로가 견적서 발송 → 고객 결제): quotation.chatRoomId 존재 → 즉시 확정
+    // - 직접 구매(구매하기 / 예약하기 버튼): quotation.chatRoomId 없음 → 프로 수락 대기
+    let isDirectPurchase = true;
     if (payment.quotationId) {
       const quotation = await this.prisma.quotation.update({
         where: { id: payment.quotationId },
@@ -165,9 +169,11 @@ export class PaymentService {
         },
       });
       eventDate = quotation.eventDate;
+      isDirectPurchase = !quotation.chatRoomId;
     }
 
-    // 스케줄 자동 확정 (status=booked) — 프로 수락 없이 결제와 동시에 예약 확정
+    // 스케줄 생성 — 직접 구매이면 pending (프로 수락 대기), 채팅 견적이면 booked (즉시 확정)
+    const scheduleStatus: 'pending' | 'booked' = isDirectPurchase ? 'pending' : 'booked';
     const scheduleDate = eventDate || new Date();
     const dateOnly = new Date(Date.UTC(scheduleDate.getFullYear(), scheduleDate.getMonth(), scheduleDate.getDate()));
     try {
@@ -181,19 +187,19 @@ export class PaymentService {
         create: {
           proProfileId: payment.proProfileId,
           date: dateOnly,
-          status: 'booked',
+          status: scheduleStatus,
           paymentId: payment.id,
           source: 'purchase',
         },
         update: {
-          status: 'booked',
+          status: scheduleStatus,
           paymentId: payment.id,
           source: 'purchase',
           note: null,
         },
       });
     } catch (e) {
-      this.logger.error(`스케줄 확정 실패: ${e}`);
+      this.logger.error(`스케줄 생성 실패: ${e}`);
     }
 
     // 채팅방 생성/찾기 + 스케줄 등록 시스템 메시지 추가
@@ -227,13 +233,16 @@ export class PaymentService {
       }
       if (room?.id) {
         chatRoomId = room.id;
-        // 결제 완료 + 스케줄 확정 시스템 메시지
+        // 시스템 메시지 — 직접 구매면 '대기 중', 채팅 견적이면 '확정' 표시
+        const sysContent = isDirectPurchase
+          ? `📅 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 프로의 수락을 기다리는 중입니다.`
+          : `✅ 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 스케줄이 확정되었습니다.`;
         await this.prisma.message.create({
           data: {
             roomId: room.id,
             senderId: payment.userId,
             type: 'system',
-            content: `✅ 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 스케줄이 확정되었습니다.`,
+            content: sysContent,
           },
         });
         await this.prisma.chatRoom.update({
@@ -245,28 +254,48 @@ export class PaymentService {
       this.logger.error(`결제 후 채팅방/메시지 생성 실패: ${e}`);
     }
 
-    // 알림: 고객 + 전문가 (스케줄 자동 확정)
+    // 알림: 고객 + 전문가
     try {
-      this.notificationService.createNotification(
-        payment.userId,
-        'payment' as any,
-        '결제가 완료되었습니다 ✅',
-        `${data.amount.toLocaleString()}원 결제가 완료되어 스케줄이 확정되었습니다.`,
-        { paymentId: payment.id },
-      ).catch(() => {});
+      if (isDirectPurchase) {
+        this.notificationService.createNotification(
+          payment.userId,
+          'payment' as any,
+          '결제가 완료되었습니다 ✅',
+          `${data.amount.toLocaleString()}원 결제가 완료되었습니다. 프로의 수락을 기다려주세요.`,
+          { paymentId: payment.id },
+        ).catch(() => {});
+      } else {
+        this.notificationService.createNotification(
+          payment.userId,
+          'payment' as any,
+          '결제가 완료되었습니다 ✅',
+          `${data.amount.toLocaleString()}원 결제가 완료되어 스케줄이 확정되었습니다.`,
+          { paymentId: payment.id },
+        ).catch(() => {});
+      }
 
       const proProfile = await this.prisma.proProfile.findUnique({
         where: { id: payment.proProfileId },
         select: { userId: true },
       });
       if (proProfile) {
-        this.notificationService.createNotification(
-          proProfile.userId,
-          'booking' as any,
-          '새 예약이 확정되었습니다 🎉',
-          `${data.amount.toLocaleString()}원 예약이 확정되었습니다. 채팅에서 고객과 상세 일정을 논의해주세요.`,
-          { paymentId: payment.id },
-        ).catch(() => {});
+        if (isDirectPurchase) {
+          this.notificationService.createNotification(
+            proProfile.userId,
+            'booking' as any,
+            '새 예약 요청이 도착했습니다 📅',
+            `${data.amount.toLocaleString()}원 새 예약 요청이 도착했습니다. 수락/거절을 선택해주세요.`,
+            { paymentId: payment.id },
+          ).catch(() => {});
+        } else {
+          this.notificationService.createNotification(
+            proProfile.userId,
+            'booking' as any,
+            '새 예약이 확정되었습니다 🎉',
+            `${data.amount.toLocaleString()}원 예약이 확정되었습니다. 채팅에서 고객과 상세 일정을 논의해주세요.`,
+            { paymentId: payment.id },
+          ).catch(() => {});
+        }
       }
     } catch {}
 

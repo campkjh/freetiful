@@ -86,7 +86,7 @@ function ProsListContent() {
 
   useEffect(() => {
     Promise.all([
-      discoveryApi.getProList({ limit: 100 }),
+      discoveryApi.getProList({ limit: 100, sort: 'pudding' }),
       getPlanTemplates().catch(() => []),
     ])
       .then(([res, templates]) => {

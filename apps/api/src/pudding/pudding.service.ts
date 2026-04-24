@@ -177,6 +177,38 @@ export class PuddingService {
     this.logger.log(`Pudding ranking snapshot complete. Ranked ${rankData.length} pros.`);
   }
 
+  // 매주 월요일 00:00 KST (= 일요일 15:00 UTC) 전체 프로 푸딩 잔액 리셋
+  // 랭킹은 매주 초기화된 푸딩 누적량으로 다시 경쟁
+  @Cron('0 15 * * 0', { name: 'pudding_weekly_reset', timeZone: 'UTC' })
+  async weeklyReset() {
+    this.logger.log('Starting weekly pudding balance reset...');
+
+    const pros = await this.prisma.proProfile.findMany({
+      where: { puddingCount: { gt: 0 } },
+      select: { id: true, puddingCount: true },
+    });
+
+    for (const pro of pros) {
+      await this.prisma.$transaction([
+        this.prisma.proProfile.update({
+          where: { id: pro.id },
+          data: { puddingCount: 0, puddingRank: null },
+        }),
+        this.prisma.puddingTransaction.create({
+          data: {
+            proProfileId: pro.id,
+            type: PuddingTransactionType.reset,
+            amount: -pro.puddingCount,
+            balanceAfter: 0,
+            note: '주간 푸딩 리셋 (매주 월요일 00:00 KST)',
+          },
+        }),
+      ]);
+    }
+
+    this.logger.log(`Weekly pudding reset complete. Reset ${pros.length} pros.`);
+  }
+
   async getBalance(proProfileId: string) {
     const [pro, history] = await Promise.all([
       this.prisma.proProfile.findUnique({

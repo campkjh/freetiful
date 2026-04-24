@@ -86,6 +86,7 @@ function getKoreanHolidays(year: number, month: number): Record<number, string> 
 /* ─── Pro (사회자) Mock Data ─── */
 interface ProBooking {
   id: string;
+  paymentId: string | null;
   clientName: string;
   eventType: string;
   date: string;
@@ -152,6 +153,7 @@ function ProScheduleView() {
           const timeStr = b.eventTime ? new Date(b.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
           return {
             id: b.id || b.date,
+            paymentId: b.paymentId || null,
             clientName: b.clientName || '',
             eventType: b.eventTitle || '행사',
             date: b.date,
@@ -268,7 +270,7 @@ function ProScheduleView() {
               </div>
 
               {/* Action */}
-              <Link href={`/schedule/${booking.id}`} className="block w-full py-2.5 text-[14px] text-white font-bold text-center" style={{ backgroundColor: '#2B313D', borderRadius: 12 }}>
+              <Link href={`/schedule/${booking.paymentId || booking.id}`} className="block w-full py-2.5 text-[14px] text-white font-bold text-center" style={{ backgroundColor: '#2B313D', borderRadius: 12 }}>
                 상세보기
               </Link>
             </div>
