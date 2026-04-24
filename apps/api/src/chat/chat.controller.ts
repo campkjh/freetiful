@@ -15,6 +15,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import {
   CreateChatRoomDto,
+  CreateRoomAsProDto,
   SendMessageDto,
   EditMessageDto,
   ReactToMessageDto,
@@ -39,6 +40,12 @@ export class ChatController {
   @ApiOperation({ summary: '채팅방 생성 (전문가에게 문의)' })
   createRoom(@Req() req, @Body() dto: CreateChatRoomDto) {
     return this.chatService.createRoom(req.user.id, dto);
+  }
+
+  @Post('rooms/pro-initiate')
+  @ApiOperation({ summary: '전문가가 매칭 요청 기반으로 먼저 채팅 시작' })
+  createRoomAsPro(@Req() req, @Body() dto: CreateRoomAsProDto) {
+    return this.chatService.createRoomAsPro(req.user.id, dto);
   }
 
   @Get('rooms')

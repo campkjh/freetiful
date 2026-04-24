@@ -36,6 +36,18 @@ export class CreateChatRoomDto {
   matchRequestId?: string;
 }
 
+// 전문가가 매칭 요청 기반으로 먼저 채팅 거는 경우
+export class CreateRoomAsProDto {
+  @ApiProperty()
+  @IsUUID()
+  customerUserId: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  matchRequestId?: string;
+}
+
 // ─── Messages ────────────────────────────────────────────────────────────────
 
 export class SendMessageDto {

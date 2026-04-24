@@ -10,6 +10,7 @@ import { ImageService } from '../image/image.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CreateChatRoomDto,
+  CreateRoomAsProDto,
   SendMessageDto,
   EditMessageDto,
   ReactToMessageDto,
@@ -173,6 +174,116 @@ export class ChatService {
       unreadCount: 0,
       proProfileId: room.proProfileId,
       iAmPro: false, // createRoom 호출자는 항상 고객 측 (proProfile.userId === userId 면 위에서 차단됨)
+    };
+  }
+
+  /** 전문가가 매칭 요청을 받고 먼저 고객에게 채팅을 거는 경우 */
+  async createRoomAsPro(proUserId: string, dto: CreateRoomAsProDto) {
+    // 호출자의 proProfile 확인
+    const proProfile = await this.prisma.proProfile.findUnique({
+      where: { userId: proUserId },
+      include: {
+        user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+        images: { where: { isPrimary: true }, take: 1 },
+      },
+    });
+    if (!proProfile) throw new ForbiddenException('전문가 프로필이 없습니다');
+    if (proProfile.userId === dto.customerUserId) {
+      throw new BadRequestException('본인과는 채팅을 시작할 수 없습니다');
+    }
+
+    // matchRequestId가 있으면 해당 요청이 현재 pro에게 전달된 것인지 검증
+    if (dto.matchRequestId) {
+      const delivery = await this.prisma.matchDelivery.findFirst({
+        where: { matchRequestId: dto.matchRequestId, proProfileId: proProfile.id },
+      });
+      if (!delivery) {
+        throw new ForbiddenException('해당 매칭 요청에 대한 권한이 없습니다');
+      }
+    }
+
+    // 기존 룸 확인 (customer ↔ 이 pro)
+    const existing = await this.prisma.chatRoom.findFirst({
+      where: {
+        userId: dto.customerUserId,
+        proProfileId: proProfile.id,
+        userDeletedAt: null,
+      },
+      include: {
+        user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+        members: { where: { userId: proUserId } },
+      },
+    });
+    if (existing) {
+      const member = existing.members[0];
+      return {
+        id: existing.id,
+        otherUser: {
+          id: existing.user.id,
+          name: existing.user.name,
+          profileImageUrl: existing.user.profileImageUrl,
+          isActive: existing.user.isActive,
+        },
+        isFavorited: member?.isFavorited ?? false,
+        unreadCount: member?.unreadCount ?? 0,
+        proProfileId: existing.proProfileId,
+        iAmPro: true,
+      };
+    }
+
+    const customer = await this.prisma.user.findUnique({
+      where: { id: dto.customerUserId },
+      select: { id: true, name: true, profileImageUrl: true, isActive: true },
+    });
+    if (!customer) throw new NotFoundException('고객을 찾을 수 없습니다');
+
+    const room = await this.prisma.chatRoom.create({
+      data: {
+        userId: dto.customerUserId,
+        proProfileId: proProfile.id,
+        matchRequestId: dto.matchRequestId,
+        members: {
+          createMany: {
+            data: [
+              { userId: dto.customerUserId },
+              { userId: proUserId },
+            ],
+          },
+        },
+        messages: {
+          create: {
+            senderId: proUserId,
+            type: 'system',
+            content: `${proProfile.user.name || '사회자'}님이 매칭 요청을 보고 먼저 연락드렸습니다.`,
+          },
+        },
+      },
+    });
+
+    this.invalidateRoomsCache(dto.customerUserId);
+    this.invalidateRoomsCache(proUserId);
+
+    // 고객에게 알림
+    this.notificationService.createNotification(
+      dto.customerUserId,
+      'chat' as any,
+      '새 채팅이 도착했습니다 💬',
+      `${proProfile.user.name || '사회자'}님이 매칭 요청을 보고 먼저 연락드렸습니다.`,
+      { roomId: room.id, proProfileId: proProfile.id },
+    ).catch(() => {});
+
+    return {
+      id: room.id,
+      otherUser: {
+        id: customer.id,
+        name: customer.name,
+        profileImageUrl: customer.profileImageUrl,
+        isActive: customer.isActive,
+      },
+      isFavorited: false,
+      unreadCount: 0,
+      proProfileId: room.proProfileId,
+      iAmPro: true,
     };
   }
 
