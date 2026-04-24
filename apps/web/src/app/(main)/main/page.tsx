@@ -854,31 +854,51 @@ export default function HomePage() {
       '경상':     { lat: 35.80, lng: 128.60 },
       '제주':     { lat: 33.40, lng: 126.55 },
     };
+
+    const matchRegion = (lat: number, lng: number): string => {
+      const box = regionBoxes.find((b) => lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng);
+      if (box) return box.name;
+      let best = '서울/경기';
+      let minDist = Infinity;
+      for (const [name, c] of Object.entries(centers)) {
+        const d = Math.hypot(c.lat - lat, c.lng - lng);
+        if (d < minDist) { minDist = d; best = name; }
+      }
+      return best;
+    };
+
+    let settled = false;
+    const finish = (cb: () => void) => {
+      if (settled) return;
+      settled = true;
+      cb();
+      setGeoLoading(false);
+    };
+
+    // 일부 iOS WebView/Android 브라우저에서는 timeout 옵션이 무시되거나 권한 다이얼로그가 뜨지 않아
+    // 콜백이 영영 안 오는 케이스가 있음 → 외부 벽시계 타임아웃으로 강제 종료
+    const wallTimer = setTimeout(() => {
+      finish(() => toast.error('위치 확인이 지연됩니다. 권한 설정을 확인해주세요'));
+    }, 6000);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        // 1) 박스 안에 들어오면 그 지역으로 확정
-        let matched = regionBoxes.find((b) => lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng)?.name;
-        // 2) 어느 박스에도 안 속하면 가장 가까운 중심으로 폴백
-        if (!matched) {
-          let minDist = Infinity;
-          for (const [name, c] of Object.entries(centers)) {
-            const d = Math.hypot(c.lat - lat, c.lng - lng);
-            if (d < minDist) { minDist = d; matched = name; }
-          }
-        }
-        setMyRegion(matched ?? '서울/경기');
-        setGeoLoading(false);
-        toast.success(`${matched} 기준으로 표시합니다`);
+        clearTimeout(wallTimer);
+        finish(() => {
+          const matched = matchRegion(pos.coords.latitude, pos.coords.longitude);
+          setMyRegion(matched);
+          toast.success(`${matched} 기준으로 표시합니다`);
+        });
       },
       (err) => {
-        setGeoLoading(false);
-        if (err.code === err.PERMISSION_DENIED) toast.error('위치 권한이 거부되었습니다');
-        else if (err.code === err.TIMEOUT) toast.error('위치 확인 시간 초과');
-        else toast.error('위치를 확인할 수 없습니다');
+        clearTimeout(wallTimer);
+        finish(() => {
+          if (err.code === err.PERMISSION_DENIED) toast.error('위치 권한이 거부되었습니다');
+          else if (err.code === err.TIMEOUT) toast.error('위치 확인 시간 초과');
+          else toast.error('위치를 확인할 수 없습니다');
+        });
       },
-      { enableHighAccuracy: false, timeout: 4000, maximumAge: 10 * 60 * 1000 },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 10 * 60 * 1000 },
     );
   };
 
