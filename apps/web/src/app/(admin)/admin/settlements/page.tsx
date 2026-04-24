@@ -161,7 +161,7 @@ export default function AdminSettlementsPage() {
           ))}
         </div>
 
-        {lastError && <AdminErrorPanel info={lastError} />}
+        {lastError && <AdminErrorPanel error={lastError} />}
 
         {/* 목록 */}
         <div className="bg-white rounded-xl overflow-hidden border border-gray-100">
