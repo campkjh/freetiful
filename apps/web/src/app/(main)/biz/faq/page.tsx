@@ -398,7 +398,7 @@ export default function FaqPage() {
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[16px] font-black text-gray-900">Freetiful</p>
-              <p className="mt-1 text-[11px] text-gray-300">{t({ ko: '프리티풀', en: 'Freetiful', ja: 'Freetiful', zh: 'Freetiful' })} | {t({ ko: '서울 중구 퇴계로 36길 2, 본관 130호', en: 'Rm 130, Main Bldg, 2 Toegye-ro 36-gil, Jung-gu, Seoul', ja: 'ソウル中区退渓路36ギル2 本館130号', zh: '首尔中区退溪路36街2号 本馆130号' })}</p>
+              <p className="mt-1 text-[11px] text-gray-300">{t({ ko: '프리티풀', en: 'Freetiful', ja: 'Freetiful', zh: 'Freetiful' })} | {t({ ko: '서울 강남구 논현대로10길 30, 505-제이20호', en: 'Rm 505-J20, 30 Nonhyeon-daero 10-gil, Gangnam-gu, Seoul', ja: 'ソウル江南区論峴大路10ギル30, 505-ジェイ20号', zh: '首尔江南区论岘大路10街30号 505-J20号' })}</p>
               <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful. All rights reserved.</p>
             </div>
             <div className="flex gap-4 text-[12px] text-gray-300">

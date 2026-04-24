@@ -63,7 +63,7 @@ export default function Footer() {
             <p>프리티풀 ㅣ 서울 강남구 논현대로10길 30, 505-제이20호</p>
             <p>E freetiful2025@naver.com</p>
             <p>사업자등록번호 313-40-01352</p>
-            <p>통신판매업 제2025-서울종로-0563호</p>
+            <p>통신판매업 제2026-서울강남-02439호</p>
           </div>
           <p className="mt-4 text-[10px] text-gray-300">Copyright&copy; Freetiful. All right reserved.</p>
         </div>
