@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Providers from './providers';
 import AppToaster from '@/components/AppToaster';
+import NaturalReveal from '@/components/NaturalReveal';
 import UpdateNotifier from '@/components/UpdateNotifier';
 import './globals.css';
 
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         </noscript>
         <Providers>
+          <NaturalReveal />
           {children}
           <AppToaster />
           <UpdateNotifier />
