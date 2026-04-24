@@ -1272,8 +1272,8 @@ export default function BizPage() {
             {[
               { icon: <Download className="h-5 w-5" />, title: 'CI', desc: 'SVG', file: '/images/CI.svg' },
               { icon: <Download className="h-5 w-5" />, title: t({ ko: 'BI 가이드라인', en: 'BI Guideline', ja: 'BI ガイドライン', zh: 'BI 指南' }), desc: 'PDF', file: '/images/freetiful_bi.pdf' },
-              { icon: <FileText className="h-5 w-5" />, title: t({ ko: '서비스 이용가이드', en: 'Service Guide', ja: 'サービス利用ガイド', zh: '服务使用指南' }), desc: t({ ko: '준비 중', en: 'Coming Soon', ja: '準備中', zh: '准备中' }), file: '' },
-              { icon: <Briefcase className="h-5 w-5" />, title: t({ ko: '파트너 제안서', en: 'Partner Proposal', ja: 'パートナー提案書', zh: '合作伙伴提案' }), desc: t({ ko: '준비 중', en: 'Coming Soon', ja: '準備中', zh: '准备中' }), file: '' },
+              { icon: <FileText className="h-5 w-5" />, title: t({ ko: '서비스 이용가이드', en: 'Service Guide', ja: 'サービス利用ガイド', zh: '服务使用指南' }), desc: t({ ko: '웹 가이드', en: 'Web Guide', ja: 'Webガイド', zh: '网页指南' }), file: '#핵심서비스' },
+              { icon: <Briefcase className="h-5 w-5" />, title: t({ ko: '파트너 제안서', en: 'Partner Proposal', ja: 'パートナー提案書', zh: '合作伙伴提案' }), desc: t({ ko: '제휴 안내', en: 'Partnership', ja: '提携案内', zh: '合作指南' }), file: '#문의폼' },
               { icon: <Shield className="h-5 w-5" />, title: t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' }), desc: '', file: 'privacy' },
             ].map((item, i) => (
               <Reveal key={i} delay={i * 80}>
@@ -1281,7 +1281,10 @@ export default function BizPage() {
                   <button
                     onClick={() => {
                       if (item.file === 'privacy') { setShowPrivacy(true); return; }
-                      if (!item.file) { toast(t({ ko: '곧 제공될 예정입니다', en: 'Coming soon', ja: '近日公開予定', zh: '即将上线' })); return; }
+                      if (item.file.startsWith('#')) {
+                        document.querySelector(item.file)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        return;
+                      }
                       setPreviewFile(item.file);
                     }}
                     className="flex w-full items-center gap-4 bg-white border border-gray-100 rounded-2xl p-5 text-left transition-all hover:border-gray-200 hover:shadow-sm"

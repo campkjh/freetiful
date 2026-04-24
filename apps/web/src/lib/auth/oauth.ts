@@ -30,5 +30,5 @@ export function startOAuth(provider: Provider) {
 
   if (ios?.googleLogin) { ios.googleLogin.postMessage({}); return; }
   if (and?.googleLogin) { and.googleLogin(); return; }
-  toast.error('Google 웹 로그인은 준비 중입니다. 카카오 또는 네이버로 로그인해주세요.');
+  toast.error('Google 웹 로그인은 현재 앱 로그인으로 연결됩니다. 카카오 또는 네이버로 로그인해주세요.');
 }

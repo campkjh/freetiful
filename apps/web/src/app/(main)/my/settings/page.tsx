@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, Lock, Link2, Wallet, Camera } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { usersApi } from '@/lib/api/users.api';
+import { startOAuth } from '@/lib/auth/oauth';
 import toast from 'react-hot-toast';
 
 // 소셜 로그인 아이콘
@@ -243,8 +244,10 @@ export default function SettingsPage() {
                 onClick={() => {
                   if (isConnected) {
                     setDisconnectTarget(acc.name);
+                  } else if (acc.key === 'kakao' || acc.key === 'naver' || acc.key === 'google') {
+                    startOAuth(acc.key);
                   } else {
-                    toast('추가 소셜 계정 연결은 준비 중입니다', { icon: '🔗' });
+                    toast('Apple 계정 연결은 iOS 앱에서 이용할 수 있습니다', { icon: '🔗' });
                   }
                 }}
                 className={`text-[12px] font-bold px-4 py-2 rounded-full transition-colors active:scale-95 ${
