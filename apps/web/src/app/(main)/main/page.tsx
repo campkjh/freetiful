@@ -1026,7 +1026,7 @@ export default function HomePage() {
         <div className="px-[10px] pt-3 pb-1">
           <div className="grid grid-cols-2 gap-3">
             <Link
-              href="/events/wedding"
+              href="/quote"
               className="block relative rounded-2xl overflow-hidden opacity-0 aspect-[5.5/2.8] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.95] active:brightness-90"
               style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
@@ -1053,7 +1053,7 @@ export default function HomePage() {
               </div>
             </Link>
             <Link
-              href="/events/corporate"
+              href="/quote?mode=event"
               className="relative rounded-2xl px-3 flex items-center -space-x-3 opacity-0 active:scale-[0.97] transition-transform"
               style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
