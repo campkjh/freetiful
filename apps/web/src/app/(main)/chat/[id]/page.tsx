@@ -157,6 +157,8 @@ export default function ChatRoomPage() {
 
   // ─── Refs ───
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const hasInitialScrolledRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -304,10 +306,50 @@ export default function ChatRoomPage() {
     });
   }, [wsMessages]);
 
-  // Auto-scroll
+  // Auto-scroll — 최초 로드 시엔 instant 로 맨 밑으로, 이후엔 smooth
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length === 0) return;
+    const container = scrollContainerRef.current;
+    const scrollToBottom = (smooth: boolean) => {
+      if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
+      }
+    };
+    if (!hasInitialScrolledRef.current) {
+      // 최초 1회: 레이아웃 반영 후 즉시 스크롤. 이미지 로드에 따라 scrollHeight 변하니 다음 프레임에서도 한번 더 보정
+      requestAnimationFrame(() => {
+        scrollToBottom(false);
+        requestAnimationFrame(() => scrollToBottom(false));
+      });
+      hasInitialScrolledRef.current = true;
+    } else {
+      scrollToBottom(true);
+    }
   }, [messages]);
+
+  // 채팅방 교체/언마운트 시 초기 스크롤 플래그 리셋
+  useEffect(() => {
+    hasInitialScrolledRef.current = false;
+  }, [roomId]);
+
+  // 이미지 로드 완료 시 scrollHeight 확장을 반영해 한번 더 맨 밑으로 당겨줌 (초기 진입시만)
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handler = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target?.tagName !== 'IMG') return;
+      // 사용자가 스크롤을 이미 올려둔 상태라면 방해하지 않음
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 200) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+      }
+    };
+    container.addEventListener('load', handler, true);
+    return () => container.removeEventListener('load', handler, true);
+  }, []);
 
   // ─── Send handler ───
   const handleSend = useCallback(() => {
@@ -560,6 +602,7 @@ export default function ChatRoomPage() {
 
       {/* ─── Messages ─── */}
       <div
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-3 pt-[80px] pb-[88px]"
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >

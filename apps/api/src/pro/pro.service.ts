@@ -77,6 +77,8 @@ export class ProService implements OnModuleInit {
       services: { orderBy: { displayOrder: 'asc' as const } },
       faqs: { orderBy: { displayOrder: 'asc' as const } },
       categories: { include: { category: true } },
+      regions: { include: { region: true } },
+      languages: true,
     };
     let profile = await this.prisma.proProfile.findUnique({ where: { userId }, include });
 

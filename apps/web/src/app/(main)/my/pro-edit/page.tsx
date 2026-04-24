@@ -272,7 +272,13 @@ export default function ProEditPage() {
         if (p.shortIntro) setIntro(p.shortIntro);
         if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
         if (p.awards) setAwards(p.awards);
-        if (Array.isArray(p.tags)) setTags(p.tags);
+        // tags 필드는 전문영역(selectedCategories) + 일반 태그(tags)가 합쳐 저장됨 → 분리해 복원
+        if (Array.isArray(p.tags)) {
+          const specialty = p.tags.filter((t: string) => ALL_CATEGORIES.includes(t));
+          const quality = p.tags.filter((t: string) => !ALL_CATEGORIES.includes(t));
+          if (specialty.length > 0) setSelectedCategories(specialty);
+          setTags(quality);
+        }
         if (p.detailHtml) {
           setDetailHtml(p.detailHtml);
           if (detailEditorRef.current) detailEditorRef.current.innerHTML = p.detailHtml;
@@ -290,6 +296,22 @@ export default function ProEditPage() {
         }
         if (Array.isArray(p.faqs) && p.faqs.length > 0) {
           setFaqItems(p.faqs.map((f: any) => ({ q: f.question, a: f.answer })));
+        }
+        // categories → 전문가분류 (사회자/쇼호스트/축가·연주)
+        if (Array.isArray(p.categories) && p.categories.length > 0) {
+          const catName = p.categories[0]?.category?.name;
+          if (catName) setCategory(catName);
+        }
+        // regions → 활동 지역
+        if (Array.isArray(p.regions) && p.regions.length > 0) {
+          const names = p.regions.map((r: any) => r?.region?.name).filter(Boolean);
+          if (names.length > 0) setSelectedRegions(names);
+        } else if (p.isNationwide) {
+          setSelectedRegions(['전국가능']);
+        }
+        // languages → 언어
+        if (Array.isArray(p.languages) && p.languages.length > 0) {
+          setLanguages(p.languages.map((l: any) => l.languageCode).filter(Boolean));
         }
       } catch { /* 로컬 폼 유지 */ }
     })();
@@ -364,11 +386,8 @@ export default function ProEditPage() {
     try {
       const { prosApi } = await import('@/lib/api/pros.api');
       const awardsArray = awards.split('\n').filter(Boolean);
-      let editRegions: string[] | undefined = undefined;
-      try {
-        const stored = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
-        if (Array.isArray(stored) && stored.length > 0) editRegions = stored;
-      } catch {}
+      // 전문영역 + 일반 태그 병합해서 tags 필드에 저장 (중복 제거)
+      const mergedTags = Array.from(new Set([...selectedCategories, ...tags].filter(Boolean)));
       const editResponse: any = await prosApi.submitRegistration({
         // name 은 서버에서 무시됨 (User.name = 가입 시 실계정 이름, 변경 불가)
         phone: phone || undefined,
@@ -382,10 +401,10 @@ export default function ProEditPage() {
         photos: photos.length > 0 ? photos : undefined,
         mainPhotoIndex: mainPhotoIndex,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
-        languages: languages.length > 0 ? languages : undefined,
+        languages: languages,
         category: category || undefined,
-        regions: editRegions,
-        tags: tags.length > 0 ? tags : undefined,
+        regions: selectedRegions,
+        tags: mergedTags.length > 0 ? mergedTags : undefined,
       });
       // 백엔드 응답에 updated user가 포함됨 — 즉시 auth store 갱신
       try {
@@ -508,11 +527,24 @@ export default function ProEditPage() {
             />
           </div>
 
-          {/* 성별 (display) */}
+          {/* 성별 (editable) */}
           <div>
             <label className="block text-[12px] font-bold text-gray-400 mb-1.5">성별</label>
-            <div className="w-full h-11 bg-gray-50 rounded-xl px-4 flex items-center text-[15px] text-gray-500">
-              {gender || '-'}
+            <div className="flex gap-2">
+              {['남성', '여성'].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGender(gender === g ? '' : g)}
+                  className="flex-1 h-11 rounded-xl text-[14px] font-bold border-2 transition-colors"
+                  style={{
+                    backgroundColor: gender === g ? '#EFF6FF' : '#FFFFFF',
+                    borderColor: gender === g ? '#3180F7' : '#E5E7EB',
+                    color: gender === g ? '#3180F7' : '#9CA3AF',
+                  }}
+                >
+                  {g}
+                </button>
+              ))}
             </div>
           </div>
 
