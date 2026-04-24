@@ -112,10 +112,7 @@ const IconUser = () => (
   </svg>
 );
 
-const UPCOMING_SCHEDULES = [
-  { id: '1', proName: '박인애', category: 'MC', date: '4.10 (금)', time: '14:00', location: '그랜드 웨딩홀', proImage: '/images/pro-15/IMG_0196.avif' },
-  { id: '2', proName: '성연채', category: '축가', date: '4.10 (금)', time: '14:30', location: '그랜드 웨딩홀', proImage: '/images/pro-18/20161016_161406_IMG_5921.avif' },
-];
+const UPCOMING_SCHEDULES: { id: string; proName: string; category: string; date: string; time: string; location: string; proImage: string }[] = [];
 
 function getUserFromStorage() {
   if (typeof window === 'undefined') return { name: '사용자', email: '', image: '', linkedAccounts: [], points: 0, coupons: 0, role: 'general' };

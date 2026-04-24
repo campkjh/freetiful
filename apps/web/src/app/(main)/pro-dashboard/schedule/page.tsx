@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useAuthStore } from '@/lib/store/auth.store';
+import { scheduleApi } from '@/lib/api/schedule.api';
 
 const STATUS_COLORS: Record<string, string> = {
   available: 'bg-white text-gray-900',
@@ -14,16 +16,40 @@ type DateStatus = 'available' | 'booked' | 'unavailable';
 
 export default function SchedulePage() {
   const router = useRouter();
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 3)); // April 2026
+  const authUser = useAuthStore((s) => s.user);
+  const now = new Date();
+  const [currentMonth, setCurrentMonth] = useState(new Date(now.getFullYear(), now.getMonth()));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dateStatuses, setDateStatuses] = useState<Record<string, DateStatus>>({});
+  const [bookedInfo, setBookedInfo] = useState<Record<string, { event: string; client: string }>>({});
 
-  const [dateStatuses, setDateStatuses] = useState<Record<string, DateStatus>>({
-    '2026-04-05': 'booked',
-    '2026-04-12': 'booked',
-    '2026-04-19': 'booked',
-    '2026-04-08': 'unavailable',
-    '2026-04-15': 'unavailable',
-  });
+  // 월 변경 또는 인증 상태 변경 시 실제 스케줄 조회
+  useEffect(() => {
+    if (!authUser) return;
+    const y = currentMonth.getFullYear();
+    const m = String(currentMonth.getMonth() + 1).padStart(2, '0');
+    scheduleApi.getMySchedule(`${y}-${m}`)
+      .then((data: any) => {
+        if (!Array.isArray(data)) return;
+        const statuses: Record<string, DateStatus> = {};
+        const info: Record<string, { event: string; client: string }> = {};
+        data.forEach((s: any) => {
+          const dateKey = typeof s.date === 'string' ? s.date.slice(0, 10) : new Date(s.date).toISOString().slice(0, 10);
+          if (s.status === 'booked' || s.status === 'completed' || s.status === 'pending') {
+            statuses[dateKey] = 'booked';
+            info[dateKey] = {
+              event: s.eventTitle || s.title || '예약된 행사',
+              client: s.clientName || '고객',
+            };
+          } else if (s.status === 'unavailable') {
+            statuses[dateKey] = 'unavailable';
+          }
+        });
+        setDateStatuses(statuses);
+        setBookedInfo(info);
+      })
+      .catch(() => {});
+  }, [authUser, currentMonth]);
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -53,12 +79,6 @@ export default function SchedulePage() {
 
   const prevMonth = () => setCurrentMonth(new Date(year, month - 1));
   const nextMonth = () => setCurrentMonth(new Date(year, month + 1));
-
-  const bookedInfo: Record<string, { event: string; client: string }> = {
-    '2026-04-05': { event: '웨딩 MC', client: '홍길동' },
-    '2026-04-12': { event: '돌잔치 MC', client: '이영희' },
-    '2026-04-19': { event: '웨딩 MC', client: '박철수' },
-  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
