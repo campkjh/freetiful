@@ -8,7 +8,7 @@ import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, Arr
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail } from '@/lib/api/discovery.api';
-import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import { getPlanTemplates, getPlanTemplatesSync, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId } from '@/lib/chat-prewarm';
@@ -113,6 +113,105 @@ interface ProDetailData {
   }[];
   recommendedPros: { id: string; name: string; role: string; rating: number; reviews: number; experience: number; image: string; tags: string[]; isPartner: boolean }[];
   alsoViewed: { id: string; title: string; price: number; rating?: number; reviewCount?: number; author: string; image: string; category?: string }[];
+}
+
+function mapRecommendedPros(items: any[] = [], currentId: string) {
+  return items
+    .filter((p: any) => p.id !== currentId)
+    .slice(0, 6)
+    .map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      role: (p.categories && p.categories[0]) || '사회자',
+      rating: p.avgRating,
+      reviews: p.reviewCount,
+      experience: p.careerYears,
+      image: p.images?.[0] || p.profileImageUrl || '',
+      tags: p.shortIntro ? p.shortIntro.split(' ').slice(0, 3) : [],
+      isPartner: p.isFeatured,
+    }));
+}
+
+function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPros: ProDetailData['recommendedPros'] = []): ProDetailData {
+  const userName = res.user?.name || '전문가';
+  const images = res.images?.map((img: any) => img.imageUrl) || [];
+  const profileImg = images[0] || res.user?.profileImageUrl || '';
+  const ytId = extractYoutubeId(res.youtubeUrl);
+  const proCategory: string = (res.categoryNames && res.categoryNames[0]) || '사회자';
+  const services = res.services || [];
+  const tplByLabel = new Map(planTemplates.map((t) => [t.label.toLowerCase(), t]));
+  const tplByKey = new Map(planTemplates.map((t) => [t.planKey.toLowerCase(), t]));
+  const plans = services.map((s: any, idx: number) => {
+    const labelKey = (s.title || '').toLowerCase();
+    const tpl = tplByLabel.get(labelKey) || tplByKey.get(labelKey);
+    return {
+      id: s.id || labelKey || `svc-${idx}`,
+      label: tpl?.label || s.title || `옵션 ${idx + 1}`,
+      price: s.basePrice || tpl?.defaultPrice || 0,
+      duration: tpl?.description || '',
+      title: s.description || tpl?.description || `${tpl?.label || s.title} 서비스`,
+      desc: tpl?.includedItems?.length
+        ? tpl.includedItems
+        : (s.description ? s.description.split('\n').filter(Boolean) : ['사회 진행']),
+      workDays: 14,
+      revisions: idx + 1,
+    };
+  });
+
+  const reviews = (res.reviews || []).map((r: any) => ({
+    id: r.id,
+    name: r.isAnonymous ? '익명' : (r.reviewer?.name ? r.reviewer.name.slice(0, 2) + '********' : '고객'),
+    rating: Number(r.avgRating) || 5.0,
+    date: new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }),
+    scores: {
+      경력: r.ratingExperience,
+      만족도: r.ratingSatisfaction,
+      구성력: r.ratingComposition,
+      위트: r.ratingWit,
+      발성: r.ratingVoice,
+      이미지: r.ratingAppearance,
+    },
+    content: r.comment || '',
+    workDays: 14,
+    orderRange: '협의',
+    proReply: r.proReply ? { date: r.proRepliedAt ? new Date(r.proRepliedAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '', content: r.proReply } : undefined,
+  }));
+
+  const descParts = [
+    `안녕하세요. ${proCategory} ${userName}입니다.`,
+    res.shortIntro ? `\n${res.shortIntro}` : '',
+    res.mainExperience ? `\n\n주요 경력:\n• ${res.mainExperience.split('/').map((s: string) => s.trim()).join('\n• ')}` : '',
+    res.detailHtml || '',
+  ].filter(Boolean).join('');
+
+  return {
+    id: res.id,
+    name: userName,
+    profileImage: profileImg,
+    mainImage: images[0] || profileImg,
+    images: images.length > 0 ? images : [profileImg].filter(Boolean),
+    title: `${proCategory} ${userName}`,
+    categoryName: proCategory,
+    tags: Array.isArray(res.tagList) ? res.tagList : (Array.isArray(res.tags) ? res.tags : []),
+    isPrime: res.isFeatured || res.showPartnersLogo || false,
+    youtubeId: ytId,
+    youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
+    rating: res.avgRating || 0,
+    reviewCount: res.reviewCount || 0,
+    plans,
+    description: descParts,
+    expertStats: {
+      totalDeals: res.reviewCount || 0,
+      satisfaction: res.avgRating ? Math.round((res.avgRating / 5) * 100) : 0,
+      memberType: '기업',
+      taxInvoice: '프리티풀 발행',
+      responseTime: res.responseRate ? `${res.responseRate}시간 이내` : '1시간 이내',
+      contactTime: '언제나 가능',
+    },
+    reviews,
+    recommendedPros,
+    alsoViewed: [],
+  };
 }
 
 // ─── Components ─────────────────────────────────────────────
@@ -365,7 +464,7 @@ export default function ProDetailPage() {
   const [apiLoading, setApiLoading] = useState(true);
 
   // 어드민 설정 플랜 템플릿 로드 (모든 플랜 가격/이름/포함항목의 단일 소스)
-  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
+  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>(() => getPlanTemplatesSync());
   useEffect(() => {
     getPlanTemplates().then(setPlanTemplates).catch(() => {});
   }, []);
@@ -439,115 +538,42 @@ export default function ProDetailPage() {
       }
     }
 
-    // API에서 실제 데이터 로드 (pro detail + recommended pros 병렬)
+    // API에서 실제 데이터 로드. 상세 본문을 추천 목록보다 먼저 보여 체감 진입 속도를 높인다.
     // 본인 프로 페이지면 항상 최신 데이터 로드 (캐시 스킵)
     const myProId = typeof window !== 'undefined' ? localStorage.getItem('freetiful-my-pro-id') : null;
     const skipCache = myProId === id;
-    Promise.all([
-      discoveryApi.getProDetail(id, skipCache),
-      discoveryApi.getProList({ limit: 9, sort: 'rating' }),
-    ])
-      .then(([res, proListRes]: [any, any]) => {
+    const effectivePlanTemplates = getPlanTemplatesSync();
+    const cachedDetail = !skipCache ? getCachedProDetail(id) : null;
+    if (cachedDetail) {
+      try {
+        setPro(mapApiProDetail(cachedDetail, effectivePlanTemplates));
+        setApiLoading(false);
+      } catch {}
+    }
+
+    let cancelled = false;
+    discoveryApi.getProDetail(id, skipCache)
+      .then((res: any) => {
+        if (cancelled) return;
         if (!res) {
           setApiError(true);
           return;
         }
         try {
-        const userName = res.user?.name || '전문가';
-        const images = res.images?.map((img: any) => img.imageUrl) || [];
-        // 파트너 등록 시 업로드한 대표사진(primary)을 우선 사용, 없으면 User 폴백
-        // images는 backend에서 [isPrimary desc, displayOrder asc]로 정렬되어 옴
-        const profileImg = images[0] || res.user?.profileImageUrl || '';
-        const ytId = extractYoutubeId(res.youtubeUrl);
-        const proCategory: string = (res.categoryNames && res.categoryNames[0]) || '사회자';
-        const services = res.services || [];
-        // 어드민 PlanTemplate 을 단일 소스로 사용 — 프로의 ProService.title 로 매칭
-        const tplByLabel = new Map(planTemplates.map((t) => [t.label.toLowerCase(), t]));
-        const tplByKey = new Map(planTemplates.map((t) => [t.planKey.toLowerCase(), t]));
-        const plans = services.map((s: any, idx: number) => {
-          const labelKey = (s.title || '').toLowerCase();
-          const tpl = tplByLabel.get(labelKey) || tplByKey.get(labelKey);
-          return {
-            id: s.id || labelKey || `svc-${idx}`,
-            label: tpl?.label || s.title || `옵션 ${idx + 1}`,
-            price: s.basePrice || tpl?.defaultPrice || 0,
-            duration: tpl?.description || '',
-            title: s.description || tpl?.description || `${tpl?.label || s.title} 서비스`,
-            desc: tpl?.includedItems?.length
-              ? tpl.includedItems
-              : (s.description ? s.description.split('\n').filter(Boolean) : ['사회 진행']),
-            workDays: 14,
-            revisions: idx + 1,
+          setPro(mapApiProDetail(res, effectivePlanTemplates));
+          const loadRecommendations = () => {
+            discoveryApi.getProList({ limit: 9, sort: 'rating' })
+              .then((proListRes: any) => {
+                if (cancelled) return;
+                setPro((current) => current
+                  ? { ...current, recommendedPros: mapRecommendedPros(proListRes?.data || [], res.id) }
+                  : current);
+              })
+              .catch(() => {});
           };
-        });
-
-        const reviews = (res.reviews || []).map((r: any) => ({
-          id: r.id,
-          name: r.isAnonymous ? '익명' : (r.reviewer?.name ? r.reviewer.name.slice(0, 2) + '********' : '고객'),
-          rating: Number(r.avgRating) || 5.0,
-          date: new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }),
-          scores: {
-            경력: r.ratingExperience,
-            만족도: r.ratingSatisfaction,
-            구성력: r.ratingComposition,
-            위트: r.ratingWit,
-            발성: r.ratingVoice,
-            이미지: r.ratingAppearance,
-          },
-          content: r.comment || '',
-          workDays: 14,
-          orderRange: '협의',
-          proReply: r.proReply ? { date: r.proRepliedAt ? new Date(r.proRepliedAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '', content: r.proReply } : undefined,
-        }));
-
-        const descParts = [
-          `안녕하세요. ${proCategory} ${userName}입니다.`,
-          res.shortIntro ? `\n${res.shortIntro}` : '',
-          res.mainExperience ? `\n\n주요 경력:\n• ${res.mainExperience.split('/').map((s: string) => s.trim()).join('\n• ')}` : '',
-          res.detailHtml || '',
-        ].filter(Boolean).join('');
-
-        setPro({
-          id: res.id,
-          name: userName,
-          profileImage: profileImg,
-          mainImage: images[0] || profileImg,
-          images: images.length > 0 ? images : [profileImg].filter(Boolean),
-          title: `${proCategory} ${userName}`,
-          categoryName: proCategory,
-          tags: Array.isArray(res.tagList) ? res.tagList : (Array.isArray(res.tags) ? res.tags : []),
-          isPrime: res.isFeatured || res.showPartnersLogo || false,
-          youtubeId: ytId,
-          youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
-          rating: res.avgRating || 0,
-          reviewCount: res.reviewCount || 0,
-          plans,
-          description: descParts,
-          expertStats: {
-            totalDeals: res.reviewCount || 0,
-            satisfaction: res.avgRating ? Math.round((res.avgRating / 5) * 100) : 0,
-            memberType: '기업',
-            taxInvoice: '프리티풀 발행',
-            responseTime: res.responseRate ? `${res.responseRate}시간 이내` : '1시간 이내',
-            contactTime: '언제나 가능',
-          },
-          reviews,
-          recommendedPros: (proListRes?.data || [])
-            .filter((p: any) => p.id !== res.id)
-            .slice(0, 6)
-            .map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              role: (p.categories && p.categories[0]) || '사회자',
-              rating: p.avgRating,
-              reviews: p.reviewCount,
-              experience: p.careerYears,
-              image: p.images?.[0] || p.profileImageUrl || '',
-              tags: p.shortIntro ? p.shortIntro.split(' ').slice(0, 3) : [],
-              isPartner: p.isFeatured,
-            })),
-          alsoViewed: [],
-        });
+          const win = window as typeof window & { requestIdleCallback?: (cb: () => void, options?: { timeout?: number }) => number };
+          if (win.requestIdleCallback) win.requestIdleCallback(loadRecommendations, { timeout: 1500 });
+          else window.setTimeout(loadRecommendations, 300);
         } catch (mapErr) {
           console.error('ProDetail mapping error:', mapErr);
           setApiError(true);
@@ -555,10 +581,11 @@ export default function ProDetailPage() {
       })
       .catch((err) => {
         console.error('ProDetail load error:', err);
-        setApiError(true);
+        if (!cachedDetail) setApiError(true);
       })
       .finally(() => setApiLoading(false));
-  }, [id, planTemplates]);
+    return () => { cancelled = true; };
+  }, [id]);
 
   const [activeImage, setActiveImage] = useState(0);
   const [activePlan, setActivePlan] = useState(() => {
@@ -602,6 +629,8 @@ export default function ProDetailPage() {
   const [phoneModal, setPhoneModal] = useState(false);
   const [loginModal, setLoginModal] = useState(false);
   const [reviewMenu, setReviewMenu] = useState<string | null>(null);
+  const [heroVideoPlaying, setHeroVideoPlaying] = useState(false);
+  const [playingVideos, setPlayingVideos] = useState<Set<string>>(new Set());
 
   const descRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
@@ -879,7 +908,14 @@ export default function ProDetailPage() {
                 }}
                 className="relative w-full h-full shrink-0 block"
               >
-                <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} />
+                <Image
+                  src={src}
+                  alt={pro.name}
+                  fill
+                  className="object-cover"
+                  priority={i === 0}
+                  sizes="100vw"
+                />
               </button>
             ))}
           </div>
@@ -923,12 +959,33 @@ export default function ProDetailPage() {
           <div
             className="absolute bottom-4 right-4 w-[130px] aspect-[5/3] rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)] border-2 border-white/90 bg-black z-10"
           >
-            <iframe
-              className="w-full h-full pointer-events-none"
-              src={`https://www.youtube.com/embed/${pro.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${pro.youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
-              title="YouTube preview"
-              allow="autoplay; encrypted-media"
-            />
+            {heroVideoPlaying ? (
+              <iframe
+                className="w-full h-full"
+                src={`https://www.youtube.com/embed/${pro.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${pro.youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
+                title="YouTube preview"
+                allow="autoplay; encrypted-media"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setHeroVideoPlaying(true)}
+                className="relative w-full h-full block"
+                aria-label="영상 미리보기 재생"
+              >
+                <img
+                  src={`https://img.youtube.com/vi/${pro.youtubeId}/mqdefault.jpg`}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/10">
+                  <span className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow-sm">
+                    <Play size={16} className="fill-gray-900 text-gray-900 ml-0.5" />
+                  </span>
+                </span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1161,13 +1218,34 @@ export default function ProDetailPage() {
                 {pro.youtubeVideos.map((video) => (
                   <div key={video.id} className="shrink-0 w-[260px] snap-start">
                     <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
-                      <iframe
-                        className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${video.id}?modestbranding=1&rel=0&playsinline=1`}
-                        title={video.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
+                      {playingVideos.has(video.id) ? (
+                        <iframe
+                          className="w-full h-full"
+                          src={`https://www.youtube.com/embed/${video.id}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
+                          title={video.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
+                          className="relative w-full h-full block"
+                          aria-label={`${video.title} 재생`}
+                        >
+                          <img
+                            src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <span className="w-11 h-11 rounded-full bg-white/95 flex items-center justify-center shadow-sm">
+                              <Play size={18} className="fill-gray-900 text-gray-900 ml-0.5" />
+                            </span>
+                          </span>
+                        </button>
+                      )}
                     </div>
                     <p className="mt-2 text-[13px] font-medium text-gray-700 leading-tight line-clamp-1">{video.title}</p>
                   </div>
