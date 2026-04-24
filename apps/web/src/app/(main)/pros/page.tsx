@@ -7,7 +7,6 @@ import { ChevronLeft, Star, MapPin, ChevronDown, Search, SlidersHorizontal, X, C
 import { Suspense } from 'react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
-import { getPlanTemplates } from '@/lib/api/plan-templates.api';
 
 interface ProItem {
   id: string;
@@ -85,13 +84,8 @@ function ProsListContent() {
   const [apiLoaded, setApiLoaded] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      discoveryApi.getProList({ limit: 100, sort: 'pudding' }),
-      getPlanTemplates().catch(() => []),
-    ])
-      .then(([res, templates]) => {
-        // 첫 번째 활성 플랜(Premium)의 defaultPrice를 폴백 기준으로 사용
-        const fallbackPrice = (templates as any[]).find((t) => t.isActive)?.defaultPrice || 450000;
+    discoveryApi.getProList({ limit: 100, sort: 'pudding' })
+      .then((res) => {
         if (res?.data && res.data.length > 0) {
           // userId 중복 제거
           const seen = new Set<string>();
@@ -113,8 +107,8 @@ function ProsListContent() {
             puddingRank: idx + 1,
             image: p.profileImageUrl || p.images?.[0] || '',
             intro: p.shortIntro || '',
-            // basePrice 가 0/null/undefined 모두 폴백 (0원 등록은 무의미하니 안전)
-            price: (typeof p.basePrice === 'number' && p.basePrice > 0) ? p.basePrice : fallbackPrice,
+            // basePrice 미설정 프로는 0으로 (UI 에서 '가격 협의' 처리)
+            price: (typeof p.basePrice === 'number' && p.basePrice > 0) ? p.basePrice : 0,
             experience: p.careerYears || 1,
           }));
           setApiPros(mapped);

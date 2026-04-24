@@ -798,7 +798,7 @@ export default function HomePage() {
             image: p.images?.[0] || p.profileImageUrl || '',
             images: p.images || [],
             intro: p.shortIntro || '',
-            price: p.basePrice || 450000,
+            price: typeof p.basePrice === 'number' && p.basePrice > 0 ? p.basePrice : 0,
             experience: p.careerYears || 0,
             // 실제 DB tags 사용. 없으면 isFeatured/isNationwide 기반 폴백
             tags: (Array.isArray(p.tags) && p.tags.length > 0)

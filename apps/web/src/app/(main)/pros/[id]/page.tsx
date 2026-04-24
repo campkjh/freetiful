@@ -1259,21 +1259,17 @@ export default function ProDetailPage() {
           <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
         </div>
 
-        {/* Radar Chart - derived from review scores */}
+        {/* Radar Chart - derived from review scores (리뷰에 점수가 있을 때만 노출) */}
         {(() => {
           const reviewsWithScores = pro.reviews.filter(r => r.scores);
+          const keys = ['경력', '만족도', '위트', '발성', '이미지', '구성력'];
           const avgScore = (key: string) => {
             const vals = reviewsWithScores.map(r => r.scores?.[key]).filter((v): v is number => v != null && v > 0);
-            return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : pro.rating || 4.5;
+            return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
           };
-          const scoreItems = [
-            { label: '경력', value: avgScore('경력') },
-            { label: '만족도', value: avgScore('만족도') },
-            { label: '위트', value: avgScore('위트') },
-            { label: '발성', value: avgScore('발성') },
-            { label: '이미지', value: avgScore('이미지') },
-            { label: '구성력', value: avgScore('구성력') },
-          ];
+          const scoreItems = keys.map((label) => ({ label, value: avgScore(label) }));
+          const hasAnyScore = scoreItems.some((s) => s.value > 0);
+          if (!hasAnyScore) return null;
           return (
             <>
               <RadarChart scores={scoreItems} />
