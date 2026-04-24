@@ -213,6 +213,9 @@ img:not([src]) {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Android Chrome 자동 텍스트 확대 방지 (iOS는 기본값으로 OK) */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {

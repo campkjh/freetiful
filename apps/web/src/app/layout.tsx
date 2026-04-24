@@ -19,9 +19,12 @@ export const metadata: Metadata = {
 };
 
 // viewport-fit=cover — iOS/Android WebView에서 env(safe-area-inset-*) 활성화
+// maximumScale/userScalable — Android Chrome에서 핀치 줌으로 vw 계산이 틀어지는 문제 방지
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
 };
 
