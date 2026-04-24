@@ -198,7 +198,7 @@ export default function FavoritesPage() {
     const stored = getStoredRecentViews();
     if (stored.length === 0) return;
 
-    discoveryApi.getProList({ limit: RECENT_LOOKUP_LIMIT })
+    discoveryApi.getProList({ limit: RECENT_LOOKUP_LIMIT, withTotal: false })
       .then((res) => {
         const byId = new Map<string, ProListItem>((res.data || []).map((p) => [p.id, p]));
         const recent = stored

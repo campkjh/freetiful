@@ -285,7 +285,7 @@ function QuotePage() {
     setProsLoading(true);
     const moodList = Array.from(moods);
     // 첫 화면 의사결정에 충분한 범위만 로드하고 공개 캐시를 재사용한다.
-    discoveryApi.getProList({ limit: 80, sort: 'rating' })
+    discoveryApi.getProList({ limit: 80, sort: 'rating', withTotal: false })
       .then((res) => {
         if (cancelled) return;
         const all = (res?.data || []).map((p: any) => ({

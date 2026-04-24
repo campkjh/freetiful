@@ -52,7 +52,7 @@ export default function SearchPage() {
     if (q.length === 0) { setApiResults([]); return; }
     searchTimerRef.current = setTimeout(() => {
       setIsApiSearching(true);
-      discoveryApi.getProList({ search: q })
+      discoveryApi.getProList({ search: q, withTotal: false })
         .then((res) => { setApiResults(res.data || []); })
         .catch(() => { /* fallback to local filter */ })
         .finally(() => setIsApiSearching(false));

@@ -74,6 +74,22 @@ function extractYoutubeId(url: string | null | undefined): string | undefined {
   return match?.[1] || undefined;
 }
 
+function runWhenIdle(cb: () => void, timeout = 1200) {
+  if (typeof window === 'undefined') return 0;
+  const win = window as typeof window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+  return win.requestIdleCallback ? win.requestIdleCallback(cb, { timeout }) : window.setTimeout(cb, 250);
+}
+
+function cancelIdleRun(handle: number) {
+  if (typeof window === 'undefined' || !handle) return;
+  const win = window as typeof window & { cancelIdleCallback?: (handle: number) => void };
+  if (win.cancelIdleCallback) win.cancelIdleCallback(handle);
+  window.clearTimeout(handle);
+}
+
 // ─── Pro data type from API ────────────────────────────────
 interface ProDetailData {
   id: string;
@@ -619,7 +635,7 @@ export default function ProDetailPage() {
         try {
           setPro(mapApiProDetail(res, effectivePlanTemplates));
           const loadRecommendations = () => {
-            discoveryApi.getProList({ limit: 9, sort: 'rating' })
+            discoveryApi.getProList({ limit: 9, sort: 'rating', withTotal: false })
               .then((proListRes: any) => {
                 if (cancelled) return;
                 setPro((current) => current
@@ -628,9 +644,7 @@ export default function ProDetailPage() {
               })
               .catch(() => {});
           };
-          const win = window as typeof window & { requestIdleCallback?: (cb: () => void, options?: { timeout?: number }) => number };
-          if (win.requestIdleCallback) win.requestIdleCallback(loadRecommendations, { timeout: 1500 });
-          else window.setTimeout(loadRecommendations, 300);
+          runWhenIdle(loadRecommendations, 1500);
         } catch (mapErr) {
           console.error('ProDetail mapping error:', mapErr);
           setApiError(true);
@@ -640,7 +654,7 @@ export default function ProDetailPage() {
         console.error('ProDetail load error:', err);
         if (!cachedDetail && !cachedPreview) setApiError(true);
       })
-      .finally(() => setApiLoading(false));
+      .finally(() => { if (!cancelled) setApiLoading(false); });
     return () => { cancelled = true; };
   }, [id]);
 
@@ -661,16 +675,25 @@ export default function ProDetailPage() {
 
   // Check favorite status from API
   useEffect(() => {
-    if (authUser && id) {
-      favoriteApi.check(id).then((res) => setIsFavorited(res.isFavorited)).catch(() => {});
-    }
+    if (!authUser || !id) return;
+    let cancelled = false;
+    const handle = runWhenIdle(() => {
+      favoriteApi.check(id)
+        .then((res) => { if (!cancelled) setIsFavorited(res.isFavorited); })
+        .catch(() => {});
+    }, 1000);
+    return () => {
+      cancelled = true;
+      cancelIdleRun(handle);
+    };
   }, [authUser, id]);
 
   // 채팅 번들만 prefetch (실제 createRoom 은 사용자가 "문의하기" 버튼 클릭 시점에 실행)
   // 이전 버전은 여기서 preWarmChat(id) 을 호출해 방문만 해도 유령 방이 생기는 버그가 있었음
   useEffect(() => {
     if (!authUser || !id || id === 'my-pro') return;
-    router.prefetch('/chat');
+    const handle = runWhenIdle(() => router.prefetch('/chat'), 1800);
+    return () => cancelIdleRun(handle);
   }, [authUser, id, router]);
   const [openingChat, setOpeningChat] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);

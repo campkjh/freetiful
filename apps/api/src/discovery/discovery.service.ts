@@ -9,7 +9,10 @@ export class DiscoveryService implements OnModuleInit {
   async onModuleInit() {
     // 서버 시작 시 캐시 워밍업
     try {
-      await this.getProList({ limit: 50, sort: 'rating' });
+      await Promise.all([
+        this.getProList({ limit: 50, sort: 'pudding', withTotal: false }),
+        this.getProList({ limit: 12, sort: 'rating', withTotal: false }),
+      ]);
       this.logger.log('Pro list cache warmed up');
     } catch (e) {
       this.logger.warn('Cache warmup failed', e);
@@ -17,7 +20,7 @@ export class DiscoveryService implements OnModuleInit {
   }
 
   private cache = new Map<string, { data: any; expires: number }>();
-  private CACHE_TTL = 60_000; // 1분 (실시간 카운트 반영 위해 짧게)
+  private CACHE_TTL = 5 * 60_000; // 공개 탐색 데이터는 짧은 실시간성보다 빠른 재진입이 중요
 
   private getCached<T>(key: string): T | null {
     const entry = this.cache.get(key);
@@ -52,10 +55,16 @@ export class DiscoveryService implements OnModuleInit {
         status: 'approved',
         user: { isActive: true },
       },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        shortIntro: true,
+        avgRating: true,
+        reviewCount: true,
+        careerYears: true,
         user: { select: { id: true, name: true, profileImageUrl: true } },
-        images: { where: { isPrimary: true }, take: 1 },
-        services: { where: { isActive: true }, take: 1 },
+        images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
+        services: { where: { isActive: true }, take: 1, select: { basePrice: true } },
       },
       orderBy: { avgRating: 'desc' },
     });
@@ -89,12 +98,14 @@ export class DiscoveryService implements OnModuleInit {
     maxPrice?: number;
     featured?: boolean;
     region?: string;
+    withTotal?: boolean;
   }) {
     const page = Number(params.page) || 1;
     const limit = Math.min(Number(params.limit) || 20, 100);
     const { search, sort = 'rating', gender, minPrice, maxPrice, featured, region } = params;
+    const withTotal = params.withTotal !== false;
 
-    const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured, region });
+    const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured, region, withTotal });
     const cached = this.getCached<any>(cacheKey);
     if (cached) return cached;
 
@@ -150,24 +161,48 @@ export class DiscoveryService implements OnModuleInit {
       : sort === 'pudding' ? { puddingCount: 'desc' as const }
       : { avgRating: 'desc' as const };
 
-    const [data, total] = await Promise.all([
+    const [data, totalCount] = await Promise.all([
       this.prisma.proProfile.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          userId: true,
+          shortIntro: true,
+          mainExperience: true,
+          avgRating: true,
+          reviewCount: true,
+          careerYears: true,
+          isFeatured: true,
+          showPartnersLogo: true,
+          puddingCount: true,
+          gender: true,
+          youtubeUrl: true,
+          isNationwide: true,
+          tags: true,
           user: { select: { id: true, name: true, profileImageUrl: true } },
           // isPrimary=true 가 있으면 그것을, 없으면 displayOrder=0 을 [0] 번째로 배치
-          images: { orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }], take: 4 },
-          services: { where: { isActive: true }, orderBy: { displayOrder: 'asc' }, take: 1 },
-          categories: { include: { category: { select: { name: true } } } },
-          regions: { include: { region: { select: { name: true, isNationwide: true } } } },
+          images: {
+            orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
+            take: 4,
+            select: { imageUrl: true },
+          },
+          services: {
+            where: { isActive: true },
+            orderBy: { displayOrder: 'asc' },
+            take: 1,
+            select: { basePrice: true },
+          },
+          categories: { select: { category: { select: { name: true } } } },
+          regions: { select: { region: { select: { name: true, isNationwide: true } } } },
           languages: { select: { languageCode: true } },
         },
         orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.proProfile.count({ where }),
+      withTotal ? this.prisma.proProfile.count({ where }) : Promise.resolve(0),
     ]);
+    const total = withTotal ? totalCount : data.length;
 
     const result = {
       data: data.map((p) => ({
@@ -184,6 +219,7 @@ export class DiscoveryService implements OnModuleInit {
         careerYears: p.careerYears,
         basePrice: p.services[0]?.basePrice,
         isFeatured: p.isFeatured,
+        showPartnersLogo: p.showPartnersLogo,
         puddingCount: p.puddingCount,
         gender: p.gender,
         youtubeUrl: p.youtubeUrl,
@@ -196,7 +232,7 @@ export class DiscoveryService implements OnModuleInit {
       total,
       page,
       limit,
-      hasMore: page * limit < total,
+      hasMore: withTotal ? page * limit < total : data.length === limit,
     };
     this.setCached(cacheKey, result);
     return result;
@@ -209,17 +245,58 @@ export class DiscoveryService implements OnModuleInit {
     if (detailCached) return detailCached;
     const pro = await this.prisma.proProfile.findUnique({
       where: { id: proProfileId },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        gender: true,
+        careerYears: true,
+        shortIntro: true,
+        mainExperience: true,
+        detailHtml: true,
+        youtubeUrl: true,
+        isFeatured: true,
+        showPartnersLogo: true,
+        avgRating: true,
+        reviewCount: true,
+        responseRate: true,
+        tags: true,
+        isNationwide: true,
+        profileViews: true,
         user: { select: { id: true, name: true, profileImageUrl: true, email: true } },
         // 대표(primary) 이미지가 images[0] 에 오도록 정렬
-        images: { orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }] },
-        services: { where: { isActive: true }, orderBy: { displayOrder: 'asc' } },
-        faqs: { orderBy: { displayOrder: 'asc' } },
-        categories: { include: { category: { select: { name: true } } } },
-        regions: { include: { region: { select: { name: true } } } },
+        images: {
+          orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
+          select: { id: true, imageUrl: true, displayOrder: true, isPrimary: true },
+        },
+        services: {
+          where: { isActive: true },
+          orderBy: { displayOrder: 'asc' },
+          select: { id: true, title: true, description: true, basePrice: true, priceUnit: true, displayOrder: true, isActive: true },
+        },
+        faqs: {
+          orderBy: { displayOrder: 'asc' },
+          select: { id: true, question: true, answer: true, displayOrder: true },
+        },
+        categories: { select: { category: { select: { name: true } } } },
+        regions: { select: { region: { select: { name: true } } } },
         languages: { select: { languageCode: true } },
         reviews: {
-          include: { reviewer: { select: { id: true, name: true, profileImageUrl: true } } },
+          select: {
+            id: true,
+            avgRating: true,
+            ratingExperience: true,
+            ratingSatisfaction: true,
+            ratingComposition: true,
+            ratingWit: true,
+            ratingVoice: true,
+            ratingAppearance: true,
+            comment: true,
+            isAnonymous: true,
+            proReply: true,
+            proRepliedAt: true,
+            createdAt: true,
+            reviewer: { select: { id: true, name: true, profileImageUrl: true } },
+          },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },

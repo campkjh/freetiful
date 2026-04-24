@@ -801,7 +801,7 @@ export default function HomePage() {
       setApiPros((prev) => prev ?? []);
     }, 8000);
 
-    discoveryApi.getProList({ limit: 41, sort: 'pudding' })
+    discoveryApi.getProList({ limit: 41, sort: 'pudding', withTotal: false })
       .then((res) => {
         clearTimeout(timeout);
         if (res.data?.length > 0) {
@@ -911,7 +911,7 @@ export default function HomePage() {
     }
     let cancelled = false;
     setRegionalLoading(true);
-    discoveryApi.getProList({ limit: 12, sort: 'rating', region: selectedRegion })
+    discoveryApi.getProList({ limit: 12, sort: 'rating', region: selectedRegion, withTotal: false })
       .then((res) => {
         if (cancelled) return;
         const mapped = (res.data || []).map((p: any, i: number) => ({
@@ -1081,7 +1081,7 @@ export default function HomePage() {
 
   const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat);
   const warmProsList = () => {
-    discoveryApi.getProList({ limit: 80, sort: 'pudding' }).catch(() => {});
+    discoveryApi.getProList({ limit: 80, sort: 'pudding', withTotal: false }).catch(() => {});
   };
 
   const toggleFavorite = (e: React.MouseEvent, proId: string) => {

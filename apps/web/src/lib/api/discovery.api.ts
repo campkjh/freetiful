@@ -27,6 +27,7 @@ export interface ProListItem {
   careerYears: number;
   basePrice: number;
   isFeatured: boolean;
+  showPartnersLogo?: boolean;
   puddingCount: number;
   gender: string;
   youtubeUrl: string | null;
@@ -91,6 +92,15 @@ export function getCachedProDetail(id: string): any | null {
   return storageGet(`detail:${id}`);
 }
 
+export function getCachedProList(params?: ProListParams): { data: ProListItem[]; total: number; hasMore: boolean } | null {
+  const key = `list:${JSON.stringify(params || {})}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.ts < TTL) return hit.data;
+  const stored = storageGet<{ data: ProListItem[]; total: number; hasMore: boolean }>(key);
+  if (stored) cache.set(key, { data: stored, ts: Date.now() });
+  return stored;
+}
+
 export function getCachedProPreview(id: string): ProListItem | null {
   const findInPayload = (payload: any): ProListItem | null => {
     const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
@@ -136,25 +146,39 @@ export function invalidateProCache(id?: string) {
   }
 }
 
+type ProListParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding';
+  gender?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  featured?: boolean;
+  region?: string;
+  withTotal?: boolean;
+};
+
 export const discoveryApi = {
   getDailyRecommendation: () =>
     cached('daily', () => apiClient.get<RecommendedPro>(`${BASE}/recommendation/daily`).then((r) => r.data)),
 
-  getProList: (params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding';
-    gender?: string;
-    featured?: boolean;
-    region?: string;
-  }) => {
+  getProList: (params?: ProListParams) => {
     const key = `list:${JSON.stringify(params || {})}`;
     return cached(key, () => apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, { params }).then((r) => r.data));
   },
 
   getProDetail: (id: string, skipCache = false) => {
-    if (skipCache) cache.delete(`detail:${id}`);
-    return cached(`detail:${id}`, () => apiClient.get(`${BASE}/pros/${id}`).then((r) => r.data));
+    const key = `detail:${id}`;
+    if (skipCache) {
+      cache.delete(key);
+      if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_PREFIX + key);
+      return apiClient.get(`${BASE}/pros/${id}`, { params: { nocache: '1' } }).then((r) => {
+        cache.set(key, { data: r.data, ts: Date.now() });
+        storageSet(key, r.data);
+        return r.data;
+      });
+    }
+    return cached(key, () => apiClient.get(`${BASE}/pros/${id}`).then((r) => r.data));
   },
 };

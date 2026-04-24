@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, Star, ChevronDown, Search, SlidersHorizontal, X, ChevronUp } from 'lucide-react';
 import { Suspense } from 'react';
-import { useAuthStore } from '@/lib/store/auth.store';
-import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
+import { discoveryApi, getCachedProList, type ProListItem } from '@/lib/api/discovery.api';
 
 interface ProItem {
   id: string;
@@ -45,6 +44,7 @@ const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
 const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외국어사회자'];
 
 const PAGE_SIZE = 10;
+const PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: false };
 
 function getRegionAliases(region: string) {
   if (region === '전체') return [];
@@ -96,6 +96,7 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
             src={pro.image || '/images/default-profile.svg'}
             alt={pro.name}
             loading={index < 4 ? 'eager' : 'lazy'}
+            decoding="async"
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {pro.isNationwide && (
@@ -173,48 +174,57 @@ function getRegisteredPro(): ProItem | null {
   };
 }
 
+function mapApiPros(items: ProListItem[]): ProItem[] {
+  const seen = new Set<string>();
+  return items
+    .filter((p) => {
+      const key = p.userId || p.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((p, idx) => ({
+      id: p.id,
+      name: p.name,
+      categories: p.categories || [],
+      regions: p.regions || [],
+      languages: p.languages || [],
+      isNationwide: p.isNationwide ?? false,
+      rating: p.avgRating || 0,
+      reviews: p.reviewCount || 0,
+      puddingRank: idx + 1,
+      image: p.profileImageUrl || p.images?.[0] || '',
+      intro: p.shortIntro || '',
+      price: (typeof p.basePrice === 'number' && p.basePrice > 0) ? p.basePrice : 0,
+      experience: p.careerYears || 1,
+    }));
+}
+
 function ProsListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const authUser = useAuthStore((s) => s.user);
   const registeredPro = getRegisteredPro();
-  const [apiPros, setApiPros] = useState<ProItem[]>([]);
-  const [apiLoaded, setApiLoaded] = useState(false);
+  const initialCachedProsRef = useRef<ProItem[] | null>(null);
+  if (initialCachedProsRef.current === null) {
+    const cached = getCachedProList(PRO_LIST_PARAMS);
+    initialCachedProsRef.current = cached?.data?.length ? mapApiPros(cached.data) : [];
+  }
+  const [apiPros, setApiPros] = useState<ProItem[]>(() => initialCachedProsRef.current || []);
+  const [apiLoaded, setApiLoaded] = useState(() => Boolean(initialCachedProsRef.current?.length));
 
   useEffect(() => {
-    discoveryApi.getProList({ limit: 80, sort: 'pudding' })
+    let cancelled = false;
+    discoveryApi.getProList(PRO_LIST_PARAMS)
       .then((res) => {
+        if (cancelled) return;
         if (res?.data && res.data.length > 0) {
-          // userId 중복 제거
-          const seen = new Set<string>();
-          const deduped = res.data.filter((p: any) => {
-            const key = p.userId || p.id;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-          const mapped = deduped.map((p: ProListItem, idx: number) => ({
-            id: p.id,
-            name: p.name,
-            categories: p.categories || [],
-            regions: p.regions || [],
-            languages: p.languages || [],
-            isNationwide: p.isNationwide ?? false,
-            rating: p.avgRating || 0,
-            reviews: p.reviewCount || 0,
-            puddingRank: idx + 1,
-            image: p.profileImageUrl || p.images?.[0] || '',
-            intro: p.shortIntro || '',
-            // basePrice 미설정 프로는 0으로 (UI 에서 '가격 협의' 처리)
-            price: (typeof p.basePrice === 'number' && p.basePrice > 0) ? p.basePrice : 0,
-            experience: p.careerYears || 1,
-          }));
-          setApiPros(mapped);
+          setApiPros(mapApiPros(res.data));
         }
         setApiLoaded(true);
       })
-      .catch(() => { setApiLoaded(true); });
-  }, [authUser]);
+      .catch(() => { if (!cancelled) setApiLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
 
   // API에 프로들이 있으면 localStorage 본인 프로(my-pro) 중복 표시 안함
   // 본인 프로는 API에서 자동으로 나오므로 localStorage 버전 제거

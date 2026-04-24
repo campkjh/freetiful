@@ -27,11 +27,24 @@ export class DiscoveryController {
     @Query('maxPrice') maxPrice?: number,
     @Query('featured') featured?: boolean,
     @Query('region') region?: string,
+    @Query('withTotal') withTotal?: string,
   ) {
-    return this.discovery.getProList({ page, limit, search, sort, gender, minPrice, maxPrice, featured, region });
+    return this.discovery.getProList({
+      page,
+      limit,
+      search,
+      sort,
+      gender,
+      minPrice,
+      maxPrice,
+      featured,
+      region,
+      withTotal: String(withTotal) !== 'false',
+    });
   }
 
   @Get('pros/:id')
+  @Header('Cache-Control', 'public, s-maxage=180, stale-while-revalidate=600')
   @ApiOperation({ summary: '전문가 상세 조회' })
   getProDetail(@Param('id') id: string, @Query('nocache') nocache?: string) {
     if (nocache === '1') this.discovery.invalidateCache(id);

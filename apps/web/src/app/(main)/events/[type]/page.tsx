@@ -305,7 +305,7 @@ export default function EventDetailPage() {
   }, []);
 
   useEffect(() => {
-    discoveryApi.getProList({ limit: 6, sort: 'rating' })
+    discoveryApi.getProList({ limit: 6, sort: 'rating', withTotal: false })
       .then((res) => setRecommendedPros(res.data || []))
       .catch(() => {});
   }, []);
