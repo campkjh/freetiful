@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Star, CreditCard, UserCheck, ChevronRight, RefreshCw, Sprout, Calendar, Building2, ArrowRightLeft } from 'lucide-react';
+import { Users, Star, CreditCard, UserCheck, ChevronRight, RefreshCw, Sprout, Calendar, Building2, ArrowRightLeft, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from './_components/adminFetch';
 
@@ -93,6 +93,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/users', icon: Users, label: '유저 관리', desc: '회원 목록 · 권한', accent: 'bg-[#E7F8F3] text-[#00C896]', count: stats?.totalUsers != null ? `${stats.totalUsers.toLocaleString()}명` : undefined },
     { href: '/admin/bookings', icon: Calendar, label: '의뢰 · 예약', desc: '예약 현황', accent: 'bg-[#FFF4E5] text-[#FF9500]' },
     { href: '/admin/payments', icon: CreditCard, label: '결제 관리', desc: '결제 내역 · 매출', accent: 'bg-[#F0EEFF] text-[#8B75FF]', count: stats?.thisMonthRevenue != null ? `₩${Number(stats.thisMonthRevenue).toLocaleString()}` : undefined },
+    { href: '/admin/settlements', icon: Wallet, label: '정산 관리', desc: '전문가 정산 처리', accent: 'bg-[#E7F8F3] text-[#00C896]' },
     { href: '/admin/reviews', icon: Star, label: '리뷰 관리', desc: '리뷰 목록 · 삭제', accent: 'bg-[#FFF7E0] text-[#F59E0B]', count: stats?.totalReviews != null ? `${stats.totalReviews.toLocaleString()}건` : undefined },
     { href: '/admin/businesses', icon: Building2, label: 'Biz 고객사', desc: '비즈니스 계정', accent: 'bg-[#FFECEC] text-[#F04452]' },
   ];

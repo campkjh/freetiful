@@ -165,6 +165,7 @@ model User {
   chatRooms          ChatRoom[]
   scheduledMessages  ScheduledMessage[] @relation("ScheduledMessages")
   frequentMessages   FrequentMessage[]
+  settledLogs        SettlementLog[]    @relation("SettlementSettledBy")
 
   @@map("users")
 }
@@ -346,6 +347,7 @@ model ProProfile {
   puddingTransactions   PuddingTransaction[]
   puddingRankings       PuddingRanking[]
   chatRooms             ChatRoom[]
+  settlementLogs        SettlementLog[]
 
   @@map("pro_profiles")
 }
@@ -753,8 +755,38 @@ model Payment {
   quotations   Quotation[]
   schedules    ProSchedule[]
   review       Review?
+  settlementLog SettlementLog?
 
   @@map("payments")
+}
+
+enum SettlementStatus {
+  pending
+  settled
+  cancelled
+}
+
+// 정산 로그 — 결제 완료 시 pending 로그 생성, 관리자 "정산" 클릭 시 settled 로 전환
+model SettlementLog {
+  id              String           @id @default(uuid())
+  paymentId       String           @unique
+  payment         Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  proProfileId    String
+  proProfile      ProProfile       @relation(fields: [proProfileId], references: [id])
+  amount          Int              // 원 결제 금액 (refund 전)
+  platformFee     Int              @default(0)
+  netAmount       Int              // 수수료 공제 후 프로 지급액
+  status          SettlementStatus @default(pending)
+  settledAt       DateTime?
+  settledByUserId String?
+  settledBy       User?            @relation("SettlementSettledBy", fields: [settledByUserId], references: [id])
+  note            String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([proProfileId, status])
+  @@index([status, createdAt])
+  @@map("settlement_logs")
 }
 
 model RefundAccount {

@@ -263,6 +263,26 @@ export class PaymentService {
     // 거래 성사 푸딩 +300 (결제 완료 시점 — 프로의 수락 여부와 무관하게 "거래 성사"로 간주)
     this.pudding.awardDealCompleted(payment.proProfileId, payment.id).catch(() => {});
 
+    // 정산 로그 생성 (status=pending) — 관리자가 정산 버튼 누르면 settled 로 전환
+    try {
+      const platformFee = payment.platformFee || 0;
+      const netAmount = payment.netAmount || (payment.amount - platformFee);
+      await this.prisma.settlementLog.upsert({
+        where: { paymentId: payment.id },
+        create: {
+          paymentId: payment.id,
+          proProfileId: payment.proProfileId,
+          amount: payment.amount,
+          platformFee,
+          netAmount,
+          status: 'pending',
+        },
+        update: {}, // 이미 존재하면 건드리지 않음
+      });
+    } catch (e) {
+      this.logger.error(`SettlementLog 생성 실패: ${e}`);
+    }
+
     return updatedPayment;
   }
 
