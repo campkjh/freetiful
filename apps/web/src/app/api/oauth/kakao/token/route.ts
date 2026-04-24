@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const KAKAO_CLIENT_ID = 'dca1b472188890116c81a55eff590885';
+const KAKAO_CLIENT_ID =
+  process.env.KAKAO_REST_KEY ||
+  process.env.KAKAO_CLIENT_ID ||
+  'dca1b472188890116c81a55eff590885';
 
 function isAllowedRedirectUri(value: string) {
   try {

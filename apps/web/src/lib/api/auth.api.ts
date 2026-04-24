@@ -10,8 +10,8 @@ export const authApi = {
   exchangeNaverCode: (code: string, state: string) =>
     apiClient.post<{ accessToken: string }>(`/api/oauth/naver/token`, { code, state }).then((r) => r.data),
 
-  kakaoLogin: (code: string, _redirectUri?: string) =>
-    apiClient.post<LoginResponse>(`${BASE}/login/kakao`, { code }).then((r) => r.data),
+  kakaoLogin: (code: string, redirectUri?: string) =>
+    apiClient.post<LoginResponse>(`${BASE}/login/kakao`, { code, redirectUri }).then((r) => r.data),
 
   kakaoNativeLogin: (accessToken: string) =>
     apiClient.post<LoginResponse>(`${BASE}/login/kakao/native`, { accessToken }).then((r) => r.data),
@@ -19,8 +19,8 @@ export const authApi = {
   googleLogin: (idToken: string) =>
     apiClient.post<LoginResponse>(`${BASE}/login/google`, { idToken }).then((r) => r.data),
 
-  naverLogin: (code: string, state: string, _redirectUri?: string) =>
-    apiClient.post<LoginResponse>(`${BASE}/login/naver`, { code, state }).then((r) => r.data),
+  naverLogin: (code: string, state: string, redirectUri?: string) =>
+    apiClient.post<LoginResponse>(`${BASE}/login/naver`, { code, state, redirectUri }).then((r) => r.data),
 
   naverNativeLogin: (accessToken: string) =>
     apiClient.post<LoginResponse>(`${BASE}/login/naver/native`, { accessToken }).then((r) => r.data),

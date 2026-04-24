@@ -6,7 +6,11 @@ import type { LoginResponse } from '@prettyful/types';
 type Provider = 'kakao' | 'naver' | 'google';
 const AUTH_RETURN_TO_KEY = 'freetiful-auth-return-to';
 const DEFAULT_WEB_ORIGIN = 'https://freetiful.com';
-const KAKAO_JS_KEY = 'dca1b472188890116c81a55eff590885';
+const KAKAO_REST_KEY =
+  process.env.NEXT_PUBLIC_KAKAO_REST_KEY ||
+  process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID ||
+  'dca1b472188890116c81a55eff590885';
+const KAKAO_JS_KEY = process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY || '';
 
 type KakaoSdk = {
   init: (key: string) => void;
@@ -78,6 +82,7 @@ export function consumeAuthReturnTo(fallback = '/main') {
 }
 
 function getKakaoSdk() {
+  if (!KAKAO_JS_KEY) return null;
   const kakao = (window as unknown as { Kakao?: KakaoSdk }).Kakao;
   if (!kakao?.init) return null;
   if (!kakao.isInitialized?.()) {
@@ -142,8 +147,7 @@ export function startOAuth(provider: Provider) {
     if (ios?.kakaoLogin) { ios.kakaoLogin.postMessage({}); return; }
     if (and?.kakaoLogin) { and.kakaoLogin(); return; }
     if (startKakaoSdkLogin()) return;
-    const key = KAKAO_JS_KEY;
-    window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('kakao'))}&response_type=code`;
+    window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_KEY}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('kakao'))}&response_type=code`;
     return;
   }
 

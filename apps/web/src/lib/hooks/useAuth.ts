@@ -53,7 +53,7 @@ export function useAuth() {
             console.warn('[auth] kakao token exchange fallback failed; using API code login', e);
           }
         }
-        return authApi.kakaoLogin(code);
+        return authApi.kakaoLogin(code, redirectUri);
       }, '카카오 로그인에 실패했습니다.', true),
 
     googleLogin: (idToken: string) =>
@@ -72,7 +72,7 @@ export function useAuth() {
             console.warn('[auth] naver token exchange fallback failed; using API code login', e);
           }
         }
-        return authApi.naverLogin(code, state);
+        return authApi.naverLogin(code, state, redirectUri);
       }, '네이버 로그인에 실패했습니다.', true),
 
     appleLogin: (identityToken: string, fullName?: string) =>
