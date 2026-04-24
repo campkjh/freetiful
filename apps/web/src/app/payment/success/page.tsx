@@ -10,6 +10,7 @@ function PaymentSuccessInner() {
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
+  const [chatRoomId, setChatRoomId] = useState<string | null>(null);
 
   const paymentKey = searchParams.get('paymentKey');
   const orderId = searchParams.get('orderId');
@@ -29,12 +30,20 @@ function PaymentSuccessInner() {
       orderId,
       amount: Number(amount),
     })
-      .then(() => setStatus('success'))
+      .then((res: any) => {
+        setStatus('success');
+        const cid = res?.data?.chatRoomId;
+        if (cid) {
+          setChatRoomId(cid);
+          // 1.2초 후 채팅방으로 자동 이동
+          setTimeout(() => { router.replace(`/chat/${cid}`); }, 1200);
+        }
+      })
       .catch((e) => {
         setStatus('error');
         setErrorMessage(e.response?.data?.message || '결제 승인에 실패했습니다.');
       });
-  }, [paymentKey, orderId, amount]);
+  }, [paymentKey, orderId, amount, router]);
 
   if (status === 'loading') {
     return (
@@ -78,24 +87,25 @@ function PaymentSuccessInner() {
           </svg>
         </div>
         <h1 className="text-[22px] font-bold text-gray-900 mb-1">결제 완료!</h1>
-        <p className="text-[14px] text-gray-500 mb-2">예약이 성공적으로 완료되었습니다</p>
+        <p className="text-[14px] text-gray-500 mb-2">스케줄이 등록되었습니다 · 프로의 수락을 기다려주세요</p>
         <p className="text-[13px] text-gray-400 mb-8">주문번호: {orderId}</p>
 
         <div className="space-y-2.5">
-          {proId && (
+          {chatRoomId ? (
             <Link
-              href={`/chat/${proId}`}
+              href={`/chat/${chatRoomId}`}
               className="block w-full bg-[#3180F7] text-white font-semibold text-[15px] py-3.5 rounded-xl active:scale-[0.97] transition-transform"
             >
-              사회자와 채팅하기
+              채팅으로 돌아가기
+            </Link>
+          ) : (
+            <Link
+              href="/chat"
+              className="block w-full bg-[#3180F7] text-white font-semibold text-[15px] py-3.5 rounded-xl active:scale-[0.97] transition-transform"
+            >
+              채팅 목록으로
             </Link>
           )}
-          <Link
-            href="/schedule"
-            className="block w-full bg-gray-100 text-gray-700 font-semibold text-[15px] py-3.5 rounded-xl active:scale-[0.97] transition-transform"
-          >
-            스케줄 확인하기
-          </Link>
           <Link
             href="/main"
             className="block w-full text-gray-400 font-medium text-[14px] py-2"

@@ -290,13 +290,16 @@ export default function SchedulePage() {
   }, [authUser]);
 
   // Fetch schedule from API when authenticated
+  // 페이지 재진입 시에도 최신 데이터 반영되도록 visibility 기반 refetch 도 지원
   useEffect(() => {
     if (!authUser) return;
+    let cancelled = false;
 
+    const fetchGeneralSchedules = () => {
     // 일반 유저: 결제 내역을 스케줄로 변환
     if (authUser.role !== 'pro') {
       import('@/lib/api/client').then(({ apiClient }) => {
-        apiClient.get('/api/v1/payment', { params: { limit: 100 } })
+        apiClient.get('/api/v1/payment', { params: { limit: 100, _: Date.now() } })
           .then((res: any) => {
             const data = res.data?.data || [];
             console.log('[Schedule] payments from API:', data.length, data);
@@ -349,8 +352,10 @@ export default function SchedulePage() {
                 });
               });
             });
+            if (cancelled) return;
             console.log('[Schedule] mapped schedules:', mapped.length, mapped);
-            if (mapped.length > 0) setApiSchedules(mapped);
+            // 이전 스케일 데이터를 새 fetch 결과로 '항상' 교체 (빈 배열이라도 반영)
+            setApiSchedules(mapped);
           })
           .catch((err) => { console.error('[Schedule] payment API error:', err); });
       });
@@ -362,9 +367,23 @@ export default function SchedulePage() {
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     scheduleApi.getMySchedule(month)
       .then((data) => {
-        if (Array.isArray(data)) setApiSchedules(data);
+        if (cancelled) return;
+        setApiSchedules(Array.isArray(data) ? data : []);
       })
-      .catch(() => { /* fallback to mock data */ });
+      .catch(() => { /* keep empty */ });
+    };
+
+    fetchGeneralSchedules();
+
+    // 탭 복귀/포커스 시 자동 재조회 (결제 직후 다른 탭에서 돌아와도 즉시 반영)
+    const onVis = () => { if (document.visibilityState === 'visible') fetchGeneralSchedules(); };
+    window.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', fetchGeneralSchedules);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', fetchGeneralSchedules);
+    };
   }, [authUser]);
 
   const today = new Date();

@@ -19,7 +19,7 @@ function BizKakaoMap() {
   return (
     <iframe
       title="프리티풀 오시는길"
-      src="https://www.openstreetmap.org/export/embed.html?bbox=126.9838%2C37.5478%2C127.0038%2C37.5678&layer=mapnik&marker=37.5578%2C126.9938"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=127.0184%2C37.5023%2C127.0384%2C37.5223&layer=mapnik&marker=37.5123%2C127.0284"
       className="w-full h-full border-0"
       loading="lazy"
     />

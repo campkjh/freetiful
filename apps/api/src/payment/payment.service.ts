@@ -198,41 +198,53 @@ export class PaymentService {
       this.logger.error(`스케줄 요청 생성 실패: ${e}`);
     }
 
-    // 채팅방 생성 (아직 없으면) — 수락 전이라도 대화 가능
+    // 채팅방 생성/찾기 + 스케줄 등록 시스템 메시지 추가
+    let chatRoomId: string | null = null;
     try {
-      const existingRoom = await this.prisma.chatRoom.findFirst({
+      let room = await this.prisma.chatRoom.findFirst({
         where: {
           userId: payment.userId,
           proProfileId: payment.proProfileId,
           userDeletedAt: null,
         },
+        select: { id: true },
       });
-      if (!existingRoom) {
+      if (!room) {
         const pro = await this.prisma.proProfile.findUnique({
           where: { id: payment.proProfileId },
           select: { userId: true },
         });
         if (pro) {
-          await this.prisma.chatRoom.create({
+          room = await this.prisma.chatRoom.create({
             data: {
               userId: payment.userId,
               proProfileId: payment.proProfileId,
               members: {
                 createMany: { data: [{ userId: payment.userId }, { userId: pro.userId }] },
               },
-              messages: {
-                create: {
-                  senderId: payment.userId,
-                  type: 'system',
-                  content: `📅 스케줄 요청 (${data.amount.toLocaleString()}원) — 프로의 수락을 기다리는 중입니다.`,
-                },
-              },
             },
+            select: { id: true },
           });
         }
       }
+      if (room?.id) {
+        chatRoomId = room.id;
+        // 스케줄 등록 시스템 메시지
+        await this.prisma.message.create({
+          data: {
+            roomId: room.id,
+            senderId: payment.userId,
+            type: 'system',
+            content: `📅 스케줄이 등록되었습니다 (${data.amount.toLocaleString()}원) — 프로의 수락을 기다리는 중입니다.`,
+          },
+        });
+        await this.prisma.chatRoom.update({
+          where: { id: room.id },
+          data: { lastMessageAt: new Date() },
+        });
+      }
     } catch (e) {
-      this.logger.error(`결제 후 채팅방 생성 실패: ${e}`);
+      this.logger.error(`결제 후 채팅방/메시지 생성 실패: ${e}`);
     }
 
     // 알림: 고객 + 전문가
@@ -283,7 +295,7 @@ export class PaymentService {
       this.logger.error(`SettlementLog 생성 실패: ${e}`);
     }
 
-    return updatedPayment;
+    return { ...updatedPayment, chatRoomId };
   }
 
   /** 결제 내역 목록 조회 */
