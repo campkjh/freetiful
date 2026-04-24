@@ -13,20 +13,59 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 
+type NavIconProps = { className?: string };
+
+const HomeNavIcon = ({ className }: NavIconProps) => (
+  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+    <path d="M13.7124 5.93065C14.4843 5.38575 15.5157 5.38575 16.2876 5.93065L23.4399 10.9795C24.0323 11.3978 24.3851 12.0775 24.3853 12.8027V22.2461C24.385 23.479 23.3848 24.4785 22.1519 24.4785H18.2791C18.0324 24.4785 17.8325 24.2786 17.8325 24.032V19.1897C17.8325 18.9431 17.6326 18.7432 17.386 18.7432H12.6131C12.3664 18.7432 12.1665 18.9431 12.1665 19.1897V24.032C12.1665 24.2786 11.9666 24.4785 11.72 24.4785H7.84717C6.61427 24.4784 5.61497 23.479 5.61475 22.2461V12.8027C5.61487 12.0774 5.96748 11.3978 6.56006 10.9795L13.7124 5.93065Z" fill="currentColor" />
+  </svg>
+);
+
+const ScheduleNavIcon = ({ className }: NavIconProps) => (
+  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+    <path d="M20.3737 4.79883C20.9363 4.79883 21.3929 5.25481 21.3932 5.81738V7.87402H21.5914C22.5494 7.87413 23.3588 8.5845 23.484 9.53418L25.2614 23.043C25.4116 24.1864 24.5211 25.2012 23.3678 25.2012H6.6305C5.49825 25.201 4.6153 24.221 4.73206 23.0947L6.13245 9.58691C6.23342 8.61407 7.05284 7.87422 8.03089 7.87402H8.6139V5.81738C8.61416 5.25509 9.0702 4.79928 9.63245 4.79883C10.1951 4.79883 10.6517 5.25481 10.652 5.81738V7.87402H13.984V5.81738C13.9843 5.25493 14.4411 4.79902 15.0035 4.79883C15.566 4.79899 16.0218 5.25491 16.0221 5.81738V7.87402H19.3551V5.81738C19.3554 5.25509 19.8114 4.79928 20.3737 4.79883ZM17.6696 12.2559C17.0394 12.2559 16.4729 12.3893 15.9791 12.6641L15.7721 12.79C15.2346 13.1474 14.8286 13.6654 14.5485 14.3262L14.5475 14.3271C14.2702 14.9883 14.1375 15.7752 14.1373 16.6777C14.1346 17.5838 14.2666 18.3769 14.5436 19.0459V19.0469C14.8231 19.7148 15.2288 20.2399 15.7653 20.6055H15.7662C16.3067 20.9716 16.9454 21.1505 17.6686 21.1533H17.6696C18.3931 21.1533 19.0314 20.9762 19.57 20.6094C20.1065 20.2438 20.5108 19.7188 20.7877 19.0508C21.0676 18.3817 21.2018 17.5874 21.2018 16.6787C21.204 15.8886 21.1027 15.1875 20.8893 14.583L20.7907 14.3291C20.5105 13.6685 20.1026 13.1497 19.5631 12.79H19.5621C19.0244 12.4302 18.389 12.2559 17.6696 12.2559ZM10.8571 12.4092L8.86683 13.6689L8.73402 13.7539V15.9365L9.17249 15.6611L10.6217 14.752V20.9766H12.8942V12.3652H10.9274L10.8571 12.4092ZM17.6696 14.2217C17.905 14.2217 18.1023 14.2985 18.2741 14.4541L18.275 14.4551C18.4513 14.6131 18.605 14.8657 18.7184 15.2393V15.2412C18.8326 15.61 18.8941 16.0869 18.8942 16.6787V16.6797C18.8967 17.5867 18.7615 18.22 18.526 18.6172C18.2925 19.0107 18.0102 19.1719 17.6696 19.1719C17.4929 19.1718 17.3367 19.1286 17.1959 19.041L17.0602 18.9385C16.884 18.7777 16.7297 18.5214 16.6139 18.1436C16.5016 17.7656 16.4411 17.2797 16.441 16.6797C16.4437 15.7863 16.5807 15.1618 16.816 14.7695C17.0491 14.3813 17.3308 14.2218 17.6696 14.2217Z" fill="currentColor" />
+  </svg>
+);
+
+const BizNavIcon = ({ className }: NavIconProps) => (
+  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+    <path fillRule="evenodd" clipRule="evenodd" d="M12.3433 4.72301H17.6562C17.9342 4.72299 18.1989 4.72296 18.4219 4.74118C18.665 4.76105 18.9439 4.80739 19.2227 4.94942C19.6136 5.14858 19.9313 5.46636 20.1305 5.85723C20.2725 6.13599 20.3189 6.41491 20.3387 6.65807C20.357 6.88106 20.3569 7.14569 20.3569 7.42374L20.3569 8.54958L21.3796 8.54958C21.9589 8.54956 22.4522 8.54955 22.8571 8.58264C23.2826 8.6174 23.6965 8.69353 24.0922 8.89515C24.6888 9.19912 25.1738 9.68416 25.4778 10.2807C25.6794 10.6764 25.7556 11.0904 25.7903 11.5158C25.8234 11.9208 25.8234 12.4141 25.8234 12.9933V20.8333C25.8234 21.4126 25.8234 21.9059 25.7903 22.3109C25.7556 22.7363 25.6794 23.1502 25.4778 23.5459C25.1738 24.1425 24.6888 24.6276 24.0922 24.9315C23.6965 25.1332 23.2826 25.2093 22.8571 25.2441C22.4522 25.2771 21.9589 25.2771 21.3797 25.2771H8.61989C8.04062 25.2771 7.54729 25.2771 7.14232 25.2441C6.71685 25.2093 6.30293 25.1332 5.90723 24.9315C5.31065 24.6276 4.82562 24.1425 4.52164 23.5459C4.32002 23.1502 4.24389 22.7363 4.20913 22.3109C4.17604 21.9059 4.17606 21.4126 4.17607 20.8334V12.9934C4.17606 12.4141 4.17604 11.9208 4.20913 11.5158C4.24389 11.0904 4.32002 10.6764 4.52164 10.2807C4.82562 9.68416 5.31065 9.19912 5.90723 8.89515C6.30293 8.69353 6.71685 8.6174 7.14232 8.58264C7.54731 8.54955 8.04059 8.54956 8.6199 8.54958L9.64257 8.54958L9.64257 7.42374C9.64255 7.14569 9.64252 6.88106 9.66074 6.65807C9.68061 6.41491 9.72695 6.13599 9.86898 5.85723C10.0681 5.46636 10.3859 5.14858 10.7768 4.94942C11.0556 4.80739 11.3345 4.76105 11.5776 4.74118C11.8006 4.72296 12.0652 4.72299 12.3433 4.72301ZM11.6104 8.54965H18.3888V6.80023C18.3888 6.73985 18.3399 6.6909 18.2795 6.6909H11.7197C11.6593 6.6909 11.6104 6.73985 11.6104 6.80023V8.54965ZM11.7197 13.4695C11.1763 13.4695 10.7358 13.91 10.7358 14.4534C10.7358 14.9969 11.1763 15.4374 11.7197 15.4374H18.2795C18.823 15.4374 19.2635 14.9969 19.2635 14.4534C19.2635 13.91 18.823 13.4695 18.2795 13.4695H11.7197Z" fill="currentColor" />
+  </svg>
+);
+
+const ChatNavIcon = ({ className }: NavIconProps) => (
+  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+    <path d="M15.0005 5.3501C20.3298 5.35016 24.6497 9.67022 24.6499 14.9995C24.6499 16.5379 24.2898 17.9952 23.6479 19.2876L24.1421 21.1001C24.2539 21.5101 24.3537 21.8758 24.4067 22.1763C24.4605 22.4808 24.4973 22.8668 24.3501 23.2524C24.1572 23.7577 23.7577 24.1572 23.2524 24.3501C22.8669 24.4971 22.4807 24.4605 22.1763 24.4067C21.8758 24.3537 21.5101 24.2539 21.1001 24.1421L19.2876 23.6479C17.9952 24.2897 16.5387 24.6499 15.0005 24.6499C9.67096 24.6499 5.3501 20.3291 5.3501 14.9995C5.35035 9.67018 9.67111 5.3501 15.0005 5.3501ZM10.9429 13.5864C10.1622 13.5864 9.52881 14.2198 9.52881 15.0005C9.52907 15.781 10.1623 16.4136 10.9429 16.4136C11.7234 16.4136 12.3567 15.781 12.3569 15.0005C12.3569 14.2198 11.7236 13.5864 10.9429 13.5864ZM15.0005 13.5864C14.2198 13.5864 13.5874 14.2198 13.5874 15.0005C13.5877 15.781 14.22 16.4136 15.0005 16.4136C15.781 16.4136 16.4143 15.781 16.4146 15.0005C16.4146 14.2198 15.7812 13.5864 15.0005 13.5864ZM19.0581 13.5864C18.2774 13.5864 17.645 14.2198 17.645 15.0005C17.6453 15.781 18.2776 16.4136 19.0581 16.4136C19.8386 16.4136 20.4719 15.781 20.4722 15.0005C20.4722 14.2198 19.8388 13.5864 19.0581 13.5864Z" fill="currentColor" />
+  </svg>
+);
+
+const FavoritesNavIcon = ({ className }: NavIconProps) => (
+  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+    <path d="M15 24.5333L6.22971 16.1939C3.95859 13.7403 3.95859 9.76001 6.22971 7.30647C8.50083 4.85292 12.1887 4.85292 14.4598 7.30647L15 7.88867L15.5402 7.30647C17.8113 4.85292 21.4992 4.85292 23.7703 7.30647C26.0414 9.76001 26.0414 13.7403 23.7703 16.1939L15 24.5333Z" fill="currentColor" />
+  </svg>
+);
+
+const MyNavIcon = ({ className }: NavIconProps) => (
+  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+    <rect x="1.3" y="4.96992" width="27.4" height="20.06" rx="10.03" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M7.004 19V10.24H8.624L11.276 13.924L14.036 10.24H15.584V19H13.952V12.856L11.264 16.48L8.636 12.916V19H7.004ZM17.433 22.24L18.909 18.652L16.029 11.98H17.757L19.713 16.708L21.561 11.98H23.265L19.077 22.24H17.433Z" fill="currentColor" />
+  </svg>
+);
+
 const USER_NAV_ITEMS = [
-  { href: '/main',      iconSrc: '/images/icon-home.svg',      label: '홈' },
-  { href: '/schedule',  iconSrc: '/images/icon-schedule.svg',  label: '스케줄' },
-  { href: '/biz',       iconSrc: '/images/icon-biz.svg',       label: 'Biz' },
-  { href: '/chat',      iconSrc: '/images/icon-chat.svg',      label: '채팅' },
-  { href: '/favorites', iconSrc: '/images/icon-favorites.svg', label: '찜' },
-  { href: '/my',        iconSrc: '/images/icon-my.svg',        label: '마이' },
+  { href: '/main',      icon: HomeNavIcon,      label: '홈' },
+  { href: '/schedule',  icon: ScheduleNavIcon,  label: '스케줄' },
+  { href: '/biz',       icon: BizNavIcon,       label: 'Biz' },
+  { href: '/chat',      icon: ChatNavIcon,      label: '채팅' },
+  { href: '/favorites', icon: FavoritesNavIcon, label: '찜' },
+  { href: '/my',        icon: MyNavIcon,        label: '마이' },
 ];
 
 const PRO_NAV_ITEMS = [
-  { href: '/pro-dashboard', iconSrc: '/images/icon-home.svg',     label: '홈' },
-  { href: '/schedule',      iconSrc: '/images/icon-schedule.svg', label: '스케줄' },
-  { href: '/chat',          iconSrc: '/images/icon-chat.svg',     label: '채팅' },
-  { href: '/my',            iconSrc: '/images/icon-my.svg',       label: '마이' },
+  { href: '/pro-dashboard', icon: HomeNavIcon,     label: '홈' },
+  { href: '/schedule',      icon: ScheduleNavIcon, label: '스케줄' },
+  { href: '/chat',          icon: ChatNavIcon,     label: '채팅' },
+  { href: '/my',            icon: MyNavIcon,       label: '마이' },
 ];
 
 const HIDE_NAV_PATTERNS = [
@@ -200,9 +239,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </Link>
 
           <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map(({ href, iconSrc, label }) => {
+            {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
               const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
-              const isBiz = href === '/biz';
               return (
                 <Link
                   key={href}
@@ -214,7 +252,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   }`}
                   style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
                 >
-                  <Image src={iconSrc} alt={label} width={18} height={18} className={active ? 'opacity-100' : 'opacity-60'} />
+                  <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
                   {label}
                 </Link>
               );
@@ -299,7 +337,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   </button>
                 )}
                 <div className="flex-1 flex items-center justify-around">
-                {NAV_ITEMS.map(({ href, iconSrc, label }, idx) => {
+                {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
                   const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
                   const isBiz = href === '/biz';
                   const itemStyle: React.CSSProperties = {
@@ -324,7 +362,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         setTimeout(() => router.push('/biz'), 500);
                       }}
                     >
-                      <Image src={iconSrc} alt={label} width={20} height={20} className="opacity-60" />
+                      <Icon className="h-5 w-5 shrink-0 opacity-60" />
                       <span className="text-[9px] font-medium">{label}</span>
                     </button>
                   ) : (
@@ -345,7 +383,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         }
                       }}
                     >
-                      <Image src={iconSrc} alt={label} width={20} height={20} className={active ? 'opacity-100' : 'opacity-60'} />
+                      <Icon className={`h-5 w-5 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
                       <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
                     </Link>
                   );
