@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Footer from '@/components/Footer';
 import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
@@ -66,6 +67,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => clearTimeout(t);
   }, []);
   const [isPro, setIsPro] = useState(false);
+  // 프로가 "일반 유저 모드로 보기" 를 토글한 상태 (localStorage 유지)
+  const [viewAsUser, setViewAsUser] = useState(false);
+  // 실제 계정 role이 pro인지 (viewAsUser 무관)
+  const [actualIsPro, setActualIsPro] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
@@ -100,7 +105,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       setShowLoginModal(false);
     }
     if (isLoggedIn) {
-      setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
+      const realPro = authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro';
+      const viewing = localStorage.getItem('viewAsUser') === 'true';
+      setActualIsPro(realPro);
+      setViewAsUser(viewing);
+      // 실제 pro 이지만 일반 유저 뷰 토글이 켜져있으면 네비를 user로
+      setIsPro(realPro && !viewing);
     }
   }, [pathname, needsAuth, authUser]);
 
@@ -246,7 +256,30 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
               }}
             >
-              <div className="flex items-center justify-around h-full overflow-hidden">
+              <div className="flex items-center h-full overflow-hidden px-1">
+                {/* 프로↔일반유저 뷰 토글 chevron (실제 계정 role이 pro일 때만 노출) */}
+                {actualIsPro && (
+                  <button
+                    aria-label={isPro ? '일반 유저로 보기' : '프로 모드로 돌아가기'}
+                    onClick={() => {
+                      if (isPro) {
+                        localStorage.setItem('viewAsUser', 'true');
+                        setViewAsUser(true);
+                        setIsPro(false);
+                        router.push('/main');
+                      } else {
+                        localStorage.removeItem('viewAsUser');
+                        setViewAsUser(false);
+                        setIsPro(true);
+                        router.push('/pro-dashboard');
+                      }
+                    }}
+                    className="shrink-0 w-[40px] h-[40px] rounded-full flex items-center justify-center text-gray-500 bg-gray-100/80 active:scale-90 transition-transform mr-1"
+                  >
+                    {isPro ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                  </button>
+                )}
+                <div className="flex-1 flex items-center justify-around">
                 {NAV_ITEMS.map(({ href, iconSrc, label }, idx) => {
                   const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
                   const isBiz = href === '/biz';
@@ -298,6 +331,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     </Link>
                   );
                 })}
+                </div>
               </div>
             </div>
           </div>

@@ -9,6 +9,7 @@ import { quotationApi } from '@/lib/api/quotation.api';
 import { prosApi } from '@/lib/api/pros.api';
 import { reviewApi } from '@/lib/api/review.api';
 import { scheduleApi } from '@/lib/api/schedule.api';
+import { matchApi } from '@/lib/api/match.api';
 import { apiClient } from '@/lib/api/client';
 
 /* ─── Detailed SVG Icons (multi-layered, flat-color, premium) ─── */
@@ -234,6 +235,7 @@ export default function ProDashboardPage() {
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
   const [inquiryRooms, setInquiryRooms] = useState<{ id: string; userName: string; image: string; message: string; receivedAt: string; unread: number }[]>([]);
   const [scheduleRequests, setScheduleRequests] = useState<any[]>([]);
+  const [matchRequests, setMatchRequests] = useState<any[]>([]);
   const [rejectSched, setRejectSched] = useState<{ id: string; userName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -258,6 +260,19 @@ export default function ProDashboardPage() {
     if (!authUser) return;
     prosApi.getScheduleRequests()
       .then((data: any) => setScheduleRequests(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [authUser]);
+
+  // 사회자/전문가 매치 요청 (홈 > 전문결혼식사회자 찾기 에서 고객이 보낸 요청들)
+  useEffect(() => {
+    if (!authUser) return;
+    matchApi.getProRequests()
+      .then((data: any) => {
+        const items = Array.isArray(data) ? data : (data?.data || []);
+        // pending 또는 viewed 상태의 요청만 "새 요청" 카운트
+        const active = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
+        setMatchRequests(active);
+      })
       .catch(() => {});
   }, [authUser]);
 
@@ -533,27 +548,27 @@ export default function ProDashboardPage() {
         </div>
       </div>
 
-      {/* ── Quick Stats (clickable Links) ── */}
+      {/* ── Quick Stats — 3×2 grid, 컴팩트 ── */}
       <div
-        className="px-4 mt-5 grid grid-cols-2 gap-3"
+        className="px-4 mt-5 grid grid-cols-3 gap-2"
       >
         {[
-          { icon: <img src="/images/new-quote.svg" alt="" width={24} height={24} />, label: '새 요청', value: `${pendingQuotes.length + inquiryRooms.length + scheduleRequests.length}건`, bg: 'bg-blue-50', href: '/pro-dashboard/inquiries' },
-          { icon: <img src="/images/monthly-revenue.svg" alt="" width={24} height={24} />, label: '이번달 매출', value: `₩${monthlyRevenue.toLocaleString()}`, bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
-          { icon: <img src="/images/profile-views.svg" alt="" width={24} height={24} />, label: '프로필 조회', value: `${profileViews}회`, bg: 'bg-purple-50', href: '/pro-dashboard/views' },
-          { icon: <img src="/images/avg-rating.svg" alt="" width={24} height={24} />, label: '평균 평점', value: avgRating, bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
-          { icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#F59E0B" /><circle cx="12" cy="12" r="7" fill="#FBBF24" /><text x="12" y="16" textAnchor="middle" fill="#92400E" fontSize="11" fontWeight="bold">P</text></svg>, label: '보유 푸딩', value: `${puddingCount.toLocaleString()}개`, bg: 'bg-amber-50', href: '/my/pudding-history' },
+          { icon: <img src="/images/new-quote.svg" alt="" width={18} height={18} />, label: '새 요청', value: `${pendingQuotes.length + inquiryRooms.length + scheduleRequests.length + matchRequests.length}`, bg: 'bg-blue-50', href: '/pro-dashboard/inquiries' },
+          { icon: <img src="/images/monthly-revenue.svg" alt="" width={18} height={18} />, label: '이번달 매출', value: `₩${monthlyRevenue.toLocaleString()}`, bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
+          { icon: <img src="/images/profile-views.svg" alt="" width={18} height={18} />, label: '프로필 조회', value: `${profileViews}`, bg: 'bg-purple-50', href: '/pro-dashboard/views' },
+          { icon: <img src="/images/avg-rating.svg" alt="" width={18} height={18} />, label: '평균 평점', value: avgRating, bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
+          { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#F59E0B" /><circle cx="12" cy="12" r="7" fill="#FBBF24" /><text x="12" y="16" textAnchor="middle" fill="#92400E" fontSize="11" fontWeight="bold">P</text></svg>, label: '보유 푸딩', value: `${puddingCount.toLocaleString()}`, bg: 'bg-amber-50', href: '/my/pudding-history' },
         ].map((stat, i) => (
           <div key={i}>
             <Link href={stat.href}>
               <div
-                className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] active:bg-gray-50 transition-colors"
+                className="bg-white rounded-xl p-2.5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] active:bg-gray-50 transition-colors"
               >
-                <div className={`w-11 h-11 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
+                <div className={`w-7 h-7 ${stat.bg} rounded-lg flex items-center justify-center mb-1.5`}>
                   {stat.icon}
                 </div>
-                <p className="text-[11px] text-gray-400 font-medium">{stat.label}</p>
-                <p className="text-xl font-bold text-gray-900 mt-0.5">{stat.value}</p>
+                <p className="text-[10px] text-gray-400 font-medium leading-tight">{stat.label}</p>
+                <p className="text-[13px] font-bold text-gray-900 mt-0.5 leading-tight truncate">{stat.value}</p>
               </div>
             </Link>
           </div>
@@ -562,18 +577,18 @@ export default function ProDashboardPage() {
 
       {/* ── 새로운 행사 예약 (고객 결제 후 대기중) ── */}
       <div
-        className="px-4 mt-8"
+        className="px-4 mt-6"
       >
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-base font-bold text-gray-900">새로운 행사 예약</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-[15px] font-bold text-gray-900">새 예약</h2>
           {scheduleRequests.length > 0 && (
-            <span className="bg-[#3180F7] text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
+            <span className="bg-[#3180F7] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
               {scheduleRequests.length}
             </span>
           )}
         </div>
-        <p className="text-[12px] text-gray-500 mb-3">
-          고객이 결제한 행사예요. 수락하면 예약 확정, 거절하면 사유와 함께 전액 환불됩니다.
+        <p className="text-[11px] text-gray-500 mb-3">
+          결제된 행사 · 수락 시 확정, 거절 시 환불
         </p>
 
         <div className="space-y-3">
@@ -643,62 +658,48 @@ export default function ProDashboardPage() {
         )}
       </>
 
-      {/* ── 다가오는 일정 (timeline style) ── */}
+      {/* ── 다가오는 일정 (2-col 컴팩트) ── */}
       <div
-        className="px-4 mt-8"
+        className="px-4 mt-6"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-gray-900">다가오는 일정</h2>
-          <Link href="/schedule" className="flex items-center gap-0.5 text-xs font-medium text-[#3180F7]">
-            전체보기 <ChevronRightIcon />
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-[15px] font-bold text-gray-900">다가오는 일정</h2>
+          <Link href="/schedule" className="flex items-center gap-0.5 text-[11px] font-medium text-[#3180F7]">
+            전체 <ChevronRightIcon />
           </Link>
         </div>
 
-        <div className="relative">
-          {upcomingEvents.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-6">예정된 일정이 없습니다</p>
-          )}
-          {upcomingEvents.map((ev, i) => (
-            <div
-              key={i}
-              className="flex gap-4 pb-5 last:pb-0 relative"
-            >
-              {/* Timeline line + dot */}
-              <div className="flex flex-col items-center shrink-0 w-3">
-                <div className="w-3 h-3 rounded-full bg-[#3180F7] mt-1.5 shrink-0 relative">
-                  <div className="absolute inset-0 rounded-full bg-[#3180F7] animate-ping opacity-20" />
+        {upcomingEvents.length === 0 ? (
+          <p className="text-[12px] text-gray-400 text-center py-5">예정된 일정이 없습니다</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {upcomingEvents.map((ev, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-xl p-2.5 border border-gray-100 shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[12px] font-bold text-gray-900">{ev.date} ({ev.day})</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                    ev.status === '확정' ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'
+                  }`}>{ev.status}</span>
                 </div>
-                {i < upcomingEvents.length - 1 && (
-                  <div className="w-0.5 flex-1 bg-blue-100 mt-1" />
-                )}
+                <p className="text-[11px] text-gray-700 truncate">{ev.eventType}</p>
+                {ev.venue && <p className="text-[10px] text-gray-400 truncate mt-0.5">{ev.venue}</p>}
               </div>
-
-              {/* Content */}
-              <div className="flex-1 flex items-start justify-between min-w-0">
-                <div>
-                  <p className="text-sm font-bold text-gray-900">{ev.date} ({ev.day})</p>
-                  <p className="text-xs text-gray-700 mt-0.5">{ev.eventType}</p>
-                  {ev.venue && <p className="text-[11px] text-gray-400 mt-0.5">{ev.venue}</p>}
-                </div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ml-2 ${
-                  ev.status === '확정' ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'
-                }`}>
-                  {ev.status}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── 최근 리뷰 (with 6 category scores) ── */}
       <div
-        className="px-4 mt-8"
+        className="px-4 mt-6"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-gray-900">최근 리뷰</h2>
-          <Link href="/pro-dashboard/reviews" className="flex items-center gap-0.5 text-xs font-medium text-[#3180F7]">
-            전체보기 <ChevronRightIcon />
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-[15px] font-bold text-gray-900">최근 리뷰</h2>
+          <Link href="/pro-dashboard/reviews" className="flex items-center gap-0.5 text-[11px] font-medium text-[#3180F7]">
+            전체 <ChevronRightIcon />
           </Link>
         </div>
         <div className="space-y-4">
