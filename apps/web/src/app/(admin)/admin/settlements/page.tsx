@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw, Check, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
 interface SettlementLogItem {
@@ -58,14 +59,16 @@ export default function AdminSettlementsPage() {
   const [meta, setMeta] = useState<ListResponse['meta']>({ total: 0, page: 1, limit: 30, hasMore: false });
   const [summary, setSummary] = useState<ListResponse['summary']>({ pendingCount: 0, pendingAmount: 0, settledCount: 0, settledAmount: 0 });
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('pending');
   const [page, setPage] = useState(1);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
 
-  async function fetchList(p = page, f = filter, range = dateRange) {
-    setLoading(true);
+  async function fetchList(p = page, f = filter, range = dateRange, append = false) {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setLastError(null);
     try {
       const params = new URLSearchParams({ page: String(p), limit: '30' });
@@ -73,15 +76,18 @@ export default function AdminSettlementsPage() {
       if (range.startDate) params.set('startDate', range.startDate);
       if (range.endDate) params.set('endDate', range.endDate);
       const data: ListResponse = await adminFetch('GET', `/api/v1/admin/settlements?${params.toString()}`);
-      setItems(data.data || []);
+      const nextItems = data.data || [];
+      setItems((prev) => append ? appendUniqueById(prev, nextItems) : nextItems);
       setMeta(data.meta);
       setSummary(data.summary);
+      setPage(data.meta?.page || p);
     } catch (e: any) {
       const err = extractAdminError(e);
       setLastError(err);
       toast.error(`정산 목록 로드 실패${err.status ? ` (${err.status})` : ''}: ${err.message}`, { duration: 6000 });
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
   }
 
@@ -93,7 +99,7 @@ export default function AdminSettlementsPage() {
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/settle`, {});
       toast.success('정산 완료로 처리되었습니다');
-      fetchList(page, filter, dateRange);
+      fetchList(1, filter, dateRange);
     } catch (e: any) {
       const err = extractAdminError(e);
       toast.error(`정산 처리 실패: ${err.message}`, { duration: 6000 });
@@ -108,7 +114,7 @@ export default function AdminSettlementsPage() {
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/unsettle`, {});
       toast.success('정산이 취소되었습니다');
-      fetchList(page, filter, dateRange);
+      fetchList(1, filter, dateRange);
     } catch (e: any) {
       const err = extractAdminError(e);
       toast.error(`취소 실패: ${err.message}`, { duration: 6000 });
@@ -123,7 +129,7 @@ export default function AdminSettlementsPage() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3">
           <Link href="/admin" className="p-1 hover:bg-gray-100 rounded-lg"><ArrowLeft size={20} /></Link>
           <h1 className="text-lg font-bold text-gray-900">정산 관리</h1>
-          <button onClick={() => fetchList(page, filter, dateRange)} className="ml-auto p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={() => fetchList(1, filter, dateRange)} className="ml-auto p-2 hover:bg-gray-100 rounded-lg">
             <RefreshCw size={16} className="text-gray-500" />
           </button>
         </div>
@@ -240,13 +246,17 @@ export default function AdminSettlementsPage() {
           </table>
         </div>
 
-        {meta.total > meta.limit && (
-          <div className="flex justify-center gap-2 mt-4">
-            <button disabled={page <= 1 || loading} onClick={() => { const np = page - 1; setPage(np); fetchList(np, filter, dateRange); }} className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm disabled:opacity-40">이전</button>
-            <span className="px-4 py-2 text-sm text-gray-500">{page} / {Math.ceil(meta.total / meta.limit)}</span>
-            <button disabled={!meta.hasMore || loading} onClick={() => { const np = page + 1; setPage(np); fetchList(np, filter, dateRange); }} className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm disabled:opacity-40">다음</button>
-          </div>
-        )}
+        <AdminInfiniteScroll
+          hasMore={meta.hasMore || items.length < meta.total}
+          loading={loadingMore}
+          loaded={items.length}
+          total={meta.total}
+          onLoadMore={() => {
+            const hasMore = meta.hasMore || items.length < meta.total;
+            if (!hasMore || loading || loadingMore) return;
+            fetchList(page + 1, filter, dateRange, true);
+          }}
+        />
       </div>
     </div>
   );

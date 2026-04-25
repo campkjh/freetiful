@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle, RefreshCw, CircleDollarSign } from 'lucide-react';
+import { Search, Check, X, Edit3, AlertCircle, RefreshCw, CircleDollarSign } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -34,6 +35,7 @@ const statusLabel: Record<string, { text: string; className: string }> = {
 export default function AdminProsPage() {
   const [pros, setPros] = useState<ProItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('전체');
   const [page, setPage] = useState(1);
@@ -44,8 +46,9 @@ export default function AdminProsPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const LIMIT = 20;
 
-  const fetchPros = async (p = page, s = search, st = filterStatus, range = dateRange) => {
-    setLoading(true);
+  const fetchPros = async (p = page, s = search, st = filterStatus, range = dateRange, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setLastError(null);
     try {
       const params: any = { page: p, limit: LIMIT };
@@ -54,15 +57,18 @@ export default function AdminProsPage() {
       if (range.startDate) params.startDate = range.startDate;
       if (range.endDate) params.endDate = range.endDate;
       const data = await adminFetch('GET', `/api/v1/admin/pros?${new URLSearchParams(params).toString()}`);
-      setPros(data.data || []);
+      const nextPros = data.data || [];
+      setPros((prev) => append ? appendUniqueById(prev, nextPros) : nextPros);
       setTotal(data.total || 0);
+      setPage(p);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
       const status = e?.response?.status;
       setLastError({ status, message: msg });
       toast.error(`목록 로드 실패${status ? ` (${status})` : ''}: ${msg}`, { duration: 6000 });
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
   };
 
@@ -120,7 +126,7 @@ export default function AdminProsPage() {
   };
 
 
-  const totalPages = Math.ceil(total / LIMIT);
+  const hasMore = pros.length < total;
 
   return (
     <div className="space-y-5">
@@ -131,7 +137,7 @@ export default function AdminProsPage() {
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
         <button
-          onClick={() => fetchPros(page, search, filterStatus, dateRange)}
+          onClick={() => fetchPros(1, search, filterStatus, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -314,28 +320,17 @@ export default function AdminProsPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="border-t border-[#F2F4F6] px-4 py-3 flex items-center justify-between">
-            <p className="text-xs text-gray-500">총 {total}명 ({page}/{totalPages})</p>
-            <div className="flex items-center gap-1">
-              <button
-                disabled={page <= 1}
-                onClick={() => { const p = page - 1; setPage(p); fetchPros(p, search, filterStatus, dateRange); }}
-                className="p-1.5 rounded-xl hover:bg-[#F2F4F6] text-gray-400 disabled:opacity-30"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => { const p = page + 1; setPage(p); fetchPros(p, search, filterStatus, dateRange); }}
-                className="p-1.5 rounded-xl hover:bg-[#F2F4F6] text-gray-400 disabled:opacity-30"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={pros.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchPros(page + 1, search, filterStatus, dateRange, true);
+          }}
+          itemLabel="명"
+        />
       </div>
 
     </div>

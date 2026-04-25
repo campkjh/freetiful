@@ -7,13 +7,12 @@ import {
   Plus,
   Edit3,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   ImageOff,
   AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminPartnersApi, type AdminPartnerListItem } from '@/lib/api/admin-partners.api';
 
 const statusLabel: Record<string, { text: string; className: string }> = {
@@ -28,14 +27,16 @@ const LIMIT = 20;
 export default function AdminPartnersPage() {
   const [items, setItems] = useState<AdminPartnerListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<{ status?: number; message?: string } | null>(null);
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
 
-  const fetchList = async (p = page, s = search, range = dateRange) => {
-    setLoading(true);
+  const fetchList = async (p = page, s = search, range = dateRange, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setLastError(null);
     try {
       const res = await adminPartnersApi.list({
@@ -45,15 +46,18 @@ export default function AdminPartnersPage() {
         startDate: range.startDate || undefined,
         endDate: range.endDate || undefined,
       });
-      setItems(res.data || []);
+      const nextItems = res.data || [];
+      setItems((prev) => append ? appendUniqueById(prev, nextItems) : nextItems);
       setTotal(res.total || 0);
+      setPage(p);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
       const status = e?.response?.status;
       setLastError({ status, message: msg });
       toast.error(`목록 로드 실패${status ? ` (${status})` : ''}: ${msg}`, { duration: 6000 });
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
   };
 
@@ -74,7 +78,7 @@ export default function AdminPartnersPage() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+  const hasMore = items.length < total;
 
   return (
     <div>
@@ -237,40 +241,17 @@ export default function AdminPartnersPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
-            <p className="text-xs text-gray-500">
-              총 {total}개 ({page}/{totalPages})
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                disabled={page <= 1}
-                onClick={() => {
-                  const p = page - 1;
-                  setPage(p);
-                  fetchList(p, search, dateRange);
-                }}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="px-3 py-1 text-xs font-medium bg-blue-50 text-blue-600 rounded-lg">
-                {page}
-              </span>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => {
-                  const p = page + 1;
-                  setPage(p);
-                  fetchList(p, search, dateRange);
-                }}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={items.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchList(page + 1, search, dateRange, true);
+          }}
+          itemLabel="개"
+        />
       </div>
     </div>
   );

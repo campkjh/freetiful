@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { CalendarDays, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminInfiniteScroll } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
 interface BookingItem {
@@ -82,24 +83,33 @@ function paymentStatusFilter(status: string) {
   return '';
 }
 
+function appendBookingRows(prev: BookingItem[], next: BookingItem[]) {
+  const seen = new Set(prev.map((row) => `${row.source}-${row.id}`));
+  return [...prev, ...next.filter((row) => !seen.has(`${row.source}-${row.id}`))];
+}
+
 export default function AdminBookingsPage() {
   const [rows, setRows] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>('all');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
 
-  const fetchData = async (p = page, status = filter, range = dateRange) => {
-    setLoading(true);
+  const fetchData = async (p = page, status = filter, range = dateRange, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
       if (status !== 'all') params.set('status', status);
       if (range.startDate) params.set('startDate', range.startDate);
       if (range.endDate) params.set('endDate', range.endDate);
       const data = await adminFetch('GET', `/api/v1/admin/bookings?${params.toString()}`);
-      setRows(data.data || []);
+      const nextRows = data.data || [];
+      setRows((prev) => append ? appendBookingRows(prev, nextRows) : nextRows);
       setTotal(data.total || 0);
+      setPage(p);
     } catch (e: any) {
       if (e?.response?.status === 404) {
         try {
@@ -109,7 +119,7 @@ export default function AdminBookingsPage() {
           if (range.startDate) params.set('startDate', range.startDate);
           if (range.endDate) params.set('endDate', range.endDate);
           const data = await adminFetch('GET', `/api/v1/admin/payments?${params.toString()}`);
-          setRows((data.data || []).map((payment: PaymentItem) => ({
+          const nextRows = (data.data || []).map((payment: PaymentItem) => ({
             id: payment.id,
             source: 'quotation',
             sourceLabel: '결제 예약',
@@ -130,8 +140,10 @@ export default function AdminBookingsPage() {
             chatRoomCount: null,
             deliveredPros: [],
             createdAt: payment.createdAt,
-          })));
+          }));
+          setRows((prev) => append ? appendBookingRows(prev, nextRows) : nextRows);
           setTotal(data.total || 0);
+          setPage(p);
           return;
         } catch (fallbackError: any) {
           toast.error(`의뢰/예약 로드 실패: ${fallbackError?.response?.data?.message || fallbackError?.message || ''}`);
@@ -140,13 +152,14 @@ export default function AdminBookingsPage() {
       }
       toast.error(`의뢰/예약 로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
   };
 
   useEffect(() => { fetchData(1, filter); }, []);
 
-  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+  const hasMore = rows.length < total;
 
   return (
     <div className="space-y-5">
@@ -159,7 +172,7 @@ export default function AdminBookingsPage() {
           </p>
         </div>
         <button
-          onClick={() => fetchData(page, filter, dateRange)}
+          onClick={() => fetchData(1, filter, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -269,16 +282,16 @@ export default function AdminBookingsPage() {
             )}
           </tbody>
         </table>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-[#F2F4F6] px-4 py-3">
-            <p className="text-xs font-semibold text-[#8B95A1]">총 {total.toLocaleString()}건 ({page}/{totalPages})</p>
-            <div className="flex items-center gap-1">
-              <button disabled={page <= 1 || loading} onClick={() => { const next = page - 1; setPage(next); fetchData(next, filter, dateRange); }} className="rounded-xl p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6] disabled:opacity-30"><ChevronLeft size={16} /></button>
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600">{page}</span>
-              <button disabled={page >= totalPages || loading} onClick={() => { const next = page + 1; setPage(next); fetchData(next, filter, dateRange); }} className="rounded-xl p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6] disabled:opacity-30"><ChevronRight size={16} /></button>
-            </div>
-          </div>
-        )}
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchData(page + 1, filter, dateRange, true);
+          }}
+        />
       </div>
     </div>
   );

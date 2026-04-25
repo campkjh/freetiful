@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Building2, ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { Building2, RefreshCw, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
 interface BusinessUserItem {
@@ -40,31 +41,36 @@ function dateText(value?: string | null) {
 export default function AdminBusinessesPage() {
   const [rows, setRows] = useState<BusinessUserItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
 
-  const fetchData = async (p = page, s = search, range = dateRange) => {
-    setLoading(true);
+  const fetchData = async (p = page, s = search, range = dateRange, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
       if (s.trim()) params.set('search', s.trim());
       if (range.startDate) params.set('startDate', range.startDate);
       if (range.endDate) params.set('endDate', range.endDate);
       const data = await adminFetch('GET', `/api/v1/admin/businesses?${params.toString()}`);
-      setRows(data.data || []);
+      const nextRows = data.data || [];
+      setRows((prev) => append ? appendUniqueById(prev, nextRows) : nextRows);
       setTotal(data.total || 0);
+      setPage(p);
     } catch (e: any) {
       toast.error(`비즈 계정 로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
   };
 
   useEffect(() => { fetchData(1, ''); }, []);
 
-  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+  const hasMore = rows.length < total;
 
   return (
     <div className="space-y-5">
@@ -77,7 +83,7 @@ export default function AdminBusinessesPage() {
           </p>
         </div>
         <button
-          onClick={() => fetchData(page, search, dateRange)}
+          onClick={() => fetchData(1, search, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -181,16 +187,17 @@ export default function AdminBusinessesPage() {
             )}
           </tbody>
         </table>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-[#F2F4F6] px-4 py-3">
-            <p className="text-xs font-semibold text-[#8B95A1]">총 {total.toLocaleString()}개 ({page}/{totalPages})</p>
-            <div className="flex items-center gap-1">
-              <button disabled={page <= 1 || loading} onClick={() => { const next = page - 1; setPage(next); fetchData(next, search, dateRange); }} className="rounded-xl p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6] disabled:opacity-30"><ChevronLeft size={16} /></button>
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600">{page}</span>
-              <button disabled={page >= totalPages || loading} onClick={() => { const next = page + 1; setPage(next); fetchData(next, search, dateRange); }} className="rounded-xl p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6] disabled:opacity-30"><ChevronRight size={16} /></button>
-            </div>
-          </div>
-        )}
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchData(page + 1, search, dateRange, true);
+          }}
+          itemLabel="개"
+        />
       </div>
     </div>
   );

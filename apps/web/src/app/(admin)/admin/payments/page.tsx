@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
 interface PaymentItem {
@@ -34,16 +35,17 @@ const statusLabels: Record<string, string> = {
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filterStatus, setFilterStatus] = useState('전체');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [totalAmount, setTotalAmount] = useState(0);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
   const LIMIT = 20;
 
-  const fetchPayments = async (p = page, st = filterStatus, range = dateRange) => {
-    setLoading(true);
+  const fetchPayments = async (p = page, st = filterStatus, range = dateRange, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setLastError(null);
     try {
       const params: any = { page: p, limit: LIMIT };
@@ -51,22 +53,24 @@ export default function AdminPaymentsPage() {
       if (range.startDate) params.startDate = range.startDate;
       if (range.endDate) params.endDate = range.endDate;
       const data = await adminFetch('GET', `/api/v1/admin/payments?${new URLSearchParams(params).toString()}`);
-      setPayments(data.data || []);
+      const nextPayments = data.data || [];
+      setPayments((prev) => append ? appendUniqueById(prev, nextPayments) : nextPayments);
       setTotal(data.total || 0);
-      const sum = (data.data || []).reduce((s: number, p: PaymentItem) => s + (p.amount || 0), 0);
-      setTotalAmount(sum);
+      setPage(p);
     } catch (e: any) {
       const err = extractAdminError(e);
       setLastError(err);
       toast.error(`결제 목록 로드 실패${err.status ? ` (${err.status})` : ''}: ${err.message}`, { duration: 6000 });
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
   };
 
   useEffect(() => { fetchPayments(); }, []);
 
-  const totalPages = Math.ceil(total / LIMIT);
+  const hasMore = payments.length < total;
+  const visibleAmount = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
 
   return (
     <div className="space-y-5">
@@ -79,10 +83,10 @@ export default function AdminPaymentsPage() {
           <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">결제 관리</h1>
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">
-          총 {total.toLocaleString()}건 · ₩{totalAmount.toLocaleString()}
+          총 {total.toLocaleString()}건 · ₩{visibleAmount.toLocaleString()}
         </span>
         <button
-          onClick={() => fetchPayments(page, filterStatus, dateRange)}
+          onClick={() => fetchPayments(1, filterStatus, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -164,16 +168,16 @@ export default function AdminPaymentsPage() {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="border-t border-[#F2F4F6] px-4 py-3 flex items-center justify-between">
-              <p className="text-xs text-gray-500">총 {total}건 ({page}/{totalPages} 페이지)</p>
-              <div className="flex items-center gap-1">
-                <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchPayments(p, filterStatus, dateRange); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronLeft size={16} /></button>
-                <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
-                <button disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchPayments(p, filterStatus, dateRange); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronRight size={16} /></button>
-              </div>
-            </div>
-          )}
+          <AdminInfiniteScroll
+            hasMore={hasMore}
+            loading={loadingMore}
+            loaded={payments.length}
+            total={total}
+            onLoadMore={() => {
+              if (!hasMore || loading || loadingMore) return;
+              fetchPayments(page + 1, filterStatus, dateRange, true);
+            }}
+          />
         </div>
     </div>
   );

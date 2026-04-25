@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Search, ChevronLeft, ChevronRight, Trash2, RefreshCw, AlertTriangle, Archive, Smartphone } from 'lucide-react';
+import { ArrowLeft, Search, Trash2, RefreshCw, AlertTriangle, Archive, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
 interface UserItem {
@@ -49,6 +50,7 @@ const deviceColors: Record<string, string> = {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('전체');
   const [page, setPage] = useState(1);
@@ -57,8 +59,9 @@ export default function AdminUsersPage() {
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
   const LIMIT = 20;
 
-  const fetchUsers = async (p = page, s = search, r = filterRole, range = dateRange) => {
-    setLoading(true);
+  const fetchUsers = async (p = page, s = search, r = filterRole, range = dateRange, append = false) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setLastError(null);
     try {
       const params: any = { page: p, limit: LIMIT };
@@ -67,14 +70,17 @@ export default function AdminUsersPage() {
       if (range.startDate) params.startDate = range.startDate;
       if (range.endDate) params.endDate = range.endDate;
       const data = await adminFetch('GET', `/api/v1/admin/users?${new URLSearchParams(params).toString()}`);
-      setUsers(data.data || []);
+      const nextUsers = data.data || [];
+      setUsers((prev) => append ? appendUniqueById(prev, nextUsers) : nextUsers);
       setTotal(data.total || 0);
+      setPage(p);
     } catch (e: any) {
       const err = extractAdminError(e);
       setLastError(err);
       toast.error(`유저 목록 로드 실패${err.status ? ` (${err.status})` : ''}: ${err.message}`, { duration: 6000 });
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
   };
 
@@ -134,13 +140,13 @@ export default function AdminUsersPage() {
       await adminFetch('PATCH', `/api/v1/admin/users/${userId}/archive`);
       toast.success('보관처리되었습니다');
       runDiag();
-      fetchUsers();
+      fetchUsers(1, search, filterRole, dateRange);
     } catch (e: any) {
       toast.error(`보관처리 실패: ${e?.response?.data?.message || e?.message || ''}`);
     }
   };
 
-  const totalPages = Math.ceil(total / LIMIT);
+  const hasMore = users.length < total;
 
   return (
     <div className="space-y-5">
@@ -154,7 +160,7 @@ export default function AdminUsersPage() {
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
         <button
-          onClick={() => fetchUsers(page, search, filterRole, dateRange)}
+          onClick={() => fetchUsers(1, search, filterRole, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -399,16 +405,17 @@ export default function AdminUsersPage() {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="border-t border-[#F2F4F6] px-4 py-3 flex items-center justify-between">
-              <p className="text-xs text-gray-500">총 {total}명 ({page}/{totalPages} 페이지)</p>
-              <div className="flex items-center gap-1">
-                <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchUsers(p, search, filterRole, dateRange); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronLeft size={16} /></button>
-                <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
-                <button disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchUsers(p, search, filterRole, dateRange); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronRight size={16} /></button>
-              </div>
-            </div>
-          )}
+          <AdminInfiniteScroll
+            hasMore={hasMore}
+            loading={loadingMore}
+            loaded={users.length}
+            total={total}
+            onLoadMore={() => {
+              if (!hasMore || loading || loadingMore) return;
+              fetchUsers(page + 1, search, filterRole, dateRange, true);
+            }}
+            itemLabel="명"
+          />
         </div>
     </div>
   );
