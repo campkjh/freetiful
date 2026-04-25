@@ -120,23 +120,30 @@ export default function AdminUsersPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Link href="/admin" className="p-1 hover:bg-gray-100 rounded-lg"><ArrowLeft size={20} /></Link>
-          <h1 className="text-lg font-bold text-gray-900">유저 관리</h1>
-          <span className="ml-auto text-sm text-gray-400">총 {total}명</span>
-          <button onClick={() => fetchUsers(page, search, filterRole)} className="p-2 hover:bg-gray-100 rounded-lg">
-            <RefreshCw size={16} className="text-gray-500" />
-          </button>
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 px-1">
+        <Link href="/admin" className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6]">
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <p className="text-[12px] font-bold text-[#3182F6]">회원 운영</p>
+          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">유저 관리</h1>
         </div>
+        <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
+        <button
+          onClick={() => fetchUsers(page, search, filterRole)}
+          disabled={loading}
+          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          title="새로고침"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-6">
         <AdminErrorPanel error={lastError} label="유저 목록" />
 
         {/* 중복 진단 섹션 */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+        <div className="admin-card-soft border-amber-200/70 bg-amber-50/80 p-4">
           <button onClick={() => setDiagOpen((v) => !v)} className="flex items-center gap-2 text-sm font-bold text-amber-800 w-full text-left">
             <AlertTriangle size={16} />
             중복 유저 진단 (같은 이메일/이름으로 여러 계정이 있는지 확인)
@@ -226,7 +233,7 @@ export default function AdminUsersPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="admin-toolbar p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -236,7 +243,7 @@ export default function AdminUsersPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchUsers(1, search, filterRole); } }}
                 placeholder="이름 또는 이메일 검색 (Enter)"
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
               />
             </div>
             <div className="flex gap-2">
@@ -244,7 +251,7 @@ export default function AdminUsersPage() {
                 <button
                   key={r}
                   onClick={() => { setFilterRole(r); setPage(1); fetchUsers(1, search, r); }}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filterRole === r ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  className={`admin-chip px-3.5 text-sm ${filterRole === r ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'}`}
                 >
                   {r === '전체' ? '전체' : r === 'general' ? '일반' : r === 'business' ? '비즈' : r}
                 </button>
@@ -253,7 +260,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="admin-list-card">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -269,9 +276,22 @@ export default function AdminUsersPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-sm text-gray-400">로딩 중...</td></tr>
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={7} className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="skeleton h-9 w-9 rounded-full" />
+                          <div className="flex-1 space-y-2">
+                            <div className="skeleton h-3 w-44" />
+                            <div className="skeleton h-3 w-72 max-w-full" />
+                          </div>
+                          <div className="skeleton h-8 w-20" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-sm text-gray-400">검색 결과가 없습니다</td></tr>
+                  <tr><td colSpan={7} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
                 ) : users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
@@ -341,17 +361,16 @@ export default function AdminUsersPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
+            <div className="border-t border-[#F2F4F6] px-4 py-3 flex items-center justify-between">
               <p className="text-xs text-gray-500">총 {total}명 ({page}/{totalPages} 페이지)</p>
               <div className="flex items-center gap-1">
                 <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchUsers(p); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronLeft size={16} /></button>
-                <span className="px-3 py-1 text-xs font-medium bg-blue-50 text-blue-600 rounded-lg">{page}</span>
+                <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
                 <button disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchUsers(p); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronRight size={16} /></button>
               </div>
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }

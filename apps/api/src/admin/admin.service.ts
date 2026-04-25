@@ -468,6 +468,7 @@ export class AdminService {
         status: p.status,
         avgRating: Number(p.avgRating),
         reviewCount: p.reviewCount,
+        puddingCount: p.puddingCount,
         isFeatured: p.isFeatured,
         showPartnersLogo: p.showPartnersLogo,
         createdAt: p.createdAt,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function AdminBookingsPage() {
@@ -25,22 +26,32 @@ export default function AdminBookingsPage() {
   useEffect(() => { fetchData(); }, [filter]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-bold">의뢰/예약 관리</h1>
-        <button onClick={fetchData} className="text-[12px] px-3 py-1.5 bg-gray-100 rounded-md hover:bg-gray-200">새로고침</button>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between px-1">
+        <div>
+          <p className="text-[12px] font-bold text-[#3182F6]">예약 운영</p>
+          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">의뢰/예약 관리</h1>
+        </div>
+        <button
+          onClick={fetchData}
+          disabled={loading}
+          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          title="새로고침"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="admin-toolbar flex gap-2 p-3">
         {([['all', '전체'], ['pending', '대기'], ['confirmed', '확정'], ['cancelled', '취소']] as const).map(([v, l]) => (
           <button key={v} onClick={() => setFilter(v)}
-            className={`px-3 py-1.5 rounded-md text-[12px] ${filter === v ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}>
+            className={`admin-chip px-3.5 text-[12px] ${filter === v ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'}`}>
             {l}
           </button>
         ))}
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+      <div className="admin-list-card overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -54,9 +65,11 @@ export default function AdminBookingsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">불러오는 중...</td></tr>
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i}><td colSpan={6} className="px-3 py-3"><div className="skeleton h-8 w-full" /></td></tr>
+              ))
             ) : rows.length === 0 ? (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">예약 없음</td></tr>
+              <tr><td colSpan={6} className="admin-empty-state px-3 py-12 text-center text-sm font-semibold">예약 없음</td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">

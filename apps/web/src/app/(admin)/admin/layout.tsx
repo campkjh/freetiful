@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   Megaphone,
   HelpCircle,
+  Command,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 
@@ -50,6 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checked, setChecked] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarReady, setSidebarReady] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isLoginPage = pathname === '/admin/login';
@@ -67,6 +69,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const tm = setTimeout(() => setHydrated(true), 250);
     return () => { unsub?.(); clearTimeout(tm); };
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('freetiful-admin-sidebar-collapsed');
+      if (saved === '1' || saved === '0') setCollapsed(saved === '1');
+    } catch {}
+    setSidebarReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarReady) return;
+    try { localStorage.setItem('freetiful-admin-sidebar-collapsed', collapsed ? '1' : '0'); } catch {}
+  }, [collapsed, sidebarReady]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -100,9 +115,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (item.exact) return pathname === item.href;
     return pathname.startsWith(item.href);
   };
+  const activeNav = NAV_ITEMS.find((item) => isActive(item));
 
   const NavList = ({ onClickItem }: { onClickItem?: () => void }) => (
-    <nav className="flex-1 space-y-0.5 p-1.5">
+    <nav className="flex-1 space-y-1.5 p-2.5">
       {NAV_ITEMS.map((item) => {
         const active = isActive(item);
         return (
@@ -110,14 +126,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             key={item.href}
             href={item.href}
             onClick={onClickItem}
-            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors ${
+            className={`admin-nav-item group relative flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-[13px] font-bold ${
               active
-                ? 'bg-[#E8F3FF] text-[#3182F6]'
-                : 'text-[#6B7684] hover:bg-white hover:text-[#191F28]'
+                ? 'active bg-[#F2F7FF] text-[#3182F6]'
+                : 'text-[#6B7684] hover:bg-[#F7F8FA] hover:text-[#191F28]'
             } ${collapsed && !onClickItem ? 'justify-center px-0' : ''}`}
             title={collapsed ? item.label : undefined}
           >
-            <item.icon className="h-4 w-4 shrink-0" />
+            {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#3182F6]" />}
+            <item.icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
             {(!collapsed || onClickItem) && <span>{item.label}</span>}
           </Link>
         );
@@ -126,11 +143,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   const BottomActions = ({ onClickItem }: { onClickItem?: () => void }) => (
-    <div className="border-t p-1.5 space-y-0.5">
+    <div className="border-t border-[#F2F4F6] p-2.5 space-y-1">
       <Link
         href="/main"
         onClick={onClickItem}
-        className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 ${collapsed && !onClickItem ? 'justify-center px-0' : ''}`}
+        className={`admin-nav-item flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-[#6B7684] hover:bg-[#F7F8FA] hover:text-[#191F28] ${collapsed && !onClickItem ? 'justify-center px-0' : ''}`}
         title={collapsed ? '홈으로' : undefined}
       >
         <ExternalLink className="h-4 w-4 shrink-0" />
@@ -138,7 +155,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </Link>
       <button
         onClick={handleLogout}
-        className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-red-500 ${collapsed && !onClickItem ? 'justify-center px-0' : ''}`}
+        className={`admin-nav-item flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-[13px] font-bold text-[#6B7684] hover:bg-[#FFF2F3] hover:text-[#F04452] ${collapsed && !onClickItem ? 'justify-center px-0' : ''}`}
         title={collapsed ? '로그아웃' : undefined}
       >
         <LogOut className="h-4 w-4 shrink-0" />
@@ -148,22 +165,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="admin-shell flex h-screen bg-[#F7F8FA] text-[#191F28]">
       {/* Desktop sidebar */}
       <aside
-        className={`hidden md:flex flex-col border-r border-[#F2F4F6] bg-[#F9FAFB] transition-all duration-200 ${
-          collapsed ? 'w-14' : 'w-56'
+        className={`hidden md:flex flex-col border-r border-black/[0.04] bg-white/95 shadow-[8px_0_30px_rgba(2,32,71,0.03)] backdrop-blur-xl transition-[width] duration-300 ease-out ${
+          collapsed ? 'w-16' : 'w-64'
         }`}
       >
-        <div className="flex h-12 items-center justify-between border-b border-[#F2F4F6] px-3">
+        <div className="flex h-16 items-center justify-between border-b border-[#F2F4F6] px-3">
           {!collapsed && (
-            <h1 className="text-[13px] font-extrabold tracking-tight text-[#191F28]">
-              Admin Console
-            </h1>
+            <Link href="/admin" className="flex min-w-0 items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#191F28] text-[15px] font-black text-white shadow-[0_8px_18px_rgba(25,31,40,0.15)]">F</span>
+              <span className="min-w-0">
+                <span className="block text-[15px] font-black tracking-tight text-[#191F28]">Freetiful</span>
+                <span className="block text-[11px] font-bold text-[#8B95A1]">Admin Console</span>
+              </span>
+            </Link>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex h-7 w-7 items-center justify-center rounded text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-900"
+            className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-2xl text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#191F28]"
+            aria-label={collapsed ? '사이드바 열기' : '사이드바 접기'}
           >
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
@@ -175,11 +197,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile top bar */}
-        <div className="flex md:hidden h-12 items-center justify-between border-b border-gray-200 bg-gray-50 px-3">
-          <h1 className="text-[13px] font-extrabold tracking-tight text-gray-900">Admin Console</h1>
+        <div className="flex md:hidden h-14 items-center justify-between border-b border-[#F2F4F6] bg-white/90 px-4 backdrop-blur-xl">
+          <Link href="/admin" className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#191F28] text-[13px] font-black text-white">F</span>
+            <h1 className="text-[14px] font-black tracking-tight text-[#191F28]">Admin</h1>
+          </Link>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="flex h-8 w-8 items-center justify-center rounded text-gray-600 hover:bg-gray-200"
+            className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-2xl text-[#6B7684] hover:bg-[#F2F4F6]"
+            aria-label="관리자 메뉴 열기"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -188,13 +214,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Mobile drawer */}
         {mobileOpen && (
           <div className="fixed inset-0 z-50 md:hidden">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
-            <aside className="absolute left-0 top-0 bottom-0 w-64 flex flex-col bg-white shadow-xl animate-[slideRight_0.2s_ease-out]">
-              <div className="flex h-12 items-center justify-between border-b border-gray-200 px-3">
-                <h1 className="text-[13px] font-extrabold tracking-tight text-gray-900">Admin Console</h1>
+            <div className="absolute inset-0 bg-[#191F28]/35 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} />
+            <aside className="absolute left-0 top-0 bottom-0 w-72 flex flex-col bg-white shadow-2xl animate-[slideRight_0.22s_var(--spring)]">
+              <div className="flex h-14 items-center justify-between border-b border-[#F2F4F6] px-4">
+                <h1 className="text-[14px] font-black tracking-tight text-[#191F28]">Admin Console</h1>
                 <button
                   onClick={() => setMobileOpen(false)}
-                  className="flex h-7 w-7 items-center justify-center rounded text-gray-500 hover:bg-gray-200"
+                  className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-2xl text-[#6B7684] hover:bg-[#F2F4F6]"
+                  aria-label="관리자 메뉴 닫기"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -205,8 +232,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         )}
 
-        <main className="flex-1 overflow-auto bg-[#F9FAFB]">
-          <div className="max-w-6xl mx-auto px-4 py-6 md:px-6 md:py-8">{children}</div>
+        <main className="admin-main flex-1 overflow-auto bg-[#F7F8FA]">
+          <div className="sticky top-0 z-20 hidden border-b border-black/[0.04] bg-white/75 px-6 py-3 backdrop-blur-xl md:block">
+            <div className="mx-auto flex max-w-6xl items-center gap-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#B0B8C1]">Freetiful Ops</p>
+                <p className="text-[15px] font-black text-[#191F28]">{activeNav?.label || '관리자'}</p>
+              </div>
+              <div className="ml-auto flex items-center gap-2 rounded-full bg-[#F2F4F6] px-3 py-2 text-[12px] font-bold text-[#6B7684]">
+                <Command className="h-3.5 w-3.5" />
+                빠른 운영 모드
+              </div>
+            </div>
+          </div>
+          <div key={pathname} className="admin-page-frame mx-auto max-w-6xl px-4 py-5 md:px-6 md:py-7">
+            {children}
+          </div>
         </main>
       </div>
 

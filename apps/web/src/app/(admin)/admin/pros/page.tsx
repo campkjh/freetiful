@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle } from 'lucide-react';
+import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle, RefreshCw, CircleDollarSign } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -16,6 +16,7 @@ interface ProItem {
   image: string;
   avgRating: number;
   reviewCount: number;
+  puddingCount?: number;
   isFeatured: boolean;
 }
 
@@ -117,10 +118,21 @@ export default function AdminProsPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div>
+    <div className="space-y-5">
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-xl font-bold text-gray-900">전문가 관리</h1>
-        <span className="ml-auto text-sm text-gray-400">총 {total}명</span>
+        <div>
+          <p className="text-[12px] font-bold text-[#3182F6]">전문가 운영</p>
+          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">전문가 관리</h1>
+        </div>
+        <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
+        <button
+          onClick={() => fetchPros(page, search, filterStatus)}
+          disabled={loading}
+          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          title="새로고침"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {lastError && (
@@ -150,7 +162,7 @@ export default function AdminProsPage() {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+      <div className="admin-toolbar p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -160,7 +172,7 @@ export default function AdminProsPage() {
               onChange={(e) => { setSearch(e.target.value); }}
               onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus); } }}
               placeholder="전문가 이름 검색 (Enter)"
-              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
             />
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -168,8 +180,8 @@ export default function AdminProsPage() {
               <button
                 key={st}
                 onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st); }}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filterStatus === st ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                className={`admin-chip px-3.5 text-sm ${
+                  filterStatus === st ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
                 }`}
               >
                 {st === '전체' ? '전체' : st === 'pending' ? '대기' : st === 'approved' ? '승인' : st === 'rejected' ? '반려' : st === 'draft' ? '임시' : '중지'}
@@ -180,7 +192,7 @@ export default function AdminProsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="admin-list-card">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -190,6 +202,7 @@ export default function AdminProsPage() {
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">상태</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">평점</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">리뷰</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">푸딩</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">로고</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">추천</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
@@ -197,9 +210,22 @@ export default function AdminProsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-sm text-gray-400">로딩 중...</td></tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={9} className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="skeleton h-10 w-10 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <div className="skeleton h-3 w-40" />
+                          <div className="skeleton h-3 w-64 max-w-full" />
+                        </div>
+                        <div className="skeleton h-8 w-24" />
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : pros.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-sm text-gray-400">검색 결과가 없습니다</td></tr>
+                <tr><td colSpan={9} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
               ) : pros.map((pro) => (
                 <tr key={pro.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
@@ -216,6 +242,7 @@ export default function AdminProsPage() {
                   </td>
                   <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">{pro.avgRating?.toFixed(1) || '-'}</td>
                   <td className="px-4 py-3 text-center text-sm text-gray-600">{pro.reviewCount}</td>
+                  <td className="px-4 py-3 text-center text-sm font-bold text-amber-600">{pro.puddingCount != null ? pro.puddingCount.toLocaleString() : '-'}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
                       <button onClick={() => handleToggleLogo(pro.id)} className="transition-colors">
@@ -247,7 +274,7 @@ export default function AdminProsPage() {
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors"
                         title="푸딩 수동 지급/차감"
                       >
-                        🍮 푸딩
+                        <CircleDollarSign size={12} /> 푸딩
                       </button>
                       {pro.status !== 'approved' && (
                         <button
@@ -274,21 +301,21 @@ export default function AdminProsPage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
+          <div className="border-t border-[#F2F4F6] px-4 py-3 flex items-center justify-between">
             <p className="text-xs text-gray-500">총 {total}명 ({page}/{totalPages})</p>
             <div className="flex items-center gap-1">
               <button
                 disabled={page <= 1}
                 onClick={() => { const p = page - 1; setPage(p); fetchPros(p); }}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"
+                className="p-1.5 rounded-xl hover:bg-[#F2F4F6] text-gray-400 disabled:opacity-30"
               >
                 <ChevronLeft size={16} />
               </button>
-              <span className="px-3 py-1 text-xs font-medium bg-blue-50 text-blue-600 rounded-lg">{page}</span>
+              <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
               <button
                 disabled={page >= totalPages}
                 onClick={() => { const p = page + 1; setPage(p); fetchPros(p); }}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"
+                className="p-1.5 rounded-xl hover:bg-[#F2F4F6] text-gray-400 disabled:opacity-30"
               >
                 <ChevronRight size={16} />
               </button>

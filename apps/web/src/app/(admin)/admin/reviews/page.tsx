@@ -56,21 +56,28 @@ export default function AdminReviewsPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Link href="/admin" className="p-1 hover:bg-gray-100 rounded-lg"><ArrowLeft size={20} /></Link>
-          <h1 className="text-lg font-bold text-gray-900">리뷰 관리</h1>
-          <span className="ml-auto text-sm text-gray-400">총 {total}건</span>
-          <button onClick={() => fetchReviews(page)} className="p-2 hover:bg-gray-100 rounded-lg">
-            <RefreshCw size={16} className="text-gray-500" />
-          </button>
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 px-1">
+        <Link href="/admin" className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6]">
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <p className="text-[12px] font-bold text-[#3182F6]">리뷰 운영</p>
+          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">리뷰 관리</h1>
         </div>
+        <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}건</span>
+        <button
+          onClick={() => fetchReviews(page)}
+          disabled={loading}
+          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          title="새로고침"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-6">
         <AdminErrorPanel error={lastError} label="리뷰" />
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="admin-list-card">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -85,9 +92,20 @@ export default function AdminReviewsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-sm text-gray-400">로딩 중...</td></tr>
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={6} className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="skeleton h-3 w-24" />
+                          <div className="skeleton h-3 w-24" />
+                          <div className="skeleton h-3 w-16" />
+                          <div className="skeleton h-3 flex-1" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : reviews.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-sm text-gray-400">리뷰가 없습니다</td></tr>
+                  <tr><td colSpan={6} className="admin-empty-state text-center py-14 text-sm font-semibold">리뷰가 없습니다</td></tr>
                 ) : reviews.map((review) => (
                   <tr key={review.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-700">
@@ -119,17 +137,16 @@ export default function AdminReviewsPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
+            <div className="border-t border-[#F2F4F6] px-4 py-3 flex items-center justify-between">
               <p className="text-xs text-gray-500">총 {total}건 ({page}/{totalPages} 페이지)</p>
               <div className="flex items-center gap-1">
                 <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchReviews(p); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronLeft size={16} /></button>
-                <span className="px-3 py-1 text-xs font-medium bg-blue-50 text-blue-600 rounded-lg">{page}</span>
+                <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
                 <button disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchReviews(p); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronRight size={16} /></button>
               </div>
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }

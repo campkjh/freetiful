@@ -550,3 +550,200 @@ body::after {
 .stagger-4 { animation-delay: calc(4 * 80ms); }
 .stagger-5 { animation-delay: calc(5 * 80ms); }
 .stagger-6 { animation-delay: calc(6 * 80ms); }
+
+/* ─── Admin Console: Toss-like ops surface ──────────────────────────────── */
+
+@keyframes adminPageIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.995);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes adminRowIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes adminSoftPop {
+  0% { transform: scale(0.98); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.admin-shell {
+  --admin-blue: #3182F6;
+  --admin-ink: #191F28;
+  --admin-muted: #6B7684;
+  --admin-line: #E5E8EB;
+  --admin-surface: #FFFFFF;
+  --admin-bg: #F7F8FA;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.admin-shell,
+.admin-shell * {
+  letter-spacing: 0 !important;
+}
+
+.admin-page-frame {
+  animation: adminPageIn 0.34s var(--spring) both;
+  will-change: opacity, transform, filter;
+}
+
+.admin-shell .admin-nav-item,
+.admin-shell .admin-icon-button,
+.admin-shell button,
+.admin-shell a {
+  transition:
+    transform 160ms var(--spring),
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.admin-shell button:active,
+.admin-shell a:active {
+  transform: scale(0.985);
+}
+
+.admin-shell .admin-nav-item.active {
+  box-shadow: inset 0 0 0 1px rgba(49, 130, 246, 0.08);
+}
+
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms var(--spring);
+}
+
+.admin-shell input:focus,
+.admin-shell select:focus,
+.admin-shell textarea:focus {
+  border-color: rgba(49, 130, 246, 0.38) !important;
+  box-shadow: 0 0 0 4px rgba(49, 130, 246, 0.10) !important;
+}
+
+.admin-shell table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-shell thead tr {
+  background: #FBFCFD !important;
+}
+
+.admin-shell th {
+  color: #8B95A1 !important;
+  font-size: 11px !important;
+  letter-spacing: 0 !important;
+}
+
+.admin-shell tbody tr {
+  animation: adminRowIn 0.26s var(--spring) both;
+}
+
+.admin-shell tbody tr:nth-child(2) { animation-delay: 18ms; }
+.admin-shell tbody tr:nth-child(3) { animation-delay: 36ms; }
+.admin-shell tbody tr:nth-child(4) { animation-delay: 54ms; }
+.admin-shell tbody tr:nth-child(5) { animation-delay: 72ms; }
+.admin-shell tbody tr:nth-child(n + 6) { animation-delay: 90ms; }
+
+.admin-shell tbody tr:hover {
+  background: #F7FAFF !important;
+}
+
+.admin-card {
+  background: var(--admin-surface);
+  border: 1px solid rgba(25, 31, 40, 0.05);
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(2, 32, 71, 0.04);
+}
+
+.admin-card-soft {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(2, 32, 71, 0.035);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.admin-list-card {
+  background: var(--admin-surface);
+  border: 1px solid rgba(25, 31, 40, 0.06);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 10px 32px rgba(2, 32, 71, 0.04);
+}
+
+.admin-metric-card {
+  animation: adminSoftPop 0.32s var(--spring) both;
+}
+
+.admin-toolbar {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(25, 31, 40, 0.06);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(2, 32, 71, 0.035);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.admin-chip {
+  border-radius: 999px;
+  font-weight: 800;
+  min-height: 36px;
+}
+
+.admin-empty-state {
+  color: #8B95A1;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(49, 130, 246, 0.08), transparent 34%),
+    #FFFFFF;
+}
+
+.admin-shell .rounded-3xl {
+  border-radius: 24px;
+}
+
+.admin-shell .rounded-2xl {
+  border-radius: 18px;
+}
+
+.admin-shell .rounded-xl {
+  border-radius: 16px;
+}
+
+.admin-shell .min-h-screen.bg-gray-50 {
+  min-height: auto !important;
+  background: transparent !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-page-frame,
+  .admin-shell tbody tr,
+  .admin-metric-card {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}

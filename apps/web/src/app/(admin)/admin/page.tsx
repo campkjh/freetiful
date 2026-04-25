@@ -99,37 +99,44 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <h1 className="text-[22px] font-bold text-[#191F28] tracking-tight">대시보드</h1>
-          <p className="text-[13px] text-[#8B95A1] mt-0.5">프리티풀 전체 관리</p>
+          <p className="text-[12px] font-bold text-[#3182F6]">운영 현황</p>
+          <h1 className="mt-1 text-[26px] font-black text-[#191F28] tracking-tight">대시보드</h1>
+          <p className="text-[13px] text-[#8B95A1] mt-1">유저, 전문가, 결제 흐름을 한 화면에서 빠르게 확인합니다.</p>
         </div>
         <button
           onClick={fetchStats}
-          className="w-10 h-10 flex items-center justify-center rounded-full text-[#6B7684] hover:bg-white transition-colors"
+          disabled={loading}
+          className="admin-icon-button w-11 h-11 flex items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_8px_20px_rgba(2,32,71,0.05)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
         >
-          <RefreshCw size={18} />
+          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
       {/* 매출 히어로 */}
       {loading ? (
-        <div className="bg-white rounded-3xl p-6 animate-pulse">
+        <div className="admin-card p-6 animate-pulse">
           <div className="h-3 w-20 bg-gray-100 rounded mb-3" />
           <div className="h-9 w-56 bg-gray-100 rounded" />
         </div>
       ) : stats && (
-        <div className="bg-white rounded-3xl p-6">
-          <p className="text-[13px] text-[#6B7684]">이번달 매출</p>
-          <p className="mt-1.5 text-[30px] leading-tight font-extrabold text-[#191F28] tracking-tight">
-            ₩{Number(stats.thisMonthRevenue).toLocaleString()}
-          </p>
-          <div className="mt-4 pt-4 border-t border-[#F2F4F6] flex items-center justify-between text-[13px]">
-            <span className="text-[#6B7684]">누적 매출</span>
-            <span className="font-semibold text-[#191F28]">₩{Number(stats.totalRevenue).toLocaleString()}</span>
+        <div className="admin-card relative overflow-hidden p-6 md:p-7">
+          <div className="absolute inset-x-0 top-0 h-1 bg-[#3182F6]" />
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[13px] font-bold text-[#6B7684]">이번달 매출</p>
+              <p className="mt-2 text-[34px] leading-tight font-black text-[#191F28] tracking-tight md:text-[40px]">
+                ₩{Number(stats.thisMonthRevenue).toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-[#F7F8FA] px-4 py-3 text-right">
+              <p className="text-[12px] font-bold text-[#8B95A1]">누적 매출</p>
+              <p className="mt-1 text-[18px] font-black text-[#191F28]">₩{Number(stats.totalRevenue).toLocaleString()}</p>
+            </div>
           </div>
         </div>
       )}
@@ -138,7 +145,7 @@ export default function AdminDashboardPage() {
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[1,2,3,4].map((i) => (
-            <div key={i} className="bg-white rounded-2xl p-4 animate-pulse">
+            <div key={i} className="admin-card p-4 animate-pulse">
               <div className="h-3 w-14 bg-gray-100 rounded mb-2" />
               <div className="h-6 w-20 bg-gray-100 rounded" />
             </div>
@@ -151,12 +158,16 @@ export default function AdminDashboardPage() {
             { label: '승인 전문가', value: stats.totalPros.toLocaleString(), unit: '명' },
             { label: '승인 대기', value: `${stats.pendingPros}`, unit: '명', highlight: stats.pendingPros > 0 },
             { label: '리뷰', value: stats.totalReviews.toLocaleString(), unit: '건' },
-          ].map((item) => (
-            <div key={item.label} className="bg-white rounded-2xl p-4">
-              <p className="text-[12px] text-[#8B95A1]">{item.label}</p>
-              <p className="mt-1 text-[20px] font-bold tracking-tight">
+          ].map((item, index) => (
+            <div
+              key={item.label}
+              className="admin-card admin-metric-card p-4 md:p-5"
+              style={{ animationDelay: `${index * 40}ms` }}
+            >
+              <p className="text-[12px] font-bold text-[#8B95A1]">{item.label}</p>
+              <p className="mt-1.5 text-[22px] font-black tracking-tight">
                 <span className={item.highlight ? 'text-[#F04452]' : 'text-[#191F28]'}>{item.value}</span>
-                <span className="text-[13px] font-medium text-[#8B95A1] ml-1">{item.unit}</span>
+                <span className="text-[13px] font-bold text-[#8B95A1] ml-1">{item.unit}</span>
               </p>
             </div>
           ))}
@@ -164,9 +175,9 @@ export default function AdminDashboardPage() {
       )}
 
       {/* 관리 메뉴 */}
-      <div className="bg-white rounded-3xl overflow-hidden">
+      <div className="admin-list-card">
         <div className="px-5 pt-5 pb-1">
-          <h2 className="text-[15px] font-bold text-[#191F28]">관리 메뉴</h2>
+          <h2 className="text-[16px] font-black text-[#191F28]">관리 메뉴</h2>
         </div>
         <div className="divide-y divide-[#F2F4F6]">
           {navItems.map((item) => {
@@ -178,9 +189,9 @@ export default function AdminDashboardPage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors"
+                className="group flex items-center gap-3 px-5 py-3.5 hover:bg-[#F7FAFF]"
               >
-                <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${item.accent}`}>
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${item.accent}`}>
                   <Icon size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -192,7 +203,7 @@ export default function AdminDashboardPage() {
                     {item.count}
                   </span>
                 )}
-                <ChevronRight size={18} className="text-[#B0B8C1] shrink-0" />
+                <ChevronRight size={18} className="text-[#B0B8C1] shrink-0 transition-transform group-hover:translate-x-0.5" />
               </Link>
             );
           })}
@@ -200,19 +211,19 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* 관리자 도구 */}
-      <div className="bg-white rounded-3xl p-5">
-        <h2 className="text-[15px] font-bold text-[#191F28] mb-3">관리자 도구</h2>
+      <div className="admin-card p-5">
+        <h2 className="text-[16px] font-black text-[#191F28] mb-3">관리자 도구</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <button
             onClick={handleCleanup}
-            className="px-4 py-3 rounded-2xl bg-[#F9FAFB] hover:bg-[#F2F4F6] transition-colors text-left"
+            className="px-4 py-3 rounded-2xl bg-[#F7F8FA] hover:bg-[#F2F4F6] text-left"
           >
             <span className="block text-[13px] font-semibold text-[#F04452]">빈 프로필 정리</span>
             <span className="block text-[11px] text-[#8B95A1] mt-0.5">이미지 0 → draft 강등</span>
           </button>
           <button
             onClick={() => setTransferOpen(true)}
-            className="px-4 py-3 rounded-2xl bg-[#F9FAFB] hover:bg-[#F2F4F6] transition-colors text-left"
+            className="px-4 py-3 rounded-2xl bg-[#F7F8FA] hover:bg-[#F2F4F6] text-left"
           >
             <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
               <ArrowRightLeft size={13} /> 프로필 이관
@@ -222,7 +233,7 @@ export default function AdminDashboardPage() {
           <button
             onClick={handleSeed}
             disabled={seeding}
-            className="px-4 py-3 rounded-2xl bg-[#F9FAFB] hover:bg-[#F2F4F6] transition-colors disabled:opacity-50 text-left"
+            className="px-4 py-3 rounded-2xl bg-[#F7F8FA] hover:bg-[#F2F4F6] disabled:opacity-50 text-left"
           >
             <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
               <Sprout size={13} /> {seeding ? '시드 중...' : '전문가 시드'}
