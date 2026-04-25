@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
-import { getPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
@@ -157,18 +156,6 @@ function writeCachedProStats(stats: ProStats) {
   } catch {}
 }
 
-function readStoredProProfileStatus(): 'draft' | 'pending' | 'approved' | 'rejected' | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const status = localStorage.getItem('proRegistrationComplete');
-    if (status === 'true' || status === 'approved') return 'approved';
-    if (status === 'pending') return 'pending';
-    if (status === 'rejected') return 'rejected';
-    if (status === 'draft') return 'draft';
-  } catch {}
-  return null;
-}
-
 function readStoredProCategory() {
   if (typeof window === 'undefined') return '사회자';
   try {
@@ -178,20 +165,28 @@ function readStoredProCategory() {
   }
 }
 
-function getUserFromStorage() {
-  if (typeof window === 'undefined') return { name: '사용자', email: '', image: '', linkedAccounts: [], points: 0, coupons: 0, role: 'general' };
+function writeStoredProProfileStatus(status: 'draft' | 'pending' | 'approved' | 'rejected' | null) {
+  if (typeof window === 'undefined') return;
   try {
-    const stored = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
-    return {
-      name: stored.name || '사용자',
-      email: stored.email || '',
-      image: stored.image || '',
-      linkedAccounts: stored.provider ? [stored.provider] : [],
-      points: getPoints(),
-      coupons: 2,
-      role: localStorage.getItem('userRole') || 'general',
-    };
-  } catch { return { name: '사용자', email: '', image: '', linkedAccounts: [], points: 0, coupons: 0, role: 'general' }; }
+    if (status) localStorage.setItem('proRegistrationComplete', status);
+    else localStorage.removeItem('proRegistrationComplete');
+  } catch {}
+}
+
+function clearStoredProModeForCurrentAccount() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('proRegistrationComplete');
+    localStorage.removeItem('freetiful-my-pro-id');
+    localStorage.removeItem(PRO_CATEGORY_CACHE_KEY);
+    localStorage.removeItem(MY_PRO_STATS_CACHE_KEY);
+    localStorage.removeItem('freetiful-pro-dashboard-cache-v2');
+    localStorage.removeItem('pro-quotes');
+    localStorage.removeItem('viewAsUser');
+    if (localStorage.getItem('userRole') === 'pro') {
+      localStorage.setItem('userRole', 'general');
+    }
+  } catch {}
 }
 
 /* ─── Pro (사회자) Icons ─── */
@@ -358,7 +353,7 @@ export default function MyPage() {
   const { logout: authLogout } = useAuth();
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
-  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(() => readStoredProProfileStatus());
+  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(null);
   const [proCategoryName, setProCategoryName] = useState<string>(() => readStoredProCategory());
   const [isPro, setIsPro] = useState(false);
   const [couponCount, setCouponCount] = useState(0);
@@ -396,13 +391,6 @@ export default function MyPage() {
     };
 
     if (authUser) {
-      const cachedStats = readCachedProStats();
-      if (cachedStats) {
-        setProStats(cachedStats);
-      } else {
-        setProStats((prev) => ({ ...prev, pudding: readStoredPudding() }));
-      }
-
       // Use real API data
       setUser({
         name: authUser.name || '게스트',
@@ -419,71 +407,118 @@ export default function MyPage() {
         if (!cancelled) setUser((prev) => ({ ...prev, points: res.balance }));
       }).catch(() => {});
 
-      // 프로 통계는 서로 기다리지 않고 각각 도착하는 즉시 갱신한다.
-      apiClient.get('/api/v1/pro/pudding', { params: { _t: Date.now() }, timeout: 5000 })
-        .then((res) => {
-          const data = (res as any)?.data || {};
-          const pudding = Number(data.balance ?? data.puddingCount ?? 0);
-          const rank = data.rank == null && data.puddingRank == null ? null : Number(data.rank ?? data.puddingRank);
-          updateProStats({ pudding, rank: rank != null && Number.isFinite(rank) ? rank : null });
-        })
-        .catch(() => {});
+      if (authUser.role === 'pro') {
+        const cachedStats = readCachedProStats();
+        if (cachedStats) {
+          setProStats(cachedStats);
+        } else {
+          setProStats((prev) => ({ ...prev, pudding: readStoredPudding() }));
+        }
 
-      apiClient.get('/api/v1/pro/revenue', { timeout: 7000 })
-        .then((res) => {
-          updateProStats({ revenue: Number((res as any)?.data?.thisMonth || 0) });
-        })
-        .catch(() => {});
+        // 프로 통계는 서로 기다리지 않고 각각 도착하는 즉시 갱신한다.
+        apiClient.get('/api/v1/pro/pudding', { params: { _t: Date.now() }, timeout: 5000 })
+          .then((res) => {
+            const data = (res as any)?.data || {};
+            const pudding = Number(data.balance ?? data.puddingCount ?? 0);
+            const rank = data.rank == null && data.puddingRank == null ? null : Number(data.rank ?? data.puddingRank);
+            updateProStats({ pudding, rank: rank != null && Number.isFinite(rank) ? rank : null });
+          })
+          .catch(() => {});
 
-      apiClient.get('/api/v1/review/mine', { params: { page: 1, limit: 1 }, timeout: 7000 })
-        .then((res) => {
-          updateProStats({ reviews: Number((res as any)?.data?.total || 0) });
-        })
-        .catch(() => {});
-    } else if (loggedIn) {
-      setUser(getUserFromStorage());
+        apiClient.get('/api/v1/pro/revenue', { timeout: 7000 })
+          .then((res) => {
+            updateProStats({ revenue: Number((res as any)?.data?.thisMonth || 0) });
+          })
+          .catch(() => {});
+
+        apiClient.get('/api/v1/review/mine', { params: { page: 1, limit: 1 }, timeout: 7000 })
+          .then((res) => {
+            updateProStats({ reviews: Number((res as any)?.data?.total || 0) });
+          })
+          .catch(() => {});
+      } else {
+        setProStats(PRO_STATS_EMPTY);
+      }
+    } else {
+      setIsPro(false);
+      setProProfileStatus(null);
+      setProRegistrationPending(false);
     }
 
     return () => { cancelled = true; };
   }, [authUser]);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
-    setProRegistrationPending(localStorage.getItem('proRegistrationComplete') === 'pending');
-    if (!authUser) setIsPro(localStorage.getItem('userRole') === 'pro');
+    if (!isLoggedIn || !authUser) {
+      setProRegistrationPending(false);
+      setProProfileStatus(null);
+      return;
+    }
 
-    // 백엔드에서 실제 pro profile 상태 동기화 (어드민이 승인/반려한 경우 반영)
-    if (authUser) {
-      prosApi.getMyProfile()
-        .then((profile: any) => {
-          const status = profile?.status as 'draft' | 'pending' | 'approved' | 'rejected' | undefined;
-          if (!status) return;
-          setProProfileStatus(status);
-          // 프로가 설정한 카테고리를 추출 (categories 관계에서)
-          const catName = profile?.categories?.[0]?.category?.name;
+    let cancelled = false;
+
+    // 백엔드의 "현재 로그인 계정" 상태를 기준으로 프로 신청/승인 상태를 동기화한다.
+    // localStorage는 빠른 캐시일 뿐 권한 판정의 원천으로 사용하지 않는다.
+    usersApi.getProfile()
+      .then(async (profileUser: any) => {
+        if (cancelled) return;
+        const status = (profileUser?.proProfile?.status || null) as 'draft' | 'pending' | 'approved' | 'rejected' | null;
+        const serverRole = profileUser?.role || authUser.role || 'general';
+
+        setIsPro(serverRole === 'pro');
+        setProProfileStatus(status);
+        setProRegistrationPending(status === 'pending');
+        writeStoredProProfileStatus(status);
+
+        if (!profileUser?.proProfile) {
+          clearStoredProModeForCurrentAccount();
+        } else if (profileUser.proProfile.id) {
+          try { localStorage.setItem('freetiful-my-pro-id', profileUser.proProfile.id); } catch {}
+        }
+
+        if (
+          profileUser?.id === authUser.id &&
+          (
+            profileUser.role !== authUser.role ||
+            profileUser.name !== authUser.name ||
+            profileUser.profileImageUrl !== authUser.profileImageUrl ||
+            profileUser.pointBalance !== authUser.pointBalance
+          )
+        ) {
+          useAuthStore.getState().setUser({
+            ...authUser,
+            role: serverRole,
+            name: profileUser.name,
+            profileImageUrl: profileUser.profileImageUrl,
+            pointBalance: profileUser.pointBalance,
+          });
+        }
+
+        if (status) {
+          const profile = await prosApi.getMyProfile().catch(() => null);
+          if (cancelled || !profile) return;
+          const catName = (profile as any)?.categories?.[0]?.category?.name;
           if (catName) {
             setProCategoryName(catName);
             try { localStorage.setItem(PRO_CATEGORY_CACHE_KEY, catName); } catch {}
           }
-          // User.profileImageUrl 을 프로 대표 이미지로 동기화 (카카오 기본 → 프로 대표 사진)
-          const primary = profile?.images?.find((img: any) => img.isPrimary) || profile?.images?.[0];
-          const effectiveImage = primary?.imageUrl || profile?.user?.profileImageUrl;
-          if (effectiveImage && authUser && effectiveImage !== authUser.profileImageUrl) {
-            useAuthStore.getState().setUser({ ...authUser, profileImageUrl: effectiveImage });
+          const primary = (profile as any)?.images?.find((img: any) => img.isPrimary) || (profile as any)?.images?.[0];
+          const effectiveImage = primary?.imageUrl || (profile as any)?.user?.profileImageUrl;
+          if (effectiveImage && effectiveImage !== useAuthStore.getState().user?.profileImageUrl) {
+            useAuthStore.getState().setUser({
+              ...(useAuthStore.getState().user || authUser),
+              profileImageUrl: effectiveImage,
+            });
           }
-          if (status === 'approved') {
-            localStorage.setItem('proRegistrationComplete', 'approved');
-            setProRegistrationPending(false);
-          } else if (status === 'rejected') {
-            localStorage.setItem('proRegistrationComplete', 'rejected');
-            setProRegistrationPending(false);
-          } else if (status === 'pending') {
-            localStorage.setItem('proRegistrationComplete', 'pending');
-            setProRegistrationPending(true);
-          }
-        })
-        .catch(() => {});
-    }
+        }
+      })
+      .catch(() => {
+        if (!cancelled && authUser.role !== 'pro') {
+          setProProfileStatus(null);
+          setProRegistrationPending(false);
+        }
+      });
+
     try {
       const coupons = JSON.parse(localStorage.getItem('freetiful-coupons') || '[]');
       setCouponCount(Array.isArray(coupons) ? coupons.length : 0);
@@ -492,20 +527,26 @@ export default function MyPage() {
       const favs = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
       setFavoritesCount(Array.isArray(favs) ? favs.length : 0);
     } catch { setFavoritesCount(0); }
+    return () => { cancelled = true; };
   }, [isLoggedIn, authUser]);
 
   const handlePartnerApply = () => {
-    const reg = localStorage.getItem('proRegistrationComplete');
-    const alreadyRegistered = reg === 'true' || reg === 'approved';
-    if (alreadyRegistered) {
+    if (!authUser) {
+      window.dispatchEvent(new Event('freetiful:show-login'));
+      return;
+    }
+
+    if (proProfileStatus === 'approved') {
       if (authUser) {
         usersApi.switchRole('pro').then(() => {
           useAuthStore.getState().setUser({ ...authUser, role: 'pro' as any });
           window.location.reload();
-        }).catch(() => {});
-      } else {
-        localStorage.setItem('userRole', 'pro');
-        window.location.reload();
+        }).catch(() => {
+          setProProfileStatus(null);
+          setProRegistrationPending(false);
+          clearStoredProModeForCurrentAccount();
+          router.push('/pro-register/terms');
+        });
       }
     } else {
       router.push('/pro-register/terms');
@@ -851,11 +892,9 @@ export default function MyPage() {
           {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
             // Partner registration conditional logic
             if (action === 'partner') {
-              const regStatus = typeof window !== 'undefined' ? localStorage.getItem('proRegistrationComplete') : null;
-              // If approved, hide entirely
-              if (regStatus === 'true' || regStatus === 'approved') return null;
-              // If pending, show disabled with badge
-              if (regStatus === 'pending') {
+              if (authUser?.role === 'pro' && proProfileStatus === null) return null;
+              if (proProfileStatus === 'approved') return null;
+              if (proProfileStatus === 'pending') {
                 return (
                   <div key={label} className="flex items-center gap-3 px-4 py-2.5 w-full opacity-50 cursor-not-allowed">
                     <Icon />
@@ -887,8 +926,8 @@ export default function MyPage() {
             );
 
             if (action === 'switchToPro') {
-              // 프로 권한이 있는 경우에만 표시
-              const hasProRights = (typeof window !== 'undefined' && localStorage.getItem('proRegistrationComplete') === 'true') || authUser?.role === 'pro';
+              // 승인된 프로필이 서버에 있는 경우에만 표시
+              const hasProRights = proProfileStatus === 'approved';
               if (!hasProRights) return null;
               return (
                 <button key={label} onClick={handlePartnerApply} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">

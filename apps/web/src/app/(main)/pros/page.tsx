@@ -250,36 +250,6 @@ function ProListCard({
   );
 }
 
-// localStorage에서 등록된 사회자 데이터 가져오기
-function getRegisteredPro(): ProItem | null {
-  if (typeof window === 'undefined') return null;
-  const isApproved = localStorage.getItem('proRegistrationComplete');
-  if (isApproved !== 'true' && isApproved !== 'approved' && isApproved !== 'pending') return null;
-  const name = localStorage.getItem('proRegister_name');
-  if (!name) return null;
-  const photos = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
-  const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
-  const regions = JSON.parse(localStorage.getItem('proRegister_selectedRegions') || '[]');
-  const category = localStorage.getItem('proRegister_category') || '';
-  const languages = JSON.parse(localStorage.getItem('proRegister_languages') || '[]');
-  return {
-    id: 'my-pro',
-    name,
-    categories: category ? [category] : [],
-    regions: regions,
-    languages: Array.isArray(languages) ? languages : [],
-    isNationwide: regions.length === 0,
-    rating: 5.0,
-    reviews: 0,
-    favoriteCount: 0,
-    puddingRank: 0,
-    image: photos[mainPhotoIndex] || photos[0] || '',
-    intro: localStorage.getItem('proRegister_intro') || '프리티풀 인증 전문가',
-    price: 450000,
-    experience: parseInt(localStorage.getItem('proRegister_careerYears') || '1'),
-  };
-}
-
 function mapApiPros(items: ProListItem[]): ProItem[] {
   const seen = new Set<string>();
   return items
@@ -310,7 +280,6 @@ function mapApiPros(items: ProListItem[]): ProItem[] {
 function ProsListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const registeredPro = useMemo(() => getRegisteredPro(), []);
   const initialCachedProsRef = useRef<ProItem[] | null>(null);
   if (initialCachedProsRef.current === null) {
     const cached = getCachedProList(FULL_PRO_LIST_PARAMS) || getCachedProList(INITIAL_PRO_LIST_PARAMS);
@@ -411,12 +380,8 @@ function ProsListContent() {
     };
   }, []);
 
-  // API에 프로들이 있으면 localStorage 본인 프로(my-pro) 중복 표시 안함
-  // 본인 프로는 API에서 자동으로 나오므로 localStorage 버전 제거
-  const ALL_PROS = useMemo(
-    () => (apiPros.length > 0 ? apiPros : (registeredPro ? [registeredPro] : [])),
-    [apiPros, registeredPro],
-  );
+  // 프로 목록은 서버 데이터만 사용한다. localStorage 등록 캐시는 계정 전환 시 stale 권한을 만들 수 있다.
+  const ALL_PROS = useMemo(() => apiPros, [apiPros]);
   const initialRegion = searchParams.get('region') || '전체';
   const categoryParam = searchParams.get('category') || '';
   const isForeignFilter = categoryParam === '외국어사회자';

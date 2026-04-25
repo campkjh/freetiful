@@ -177,12 +177,32 @@ export class AuthService {
     });
   }
 
-  private buildLoginResponse(
+  private async normalizeProRole(user: User): Promise<User> {
+    if (user.role !== 'pro') return user;
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { userId: user.id },
+      select: { status: true },
+    });
+    if (profile?.status === 'approved') return user;
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: { role: 'general' },
+    });
+  }
+
+  private async buildLoginResponse(
     user: User,
     tokens: Awaited<ReturnType<typeof this.issueTokens>>,
     isNewUser: boolean,
   ) {
-    return { user, tokens, isNewUser, needsPhone: !user.phone, needsName: !user.name };
+    const normalizedUser = await this.normalizeProRole(user);
+    return {
+      user: normalizedUser,
+      tokens,
+      isNewUser,
+      needsPhone: !normalizedUser.phone,
+      needsName: !normalizedUser.name,
+    };
   }
 
   private resolveOAuthRedirectUri(configKey: string, redirectUri?: string) {
@@ -421,7 +441,8 @@ export class AuthService {
   async refresh(refreshToken: string, deviceInfo?: LoginDeviceInfo) {
     const session = await this.popSession(refreshToken);
     if (!session) throw new UnauthorizedException('Invalid or expired refresh token');
-    return { user: (session as any).user, tokens: await this.issueTokens(session.userId, deviceInfo || (session.deviceInfo as LoginDeviceInfo)) };
+    const user = await this.normalizeProRole((session as any).user);
+    return { user, tokens: await this.issueTokens(session.userId, deviceInfo || (session.deviceInfo as LoginDeviceInfo)) };
   }
 
   async logout(userId: string, refreshToken: string) {
@@ -429,6 +450,7 @@ export class AuthService {
   }
 
   async validateUser(userId: string) {
-    return this.prisma.user.findUnique({ where: { id: userId, isActive: true, isBanned: false } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId, isActive: true, isBanned: false } });
+    return user ? this.normalizeProRole(user) : null;
   }
 }

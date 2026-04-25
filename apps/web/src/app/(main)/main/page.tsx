@@ -844,14 +844,12 @@ export default function HomePage() {
   }, []);
 
   // 프로 유저는 /pro-dashboard 로 자동 리다이렉트 (앱 재진입 시)
-  // userRole / viewAsUser localStorage 체크 — 일반모드 전환한 경우는 유지
+  // 권한 판단은 localStorage가 아니라 서버에서 내려온 현재 계정 role만 사용한다.
   const router = useRouter();
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const localRole = localStorage.getItem('userRole');
-    const isPro = authUser?.role === 'pro' || localRole === 'pro';
-    const isGeneralByChoice =
-      localRole === 'general' || localStorage.getItem('viewAsUser') === 'true';
+    const isPro = authUser?.role === 'pro';
+    const isGeneralByChoice = isPro && localStorage.getItem('viewAsUser') === 'true';
     if (isPro && !isGeneralByChoice) {
       router.replace('/pro-dashboard');
     }

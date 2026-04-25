@@ -81,16 +81,7 @@ export class ProService implements OnModuleInit {
       regions: { include: { region: true } },
       languages: true,
     };
-    let profile = await this.prisma.proProfile.findUnique({ where: { userId }, include });
-
-    if (!profile) {
-      await this.prisma.proProfile.create({
-        data: { userId, status: 'draft' },
-      });
-      profile = await this.prisma.proProfile.findUnique({ where: { userId }, include });
-    }
-
-    return profile;
+    return this.prisma.proProfile.findUnique({ where: { userId }, include });
   }
 
   async createProfile(userId: string) {

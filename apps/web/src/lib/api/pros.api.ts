@@ -22,7 +22,7 @@ export interface ProfileHandoverCandidate {
 // 이 파일은 "내 프로 프로필" 쓰기 작업 전용.
 export const prosApi = {
   getMyProfile: () =>
-    apiClient.get<ProProfile>(`${BASE}/pro/profile`).then((r) => r.data),
+    apiClient.get<ProProfile | null>(`${BASE}/pro/profile`).then((r) => r.data),
 
   getProfileHandoverCandidates: (params?: { search?: string; limit?: number }) =>
     apiClient

@@ -46,7 +46,7 @@ export default function ChatListPage() {
   useEffect(() => {
     const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);
-    setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
+    setIsPro(authUser?.role === 'pro');
 
     if (!loggedIn || !authUser) {
       disconnect();

@@ -367,7 +367,7 @@ export default function SchedulePage() {
   const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>(() => readScheduleCache<ScheduleItem[]>(`user:${initialMonthKey}`) || []);
   useEffect(() => {
     setIsLoggedIn(authUser !== null);
-    setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
+    setIsPro(authUser?.role === 'pro');
   }, [authUser]);
 
   // Fetch schedule from API when authenticated
