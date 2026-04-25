@@ -27,6 +27,7 @@ import { AnnouncementModule } from './announcement/announcement.module';
 import { FaqModule } from './faq/faq.module';
 import { SettlementModule } from './settlement/settlement.module';
 import { BusinessInquiryModule } from './business-inquiry/business-inquiry.module';
+import { PolicyModule } from './policy/policy.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { BusinessInquiryModule } from './business-inquiry/business-inquiry.modul
     FaqModule,
     SettlementModule,
     BusinessInquiryModule,
+    PolicyModule,
   ],
 })
 export class AppModule {}

@@ -32,7 +32,7 @@ const TOP_NAV = [
   { href: '/admin/bookings', label: '예약 센터', paths: ['/admin/bookings'] },
   { href: '/admin/inquiries', label: '문의 센터', paths: ['/admin/inquiries'] },
   { href: '/admin/payments', label: '페이먼츠 센터', paths: ['/admin/payments', '/admin/settlements'] },
-  { href: '/admin/banners', label: '콘텐츠 센터', paths: ['/admin/banners', '/admin/reviews', '/admin/announcements', '/admin/faqs', '/admin/plan-templates'] },
+  { href: '/admin/banners', label: '콘텐츠 센터', paths: ['/admin/banners', '/admin/reviews', '/admin/announcements', '/admin/faqs', '/admin/policies', '/admin/plan-templates'] },
 ];
 
 const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
@@ -72,6 +72,7 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
       { href: '/admin/reviews', label: '리뷰 관리' },
       { href: '/admin/announcements', label: '공지사항' },
       { href: '/admin/faqs', label: 'FAQ' },
+      { href: '/admin/policies', label: '약관 관리' },
       { href: '/admin/plan-templates', label: '서비스 플랜' },
     ],
   },

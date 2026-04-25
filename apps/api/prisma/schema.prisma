@@ -1047,6 +1047,23 @@ model Faq {
   @@map("faqs")
 }
 
+model PolicyDocument {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  title         String
+  summary       String?
+  contentHtml   String   @db.Text
+  version       String   @default("1.0")
+  effectiveDate DateTime?
+  displayOrder  Int      @default(0)
+  isPublished   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isPublished, displayOrder])
+  @@map("policy_documents")
+}
+
 model BusinessInquiry {
   id          String   @id @default(uuid())
   company     String?

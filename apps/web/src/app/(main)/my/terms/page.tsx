@@ -1,22 +1,56 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { apiClient } from '@/lib/api/client';
+import { DEFAULT_POLICIES } from '@/lib/policies/default-policies';
 
-const TERMS_ITEMS = [
-  { href: '/terms/service', label: '서비스 이용약관', date: '2026.03.22' },
-  { href: '/terms/privacy', label: '개인정보 수집 및 이용약관', date: '2026.03.22' },
-  { href: '/terms/third-party', label: '개인정보 제3자 제공 동의', date: '2026.03.22' },
-  { href: '/terms/electronic-finance', label: '전자금융거래 이용약관', date: '2026.03.22' },
-  { href: '/terms/marketing', label: '마케팅 정보 수신 동의', date: '2026.03.22' },
-  { href: '/terms/meta-ads', label: 'META 광고 데이터 처리 약관', date: '2026.03.22' },
-];
+interface PolicyListItem {
+  id?: string;
+  slug: string;
+  title: string;
+  effectiveDate?: string | null;
+  displayOrder?: number;
+}
+
+const fallbackItems: PolicyListItem[] = DEFAULT_POLICIES.map((policy) => ({
+  slug: policy.slug,
+  title: policy.title,
+  effectiveDate: policy.effectiveDate,
+  displayOrder: policy.displayOrder,
+}));
+
+function formatDate(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.replace(/-/g, '.');
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}.${m}.${d}`;
+}
 
 export default function TermsListPage() {
   const router = useRouter();
+  const [items, setItems] = useState<PolicyListItem[]>(fallbackItems);
   useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  useEffect(() => {
+    let alive = true;
+    apiClient
+      .get<PolicyListItem[]>('/api/v1/policies')
+      .then((res) => {
+        if (!alive) return;
+        const rows = Array.isArray(res.data) ? res.data : [];
+        if (rows.length > 0) setItems(rows);
+      })
+      .catch(() => {
+        if (alive) setItems(fallbackItems);
+      });
+    return () => { alive = false; };
+  }, []);
 
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
@@ -33,15 +67,15 @@ export default function TermsListPage() {
 
       {/* Terms list */}
       <div>
-        {TERMS_ITEMS.map((item) => (
+        {items.map((item) => (
           <Link
-            key={item.label}
-            href={item.href}
+            key={item.slug}
+            href={`/terms/${item.slug}`}
             className="flex items-center justify-between px-4 py-3.5 border-b border-gray-100"
           >
             <div>
-              <p className="text-sm text-gray-900">{item.label}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">시행일: {item.date}</p>
+              <p className="text-sm text-gray-900">{item.title}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">시행일: {formatDate(item.effectiveDate) || '-'}</p>
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </Link>

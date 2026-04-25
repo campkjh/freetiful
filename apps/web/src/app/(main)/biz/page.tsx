@@ -422,7 +422,6 @@ export default function BizPage() {
     window.location.href = 'mailto:support@freetiful.com?subject=' + encodeURIComponent('[Freetiful Biz] 기업 문의') + '&body=' + encodeURIComponent('안녕하세요, Freetiful 기업 서비스에 대해 문의드립니다.\n\n회사명:\n담당자명:\n연락처:\n\n문의 내용:\n');
   };
   const [scrollY, setScrollY] = useState(0);
-  const [showPrivacy, setShowPrivacy] = useState(false);
   const [previewFile, setPreviewFile] = useState<string | null>(null);
   const [bizNavExpanding, setBizNavExpanding] = useState(false);
   const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
@@ -1280,7 +1279,7 @@ export default function BizPage() {
                 <div className="group relative">
                   <button
                     onClick={() => {
-                      if (item.file === 'privacy') { setShowPrivacy(true); return; }
+                      if (item.file === 'privacy') { router.push('/terms/privacy'); return; }
                       if (item.file.startsWith('#')) {
                         document.querySelector(item.file)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         return;
@@ -1490,7 +1489,7 @@ export default function BizPage() {
               <a href={`https://instagram.com/${COMPANY_INFO.instagram}`} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '인스타그램', en: 'Instagram', ja: 'Instagram', zh: 'Instagram' })}</a>
               <a href={COMPANY_INFO.youtube} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '유튜브', en: 'YouTube', ja: 'YouTube', zh: 'YouTube' })}</a>
               <a href={COMPANY_INFO.tiktok} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '틱톡', en: 'TikTok', ja: 'TikTok', zh: 'TikTok' })}</a>
-              <button onClick={() => setShowPrivacy(true)} className="transition-colors hover:text-gray-500">{t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' })}</button>
+              <Link href="/terms/privacy" className="transition-colors hover:text-gray-500">{t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' })}</Link>
               <Link href="/careers" className="transition-colors hover:text-gray-500">{t({ ko: '인재채용', en: 'Careers', ja: '採用情報', zh: '人才招聘' })}</Link>
               <Link href="/main" className="transition-colors hover:text-gray-500">{t({ ko: '홈으로', en: 'Home', ja: 'ホーム', zh: '返回首页' })}</Link>
             </div>
@@ -1714,27 +1713,6 @@ export default function BizPage() {
               ) : (
                 <img src={previewFile} alt="Preview" className="max-w-full max-h-[70vh] object-contain" />
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ 개인정보처리방침 모달 ═══════════════════════════ */}
-      {showPrivacy && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowPrivacy(false)}>
-          <div className="relative w-full max-w-[700px] max-h-[80vh] overflow-auto bg-white rounded-2xl border border-gray-100 p-8 shadow-xl animate-[scaleIn_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowPrivacy(false)} className="absolute top-4 right-4 text-gray-300 hover:text-gray-600 transition-colors"><X className="h-5 w-5" /></button>
-            <h2 className="text-[22px] font-bold text-gray-900 mb-6">개인정보처리방침</h2>
-            <div className="space-y-4 text-[13px] leading-[1.5] text-gray-500">
-              <p><strong className="text-gray-800">제1조 (목적)</strong><br />주식회사 프리티풀(이하 &quot;회사&quot;)은 개인정보 보호법 제30조에 따라 정보주체의 개인정보를 보호하고 이와 관련한 고충을 신속하고 원활하게 처리할 수 있도록 하기 위하여 다음과 같이 개인정보 처리방침을 수립·공개합니다.</p>
-              <p><strong className="text-gray-800">제2조 (수집하는 개인정보)</strong><br />필수항목: 이메일, 비밀번호 / 선택항목: 이름, 연락처, 프로필 사진 / 자동수집: 접속 IP, 접속 일시, 서비스 이용기록</p>
-              <p><strong className="text-gray-800">제3조 (처리목적)</strong><br />회원 가입 및 관리, 서비스 제공, 고객 문의 처리, 서비스 개선</p>
-              <p><strong className="text-gray-800">제4조 (보유·파기)</strong><br />개인정보 보유기간 경과 시 지체 없이 파기합니다.</p>
-              <p><strong className="text-gray-800">제5조 (제3자 제공)</strong><br />동의 없이 제3자에게 제공하지 않습니다. 법령에 의한 경우 예외.</p>
-              <p><strong className="text-gray-800">제6조 (안전성 확보)</strong><br />암호화, 접근 권한 관리, 접속기록 보관, 데이터 최소화 원칙 적용.</p>
-              <p><strong className="text-gray-800">제7조 (정보주체 권리)</strong><br />열람·정정·삭제·처리정지를 요구할 수 있습니다.</p>
-              <p><strong className="text-gray-800">제8조 (보호책임자)</strong><br />{COMPANY_INFO.ceo} / {COMPANY_INFO.phone} / {COMPANY_INFO.email}</p>
-              <p className="text-gray-300">시행일자: 2024년 3월 1일</p>
             </div>
           </div>
         </div>
