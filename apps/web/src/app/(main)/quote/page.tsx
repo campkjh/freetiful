@@ -110,7 +110,10 @@ const FALLBACK_MATCH_CATEGORY: MatchCategoryOption = {
   styleOptions: MOOD_TAGS.map((name) => ({ id: name, name })),
 };
 
-// API 실패 시에는 빈 배열로 폴백 (하드코딩 목업 데이터 제거됨)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isUuid = (value?: string) => !!value && UUID_RE.test(value);
+
+// API 실패 시에도 견적 요청이 끊기지 않도록 사회자 기본값으로 폴백
 const MOCK_PROS: ProItem[] = [];
 
 /* ─── Rotating Review Hook ─── */
@@ -245,6 +248,18 @@ function QuotePage() {
     (category?.styleOptions || FALLBACK_MATCH_CATEGORY.styleOptions || [])
       .filter((opt) => moodList.some((m) => opt.name === m || opt.name.includes(m) || m.includes(opt.name)))
       .map((opt) => opt.id);
+
+  const getCategoryIdFromSelectedPro = async (proProfileId?: string) => {
+    if (!proProfileId) return null;
+    try {
+      const res = await apiClient.get(`/api/v1/discovery/pros/${proProfileId}`);
+      const categories = Array.isArray(res.data?.categories) ? res.data.categories : [];
+      const categoryId = categories.find((item: any) => isUuid(item?.categoryId))?.categoryId;
+      return categoryId || null;
+    } catch {
+      return null;
+    }
+  };
 
   const saveQuoteDraft = () => {
     if (typeof window === 'undefined') return;
@@ -466,16 +481,27 @@ function QuotePage() {
         }
 
         const moodList = [...moods];
+        const directCategoryId = isUuid(category.id)
+          ? category.id
+          : await getCategoryIdFromSelectedPro(selectedProProfileIds[0]);
+        if (!directCategoryId) {
+          toast.error('사회자 카테고리 정보를 확인할 수 없습니다. 다시 시도해주세요.');
+          setSending(false);
+          return;
+        }
+        const eventCategoryId = getEventCategoryId(category, eventLabel);
+        const styleOptionIds = getStyleOptionIds(category, moodList);
+        const canSendOptionIds = isUuid(category.id);
         await matchApi.createRequest({
-          categoryId: category.id,
-          eventCategoryId: getEventCategoryId(category, eventLabel),
+          categoryId: directCategoryId,
+          eventCategoryId: isUuid(eventCategoryId) ? eventCategoryId : undefined,
           eventDate: date || undefined,
           eventTime: timeStart || undefined,
           eventLocation: location || undefined,
           budgetMin: planObj?.price ? Math.floor(planObj.price * 0.8) : undefined,
           budgetMax: planObj?.price ? Math.ceil(planObj.price * 1.2) : undefined,
           type: selectedProProfileIds.length > 1 ? 'multi' : 'single',
-          styleOptionIds: getStyleOptionIds(category, moodList),
+          styleOptionIds: canSendOptionIds ? styleOptionIds : styleOptionIds.filter(isUuid),
           selectedProProfileIds,
           rawUserInput: {
             source: 'quote_flow',
