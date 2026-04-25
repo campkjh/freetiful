@@ -85,34 +85,6 @@ export default function ChatRoomPage() {
   const urlProImg = searchParams.get('img') ? decodeURIComponent(searchParams.get('img')!) : null;
   const authUser = useAuthStore((s) => s.user);
   const MY_ID = authUser?.id || '';
-  // isPro 판정: 아래 셋 중 하나라도 true 면 프로 측 — 견적서 발송 버튼 노출
-  // 1) 이 채팅방에서 내가 프로 측 (백엔드 iAmPro 응답)
-  // 2) 내가 ProProfile 을 보유 (일반모드로 UI 전환해도 견적 발송 가능)
-  // 3) User.role 이 'pro'
-  const [roomProUserId, setRoomProUserId] = useState<string | null>(null);
-  const [hasMyProProfile, setHasMyProProfile] = useState<boolean>(false);
-  useEffect(() => {
-    if (!authUser) return;
-    // 모든 유저가 draft ProProfile 을 자동 생성받기 때문에 단순히 존재만 보면 안됨.
-    // approved/pending 상태(실제로 프로 등록을 마친 경우)만 pro 로 인정
-    import('@/lib/api/pros.api').then(({ prosApi }) => {
-      prosApi.getMyProfile()
-        .then((p: any) => {
-          const status = p?.status;
-          if (p?.id && (status === 'approved' || status === 'pending')) setHasMyProProfile(true);
-        })
-        .catch(() => {});
-    });
-  }, [authUser]);
-  // 이 채팅방에서 내가 pro 측인지 확정하는 주 신호:
-  // 1) 백엔드가 알려주는 roomProUserId === MY_ID (가장 확실)
-  // 2) 내 User.role === 'pro' (이미 어드민이 승인한 경우만 role 이 바뀜)
-  // 3) 내 ProProfile 이 approved/pending (부차 신호)
-  const isPro = Boolean(
-    (roomProUserId && roomProUserId === MY_ID) ||
-    authUser?.role === 'pro' ||
-    hasMyProProfile
-  );
   const { connect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
 
   // ─── Pre-warmed data 즉시 사용 (initial state만 계산) ───
@@ -123,6 +95,9 @@ export default function ChatRoomPage() {
     }
     return getPreWarmByRoomId(roomId);
   })();
+  const initialIAmProInRoom = typeof initialPreWarmed?.room?.iAmPro === 'boolean'
+    ? initialPreWarmed.room.iAmPro
+    : null;
   const initialPartner: ChatPartner | null = initialPreWarmed?.room ? {
     id: initialPreWarmed.room.otherUser.id,
     proProfileId: (initialPreWarmed.room as any).proProfileId,
@@ -137,6 +112,14 @@ export default function ChatRoomPage() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
   const [input, setInput] = useState('');
+  const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
+  const isPro = iAmProInRoom === true;
+  const partnerRoleKnown = iAmProInRoom !== null;
+  const partnerIsPro = iAmProInRoom === false;
+  const partnerProfileId = chatPartner?.proProfileId || chatPartner?.id;
+  const partnerProfileHref = partnerIsPro && partnerProfileId
+    ? `/pros/${partnerProfileId}`
+    : '#';
 
   // ─── Extra state (passed to ChatExtras) ───
   const [showAttach, setShowAttach] = useState(false);
@@ -169,6 +152,13 @@ export default function ChatRoomPage() {
     let cancelled = false;
 
     async function loadRoom() {
+      setIAmProInRoom(initialIAmProInRoom);
+      if (initialPartner) {
+        setChatPartner(initialPartner);
+      } else if (!roomId.startsWith('pending-')) {
+        setChatPartner(null);
+      }
+
       // Handle pending-{proId}: createRoom만 기다리고 URL 즉시 교체
       if (roomId.startsWith('pending-')) {
         const proId = roomId.replace('pending-', '');
@@ -184,6 +174,9 @@ export default function ChatRoomPage() {
               profileImageUrl: pre.room.otherUser.profileImageUrl || '/images/default-profile.svg',
               isActive: pre.room.otherUser.isActive ?? false,
             });
+            if (typeof pre.room.iAmPro === 'boolean') {
+              setIAmProInRoom(pre.room.iAmPro);
+            }
           }
           const search = window.location.search;
           router.replace(`/chat/${resolvedRoomId}${search}`);
@@ -194,7 +187,7 @@ export default function ChatRoomPage() {
       }
 
       // 이미 pre-warm에서 파트너를 받았으면 fetch 생략
-      if (!chatPartner) {
+      if (!initialPartner) {
         const storeRoom = useChatStore.getState().rooms.find((r) => r.id === roomId);
         if (storeRoom) {
           setChatPartner({
@@ -204,6 +197,9 @@ export default function ChatRoomPage() {
             profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-profile.svg',
             isActive: (storeRoom.otherUser as any).isActive ?? true,
           });
+          if (typeof storeRoom.iAmPro === 'boolean') {
+            setIAmProInRoom(storeRoom.iAmPro);
+          }
         }
       }
       try {
@@ -217,8 +213,8 @@ export default function ChatRoomPage() {
           profileImageUrl: room.otherUser.profileImageUrl || '/images/default-profile.svg',
           isActive: room.otherUser.isActive ?? false,
         });
-        // 이 채팅방에서 내가 프로(사회자) 측이면 견적서 발송 버튼 활성화
-        if (room.iAmPro) setRoomProUserId(MY_ID);
+        // 현재 유저의 전역 role 이 아니라, 이 채팅방 안에서의 역할만 신뢰한다.
+        setIAmProInRoom(Boolean(room.iAmPro));
       } catch (err) {
         console.error('Failed to load room info', err);
       }
@@ -588,10 +584,10 @@ export default function ChatRoomPage() {
             <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
           </button>
 
-          {/* 중앙 프로필 알약 (고객 채팅 시 클릭 없음) */}
+          {/* 중앙 프로필 알약 (상대가 사회자일 때만 프로필 이동) */}
           <Link
-            href={isPro ? '#' : `/pros/${chatPartner?.id || ''}`}
-            onClick={(e) => { if (isPro) e.preventDefault(); }}
+            href={partnerProfileHref}
+            onClick={(e) => { if (!partnerIsPro || !partnerProfileId) e.preventDefault(); }}
             className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
           >
             <div className="relative shrink-0">
@@ -601,15 +597,15 @@ export default function ChatRoomPage() {
             <div className="flex-1 min-w-0 leading-tight">
               <div className="flex items-center gap-1.5">
                 <p className="text-[14px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
-                {chatPartner && (
+                {chatPartner && partnerRoleKnown && (
                   <span
                     className="text-[9px] font-bold px-1.5 py-[1px] rounded shrink-0"
                     style={{
-                      color: isPro ? '#6B7280' : '#3180F7',
-                      backgroundColor: isPro ? '#F3F4F6' : '#EAF3FF',
+                      color: partnerIsPro ? '#3180F7' : '#6B7280',
+                      backgroundColor: partnerIsPro ? '#EAF3FF' : '#F3F4F6',
                     }}
                   >
-                    {isPro ? '고객' : '사회자'}
+                    {partnerIsPro ? '사회자' : '고객'}
                   </span>
                 )}
               </div>
