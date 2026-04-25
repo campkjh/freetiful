@@ -20,6 +20,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 4000
 
-# 스키마 변경을 런타임에 적용 (실패해도 서버는 시작 — ; 사용)
-# 성공 시 새 테이블/컬럼 자동 반영, 기존 데이터 유지
-CMD ["sh", "-c", "timeout 30 npx prisma db push --skip-generate --accept-data-loss || echo 'prisma db push skipped/failed — continuing'; node dist/src/main"]
+# 스키마 변경을 런타임에 적용하고 Nest 빌드 출력 경로를 자동 감지한다.
+CMD ["sh", "-c", "timeout 30 npx prisma db push --skip-generate --accept-data-loss || echo 'prisma db push skipped/failed - continuing'; if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]

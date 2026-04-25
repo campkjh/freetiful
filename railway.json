@@ -4,6 +4,7 @@
     "dockerfilePath": "apps/api/Dockerfile"
   },
   "deploy": {
+    "startCommand": "timeout 30 npx prisma db push --skip-generate --accept-data-loss || echo 'prisma db push skipped/failed - continuing'; if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi",
     "restartPolicyType": "ON_FAILURE"
   }
 }
