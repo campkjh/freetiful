@@ -40,6 +40,15 @@ type PanelStats = {
 
 const POLL_MS = 15_000;
 
+const EMPTY_PANEL_STATS: PanelStats = {
+  newInquiries: 0,
+  completedPayments: 0,
+  pendingPayments: 0,
+  failedPayments: 0,
+  pendingSettlements: 0,
+  pendingPros: 0,
+};
+
 const toneClass: Record<IssueTone, { badge: string; icon: string; dot: string }> = {
   blue: {
     badge: 'bg-[#F3F8FF] text-[#3180F7]',
@@ -81,6 +90,10 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function hasNumberValue(value: unknown) {
+  return value !== undefined && value !== null;
+}
+
 function formatMoney(value: unknown) {
   return `₩${toNumber(value).toLocaleString('ko-KR')}`;
 }
@@ -116,23 +129,22 @@ function issueIcon(type: IssueItem['type']) {
 
 export function AdminIssuePanel() {
   const [issues, setIssues] = useState<IssueItem[]>([]);
-  const [stats, setStats] = useState<PanelStats>({
-    newInquiries: 0,
-    completedPayments: 0,
-    pendingPayments: 0,
-    failedPayments: 0,
-    pendingSettlements: 0,
-    pendingPros: 0,
-  });
+  const [stats, setStats] = useState<PanelStats>({ ...EMPTY_PANEL_STATS });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [freshCount, setFreshCount] = useState(0);
   const knownIssueIdsRef = useRef<Set<string>>(new Set());
+  const issuesRef = useRef<IssueItem[]>([]);
+  const statsRef = useRef<PanelStats>({ ...EMPTY_PANEL_STATS });
+  const requestSeqRef = useRef(0);
 
   const loadIssues = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError('');
+    const requestSeq = ++requestSeqRef.current;
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
 
     try {
       const [
@@ -153,25 +165,26 @@ export function AdminIssuePanel() {
         adminFetch('GET', '/api/v1/admin/pros?page=1&limit=5&status=pending', undefined, { cache: false }),
       ]);
 
+      if (requestSeq !== requestSeqRef.current) return;
+
       const nextIssues: IssueItem[] = [];
-      const nextStats: PanelStats = {
-        newInquiries: 0,
-        completedPayments: 0,
-        pendingPayments: 0,
-        failedPayments: 0,
-        pendingSettlements: 0,
-        pendingPros: 0,
-      };
+      const nextStats: PanelStats = { ...statsRef.current };
+      const successfulIssueTypes = new Set<IssueItem['type']>();
+      const responses = [statsRes, inquiryRes, paymentRes, pendingPaymentRes, failedPaymentRes, settlementRes, proRes];
 
       if (statsRes.status === 'fulfilled') {
-        nextStats.completedPayments = toNumber(statsRes.value?.payments?.completed);
-        nextStats.pendingPayments = toNumber(statsRes.value?.payments?.pending);
-        nextStats.failedPayments = toNumber(statsRes.value?.payments?.failed);
-        nextStats.pendingSettlements = toNumber(statsRes.value?.settlements?.pending);
-        nextStats.pendingPros = toNumber(statsRes.value?.pendingPros);
+        const completedPayments = statsRes.value?.payments?.completed;
+        const pendingPayments = statsRes.value?.payments?.pending;
+        const failedPayments = statsRes.value?.payments?.failed;
+        const pendingPros = statsRes.value?.pendingPros;
+        if (hasNumberValue(completedPayments)) nextStats.completedPayments = toNumber(completedPayments);
+        if (hasNumberValue(pendingPayments)) nextStats.pendingPayments = toNumber(pendingPayments);
+        if (hasNumberValue(failedPayments)) nextStats.failedPayments = toNumber(failedPayments);
+        if (hasNumberValue(pendingPros)) nextStats.pendingPros = toNumber(pendingPros);
       }
 
       if (inquiryRes.status === 'fulfilled') {
+        successfulIssueTypes.add('inquiry');
         const rows = Array.isArray(inquiryRes.value?.data) ? inquiryRes.value.data : [];
         nextStats.newInquiries = toNumber(inquiryRes.value?.total ?? rows.length);
         rows.forEach((row: any) => {
@@ -189,6 +202,7 @@ export function AdminIssuePanel() {
       }
 
       if (paymentRes.status === 'fulfilled') {
+        successfulIssueTypes.add('payment');
         const rows = Array.isArray(paymentRes.value?.data) ? paymentRes.value.data : [];
         nextStats.completedPayments = toNumber(paymentRes.value?.total ?? nextStats.completedPayments);
         rows.forEach((row: any) => {
@@ -206,6 +220,7 @@ export function AdminIssuePanel() {
       }
 
       if (pendingPaymentRes.status === 'fulfilled') {
+        successfulIssueTypes.add('payment-pending');
         const rows = Array.isArray(pendingPaymentRes.value?.data) ? pendingPaymentRes.value.data : [];
         nextStats.pendingPayments = toNumber(pendingPaymentRes.value?.total ?? nextStats.pendingPayments);
         rows.forEach((row: any) => {
@@ -223,6 +238,7 @@ export function AdminIssuePanel() {
       }
 
       if (failedPaymentRes.status === 'fulfilled') {
+        successfulIssueTypes.add('payment-failed');
         const rows = Array.isArray(failedPaymentRes.value?.data) ? failedPaymentRes.value.data : [];
         nextStats.failedPayments = toNumber(failedPaymentRes.value?.total ?? nextStats.failedPayments);
         rows.forEach((row: any) => {
@@ -240,8 +256,10 @@ export function AdminIssuePanel() {
       }
 
       if (settlementRes.status === 'fulfilled') {
+        successfulIssueTypes.add('settlement');
         const rows = Array.isArray(settlementRes.value?.data) ? settlementRes.value.data : [];
-        nextStats.pendingSettlements = toNumber(settlementRes.value?.summary?.pendingCount ?? nextStats.pendingSettlements);
+        const pendingCount = settlementRes.value?.summary?.pendingCount;
+        if (hasNumberValue(pendingCount)) nextStats.pendingSettlements = toNumber(pendingCount);
         rows.forEach((row: any) => {
           nextIssues.push({
             id: `settlement-${row.id}`,
@@ -257,6 +275,7 @@ export function AdminIssuePanel() {
       }
 
       if (proRes.status === 'fulfilled') {
+        successfulIssueTypes.add('pro');
         const rows = Array.isArray(proRes.value?.data) ? proRes.value.data : [];
         nextStats.pendingPros = toNumber(proRes.value?.total ?? nextStats.pendingPros);
         rows.forEach((row: any) => {
@@ -273,25 +292,36 @@ export function AdminIssuePanel() {
         });
       }
 
-      if (nextIssues.length === 0 && [statsRes, inquiryRes, paymentRes, pendingPaymentRes, failedPaymentRes, settlementRes, proRes].every((res) => res.status === 'rejected')) {
+      if (responses.every((res) => res.status === 'rejected')) {
         throw new Error('관리자 이슈 데이터를 불러오지 못했습니다.');
       }
 
-      const sorted = nextIssues
+      const retainedIssues = issuesRef.current.filter((issue) => !successfulIssueTypes.has(issue.type));
+      const mergedIssues = successfulIssueTypes.size > 0 ? [...nextIssues, ...retainedIssues] : issuesRef.current;
+      const sorted = mergedIssues
         .sort((a, b) => issueTimestamp(b) - issueTimestamp(a))
         .slice(0, 12);
-      const previousIds = knownIssueIdsRef.current;
-      const newCount = sorted.filter((issue) => !previousIds.has(issue.id)).length;
-      if (previousIds.size > 0) setFreshCount(newCount);
-      knownIssueIdsRef.current = new Set(sorted.map((issue) => issue.id));
+      if (successfulIssueTypes.size > 0) {
+        const previousIds = knownIssueIdsRef.current;
+        const newCount = sorted.filter((issue) => !previousIds.has(issue.id)).length;
+        if (previousIds.size > 0) setFreshCount(newCount);
+        knownIssueIdsRef.current = new Set(sorted.map((issue) => issue.id));
+      }
 
+      issuesRef.current = sorted;
+      statsRef.current = nextStats;
       setIssues(sorted);
       setStats(nextStats);
+      setError('');
       setLastUpdated(new Date());
     } catch (err: any) {
-      setError(err?.message || '이슈 패널을 불러오지 못했습니다.');
+      if (requestSeq === requestSeqRef.current && !silent) {
+        setError(err?.message || '이슈 패널을 불러오지 못했습니다.');
+      }
     } finally {
-      setLoading(false);
+      if (requestSeq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
