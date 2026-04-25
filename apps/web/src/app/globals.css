@@ -556,12 +556,12 @@ body::after {
 @keyframes adminPageIn {
   from {
     opacity: 0;
-    transform: translate3d(0, 10px, 0) scale(0.995);
-    filter: blur(5px);
+    transform: translate3d(0, 6px, 0);
+    filter: blur(2px);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0);
     filter: blur(0);
   }
 }
@@ -582,13 +582,18 @@ body::after {
   100% { transform: scale(1); opacity: 1; }
 }
 
+@keyframes adminMobileDrawerIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
 .admin-shell {
   --admin-blue: #3182F6;
   --admin-ink: #191F28;
   --admin-muted: #6B7684;
   --admin-line: #E5E8EB;
   --admin-surface: #FFFFFF;
-  --admin-bg: #F7F8FA;
+  --admin-bg: #FFFFFF;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -599,8 +604,20 @@ body::after {
 }
 
 .admin-page-frame {
-  animation: adminPageIn 0.34s var(--spring) both;
+  animation: adminPageIn 0.24s var(--spring) both;
   will-change: opacity, transform, filter;
+}
+
+.admin-topbar {
+  box-shadow: 0 1px 0 rgba(25, 31, 40, 0.02);
+}
+
+.admin-topnav-link span {
+  transition: color 160ms ease;
+}
+
+.admin-mobile-drawer {
+  animation: adminMobileDrawerIn 0.22s var(--spring) both;
 }
 
 .admin-shell .admin-nav-item,
@@ -622,7 +639,7 @@ body::after {
 }
 
 .admin-shell .admin-nav-item.active {
-  box-shadow: inset 0 0 0 1px rgba(49, 130, 246, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(49, 130, 246, 0.05);
 }
 
 .admin-shell input,
@@ -639,7 +656,7 @@ body::after {
 .admin-shell select:focus,
 .admin-shell textarea:focus {
   border-color: rgba(49, 130, 246, 0.38) !important;
-  box-shadow: 0 0 0 4px rgba(49, 130, 246, 0.10) !important;
+  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.10) !important;
 }
 
 .admin-shell table {
@@ -648,13 +665,27 @@ body::after {
 }
 
 .admin-shell thead tr {
-  background: #FBFCFD !important;
+  background: #FAFBFC !important;
 }
 
 .admin-shell th {
-  color: #8B95A1 !important;
-  font-size: 11px !important;
+  color: #4E5968 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
   letter-spacing: 0 !important;
+  border-top: 1px solid #E5E8EB;
+  border-bottom: 1px solid #E5E8EB;
+  padding-bottom: 16px !important;
+  padding-top: 16px !important;
+  white-space: nowrap;
+}
+
+.admin-shell td {
+  border-bottom: 1px solid #E5E8EB;
+  color: #4E5968;
+  font-size: 13px;
+  height: 54px;
+  vertical-align: middle;
 }
 
 .admin-shell tbody tr {
@@ -673,26 +704,24 @@ body::after {
 
 .admin-card {
   background: var(--admin-surface);
-  border: 1px solid rgba(25, 31, 40, 0.05);
-  border-radius: 24px;
-  box-shadow: 0 10px 30px rgba(2, 32, 71, 0.04);
+  border: 1px solid #E5E8EB;
+  border-radius: 8px;
+  box-shadow: none;
 }
 
 .admin-card-soft {
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 24px;
-  box-shadow: 0 8px 24px rgba(2, 32, 71, 0.035);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #FFFFFF;
+  border: 1px solid #E5E8EB;
+  border-radius: 8px;
+  box-shadow: none;
 }
 
 .admin-list-card {
   background: var(--admin-surface);
-  border: 1px solid rgba(25, 31, 40, 0.06);
-  border-radius: 24px;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 10px 32px rgba(2, 32, 71, 0.04);
+  box-shadow: none;
 }
 
 .admin-metric-card {
@@ -700,12 +729,12 @@ body::after {
 }
 
 .admin-toolbar {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(25, 31, 40, 0.06);
-  border-radius: 24px;
-  box-shadow: 0 8px 24px rgba(2, 32, 71, 0.035);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: #FFFFFF;
+  border: 0;
+  border-bottom: 1px solid #E5E8EB;
+  border-top: 1px solid #E5E8EB;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .admin-chip {
@@ -716,21 +745,19 @@ body::after {
 
 .admin-empty-state {
   color: #8B95A1;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(49, 130, 246, 0.08), transparent 34%),
-    #FFFFFF;
+  background: #FFFFFF;
 }
 
 .admin-shell .rounded-3xl {
-  border-radius: 24px;
+  border-radius: 8px;
 }
 
 .admin-shell .rounded-2xl {
-  border-radius: 18px;
+  border-radius: 8px;
 }
 
 .admin-shell .rounded-xl {
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .admin-shell .min-h-screen.bg-gray-50 {
