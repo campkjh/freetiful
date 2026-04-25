@@ -4,6 +4,7 @@
     "dockerfilePath": "apps/api/Dockerfile"
   },
   "deploy": {
+    "healthcheckPath": "/api/v1/health",
     "restartPolicyType": "ON_FAILURE"
   }
 }

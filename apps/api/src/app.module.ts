@@ -28,6 +28,7 @@ import { FaqModule } from './faq/faq.module';
 import { SettlementModule } from './settlement/settlement.module';
 import { BusinessInquiryModule } from './business-inquiry/business-inquiry.module';
 import { PolicyModule } from './policy/policy.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -61,5 +62,6 @@ import { PolicyModule } from './policy/policy.module';
     BusinessInquiryModule,
     PolicyModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}
