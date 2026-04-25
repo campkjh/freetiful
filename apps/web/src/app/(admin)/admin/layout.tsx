@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { AdminIssuePanel } from './_components/AdminIssuePanel';
 
 const ADMIN_EMAILS = ['admin@freetiful.com'];
 
@@ -316,6 +317,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {children}
           </div>
         </main>
+        <AdminIssuePanel />
       </div>
 
       {mobileOpen && (
