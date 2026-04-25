@@ -7,6 +7,45 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  mc: ['사회자', 'MC', '전문 사회자', '전문사회자', '결혼식 사회자', '결혼식사회자'],
+  weddingmc: ['사회자', 'MC', '전문 사회자', '전문사회자', '결혼식 사회자', '결혼식사회자'],
+  weddinghost: ['사회자', 'MC', '전문 사회자', '전문사회자', '결혼식 사회자', '결혼식사회자'],
+  사회자: ['사회자', 'MC', '전문 사회자', '전문사회자', '결혼식 사회자', '결혼식사회자'],
+  전문사회자: ['사회자', 'MC', '전문 사회자', '전문사회자', '결혼식 사회자', '결혼식사회자'],
+  결혼식사회자: ['사회자', 'MC', '전문 사회자', '전문사회자', '결혼식 사회자', '결혼식사회자'],
+  singer: ['가수', '축가'],
+  가수: ['가수', '축가'],
+  축가: ['가수', '축가'],
+  host: ['쇼호스트', '쇼 호스트'],
+  showhost: ['쇼호스트', '쇼 호스트'],
+  쇼호스트: ['쇼호스트', '쇼 호스트'],
+};
+
+const EVENT_ALIASES: Record<string, string[]> = {
+  wedding: ['결혼식', '웨딩', '본식'],
+  결혼식: ['결혼식', '웨딩', '본식'],
+  birthday: ['생신잔치 (환갑/칠순)', '생신잔치', '환갑', '칠순'],
+  생신잔치: ['생신잔치 (환갑/칠순)', '생신잔치', '환갑', '칠순'],
+  dol: ['돌잔치', '돌'],
+  돌잔치: ['돌잔치', '돌'],
+  corporate: ['기업행사', '공식행사', '컨퍼런스', '워크숍', '송년회', '체육대회', '레크리에이션', '팀빌딩', '기업PT', '라이브커머스'],
+  기업행사: ['기업행사', '공식행사', '컨퍼런스', '워크숍', '송년회', '체육대회', '레크리에이션', '팀빌딩', '기업PT', '라이브커머스'],
+  class: ['강의/클래스', '강의', '클래스'],
+  강의클래스: ['강의/클래스', '강의', '클래스'],
+};
+
+function normalizeLookupKey(value?: string | null) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s._·・/-]+/g, '');
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.map((v) => String(v || '').trim()).filter(Boolean)));
+}
+
 @Injectable()
 export class MatchService {
   constructor(
@@ -32,28 +71,27 @@ export class MatchService {
       rawUserInput?: any;
     },
   ) {
-    const category = await this.prisma.category.findUnique({
-      where: { id: data.categoryId },
-    });
-    if (!category) {
-      throw new NotFoundException('카테고리를 찾을 수 없습니다.');
+    if (!data.categoryId) {
+      throw new BadRequestException('카테고리를 선택해주세요.');
     }
 
-    if (data.eventCategoryId) {
-      const eventCategory = await this.prisma.eventCategory.findUnique({
-        where: { id: data.eventCategoryId },
-      });
-      if (!eventCategory) {
-        throw new NotFoundException('이벤트 카테고리를 찾을 수 없습니다.');
-      }
-    }
+    const category = await this.resolveCategory(data.categoryId, data.rawUserInput);
+    const eventCategory = await this.resolveEventCategory(
+      category.id,
+      data.eventCategoryId,
+      data.rawUserInput,
+    );
+    const [styleOptionIds, personalityOptionIds] = await Promise.all([
+      this.resolveStyleOptionIds(category.id, data.styleOptionIds),
+      this.resolvePersonalityOptionIds(data.personalityOptionIds),
+    ]);
 
     const matchRequest = await this.prisma.matchRequest.create({
       data: {
         userId,
         type: data.type,
-        categoryId: data.categoryId,
-        eventCategoryId: data.eventCategoryId,
+        categoryId: category.id,
+        eventCategoryId: eventCategory?.id,
         eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
         eventTime: data.eventTime
           ? new Date(`1970-01-01T${data.eventTime}`)
@@ -61,17 +99,24 @@ export class MatchService {
         eventLocation: data.eventLocation,
         budgetMin: data.budgetMin,
         budgetMax: data.budgetMax,
-        rawUserInput: data.rawUserInput,
-        styles: data.styleOptionIds?.length
+        rawUserInput: this.buildRawUserInput(data.rawUserInput, {
+          originalCategoryId: data.categoryId,
+          originalEventCategoryId: data.eventCategoryId,
+          resolvedCategoryId: category.id,
+          resolvedCategoryName: category.name,
+          resolvedEventCategoryId: eventCategory?.id,
+          resolvedEventCategoryName: eventCategory?.name,
+        }),
+        styles: styleOptionIds.length
           ? {
-              create: data.styleOptionIds.map((styleOptionId) => ({
+              create: styleOptionIds.map((styleOptionId) => ({
                 styleOptionId,
               })),
             }
           : undefined,
-        personalities: data.personalityOptionIds?.length
+        personalities: personalityOptionIds.length
           ? {
-              create: data.personalityOptionIds.map(
+              create: personalityOptionIds.map(
                 (personalityOptionId) => ({ personalityOptionId }),
               ),
             }
@@ -88,11 +133,154 @@ export class MatchService {
     // 선택한 전문가가 있으면 해당 전문가에게만, 없으면 카테고리 일치 전문가에게 fan-out
     void this.fanoutMatchRequestToPros(
       matchRequest.id,
-      data.categoryId,
+      category.id,
       data.selectedProProfileIds,
     ).catch(() => {});
 
     return matchRequest;
+  }
+
+  private async resolveCategory(categoryInput: string, rawUserInput?: any) {
+    const direct = await this.prisma.category.findUnique({
+      where: { id: categoryInput },
+    });
+    if (direct) return direct;
+
+    const candidates = this.categoryNameCandidates(categoryInput, rawUserInput);
+    if (candidates.length > 0) {
+      const byName = await this.prisma.category.findFirst({
+        where: {
+          type: 'pro',
+          isActive: true,
+          OR: [
+            { name: { in: candidates } },
+            { nameEn: { in: candidates } },
+            ...candidates.map((name) => ({ name: { contains: name } })),
+          ],
+        },
+        orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+      });
+      if (byName) return byName;
+    }
+
+    const socialHostFallback = await this.prisma.category.findFirst({
+      where: {
+        type: 'pro',
+        isActive: true,
+        OR: [
+          { name: { contains: '사회자' } },
+          { nameEn: { contains: 'MC' } },
+          { proCategories: { some: { proProfile: { status: 'approved' } } } },
+        ],
+      },
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+    });
+    if (socialHostFallback) return socialHostFallback;
+
+    throw new NotFoundException('카테고리를 찾을 수 없습니다.');
+  }
+
+  private categoryNameCandidates(categoryInput: string, rawUserInput?: any) {
+    const rawCandidates = uniqueStrings([
+      categoryInput,
+      rawUserInput?.categoryName,
+      rawUserInput?.category,
+      rawUserInput?.serviceCategory,
+    ]);
+    const aliases = rawCandidates.flatMap((value) => {
+      const key = normalizeLookupKey(value);
+      return CATEGORY_ALIASES[key] || [];
+    });
+    return uniqueStrings([...rawCandidates, ...aliases]);
+  }
+
+  private async resolveEventCategory(
+    categoryId: string,
+    eventCategoryInput?: string,
+    rawUserInput?: any,
+  ) {
+    if (eventCategoryInput) {
+      const direct = await this.prisma.eventCategory.findUnique({
+        where: { id: eventCategoryInput },
+      });
+      if (direct?.categoryId === categoryId) return direct;
+    }
+
+    const candidates = this.eventNameCandidates(eventCategoryInput, rawUserInput);
+    if (candidates.length === 0) return undefined;
+
+    return this.prisma.eventCategory.findFirst({
+      where: {
+        categoryId,
+        isActive: true,
+        OR: [
+          { name: { in: candidates } },
+          ...candidates.map((name) => ({ name: { contains: name } })),
+          ...candidates.map((name) => ({ name: { startsWith: name } })),
+        ],
+      },
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  private eventNameCandidates(eventCategoryInput?: string, rawUserInput?: any) {
+    const rawCandidates = uniqueStrings([
+      eventCategoryInput,
+      rawUserInput?.eventName,
+      rawUserInput?.eventType,
+    ]);
+    const aliases = rawCandidates.flatMap((value) => {
+      const key = normalizeLookupKey(value);
+      return EVENT_ALIASES[key] || [];
+    });
+    return uniqueStrings([...rawCandidates, ...aliases]);
+  }
+
+  private async resolveStyleOptionIds(categoryId: string, inputs?: string[]) {
+    const candidates = uniqueStrings(inputs || []);
+    if (candidates.length === 0) return [];
+
+    const options = await this.prisma.styleOption.findMany({
+      where: {
+        categoryId,
+        isActive: true,
+        OR: [
+          { id: { in: candidates } },
+          { name: { in: candidates } },
+          ...candidates.map((name) => ({ name: { contains: name } })),
+        ],
+      },
+      select: { id: true },
+    });
+    return uniqueStrings(options.map((o) => o.id));
+  }
+
+  private async resolvePersonalityOptionIds(inputs?: string[]) {
+    const candidates = uniqueStrings(inputs || []);
+    if (candidates.length === 0) return [];
+
+    const options = await this.prisma.personalityOption.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { id: { in: candidates } },
+          { name: { in: candidates } },
+          ...candidates.map((name) => ({ name: { contains: name } })),
+        ],
+      },
+      select: { id: true },
+    });
+    return uniqueStrings(options.map((o) => o.id));
+  }
+
+  private buildRawUserInput(rawUserInput: any, resolved: Record<string, any>) {
+    const base =
+      rawUserInput && typeof rawUserInput === 'object' && !Array.isArray(rawUserInput)
+        ? rawUserInput
+        : rawUserInput
+          ? { value: rawUserInput }
+          : {};
+    return { ...base, ...resolved };
   }
 
   /** 새 매칭 요청을 카테고리 일치하는 approved 사회자에게 분배 + 알림 */

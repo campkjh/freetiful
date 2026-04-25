@@ -102,6 +102,14 @@ type MatchCategoryOption = {
   styleOptions?: Array<{ id: string; name: string }>;
 };
 
+const FALLBACK_MATCH_CATEGORY: MatchCategoryOption = {
+  id: '사회자',
+  name: '사회자',
+  nameEn: 'Wedding MC',
+  eventCategories: EVENT_TYPES.map((name) => ({ id: name, name })),
+  styleOptions: MOOD_TAGS.map((name) => ({ id: name, name })),
+};
+
 // API 실패 시에는 빈 배열로 폴백 (하드코딩 목업 데이터 제거됨)
 const MOCK_PROS: ProItem[] = [];
 
@@ -172,7 +180,9 @@ function QuotePage() {
       .then((res) => {
         if (alive) setMatchCategories(Array.isArray(res.data?.categories) ? res.data.categories : []);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setMatchCategories([FALLBACK_MATCH_CATEGORY]);
+      });
     return () => { alive = false; };
   }, []);
   const PLANS = planTemplates.filter((t) => t.isActive).map((t) => {
@@ -220,16 +230,19 @@ function QuotePage() {
 
   const findMcCategory = (categories: MatchCategoryOption[]) =>
     categories.find((c) => c.id === 'mc')
+    || categories.find((c) => c.id === '사회자')
     || categories.find((c) => c.name?.includes('사회자') || c.name?.toLowerCase().includes('mc'))
-    || categories[0];
+    || categories[0]
+    || FALLBACK_MATCH_CATEGORY;
 
   const getMcCategory = () => findMcCategory(matchCategories);
 
   const getEventCategoryId = (category: MatchCategoryOption | undefined, label: string) =>
-    category?.eventCategories?.find((e) => e.name === label || e.name.includes(label) || label.includes(e.name))?.id;
+    category?.eventCategories?.find((e) => e.name === label || e.name.includes(label) || label.includes(e.name))?.id
+    || label;
 
   const getStyleOptionIds = (category: MatchCategoryOption | undefined, moodList: string[]) =>
-    (category?.styleOptions || [])
+    (category?.styleOptions || FALLBACK_MATCH_CATEGORY.styleOptions || [])
       .filter((opt) => moodList.some((m) => opt.name === m || opt.name.includes(m) || m.includes(opt.name)))
       .map((opt) => opt.id);
 
@@ -441,8 +454,8 @@ function QuotePage() {
 
         let category = getMcCategory();
         if (!category?.id) {
-          const res = await apiClient.get('/api/v1/ref-data/match-options');
-          const categories = Array.isArray(res.data?.categories) ? res.data.categories : [];
+          const res = await apiClient.get('/api/v1/ref-data/match-options').catch(() => null);
+          const categories = Array.isArray(res?.data?.categories) ? res.data.categories : [FALLBACK_MATCH_CATEGORY];
           setMatchCategories(categories);
           category = findMcCategory(categories);
         }
@@ -466,7 +479,9 @@ function QuotePage() {
           selectedProProfileIds,
           rawUserInput: {
             source: 'quote_flow',
+            categoryName: category.name,
             eventType: eventLabel,
+            eventName: eventLabel,
             plan,
             planLabel,
             planPrice: planObj?.price,

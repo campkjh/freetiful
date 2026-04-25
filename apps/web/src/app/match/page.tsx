@@ -11,9 +11,9 @@ import { useAuthStore } from '@/lib/store/auth.store';
 const STEPS = ['카테고리', '행사정보', '스타일', '확인'];
 
 const CATEGORIES = [
-  { id: 'mc', name: 'MC', icon: '🎤', description: '행사 진행 전문' },
-  { id: 'singer', name: '가수', icon: '🎵', description: '축가 및 공연' },
-  { id: 'host', name: '쇼호스트', icon: '🎬', description: '쇼 진행 전문' },
+  { id: '사회자', name: '사회자', icon: '🎤', description: '결혼식/행사 진행 전문' },
+  { id: '가수', name: '가수', icon: '🎵', description: '축가 및 공연' },
+  { id: '쇼호스트', name: '쇼호스트', icon: '🎬', description: '쇼 진행 전문' },
 ];
 
 const EVENT_TYPES = [
@@ -78,7 +78,10 @@ export default function MatchRequestPage() {
         setPersonalities(Array.isArray(res.data?.personalities) ? res.data.personalities : []);
       })
       .catch(() => {
-        if (alive) toast.error('매칭 선택지를 불러오지 못했습니다.');
+        if (alive) {
+          setCategories([]);
+          setPersonalities([]);
+        }
       })
       .finally(() => {
         if (alive) setOptionsLoading(false);
@@ -88,7 +91,12 @@ export default function MatchRequestPage() {
 
   const categoryOptions = useMemo(() => {
     if (categories.length > 0) return categories;
-    return CATEGORIES.map((c) => ({ ...c, nameEn: null, eventCategories: [], styleOptions: [] }));
+    return CATEGORIES.map((c) => ({
+      ...c,
+      nameEn: null,
+      eventCategories: EVENT_TYPES.map((ev) => ({ id: ev.name, name: ev.name })),
+      styleOptions: STYLES.map((name) => ({ id: name, name })),
+    }));
   }, [categories]);
 
   const currentCategory = categoryOptions.find((c) => c.id === selectedCategory);
@@ -131,9 +139,11 @@ export default function MatchRequestPage() {
       const styleOptionIds = currentCategory?.styleOptions
         ?.filter((s) => selectedStyles.includes(s.name))
         .map((s) => s.id);
-      const personalityOptionIds = personalities
-        .filter((p) => selectedPersonalities.includes(p.name))
-        .map((p) => p.id);
+      const personalityOptionIds = personalities.length > 0
+        ? personalities
+            .filter((p) => selectedPersonalities.includes(p.name))
+            .map((p) => p.id)
+        : selectedPersonalities;
 
       await matchApi.createRequest({
         categoryId: selectedCategory,
@@ -147,6 +157,7 @@ export default function MatchRequestPage() {
         styleOptionIds,
         personalityOptionIds,
         rawUserInput: {
+          categoryName: getCategoryName(),
           styles: selectedStyles,
           personalities: selectedPersonalities,
           note: additionalNote,
