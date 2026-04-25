@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { FavoriteController } from './favorite.controller';
 import { FavoriteService } from './favorite.service';
 import { NotificationModule } from '../notification/notification.module';
+import { DiscoveryModule } from '../discovery/discovery.module';
 
 @Module({
-  imports: [NotificationModule],
+  imports: [NotificationModule, DiscoveryModule],
   controllers: [FavoriteController],
   providers: [FavoriteService],
   exports: [FavoriteService],

@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { invalidateProCache } from './discovery.api';
 
 const BASE = '/api/v1/favorite';
 
@@ -70,14 +71,16 @@ function fetchFavoritesList(params?: FavoriteListParams) {
 
 export const favoriteApi = {
   toggle: (proProfileId: string) =>
-    apiClient.post<{ isFavorited: boolean }>(`${BASE}/${proProfileId}`).then((r) => {
+    apiClient.post<{ isFavorited: boolean; favoriteCount?: number }>(`${BASE}/${proProfileId}`).then((r) => {
       invalidateFavoritesCache(); // 찜 추가/제거 시 캐시 무효화
+      invalidateProCache();
       return r.data;
     }),
 
   remove: (proProfileId: string) =>
-    apiClient.delete<{ isFavorited: boolean }>(`${BASE}/${proProfileId}`).then((r) => {
+    apiClient.delete<{ isFavorited: boolean; favoriteCount?: number }>(`${BASE}/${proProfileId}`).then((r) => {
       removeFavoriteFromCachedList(proProfileId);
+      invalidateProCache();
       return r.data;
     }),
 

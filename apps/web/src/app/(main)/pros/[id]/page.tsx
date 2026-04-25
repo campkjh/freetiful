@@ -105,6 +105,7 @@ interface ProDetailData {
   youtubeVideos: { id: string; title: string }[];
   rating: number;
   reviewCount: number;
+  favoriteCount: number;
   plans: { id: string; label: string; price: number; duration: string; title: string; desc: string[]; workDays: number; revisions: number }[];
   description: string;
   expertStats: {
@@ -176,6 +177,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     youtubeVideos: [],
     rating: p.avgRating || 0,
     reviewCount: p.reviewCount || 0,
+    favoriteCount: p.favoriteCount || 0,
     plans: plans.length > 0 ? plans : [{
       id: 'base',
       label: '기본',
@@ -267,6 +269,7 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
     rating: res.avgRating || 0,
     reviewCount: res.reviewCount || 0,
+    favoriteCount: res.favoriteCount || 0,
     plans,
     description: descParts,
     expertStats: {
@@ -590,6 +593,7 @@ export default function ProDetailPage() {
           youtubeVideos: ytIds.map((id, i) => ({ id, title: `${name} 사회자 진행 영상 ${i + 1}` })),
           rating: 5.0,
           reviewCount: 0,
+          favoriteCount: 0,
           plans: (planTemplates.length > 0 ? planTemplates : []).filter((t) => t.isActive).map((t, idx) => ({
             id: t.planKey,
             label: t.label,
@@ -832,26 +836,55 @@ export default function ProDetailPage() {
     }
   };
 
-  const handleToggleFavorite = () => {
-    setIsFavorited((v) => {
-      const newVal = !v;
-      toast(v ? '찜 해제' : '찜 목록에 추가됨', { icon: v ? '💙' : '❤️' });
-      // Sync to API
-      if (authUser) {
-        favoriteApi.toggle(pro?.id || id).catch(() => {});
+  const syncLocalFavorite = (profileId: string, favorited: boolean) => {
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+      if (favorited) {
+        if (!stored.includes(profileId)) stored.push(profileId);
+      } else {
+        const idx = stored.indexOf(profileId);
+        if (idx !== -1) stored.splice(idx, 1);
       }
-      try {
-        const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-        if (newVal) {
-          if (!stored.includes(pro?.id || id)) stored.push(pro?.id || id);
-        } else {
-          const idx = stored.indexOf(pro?.id || id);
-          if (idx !== -1) stored.splice(idx, 1);
-        }
-        localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
-      } catch {}
-      return newVal;
+      localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
+    } catch {}
+  };
+
+  const updateFavoriteCount = (favorited: boolean) => {
+    setPro((current) => {
+      if (!current) return current;
+      const delta = favorited ? 1 : -1;
+      return { ...current, favoriteCount: Math.max(0, (current.favoriteCount || 0) + delta) };
     });
+  };
+
+  const applyFavoriteState = (nextFavorited: boolean, showToast = true) => {
+    const profileId = pro?.id || id;
+    if (!profileId || isFavorited === nextFavorited) return;
+    const previousFavorited = isFavorited;
+    setIsFavorited(nextFavorited);
+    updateFavoriteCount(nextFavorited);
+    syncLocalFavorite(profileId, nextFavorited);
+    if (showToast) toast(previousFavorited ? '찜 해제' : '찜 목록에 추가됨', { icon: previousFavorited ? '💙' : '❤️' });
+
+    if (authUser) {
+      favoriteApi.toggle(profileId)
+        .then((res) => {
+          setIsFavorited(res.isFavorited);
+          syncLocalFavorite(profileId, res.isFavorited);
+          if (typeof res.favoriteCount === 'number') {
+            setPro((current) => current ? { ...current, favoriteCount: res.favoriteCount || 0 } : current);
+          }
+        })
+        .catch(() => {
+          setIsFavorited(previousFavorited);
+          updateFavoriteCount(previousFavorited);
+          syncLocalFavorite(profileId, previousFavorited);
+        });
+    }
+  };
+
+  const handleToggleFavorite = () => {
+    applyFavoriteState(!isFavorited);
   };
 
   const handlePurchase = () => {
@@ -1010,7 +1043,7 @@ export default function ProDetailPage() {
                   const now = Date.now();
                   if (now - lastTapRef.current < 300) {
                     // Double tap → favorite
-                    if (!isFavorited) setIsFavorited(true);
+                    if (!isFavorited) applyFavoriteState(true, false);
                     setShowDoubleTapHeart(true);
                     setTimeout(() => setShowDoubleTapHeart(false), 900);
                     lastTapRef.current = 0;
@@ -1425,6 +1458,9 @@ export default function ProDetailPage() {
             <div className="flex items-center gap-1 mt-0.5">
               <StarRating value={parseFloat(pro.rating.toFixed(1))} size={12} />
               <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({pro.reviewCount})</span>
+              <span className="text-[11px] text-gray-300">·</span>
+              <Heart size={12} className="fill-[#FF4D4D] text-[#FF4D4D]" />
+              <span className="text-[12px] font-semibold text-gray-900">{pro.favoriteCount.toLocaleString()}</span>
             </div>
             <p className="text-[11px] text-gray-400 mt-1">연락 가능 시간: {pro.expertStats.contactTime}</p>
             <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
@@ -1666,13 +1702,18 @@ export default function ProDetailPage() {
           {/* Heart (원형) */}
           <button
             onClick={handleToggleFavorite}
-            className="w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center active:scale-90 transition-transform shrink-0 shadow-sm"
+            className="relative w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center active:scale-90 transition-transform shrink-0 shadow-sm"
           >
             <Heart
               size={20}
               className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'}
               style={{ animation: isFavorited ? 'heartPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined }}
             />
+            {pro.favoriteCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF4D4D] text-[10px] font-bold text-white flex items-center justify-center leading-none">
+                {pro.favoriteCount > 99 ? '99+' : pro.favoriteCount}
+              </span>
+            )}
           </button>
 
           {/* 문의하기 + 구매하기 묶음 (알약) */}

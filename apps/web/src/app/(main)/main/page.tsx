@@ -305,7 +305,8 @@ interface ProData {
   isNationwide: boolean;
   rating: number;
   reviews: number;
-  pudding: number;
+  favoriteCount: number;
+  pudding?: number;
   image: string;
   images: string[];
   intro: string;
@@ -333,6 +334,7 @@ interface BusinessPartner {
 const BIZ_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
+const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v3';
 const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v1';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
@@ -510,7 +512,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
           </div>
           <div className="flex items-center gap-0.5">
             <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
-            <span className="text-[11px] text-gray-400">{pro.pudding ?? 0}</span>
+            <span className="text-[11px] text-gray-400">{pro.favoriteCount ?? pro.pudding ?? 0}</span>
           </div>
         </div>
         <div className="flex flex-wrap gap-1">
@@ -810,7 +812,7 @@ export default function HomePage() {
   useEffect(() => {
     // 캐시에서 즉시 표시 (두 번째 방문부터 무한 로딩 방지)
     try {
-      const cached = localStorage.getItem('freetiful-pros-cache-v2');
+      const cached = localStorage.getItem(HOME_PROS_CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) setApiPros(parsed);
@@ -843,7 +845,7 @@ export default function HomePage() {
             isNationwide: p.isNationwide ?? false,
             rating: p.avgRating,
             reviews: p.reviewCount,
-            pudding: i + 1,
+            favoriteCount: p.favoriteCount ?? 0,
             image: p.images?.[0] || p.profileImageUrl || '',
             images: p.images || [],
             intro: p.shortIntro || '',
@@ -858,7 +860,7 @@ export default function HomePage() {
             isPartner: p.showPartnersLogo || p.isFeatured || false,
           }));
           setApiPros(mapped);
-          try { localStorage.setItem('freetiful-pros-cache-v2', JSON.stringify(mapped)); } catch {}
+          try { localStorage.setItem(HOME_PROS_CACHE_KEY, JSON.stringify(mapped)); } catch {}
         } else {
           setApiPros([]);
         }
@@ -944,7 +946,7 @@ export default function HomePage() {
           isNationwide: p.isNationwide ?? false,
           rating: p.avgRating,
           reviews: p.reviewCount,
-          pudding: i + 1,
+          favoriteCount: p.favoriteCount ?? 0,
           image: p.images?.[0] || p.profileImageUrl || '',
           images: p.images || [],
           intro: p.shortIntro || '',
@@ -1123,11 +1125,31 @@ export default function HomePage() {
   const warmProsList = () => {
     discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false }).catch(() => {});
   };
+  const updateProFavoriteCount = (proId: string, valueOrDelta: number, mode: 'set' | 'delta' = 'delta') => {
+    const update = (items: ProData[] | null) => {
+      if (!items) return items;
+      return items.map((item) => {
+        if (item.id !== proId) return item;
+        const current = item.favoriteCount ?? item.pudding ?? 0;
+        const nextCount = mode === 'set' ? valueOrDelta : current + valueOrDelta;
+        return { ...item, favoriteCount: Math.max(0, nextCount) };
+      });
+    };
+    setApiPros((prev) => {
+      const next = update(prev);
+      if (next) {
+        try { localStorage.setItem(HOME_PROS_CACHE_KEY, JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
+    setRegionalPros((prev) => update(prev) || prev);
+  };
 
   const toggleFavorite = (e: React.MouseEvent, proId: string) => {
     e.preventDefault();
     e.stopPropagation();
     const isAdding = !favorites.has(proId);
+    updateProFavoriteCount(proId, isAdding ? 1 : -1);
     setFavorites((prev) => {
       const next = new Set(prev);
       if (next.has(proId)) next.delete(proId);
@@ -1147,7 +1169,29 @@ export default function HomePage() {
     });
     // Sync to API if authenticated
     if (authUser) {
-      favoriteApi.toggle(proId).catch(() => {});
+      favoriteApi.toggle(proId)
+        .then((res) => {
+          if (typeof res.favoriteCount === 'number') updateProFavoriteCount(proId, res.favoriteCount, 'set');
+        })
+        .catch(() => {
+          updateProFavoriteCount(proId, isAdding ? -1 : 1);
+          setFavorites((prev) => {
+            const next = new Set(prev);
+            if (isAdding) next.delete(proId);
+            else next.add(proId);
+            return next;
+          });
+          try {
+            const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
+            if (isAdding) {
+              const idx = stored.indexOf(proId);
+              if (idx !== -1) stored.splice(idx, 1);
+            } else if (!stored.includes(proId)) {
+              stored.push(proId);
+            }
+            localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
+          } catch {}
+        });
     }
     // Trigger fly animation when adding to favorites
     if (isAdding) {

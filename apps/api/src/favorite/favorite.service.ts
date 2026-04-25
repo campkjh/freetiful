@@ -1,18 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { DiscoveryService } from '../discovery/discovery.service';
 
 @Injectable()
 export class FavoriteService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private discoveryService: DiscoveryService,
   ) {}
+
+  private countProFavorites(proProfileId: string) {
+    return this.prisma.favorite.count({
+      where: {
+        targetType: 'pro',
+        targetId: proProfileId,
+      },
+    });
+  }
 
   async toggleFavorite(
     userId: string,
     proProfileId: string,
-  ): Promise<{ isFavorited: boolean }> {
+  ): Promise<{ isFavorited: boolean; favoriteCount: number }> {
     const existing = await this.prisma.favorite.findUnique({
       where: {
         userId_targetType_targetId: {
@@ -25,7 +36,8 @@ export class FavoriteService {
 
     if (existing) {
       await this.prisma.favorite.delete({ where: { id: existing.id } });
-      return { isFavorited: false };
+      this.discoveryService.invalidateCache(proProfileId);
+      return { isFavorited: false, favoriteCount: await this.countProFavorites(proProfileId) };
     }
 
     await this.prisma.favorite.create({
@@ -35,6 +47,7 @@ export class FavoriteService {
         targetId: proProfileId,
       },
     });
+    this.discoveryService.invalidateCache(proProfileId);
 
     // 찜 알림 → 전문가에게
     try {
@@ -53,13 +66,13 @@ export class FavoriteService {
       }
     } catch {}
 
-    return { isFavorited: true };
+    return { isFavorited: true, favoriteCount: await this.countProFavorites(proProfileId) };
   }
 
   async removeFavorite(
     userId: string,
     proProfileId: string,
-  ): Promise<{ isFavorited: boolean }> {
+  ): Promise<{ isFavorited: boolean; favoriteCount: number }> {
     await this.prisma.favorite.deleteMany({
       where: {
         userId,
@@ -67,8 +80,9 @@ export class FavoriteService {
         targetId: proProfileId,
       },
     });
+    this.discoveryService.invalidateCache(proProfileId);
 
-    return { isFavorited: false };
+    return { isFavorited: false, favoriteCount: await this.countProFavorites(proProfileId) };
   }
 
   async getFavorites(userId: string, page: number, limit: number, withTotal = true) {

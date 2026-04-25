@@ -29,6 +29,7 @@ export interface ProListItem {
   isFeatured: boolean;
   showPartnersLogo?: boolean;
   puddingCount: number;
+  favoriteCount: number;
   gender: string;
   youtubeUrl: string | null;
   isNationwide?: boolean;

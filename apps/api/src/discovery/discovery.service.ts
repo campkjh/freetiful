@@ -209,6 +209,17 @@ export class DiscoveryService implements OnModuleInit {
       withTotal ? this.prisma.proProfile.count({ where }) : Promise.resolve(0),
     ]);
     const total = withTotal ? totalCount : data.length;
+    const favoriteCounts = data.length
+      ? await this.prisma.favorite.groupBy({
+          by: ['targetId'],
+          where: {
+            targetType: 'pro',
+            targetId: { in: data.map((p) => p.id) },
+          },
+          _count: { targetId: true },
+        })
+      : [];
+    const favoriteCountMap = new Map(favoriteCounts.map((row) => [row.targetId, row._count.targetId]));
 
     const result = {
       data: data.map((p) => ({
@@ -227,6 +238,7 @@ export class DiscoveryService implements OnModuleInit {
         isFeatured: p.isFeatured,
         showPartnersLogo: p.showPartnersLogo,
         puddingCount: p.puddingCount,
+        favoriteCount: favoriteCountMap.get(p.id) || 0,
         gender: p.gender,
         youtubeUrl: p.youtubeUrl,
         isNationwide: p.isNationwide,
@@ -249,62 +261,65 @@ export class DiscoveryService implements OnModuleInit {
     const detailCacheKey = `proDetail:${proProfileId}`;
     const detailCached = this.getCached<any>(detailCacheKey);
     if (detailCached) return detailCached;
-    const pro = await this.prisma.proProfile.findUnique({
-      where: { id: proProfileId },
-      select: {
-        id: true,
-        userId: true,
-        gender: true,
-        careerYears: true,
-        shortIntro: true,
-        mainExperience: true,
-        detailHtml: true,
-        youtubeUrl: true,
-        isFeatured: true,
-        showPartnersLogo: true,
-        avgRating: true,
-        reviewCount: true,
-        responseRate: true,
-        tags: true,
-        isNationwide: true,
-        profileViews: true,
-        user: { select: { id: true, name: true, profileImageUrl: true, email: true } },
-        // 대표(primary) 이미지가 images[0] 에 오도록 정렬
-        images: {
-          orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
-          take: 12,
-          select: { id: true, imageUrl: true, displayOrder: true, isPrimary: true },
-        },
-        services: {
-          where: { isActive: true },
-          orderBy: { displayOrder: 'asc' },
-          select: { id: true, title: true, description: true, basePrice: true, priceUnit: true, displayOrder: true, isActive: true },
-        },
-        categories: { select: { category: { select: { name: true } } } },
-        regions: { select: { region: { select: { name: true } } } },
-        languages: { select: { languageCode: true } },
-        reviews: {
-          select: {
-            id: true,
-            avgRating: true,
-            ratingExperience: true,
-            ratingSatisfaction: true,
-            ratingComposition: true,
-            ratingWit: true,
-            ratingVoice: true,
-            ratingAppearance: true,
-            comment: true,
-            isAnonymous: true,
-            proReply: true,
-            proRepliedAt: true,
-            createdAt: true,
-            reviewer: { select: { id: true, name: true, profileImageUrl: true } },
+    const [pro, favoriteCount] = await Promise.all([
+      this.prisma.proProfile.findUnique({
+        where: { id: proProfileId },
+        select: {
+          id: true,
+          userId: true,
+          gender: true,
+          careerYears: true,
+          shortIntro: true,
+          mainExperience: true,
+          detailHtml: true,
+          youtubeUrl: true,
+          isFeatured: true,
+          showPartnersLogo: true,
+          avgRating: true,
+          reviewCount: true,
+          responseRate: true,
+          tags: true,
+          isNationwide: true,
+          profileViews: true,
+          user: { select: { id: true, name: true, profileImageUrl: true, email: true } },
+          // 대표(primary) 이미지가 images[0] 에 오도록 정렬
+          images: {
+            orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
+            take: 12,
+            select: { id: true, imageUrl: true, displayOrder: true, isPrimary: true },
           },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
+          services: {
+            where: { isActive: true },
+            orderBy: { displayOrder: 'asc' },
+            select: { id: true, title: true, description: true, basePrice: true, priceUnit: true, displayOrder: true, isActive: true },
+          },
+          categories: { select: { category: { select: { name: true } } } },
+          regions: { select: { region: { select: { name: true } } } },
+          languages: { select: { languageCode: true } },
+          reviews: {
+            select: {
+              id: true,
+              avgRating: true,
+              ratingExperience: true,
+              ratingSatisfaction: true,
+              ratingComposition: true,
+              ratingWit: true,
+              ratingVoice: true,
+              ratingAppearance: true,
+              comment: true,
+              isAnonymous: true,
+              proReply: true,
+              proRepliedAt: true,
+              createdAt: true,
+              reviewer: { select: { id: true, name: true, profileImageUrl: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          },
         },
-      },
-    });
+      }),
+      this.prisma.favorite.count({ where: { targetType: 'pro', targetId: proProfileId } }),
+    ]);
 
     if (!pro) return null;
 
@@ -320,6 +335,7 @@ export class DiscoveryService implements OnModuleInit {
       regionNames: pro.regions.map((r) => r.region.name),
       languageCodes: pro.languages.map((l) => l.languageCode),
       tagList: pro.tags || [],
+      favoriteCount,
     };
     this.setCached(detailCacheKey, detailResult);
     return detailResult;
