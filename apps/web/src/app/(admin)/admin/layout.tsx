@@ -97,10 +97,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
-    try {
-      setHasAdminKey(!!localStorage.getItem('admin-key'));
-    } catch {}
-  }, []);
+    const refreshAdminKey = () => {
+      try {
+        setHasAdminKey(!!localStorage.getItem('admin-key'));
+      } catch {
+        setHasAdminKey(false);
+      }
+    };
+    refreshAdminKey();
+    window.addEventListener('storage', refreshAdminKey);
+    window.addEventListener('freetiful:admin-key-changed', refreshAdminKey);
+    return () => {
+      window.removeEventListener('storage', refreshAdminKey);
+      window.removeEventListener('freetiful:admin-key-changed', refreshAdminKey);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (!hydrated) return;

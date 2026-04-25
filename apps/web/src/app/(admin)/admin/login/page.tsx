@@ -68,6 +68,7 @@ export default function AdminLoginPage() {
         throw new Error(data?.message || '관리자 키를 확인해주세요');
       }
       localStorage.setItem('admin-key', key);
+      window.dispatchEvent(new Event('freetiful:admin-key-changed'));
       toast.success('관리자 키로 로그인했습니다');
       router.replace('/admin');
     } catch (e: any) {

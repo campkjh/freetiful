@@ -51,6 +51,105 @@ function firstParam(params: SearchParamReader, keys: string[]) {
   return '';
 }
 
+function parseJsonValue<T = any>(value: string) {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    try {
+      return JSON.parse(decodeURIComponent(value)) as T;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function looksLikeJwt(token: string) {
+  return token.split('.').length === 3;
+}
+
+function normalizeUser(value: any): User | null {
+  if (!value || typeof value !== 'object' || !value.id) return null;
+  return {
+    id: String(value.id),
+    role: value.role || 'general',
+    name: value.name || value.nickname || '사용자',
+    phone: value.phone ?? null,
+    email: value.email ?? null,
+    profileImageUrl: value.profileImageUrl || value.profile_image_url || value.picture || null,
+    referralCode: value.referralCode || '',
+    pointBalance: Number(value.pointBalance || 0),
+    isActive: value.isActive !== false,
+    createdAt: value.createdAt || new Date().toISOString(),
+  };
+}
+
+function userFromParams(params: SearchParamReader) {
+  const rawUser = firstParam(params, ['user', 'userJSON', 'user_json', 'userInfo', 'profile']);
+  const parsed = rawUser ? normalizeUser(parseJsonValue(rawUser)) : null;
+  if (parsed) return parsed;
+
+  const id = firstParam(params, ['appUserId', 'userId', 'uid']);
+  if (!id) return null;
+
+  return normalizeUser({
+    id,
+    role: firstParam(params, ['role']) || 'general',
+    name: firstParam(params, ['name', 'nickname', 'displayName']) || '사용자',
+    email: firstParam(params, ['email']) || null,
+    phone: firstParam(params, ['phone']) || null,
+    profileImageUrl: firstParam(params, ['profileImageUrl', 'profile_image_url', 'photoUrl', 'picture']) || null,
+  });
+}
+
+async function sessionFromCallbackParams(params: SearchParamReader): Promise<LoginResponse | null> {
+  const tokenJson = parseJsonValue<{ accessToken?: string; refreshToken?: string; expiresIn?: number }>(
+    firstParam(params, ['tokens', 'authTokens', 'auth', 'session']),
+  );
+  const accessToken =
+    tokenJson?.accessToken ||
+    firstParam(params, ['appAccessToken', 'jwt', 'jwtToken', 'accessJwt']) ||
+    firstParam(params, ['accessToken']);
+  const refreshToken =
+    tokenJson?.refreshToken ||
+    firstParam(params, ['appRefreshToken', 'refreshJwt']) ||
+    firstParam(params, ['refreshToken']);
+
+  if (!accessToken || !refreshToken) return null;
+
+  const explicitAppSession =
+    Boolean(tokenJson) ||
+    Boolean(firstParam(params, ['appAccessToken', 'jwt', 'jwtToken', 'accessJwt', 'appRefreshToken', 'refreshJwt'])) ||
+    Boolean(firstParam(params, ['user', 'userJSON', 'user_json', 'userInfo', 'profile'])) ||
+    looksLikeJwt(accessToken);
+
+  if (!explicitAppSession) return null;
+
+  let user = userFromParams(params);
+  if (!user && looksLikeJwt(accessToken)) {
+    try {
+      useAuthStore.getState().setTokens(accessToken, refreshToken);
+      user = await authApi.me();
+    } catch {
+      useAuthStore.getState().logout();
+      return null;
+    }
+  }
+
+  if (!user) return null;
+
+  return {
+    user,
+    tokens: {
+      accessToken,
+      refreshToken,
+      expiresIn: tokenJson?.expiresIn || Number(firstParam(params, ['expiresIn'])) || 0,
+    },
+    isNewUser: firstParam(params, ['isNewUser']) === 'true',
+    needsPhone: firstParam(params, ['needsPhone']) === 'true',
+  };
+}
+
 function getMobileRedirectUri(provider: Extract<NativeProvider, 'kakao' | 'naver'>) {
   return `${getOAuthOrigin()}/auth/${provider}/mobile`;
 }
@@ -206,6 +305,13 @@ export async function loginFromNativeCallback(
   let data: LoginResponse | null = null;
 
   options?.onStatus?.('소셜 계정 확인 중...');
+
+  const existingSession = await sessionFromCallbackParams(params);
+  if (existingSession) {
+    options?.onStatus?.('로그인 완료 중...');
+    await completeNativeLogin(existingSession, { returnTo });
+    return;
+  }
 
   if (provider === 'kakao') {
     const accessToken = firstParam(params, [
