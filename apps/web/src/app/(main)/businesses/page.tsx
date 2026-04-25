@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ChevronLeft, ChevronDown, ChevronUp, SlidersHorizontal, Heart, X, MapPin, ArrowUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
+import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
 
 // ─── Types ─────────────────────────────────────────────────
 interface RankItem {
@@ -30,7 +31,7 @@ interface RankItem {
 // ─── Mock Data ─────────────────────────────────────────────
 const REGIONS = ['전국', '경기', '서울', '부산', '인천', '대구', '충남/세종'];
 
-const SUB_CATEGORIES = ['전체', '웨딩홀', '드레스', '피부과', '스튜디오', '헤어', '메이크업', '스냅'];
+const SUB_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
 
 // ─── Advanced Filter Groups ───────────────────────────────
 const FILTER_GROUPS = [
@@ -58,9 +59,31 @@ export default function BusinessListPage() {
   const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-biz') : true);
   const [selectedRegion, setSelectedRegion] = useState('전국');
   const [selectedCategory, setSelectedCategory] = useState('전체');
+  const categoryTabsRef = useRef<HTMLDivElement | null>(null);
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+  const [tabIndicator, setTabIndicator] = useState({ left: 28, width: 36 });
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [rankItems, setRankItems] = useState<RankItem[]>(MOCK_RANK_ITEMS);
+
+  const updateTabIndicator = useCallback(() => {
+    const activeTab = activeTabRef.current;
+    if (!activeTab) return;
+    setTabIndicator({
+      left: activeTab.offsetLeft + 12,
+      width: Math.max(28, activeTab.offsetWidth - 24),
+    });
+  }, []);
+
+  const selectCategory = useCallback((category: string) => {
+    setSelectedCategory(category);
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (category === '전체') params.delete('category');
+    else params.set('category', category);
+    const search = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`);
+  }, []);
 
   // Fetch businesses from API
   useEffect(() => {
@@ -74,7 +97,7 @@ export default function BusinessListPage() {
       }
     } catch {}
 
-    apiClient.get('/api/v1/business')
+    apiClient.get('/api/v1/business', { params: { limit: 100 } })
       .then((res) => {
         const data = res.data;
         const items = Array.isArray(data) ? data : data?.items;
@@ -110,6 +133,30 @@ export default function BusinessListPage() {
       })
       .catch(() => { /* fallback to MOCK_RANK_ITEMS */ });
   }, []);
+
+  useEffect(() => {
+    const syncCategoryFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const category = params.get('category');
+      setSelectedCategory(category && SUB_CATEGORIES.includes(category) ? category : '전체');
+    };
+    syncCategoryFromUrl();
+    window.addEventListener('popstate', syncCategoryFromUrl);
+    return () => window.removeEventListener('popstate', syncCategoryFromUrl);
+  }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      updateTabIndicator();
+      activeTabRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [selectedCategory, updateTabIndicator]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updateTabIndicator);
+    return () => window.removeEventListener('resize', updateTabIndicator);
+  }, [updateTabIndicator]);
 
   useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-biz', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
 
@@ -200,14 +247,14 @@ export default function BusinessListPage() {
 
       {/* ─── Category Tabs (underline slide, sticky below header) ─── */}
       <div className="border-b border-gray-100 sticky top-[52px] z-20 bg-white">
-        <div className="flex overflow-x-auto scrollbar-hide px-4 relative">
-          {SUB_CATEGORIES.map((cat, idx) => {
+        <div ref={categoryTabsRef} className="flex overflow-x-auto scrollbar-hide pl-4 pr-8 scroll-px-4 relative">
+          {SUB_CATEGORIES.map((cat) => {
             const active = selectedCategory === cat;
             return (
               <button
                 key={cat}
-                ref={(el) => { if (active && el) { const r = el.getBoundingClientRect(); const p = el.parentElement?.getBoundingClientRect(); if (p) { el.parentElement?.style.setProperty('--tab-left', `${r.left - p.left + 8}px`); el.parentElement?.style.setProperty('--tab-width', `${r.width - 16}px`); } } }}
-                onClick={() => setSelectedCategory(cat)}
+                ref={active ? activeTabRef : undefined}
+                onClick={() => selectCategory(cat)}
                 className={`shrink-0 px-4 py-3 text-[14px] font-medium transition-colors duration-300 ${
                   active ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'
                 }`}
@@ -220,8 +267,8 @@ export default function BusinessListPage() {
           <span
             className="absolute bottom-0 h-[2px] bg-gray-900 rounded-full pointer-events-none"
             style={{
-              left: 'var(--tab-left, 16px)',
-              width: 'var(--tab-width, 32px)',
+              left: tabIndicator.left,
+              width: tabIndicator.width,
               transition: 'left 0.35s cubic-bezier(0.22, 1, 0.36, 1), width 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
             }}
           />
@@ -504,7 +551,7 @@ export default function BusinessListPage() {
           <p className="text-[14px] font-semibold text-gray-500">조건에 맞는 업체가 없습니다</p>
           <button
             onClick={() => {
-              setSelectedCategory('전체');
+              selectCategory('전체');
               setSelectedRegion('전국');
               clearAllFilters();
             }}

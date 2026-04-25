@@ -9,6 +9,11 @@ import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
+import {
+  WEDDING_PARTNER_CATEGORIES,
+  WEDDING_PARTNER_CATEGORY_ICONS,
+  WEDDING_PARTNER_CATEGORY_TABS,
+} from '@/lib/business-categories';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
@@ -325,7 +330,7 @@ interface BusinessPartner {
   discountPercent: number;
 }
 
-const BIZ_CATEGORIES = ['전체', '웨딩홀', '드레스', '피부과', '스튜디오', '헤어', '메이크업', '스냅'];
+const BIZ_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v1';
@@ -629,24 +634,16 @@ function LanguageBadge() {
 
 function CategorySwiper() {
   const CAT_DIR = '/images/category-icons';
+  const weddingPartnerCats = WEDDING_PARTNER_CATEGORIES.map((name) => ({
+    name,
+    img: `${CAT_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS[name]}`,
+    href: `/businesses?category=${encodeURIComponent(name)}`,
+  }));
   const allCats = [
     { name: '외국어사회자', img: `${CAT_DIR}/foreign-mc.png`, href: '/pros?category=외국어사회자' },
-    { name: '웨딩홀', img: `${CAT_DIR}/wedding-hall.png`, href: '/businesses?category=웨딩홀' },
-    { name: '드레스', img: `${CAT_DIR}/dress.png`, href: '/businesses?category=드레스' },
-    { name: '피부과', img: `${CAT_DIR}/derma.png`, href: '/businesses?category=피부과' },
-    { name: '스튜디오', img: `${CAT_DIR}/studio.png`, href: '/businesses?category=스튜디오' },
-    { name: '헤어', img: `${CAT_DIR}/hair.png`, href: '/businesses?category=헤어' },
-    { name: '메이크업', img: `${CAT_DIR}/makeup.png`, href: '/businesses?category=메이크업' },
-    { name: '가전', img: `${CAT_DIR}/appliance.png`, href: '/businesses?category=가전' },
-    { name: '스냅', img: `${CAT_DIR}/snap.png`, href: '/businesses?category=스냅' },
+    ...weddingPartnerCats.slice(0, 8),
     { name: '축가연주', img: `${CAT_DIR}/singer.png`, href: '/pros?category=축가·연주' },
-    { name: '한복', img: `${CAT_DIR}/hanbok.png`, href: '/businesses?category=한복' },
-    { name: '성형외과', img: `${CAT_DIR}/plastic.png`, href: '/businesses?category=성형외과' },
-    { name: '보석', img: `${CAT_DIR}/jewelry.png`, href: '/businesses?category=보석' },
-    { name: '답례품', img: `${CAT_DIR}/gift.png`, href: '/businesses?category=답례품' },
-    { name: '자동차', img: `${CAT_DIR}/car.png`, href: '/businesses?category=자동차' },
-    { name: '신혼여행', img: `${CAT_DIR}/honeymoon.png`, href: '/businesses?category=신혼여행' },
-    { name: '가구', img: `${CAT_DIR}/furniture.png`, href: '/businesses?category=가구' },
+    ...weddingPartnerCats.slice(8),
   ];
   const PAGE_SIZE = 10;
   const pages: typeof allCats[] = [];
@@ -1122,7 +1119,7 @@ export default function HomePage() {
     return () => ro.disconnect();
   }, []);
 
-  const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat);
+  const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat || b.tags.includes(selectedBizCat));
   const warmProsList = () => {
     discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false }).catch(() => {});
   };
@@ -1894,7 +1891,7 @@ export default function HomePage() {
         <div className="my-6 border-t border-gray-100" />
 
         {/* 6. 웨딩 파트너 (API 데이터 있을 때만 노출) */}
-        {filteredBiz.length > 0 && (
+        {businesses.length > 0 && (
           <>
             <section>
               <div className="mb-6">
@@ -1920,13 +1917,19 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory scroll-pl-[10px]">
-                {filteredBiz.slice(0, 8).map((biz) => (
-                  <div key={biz.id} className="shrink-0 w-[78%] snap-start lg:w-[42%]">
-                    <BusinessCard biz={biz} />
-                  </div>
-                ))}
-              </div>
+              {filteredBiz.length > 0 ? (
+                <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory scroll-pl-[10px]">
+                  {filteredBiz.slice(0, 8).map((biz) => (
+                    <div key={biz.id} className="shrink-0 w-[78%] snap-start lg:w-[42%]">
+                      <BusinessCard biz={biz} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
+                  해당 카테고리의 웨딩 파트너를 준비 중입니다
+                </div>
+              )}
             </section>
             <div className="my-6 border-t border-gray-100" />
           </>
