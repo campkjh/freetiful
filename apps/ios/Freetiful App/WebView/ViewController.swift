@@ -208,8 +208,17 @@ class ViewController: UIViewController,
                 refreshToken: refreshToken,
                 userJSON: userJSON
             )
-            self.webView.evaluateJavaScript(js) { _, err in
-                if let err = err { print("❌ loginCompleted JS 주입 실패:", err) }
+            let inject = {
+                self.webView.evaluateJavaScript(js) { _, err in
+                    if let err = err { print("❌ loginCompleted JS 주입 실패:", err) }
+                }
+            }
+            if let presented = self.presentedViewController {
+                presented.dismiss(animated: true) {
+                    inject()
+                }
+            } else {
+                inject()
             }
         }
     }

@@ -230,6 +230,8 @@ struct NativeLoginView: View {
             let userJSON = String(data: userData, encoding: .utf8) ?? "{}"
 
             DispatchQueue.main.async {
+                // 성공 플래그를 먼저 세워야 dismiss/onDisappear가 goHome을 다시 쏘지 않는다.
+                self.didLoginSuccessfully = true
                 // OneSignal external_id 매핑 (푸시용)
                 OneSignal.login(userId)
                 // ViewController에게 JWT 주입을 위임 (WebView 참조 안정성 위해 NotificationCenter 사용)
@@ -242,9 +244,6 @@ struct NativeLoginView: View {
                         "userJSON": userJSON,
                     ]
                 )
-                // onDisappear에서 goHome 호출 방지 (로그인 성공 경로임)
-                self.didLoginSuccessfully = true
-                self.dismiss()
             }
         }.resume()
     }
