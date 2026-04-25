@@ -66,6 +66,7 @@ export interface ProProfile {
   avgRating: number;
   reviewCount: number;
   isFeatured: boolean;
+  isProfileHidden: boolean;
   createdAt: string;
   updatedAt: string;
   // relations

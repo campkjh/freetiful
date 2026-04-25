@@ -53,6 +53,7 @@ export class DiscoveryService implements OnModuleInit {
     const pros = await this.prisma.proProfile.findMany({
       where: {
         status: 'approved',
+        isProfileHidden: false,
         user: { isActive: true },
       },
       select: {
@@ -119,6 +120,7 @@ export class DiscoveryService implements OnModuleInit {
     // 대신 프론트에서 이미지 없으면 default-profile 폴백으로 표시.
     const where: any = {
       status: 'approved',
+      isProfileHidden: false,
       user: { isActive: true },
     };
     if (search) {

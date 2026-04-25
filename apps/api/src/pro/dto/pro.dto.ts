@@ -52,4 +52,9 @@ export class UpdateProProfileDto {
   @IsOptional()
   @IsBoolean()
   isNationwide?: boolean;
+
+  @ApiPropertyOptional({ description: '공개 목록/홈 노출 숨김 여부' })
+  @IsOptional()
+  @IsBoolean()
+  isProfileHidden?: boolean;
 }

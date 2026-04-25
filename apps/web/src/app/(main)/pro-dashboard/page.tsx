@@ -11,6 +11,7 @@ import { reviewApi } from '@/lib/api/review.api';
 import { scheduleApi } from '@/lib/api/schedule.api';
 import { matchApi } from '@/lib/api/match.api';
 import { apiClient } from '@/lib/api/client';
+import { invalidateProCache } from '@/lib/api/discovery.api';
 import {
   ProCardListSkeleton,
   ProMiniCardGridSkeleton,
@@ -179,6 +180,7 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 const DASHBOARD_CACHE_KEY = 'freetiful-pro-dashboard-cache-v2';
 const DASHBOARD_CACHE_TTL = 5 * 60_000;
+const PUBLIC_PRO_CACHE_KEYS = ['freetiful-pros-cache-v4', 'freetiful-pros-cache'];
 
 type DashboardCache = {
   ts: number;
@@ -194,6 +196,7 @@ type DashboardCache = {
   scheduleRequests?: any[];
   matchRequests?: any[];
   quotes?: Quote[];
+  profileHidden?: boolean;
 };
 
 function readDashboardCache(): DashboardCache | null {
@@ -257,6 +260,14 @@ function todayString() {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
+function clearPublicProCaches() {
+  invalidateProCache();
+  if (typeof window === 'undefined') return;
+  try {
+    PUBLIC_PRO_CACHE_KEYS.forEach((key) => localStorage.removeItem(key));
+  } catch {}
+}
+
 /* ─── Component ─── */
 
 export default function ProDashboardPage() {
@@ -291,6 +302,9 @@ export default function ProDashboardPage() {
   const [upcomingLoading, setUpcomingLoading] = useState(true);
   const [puddingLoading, setPuddingLoading] = useState(true);
   const [revenueLoading, setRevenueLoading] = useState(true);
+  const [profileHidden, setProfileHidden] = useState(false);
+  const [profileHiddenLoading, setProfileHiddenLoading] = useState(true);
+  const [profileHiddenSaving, setProfileHiddenSaving] = useState(false);
   const [rejectSched, setRejectSched] = useState<{ id: string; userName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -355,6 +369,10 @@ export default function ProDashboardPage() {
         cachedSectionsRef.current.quotes = true;
         setQuotesLoading(false);
       }
+      if (cached.profileHidden != null) {
+        setProfileHidden(cached.profileHidden);
+        setProfileHiddenLoading(false);
+      }
     }
 
     const storedReplies = localStorage.getItem('pro-review-replies');
@@ -367,6 +385,22 @@ export default function ProDashboardPage() {
       if (cached?.puddingCount == null) setPuddingCount(storedPudding ? Number(storedPudding) : 0);
     } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    if (!authUser) {
+      setProfileHiddenLoading(false);
+      return;
+    }
+
+    prosApi.getMyProfile()
+      .then((profile: any) => {
+        const hidden = Boolean(profile?.isProfileHidden);
+        setProfileHidden(hidden);
+        writeDashboardCache({ profileHidden: hidden });
+      })
+      .catch(() => {})
+      .finally(() => setProfileHiddenLoading(false));
+  }, [authUser]);
 
   // 스케줄 요청 조회 (고객이 구매해서 대기중인 요청)
   useEffect(() => {
@@ -682,6 +716,34 @@ export default function ProDashboardPage() {
     setContextMenu(null);
   }
 
+  async function handleToggleProfileHidden() {
+    if (profileHiddenLoading || profileHiddenSaving) return;
+    const nextHidden = !profileHidden;
+    const previousHidden = profileHidden;
+    setProfileHidden(nextHidden);
+    setProfileHiddenSaving(true);
+    writeDashboardCache({ profileHidden: nextHidden });
+
+    try {
+      const updated: any = await prosApi.updateMyProfile({ isProfileHidden: nextHidden });
+      const confirmedHidden = Boolean(updated?.isProfileHidden ?? nextHidden);
+      setProfileHidden(confirmedHidden);
+      writeDashboardCache({ profileHidden: confirmedHidden });
+      clearPublicProCaches();
+      toast.success(
+        confirmedHidden
+          ? '프로필이 숨김 처리되었습니다. 홈과 사회자 리스트에서 제외됩니다.'
+          : '프로필 노출이 다시 켜졌습니다.',
+      );
+    } catch (e: any) {
+      setProfileHidden(previousHidden);
+      writeDashboardCache({ profileHidden: previousHidden });
+      toast.error(`프로필 노출 설정 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setProfileHiddenSaving(false);
+    }
+  }
+
   const handlePointerDown = useCallback((id: string, e: React.PointerEvent) => {
     const x = e.clientX;
     const y = e.clientY;
@@ -736,6 +798,37 @@ export default function ProDashboardPage() {
               <BellIcon />
             </div>
           </Link>
+        </div>
+      </div>
+
+      {/* ── Profile Visibility ── */}
+      <div className="px-4 mt-4">
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+          <div className="min-w-0">
+            <p className="text-[14px] font-bold text-gray-900">프로필 숨김</p>
+            <p className="mt-0.5 text-[11px] leading-4 text-gray-400">
+              {profileHidden
+                ? '홈과 사회자 리스트에서 노출되지 않습니다'
+                : '홈과 사회자 리스트에 노출 중입니다'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={profileHidden}
+            aria-label="프로필 숨김 설정"
+            disabled={profileHiddenLoading || profileHiddenSaving}
+            onClick={handleToggleProfileHidden}
+            className={`relative h-8 w-[52px] shrink-0 rounded-full p-1 transition-colors duration-300 active:scale-95 disabled:opacity-60 ${
+              profileHidden ? 'bg-[#3180F7]' : 'bg-gray-200'
+            }`}
+          >
+            <span
+              className={`block h-6 w-6 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18)] transition-transform duration-300 ${
+                profileHidden ? 'translate-x-5' : 'translate-x-0'
+              } ${profileHiddenSaving ? 'opacity-70' : ''}`}
+            />
+          </button>
         </div>
       </div>
 

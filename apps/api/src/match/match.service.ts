@@ -304,6 +304,8 @@ export class MatchService {
         where: {
           id: { in: uniqueSelectedIds },
           status: 'approved',
+          isProfileHidden: false,
+          user: { isActive: true },
         },
         include: { user: { select: { id: true, name: true } } },
       });
@@ -316,7 +318,11 @@ export class MatchService {
       const proCategories = await this.prisma.proCategory.findMany({
         where: {
           categoryId,
-          proProfile: { status: 'approved' },
+          proProfile: {
+            status: 'approved',
+            isProfileHidden: false,
+            user: { isActive: true },
+          },
         },
         include: {
           proProfile: {
@@ -330,7 +336,11 @@ export class MatchService {
 
     if (deliveryTargets.length === 0 && uniqueSelectedIds.length === 0) {
       const fallbackPros = await this.prisma.proProfile.findMany({
-        where: { status: 'approved' },
+        where: {
+          status: 'approved',
+          isProfileHidden: false,
+          user: { isActive: true },
+        },
         include: { user: { select: { id: true, name: true } } },
         take: 20,
       });

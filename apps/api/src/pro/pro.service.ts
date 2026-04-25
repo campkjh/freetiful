@@ -111,6 +111,7 @@ export class ProService implements OnModuleInit {
       youtubeUrl?: string;
       gender?: string;
       isNationwide?: boolean;
+      isProfileHidden?: boolean;
     },
   ) {
     const existing = await this.prisma.proProfile.findUnique({ where: { userId } });
@@ -124,18 +125,23 @@ export class ProService implements OnModuleInit {
       ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
       ...(data.gender !== undefined ? { gender: data.gender } : {}),
       ...(data.isNationwide !== undefined ? { isNationwide: data.isNationwide } : {}),
+      ...(data.isProfileHidden !== undefined ? { isProfileHidden: data.isProfileHidden } : {}),
     };
 
     if (!existing) {
-      return this.prisma.proProfile.create({
+      const created = await this.prisma.proProfile.create({
         data: { userId, status: 'draft', ...fields },
       });
+      this.discovery.invalidateCache(created.id);
+      return created;
     }
 
-    return this.prisma.proProfile.update({
+    const updated = await this.prisma.proProfile.update({
       where: { userId },
       data: fields,
     });
+    this.discovery.invalidateCache(updated.id);
+    return updated;
   }
 
   // ─── Profile Images ──────────────────────────────────────────────────────

@@ -30,6 +30,19 @@ export const prosApi = {
   }) =>
     apiClient.post(`${BASE}/pro/register`, data, { timeout: 60000 }).then((r) => r.data),
 
+  updateMyProfile: (data: {
+    shortIntro?: string;
+    mainExperience?: string;
+    careerYears?: number;
+    awards?: string;
+    detailHtml?: string;
+    youtubeUrl?: string;
+    gender?: string;
+    isNationwide?: boolean;
+    isProfileHidden?: boolean;
+  }) =>
+    apiClient.put(`${BASE}/pro/profile`, data).then((r) => r.data),
+
   uploadImage: (file: File) => {
     const form = new FormData();
     form.append('file', file);
