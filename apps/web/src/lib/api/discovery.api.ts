@@ -226,8 +226,17 @@ export const discoveryApi = {
   getProList: (params?: ProListParams) => {
     const { realtime, ...requestParams } = params || {};
     if (realtime) {
+      const realtimeParams: Record<string, any> = { ...requestParams, _t: Date.now() };
+      if (requestParams.sort === 'pudding') {
+        const requestedLimit = Number(requestParams.limit) || 20;
+        const limitRange = Math.max(1, 101 - Math.min(requestedLimit, 100));
+        const limitOffset = requestedLimit < 100 ? Math.floor(Date.now() / 20_000) % limitRange : 0;
+        realtimeParams.limit = Math.min(100, requestedLimit + limitOffset);
+        realtimeParams.page = requestParams.page ?? 1;
+        realtimeParams.region = requestParams.region ?? '전국';
+      }
       return apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, {
-        params: { ...requestParams, _t: Date.now() },
+        params: realtimeParams,
       }).then((r) => {
         indexProPreviews(r.data);
         return r.data;
