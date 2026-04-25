@@ -114,9 +114,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // DB 저장 + 이메일 + 시트 기록을 병렬로 — 하나가 실패해도 나머지는 시도
+    let savedInquiry: unknown;
+    try {
+      savedInquiry = await saveInquiryToApi(req, inquiryPayload);
+    } catch (error) {
+      console.error('Inquiry DB error:', error);
+      return NextResponse.json({ error: '문의 저장에 실패했습니다' }, { status: 502 });
+    }
+
+    // 관리자 DB 저장 후 이메일 + 시트 기록을 병렬로 보조 처리
     const results = await Promise.allSettled([
-      saveInquiryToApi(req, inquiryPayload),
       transporter.sendMail({
         from: process.env.SMTP_USER,
         to: 'support@freetiful.com, jaicylab2009@gmail.com, freetiful2025@gmail.com',
@@ -131,21 +138,15 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    const dbFailed = results[0].status === 'rejected';
-    const emailFailed = results[1].status === 'rejected';
-    const sheetFailed = results[2].status === 'rejected';
-    if (dbFailed) console.error('Inquiry DB error:', (results[0] as PromiseRejectedResult).reason);
-    if (emailFailed) console.error('Inquiry email error:', (results[1] as PromiseRejectedResult).reason);
-    if (sheetFailed) console.error('Inquiry sheet error:', (results[2] as PromiseRejectedResult).reason);
-
-    // 전부 실패해야만 에러 반환 — 하나라도 성공하면 접수 처리
-    if (dbFailed && emailFailed && sheetFailed) {
-      return NextResponse.json({ error: '문의 접수에 실패했습니다' }, { status: 500 });
-    }
+    const emailFailed = results[0].status === 'rejected';
+    const sheetFailed = results[1].status === 'rejected';
+    if (emailFailed) console.error('Inquiry email error:', (results[0] as PromiseRejectedResult).reason);
+    if (sheetFailed) console.error('Inquiry sheet error:', (results[1] as PromiseRejectedResult).reason);
 
     return NextResponse.json({
       ok: true,
-      saved: !dbFailed,
+      saved: true,
+      inquiry: savedInquiry,
       emailed: !emailFailed,
       sheetLogged: !sheetFailed,
     });
