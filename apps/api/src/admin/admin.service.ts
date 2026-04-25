@@ -754,25 +754,387 @@ export class AdminService {
 
   // ─── 통계 ────────────────────────────────────────────────────────────────
   async getStats() {
-    const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const kstOffset = 9 * 60 * 60 * 1000;
+    const dayMs = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const todayKey = new Date(now + kstOffset).toISOString().slice(0, 10);
+    const thisMonthKey = `${todayKey.slice(0, 7)}-01`;
+    const dayRange = (key: string) => ({
+      gte: new Date(`${key}T00:00:00.000+09:00`),
+      lte: new Date(`${key}T23:59:59.999+09:00`),
+    });
+    const keyFromOffset = (offset: number) => new Date(now + kstOffset - offset * dayMs).toISOString().slice(0, 10);
+    const rangeFromOffset = (offset: number) => ({ gte: dayRange(keyFromOffset(offset)).gte });
+    const rate = (numerator: number, denominator: number) => (
+      denominator > 0 ? Math.round((numerator / denominator) * 1000) / 10 : 0
+    );
 
-    const [totalUsers, totalPros, pendingPros, totalReviews, thisMonthRevenue, totalRevenue] = await Promise.all([
-      this.prisma.user.count({ where: { role: 'general' } }),
+    const todayRange = dayRange(todayKey);
+    const sevenDayRange = rangeFromOffset(6);
+    const thirtyDayRange = rangeFromOffset(29);
+    const thisMonthStart = new Date(`${thisMonthKey}T00:00:00.000+09:00`);
+
+    const [
+      totalUsers,
+      activeUsers,
+      bannedUsers,
+      newUsersToday,
+      newUsers7d,
+      newUsers30d,
+      userRoles,
+      totalPros,
+      pendingPros,
+      proStatuses,
+      proAggregate,
+      totalBusinesses,
+      businessStatuses,
+      businessAggregate,
+      totalReviews,
+      visibleReviews,
+      totalFavorites,
+      proFavorites,
+      businessFavorites,
+      totalMatchRequests,
+      matchStatuses,
+      totalDeliveries,
+      viewedDeliveries,
+      repliedDeliveries,
+      totalChatRooms,
+      chatRooms7d,
+      totalMessages,
+      messages7d,
+      totalQuotations,
+      quotationStatuses,
+      totalPayments,
+      paymentStatuses,
+      revenueToday,
+      revenue7d,
+      thisMonthRevenue,
+      revenue30d,
+      totalRevenue,
+      settlementStatuses,
+      pendingSettlementAmount,
+      settledSettlementAmount,
+      totalNotifications,
+      unreadNotifications,
+      sentPushNotifications,
+      activePushTokens,
+      pushSubscriptions,
+      totalPudding,
+      pudding30d,
+      topViewedPros,
+      topPuddingPros,
+      topRevenueGroups,
+    ] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { isActive: true } }),
+      this.prisma.user.count({ where: { isBanned: true } }),
+      this.prisma.user.count({ where: { createdAt: todayRange } }),
+      this.prisma.user.count({ where: { createdAt: sevenDayRange } }),
+      this.prisma.user.count({ where: { createdAt: thirtyDayRange } }),
+      this.prisma.user.groupBy({ by: ['role'], _count: true }),
       this.prisma.proProfile.count({ where: { status: 'approved' } }),
       this.prisma.proProfile.count({ where: { status: 'pending' } }),
+      this.prisma.proProfile.groupBy({ by: ['status'], _count: true }),
+      this.prisma.proProfile.aggregate({
+        _sum: { profileViews: true, puddingCount: true, reviewCount: true },
+        _avg: { avgRating: true, responseRate: true },
+      }),
+      this.prisma.businessProfile.count(),
+      this.prisma.businessProfile.groupBy({ by: ['status'], _count: true }),
+      this.prisma.businessProfile.aggregate({ _sum: { profileViews: true } }),
       this.prisma.review.count(),
+      this.prisma.review.count({ where: { isVisible: true } }),
+      this.prisma.favorite.count(),
+      this.prisma.favorite.count({ where: { targetType: 'pro' } }),
+      this.prisma.favorite.count({ where: { targetType: 'business' } }),
+      this.prisma.matchRequest.count(),
+      this.prisma.matchRequest.groupBy({ by: ['status'], _count: true }),
+      this.prisma.matchDelivery.count(),
+      this.prisma.matchDelivery.count({ where: { viewedAt: { not: null } } }),
+      this.prisma.matchDelivery.count({ where: { repliedAt: { not: null } } }),
+      this.prisma.chatRoom.count(),
+      this.prisma.chatRoom.count({ where: { createdAt: sevenDayRange } }),
+      this.prisma.message.count({ where: { isDeleted: false } }),
+      this.prisma.message.count({ where: { isDeleted: false, createdAt: sevenDayRange } }),
+      this.prisma.quotation.count(),
+      this.prisma.quotation.groupBy({ by: ['status'], _count: true }),
+      this.prisma.payment.count(),
+      this.prisma.payment.groupBy({ by: ['status'], _count: true, _sum: { amount: true } }),
+      this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: todayRange }, _sum: { amount: true } }),
+      this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: sevenDayRange }, _sum: { amount: true } }),
       this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: { gte: thisMonthStart } }, _sum: { amount: true } }),
+      this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: thirtyDayRange }, _sum: { amount: true } }),
       this.prisma.payment.aggregate({ where: { status: 'completed' }, _sum: { amount: true } }),
+      this.prisma.settlementLog.groupBy({ by: ['status'], _count: true }),
+      this.prisma.settlementLog.aggregate({ where: { status: 'pending' }, _sum: { netAmount: true } }),
+      this.prisma.settlementLog.aggregate({ where: { status: 'settled' }, _sum: { netAmount: true } }),
+      this.prisma.notification.count(),
+      this.prisma.notification.count({ where: { isRead: false } }),
+      this.prisma.notification.count({ where: { sentPush: true } }),
+      this.prisma.pushToken.count({ where: { isActive: true } }),
+      this.prisma.pushSubscription.count(),
+      this.prisma.puddingTransaction.aggregate({ _sum: { amount: true } }),
+      this.prisma.puddingTransaction.aggregate({ where: { createdAt: thirtyDayRange }, _sum: { amount: true } }),
+      this.prisma.proProfile.findMany({
+        where: { status: 'approved' },
+        include: { user: { select: { name: true } } },
+        orderBy: { profileViews: 'desc' },
+        take: 5,
+      }),
+      this.prisma.proProfile.findMany({
+        where: { status: 'approved' },
+        include: { user: { select: { name: true } } },
+        orderBy: { puddingCount: 'desc' },
+        take: 5,
+      }),
+      this.prisma.payment.groupBy({
+        by: ['proProfileId'],
+        where: { status: 'completed' },
+        _sum: { amount: true },
+        _count: true,
+        orderBy: { _sum: { amount: 'desc' } },
+        take: 5,
+      }),
     ]);
 
+    const seriesKeys = Array.from({ length: 14 }, (_, idx) => keyFromOffset(13 - idx));
+    const seriesStart = dayRange(seriesKeys[0]).gte;
+    const seriesEnd = dayRange(seriesKeys[seriesKeys.length - 1]).lte;
+    const [
+      dailyUsersRows,
+      dailyMatchRows,
+      dailyPaymentRows,
+      dailyChatRows,
+      dailyMessageRows,
+      dailyRevenueRows,
+    ] = await Promise.all([
+      this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
+        FROM users
+        WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+        GROUP BY 1
+      `,
+      this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
+        FROM match_requests
+        WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+        GROUP BY 1
+      `,
+      this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
+        FROM payments
+        WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+        GROUP BY 1
+      `,
+      this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
+        FROM chat_rooms
+        WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+        GROUP BY 1
+      `,
+      this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
+        FROM messages
+        WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd} AND "isDeleted" = false
+        GROUP BY 1
+      `,
+      this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COALESCE(SUM(amount), 0)::bigint AS value
+        FROM payments
+        WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd} AND status = 'completed'
+        GROUP BY 1
+      `,
+    ]);
+    const valueMap = (rows: Array<{ date: string; value: number | bigint }>) => new Map(
+      rows.map((row) => [row.date, Number(row.value || 0)]),
+    );
+    const dailyUsersMap = valueMap(dailyUsersRows);
+    const dailyMatchMap = valueMap(dailyMatchRows);
+    const dailyPaymentMap = valueMap(dailyPaymentRows);
+    const dailyChatMap = valueMap(dailyChatRows);
+    const dailyMessageMap = valueMap(dailyMessageRows);
+    const dailyRevenueMap = valueMap(dailyRevenueRows);
+    const dailySeries = seriesKeys.map((key) => ({
+      date: key.slice(5).replace('-', '.'),
+      users: dailyUsersMap.get(key) || 0,
+      matchRequests: dailyMatchMap.get(key) || 0,
+      payments: dailyPaymentMap.get(key) || 0,
+      chats: dailyChatMap.get(key) || 0,
+      messages: dailyMessageMap.get(key) || 0,
+      revenue: dailyRevenueMap.get(key) || 0,
+    }));
+
+    const topRevenueIds = topRevenueGroups.map((row) => row.proProfileId);
+    const topRevenueProfiles = topRevenueIds.length
+      ? await this.prisma.proProfile.findMany({
+          where: { id: { in: topRevenueIds } },
+          include: { user: { select: { name: true } } },
+        })
+      : [];
+    const topRevenueMap = new Map(topRevenueProfiles.map((p) => [p.id, p.user?.name || '전문가']));
+    const groupCount = (value: any) => (
+      typeof value === 'number' ? value : Number(value?._all || 0)
+    );
+
+    const roleMap = Object.fromEntries(userRoles.map((row: any) => [row.role, groupCount(row._count)]));
+    const proStatusMap = Object.fromEntries(proStatuses.map((row: any) => [row.status, groupCount(row._count)]));
+    const businessStatusMap = Object.fromEntries(businessStatuses.map((row: any) => [row.status, groupCount(row._count)]));
+    const matchStatusMap = Object.fromEntries(matchStatuses.map((row: any) => [row.status, groupCount(row._count)]));
+    const quotationStatusMap = Object.fromEntries(quotationStatuses.map((row: any) => [row.status, groupCount(row._count)]));
+    const paymentStatusMap = Object.fromEntries(paymentStatuses.map((row: any) => [row.status, groupCount(row._count)]));
+    const paymentAmountMap = Object.fromEntries(paymentStatuses.map((row: any) => [row.status, row._sum.amount || 0]));
+    const settlementStatusMap = Object.fromEntries(settlementStatuses.map((row: any) => [row.status, groupCount(row._count)]));
+
+    const completedPayments = paymentStatusMap.completed || 0;
+    const paidQuotations = quotationStatusMap.paid || 0;
+    const totalProfileViews = (proAggregate._sum.profileViews || 0) + (businessAggregate._sum.profileViews || 0);
+
     return {
-      totalUsers,
+      totalUsers: roleMap.general || 0,
+      allUsers: totalUsers,
+      activeUsers,
+      inactiveUsers: Math.max(0, totalUsers - activeUsers),
+      bannedUsers,
+      newUsersToday,
+      newUsers7d,
+      newUsers30d,
+      userRoles: {
+        general: roleMap.general || 0,
+        pro: roleMap.pro || 0,
+        business: roleMap.business || 0,
+        admin: roleMap.admin || 0,
+      },
       totalPros,
       pendingPros,
       totalReviews,
+      visibleReviews,
       thisMonthRevenue: thisMonthRevenue._sum.amount || 0,
       totalRevenue: totalRevenue._sum.amount || 0,
+      revenue: {
+        today: revenueToday._sum.amount || 0,
+        last7d: revenue7d._sum.amount || 0,
+        last30d: revenue30d._sum.amount || 0,
+        thisMonth: thisMonthRevenue._sum.amount || 0,
+        total: totalRevenue._sum.amount || 0,
+      },
+      profiles: {
+        proViews: proAggregate._sum.profileViews || 0,
+        businessViews: businessAggregate._sum.profileViews || 0,
+        totalViews: totalProfileViews,
+        avgRating: Number(proAggregate._avg.avgRating || 0),
+        avgResponseRate: Number(proAggregate._avg.responseRate || 0),
+        proStatus: {
+          approved: proStatusMap.approved || 0,
+          pending: proStatusMap.pending || 0,
+          draft: proStatusMap.draft || 0,
+          rejected: proStatusMap.rejected || 0,
+          suspended: proStatusMap.suspended || 0,
+        },
+        businessTotal: totalBusinesses,
+        businessStatus: {
+          approved: businessStatusMap.approved || 0,
+          pending: businessStatusMap.pending || 0,
+          draft: businessStatusMap.draft || 0,
+          rejected: businessStatusMap.rejected || 0,
+        },
+      },
+      engagement: {
+        favorites: totalFavorites,
+        proFavorites,
+        businessFavorites,
+        chatRooms: totalChatRooms,
+        chatRooms7d,
+        messages: totalMessages,
+        messages7d,
+        notifications: totalNotifications,
+        unreadNotifications,
+        sentPushNotifications,
+        activePushTokens,
+        pushSubscriptions,
+      },
+      funnel: {
+        profileViews: totalProfileViews,
+        favorites: totalFavorites,
+        matchRequests: totalMatchRequests,
+        deliveries: totalDeliveries,
+        viewedDeliveries,
+        repliedDeliveries,
+        chatRooms: totalChatRooms,
+        quotations: totalQuotations,
+        paidQuotations,
+        payments: totalPayments,
+        completedPayments,
+        reviews: totalReviews,
+      },
+      rates: {
+        favoriteCtr: rate(totalFavorites, totalProfileViews),
+        chatCtr: rate(totalChatRooms, totalProfileViews),
+        deliveryViewRate: rate(viewedDeliveries, totalDeliveries),
+        deliveryReplyRate: rate(repliedDeliveries, totalDeliveries),
+        quotationPaidRate: rate(paidQuotations, totalQuotations),
+        paymentSuccessRate: rate(completedPayments, totalPayments),
+        reviewWriteRate: rate(totalReviews, completedPayments),
+        pushSendRate: rate(sentPushNotifications, totalNotifications),
+      },
+      matchRequests: {
+        total: totalMatchRequests,
+        open: matchStatusMap.open || 0,
+        matched: matchStatusMap.matched || 0,
+        cancelled: matchStatusMap.cancelled || 0,
+        expired: matchStatusMap.expired || 0,
+      },
+      quotations: {
+        total: totalQuotations,
+        pending: quotationStatusMap.pending || 0,
+        accepted: quotationStatusMap.accepted || 0,
+        paid: quotationStatusMap.paid || 0,
+        cancelled: quotationStatusMap.cancelled || 0,
+        refunded: quotationStatusMap.refunded || 0,
+        expired: quotationStatusMap.expired || 0,
+      },
+      payments: {
+        total: totalPayments,
+        pending: paymentStatusMap.pending || 0,
+        completed: paymentStatusMap.completed || 0,
+        failed: paymentStatusMap.failed || 0,
+        refunded: paymentStatusMap.refunded || 0,
+        escrowed: paymentStatusMap.escrowed || 0,
+        settled: paymentStatusMap.settled || 0,
+        completedAmount: paymentAmountMap.completed || 0,
+        refundedAmount: paymentAmountMap.refunded || 0,
+      },
+      settlements: {
+        pending: settlementStatusMap.pending || 0,
+        settled: settlementStatusMap.settled || 0,
+        cancelled: settlementStatusMap.cancelled || 0,
+        pendingAmount: pendingSettlementAmount._sum.netAmount || 0,
+        settledAmount: settledSettlementAmount._sum.netAmount || 0,
+      },
+      pudding: {
+        total: totalPudding._sum.amount || 0,
+        last30d: pudding30d._sum.amount || 0,
+        profileBalance: proAggregate._sum.puddingCount || 0,
+      },
+      dailySeries,
+      topLists: {
+        viewedPros: topViewedPros.map((p) => ({
+          id: p.id,
+          name: p.user?.name || '전문가',
+          value: p.profileViews || 0,
+        })),
+        puddingPros: topPuddingPros.map((p) => ({
+          id: p.id,
+          name: p.user?.name || '전문가',
+          value: p.puddingCount || 0,
+        })),
+        revenuePros: topRevenueGroups.map((row) => ({
+          id: row.proProfileId,
+          name: topRevenueMap.get(row.proProfileId) || '전문가',
+          value: row._sum.amount || 0,
+          count: groupCount(row._count),
+        })),
+      },
     };
   }
 
