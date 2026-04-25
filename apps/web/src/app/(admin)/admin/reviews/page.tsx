@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
@@ -277,7 +278,9 @@ export default function AdminReviewsPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">리뷰 작성일</label>
+              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">
+                <AdminTerm term="리뷰 작성일">리뷰 작성일</AdminTerm>
+              </label>
               <input
                 type="datetime-local"
                 value={draft.reviewCreatedAt}
@@ -366,14 +369,16 @@ export default function AdminReviewsPage() {
               <AdminSwitch
                 checked={draft.isAnonymous}
                 onChange={(checked) => setDraft({ ...draft, isAnonymous: checked })}
-                label="익명"
+                label={<AdminTerm term="익명">익명</AdminTerm>}
+                ariaLabel="익명"
               />
             </div>
             <div className="flex items-center rounded-lg bg-[#F9FAFB] px-4 py-3">
               <AdminSwitch
                 checked={draft.isVisible}
                 onChange={(checked) => setDraft({ ...draft, isVisible: checked })}
-                label="노출"
+                label={<AdminTerm term="노출">노출</AdminTerm>}
+                ariaLabel="노출"
               />
             </div>
           </div>
@@ -389,7 +394,7 @@ export default function AdminReviewsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">내용</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">행사</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">리뷰일</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">구분</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="구분">구분</AdminTerm></th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
                 </tr>
               </thead>

@@ -19,6 +19,7 @@ import {
   fetchAllAdminRows,
   formatExportDate,
 } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -279,10 +280,10 @@ export default function AdminInquiriesPage() {
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">문의자</th>
                 <th className="px-4 py-3 text-left font-semibold">연락처</th>
-                <th className="px-4 py-3 text-left font-semibold">문의유형</th>
+                <th className="px-4 py-3 text-left font-semibold"><AdminTerm term="문의유형">문의유형</AdminTerm></th>
                 <th className="px-4 py-3 text-left font-semibold">문의내용</th>
-                <th className="px-4 py-3 text-center font-semibold">상태</th>
-                <th className="px-4 py-3 text-left font-semibold">관리자 메모</th>
+                <th className="px-4 py-3 text-center font-semibold"><AdminTerm term="상태">상태</AdminTerm></th>
+                <th className="px-4 py-3 text-left font-semibold"><AdminTerm term="관리자 메모">관리자 메모</AdminTerm></th>
                 <th className="px-4 py-3 text-center font-semibold">접수일</th>
                 <th className="px-4 py-3 text-center font-semibold">작업</th>
               </tr>

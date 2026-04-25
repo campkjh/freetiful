@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -352,9 +353,9 @@ export default function AdminUsersPage() {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이메일</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">가입기기</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">권한</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">프로프로필</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="가입기기">가입기기</AdminTerm></th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="권한">권한</AdminTerm></th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로프로필">프로프로필</AdminTerm></th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">결제수</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">가입일</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>

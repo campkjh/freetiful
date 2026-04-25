@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Code2, Eye, FileText, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -253,7 +254,9 @@ export default function AdminPoliciesPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-bold text-[#8B95A1]">slug</label>
+              <label className="mb-1.5 block text-[12px] font-bold text-[#8B95A1]">
+                <AdminTerm term="slug">slug</AdminTerm>
+              </label>
               <input
                 value={draft.slug}
                 onChange={(e) => updateDraft({ slug: e.target.value })}
@@ -262,7 +265,9 @@ export default function AdminPoliciesPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-bold text-[#8B95A1]">버전</label>
+              <label className="mb-1.5 block text-[12px] font-bold text-[#8B95A1]">
+                <AdminTerm term="버전">버전</AdminTerm>
+              </label>
               <input
                 value={draft.version}
                 onChange={(e) => updateDraft({ version: e.target.value })}
@@ -283,7 +288,9 @@ export default function AdminPoliciesPage() {
 
           <div className="mt-3 grid gap-3 md:grid-cols-[180px_140px_1fr]">
             <div>
-              <label className="mb-1.5 block text-[12px] font-bold text-[#8B95A1]">시행일</label>
+              <label className="mb-1.5 block text-[12px] font-bold text-[#8B95A1]">
+                <AdminTerm term="시행일">시행일</AdminTerm>
+              </label>
               <input
                 type="date"
                 value={draft.effectiveDate}
@@ -292,7 +299,9 @@ export default function AdminPoliciesPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-bold text-[#8B95A1]">표시 순서</label>
+              <label className="mb-1.5 block text-[12px] font-bold text-[#8B95A1]">
+                <AdminTerm term="표시 순서">표시 순서</AdminTerm>
+              </label>
               <input
                 type="number"
                 value={draft.displayOrder}
@@ -301,7 +310,10 @@ export default function AdminPoliciesPage() {
               />
             </div>
             <div className="flex items-end justify-between gap-3">
-              <AdminSwitch checked={draft.isPublished} onChange={(checked) => updateDraft({ isPublished: checked })} label="공개 게시" />
+              <span className="inline-flex items-center gap-2.5 pb-2">
+                <AdminSwitch checked={draft.isPublished} onChange={(checked) => updateDraft({ isPublished: checked })} ariaLabel="공개 게시" />
+                <AdminTerm term="공개 게시" className="text-[13px] font-semibold text-[#191F28]">공개 게시</AdminTerm>
+              </span>
               <div className="flex rounded-2xl bg-[#F2F4F6] p-1">
                 <button
                   type="button"
@@ -323,7 +335,9 @@ export default function AdminPoliciesPage() {
 
           <div className="mt-4">
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-[12px] font-bold text-[#8B95A1]">HTML 에디터</label>
+              <label className="text-[12px] font-bold text-[#8B95A1]">
+                <AdminTerm term="HTML 에디터">HTML 에디터</AdminTerm>
+              </label>
               <a
                 href={draft.slug ? `/terms/${draft.slug}` : '#'}
                 target="_blank"

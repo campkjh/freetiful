@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -184,19 +185,19 @@ export default function AdminSettlementsPage() {
         {/* 요약 */}
         <div className="grid grid-cols-4 gap-3">
           <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-400 mb-1">정산 대기 건수</p>
+            <p className="text-xs text-gray-400 mb-1"><AdminTerm term="정산 대기 건수">정산 대기 건수</AdminTerm></p>
             <p className="text-2xl font-bold text-amber-600">{summary.pendingCount}</p>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-400 mb-1">정산 대기 금액</p>
+            <p className="text-xs text-gray-400 mb-1"><AdminTerm term="정산 대기 금액">정산 대기 금액</AdminTerm></p>
             <p className="text-2xl font-bold text-amber-600">₩{summary.pendingAmount.toLocaleString()}</p>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-400 mb-1">정산 완료 건수</p>
+            <p className="text-xs text-gray-400 mb-1"><AdminTerm term="정산 완료 건수">정산 완료 건수</AdminTerm></p>
             <p className="text-2xl font-bold text-green-600">{summary.settledCount}</p>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-400 mb-1">정산 완료 금액</p>
+            <p className="text-xs text-gray-400 mb-1"><AdminTerm term="정산 완료 금액">정산 완료 금액</AdminTerm></p>
             <p className="text-2xl font-bold text-green-600">₩{summary.settledAmount.toLocaleString()}</p>
           </div>
         </div>
@@ -237,8 +238,8 @@ export default function AdminSettlementsPage() {
                 <th className="text-left px-4 py-3">행사</th>
                 <th className="text-left px-4 py-3">행사일</th>
                 <th className="text-right px-4 py-3">금액</th>
-                <th className="text-right px-4 py-3">정산액</th>
-                <th className="text-center px-4 py-3">상태</th>
+                <th className="text-right px-4 py-3"><AdminTerm term="정산액">정산액</AdminTerm></th>
+                <th className="text-center px-4 py-3"><AdminTerm term="상태">상태</AdminTerm></th>
                 <th className="text-center px-4 py-3">작업</th>
               </tr>
             </thead>

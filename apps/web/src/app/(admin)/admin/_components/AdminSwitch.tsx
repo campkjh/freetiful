@@ -1,10 +1,12 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 type AdminSwitchProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
-  label?: string;
+  label?: ReactNode;
   ariaLabel?: string;
   className?: string;
   labelClassName?: string;
@@ -24,7 +26,7 @@ export function AdminSwitch({
       type="button"
       role="switch"
       aria-checked={checked}
-      aria-label={ariaLabel || label || '토글'}
+      aria-label={ariaLabel || (typeof label === 'string' ? label : '토글')}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`admin-ios-switch relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-[3px] transition-[background-color,box-shadow,opacity] duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#3180F7]/15 disabled:cursor-not-allowed disabled:opacity-45 ${className}`}

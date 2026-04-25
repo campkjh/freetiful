@@ -6,6 +6,7 @@ import { Building2, RefreshCw, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -163,9 +164,9 @@ export default function AdminBusinessesPage() {
           <thead className="border-b border-[#F2F4F6] bg-[#FBFCFD]">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">계정</th>
-              <th className="px-4 py-3 text-left font-semibold">비즈 프로필</th>
+              <th className="px-4 py-3 text-left font-semibold"><AdminTerm term="비즈 프로필">비즈 프로필</AdminTerm></th>
               <th className="px-4 py-3 text-left font-semibold">연락처</th>
-              <th className="px-4 py-3 text-center font-semibold">상태</th>
+              <th className="px-4 py-3 text-center font-semibold"><AdminTerm term="상태">상태</AdminTerm></th>
               <th className="px-4 py-3 text-center font-semibold">등록일</th>
               <th className="px-4 py-3 text-center font-semibold">액션</th>
             </tr>

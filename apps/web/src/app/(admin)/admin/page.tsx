@@ -20,6 +20,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminTerm } from './_components/AdminHelpTooltip';
 import { adminFetch } from './_components/adminFetch';
 
 type DailyMetricKey = 'users' | 'matchRequests' | 'payments' | 'chats' | 'messages' | 'revenue';
@@ -172,7 +173,7 @@ function AdminSection({
         <div>
           {eyebrow && <p className="text-[12px] font-normal text-[#B0B8C1]">{eyebrow}</p>}
           <h2 className={eyebrow ? 'mt-2 text-[16px] font-bold text-[#191F28]' : 'text-[16px] font-bold text-[#191F28]'}>
-            {title}
+            <AdminTerm term={title}>{title}</AdminTerm>
           </h2>
         </div>
         {aside}
@@ -202,7 +203,9 @@ function MetricBand({
         <thead>
           <tr>
             {items.map((item) => (
-              <th key={item.label} className="px-6 text-center">{item.label}</th>
+              <th key={item.label} className="px-6 text-center">
+                <AdminTerm term={item.label}>{item.label}</AdminTerm>
+              </th>
             ))}
           </tr>
         </thead>
@@ -325,7 +328,9 @@ function ChartPanel({
   return (
     <div className="admin-metric-card border-y border-[#E5E8EB] bg-white px-4 py-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-[#4E5968]">{title}</span>
+        <span className="text-[12px] font-semibold text-[#4E5968]">
+          <AdminTerm term={title}>{title}</AdminTerm>
+        </span>
         <span className="text-[13px] font-semibold text-[#191F28]">{value}</span>
       </div>
       {chart === 'line' ? (
@@ -355,7 +360,9 @@ function ProgressList({
         return (
           <div key={item.label}>
             <div className="mb-1.5 flex items-center justify-between gap-3">
-              <span className="text-[13px] font-semibold text-[#333D4B]">{item.label}</span>
+              <span className="text-[13px] font-semibold text-[#333D4B]">
+                <AdminTerm term={item.label}>{item.label}</AdminTerm>
+              </span>
               <span className="text-[13px] font-semibold text-[#191F28]">
                 {suffix ? `${item.value.toFixed(1)}${suffix}` : formatNumber(item.value)}
               </span>
@@ -385,7 +392,9 @@ function FunnelList({
     <div className="space-y-3 border-y border-[#E5E8EB] py-4">
       {items.map((item, index) => (
         <div key={item.label} className="grid grid-cols-[112px_1fr_96px] items-center gap-3">
-          <span className="text-[12px] font-semibold text-[#4E5968]">{item.label}</span>
+          <span className="text-[12px] font-semibold text-[#4E5968]">
+            <AdminTerm term={item.label}>{item.label}</AdminTerm>
+          </span>
           <div className="h-8 overflow-hidden rounded-lg bg-[#F7F8FA]">
             <div
               className="flex h-full items-center rounded-lg px-3 text-[12px] font-semibold text-white transition-all duration-500"
@@ -413,7 +422,9 @@ function BreakdownList({
     <div className="space-y-3 border-y border-[#E5E8EB] py-4">
       {items.map((item) => (
         <div key={item.label} className="grid grid-cols-[96px_1fr_72px] items-center gap-3">
-          <span className="text-[12px] font-semibold text-[#4E5968]">{item.label}</span>
+          <span className="text-[12px] font-semibold text-[#4E5968]">
+            <AdminTerm term={item.label}>{item.label}</AdminTerm>
+          </span>
           <div className="h-2 overflow-hidden rounded-full bg-[#F2F4F6]">
             <div
               className="h-full rounded-full"
@@ -441,15 +452,19 @@ function TopList({
   return (
     <div className="admin-list-card overflow-x-auto">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[16px] font-bold text-[#191F28]">{title}</h3>
-        <span className="text-[12px] font-normal text-[#8B95A1]">{valueLabel}</span>
+        <h3 className="text-[16px] font-bold text-[#191F28]">
+          <AdminTerm term={title}>{title}</AdminTerm>
+        </h3>
+        <span className="text-[12px] font-normal text-[#8B95A1]">
+          <AdminTerm term={valueLabel}>{valueLabel}</AdminTerm>
+        </span>
       </div>
       <table className="w-full min-w-[360px]">
         <thead>
           <tr>
             <th className="px-4 text-left">순위</th>
             <th className="px-4 text-left">전문가</th>
-            <th className="px-4 text-right">{valueLabel}</th>
+            <th className="px-4 text-right"><AdminTerm term={valueLabel}>{valueLabel}</AdminTerm></th>
           </tr>
         </thead>
         <tbody>
@@ -821,7 +836,7 @@ export default function AdminDashboardPage() {
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <Users className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">역할 분포</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="역할 분포">역할 분포</AdminTerm></h3>
                 </div>
                 <BreakdownList items={roleItems} />
               </div>
@@ -837,14 +852,14 @@ export default function AdminDashboardPage() {
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">핵심 비율</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="핵심 비율">핵심 비율</AdminTerm></h3>
                 </div>
                 <ProgressList items={ctrItems} suffix="%" />
               </div>
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">전환 퍼널</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="전환 퍼널">전환 퍼널</AdminTerm></h3>
                 </div>
                 <FunnelList items={funnelItems} />
               </div>
@@ -912,28 +927,28 @@ export default function AdminDashboardPage() {
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">요청 상태</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="요청 상태">요청 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={matchStatusItems} />
               </div>
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <UserCheck className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">견적 상태</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="견적 상태">견적 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={quotationStatusItems} />
               </div>
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">결제 상태</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="결제 상태">결제 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={paymentStatusItems} />
               </div>
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <Wallet className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">정산 상태</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="정산 상태">정산 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={settlementStatusItems} />
               </div>
@@ -949,14 +964,14 @@ export default function AdminDashboardPage() {
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">전문가 상태</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="전문가 상태">전문가 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={proStatusItems} />
               </div>
               <div className="admin-list-card">
                 <div className="mb-3 flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">웨딩파트너 상태</h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="웨딩파트너 상태">웨딩파트너 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={businessStatusItems} />
               </div>

@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -158,11 +159,11 @@ export default function AdminPaymentsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">ID</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="결제ID">ID</AdminTerm></th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">전문가</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">금액</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">상태</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="상태">상태</AdminTerm></th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">날짜</th>
                 </tr>
               </thead>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, GripVertical, Eye, EyeOff, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminExportButton, exportRowsToXls } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { adminFetch } from '../_components/adminFetch';
 
 interface PlanTemplate {
@@ -141,7 +142,9 @@ export default function AdminPlanTemplatesPage() {
 
       {/* New plan */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <label className="block text-xs font-bold text-gray-500 mb-2">새 플랜 추가 (planKey)</label>
+        <label className="block text-xs font-bold text-gray-500 mb-2">
+          <AdminTerm term="새 플랜 추가 (planKey)">새 플랜 추가 (planKey)</AdminTerm>
+        </label>
         <div className="flex gap-2">
           <input
             type="text"
@@ -210,7 +213,9 @@ function PlanCard({
         <GripVertical size={18} className="text-gray-300 mt-1 cursor-move" />
         <div className="flex-1 grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-bold text-gray-400 mb-1">planKey</label>
+            <label className="block text-[11px] font-bold text-gray-400 mb-1">
+              <AdminTerm term="planKey">planKey</AdminTerm>
+            </label>
             <input
               type="text"
               value={item.planKey}
@@ -228,7 +233,9 @@ function PlanCard({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-gray-400 mb-1">기본 가격 (원)</label>
+            <label className="block text-[11px] font-bold text-gray-400 mb-1">
+              <AdminTerm term="기본 가격 (원)">기본 가격 (원)</AdminTerm>
+            </label>
             <input
               type="number"
               value={item.defaultPrice}
@@ -237,7 +244,9 @@ function PlanCard({
             />
           </div>
           <div>
-            <label className="block text-[11px] font-bold text-gray-400 mb-1">표시 순서</label>
+            <label className="block text-[11px] font-bold text-gray-400 mb-1">
+              <AdminTerm term="표시 순서">표시 순서</AdminTerm>
+            </label>
             <input
               type="number"
               value={item.displayOrder}
@@ -260,7 +269,9 @@ function PlanCard({
 
       {/* Included items */}
       <div className="ml-7">
-        <label className="block text-[11px] font-bold text-gray-400 mb-2">포함 항목 ({item.includedItems.length}개)</label>
+        <label className="block text-[11px] font-bold text-gray-400 mb-2">
+          <AdminTerm term="포함 항목">포함 항목</AdminTerm> ({item.includedItems.length}개)
+        </label>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {item.includedItems.map((v, i) => (
             <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">

@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminPartnersApi, type AdminPartnerListItem } from '@/lib/api/admin-partners.api';
 
@@ -187,7 +188,7 @@ export default function AdminPartnersPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">주소</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">전화</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">등록일</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">상태</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="상태">상태</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
               </tr>
             </thead>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CalendarDays, RotateCcw } from 'lucide-react';
+import { AdminTerm } from './AdminHelpTooltip';
 
 export type AdminDateRange = {
   startDate: string;
@@ -77,7 +78,7 @@ export function AdminDateFilter({ value, onApply, label = '조회기간' }: Prop
     <div className="admin-date-filter flex flex-col gap-3 border-y border-[#E5E8EB] bg-white px-4 py-3 lg:flex-row lg:items-center">
       <div className="flex min-w-[180px] items-center gap-2 text-[12px] font-semibold text-[#4E5968]">
         <CalendarDays className="h-4 w-4 text-[#8B95A1]" />
-        {label}
+        <AdminTerm term={label}>{label}</AdminTerm>
       </div>
       <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
         <input

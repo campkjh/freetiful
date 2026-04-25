@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Save, Eye, EyeOff, ImageOff, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -249,7 +250,7 @@ export default function AdminBannersPage() {
         <div className="space-y-3">
             <div>
               <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
-                이미지 URL * <span className="text-[#B0B8C1] font-normal">(파일 선택 또는 직접 입력)</span>
+                <AdminTerm term="이미지 URL">이미지 URL</AdminTerm> * <span className="text-[#B0B8C1] font-normal">(파일 선택 또는 직접 입력)</span>
               </label>
               <div className="flex gap-2">
                 <input
@@ -301,7 +302,9 @@ export default function AdminBannersPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">클릭 시 이동 URL</label>
+                <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
+                  <AdminTerm term="클릭 시 이동 URL">클릭 시 이동 URL</AdminTerm>
+                </label>
                 <input
                   type="text"
                   value={draft.linkUrl}
@@ -311,7 +314,9 @@ export default function AdminBannersPage() {
                 />
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">배경색 (선택)</label>
+                <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
+                  <AdminTerm term="배경색 (선택)">배경색 (선택)</AdminTerm>
+                </label>
                 <input
                   type="text"
                   value={draft.bgColor}
@@ -323,7 +328,9 @@ export default function AdminBannersPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">노출 순서</label>
+                <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
+                  <AdminTerm term="노출 순서">노출 순서</AdminTerm>
+                </label>
                 <input
                   type="number"
                   value={draft.sortOrder}
@@ -336,7 +343,8 @@ export default function AdminBannersPage() {
                   <AdminSwitch
                     checked={draft.isActive}
                     onChange={(checked) => setDraft({ ...draft, isActive: checked })}
-                    label="활성"
+                    label={<AdminTerm term="활성">활성</AdminTerm>}
+                    ariaLabel="활성"
                   />
                 </div>
               </div>

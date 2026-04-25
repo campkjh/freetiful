@@ -5,6 +5,7 @@ import { CalendarDays, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
+import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -298,10 +299,10 @@ export default function AdminBookingsPage() {
             <tr>
               <th className="px-4 py-3 text-left font-semibold">유형</th>
               <th className="px-4 py-3 text-left font-semibold">의뢰인</th>
-              <th className="px-4 py-3 text-left font-semibold">전문가/전달</th>
+              <th className="px-4 py-3 text-left font-semibold"><AdminTerm term="전문가/전달">전문가/전달</AdminTerm></th>
               <th className="px-4 py-3 text-left font-semibold">행사</th>
               <th className="px-4 py-3 text-right font-semibold">금액</th>
-              <th className="px-4 py-3 text-center font-semibold">상태</th>
+              <th className="px-4 py-3 text-center font-semibold"><AdminTerm term="상태">상태</AdminTerm></th>
               <th className="px-4 py-3 text-center font-semibold">생성</th>
             </tr>
           </thead>
