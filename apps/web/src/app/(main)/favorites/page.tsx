@@ -5,7 +5,16 @@ import Link from 'next/link';
 import { Heart, Star, MapPin, Trash2 } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { favoriteApi, getCachedFavoritesList } from '@/lib/api/favorite.api';
+import {
+  applyFavoriteCountToLocalCaches,
+  emitFavoriteChange,
+  favoriteApi,
+  getCachedFavoritesList,
+  readStoredFavoriteIds,
+  subscribeFavoriteChanges,
+  syncStoredFavoriteId,
+  writeStoredFavoriteIds,
+} from '@/lib/api/favorite.api';
 import { discoveryApi, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
 
 type Tab = 'service' | 'portfolio' | 'recent';
@@ -19,6 +28,7 @@ const FAVORITES_PAGE_LIMIT = 50;
 const INITIAL_RENDER_LIMIT = 12;
 const RENDER_CHUNK_SIZE = 12;
 const RECENT_LOOKUP_LIMIT = 80;
+const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
 
 function dedupePros(items: FavProItem[]) {
   const seen = new Set<string>();
@@ -72,13 +82,28 @@ function mapPreviewToPro(p: ProListItem): FavProItem {
   };
 }
 
-function readStoredFavoriteIds() {
-  if (typeof window === 'undefined') return [];
+function getHomeCachedPro(id: string): FavProItem | null {
+  if (typeof window === 'undefined') return null;
   try {
-    const parsed = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+    const parsed = JSON.parse(localStorage.getItem(HOME_PROS_CACHE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return null;
+    const p = parsed.find((item: any) => item?.id === id);
+    if (!p) return null;
+    const cat = p.categories?.[0] || '사회자';
+    return {
+      id: p.id,
+      name: p.name || '',
+      category: cat,
+      badge: '',
+      intro: p.intro || '',
+      rating: p.rating || 0,
+      reviews: p.reviews || 0,
+      image: p.image || p.images?.[0] || '',
+      price: p.price || 0,
+      subName: `${cat} ${p.name || ''}`,
+    };
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -92,9 +117,11 @@ function getInitialFavoritePros() {
 
   return dedupePros(
     readStoredFavoriteIds()
-      .map((id) => getCachedProPreview(id))
-      .filter((p): p is ProListItem => p !== null)
-      .map(mapPreviewToPro),
+      .map((id) => {
+        const preview = getCachedProPreview(id);
+        return preview ? mapPreviewToPro(preview) : getHomeCachedPro(id);
+      })
+      .filter((p): p is FavProItem => p !== null),
   );
 }
 
@@ -173,6 +200,20 @@ export default function FavoritesPage() {
 
     return () => { cancelled = true; };
   }, [authHydrated, authUser, accessToken]);
+
+  useEffect(() => {
+    return subscribeFavoriteChanges((detail) => {
+      if (!detail?.proProfileId) return;
+      if (detail.isFavorited) {
+        const preview = getCachedProPreview(detail.proProfileId);
+        const nextPro = preview ? mapPreviewToPro(preview) : getHomeCachedPro(detail.proProfileId);
+        if (!nextPro) return;
+        setFavPros((prev) => dedupePros([nextPro, ...prev]));
+      } else {
+        setFavPros((prev) => prev.filter((p) => p.id !== detail.proProfileId));
+      }
+    });
+  }, []);
   const [recentPros, setRecentPros] = useState<FavProItem[]>(() => getInitialRecentPros());
   const recentLoadedRef = useRef(false);
   const [scrolled, setScrolled] = useState(false);
@@ -215,16 +256,16 @@ export default function FavoritesPage() {
 
   const removePro = useCallback((id: string) => {
     const previous = favPros;
-    let previousIds: string[] = [];
+    const previousIds = readStoredFavoriteIds();
     setFavPros(previous.filter((p) => p.id !== id));
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      previousIds = Array.isArray(stored) ? stored : [];
-      localStorage.setItem('freetiful-favorites', JSON.stringify(stored.filter((s) => s !== id)));
-    } catch {}
+    syncStoredFavoriteId(id, false);
+    applyFavoriteCountToLocalCaches(id, { delta: -1 });
+    emitFavoriteChange({ proProfileId: id, isFavorited: false, delta: -1, source: 'favorites-remove' });
     favoriteApi.remove(id).catch(() => {
       setFavPros(previous);
-      try { localStorage.setItem('freetiful-favorites', JSON.stringify(previousIds)); } catch {}
+      writeStoredFavoriteIds(previousIds);
+      applyFavoriteCountToLocalCaches(id, { delta: 1 });
+      emitFavoriteChange({ proProfileId: id, isFavorited: true, delta: 1, source: 'favorites-revert' });
     });
   }, [favPros]);
   const removeBiz = (id: string) => setFavBiz((prev) => prev.filter((b) => b.id !== id));

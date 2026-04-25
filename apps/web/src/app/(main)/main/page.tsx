@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin } from 'lucide-react';
@@ -15,7 +15,14 @@ import {
   WEDDING_PARTNER_CATEGORY_TABS,
 } from '@/lib/business-categories';
 import { discoveryApi } from '@/lib/api/discovery.api';
-import { favoriteApi } from '@/lib/api/favorite.api';
+import {
+  applyFavoriteCountToLocalCaches,
+  emitFavoriteChange,
+  favoriteApi,
+  readStoredFavoriteIds,
+  subscribeFavoriteChanges,
+  syncStoredFavoriteId,
+} from '@/lib/api/favorite.api';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
 
 /* iOS WKWebView 감지 — autoplay 영상 강제 풀스크린 우회용 */
@@ -486,7 +493,7 @@ const EVENT_PACKAGES = [
 function ProCard({ pro, favorites, toggleFavorite, index }: {
   pro: ProData;
   favorites: Set<string>;
-  toggleFavorite: (e: React.MouseEvent, id: string) => void;
+  toggleFavorite: (e: MouseEvent, id: string) => void;
   index: number;
 }) {
   const skipAnim = shouldSkipHomeAnim();
@@ -1066,10 +1073,7 @@ export default function HomePage() {
   };
 
   const [favorites, setFavorites] = useState<Set<string>>(() => {
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      return new Set(stored);
-    } catch { return new Set(); }
+    return new Set(readStoredFavoriteIds());
   });
   const rankScrollRef = useRef<HTMLDivElement>(null);
   const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
@@ -1149,6 +1153,7 @@ export default function HomePage() {
     discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false, realtime: true }).catch(() => {});
   };
   const updateProFavoriteCount = (proId: string, valueOrDelta: number, mode: 'set' | 'delta' = 'delta') => {
+    applyFavoriteCountToLocalCaches(proId, mode === 'set' ? { favoriteCount: valueOrDelta } : { delta: valueOrDelta });
     const update = (items: ProData[] | null) => {
       if (!items) return items;
       return items.map((item) => {
@@ -1168,52 +1173,54 @@ export default function HomePage() {
     setRegionalPros((prev) => update(prev) || prev);
   };
 
-  const toggleFavorite = (e: React.MouseEvent, proId: string) => {
+  useEffect(() => {
+    return subscribeFavoriteChanges((detail) => {
+      if (!detail?.proProfileId || detail.source === 'home-optimistic' || detail.source === 'home-revert') return;
+      setFavorites(new Set(readStoredFavoriteIds()));
+      if (typeof detail.favoriteCount === 'number') {
+        updateProFavoriteCount(detail.proProfileId, detail.favoriteCount, 'set');
+      } else if (typeof detail.delta === 'number') {
+        updateProFavoriteCount(detail.proProfileId, detail.delta, 'delta');
+      }
+    });
+  }, []);
+
+  const toggleFavorite = (e: MouseEvent, proId: string) => {
     e.preventDefault();
     e.stopPropagation();
     const isAdding = !favorites.has(proId);
     updateProFavoriteCount(proId, isAdding ? 1 : -1);
+    syncStoredFavoriteId(proId, isAdding);
+    emitFavoriteChange({
+      proProfileId: proId,
+      isFavorited: isAdding,
+      delta: isAdding ? 1 : -1,
+      source: 'home-optimistic',
+    });
     setFavorites((prev) => {
       const next = new Set(prev);
       if (next.has(proId)) next.delete(proId);
       else next.add(proId);
-      // Sync to localStorage
-      try {
-        const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-        if (isAdding) {
-          if (!stored.includes(proId)) stored.push(proId);
-        } else {
-          const idx = stored.indexOf(proId);
-          if (idx !== -1) stored.splice(idx, 1);
-        }
-        localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
-      } catch {}
       return next;
     });
     // Sync to API if authenticated
     if (authUser) {
       favoriteApi.toggle(proId)
-        .then((res) => {
-          if (typeof res.favoriteCount === 'number') updateProFavoriteCount(proId, res.favoriteCount, 'set');
-        })
         .catch(() => {
           updateProFavoriteCount(proId, isAdding ? -1 : 1);
+          syncStoredFavoriteId(proId, !isAdding);
+          emitFavoriteChange({
+            proProfileId: proId,
+            isFavorited: !isAdding,
+            delta: isAdding ? -1 : 1,
+            source: 'home-revert',
+          });
           setFavorites((prev) => {
             const next = new Set(prev);
             if (isAdding) next.delete(proId);
             else next.add(proId);
             return next;
           });
-          try {
-            const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-            if (isAdding) {
-              const idx = stored.indexOf(proId);
-              if (idx !== -1) stored.splice(idx, 1);
-            } else if (!stored.includes(proId)) {
-              stored.push(proId);
-            }
-            localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
-          } catch {}
         });
     }
     // Trigger fly animation when adding to favorites

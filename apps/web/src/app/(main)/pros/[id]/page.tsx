@@ -9,7 +9,12 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
 import { getPlanTemplates, getPlanTemplatesSync, type PlanTemplate } from '@/lib/api/plan-templates.api';
-import { favoriteApi } from '@/lib/api/favorite.api';
+import {
+  applyFavoriteCountToLocalCaches,
+  emitFavoriteChange,
+  favoriteApi,
+  syncStoredFavoriteId,
+} from '@/lib/api/favorite.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId } from '@/lib/chat-prewarm';
 import { startOAuth } from '@/lib/auth/oauth';
@@ -837,16 +842,7 @@ export default function ProDetailPage() {
   };
 
   const syncLocalFavorite = (profileId: string, favorited: boolean) => {
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      if (favorited) {
-        if (!stored.includes(profileId)) stored.push(profileId);
-      } else {
-        const idx = stored.indexOf(profileId);
-        if (idx !== -1) stored.splice(idx, 1);
-      }
-      localStorage.setItem('freetiful-favorites', JSON.stringify(stored));
-    } catch {}
+    syncStoredFavoriteId(profileId, favorited);
   };
 
   const updateFavoriteCount = (favorited: boolean) => {
@@ -863,7 +859,14 @@ export default function ProDetailPage() {
     const previousFavorited = isFavorited;
     setIsFavorited(nextFavorited);
     updateFavoriteCount(nextFavorited);
+    applyFavoriteCountToLocalCaches(profileId, { delta: nextFavorited ? 1 : -1 });
     syncLocalFavorite(profileId, nextFavorited);
+    emitFavoriteChange({
+      proProfileId: profileId,
+      isFavorited: nextFavorited,
+      delta: nextFavorited ? 1 : -1,
+      source: 'detail-optimistic',
+    });
     if (showToast) toast(previousFavorited ? '찜 해제' : '찜 목록에 추가됨', { icon: previousFavorited ? '💙' : '❤️' });
 
     if (authUser) {
@@ -872,13 +875,21 @@ export default function ProDetailPage() {
           setIsFavorited(res.isFavorited);
           syncLocalFavorite(profileId, res.isFavorited);
           if (typeof res.favoriteCount === 'number') {
+            applyFavoriteCountToLocalCaches(profileId, { favoriteCount: res.favoriteCount });
             setPro((current) => current ? { ...current, favoriteCount: res.favoriteCount || 0 } : current);
           }
         })
         .catch(() => {
           setIsFavorited(previousFavorited);
           updateFavoriteCount(previousFavorited);
+          applyFavoriteCountToLocalCaches(profileId, { delta: nextFavorited ? -1 : 1 });
           syncLocalFavorite(profileId, previousFavorited);
+          emitFavoriteChange({
+            proProfileId: profileId,
+            isFavorited: previousFavorited,
+            delta: nextFavorited ? -1 : 1,
+            source: 'detail-revert',
+          });
         });
     }
   };

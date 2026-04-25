@@ -187,6 +187,87 @@ export function primeProPreview(item: ProListItem) {
   previewCache.set(item.id, { data: item, ts: Date.now() });
 }
 
+type FavoriteCountChange = {
+  favoriteCount?: number;
+  delta?: number;
+};
+
+function patchFavoriteCountValue(current: unknown, change: FavoriteCountChange) {
+  const base = typeof current === 'number' && Number.isFinite(current) ? current : 0;
+  const next = typeof change.favoriteCount === 'number'
+    ? change.favoriteCount
+    : base + (change.delta ?? 0);
+  return Math.max(0, next);
+}
+
+function patchFavoriteCountPayload(payload: any, proProfileId: string, change: FavoriteCountChange): { data: any; changed: boolean; count?: number } {
+  let changed = false;
+  let resolvedCount: number | undefined;
+
+  const patchItem = (item: any) => {
+    if (!item || item.id !== proProfileId) return item;
+    const favoriteCount = patchFavoriteCountValue(item.favoriteCount, change);
+    resolvedCount = favoriteCount;
+    changed = true;
+    return { ...item, favoriteCount };
+  };
+
+  if (Array.isArray(payload)) {
+    return { data: payload.map(patchItem), changed, count: resolvedCount };
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return { data: { ...payload, data: payload.data.map(patchItem) }, changed, count: resolvedCount };
+  }
+
+  if (payload?.id === proProfileId) {
+    const favoriteCount = patchFavoriteCountValue(payload.favoriteCount, change);
+    return { data: { ...payload, favoriteCount }, changed: true, count: favoriteCount };
+  }
+
+  return { data: payload, changed: false };
+}
+
+export function updateCachedProFavoriteCount(proProfileId: string, change: FavoriteCountChange) {
+  let resolvedCount: number | undefined;
+  const now = Date.now();
+
+  const preview = previewCache.get(proProfileId);
+  if (preview && now - preview.ts < TTL) {
+    const favoriteCount = patchFavoriteCountValue(preview.data.favoriteCount, change);
+    previewCache.set(proProfileId, { data: { ...preview.data, favoriteCount }, ts: now });
+    resolvedCount = favoriteCount;
+  }
+
+  cache.forEach((value, key) => {
+    if (!key.startsWith('list:') && key !== `detail:${proProfileId}`) return;
+    const patched = patchFavoriteCountPayload(value.data, proProfileId, change);
+    if (!patched.changed) return;
+    cache.set(key, { data: patched.data, ts: value.ts });
+    if (typeof patched.count === 'number') resolvedCount = patched.count;
+  });
+
+  if (typeof window !== 'undefined') {
+    try {
+      Object.keys(localStorage).forEach((storageKey) => {
+        if (!storageKey.startsWith(STORAGE_PREFIX)) return;
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.ts || !('data' in parsed)) return;
+        const cacheKey = storageKey.slice(STORAGE_PREFIX.length);
+        if (!cacheKey.startsWith('list:') && cacheKey !== `detail:${proProfileId}`) return;
+        const patched = patchFavoriteCountPayload(parsed.data, proProfileId, change);
+        if (!patched.changed) return;
+        localStorage.setItem(storageKey, JSON.stringify({ ...parsed, data: patched.data }));
+        if (typeof patched.count === 'number') resolvedCount = patched.count;
+      });
+    } catch {}
+  }
+
+  return resolvedCount;
+}
+
 export function invalidateProCache(id?: string) {
   if (id) {
     cache.delete(`detail:${id}`);

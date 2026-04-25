@@ -1,12 +1,21 @@
 'use client';
 
-import { useState, useMemo, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, Star, ChevronDown, Search, SlidersHorizontal, X, ChevronUp } from 'lucide-react';
+import { ChevronLeft, Star, ChevronDown, Search, SlidersHorizontal, X, ChevronUp, Heart } from 'lucide-react';
 import { Suspense } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { discoveryApi, getCachedProList, type ProListItem } from '@/lib/api/discovery.api';
+import { useAuthStore } from '@/lib/store/auth.store';
+import {
+  applyFavoriteCountToLocalCaches,
+  emitFavoriteChange,
+  favoriteApi,
+  readStoredFavoriteIds,
+  subscribeFavoriteChanges,
+  syncStoredFavoriteId,
+} from '@/lib/api/favorite.api';
 
 interface ProItem {
   id: string;
@@ -17,6 +26,7 @@ interface ProItem {
   isNationwide: boolean;
   rating: number;
   reviews: number;
+  favoriteCount: number;
   puddingRank: number;
   image: string;
   intro: string;
@@ -116,7 +126,17 @@ function FilterPill({
   );
 }
 
-function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
+function ProListCard({
+  pro,
+  index,
+  isFavorited,
+  onToggleFavorite,
+}: {
+  pro: ProItem;
+  index: number;
+  isFavorited: boolean;
+  onToggleFavorite: (event: MouseEvent, proId: string) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const prefetchStarted = useRef(false);
   const [visible, setVisible] = useState(false);
@@ -153,14 +173,13 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
       style={{ transitionDelay: `${Math.min(index % PAGE_SIZE, 6) * 35}ms` }}
       transition={{ layout: { duration: 0.22, ease: PANEL_EASE } }}
     >
-      <Link
-        href={`/pros/${pro.id}`}
+      <div
         onMouseEnter={warmDetail}
         onTouchStart={warmDetail}
-        onFocus={warmDetail}
-        className="group flex gap-3 rounded-xl active:scale-[0.985] transition-transform"
+        className="group relative flex gap-3 rounded-xl active:scale-[0.985] transition-transform"
       >
-        <div className="relative w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100 shrink-0">
+        <Link href={`/pros/${pro.id}`} onFocus={warmDetail} className="absolute inset-0 z-0 rounded-xl" aria-label={`${pro.name} 상세보기`} />
+        <div className="pointer-events-none relative z-10 w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100 shrink-0">
           <img
             src={pro.image || '/images/default-profile.svg'}
             alt={pro.name}
@@ -174,7 +193,7 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
             </span>
           )}
         </div>
-        <div className="flex-1 min-w-0 flex flex-col py-0.5">
+        <div className="pointer-events-none relative z-10 flex-1 min-w-0 flex flex-col py-0.5">
           <div className="flex items-start justify-between gap-2">
             <p className="text-[16px] font-bold text-gray-900 leading-tight">
               {pro.categories[0] || '사회자'} {pro.name}
@@ -185,10 +204,16 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-0.5 mt-1">
-            <Star size={13} className="fill-yellow-400 text-yellow-400" />
-            <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
-            <span className="text-[13px] text-gray-400">({pro.reviews})</span>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-0.5">
+              <Star size={13} className="fill-yellow-400 text-yellow-400" />
+              <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
+              <span className="text-[13px] text-gray-400">({pro.reviews})</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <Heart size={12} className="fill-[#FF4D4D] text-[#FF4D4D]" />
+              <span className="text-[12px] font-semibold text-gray-500">{pro.favoriteCount.toLocaleString()}</span>
+            </div>
           </div>
           <p className="text-[15px] font-bold text-gray-900 mt-1">
             {pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}
@@ -209,7 +234,18 @@ function ProListCard({ pro, index }: { pro: ProItem; index: number }) {
             ))}
           </div>
         </div>
-      </Link>
+        <button
+          type="button"
+          onClick={(event) => onToggleFavorite(event, pro.id)}
+          className="relative z-20 -mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full active:scale-90 transition-transform"
+          aria-label={isFavorited ? '찜 해제' : '찜하기'}
+        >
+          <Heart
+            size={22}
+            className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-300'}
+          />
+        </button>
+      </div>
     </motion.div>
   );
 }
@@ -235,6 +271,7 @@ function getRegisteredPro(): ProItem | null {
     isNationwide: regions.length === 0,
     rating: 5.0,
     reviews: 0,
+    favoriteCount: 0,
     puddingRank: 0,
     image: photos[mainPhotoIndex] || photos[0] || '',
     intro: localStorage.getItem('proRegister_intro') || '프리티풀 인증 전문가',
@@ -261,6 +298,7 @@ function mapApiPros(items: ProListItem[]): ProItem[] {
       isNationwide: p.isNationwide ?? false,
       rating: p.avgRating || 0,
       reviews: p.reviewCount || 0,
+      favoriteCount: p.favoriteCount ?? 0,
       puddingRank: idx + 1,
       image: p.profileImageUrl || p.images?.[0] || '',
       intro: p.shortIntro || '',
@@ -280,6 +318,68 @@ function ProsListContent() {
   }
   const [apiPros, setApiPros] = useState<ProItem[]>(() => initialCachedProsRef.current || []);
   const [apiLoaded, setApiLoaded] = useState(() => Boolean(initialCachedProsRef.current?.length));
+  const authUser = useAuthStore((s) => s.user);
+  const [favorites, setFavorites] = useState<Set<string>>(() => new Set(readStoredFavoriteIds()));
+
+  const updateFavoriteCount = (proId: string, valueOrDelta: number, mode: 'set' | 'delta' = 'delta') => {
+    applyFavoriteCountToLocalCaches(proId, mode === 'set' ? { favoriteCount: valueOrDelta } : { delta: valueOrDelta });
+    setApiPros((prev) => prev.map((item) => {
+      if (item.id !== proId) return item;
+      const next = mode === 'set' ? valueOrDelta : item.favoriteCount + valueOrDelta;
+      return { ...item, favoriteCount: Math.max(0, next) };
+    }));
+  };
+
+  useEffect(() => {
+    return subscribeFavoriteChanges((detail) => {
+      if (!detail?.proProfileId || detail.source === 'pros-list-optimistic' || detail.source === 'pros-list-revert') return;
+      setFavorites(new Set(readStoredFavoriteIds()));
+      if (typeof detail.favoriteCount === 'number') {
+        updateFavoriteCount(detail.proProfileId, detail.favoriteCount, 'set');
+      } else if (typeof detail.delta === 'number') {
+        updateFavoriteCount(detail.proProfileId, detail.delta, 'delta');
+      }
+    });
+  }, []);
+
+  const toggleFavorite = (event: MouseEvent, proId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const isAdding = !favorites.has(proId);
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (isAdding) next.add(proId);
+      else next.delete(proId);
+      return next;
+    });
+    syncStoredFavoriteId(proId, isAdding);
+    updateFavoriteCount(proId, isAdding ? 1 : -1);
+    emitFavoriteChange({
+      proProfileId: proId,
+      isFavorited: isAdding,
+      delta: isAdding ? 1 : -1,
+      source: 'pros-list-optimistic',
+    });
+
+    if (authUser) {
+      favoriteApi.toggle(proId).catch(() => {
+        setFavorites((prev) => {
+          const next = new Set(prev);
+          if (isAdding) next.delete(proId);
+          else next.add(proId);
+          return next;
+        });
+        syncStoredFavoriteId(proId, !isAdding);
+        updateFavoriteCount(proId, isAdding ? -1 : 1);
+        emitFavoriteChange({
+          proProfileId: proId,
+          isFavorited: !isAdding,
+          delta: isAdding ? -1 : 1,
+          source: 'pros-list-revert',
+        });
+      });
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -700,7 +800,13 @@ function ProsListContent() {
           <div>
             <motion.div layout className="divide-y divide-gray-100">
               {paginatedPros.map((pro, i) => (
-                <ProListCard key={pro.id} pro={pro} index={i} />
+                <ProListCard
+                  key={pro.id}
+                  pro={pro}
+                  index={i}
+                  isFavorited={favorites.has(pro.id)}
+                  onToggleFavorite={toggleFavorite}
+                />
               ))}
             </motion.div>
 
