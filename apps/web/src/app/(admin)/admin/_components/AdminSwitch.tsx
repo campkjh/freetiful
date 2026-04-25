@@ -27,11 +27,13 @@ export function AdminSwitch({
       aria-label={ariaLabel || label || '토글'}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`admin-ios-switch relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-[3px] transition-[background-color,box-shadow,opacity] duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#3180F7]/15 disabled:cursor-not-allowed disabled:opacity-45 ${
-        checked
-          ? 'bg-[#3180F7] shadow-[inset_0_0_0_1px_rgba(49,128,247,0.18)]'
-          : 'bg-[#D1D6DB] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]'
-      } ${className}`}
+      className={`admin-ios-switch relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-[3px] transition-[background-color,box-shadow,opacity] duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#3180F7]/15 disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
+      style={{
+        backgroundColor: checked ? '#3180F7' : '#D1D6DB',
+        boxShadow: checked
+          ? 'inset 0 0 0 1px rgba(49,128,247,0.18)'
+          : 'inset 0 0 0 1px rgba(0,0,0,0.05)',
+      }}
     >
       <span
         className={`h-[22px] w-[22px] rounded-full bg-white shadow-[0_2px_6px_rgba(25,31,40,0.22)] transition-transform duration-200 ease-out ${
