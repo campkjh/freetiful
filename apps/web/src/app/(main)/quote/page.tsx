@@ -1129,7 +1129,6 @@ function QuotePage() {
                 {[
                   { provider: 'kakao', label: '카카오로 계속하기', cls: 'bg-[#FEE500] text-[#191919]' },
                   { provider: 'naver', label: '네이버로 계속하기', cls: 'bg-[#03C75A] text-white' },
-                  { provider: 'google', label: 'Google로 계속하기', cls: 'bg-white text-gray-700 border border-gray-200' },
                 ].map(({ provider, label, cls }) => (
                   <button key={provider} onClick={() => startOAuth(provider as 'kakao' | 'naver' | 'google')} className={`w-full flex items-center justify-center gap-3 ${cls} font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform`}>{label}</button>
                 ))}

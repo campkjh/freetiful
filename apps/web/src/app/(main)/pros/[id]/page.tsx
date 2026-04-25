@@ -1921,10 +1921,10 @@ export default function ProDetailPage() {
             <h2 className="text-[20px] font-bold text-gray-900 text-center mb-1">로그인이 필요합니다</h2>
             <p className="text-[14px] text-gray-500 text-center mb-6">이 기능을 사용하려면 로그인해주세요</p>
             <div className="space-y-2.5">
-              {['kakao', 'naver', 'google'].map((p) => (
+              {['kakao', 'naver'].map((p) => (
                 <button key={p} onClick={() => startOAuth(p as 'kakao' | 'naver' | 'google')}
-                  className={`w-full flex items-center justify-center gap-3 font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform ${p === 'kakao' ? 'bg-[#FEE500] text-[#191919]' : p === 'naver' ? 'bg-[#03C75A] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
-                >{p === 'kakao' ? '카카오로 계속하기' : p === 'naver' ? '네이버로 계속하기' : 'Google로 계속하기'}</button>
+                  className={`w-full flex items-center justify-center gap-3 font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform ${p === 'kakao' ? 'bg-[#FEE500] text-[#191919]' : 'bg-[#03C75A] text-white'}`}
+                >{p === 'kakao' ? '카카오로 계속하기' : '네이버로 계속하기'}</button>
               ))}
             </div>
             <button onClick={() => setLoginModal(false)} className="w-full mt-4 text-[14px] text-gray-400 font-medium py-2 text-center">나중에 하기</button>
