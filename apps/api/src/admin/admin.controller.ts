@@ -209,6 +209,11 @@ export class AdminController {
     });
   }
 
+  @Post('reviews')
+  async createReview(@Body() body: any) {
+    return this.adminService.createReview(body);
+  }
+
   @Delete('reviews/:id')
   async deleteReview(@Param('id') id: string) {
     return this.adminService.deleteReview(id);

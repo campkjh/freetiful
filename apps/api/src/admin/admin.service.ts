@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
@@ -6,6 +6,7 @@ import { ProService } from '../pro/pro.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { ImageService } from '../image/image.service';
 import { UsersService } from '../users/users.service';
+import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -51,6 +52,47 @@ export class AdminService {
   private applyCreatedAtRange(where: any, params?: { startDate?: string; endDate?: string }) {
     const range = this.buildDateRange(params);
     if (range) where.createdAt = range;
+  }
+
+  private parseAdminDateTime(value?: string | null, fallback = new Date()) {
+    if (!value) return fallback;
+    const normalized = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)
+      ? `${value}:00.000+09:00`
+      : value;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? fallback : date;
+  }
+
+  private parseEventDate(value?: string | null) {
+    if (!value) return null;
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? new Date(`${value}T00:00:00.000+09:00`)
+      : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private parseEventTime(value?: string | null) {
+    if (!value) return null;
+    const withSeconds = value.length === 5 ? `${value}:00` : value;
+    const date = new Date(`1970-01-01T${withSeconds}.000+09:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private async recalculateProReviewStats(proProfileId: string) {
+    const reviews = await this.prisma.review.findMany({
+      where: { proProfileId, isVisible: true },
+      select: { avgRating: true },
+    });
+    const avg = reviews.length
+      ? reviews.reduce((sum, review) => sum + Number(review.avgRating), 0) / reviews.length
+      : 0;
+    await this.prisma.proProfile.update({
+      where: { id: proProfileId },
+      data: {
+        avgRating: new Decimal(avg.toFixed(2)),
+        reviewCount: reviews.length,
+      },
+    });
   }
 
   /** 어드민이 특정 유저(또는 다수 유저)에게 쿠폰 발급 — UsersService 헬퍼 위임 */
@@ -1773,6 +1815,17 @@ export class AdminService {
         include: {
           reviewer: { select: { name: true } },
           proProfile: { include: { user: { select: { name: true } } } },
+          payment: {
+            select: {
+              id: true,
+              amount: true,
+              quotations: {
+                select: { eventDate: true, eventTime: true, eventLocation: true, title: true },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -1789,7 +1842,14 @@ export class AdminService {
         avgRating: r.avgRating,
         comment: r.comment,
         createdAt: r.createdAt,
+        adminCreated: r.adminCreated,
+        isVisible: r.isVisible,
         isAnonymous: r.isAnonymous,
+        eventDate: r.payment?.quotations?.[0]?.eventDate || null,
+        eventTime: r.payment?.quotations?.[0]?.eventTime || null,
+        eventLocation: r.payment?.quotations?.[0]?.eventLocation || null,
+        eventTitle: r.payment?.quotations?.[0]?.title || null,
+        amount: r.payment?.amount || 0,
       })),
       total,
       page,
@@ -1797,9 +1857,140 @@ export class AdminService {
     };
   }
 
+  async createReview(data: {
+    proProfileId?: string;
+    reviewerId?: string;
+    reviewerName?: string;
+    reviewerEmail?: string;
+    ratingSatisfaction?: number;
+    ratingComposition?: number;
+    ratingExperience?: number;
+    ratingAppearance?: number;
+    ratingVoice?: number;
+    ratingWit?: number;
+    comment?: string;
+    isAnonymous?: boolean;
+    isVisible?: boolean;
+    eventDate?: string;
+    eventTime?: string;
+    eventLocation?: string;
+    eventTitle?: string;
+    reviewCreatedAt?: string;
+    amount?: number;
+  }) {
+    if (!data.proProfileId) {
+      throw new BadRequestException('사회자를 선택해주세요.');
+    }
+    const proProfile = await this.prisma.proProfile.findUnique({
+      where: { id: data.proProfileId },
+      select: { id: true, userId: true },
+    });
+    if (!proProfile) throw new NotFoundException('전문가 프로필을 찾을 수 없습니다.');
+    const comment = (data.comment || '').trim();
+    if (!comment) {
+      throw new BadRequestException('리뷰 내용을 입력해주세요.');
+    }
+
+    const ratings = [
+      Number(data.ratingSatisfaction || 5),
+      Number(data.ratingComposition || 5),
+      Number(data.ratingExperience || 5),
+      Number(data.ratingAppearance || 5),
+      Number(data.ratingVoice || 5),
+      Number(data.ratingWit || 5),
+    ].map((rating) => Math.min(5, Math.max(1, Math.round(rating))));
+    const avgRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+    const reviewCreatedAt = this.parseAdminDateTime(data.reviewCreatedAt);
+    const amount = Math.max(0, Math.round(Number(data.amount || 0)));
+    const reviewerName = (data.reviewerName || '고객').trim() || '고객';
+    const reviewerEmail = (data.reviewerEmail || '').trim().toLowerCase();
+
+    let reviewer = data.reviewerId
+      ? await this.prisma.user.findUnique({ where: { id: data.reviewerId } })
+      : null;
+    if (!reviewer && reviewerEmail) {
+      reviewer = await this.prisma.user.findUnique({ where: { email: reviewerEmail } });
+    }
+    if (!reviewer) {
+      reviewer = await this.prisma.user.create({
+        data: {
+          role: 'general',
+          name: reviewerName,
+          email: reviewerEmail || `admin-review-${randomUUID().slice(0, 12)}@freetiful.local`,
+          referralCode: `AR${randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`,
+          createdAt: reviewCreatedAt,
+        },
+      });
+    }
+
+    const review = await this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          userId: reviewer!.id,
+          proProfileId: proProfile.id,
+          amount,
+          platformFee: 0,
+          netAmount: amount,
+          method: 'admin_review',
+          pgProvider: 'admin',
+          pgTransactionId: `ADMIN-REVIEW-${Date.now()}-${randomUUID().slice(0, 8)}`,
+          status: 'completed',
+          escrowReleasedAt: reviewCreatedAt,
+          settledAt: reviewCreatedAt,
+          createdAt: reviewCreatedAt,
+        },
+      });
+      const quotation = await tx.quotation.create({
+        data: {
+          proProfileId: proProfile.id,
+          userId: reviewer!.id,
+          paymentId: payment.id,
+          amount,
+          title: data.eventTitle || '관리자 등록 리뷰',
+          eventDate: this.parseEventDate(data.eventDate) || undefined,
+          eventTime: this.parseEventTime(data.eventTime) || undefined,
+          eventLocation: data.eventLocation || undefined,
+          status: 'paid',
+          createdAt: reviewCreatedAt,
+        },
+      });
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { quotationId: quotation.id },
+      });
+      return tx.review.create({
+        data: {
+          paymentId: payment.id,
+          reviewerId: reviewer!.id,
+          proProfileId: proProfile.id,
+          ratingSatisfaction: ratings[0],
+          ratingComposition: ratings[1],
+          ratingExperience: ratings[2],
+          ratingAppearance: ratings[3],
+          ratingVoice: ratings[4],
+          ratingWit: ratings[5],
+          avgRating: new Decimal(avgRating.toFixed(2)),
+          comment,
+          isAnonymous: data.isAnonymous ?? false,
+          isVisible: data.isVisible ?? true,
+          adminCreated: true,
+          createdAt: reviewCreatedAt,
+        },
+      });
+    });
+
+    await this.recalculateProReviewStats(proProfile.id);
+    return { success: true, reviewId: review.id };
+  }
+
   // ─── 리뷰 삭제 ───────────────────────────────────────────────────────────
   async deleteReview(reviewId: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      select: { proProfileId: true },
+    });
     await this.prisma.review.delete({ where: { id: reviewId } });
+    if (review?.proProfileId) await this.recalculateProReviewStats(review.proProfileId);
     return { success: true };
   }
 
