@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   LayoutDashboard,
   UserCog,
@@ -164,6 +165,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </div>
   );
 
+  const AdminBrandLogo = ({ compact = false }: { compact?: boolean }) => (
+    <span className="flex items-center gap-2.5">
+      <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-[0_8px_18px_rgba(2,32,71,0.06)] ring-1 ring-[#E5E8EB] ${compact ? 'h-9 w-9' : 'h-10 w-10'}`}>
+        <Image
+          src="/icon.svg"
+          alt="Freetiful"
+          width={compact ? 30 : 34}
+          height={compact ? 30 : 34}
+          priority
+          className="h-7 w-7 object-contain"
+        />
+      </span>
+      {!compact && (
+        <span className="min-w-0">
+          <Image
+            src="/images/logo-freetiful-wordmark.svg"
+            alt="Freetiful"
+            width={116}
+            height={34}
+            priority
+            className="h-[24px] w-auto object-contain"
+          />
+          <span className="mt-0.5 block text-[11px] font-bold text-[#8B95A1]">Admin Console</span>
+        </span>
+      )}
+    </span>
+  );
+
   return (
     <div className="admin-shell flex h-screen bg-[#F7F8FA] text-[#191F28]">
       {/* Desktop sidebar */}
@@ -175,16 +204,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex h-16 items-center justify-between border-b border-[#F2F4F6] px-3">
           {!collapsed && (
             <Link href="/admin" className="flex min-w-0 items-center gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#191F28] text-[15px] font-black text-white shadow-[0_8px_18px_rgba(25,31,40,0.15)]">F</span>
-              <span className="min-w-0">
-                <span className="block text-[15px] font-black tracking-tight text-[#191F28]">Freetiful</span>
-                <span className="block text-[11px] font-bold text-[#8B95A1]">Admin Console</span>
-              </span>
+              <AdminBrandLogo />
             </Link>
+          )}
+          {collapsed && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(false)}
+              className="mx-auto rounded-2xl transition-transform hover:scale-105"
+              aria-label="사이드바 열기"
+              title="사이드바 열기"
+            >
+              <AdminBrandLogo compact />
+            </button>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-2xl text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#191F28]"
+            className={`admin-icon-button flex h-9 w-9 items-center justify-center rounded-2xl text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#191F28] ${collapsed ? 'hidden' : ''}`}
             aria-label={collapsed ? '사이드바 열기' : '사이드바 접기'}
           >
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
@@ -199,8 +235,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Mobile top bar */}
         <div className="flex md:hidden h-14 items-center justify-between border-b border-[#F2F4F6] bg-white/90 px-4 backdrop-blur-xl">
           <Link href="/admin" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#191F28] text-[13px] font-black text-white">F</span>
-            <h1 className="text-[14px] font-black tracking-tight text-[#191F28]">Admin</h1>
+            <Image
+              src="/images/logo-freetiful-wordmark.svg"
+              alt="Freetiful"
+              width={112}
+              height={33}
+              priority
+              className="h-[24px] w-auto"
+            />
+            <span className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[10px] font-black text-[#3182F6]">Admin</span>
           </Link>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -217,7 +260,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="absolute inset-0 bg-[#191F28]/35 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} />
             <aside className="absolute left-0 top-0 bottom-0 w-72 flex flex-col bg-white shadow-2xl animate-[slideRight_0.22s_var(--spring)]">
               <div className="flex h-14 items-center justify-between border-b border-[#F2F4F6] px-4">
-                <h1 className="text-[14px] font-black tracking-tight text-[#191F28]">Admin Console</h1>
+                <div className="flex items-center gap-2">
+                  <Image
+                    src="/images/logo-freetiful-wordmark.svg"
+                    alt="Freetiful"
+                    width={112}
+                    height={33}
+                    priority
+                    className="h-[24px] w-auto"
+                  />
+                  <span className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[10px] font-black text-[#3182F6]">Admin</span>
+                </div>
                 <button
                   onClick={() => setMobileOpen(false)}
                   className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-2xl text-[#6B7684] hover:bg-[#F2F4F6]"
@@ -235,6 +288,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main className="admin-main flex-1 overflow-auto bg-[#F7F8FA]">
           <div className="sticky top-0 z-20 hidden border-b border-black/[0.04] bg-white/75 px-6 py-3 backdrop-blur-xl md:block">
             <div className="mx-auto flex max-w-6xl items-center gap-3">
+              <Image
+                src="/images/logo-freetiful-wordmark.svg"
+                alt="Freetiful"
+                width={96}
+                height={28}
+                priority
+                className="h-[21px] w-auto"
+              />
+              <span className="h-6 w-px bg-[#E5E8EB]" />
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#B0B8C1]">Freetiful Ops</p>
                 <p className="text-[15px] font-black text-[#191F28]">{activeNav?.label || '관리자'}</p>

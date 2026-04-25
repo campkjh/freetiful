@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,10 +48,16 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen flex flex-col justify-center px-6 py-12 bg-white">
       <div className="w-full max-w-sm mx-auto">
-        <div className="mb-10 text-center">
-          <span className="text-[26px] font-extrabold tracking-[-0.04em] text-[#191F28]">
-            프리티풀
-          </span>
+        <div className="mb-10 flex flex-col items-center text-center">
+          <Image
+            src="/images/logo-freetiful-wordmark.svg"
+            alt="Freetiful"
+            width={154}
+            height={45}
+            priority
+            className="h-[38px] w-auto"
+          />
+          <p className="mt-2 text-[12px] font-bold text-[#8B95A1]">Admin Console</p>
         </div>
 
         <h2 className="text-[14px] font-semibold text-[#191F28] mb-6">로그인</h2>
