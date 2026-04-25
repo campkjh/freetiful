@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Bell, Star, ChevronRight, ChevronLeft, ArrowRight, MapPin } from 'lucide-react';
@@ -318,6 +318,48 @@ interface ProData {
   isPartner?: boolean;
 }
 
+function mapDiscoveryProToHomePro(p: any): ProData {
+  return {
+    id: p.id,
+    name: p.name,
+    categories: p.categories || [],
+    regions: p.regions || [],
+    languages: p.languages || [],
+    isNationwide: p.isNationwide ?? false,
+    rating: Number(p.avgRating ?? 0),
+    reviews: p.reviewCount ?? 0,
+    favoriteCount: p.favoriteCount ?? 0,
+    pudding: p.puddingCount ?? 0,
+    image: p.images?.[0] || p.profileImageUrl || '',
+    images: p.images || [],
+    intro: p.shortIntro || '',
+    price: typeof p.basePrice === 'number' && p.basePrice > 0 ? p.basePrice : 0,
+    experience: p.careerYears || 0,
+    tags: (Array.isArray(p.tags) && p.tags.length > 0)
+      ? p.tags
+      : (p.isFeatured ? ['인기'] : (p.isNationwide ? ['전국가능'] : [])),
+    available: true,
+    youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
+    isPartner: p.showPartnersLogo || p.isFeatured || false,
+  };
+}
+
+function sortByPuddingRank(items: ProData[]) {
+  return [...items].sort((a, b) =>
+    (b.pudding ?? 0) - (a.pudding ?? 0)
+    || b.rating - a.rating
+    || b.reviews - a.reviews
+    || a.name.localeCompare(b.name, 'ko')
+  );
+}
+
+function isWeddingMcPro(pro: ProData) {
+  return pro.categories.some((category) => {
+    const value = category.toLowerCase();
+    return value.includes('결혼식') || value.includes('사회자') || value.includes('mc');
+  });
+}
+
 /* placeholder to anchor subsequent edits */
 // ─── Business Partners (기업회원) ──────────────────────────────
 interface BusinessPartner {
@@ -334,7 +376,7 @@ interface BusinessPartner {
 const BIZ_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
-const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v3';
+const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
 const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v1';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
@@ -810,6 +852,7 @@ export default function HomePage() {
 
   // Fetch pro list from API
   useEffect(() => {
+    let cancelled = false;
     // 캐시에서 즉시 표시 (두 번째 방문부터 무한 로딩 방지)
     try {
       const cached = localStorage.getItem(HOME_PROS_CACHE_KEY);
@@ -824,57 +867,58 @@ export default function HomePage() {
       setApiPros((prev) => prev ?? []);
     }, 8000);
 
-    discoveryApi.getProList({ limit: 41, sort: 'pudding', withTotal: false })
-      .then((res) => {
-        clearTimeout(timeout);
-        if (res.data?.length > 0) {
-          // userId 기준 중복 제거 (동일 유저의 여러 프로필 중 가장 최신 것만)
-          const seen = new Set<string>();
-          const deduped = res.data.filter((p: any) => {
-            const key = p.userId || p.id;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-          const mapped = deduped.map((p: any, i: number) => ({
-            id: p.id,
-            name: p.name,
-            categories: p.categories || [],
-            regions: p.regions || [],
-            languages: p.languages || [],
-            isNationwide: p.isNationwide ?? false,
-            rating: p.avgRating,
-            reviews: p.reviewCount,
-            favoriteCount: p.favoriteCount ?? 0,
-            image: p.images?.[0] || p.profileImageUrl || '',
-            images: p.images || [],
-            intro: p.shortIntro || '',
-            price: typeof p.basePrice === 'number' && p.basePrice > 0 ? p.basePrice : 0,
-            experience: p.careerYears || 0,
-            // 실제 DB tags 사용. 없으면 isFeatured/isNationwide 기반 폴백
-            tags: (Array.isArray(p.tags) && p.tags.length > 0)
-              ? p.tags
-              : (p.isFeatured ? ['인기'] : (p.isNationwide ? ['전국가능'] : [])),
-            available: true,
-            youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
-            isPartner: p.showPartnersLogo || p.isFeatured || false,
-          }));
-          setApiPros(mapped);
-          try { localStorage.setItem(HOME_PROS_CACHE_KEY, JSON.stringify(mapped)); } catch {}
-        } else {
-          setApiPros([]);
-        }
-      })
-      .catch(() => {
-        clearTimeout(timeout);
-        setApiPros([]);
-      });
+    const loadRealtimePuddingRank = () => {
+      discoveryApi.getProList({ limit: 41, sort: 'pudding', withTotal: false, realtime: true })
+        .then((res) => {
+          if (cancelled) return;
+          clearTimeout(timeout);
+          if (res.data?.length > 0) {
+            // userId 기준 중복 제거 (동일 유저의 여러 프로필 중 가장 최신 것만)
+            const seen = new Set<string>();
+            const deduped = res.data.filter((p: any) => {
+              const key = p.userId || p.id;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+            const mapped = sortByPuddingRank(deduped.map(mapDiscoveryProToHomePro));
+            setApiPros(mapped);
+            try { localStorage.setItem(HOME_PROS_CACHE_KEY, JSON.stringify(mapped)); } catch {}
+          } else {
+            setApiPros([]);
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          clearTimeout(timeout);
+          setApiPros((prev) => prev ?? []);
+        });
+    };
 
-    return () => clearTimeout(timeout);
+    loadRealtimePuddingRank();
+    const interval = window.setInterval(loadRealtimePuddingRank, 20_000);
+    const onFocus = () => loadRealtimePuddingRank();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadRealtimePuddingRank();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // Use API data only - no mock fallback
-  const prosData = apiPros || [];
+  const prosData = useMemo(() => sortByPuddingRank(apiPros || []), [apiPros]);
+  const bestWeddingPros = useMemo(() => {
+    const weddingPros = prosData.filter(isWeddingMcPro);
+    return weddingPros.length > 0 ? weddingPros : prosData;
+  }, [prosData]);
   const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
 
   useEffect(() => {
@@ -937,28 +981,7 @@ export default function HomePage() {
     discoveryApi.getProList({ limit: 12, sort: 'rating', region: selectedRegion, withTotal: false })
       .then((res) => {
         if (cancelled) return;
-        const mapped = (res.data || []).map((p: any, i: number) => ({
-          id: p.id,
-          name: p.name,
-          categories: p.categories || [],
-          regions: p.regions || [],
-          languages: p.languages || [],
-          isNationwide: p.isNationwide ?? false,
-          rating: p.avgRating,
-          reviews: p.reviewCount,
-          favoriteCount: p.favoriteCount ?? 0,
-          image: p.images?.[0] || p.profileImageUrl || '',
-          images: p.images || [],
-          intro: p.shortIntro || '',
-          price: typeof p.basePrice === 'number' && p.basePrice > 0 ? p.basePrice : 0,
-          experience: p.careerYears || 0,
-          tags: (Array.isArray(p.tags) && p.tags.length > 0)
-            ? p.tags
-            : (p.isFeatured ? ['인기'] : (p.isNationwide ? ['전국가능'] : [])),
-          available: true,
-          youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
-          isPartner: p.showPartnersLogo || p.isFeatured || false,
-        }));
+        const mapped = (res.data || []).map(mapDiscoveryProToHomePro);
         setRegionalPros(mapped);
       })
       .catch(() => {
@@ -1123,7 +1146,7 @@ export default function HomePage() {
 
   const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat || b.tags.includes(selectedBizCat));
   const warmProsList = () => {
-    discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false }).catch(() => {});
+    discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false, realtime: true }).catch(() => {});
   };
   const updateProFavoriteCount = (proId: string, valueOrDelta: number, mode: 'set' | 'delta' = 'delta') => {
     const update = (items: ProData[] | null) => {
@@ -1603,7 +1626,7 @@ export default function HomePage() {
               <img src="/images/trophy.png" alt="" className="w-10 h-10 object-contain shrink-0" />
               <div>
                 <h3 className="section-title">BEST 결혼식 사회자</h3>
-                <p className="section-subtitle mt-1">가장 많이 찾았던 전문가를 한눈에</p>
+                <p className="section-subtitle mt-1">푸딩 수 기준 실시간 랭킹</p>
               </div>
             </div>
             <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600 pb-0.5" style={{ transition: 'color 0.3s' }}>
@@ -1614,8 +1637,8 @@ export default function HomePage() {
           {/* Desktop header */}
           <div className="hidden lg:flex items-center justify-between mb-5">
             <div>
-              <h3 className="section-title">이달의 TOP 전문가</h3>
-              <p className="section-subtitle mt-1">리뷰와 평점으로 선정된 TOP 5</p>
+              <h3 className="section-title">BEST 결혼식 사회자</h3>
+              <p className="section-subtitle mt-1">푸딩 수 기준 실시간 TOP 5</p>
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -1635,10 +1658,10 @@ export default function HomePage() {
 
           {/* Mobile: Pill-shaped 3:4 photos with rank badges (top 3) */}
           <div className="lg:hidden grid grid-cols-3 gap-x-3 py-4">
-            {prosData.length >= 3 ? [
-              { pro: prosData[1], border: '#D1D5DB', trophy: '/images/group-1707482188.svg', offset: true },
-              { pro: prosData[0], border: '#FBBF24', trophy: '/images/group-1707482189.svg', offset: false },
-              { pro: prosData[2], border: '#CD7F32', trophy: '/images/group-1707482190.svg', offset: true },
+            {bestWeddingPros.length >= 3 ? [
+              { pro: bestWeddingPros[1], border: '#D1D5DB', trophy: '/images/group-1707482188.svg', offset: true },
+              { pro: bestWeddingPros[0], border: '#FBBF24', trophy: '/images/group-1707482189.svg', offset: false },
+              { pro: bestWeddingPros[2], border: '#CD7F32', trophy: '/images/group-1707482190.svg', offset: true },
             ].map(({ pro, border, trophy, offset }) => (
               <Link key={pro.id} href={`/pros/${pro.id}`} className={`flex flex-col items-center ${offset ? 'mt-5' : ''}`}>
                 <div className="relative w-full aspect-[3/4]">
@@ -1652,6 +1675,7 @@ export default function HomePage() {
                 </div>
                 <p className="text-[14px] font-bold text-gray-900 mt-4">{pro.name}</p>
                 <p className="text-[12px] text-gray-400">{pro.categories[0] || '사회자'}</p>
+                <p className="text-[11px] font-bold text-amber-600 mt-0.5">{(pro.pudding ?? 0).toLocaleString()} 푸딩</p>
               </Link>
             )) : (
               [
@@ -1676,7 +1700,7 @@ export default function HomePage() {
             ref={rankScrollRef}
             className="hidden lg:flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
           >
-            {prosData.length === 0 && (
+            {bestWeddingPros.length === 0 && (
               Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex-shrink-0 w-[280px] snap-start flex gap-3">
                   <div className="flex items-center shrink-0">
@@ -1693,7 +1717,7 @@ export default function HomePage() {
                 </div>
               ))
             )}
-            {prosData.slice(0, 5).map((pro, i) => (
+            {bestWeddingPros.slice(0, 5).map((pro, i) => (
               <Link
                 key={pro.id}
                 href={`/pros/${pro.id}`}
@@ -1719,6 +1743,7 @@ export default function HomePage() {
                     <span className="text-[11px] font-medium text-gray-400">{pro.categories[0] || '사회자'}</span>
                     <p className="text-[15px] font-bold text-gray-900 leading-tight">{pro.name}</p>
                   </div>
+                  <p className="text-[12px] font-bold text-amber-600 mt-1">{(pro.pudding ?? 0).toLocaleString()} 푸딩</p>
                   <div className="flex items-center gap-0.5 mt-1">
                     <Star size={11} className="fill-yellow-400 text-yellow-400" />
                     <span className="text-[12px] font-bold text-gray-900">{pro.rating}</span>

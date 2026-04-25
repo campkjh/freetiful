@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Param, Query } from '@nestjs/common';
+import { Controller, Get, Header, Param, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { DiscoveryService } from './discovery.service';
 
@@ -15,7 +15,6 @@ export class DiscoveryController {
   }
 
   @Get('pros')
-  @Header('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300')
   @ApiOperation({ summary: '전문가 목록 (검색, 필터, 정렬)' })
   getProList(
     @Query('page') page?: number,
@@ -28,7 +27,13 @@ export class DiscoveryController {
     @Query('featured') featured?: boolean,
     @Query('region') region?: string,
     @Query('withTotal') withTotal?: string,
+    @Res({ passthrough: true }) res?: any,
   ) {
+    if (sort === 'pudding') {
+      res?.setHeader('Cache-Control', 'no-store, max-age=0');
+    } else {
+      res?.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
+    }
     return this.discovery.getProList({
       page,
       limit,

@@ -97,7 +97,7 @@ export default function PuddingPage() {
             <p className="text-lg font-bold">
               {myRank == null ? '랭킹 없음' : myRank <= 3 ? `${['🥇','🥈','🥉'][myRank - 1]} ${myRank}위` : `${myRank}위`}
             </p>
-            <p className="text-[10px] opacity-70">매일 00시 랭킹 갱신</p>
+            <p className="text-[10px] opacity-70">실시간 랭킹 반영</p>
           </div>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default function PuddingPage() {
       <div className="mx-4 mt-3 bg-red-50 rounded-xl p-3 flex items-start gap-2">
         <Info size={14} className="text-red-400 shrink-0 mt-0.5" />
         <p className="text-xs text-red-600">
-          전일 1~3위는 매일 00시에 푸딩이 <strong>0으로 초기화</strong>됩니다.
+          푸딩은 활동과 관리자 지급/차감에 따라 실시간으로 랭킹에 반영됩니다.
           상위권 유지를 위해 꾸준히 활동하세요!
         </p>
       </div>

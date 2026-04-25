@@ -21,8 +21,8 @@ export class PuddingController {
     if (!profile) return { balance: 0, rank: null, history: [] };
     const detail = await this.pudding.getBalance(profile.id);
     return {
-      balance: profile.puddingCount,
-      rank: profile.puddingRank,
+      balance: detail?.puddingCount ?? profile.puddingCount,
+      rank: detail?.rank ?? detail?.puddingRank ?? null,
       history: detail?.history || [],
     };
   }

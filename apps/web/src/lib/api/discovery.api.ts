@@ -216,6 +216,7 @@ type ProListParams = {
   featured?: boolean;
   region?: string;
   withTotal?: boolean;
+  realtime?: boolean;
 };
 
 export const discoveryApi = {
@@ -223,8 +224,17 @@ export const discoveryApi = {
     cached('daily', () => apiClient.get<RecommendedPro>(`${BASE}/recommendation/daily`).then((r) => r.data)),
 
   getProList: (params?: ProListParams) => {
-    const key = `list:${JSON.stringify(params || {})}`;
-    return cached(key, () => apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, { params }).then((r) => r.data));
+    const { realtime, ...requestParams } = params || {};
+    if (realtime) {
+      return apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, {
+        params: { ...requestParams, _t: Date.now() },
+      }).then((r) => {
+        indexProPreviews(r.data);
+        return r.data;
+      });
+    }
+    const key = `list:${JSON.stringify(requestParams || {})}`;
+    return cached(key, () => apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, { params: requestParams }).then((r) => r.data));
   },
 
   getProDetail: (id: string, skipCache = false) => {

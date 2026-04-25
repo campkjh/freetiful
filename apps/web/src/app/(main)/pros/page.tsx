@@ -45,8 +45,8 @@ const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
 const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외국어사회자'];
 
 const PAGE_SIZE = 10;
-const INITIAL_PRO_LIST_PARAMS = { limit: 24, sort: 'pudding' as const, withTotal: false };
-const FULL_PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: false };
+const INITIAL_PRO_LIST_PARAMS = { limit: 24, sort: 'pudding' as const, withTotal: false, realtime: true };
+const FULL_PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: false, realtime: true };
 const TAB_SPRING = { type: 'spring' as const, stiffness: 520, damping: 36, mass: 0.75 };
 const PANEL_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 

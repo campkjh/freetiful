@@ -210,7 +210,7 @@ export class PuddingService {
   }
 
   async getBalance(proProfileId: string) {
-    const [pro, history] = await Promise.all([
+    const [pro, history, rank] = await Promise.all([
       this.prisma.proProfile.findUnique({
         where: { id: proProfileId },
         select: { puddingCount: true, puddingRank: true },
@@ -220,27 +220,57 @@ export class PuddingService {
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
+      this.getCurrentRank(proProfileId),
     ]);
-    return { ...pro, history };
+    if (!pro) return { puddingCount: 0, puddingRank: null, rank: null, history };
+    return { ...pro, puddingRank: rank, rank, history };
+  }
+
+  async getCurrentRank(proProfileId: string) {
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { id: proProfileId },
+      select: { puddingCount: true, status: true },
+    });
+    if (!profile || profile.status !== ProStatus.approved) return null;
+    const higherCount = await this.prisma.proProfile.count({
+      where: {
+        status: ProStatus.approved,
+        puddingCount: { gt: profile.puddingCount },
+      },
+    });
+    return higherCount + 1;
   }
 
   async getRankings(page = 1, limit = 20) {
-    const skip = (page - 1) * limit;
-    const [data, total] = await Promise.all([
-      this.prisma.proProfile.findMany({
-        where: { status: ProStatus.approved, puddingRank: { not: null } },
-        orderBy: { puddingRank: 'asc' },
-        skip,
-        take: limit,
-        select: {
-          id: true,
-          puddingCount: true,
-          puddingRank: true,
-          user: { select: { name: true, profileImageUrl: true } },
-        },
-      }),
-      this.prisma.proProfile.count({ where: { status: ProStatus.approved } }),
-    ]);
-    return { data, total, page, limit, hasMore: skip + data.length < total };
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Number(limit) || 20), 100);
+    const skip = (safePage - 1) * safeLimit;
+    const rows = await this.prisma.proProfile.findMany({
+      where: { status: ProStatus.approved },
+      orderBy: [
+        { puddingCount: 'desc' },
+        { updatedAt: 'asc' },
+        { id: 'asc' },
+      ],
+      select: {
+        id: true,
+        puddingCount: true,
+        user: { select: { id: true, name: true, profileImageUrl: true } },
+      },
+    });
+
+    let rank = 1;
+    const ranked = rows.map((pro, i) => {
+      if (i > 0 && pro.puddingCount < rows[i - 1].puddingCount) rank = i + 1;
+      return { ...pro, rank, puddingRank: rank };
+    });
+    const data = ranked.slice(skip, skip + safeLimit);
+    return {
+      data,
+      total: ranked.length,
+      page: safePage,
+      limit: safeLimit,
+      hasMore: skip + data.length < ranked.length,
+    };
   }
 }

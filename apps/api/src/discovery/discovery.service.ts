@@ -105,9 +105,10 @@ export class DiscoveryService implements OnModuleInit {
     const { sort = 'rating', gender, minPrice, maxPrice, featured, region } = params;
     const search = params.search?.trim();
     const withTotal = params.withTotal !== false;
+    const isRealtimePuddingRank = sort === 'pudding';
 
     const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured, region, withTotal });
-    const cached = this.getCached<any>(cacheKey);
+    const cached = isRealtimePuddingRank ? null : this.getCached<any>(cacheKey);
     if (cached) return cached;
 
     // 공개 목록 조건:
@@ -162,10 +163,10 @@ export class DiscoveryService implements OnModuleInit {
     }
 
     const orderBy: any =
-      sort === 'reviews' ? { reviewCount: 'desc' as const }
-      : sort === 'experience' ? { careerYears: 'desc' as const }
-      : sort === 'pudding' ? { puddingCount: 'desc' as const }
-      : { avgRating: 'desc' as const };
+      sort === 'reviews' ? [{ reviewCount: 'desc' as const }, { avgRating: 'desc' as const }, { id: 'asc' as const }]
+      : sort === 'experience' ? [{ careerYears: 'desc' as const }, { puddingCount: 'desc' as const }, { id: 'asc' as const }]
+      : sort === 'pudding' ? [{ puddingCount: 'desc' as const }, { avgRating: 'desc' as const }, { reviewCount: 'desc' as const }, { id: 'asc' as const }]
+      : [{ avgRating: 'desc' as const }, { puddingCount: 'desc' as const }, { id: 'asc' as const }];
 
     const [data, totalCount] = await Promise.all([
       this.prisma.proProfile.findMany({
@@ -252,7 +253,7 @@ export class DiscoveryService implements OnModuleInit {
       limit,
       hasMore: withTotal ? page * limit < total : data.length === limit,
     };
-    this.setCached(cacheKey, result);
+    if (!isRealtimePuddingRank) this.setCached(cacheKey, result);
     return result;
   }
 

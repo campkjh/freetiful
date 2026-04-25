@@ -7,7 +7,7 @@ import { ChevronLeft, Search, X, Star, Clock } from 'lucide-react';
 import { discoveryApi, getCachedProList, getCachedProSearchPool, type ProListItem } from '@/lib/api/discovery.api';
 
 const RECENT_SEARCHES_KEY = 'freetiful_recent_searches';
-const SEARCH_INDEX_PARAMS = { limit: 100, sort: 'pudding' as const, withTotal: false };
+const SEARCH_INDEX_PARAMS = { limit: 100, sort: 'pudding' as const, withTotal: false, realtime: true };
 const SEARCH_RESULT_LIMIT = 30;
 
 function getRecentSearches(): string[] {
