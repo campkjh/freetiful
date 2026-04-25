@@ -126,13 +126,24 @@ export default function NotificationsSettingsPage() {
               <p className="text-[11px] text-gray-400 mt-0.5">{s.description}</p>
             </div>
             <button
+              type="button"
+              role="switch"
+              aria-checked={s.enabled}
+              aria-label={s.label}
               onClick={() => toggle(s.key)}
               disabled={savingKey === s.key}
-              className="relative w-11 h-6 rounded-full transition-colors"
-              style={{ backgroundColor: s.enabled ? '#2B313D' : '#E5E7EB' }}
+              className="relative h-7 w-12 shrink-0 rounded-full p-[3px] transition-[background-color,box-shadow,opacity] duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#3180F7]/15 disabled:opacity-45"
+              style={{
+                backgroundColor: s.enabled ? '#3180F7' : '#D1D6DB',
+                boxShadow: s.enabled
+                  ? 'inset 0 0 0 1px rgba(49,128,247,0.18)'
+                  : 'inset 0 0 0 1px rgba(0,0,0,0.05)',
+              }}
             >
               <span
-                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${s.enabled ? 'left-[22px]' : 'left-0.5'}`}
+                className={`block h-[22px] w-[22px] rounded-full bg-white shadow-[0_2px_6px_rgba(25,31,40,0.22)] transition-transform duration-200 ease-out ${
+                  s.enabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
               />
             </button>
           </div>

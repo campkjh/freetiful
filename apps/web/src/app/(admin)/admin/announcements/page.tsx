@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Eye, EyeOff, Pin, PinOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
 interface Announcement {
@@ -161,24 +162,20 @@ export default function AdminAnnouncementsPage() {
                 ))}
               </select>
             </div>
-            <label className="flex items-center gap-2 bg-[#F9FAFB] rounded-xl px-4 py-3 cursor-pointer hover:bg-[#F2F4F6]">
-              <input
-                type="checkbox"
+            <div className="flex items-center bg-[#F9FAFB] rounded-xl px-4 py-3 hover:bg-[#F2F4F6]">
+              <AdminSwitch
                 checked={draft.isPinned}
-                onChange={(e) => setDraft({ ...draft, isPinned: e.target.checked })}
-                className="w-4 h-4"
+                onChange={(checked) => setDraft({ ...draft, isPinned: checked })}
+                label="고정"
               />
-              <span className="text-[13px] font-semibold text-[#191F28]">고정</span>
-            </label>
-            <label className="flex items-center gap-2 bg-[#F9FAFB] rounded-xl px-4 py-3 cursor-pointer hover:bg-[#F2F4F6]">
-              <input
-                type="checkbox"
+            </div>
+            <div className="flex items-center bg-[#F9FAFB] rounded-xl px-4 py-3 hover:bg-[#F2F4F6]">
+              <AdminSwitch
                 checked={draft.isPublished}
-                onChange={(e) => setDraft({ ...draft, isPublished: e.target.checked })}
-                className="w-4 h-4"
+                onChange={(checked) => setDraft({ ...draft, isPublished: checked })}
+                label="게시"
               />
-              <span className="text-[13px] font-semibold text-[#191F28]">게시</span>
-            </label>
+            </div>
             <button
               onClick={create}
               disabled={creating || !draft.title.trim()}

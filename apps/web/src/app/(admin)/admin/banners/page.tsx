@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Save, Eye, EyeOff, ImageOff, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
 // 파일 → 1600px 이하로 리사이즈 → webp data URL (품질 0.88)
@@ -312,15 +313,13 @@ export default function AdminBannersPage() {
                 />
               </div>
               <div className="flex items-end pb-[2px]">
-                <label className="flex items-center gap-2 bg-[#F9FAFB] rounded-xl px-4 py-3 cursor-pointer hover:bg-[#F2F4F6]">
-                  <input
-                    type="checkbox"
+                <div className="flex items-center bg-[#F9FAFB] rounded-xl px-4 py-3 hover:bg-[#F2F4F6]">
+                  <AdminSwitch
                     checked={draft.isActive}
-                    onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })}
-                    className="w-4 h-4"
+                    onChange={(checked) => setDraft({ ...draft, isActive: checked })}
+                    label="활성"
                   />
-                  <span className="text-[13px] font-semibold text-[#191F28]">활성</span>
-                </label>
+                </div>
               </div>
               <button
                 onClick={create}

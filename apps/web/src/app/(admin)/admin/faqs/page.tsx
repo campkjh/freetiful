@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, Save, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
 interface Faq {
@@ -188,15 +189,13 @@ export default function AdminFaqsPage() {
                 className="w-full bg-[#F9FAFB] rounded-xl px-4 py-3 text-[14px] text-[#191F28] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#3182F6]"
               />
             </div>
-            <label className="flex items-center gap-2 bg-[#F9FAFB] rounded-xl px-4 py-3 cursor-pointer hover:bg-[#F2F4F6]">
-              <input
-                type="checkbox"
+            <div className="flex items-center bg-[#F9FAFB] rounded-xl px-4 py-3 hover:bg-[#F2F4F6]">
+              <AdminSwitch
                 checked={draft.isPublished}
-                onChange={(e) => setDraft({ ...draft, isPublished: e.target.checked })}
-                className="w-4 h-4"
+                onChange={(checked) => setDraft({ ...draft, isPublished: checked })}
+                label="게시"
               />
-              <span className="text-[13px] font-semibold text-[#191F28]">게시</span>
-            </label>
+            </div>
             <button
               onClick={create}
               disabled={creating || !draft.question.trim()}

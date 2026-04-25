@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle, RefreshCw, CircleDollarSign } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Check, X, Edit3, AlertCircle, RefreshCw, CircleDollarSign } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
 interface ProItem {
@@ -258,20 +259,20 @@ export default function AdminProsPage() {
                   <td className="px-4 py-3 text-center text-sm font-bold text-amber-600">{pro.puddingCount != null ? pro.puddingCount.toLocaleString() : '-'}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
-                      <button onClick={() => handleToggleLogo(pro.id)} className="transition-colors">
-                        {pro.showPartnersLogo
-                          ? <ToggleRight size={28} className="text-blue-500" />
-                          : <ToggleLeft size={28} className="text-gray-300" />}
-                      </button>
+                      <AdminSwitch
+                        checked={pro.showPartnersLogo}
+                        onChange={() => handleToggleLogo(pro.id)}
+                        ariaLabel={`${pro.name} 파트너 로고 노출`}
+                      />
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
-                      <button onClick={() => handleToggleFeatured(pro.id)} className="transition-colors">
-                        {pro.isFeatured
-                          ? <ToggleRight size={28} className="text-amber-500" />
-                          : <ToggleLeft size={28} className="text-gray-300" />}
-                      </button>
+                      <AdminSwitch
+                        checked={pro.isFeatured}
+                        onChange={() => handleToggleFeatured(pro.id)}
+                        ariaLabel={`${pro.name} 추천 노출`}
+                      />
                     </div>
                   </td>
                   <td className="px-4 py-3">

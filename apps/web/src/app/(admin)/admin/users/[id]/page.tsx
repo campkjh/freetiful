@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Archive, ExternalLink, RefreshCw, Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from '../../_components/adminFetch';
+import { AdminSwitch } from '../../_components/AdminSwitch';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../../_components/ErrorPanel';
 
 const ROLES = ['general', 'pro', 'business', 'admin'];
@@ -317,10 +318,7 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
 
 function CheckField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="inline-flex items-center gap-2 text-xs font-semibold text-gray-600">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="w-4 h-4" />
-      {label}
-    </label>
+    <AdminSwitch checked={checked} onChange={onChange} label={label} />
   );
 }
 

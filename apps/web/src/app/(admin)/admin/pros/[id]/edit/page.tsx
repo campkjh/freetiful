@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminSwitch } from '../../../_components/AdminSwitch';
 import { adminFetch } from '../../../_components/adminFetch';
 
 /* ─── Constants (pro-edit와 동일) ─── */
@@ -329,14 +330,18 @@ export default function AdminProEditPage() {
               ))}
             </div>
           </div>
-          <label className="flex items-center gap-2 text-[14px] text-gray-700">
-            <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4" />
-            추천 노출 (isFeatured)
-          </label>
-          <label className="flex items-center gap-2 text-[14px] text-gray-700">
-            <input type="checkbox" checked={showPartnersLogo} onChange={(e) => setShowPartnersLogo(e.target.checked)} className="w-4 h-4" />
-            파트너 로고 노출
-          </label>
+          <div className="flex flex-wrap items-center gap-4">
+            <AdminSwitch
+              checked={isFeatured}
+              onChange={setIsFeatured}
+              label="추천 노출"
+            />
+            <AdminSwitch
+              checked={showPartnersLogo}
+              onChange={setShowPartnersLogo}
+              label="파트너 로고 노출"
+            />
+          </div>
           <div>
             <label className="block text-[12px] font-bold text-gray-400 mb-1.5">기본 가격 (basePrice)</label>
             <input
