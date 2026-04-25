@@ -26,6 +26,7 @@ import { AiModule } from './ai/ai.module';
 import { AnnouncementModule } from './announcement/announcement.module';
 import { FaqModule } from './faq/faq.module';
 import { SettlementModule } from './settlement/settlement.module';
+import { BusinessInquiryModule } from './business-inquiry/business-inquiry.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { SettlementModule } from './settlement/settlement.module';
     AnnouncementModule,
     FaqModule,
     SettlementModule,
+    BusinessInquiryModule,
   ],
 })
 export class AppModule {}

@@ -1047,6 +1047,29 @@ model Faq {
   @@map("faqs")
 }
 
+model BusinessInquiry {
+  id          String   @id @default(uuid())
+  company     String?
+  name        String
+  phone       String
+  email       String?
+  type        String?
+  message     String   @db.Text
+  fileName    String?
+  fileSize    Int?
+  fileType    String?
+  status      String   @default("new") // new|contacted|done|archived
+  adminNote   String?  @db.Text
+  source      String   @default("biz_page")
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("business_inquiries")
+}
+
 model Report {
   id             String   @id @default(uuid())
   reporterId     String

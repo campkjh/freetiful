@@ -30,6 +30,7 @@ const TOP_NAV = [
   { href: '/admin/users', label: '유저 센터', paths: ['/admin/users'] },
   { href: '/admin/pros', label: '전문가 센터', paths: ['/admin/pros', '/admin/partners', '/admin/businesses'] },
   { href: '/admin/bookings', label: '예약 센터', paths: ['/admin/bookings'] },
+  { href: '/admin/inquiries', label: '문의 센터', paths: ['/admin/inquiries'] },
   { href: '/admin/payments', label: '페이먼츠 센터', paths: ['/admin/payments', '/admin/settlements'] },
   { href: '/admin/banners', label: '콘텐츠 센터', paths: ['/admin/banners', '/admin/reviews', '/admin/announcements', '/admin/faqs', '/admin/plan-templates'] },
 ];
@@ -56,6 +57,12 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
       { href: '/admin/bookings', label: '의뢰/예약' },
       { href: '/admin/payments', label: '결제조회' },
       { href: '/admin/settlements', label: '정산내역' },
+    ],
+  },
+  {
+    label: '문의 센터',
+    items: [
+      { href: '/admin/inquiries', label: 'Biz 문의' },
     ],
   },
   {

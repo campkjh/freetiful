@@ -18,6 +18,45 @@ async function logToGoogleSheet(payload: {
   return { ok: true };
 }
 
+function getApiBaseUrl(req: NextRequest) {
+  const raw = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL;
+  const normalized = raw
+    ?.trim()
+    .replace(/\/+$/, '')
+    .replace(/\/api\/v1$/, '')
+    .replace(/\/api$/, '');
+  return normalized || req.nextUrl.origin;
+}
+
+async function saveInquiryToApi(req: NextRequest, payload: {
+  company: string; name: string; phone: string; email: string;
+  type: string; message: string; fileName: string; fileSize?: number; fileType?: string;
+}) {
+  const baseUrl = getApiBaseUrl(req);
+  const res = await fetch(`${baseUrl}/api/v1/business-inquiries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      company: payload.company,
+      name: payload.name,
+      phone: payload.phone,
+      email: payload.email,
+      type: payload.type,
+      message: payload.message,
+      fileName: payload.fileName,
+      fileSize: payload.fileSize || null,
+      fileType: payload.fileType || null,
+      source: 'biz_page',
+      metadata: {
+        origin: req.headers.get('origin') || '',
+        referer: req.headers.get('referer') || '',
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Inquiry API ${res.status}`);
+  return res.json();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -28,6 +67,17 @@ export async function POST(req: NextRequest) {
     const type = formData.get('type') as string || '';
     const message = formData.get('message') as string || '';
     const file = formData.get('file') as File | null;
+    const inquiryPayload = {
+      company,
+      name,
+      phone,
+      email,
+      type,
+      message,
+      fileName: file?.name || '',
+      fileSize: file?.size || 0,
+      fileType: file?.type || '',
+    };
 
     if (!name || !phone || !message) {
       return NextResponse.json({ error: '필수 항목을 입력해주세요' }, { status: 400 });
@@ -64,8 +114,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 이메일 + 시트 기록을 병렬로 — 둘 중 하나 실패해도 나머지는 시도
+    // DB 저장 + 이메일 + 시트 기록을 병렬로 — 하나가 실패해도 나머지는 시도
     const results = await Promise.allSettled([
+      saveInquiryToApi(req, inquiryPayload),
       transporter.sendMail({
         from: process.env.SMTP_USER,
         to: 'support@freetiful.com, jaicylab2009@gmail.com, freetiful2025@gmail.com',
@@ -80,17 +131,24 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    const emailFailed = results[0].status === 'rejected';
-    const sheetFailed = results[1].status === 'rejected';
-    if (emailFailed) console.error('Inquiry email error:', (results[0] as PromiseRejectedResult).reason);
-    if (sheetFailed) console.error('Inquiry sheet error:', (results[1] as PromiseRejectedResult).reason);
+    const dbFailed = results[0].status === 'rejected';
+    const emailFailed = results[1].status === 'rejected';
+    const sheetFailed = results[2].status === 'rejected';
+    if (dbFailed) console.error('Inquiry DB error:', (results[0] as PromiseRejectedResult).reason);
+    if (emailFailed) console.error('Inquiry email error:', (results[1] as PromiseRejectedResult).reason);
+    if (sheetFailed) console.error('Inquiry sheet error:', (results[2] as PromiseRejectedResult).reason);
 
-    // 둘 다 실패해야만 에러 반환 — 하나라도 성공하면 접수 처리
-    if (emailFailed && sheetFailed) {
+    // 전부 실패해야만 에러 반환 — 하나라도 성공하면 접수 처리
+    if (dbFailed && emailFailed && sheetFailed) {
       return NextResponse.json({ error: '문의 접수에 실패했습니다' }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      saved: !dbFailed,
+      emailed: !emailFailed,
+      sheetLogged: !sheetFailed,
+    });
   } catch (err: any) {
     console.error('Inquiry route error:', err);
     return NextResponse.json({ error: '이메일 발송에 실패했습니다' }, { status: 500 });
