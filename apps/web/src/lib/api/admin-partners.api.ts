@@ -94,11 +94,13 @@ function withAdminKey() {
 }
 
 export const adminPartnersApi = {
-  list: (params: { page?: number; limit?: number; search?: string } = {}) => {
+  list: (params: { page?: number; limit?: number; search?: string; startDate?: string; endDate?: string } = {}) => {
     const q = new URLSearchParams();
     if (params.page) q.set('page', String(params.page));
     if (params.limit) q.set('limit', String(params.limit));
     if (params.search) q.set('search', params.search);
+    if (params.startDate) q.set('startDate', params.startDate);
+    if (params.endDate) q.set('endDate', params.endDate);
     return apiClient
       .get<AdminPartnerListResponse>(`${BASE}/admin/businesses?${q.toString()}`, {
         headers: withAdminKey(),

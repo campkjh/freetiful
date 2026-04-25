@@ -12,6 +12,34 @@ export class SettlementService {
     private notification: NotificationService,
   ) {}
 
+  private buildDateRange(params?: { startDate?: string; endDate?: string }) {
+    const range: any = {};
+    if (params?.startDate) {
+      const start = this.parseAdminDate(params.startDate, false);
+      if (!Number.isNaN(start.getTime())) {
+        range.gte = start;
+      }
+    }
+    if (params?.endDate) {
+      const end = this.parseAdminDate(params.endDate, true);
+      if (!Number.isNaN(end.getTime())) {
+        range.lte = end;
+      }
+    }
+    return Object.keys(range).length ? range : undefined;
+  }
+
+  private parseAdminDate(value: string, endOfDay: boolean) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+09:00`);
+    }
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+    }
+    return date;
+  }
+
   /** 프로 본인의 정산 로그 조회 */
   async getMyLogs(userId: string, params?: { status?: SettlementStatus; page?: number; limit?: number }) {
     const profile = await this.prisma.proProfile.findUnique({
@@ -79,10 +107,12 @@ export class SettlementService {
   }
 
   /** 관리자 — 전체 정산 로그 목록 */
-  async adminList(params?: { status?: SettlementStatus; proProfileId?: string; page?: number; limit?: number }) {
+  async adminList(params?: { status?: SettlementStatus; proProfileId?: string; page?: number; limit?: number; startDate?: string; endDate?: string }) {
     const where: any = {};
     if (params?.status) where.status = params.status;
     if (params?.proProfileId) where.proProfileId = params.proProfileId;
+    const dateRange = this.buildDateRange(params);
+    if (dateRange) where.createdAt = dateRange;
 
     const limit = params?.limit || 30;
     const page = params?.page || 1;
@@ -115,6 +145,7 @@ export class SettlementService {
       this.prisma.settlementLog.count({ where }),
       this.prisma.settlementLog.groupBy({
         by: ['status'],
+        where,
         _sum: { netAmount: true },
         _count: true,
       }),

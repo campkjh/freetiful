@@ -20,6 +20,39 @@ export class AdminService {
     private usersService: UsersService,
   ) {}
 
+  private buildDateRange(params?: { startDate?: string; endDate?: string }) {
+    const range: any = {};
+    if (params?.startDate) {
+      const start = this.parseAdminDate(params.startDate, false);
+      if (!Number.isNaN(start.getTime())) {
+        range.gte = start;
+      }
+    }
+    if (params?.endDate) {
+      const end = this.parseAdminDate(params.endDate, true);
+      if (!Number.isNaN(end.getTime())) {
+        range.lte = end;
+      }
+    }
+    return Object.keys(range).length ? range : undefined;
+  }
+
+  private parseAdminDate(value: string, endOfDay: boolean) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+09:00`);
+    }
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+    }
+    return date;
+  }
+
+  private applyCreatedAtRange(where: any, params?: { startDate?: string; endDate?: string }) {
+    const range = this.buildDateRange(params);
+    if (range) where.createdAt = range;
+  }
+
   /** 어드민이 특정 유저(또는 다수 유저)에게 쿠폰 발급 — UsersService 헬퍼 위임 */
   async grantCoupon(userIds: string[], couponId: string) {
     const results = await Promise.allSettled(
@@ -31,10 +64,11 @@ export class AdminService {
 
   // ─── 웨딩 파트너 업체 (BusinessProfile) CRUD ────────────────────────────
   // 어드민이 직접 업체를 등록/수정/삭제. 소유 유저가 없으면 placeholder User 자동 생성.
-  async getBusinesses(params: { page?: number; limit?: number; search?: string }) {
+  async getBusinesses(params: { page?: number; limit?: number; search?: string; startDate?: string; endDate?: string }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
     const where: any = {};
+    this.applyCreatedAtRange(where, params);
     if (params.search) {
       where.OR = [
         { businessName: { contains: params.search, mode: 'insensitive' } },
@@ -298,10 +332,11 @@ export class AdminService {
   }
 
   // ─── Pro 목록 조회 (관리자용) ─────────────────────────────────────────────
-  async getPros(params: { page?: number; limit?: number; status?: string; search?: string }) {
+  async getPros(params: { page?: number; limit?: number; status?: string; search?: string; startDate?: string; endDate?: string }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
     const where: any = {};
+    this.applyCreatedAtRange(where, params);
     if (params.status) where.status = params.status;
     if (params.search) {
       where.user = { name: { contains: params.search, mode: 'insensitive' } };
@@ -742,10 +777,11 @@ export class AdminService {
   }
 
   // ─── 유저 목록 ───────────────────────────────────────────────────────────
-  async getUsers(params: { page?: number; limit?: number; search?: string; role?: string }) {
+  async getUsers(params: { page?: number; limit?: number; search?: string; role?: string; startDate?: string; endDate?: string }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
     const where: any = {};
+    this.applyCreatedAtRange(where, params);
     if (params.role) where.role = params.role;
     if (params.search) {
       where.OR = [
@@ -1175,7 +1211,7 @@ export class AdminService {
   }
 
   // ─── 의뢰/예약 목록 ─────────────────────────────────────────────────────
-  async getBookings(params: { page?: number; limit?: number; status?: string }) {
+  async getBookings(params: { page?: number; limit?: number; status?: string; startDate?: string; endDate?: string }) {
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(Math.max(1, params.limit || 20), 100);
     const status = params.status && params.status !== 'all' && params.status !== '전체'
@@ -1197,6 +1233,8 @@ export class AdminService {
 
     const quotationWhere: any = quotationStatuses ? { status: { in: quotationStatuses } } : {};
     const matchWhere: any = matchStatuses ? { status: { in: matchStatuses } } : {};
+    this.applyCreatedAtRange(quotationWhere, params);
+    this.applyCreatedAtRange(matchWhere, params);
 
     const [quotations, quotationTotal, matchRequests, matchTotal] = await Promise.all([
       this.prisma.quotation.findMany({
@@ -1317,10 +1355,11 @@ export class AdminService {
   }
 
   // ─── 결제 목록 ───────────────────────────────────────────────────────────
-  async getPayments(params: { page?: number; limit?: number; status?: string }) {
+  async getPayments(params: { page?: number; limit?: number; status?: string; startDate?: string; endDate?: string }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
     const where: any = {};
+    this.applyCreatedAtRange(where, params);
     if (params.status) where.status = params.status;
 
     const [payments, total] = await Promise.all([
@@ -1360,12 +1399,15 @@ export class AdminService {
   }
 
   // ─── 리뷰 목록 ───────────────────────────────────────────────────────────
-  async getReviews(params: { page?: number; limit?: number }) {
+  async getReviews(params: { page?: number; limit?: number; startDate?: string; endDate?: string }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
+    const where: any = {};
+    this.applyCreatedAtRange(where, params);
 
     const [data, total] = await Promise.all([
       this.prisma.review.findMany({
+        where,
         include: {
           reviewer: { select: { name: true } },
           proProfile: { include: { user: { select: { name: true } } } },
@@ -1374,7 +1416,7 @@ export class AdminService {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.review.count(),
+      this.prisma.review.count({ where }),
     ]);
 
     return {

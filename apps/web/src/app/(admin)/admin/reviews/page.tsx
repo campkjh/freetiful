@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, Trash2, RefreshCw, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
+import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { adminFetch } from '../_components/adminFetch';
 
 interface ReviewItem {
@@ -23,13 +24,17 @@ export default function AdminReviewsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
+  const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
   const LIMIT = 20;
 
-  const fetchReviews = async (p = page) => {
+  const fetchReviews = async (p = page, range = dateRange) => {
     setLoading(true);
     setLastError(null);
     try {
-      const data = await adminFetch('GET', `/api/v1/admin/reviews?page=${p}&limit=${LIMIT}`);
+      const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
+      if (range.startDate) params.set('startDate', range.startDate);
+      if (range.endDate) params.set('endDate', range.endDate);
+      const data = await adminFetch('GET', `/api/v1/admin/reviews?${params.toString()}`);
       setReviews(data.data || []);
       setTotal(data.total || 0);
     } catch (e: any) {
@@ -67,7 +72,7 @@ export default function AdminReviewsPage() {
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}건</span>
         <button
-          onClick={() => fetchReviews(page)}
+          onClick={() => fetchReviews(page, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -77,6 +82,14 @@ export default function AdminReviewsPage() {
       </div>
 
         <AdminErrorPanel error={lastError} label="리뷰" />
+        <AdminDateFilter
+          value={dateRange}
+          onApply={(range) => {
+            setDateRange(range);
+            setPage(1);
+            fetchReviews(1, range);
+          }}
+        />
         <div className="admin-list-card">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -140,9 +153,9 @@ export default function AdminReviewsPage() {
             <div className="border-t border-[#F2F4F6] px-4 py-3 flex items-center justify-between">
               <p className="text-xs text-gray-500">총 {total}건 ({page}/{totalPages} 페이지)</p>
               <div className="flex items-center gap-1">
-                <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchReviews(p); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronLeft size={16} /></button>
+                <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchReviews(p, dateRange); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronLeft size={16} /></button>
                 <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
-                <button disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchReviews(p); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronRight size={16} /></button>
+                <button disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchReviews(p, dateRange); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronRight size={16} /></button>
               </div>
             </div>
           )}

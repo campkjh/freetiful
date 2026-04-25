@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, RefreshCw, Check, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
+import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { adminFetch } from '../_components/adminFetch';
 
 interface SettlementLogItem {
@@ -61,13 +62,16 @@ export default function AdminSettlementsPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('pending');
   const [page, setPage] = useState(1);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
+  const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
 
-  async function fetchList(p = page, f = filter) {
+  async function fetchList(p = page, f = filter, range = dateRange) {
     setLoading(true);
     setLastError(null);
     try {
       const params = new URLSearchParams({ page: String(p), limit: '30' });
       if (f !== 'all') params.set('status', f);
+      if (range.startDate) params.set('startDate', range.startDate);
+      if (range.endDate) params.set('endDate', range.endDate);
       const data: ListResponse = await adminFetch('GET', `/api/v1/admin/settlements?${params.toString()}`);
       setItems(data.data || []);
       setMeta(data.meta);
@@ -81,7 +85,7 @@ export default function AdminSettlementsPage() {
     }
   }
 
-  useEffect(() => { fetchList(1, filter); setPage(1); }, [filter]);
+  useEffect(() => { fetchList(1, filter, dateRange); setPage(1); }, [filter]);
 
   async function handleSettle(id: string) {
     if (!confirm('정산 완료로 처리하시겠습니까? 전문가에게 알림이 발송됩니다.')) return;
@@ -89,7 +93,7 @@ export default function AdminSettlementsPage() {
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/settle`, {});
       toast.success('정산 완료로 처리되었습니다');
-      fetchList();
+      fetchList(page, filter, dateRange);
     } catch (e: any) {
       const err = extractAdminError(e);
       toast.error(`정산 처리 실패: ${err.message}`, { duration: 6000 });
@@ -104,7 +108,7 @@ export default function AdminSettlementsPage() {
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/unsettle`, {});
       toast.success('정산이 취소되었습니다');
-      fetchList();
+      fetchList(page, filter, dateRange);
     } catch (e: any) {
       const err = extractAdminError(e);
       toast.error(`취소 실패: ${err.message}`, { duration: 6000 });
@@ -119,7 +123,7 @@ export default function AdminSettlementsPage() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3">
           <Link href="/admin" className="p-1 hover:bg-gray-100 rounded-lg"><ArrowLeft size={20} /></Link>
           <h1 className="text-lg font-bold text-gray-900">정산 관리</h1>
-          <button onClick={() => fetchList()} className="ml-auto p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={() => fetchList(page, filter, dateRange)} className="ml-auto p-2 hover:bg-gray-100 rounded-lg">
             <RefreshCw size={16} className="text-gray-500" />
           </button>
         </div>
@@ -160,6 +164,15 @@ export default function AdminSettlementsPage() {
             </button>
           ))}
         </div>
+
+        <AdminDateFilter
+          value={dateRange}
+          onApply={(range) => {
+            setDateRange(range);
+            setPage(1);
+            fetchList(1, filter, range);
+          }}
+        />
 
         {lastError && <AdminErrorPanel error={lastError} />}
 
@@ -229,9 +242,9 @@ export default function AdminSettlementsPage() {
 
         {meta.total > meta.limit && (
           <div className="flex justify-center gap-2 mt-4">
-            <button disabled={page <= 1 || loading} onClick={() => { const np = page - 1; setPage(np); fetchList(np); }} className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm disabled:opacity-40">이전</button>
+            <button disabled={page <= 1 || loading} onClick={() => { const np = page - 1; setPage(np); fetchList(np, filter, dateRange); }} className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm disabled:opacity-40">이전</button>
             <span className="px-4 py-2 text-sm text-gray-500">{page} / {Math.ceil(meta.total / meta.limit)}</span>
-            <button disabled={!meta.hasMore || loading} onClick={() => { const np = page + 1; setPage(np); fetchList(np); }} className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm disabled:opacity-40">다음</button>
+            <button disabled={!meta.hasMore || loading} onClick={() => { const np = page + 1; setPage(np); fetchList(np, filter, dateRange); }} className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm disabled:opacity-40">다음</button>
           </div>
         )}
       </div>

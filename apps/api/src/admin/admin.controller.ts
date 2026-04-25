@@ -39,12 +39,16 @@ export class AdminController {
     @Query('limit') limit?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.adminService.getPros({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
       status,
       search,
+      startDate,
+      endDate,
     });
   }
 
@@ -108,12 +112,16 @@ export class AdminController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('role') role?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.adminService.getUsers({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
       search,
       role,
+      startDate,
+      endDate,
     });
   }
 
@@ -157,11 +165,15 @@ export class AdminController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.adminService.getBookings({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
       status,
+      startDate,
+      endDate,
     });
   }
 
@@ -170,11 +182,15 @@ export class AdminController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.adminService.getPayments({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
       status,
+      startDate,
+      endDate,
     });
   }
 
@@ -182,10 +198,14 @@ export class AdminController {
   async getReviews(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.adminService.getReviews({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
+      startDate,
+      endDate,
     });
   }
 
@@ -275,11 +295,15 @@ export class AdminController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.adminService.getBusinesses({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
       search,
+      startDate,
+      endDate,
     });
   }
 

@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { adminPartnersApi, type AdminPartnerListItem } from '@/lib/api/admin-partners.api';
 
 const statusLabel: Record<string, { text: string; className: string }> = {
@@ -31,12 +32,19 @@ export default function AdminPartnersPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<{ status?: number; message?: string } | null>(null);
+  const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
 
-  const fetchList = async (p = page, s = search) => {
+  const fetchList = async (p = page, s = search, range = dateRange) => {
     setLoading(true);
     setLastError(null);
     try {
-      const res = await adminPartnersApi.list({ page: p, limit: LIMIT, search: s || undefined });
+      const res = await adminPartnersApi.list({
+        page: p,
+        limit: LIMIT,
+        search: s || undefined,
+        startDate: range.startDate || undefined,
+        endDate: range.endDate || undefined,
+      });
       setItems(res.data || []);
       setTotal(res.total || 0);
     } catch (e: any) {
@@ -106,7 +114,7 @@ export default function AdminPartnersPage() {
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 setPage(1);
-                fetchList(1, search);
+                fetchList(1, search, dateRange);
               }
             }}
             placeholder="업체명 / 카테고리 / 주소 검색 (Enter)"
@@ -114,6 +122,15 @@ export default function AdminPartnersPage() {
           />
         </div>
       </div>
+
+      <AdminDateFilter
+        value={dateRange}
+        onApply={(range) => {
+          setDateRange(range);
+          setPage(1);
+          fetchList(1, search, range);
+        }}
+      />
 
       {/* 테이블 */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -231,7 +248,7 @@ export default function AdminPartnersPage() {
                 onClick={() => {
                   const p = page - 1;
                   setPage(p);
-                  fetchList(p);
+                  fetchList(p, search, dateRange);
                 }}
                 className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"
               >
@@ -245,7 +262,7 @@ export default function AdminPartnersPage() {
                 onClick={() => {
                   const p = page + 1;
                   setPage(p);
-                  fetchList(p);
+                  fetchList(p, search, dateRange);
                 }}
                 className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"
               >

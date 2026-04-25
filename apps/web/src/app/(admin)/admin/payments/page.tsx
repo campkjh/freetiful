@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
+import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { adminFetch } from '../_components/adminFetch';
 
 interface PaymentItem {
@@ -38,14 +39,17 @@ export default function AdminPaymentsPage() {
   const [total, setTotal] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
+  const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
   const LIMIT = 20;
 
-  const fetchPayments = async (p = page, st = filterStatus) => {
+  const fetchPayments = async (p = page, st = filterStatus, range = dateRange) => {
     setLoading(true);
     setLastError(null);
     try {
       const params: any = { page: p, limit: LIMIT };
       if (st !== '전체') params.status = st;
+      if (range.startDate) params.startDate = range.startDate;
+      if (range.endDate) params.endDate = range.endDate;
       const data = await adminFetch('GET', `/api/v1/admin/payments?${new URLSearchParams(params).toString()}`);
       setPayments(data.data || []);
       setTotal(data.total || 0);
@@ -78,7 +82,7 @@ export default function AdminPaymentsPage() {
           총 {total.toLocaleString()}건 · ₩{totalAmount.toLocaleString()}
         </span>
         <button
-          onClick={() => fetchPayments(page, filterStatus)}
+          onClick={() => fetchPayments(page, filterStatus, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -93,7 +97,7 @@ export default function AdminPaymentsPage() {
             {['전체', 'completed', 'pending', 'failed', 'refunded'].map((st) => (
               <button
                 key={st}
-                onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st); }}
+                onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
                 className={`admin-chip px-3.5 text-sm ${filterStatus === st ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'}`}
               >
                 {st === '전체' ? '전체' : statusLabels[st] || st}
@@ -101,6 +105,15 @@ export default function AdminPaymentsPage() {
             ))}
           </div>
         </div>
+
+        <AdminDateFilter
+          value={dateRange}
+          onApply={(range) => {
+            setDateRange(range);
+            setPage(1);
+            fetchPayments(1, filterStatus, range);
+          }}
+        />
 
         <div className="admin-list-card">
           <div className="overflow-x-auto">
@@ -155,9 +168,9 @@ export default function AdminPaymentsPage() {
             <div className="border-t border-[#F2F4F6] px-4 py-3 flex items-center justify-between">
               <p className="text-xs text-gray-500">총 {total}건 ({page}/{totalPages} 페이지)</p>
               <div className="flex items-center gap-1">
-                <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchPayments(p); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronLeft size={16} /></button>
+                <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchPayments(p, filterStatus, dateRange); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronLeft size={16} /></button>
                 <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
-                <button disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchPayments(p); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronRight size={16} /></button>
+                <button disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchPayments(p, filterStatus, dateRange); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 disabled:opacity-30"><ChevronRight size={16} /></button>
               </div>
             </div>
           )}

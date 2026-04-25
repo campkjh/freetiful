@@ -5,6 +5,7 @@ import { Search, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Check, X, E
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { adminFetch } from '../_components/adminFetch';
 
 interface ProItem {
@@ -37,17 +38,20 @@ export default function AdminProsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<{ status?: number; message?: string } | null>(null);
+  const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
   const authUser = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const LIMIT = 20;
 
-  const fetchPros = async (p = page, s = search, st = filterStatus) => {
+  const fetchPros = async (p = page, s = search, st = filterStatus, range = dateRange) => {
     setLoading(true);
     setLastError(null);
     try {
       const params: any = { page: p, limit: LIMIT };
       if (s) params.search = s;
       if (st !== '전체') params.status = st;
+      if (range.startDate) params.startDate = range.startDate;
+      if (range.endDate) params.endDate = range.endDate;
       const data = await adminFetch('GET', `/api/v1/admin/pros?${new URLSearchParams(params).toString()}`);
       setPros(data.data || []);
       setTotal(data.total || 0);
@@ -126,7 +130,7 @@ export default function AdminProsPage() {
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
         <button
-          onClick={() => fetchPros(page, search, filterStatus)}
+          onClick={() => fetchPros(page, search, filterStatus, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -170,7 +174,7 @@ export default function AdminProsPage() {
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus); } }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus, dateRange); } }}
               placeholder="전문가 이름 검색 (Enter)"
               className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
             />
@@ -179,7 +183,7 @@ export default function AdminProsPage() {
             {['전체', 'pending', 'approved', 'rejected', 'draft', 'suspended'].map((st) => (
               <button
                 key={st}
-                onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st); }}
+                onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
                 className={`admin-chip px-3.5 text-sm ${
                   filterStatus === st ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
                 }`}
@@ -190,6 +194,15 @@ export default function AdminProsPage() {
           </div>
         </div>
       </div>
+
+      <AdminDateFilter
+        value={dateRange}
+        onApply={(range) => {
+          setDateRange(range);
+          setPage(1);
+          fetchPros(1, search, filterStatus, range);
+        }}
+      />
 
       {/* Table */}
       <div className="admin-list-card">
@@ -306,7 +319,7 @@ export default function AdminProsPage() {
             <div className="flex items-center gap-1">
               <button
                 disabled={page <= 1}
-                onClick={() => { const p = page - 1; setPage(p); fetchPros(p); }}
+                onClick={() => { const p = page - 1; setPage(p); fetchPros(p, search, filterStatus, dateRange); }}
                 className="p-1.5 rounded-xl hover:bg-[#F2F4F6] text-gray-400 disabled:opacity-30"
               >
                 <ChevronLeft size={16} />
@@ -314,7 +327,7 @@ export default function AdminProsPage() {
               <span className="px-3 py-1 text-xs font-bold bg-blue-50 text-blue-600 rounded-full">{page}</span>
               <button
                 disabled={page >= totalPages}
-                onClick={() => { const p = page + 1; setPage(p); fetchPros(p); }}
+                onClick={() => { const p = page + 1; setPage(p); fetchPros(p, search, filterStatus, dateRange); }}
                 className="p-1.5 rounded-xl hover:bg-[#F2F4F6] text-gray-400 disabled:opacity-30"
               >
                 <ChevronRight size={16} />

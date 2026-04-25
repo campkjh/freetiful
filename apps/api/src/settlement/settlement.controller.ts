@@ -40,12 +40,16 @@ export class SettlementController {
     @Query('proProfileId') proProfileId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.svc.adminList({
       status,
       proProfileId,
       page: page ? +page : 1,
       limit: limit ? +limit : 30,
+      startDate,
+      endDate,
     });
   }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { adminFetch } from '../_components/adminFetch';
 
 interface BookingItem {
@@ -87,12 +88,15 @@ export default function AdminBookingsPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>('all');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
 
-  const fetchData = async (p = page, status = filter) => {
+  const fetchData = async (p = page, status = filter, range = dateRange) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
       if (status !== 'all') params.set('status', status);
+      if (range.startDate) params.set('startDate', range.startDate);
+      if (range.endDate) params.set('endDate', range.endDate);
       const data = await adminFetch('GET', `/api/v1/admin/bookings?${params.toString()}`);
       setRows(data.data || []);
       setTotal(data.total || 0);
@@ -102,6 +106,8 @@ export default function AdminBookingsPage() {
           const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
           const paymentStatus = paymentStatusFilter(status);
           if (paymentStatus) params.set('status', paymentStatus);
+          if (range.startDate) params.set('startDate', range.startDate);
+          if (range.endDate) params.set('endDate', range.endDate);
           const data = await adminFetch('GET', `/api/v1/admin/payments?${params.toString()}`);
           setRows((data.data || []).map((payment: PaymentItem) => ({
             id: payment.id,
@@ -153,7 +159,7 @@ export default function AdminBookingsPage() {
           </p>
         </div>
         <button
-          onClick={() => fetchData(page, filter)}
+          onClick={() => fetchData(page, filter, dateRange)}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -169,7 +175,7 @@ export default function AdminBookingsPage() {
             onClick={() => {
               setFilter(value);
               setPage(1);
-              fetchData(1, value);
+              fetchData(1, value, dateRange);
             }}
             className={`admin-chip px-3.5 text-[12px] ${
               filter === value
@@ -181,6 +187,15 @@ export default function AdminBookingsPage() {
           </button>
         ))}
       </div>
+
+      <AdminDateFilter
+        value={dateRange}
+        onApply={(range) => {
+          setDateRange(range);
+          setPage(1);
+          fetchData(1, filter, range);
+        }}
+      />
 
       <div className="admin-list-card overflow-x-auto">
         <table className="w-full text-[13px]">
@@ -258,9 +273,9 @@ export default function AdminBookingsPage() {
           <div className="flex items-center justify-between border-t border-[#F2F4F6] px-4 py-3">
             <p className="text-xs font-semibold text-[#8B95A1]">총 {total.toLocaleString()}건 ({page}/{totalPages})</p>
             <div className="flex items-center gap-1">
-              <button disabled={page <= 1 || loading} onClick={() => { const next = page - 1; setPage(next); fetchData(next, filter); }} className="rounded-xl p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6] disabled:opacity-30"><ChevronLeft size={16} /></button>
+              <button disabled={page <= 1 || loading} onClick={() => { const next = page - 1; setPage(next); fetchData(next, filter, dateRange); }} className="rounded-xl p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6] disabled:opacity-30"><ChevronLeft size={16} /></button>
               <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600">{page}</span>
-              <button disabled={page >= totalPages || loading} onClick={() => { const next = page + 1; setPage(next); fetchData(next, filter); }} className="rounded-xl p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6] disabled:opacity-30"><ChevronRight size={16} /></button>
+              <button disabled={page >= totalPages || loading} onClick={() => { const next = page + 1; setPage(next); fetchData(next, filter, dateRange); }} className="rounded-xl p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6] disabled:opacity-30"><ChevronRight size={16} /></button>
             </div>
           </div>
         )}
