@@ -24,18 +24,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Invalid Kakao OAuth request' }, { status: 400 });
   }
 
-  const clientSecret = process.env.KAKAO_CLIENT_SECRET;
-  if (!clientSecret) {
-    return NextResponse.json({ message: 'Kakao OAuth secret is not configured' }, { status: 501 });
-  }
-
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: KAKAO_CLIENT_ID,
     redirect_uri: redirectUri,
     code,
   });
-  params.set('client_secret', clientSecret);
+  const clientSecret = process.env.KAKAO_CLIENT_SECRET;
+  if (clientSecret) params.set('client_secret', clientSecret);
 
   const res = await fetch('https://kauth.kakao.com/oauth/token', {
     method: 'POST',

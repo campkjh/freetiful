@@ -12,6 +12,10 @@ import toast from 'react-hot-toast';
 
 const ADMIN_EMAILS = ['admin@freetiful.com'];
 
+function isAdminUser(user: { email?: string | null; role?: string | null }) {
+  return user.role === 'admin' || (!!user.email && ADMIN_EMAILS.includes(user.email));
+}
+
 const schema = z.object({
   email: z.string().email('올바른 이메일을 입력해주세요'),
   password: z.string().min(1, '비밀번호를 입력해주세요'),
@@ -21,6 +25,8 @@ type FormData = z.infer<typeof schema>;
 export default function AdminLoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [keyLoading, setKeyLoading] = useState(false);
+  const [adminKey, setAdminKey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
 
@@ -29,19 +35,45 @@ export default function AdminLoginPage() {
   });
 
   const onSubmit = async (data: FormData) => {
-    if (!ADMIN_EMAILS.includes(data.email)) {
-      toast.error('어드민 권한이 없습니다');
-      return;
-    }
     setLoading(true);
     try {
-      const res = await authApi.emailLogin(data.email, data.password);
+      const res = await authApi.emailLogin(data.email.trim().toLowerCase(), data.password);
+      if (!isAdminUser(res.user)) {
+        toast.error('어드민 권한이 없습니다');
+        return;
+      }
       setAuth(res.user, res.tokens.accessToken, res.tokens.refreshToken);
       router.replace('/admin/users');
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? '로그인에 실패했습니다');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loginWithAdminKey = async () => {
+    const key = adminKey.trim();
+    if (!key) {
+      toast.error('관리자 키를 입력해주세요');
+      return;
+    }
+    setKeyLoading(true);
+    try {
+      const res = await fetch('/api/v1/admin/stats', {
+        headers: { 'x-admin-key': key },
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || '관리자 키를 확인해주세요');
+      }
+      localStorage.setItem('admin-key', key);
+      toast.success('관리자 키로 로그인했습니다');
+      router.replace('/admin');
+    } catch (e: any) {
+      toast.error(e?.message || '관리자 키 로그인이 실패했습니다');
+    } finally {
+      setKeyLoading(false);
     }
   };
 
@@ -105,6 +137,40 @@ export default function AdminLoginPage() {
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
+
+        <div className="my-7 flex items-center gap-3">
+          <span className="h-px flex-1 bg-[#F2F4F6]" />
+          <span className="text-[11px] font-bold text-[#B0B8C1]">또는</span>
+          <span className="h-px flex-1 bg-[#F2F4F6]" />
+        </div>
+
+        <div className="rounded-2xl bg-[#F7F8FA] p-4">
+          <p className="text-[13px] font-bold text-[#191F28]">관리자 키로 로그인</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-[#8B95A1]">
+            이메일 계정이 아직 운영 DB에 생성되지 않았거나 비밀번호가 맞지 않을 때 사용합니다.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input
+              value={adminKey}
+              onChange={(e) => setAdminKey(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') loginWithAdminKey();
+              }}
+              type="password"
+              placeholder="ADMIN_SECRET_KEY"
+              autoComplete="off"
+              className="min-w-0 flex-1 rounded-xl bg-white px-3 text-sm font-semibold text-[#191F28] outline-none ring-1 ring-[#E5E8EB] focus:ring-2 focus:ring-[#4E8FFF]"
+            />
+            <button
+              type="button"
+              onClick={loginWithAdminKey}
+              disabled={keyLoading}
+              className="h-11 rounded-xl bg-[#191F28] px-4 text-[13px] font-bold text-white disabled:bg-gray-300"
+            >
+              {keyLoading ? '확인 중' : '입장'}
+            </button>
+          </div>
+        </div>
 
         <p className="mt-8 text-center text-xs text-gray-400">
           이 페이지는 관리자 전용입니다

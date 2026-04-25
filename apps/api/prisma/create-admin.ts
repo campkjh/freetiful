@@ -11,12 +11,50 @@ const ADMIN = {
 
 async function main() {
   const existing = await prisma.user.findUnique({ where: { email: ADMIN.email } });
+  const passwordHash = await bcrypt.hash(ADMIN.password, 12);
+
   if (existing) {
-    console.log(`⏭  ${ADMIN.email} already exists (id: ${existing.id})`);
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        name: existing.name || ADMIN.name,
+        role: UserRole.admin,
+        isActive: true,
+        isBanned: false,
+        notificationSettings: {
+          upsert: {
+            create: {},
+            update: {},
+          },
+        },
+      },
+    });
+    await prisma.authProviderRecord.upsert({
+      where: {
+        provider_providerUserId: {
+          provider: 'email',
+          providerUserId: ADMIN.email,
+        },
+      },
+      create: {
+        userId: existing.id,
+        provider: 'email',
+        providerUserId: ADMIN.email,
+        providerEmail: ADMIN.email,
+        accessToken: passwordHash,
+      },
+      update: {
+        userId: existing.id,
+        providerEmail: ADMIN.email,
+        accessToken: passwordHash,
+      },
+    });
+    console.log(`✅ Admin repaired`);
+    console.log(`   id:       ${existing.id}`);
+    console.log(`   email:    ${ADMIN.email}`);
+    console.log(`   password: ${ADMIN.password}`);
     return;
   }
-
-  const passwordHash = await bcrypt.hash(ADMIN.password, 12);
 
   const user = await prisma.user.create({
     data: {

@@ -269,14 +269,17 @@ export class AuthService {
   }
 
   async kakaoLogin(code: string, redirectUri?: string) {
+    const params: Record<string, string | undefined> = {
+      grant_type: 'authorization_code',
+      client_id: this.config.get('KAKAO_CLIENT_ID') || 'dca1b472188890116c81a55eff590885',
+      redirect_uri: this.resolveOAuthRedirectUri('KAKAO_REDIRECT_URI', redirectUri),
+      code,
+    };
+    const clientSecret = this.config.get<string>('KAKAO_CLIENT_SECRET');
+    if (clientSecret) params.client_secret = clientSecret;
+
     const { data: tokenData } = await axios.post('https://kauth.kakao.com/oauth/token', null, {
-      params: {
-        grant_type: 'authorization_code',
-        client_id: this.config.get('KAKAO_CLIENT_ID'),
-        client_secret: this.config.get('KAKAO_CLIENT_SECRET'),
-        redirect_uri: this.resolveOAuthRedirectUri('KAKAO_REDIRECT_URI', redirectUri),
-        code,
-      },
+      params,
     });
     const { data: kakaoUser } = await axios.get('https://kapi.kakao.com/v2/user/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },

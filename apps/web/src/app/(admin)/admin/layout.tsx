@@ -29,6 +29,10 @@ import { useAuthStore } from '@/lib/store/auth.store';
 
 const ADMIN_EMAILS = ['admin@freetiful.com'];
 
+function isAdminUser(user: { email?: string | null; role?: string | null } | null) {
+  return !!user && (user.role === 'admin' || (!!user.email && ADMIN_EMAILS.includes(user.email)));
+}
+
 const NAV_ITEMS = [
   { href: '/admin', label: '대시보드', icon: LayoutDashboard, exact: true },
   { href: '/admin/pros', label: '전문가 관리', icon: UserCog },
@@ -54,6 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarReady, setSidebarReady] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hasAdminKey, setHasAdminKey] = useState(false);
 
   const isLoginPage = pathname === '/admin/login';
 
@@ -73,6 +78,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     try {
+      setHasAdminKey(!!localStorage.getItem('admin-key'));
       const saved = localStorage.getItem('freetiful-admin-sidebar-collapsed');
       if (saved === '1' || saved === '0') setCollapsed(saved === '1');
     } catch {}
@@ -87,13 +93,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!hydrated) return;
     if (isLoginPage) { setChecked(true); return; }
+    if (hasAdminKey) { setChecked(true); return; }
     if (!authUser) { router.replace('/admin/login'); return; }
-    if (!authUser.email || !ADMIN_EMAILS.includes(authUser.email)) {
+    if (!isAdminUser(authUser)) {
       router.replace('/admin/login');
       return;
     }
     setChecked(true);
-  }, [hydrated, authUser, router, isLoginPage]);
+  }, [hydrated, authUser, router, isLoginPage, hasAdminKey]);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
@@ -108,6 +115,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const handleLogout = async () => {
+    try { localStorage.removeItem('admin-key'); } catch {}
     try { await logout?.(); } catch {}
     router.replace('/admin/login');
   };
