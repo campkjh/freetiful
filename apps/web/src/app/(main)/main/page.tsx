@@ -1675,7 +1675,6 @@ export default function HomePage() {
                 </div>
                 <p className="text-[14px] font-bold text-gray-900 mt-4">{pro.name}</p>
                 <p className="text-[12px] text-gray-400">{pro.categories[0] || '사회자'}</p>
-                <p className="text-[11px] font-bold text-amber-600 mt-0.5">{(pro.pudding ?? 0).toLocaleString()} 푸딩</p>
               </Link>
             )) : (
               [
@@ -1743,7 +1742,6 @@ export default function HomePage() {
                     <span className="text-[11px] font-medium text-gray-400">{pro.categories[0] || '사회자'}</span>
                     <p className="text-[15px] font-bold text-gray-900 leading-tight">{pro.name}</p>
                   </div>
-                  <p className="text-[12px] font-bold text-amber-600 mt-1">{(pro.pudding ?? 0).toLocaleString()} 푸딩</p>
                   <div className="flex items-center gap-0.5 mt-1">
                     <Star size={11} className="fill-yellow-400 text-yellow-400" />
                     <span className="text-[12px] font-bold text-gray-900">{pro.rating}</span>
