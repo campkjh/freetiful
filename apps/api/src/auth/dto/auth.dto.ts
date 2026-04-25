@@ -11,6 +11,11 @@ export class KakaoLoginDto {
   @IsOptional()
   @IsString()
   redirectUri?: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios, android, web' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 export class KakaoNativeLoginDto {
@@ -18,6 +23,11 @@ export class KakaoNativeLoginDto {
   @IsString()
   @IsNotEmpty()
   accessToken: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios or android' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 export class GoogleLoginDto {
@@ -25,6 +35,11 @@ export class GoogleLoginDto {
   @IsString()
   @IsNotEmpty()
   idToken: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios, android, web' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 export class NaverLoginDto {
@@ -42,6 +57,11 @@ export class NaverLoginDto {
   @IsOptional()
   @IsString()
   redirectUri?: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios, android, web' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 export class NaverNativeLoginDto {
@@ -49,6 +69,11 @@ export class NaverNativeLoginDto {
   @IsString()
   @IsNotEmpty()
   accessToken: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios or android' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 export class AppleLoginDto {
@@ -61,6 +86,11 @@ export class AppleLoginDto {
   @IsOptional()
   @IsString()
   fullName?: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios, android, web' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 export class EmailRegisterDto {
@@ -82,6 +112,11 @@ export class EmailRegisterDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios, android, web' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 export class EmailLoginDto {
@@ -93,6 +128,11 @@ export class EmailLoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios, android, web' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
 }
 
 export class RefreshTokenDto {

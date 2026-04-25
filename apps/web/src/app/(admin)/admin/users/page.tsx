@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Search, ChevronLeft, ChevronRight, Trash2, RefreshCw, AlertTriangle, Archive } from 'lucide-react';
+import { ArrowLeft, Search, ChevronLeft, ChevronRight, Trash2, RefreshCw, AlertTriangle, Archive, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -16,6 +16,11 @@ interface UserItem {
   profileImageUrl: string | null;
   createdAt: string;
   paymentCount: number;
+  signupDevice?: {
+    platform: string;
+    label: string;
+    source: string;
+  };
   proProfile: null | {
     id: string;
     status: 'draft' | 'pending' | 'approved' | 'rejected' | 'suspended';
@@ -32,6 +37,13 @@ const roleColors: Record<string, string> = {
   pro: 'bg-blue-50 text-blue-600',
   business: 'bg-violet-50 text-violet-600',
   admin: 'bg-red-50 text-red-600',
+};
+
+const deviceColors: Record<string, string> = {
+  ios: 'bg-[#F3F8FF] text-[#3180F7]',
+  android: 'bg-emerald-50 text-emerald-600',
+  web: 'bg-gray-100 text-gray-600',
+  app: 'bg-violet-50 text-violet-600',
 };
 
 export default function AdminUsersPage() {
@@ -287,6 +299,7 @@ export default function AdminUsersPage() {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이메일</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">가입기기</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">권한</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">프로프로필</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">결제수</th>
@@ -298,7 +311,7 @@ export default function AdminUsersPage() {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      <td colSpan={7} className="px-4 py-3">
+                      <td colSpan={8} className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="skeleton h-9 w-9 rounded-full" />
                           <div className="flex-1 space-y-2">
@@ -311,7 +324,7 @@ export default function AdminUsersPage() {
                     </tr>
                   ))
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={7} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
+                  <tr><td colSpan={8} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
                 ) : users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
@@ -324,6 +337,12 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{user.email}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold ${deviceColors[user.signupDevice?.platform || 'web'] || deviceColors.web}`}>
+                        <Smartphone size={11} />
+                        {user.signupDevice?.label || 'Web'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <select
                         value={user.role}

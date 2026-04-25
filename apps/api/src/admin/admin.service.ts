@@ -138,6 +138,59 @@ export class AdminService {
     return this.formatAdminProProfileSummary(profile);
   }
 
+  private normalizeDevicePlatform(value?: string | null, userAgent?: string | null) {
+    const raw = `${value || ''} ${userAgent || ''}`.toLowerCase();
+    if (/iphone|ipad|ipod|\bios\b/.test(raw)) return 'ios';
+    if (/android/.test(raw)) return 'android';
+    if (/web|browser|chrome|safari|firefox|edge|mozilla/.test(raw)) return 'web';
+    if (/native|app/.test(raw)) return 'app';
+    return '';
+  }
+
+  private formatDevicePlatform(platform?: string | null) {
+    if (platform === 'ios') return 'iOS';
+    if (platform === 'android') return 'Android';
+    if (platform === 'web') return 'Web';
+    if (platform === 'app') return 'App';
+    return 'Web';
+  }
+
+  private resolveUserSignupDevice(user: {
+    pushTokens?: Array<{ platform: string | null; isActive?: boolean; createdAt?: Date }>;
+    sessions?: Array<{ deviceInfo: any; createdAt?: Date }>;
+  }) {
+    const activePush = user.pushTokens?.find((token) => token.isActive !== false);
+    const anyPush = user.pushTokens?.[0];
+    const pushPlatform = this.normalizeDevicePlatform(activePush?.platform || anyPush?.platform);
+    if (pushPlatform) {
+      return {
+        platform: pushPlatform,
+        label: this.formatDevicePlatform(pushPlatform),
+        source: 'push',
+      };
+    }
+
+    const session = user.sessions?.[0];
+    const info = session?.deviceInfo || {};
+    const sessionPlatform = this.normalizeDevicePlatform(
+      info.platform || info.os || info.deviceType || info.source,
+      info.userAgent,
+    );
+    if (sessionPlatform) {
+      return {
+        platform: sessionPlatform,
+        label: this.formatDevicePlatform(sessionPlatform),
+        source: 'session',
+      };
+    }
+
+    return {
+      platform: 'web',
+      label: 'Web',
+      source: 'fallback',
+    };
+  }
+
   /** 어드민이 특정 유저(또는 다수 유저)에게 쿠폰 발급 — UsersService 헬퍼 위임 */
   async grantCoupon(userIds: string[], couponId: string) {
     const results = await Promise.allSettled(
@@ -1274,6 +1327,16 @@ export class AdminService {
               _count: { select: { images: true, services: true } },
             },
           },
+          pushTokens: {
+            select: { platform: true, isActive: true, createdAt: true },
+            orderBy: { createdAt: 'desc' },
+            take: 3,
+          },
+          sessions: {
+            select: { deviceInfo: true, createdAt: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -1289,6 +1352,7 @@ export class AdminService {
         email: u.email,
         phone: u.phone,
         role: u.role,
+        signupDevice: this.resolveUserSignupDevice(u),
         profileImageUrl: u.profileImageUrl,
         createdAt: u.createdAt,
         paymentCount: 0,

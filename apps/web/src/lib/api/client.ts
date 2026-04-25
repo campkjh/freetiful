@@ -11,10 +11,20 @@ export const apiClient = axios.create({
   timeout: 15000,
 });
 
+function detectClientPlatform() {
+  if (typeof window === 'undefined') return 'web';
+  const w = window as any;
+  const ua = window.navigator.userAgent || '';
+  if (w.webkit?.messageHandlers || /iPhone|iPad|iPod/i.test(ua)) return 'ios';
+  if (w.Android || w.FreetifulAndroid || /Android/i.test(ua)) return 'android';
+  return 'web';
+}
+
 apiClient.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = useAuthStore.getState().accessToken;
     if (token) config.headers.Authorization = `Bearer ${token}`;
+    config.headers['x-platform'] = detectClientPlatform();
   }
   return config;
 });

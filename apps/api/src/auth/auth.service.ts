@@ -21,6 +21,13 @@ export interface SocialUserInfo {
   profileImageUrl?: string;
 }
 
+export interface LoginDeviceInfo {
+  platform?: string;
+  source?: string;
+  userAgent?: string;
+  ipAddress?: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -32,6 +39,24 @@ export class AuthService {
 
   private generateReferralCode(): string {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
+  }
+
+  private normalizeDevicePlatform(value?: string, userAgent?: string) {
+    const raw = `${value || ''} ${userAgent || ''}`.toLowerCase();
+    if (/iphone|ipad|ipod|\bios\b/.test(raw)) return 'ios';
+    if (/android/.test(raw)) return 'android';
+    if (/web|browser|chrome|safari|firefox|edge|mozilla/.test(raw)) return 'web';
+    if (/native|app/.test(raw)) return 'app';
+    return 'web';
+  }
+
+  private buildSessionDeviceInfo(deviceInfo?: LoginDeviceInfo | null) {
+    const platform = this.normalizeDevicePlatform(deviceInfo?.platform, deviceInfo?.userAgent);
+    return {
+      platform,
+      source: deviceInfo?.source || 'web',
+      userAgent: deviceInfo?.userAgent || null,
+    };
   }
 
   /**
@@ -86,16 +111,23 @@ export class AuthService {
     }).catch(() => {});
   }
 
-  private async issueTokens(userId: string) {
+  private async issueTokens(userId: string, deviceInfo?: LoginDeviceInfo | null) {
     const accessToken = this.jwt.sign(
       { sub: userId },
       { expiresIn: this.config.get('JWT_EXPIRES_IN', '7d') },
     );
     const refreshToken = uuid();
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const normalizedDeviceInfo = this.buildSessionDeviceInfo(deviceInfo);
 
     await this.prisma.session.create({
-      data: { userId, refreshTokenHash, expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS) },
+      data: {
+        userId,
+        refreshTokenHash,
+        deviceInfo: normalizedDeviceInfo,
+        ipAddress: deviceInfo?.ipAddress,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+      },
     });
 
     return { accessToken, refreshToken, expiresIn: 900 };
@@ -167,7 +199,7 @@ export class AuthService {
     }
   }
 
-  private async socialLogin(provider: AuthProvider, info: SocialUserInfo) {
+  private async socialLogin(provider: AuthProvider, info: SocialUserInfo, deviceInfo?: LoginDeviceInfo) {
     // 이메일 정규화 (대소문자/공백 차이로 중복 유저가 생기는 문제 방지)
     const normalizedEmail = info.providerEmail?.trim().toLowerCase() || undefined;
 
@@ -257,7 +289,7 @@ export class AuthService {
       }
     }
 
-    const tokens = await this.issueTokens(user.id);
+    const tokens = await this.issueTokens(user.id, deviceInfo);
     if (isNewUser) {
       this.notificationService.createNotification(
         user.id, 'system' as any,
@@ -268,7 +300,7 @@ export class AuthService {
     return this.buildLoginResponse(user, tokens, isNewUser);
   }
 
-  async kakaoLogin(code: string, redirectUri?: string) {
+  async kakaoLogin(code: string, redirectUri?: string, deviceInfo?: LoginDeviceInfo) {
     const params: Record<string, string | undefined> = {
       grant_type: 'authorization_code',
       client_id: this.config.get('KAKAO_CLIENT_ID') || 'dca1b472188890116c81a55eff590885',
@@ -289,10 +321,10 @@ export class AuthService {
       providerEmail: kakaoUser.kakao_account?.email,
       name: kakaoUser.kakao_account?.profile?.nickname,
       profileImageUrl: kakaoUser.kakao_account?.profile?.profile_image_url,
-    });
+    }, deviceInfo);
   }
 
-  async kakaoNativeLogin(accessToken: string) {
+  async kakaoNativeLogin(accessToken: string, deviceInfo?: LoginDeviceInfo) {
     const { data: kakaoUser } = await axios.get('https://kapi.kakao.com/v2/user/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -301,20 +333,20 @@ export class AuthService {
       providerEmail: kakaoUser.kakao_account?.email,
       name: kakaoUser.kakao_account?.profile?.nickname,
       profileImageUrl: kakaoUser.kakao_account?.profile?.profile_image_url,
-    });
+    }, deviceInfo);
   }
 
-  async googleLogin(idToken: string) {
+  async googleLogin(idToken: string, deviceInfo?: LoginDeviceInfo) {
     const { data } = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
     return this.socialLogin(AuthProvider.google, {
       providerUserId: data.sub,
       providerEmail: data.email,
       name: data.name,
       profileImageUrl: data.picture,
-    });
+    }, deviceInfo);
   }
 
-  async naverLogin(code: string, state: string, redirectUri?: string) {
+  async naverLogin(code: string, state: string, redirectUri?: string, deviceInfo?: LoginDeviceInfo) {
     const { data: tokenData } = await axios.get('https://nid.naver.com/oauth2.0/token', {
       params: {
         grant_type: 'authorization_code',
@@ -325,15 +357,15 @@ export class AuthService {
         redirect_uri: this.resolveOAuthRedirectUri('NAVER_REDIRECT_URI', redirectUri),
       },
     });
-    return this.naverProfileLogin(tokenData.access_token);
+    return this.naverProfileLogin(tokenData.access_token, deviceInfo);
   }
 
   /** iOS/Android 네이티브 SDK에서 이미 발급받은 access token으로 로그인 */
-  async naverNativeLogin(accessToken: string) {
-    return this.naverProfileLogin(accessToken);
+  async naverNativeLogin(accessToken: string, deviceInfo?: LoginDeviceInfo) {
+    return this.naverProfileLogin(accessToken, deviceInfo);
   }
 
-  private async naverProfileLogin(accessToken: string) {
+  private async naverProfileLogin(accessToken: string, deviceInfo?: LoginDeviceInfo) {
     const { data: profile } = await axios.get('https://openapi.naver.com/v1/nid/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -343,20 +375,20 @@ export class AuthService {
       providerEmail: u.email,
       name: u.name,
       profileImageUrl: u.profile_image,
-    });
+    }, deviceInfo);
   }
 
   // NOTE: In production, verify Apple's JWT signature using Apple's public keys.
-  async appleLogin(identityToken: string, fullName?: string) {
+  async appleLogin(identityToken: string, fullName?: string, deviceInfo?: LoginDeviceInfo) {
     const payload = JSON.parse(Buffer.from(identityToken.split('.')[1], 'base64').toString());
     return this.socialLogin(AuthProvider.apple, {
       providerUserId: payload.sub,
       providerEmail: payload.email,
       name: fullName,
-    });
+    }, deviceInfo);
   }
 
-  async emailRegister(dto: { email: string; password: string; name: string; phone?: string }) {
+  async emailRegister(dto: { email: string; password: string; name: string; phone?: string }, deviceInfo?: LoginDeviceInfo) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Email already registered');
 
@@ -371,10 +403,10 @@ export class AuthService {
       '프리티풀에 오신 것을 환영합니다! 🎉',
       '전문 사회자를 쉽고 빠르게 찾아보세요.',
     ).catch(() => {});
-    return this.buildLoginResponse(user, await this.issueTokens(user.id), true);
+    return this.buildLoginResponse(user, await this.issueTokens(user.id, deviceInfo), true);
   }
 
-  async emailLogin(email: string, password: string) {
+  async emailLogin(email: string, password: string, deviceInfo?: LoginDeviceInfo) {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { authProviders: { where: { provider: AuthProvider.email } } },
@@ -383,13 +415,13 @@ export class AuthService {
     if (!await bcrypt.compare(password, user.authProviders[0].accessToken!)) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.buildLoginResponse(user, await this.issueTokens(user.id), false);
+    return this.buildLoginResponse(user, await this.issueTokens(user.id, deviceInfo), false);
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string, deviceInfo?: LoginDeviceInfo) {
     const session = await this.popSession(refreshToken);
     if (!session) throw new UnauthorizedException('Invalid or expired refresh token');
-    return { user: (session as any).user, tokens: await this.issueTokens(session.userId) };
+    return { user: (session as any).user, tokens: await this.issueTokens(session.userId, deviceInfo || (session.deviceInfo as LoginDeviceInfo)) };
   }
 
   async logout(userId: string, refreshToken: string) {
