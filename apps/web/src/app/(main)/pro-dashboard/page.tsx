@@ -170,6 +170,46 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
+const DASHBOARD_CACHE_KEY = 'freetiful-pro-dashboard-cache-v2';
+const DASHBOARD_CACHE_TTL = 5 * 60_000;
+
+type DashboardCache = {
+  ts: number;
+  puddingCount?: number;
+  reviewCount?: number;
+  avgRating?: string;
+  monthlyRevenue?: number;
+  lastMonthRevenue?: number;
+  profileViews?: number;
+  upcomingEvents?: UpcomingEvent[];
+  recentReviews?: RecentReview[];
+  inquiryRooms?: { id: string; userName: string; image: string; message: string; receivedAt: string; unread: number }[];
+  scheduleRequests?: any[];
+  matchRequests?: any[];
+  quotes?: Quote[];
+};
+
+function readDashboardCache(): DashboardCache | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DashboardCache;
+    if (!parsed?.ts || Date.now() - parsed.ts > DASHBOARD_CACHE_TTL) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeDashboardCache(patch: Omit<Partial<DashboardCache>, 'ts'>) {
+  if (typeof window === 'undefined') return;
+  try {
+    const prevRaw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+    const prev = prevRaw ? JSON.parse(prevRaw) : {};
+    localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ ...prev, ...patch, ts: Date.now() }));
+  } catch {}
+}
 
 /* ─── Animation ─── */
 
@@ -244,6 +284,22 @@ export default function ProDashboardPage() {
     const storedName = localStorage.getItem('proRegister_name') || '프로';
     setName(storedName);
 
+    const cached = readDashboardCache();
+    if (cached) {
+      if (cached.puddingCount != null) setPuddingCount(cached.puddingCount);
+      if (cached.reviewCount != null) setReviewCount(cached.reviewCount);
+      if (cached.avgRating != null) setAvgRating(cached.avgRating);
+      if (cached.monthlyRevenue != null) setMonthlyRevenue(cached.monthlyRevenue);
+      if (cached.lastMonthRevenue != null) setLastMonthRevenue(cached.lastMonthRevenue);
+      if (cached.profileViews != null) setProfileViews(cached.profileViews);
+      if (cached.upcomingEvents) setUpcomingEvents(cached.upcomingEvents);
+      if (cached.recentReviews) setRecentReviews(cached.recentReviews);
+      if (cached.inquiryRooms) setInquiryRooms(cached.inquiryRooms);
+      if (cached.scheduleRequests) setScheduleRequests(cached.scheduleRequests);
+      if (cached.matchRequests) setMatchRequests(cached.matchRequests);
+      if (cached.quotes) setQuotes(cached.quotes);
+    }
+
     const storedReplies = localStorage.getItem('pro-review-replies');
     if (storedReplies) {
       try { setSavedReplies(JSON.parse(storedReplies)); } catch { /* ignore */ }
@@ -251,7 +307,7 @@ export default function ProDashboardPage() {
 
     try {
       const storedPudding = localStorage.getItem('freetiful-pudding');
-      setPuddingCount(storedPudding ? Number(storedPudding) : 0);
+      if (cached?.puddingCount == null) setPuddingCount(storedPudding ? Number(storedPudding) : 0);
     } catch { /* ignore */ }
   }, []);
 
@@ -259,7 +315,11 @@ export default function ProDashboardPage() {
   useEffect(() => {
     if (!authUser) return;
     prosApi.getScheduleRequests()
-      .then((data: any) => setScheduleRequests(Array.isArray(data) ? data : []))
+      .then((data: any) => {
+        const next = Array.isArray(data) ? data : [];
+        setScheduleRequests(next);
+        writeDashboardCache({ scheduleRequests: next });
+      })
       .catch(() => {});
   }, [authUser]);
 
@@ -272,13 +332,18 @@ export default function ProDashboardPage() {
         // pending 또는 viewed 상태의 요청만 "새 요청" 카운트
         const active = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
         setMatchRequests(active);
+        writeDashboardCache({ matchRequests: active });
       })
       .catch(() => {});
   }, [authUser]);
 
   const refreshScheduleRequests = () => {
     prosApi.getScheduleRequests()
-      .then((data: any) => setScheduleRequests(Array.isArray(data) ? data : []))
+      .then((data: any) => {
+        const next = Array.isArray(data) ? data : [];
+        setScheduleRequests(next);
+        writeDashboardCache({ scheduleRequests: next });
+      })
       .catch(() => {});
   };
 
@@ -287,7 +352,11 @@ export default function ProDashboardPage() {
       await prosApi.acceptScheduleRequest(id);
       toast.success('예약이 확정되었습니다');
       const req = scheduleRequests.find((r) => r.id === id);
-      setScheduleRequests((prev) => prev.filter((r) => r.id !== id));
+      setScheduleRequests((prev) => {
+        const next = prev.filter((r) => r.id !== id);
+        writeDashboardCache({ scheduleRequests: next });
+        return next;
+      });
       if (goToChat && req?.clientId) {
         // 해당 유저와의 채팅방을 찾아 이동
         const room = await (await import('@/lib/api/chat.api')).chatApi.createRoom(req.clientId).catch(() => null);
@@ -307,7 +376,11 @@ export default function ProDashboardPage() {
     try {
       await prosApi.rejectScheduleRequest(rejectSched.id, rejectReason.trim() || undefined);
       toast.success('스케줄 요청이 거절되었습니다');
-      setScheduleRequests((prev) => prev.filter((r) => r.id !== rejectSched.id));
+      setScheduleRequests((prev) => {
+        const next = prev.filter((r) => r.id !== rejectSched.id);
+        writeDashboardCache({ scheduleRequests: next });
+        return next;
+      });
       setRejectSched(null);
       setRejectReason('');
     } catch (e: any) {
@@ -338,6 +411,7 @@ export default function ProDashboardPage() {
             };
           });
         setInquiryRooms(mapped);
+        writeDashboardCache({ inquiryRooms: mapped });
       })
       .catch(() => {});
   }, [authUser]);
@@ -348,18 +422,17 @@ export default function ProDashboardPage() {
     quotationApi.getForPro({ limit: 20 })
       .then((data: any) => {
         const items = data?.data || (Array.isArray(data) ? data : []);
-        if (items.length > 0) {
-          const mapped: Quote[] = items.map((q: any) => ({
-            id: q.id,
-            clientName: q.user?.name ? q.user.name.slice(0, 1) + '**' : '고객**',
-            eventType: q.title || '행사',
-            eventDate: q.eventDate || new Date().toISOString(),
-            plan: (q.planName as Quote['plan']) || 'Premium',
-            budget: q.amount ? `₩${Number(q.amount).toLocaleString()}` : '협의',
-            status: q.status === 'cancelled' ? 'rejected' : ((q.status || 'pending') as Quote['status']),
-          }));
-          setQuotes(mapped);
-        }
+        const mapped: Quote[] = items.map((q: any) => ({
+          id: q.id,
+          clientName: q.user?.name ? q.user.name.slice(0, 1) + '**' : '고객**',
+          eventType: q.title || '행사',
+          eventDate: q.eventDate || new Date().toISOString(),
+          plan: (q.planName as Quote['plan']) || 'Premium',
+          budget: q.amount ? `₩${Number(q.amount).toLocaleString()}` : '협의',
+          status: q.status === 'cancelled' ? 'rejected' : ((q.status || 'pending') as Quote['status']),
+        }));
+        setQuotes(mapped);
+        writeDashboardCache({ quotes: mapped });
       })
       .catch(() => {});
   }, [authUser]);
@@ -373,10 +446,15 @@ export default function ProDashboardPage() {
         const total = data?.total ?? items.length;
         if (total != null) setReviewCount(total);
         if (data?.avgRating != null) setAvgRating(Number(data.avgRating).toFixed(1));
+        let nextAvgRating = data?.avgRating != null ? Number(data.avgRating).toFixed(1) : undefined;
+        let mapped: RecentReview[] = [];
         if (items.length > 0) {
           const avg = (items.reduce((s: number, r: any) => s + (r.avgRating || r.ratingSatisfaction || 0), 0) / items.length).toFixed(1);
-          if (data?.avgRating == null) setAvgRating(avg);
-          const mapped: RecentReview[] = items.slice(0, 2).map((r: any) => ({
+          if (data?.avgRating == null) {
+            nextAvgRating = avg;
+            setAvgRating(avg);
+          }
+          mapped = items.slice(0, 2).map((r: any) => ({
             id: r.id,
             author: r.reviewer?.name ? r.reviewer.name.slice(0, 1) + '**' : '고객**',
             rating: Math.round((r.avgRating || r.ratingSatisfaction || 0) * 10) / 10,
@@ -394,6 +472,11 @@ export default function ProDashboardPage() {
           }));
           setRecentReviews(mapped);
         }
+        writeDashboardCache({
+          reviewCount: total,
+          ...(nextAvgRating ? { avgRating: nextAvgRating } : {}),
+          recentReviews: mapped,
+        });
       })
       .catch(() => {});
   }, [authUser]);
@@ -407,13 +490,9 @@ export default function ProDashboardPage() {
     const nextMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
-    Promise.all([
-      scheduleApi.getMySchedule(thisMonth),
-      scheduleApi.getMySchedule(nextMonth),
-    ]).then(([thisData, nextData]: [any, any]) => {
-      const all = [...(Array.isArray(thisData) ? thisData : []), ...(Array.isArray(nextData) ? nextData : [])];
-      const upcoming: UpcomingEvent[] = all
+    const toUpcoming = (rows: any[]) => rows
         .filter((s: any) => s.status === 'booked' && new Date(s.date) >= now)
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .slice(0, 3)
         .map((s: any) => {
           const d = new Date(s.date);
@@ -425,29 +504,54 @@ export default function ProDashboardPage() {
             status: '확정',
           };
         });
+
+    let thisRows: any[] = [];
+    let nextRows: any[] = [];
+    const publishUpcoming = () => {
+      const upcoming = toUpcoming([...thisRows, ...nextRows]);
       setUpcomingEvents(upcoming);
-    }).catch(() => {});
+      writeDashboardCache({ upcomingEvents: upcoming });
+    };
+
+    scheduleApi.getMySchedule(thisMonth)
+      .then((thisData: any) => {
+        thisRows = Array.isArray(thisData) ? thisData : [];
+        publishUpcoming();
+      })
+      .catch(() => {});
+
+    scheduleApi.getMySchedule(nextMonth)
+      .then((nextData: any) => {
+        nextRows = Array.isArray(nextData) ? nextData : [];
+        publishUpcoming();
+      })
+      .catch(() => {});
   }, [authUser]);
 
   // Fetch pudding from API + 일일 출석체크 (하루 1회 +50)
   useEffect(() => {
     if (!authUser) return;
-    // 1) 출석체크 먼저 (granted 시 toast)
+    apiClient.get('/api/v1/pro/pudding')
+      .then((res) => {
+        if (res.data?.balance != null) {
+          setPuddingCount(res.data.balance);
+          writeDashboardCache({ puddingCount: res.data.balance });
+        }
+      })
+      .catch(() => {});
+
     apiClient.post('/api/v1/pro/pudding/attendance')
       .then((res) => {
         if (res.data?.granted) {
           toast.success('출석체크 완료! +50 푸딩 🍮', { duration: 2500 });
+          setPuddingCount((prev) => {
+            const next = prev + 50;
+            writeDashboardCache({ puddingCount: next });
+            return next;
+          });
         }
       })
-      .catch(() => { /* silently ignore */ })
-      .finally(() => {
-        // 2) balance 조회 (출석체크 후 최신값)
-        apiClient.get('/api/v1/pro/pudding')
-          .then((res) => {
-            if (res.data?.balance != null) setPuddingCount(res.data.balance);
-          })
-          .catch(() => {});
-      });
+      .catch(() => { /* silently ignore */ });
   }, [authUser]);
 
   // Fetch revenue stats
@@ -459,6 +563,11 @@ export default function ProDashboardPage() {
         if (d?.thisMonth != null) setMonthlyRevenue(d.thisMonth);
         if (d?.lastMonth != null) setLastMonthRevenue(d.lastMonth);
         if (d?.profileViews != null) setProfileViews(d.profileViews);
+        writeDashboardCache({
+          ...(d?.thisMonth != null ? { monthlyRevenue: d.thisMonth } : {}),
+          ...(d?.lastMonth != null ? { lastMonthRevenue: d.lastMonth } : {}),
+          ...(d?.profileViews != null ? { profileViews: d.profileViews } : {}),
+        });
       })
       .catch(() => { /* fallback */ });
   }, [authUser]);
@@ -474,6 +583,7 @@ export default function ProDashboardPage() {
   function saveQuotes(updated: Quote[]) {
     setQuotes(updated);
     localStorage.setItem('pro-quotes', JSON.stringify(updated));
+    writeDashboardCache({ quotes: updated });
   }
 
   function handleAccept(id: string) {

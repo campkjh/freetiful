@@ -113,7 +113,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     socket.on('disconnect', () => set({ isConnected: false }));
 
     socket.on('newMessage', (message: MessageItem) => {
-      const { currentRoomId } = get();
+      const { currentRoomId, messageCache } = get();
+      const cachedForRoom = messageCache.get(message.roomId) || [];
+      if (!cachedForRoom.some((m) => m.id === message.id)) {
+        messageCache.set(message.roomId, [...cachedForRoom, message].slice(-80));
+      }
       if (message.roomId === currentRoomId) {
         set((s) => ({ messages: [...s.messages, message] }));
       }
@@ -275,6 +279,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const cursor = loadMore ? get().messageCursor : undefined;
       const res = await chatApi.getMessages(roomId, { cursor: cursor ?? undefined, limit: 50 });
       const newMsgs = res.data.data;
+      const nextMessages = loadMore ? [...newMsgs, ...get().messages] : newMsgs;
+      get().messageCache.set(roomId, nextMessages);
       set((s) => ({
         messages: loadMore ? [...newMsgs, ...s.messages] : newMsgs,
         hasMoreMessages: res.data.hasMore,

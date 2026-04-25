@@ -4,6 +4,7 @@ export interface ChatPreWarmData {
   roomId?: string;
   room?: ChatRoomItem;
   messages?: MessageItem[];
+  messagesPromise?: Promise<MessageItem[]>;
   /** createRoom만 완료되면 resolve (빠름) */
   roomIdPromise?: Promise<string | undefined>;
 }
@@ -34,15 +35,39 @@ export function preWarmChat(proProfileId: string) {
       roomDataCache.set(roomId, data);
 
       // getMessages만 백그라운드로 (room 정보는 이미 있음)
-      chatApi.getMessages(roomId, { limit: 50 })
-        .then((res) => { data.messages = res.data.data || []; })
-        .catch(() => {});
+      data.messagesPromise = chatApi.getMessages(roomId, { limit: 50 })
+        .then((res) => {
+          const messages = res.data.data || [];
+          data.messages = messages;
+          return messages;
+        })
+        .catch(() => []);
 
       return roomId;
     } catch {
       return undefined;
     }
   })();
+
+  return data;
+}
+
+export function preWarmExistingRoom(room: ChatRoomItem) {
+  const existing = roomDataCache.get(room.id);
+  if (existing?.messages || existing?.messagesPromise) return existing;
+
+  const data: ChatPreWarmData = existing || { roomId: room.id, room };
+  data.roomId = room.id;
+  data.room = room;
+  roomDataCache.set(room.id, data);
+
+  data.messagesPromise = chatApi.getMessages(room.id, { limit: 50 })
+    .then((res) => {
+      const messages = res.data.data || [];
+      data.messages = messages;
+      return messages;
+    })
+    .catch(() => []);
 
   return data;
 }

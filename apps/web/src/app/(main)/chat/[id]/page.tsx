@@ -228,10 +228,39 @@ export default function ChatRoomPage() {
       if (roomId.startsWith('pending-')) return;
       // pre-warm된 메시지를 이미 initial state로 넣어뒀다면 background refresh만
       if (initialMessages.length > 0) {
+        setMessagesLoading(false);
         chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
-          if (!cancelled) setMessages((res.data.data || []).map(mapApiMessage));
+          if (!cancelled) {
+            const apiMessages = res.data.data || [];
+            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            setMessages(apiMessages.map(mapApiMessage));
+          }
         }).catch(() => {});
         return;
+      }
+      const prewarmed = getPreWarmByRoomId(roomId);
+      if (prewarmed?.messages?.length) {
+        setMessages(prewarmed.messages.map(mapApiMessage));
+        setMessagesLoading(false);
+        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
+          if (!cancelled) {
+            const apiMessages = res.data.data || [];
+            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            setMessages(apiMessages.map(mapApiMessage));
+          }
+        }).catch(() => {});
+        return;
+      }
+      if (prewarmed?.messagesPromise) {
+        setMessagesLoading(messages.length === 0);
+        const warmMessages = await prewarmed.messagesPromise;
+        if (cancelled) return;
+        if (warmMessages?.length) {
+          useChatStore.getState().messageCache.set(roomId, warmMessages);
+          setMessages(warmMessages.map(mapApiMessage));
+          setMessagesLoading(false);
+          return;
+        }
       }
       const cachedMsgs = useChatStore.getState().messageCache.get(roomId);
       if (cachedMsgs && cachedMsgs.length > 0) {
@@ -246,7 +275,9 @@ export default function ChatRoomPage() {
       try {
         const res = await chatApi.getMessages(roomId, { limit: 50 });
         if (cancelled) return;
-        setMessages((res.data.data || []).map(mapApiMessage));
+        const apiMessages = res.data.data || [];
+        useChatStore.getState().messageCache.set(roomId, apiMessages);
+        setMessages(apiMessages.map(mapApiMessage));
       } catch (err) {
         console.error('Failed to load messages', err);
       } finally {

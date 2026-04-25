@@ -6,6 +6,7 @@ import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-rea
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
+import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -224,6 +225,11 @@ export default function ChatListPage() {
     }
   };
 
+  const handlePrewarmRoom = (roomId: string) => {
+    const room = useChatStore.getState().rooms.find((r) => r.id === roomId);
+    if (room) preWarmExistingRoom(room);
+  };
+
   const [pcSelectedRoom, setPcSelectedRoom] = useState<string | null>(null);
   const [pcInput, setPcInput] = useState('');
 
@@ -256,7 +262,13 @@ export default function ChatListPage() {
                     userSelect: 'none',
                   }}
                   onClick={() => isPC && setPcSelectedRoom(room.id)}
-                  onPointerDown={(e) => !isPC && handleLongPressStart(e, room)}
+                  onMouseEnter={() => handlePrewarmRoom(room.id)}
+                  onFocus={() => handlePrewarmRoom(room.id)}
+                  onPointerDown={(e) => {
+                    handlePrewarmRoom(room.id);
+                    if (!isPC) handleLongPressStart(e, room);
+                  }}
+                  onTouchStart={() => handlePrewarmRoom(room.id)}
                   onPointerUp={handleLongPressEnd}
                   onPointerLeave={handleLongPressEnd}
                   onPointerCancel={handleLongPressEnd}

@@ -13,6 +13,46 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 type DateStatus = 'available' | 'booked' | 'unavailable';
+const SCHEDULE_CACHE_KEY = 'freetiful-pro-schedule-cache-v1';
+const SCHEDULE_CACHE_TTL = 5 * 60_000;
+
+function readScheduleCache(month: string) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(`${SCHEDULE_CACHE_KEY}:${month}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.ts || Date.now() - parsed.ts > SCHEDULE_CACHE_TTL) return null;
+    return parsed as { statuses: Record<string, DateStatus>; info: Record<string, { event: string; client: string }> };
+  } catch {
+    return null;
+  }
+}
+
+function writeScheduleCache(month: string, data: { statuses: Record<string, DateStatus>; info: Record<string, { event: string; client: string }> }) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`${SCHEDULE_CACHE_KEY}:${month}`, JSON.stringify({ ...data, ts: Date.now() }));
+  } catch {}
+}
+
+function buildScheduleMaps(data: any[]) {
+  const statuses: Record<string, DateStatus> = {};
+  const info: Record<string, { event: string; client: string }> = {};
+  data.forEach((s: any) => {
+    const dateKey = typeof s.date === 'string' ? s.date.slice(0, 10) : new Date(s.date).toISOString().slice(0, 10);
+    if (s.status === 'booked' || s.status === 'completed' || s.status === 'pending') {
+      statuses[dateKey] = 'booked';
+      info[dateKey] = {
+        event: s.eventTitle || s.title || '예약된 행사',
+        client: s.clientName || '고객',
+      };
+    } else if (s.status === 'unavailable') {
+      statuses[dateKey] = 'unavailable';
+    }
+  });
+  return { statuses, info };
+}
 
 export default function SchedulePage() {
   const router = useRouter();
@@ -28,25 +68,22 @@ export default function SchedulePage() {
     if (!authUser) return;
     const y = currentMonth.getFullYear();
     const m = String(currentMonth.getMonth() + 1).padStart(2, '0');
-    scheduleApi.getMySchedule(`${y}-${m}`)
+    const monthKey = `${y}-${m}`;
+    const cached = readScheduleCache(monthKey);
+    if (cached) {
+      setDateStatuses(cached.statuses);
+      setBookedInfo(cached.info);
+    } else {
+      setDateStatuses({});
+      setBookedInfo({});
+    }
+    scheduleApi.getMySchedule(monthKey)
       .then((data: any) => {
         if (!Array.isArray(data)) return;
-        const statuses: Record<string, DateStatus> = {};
-        const info: Record<string, { event: string; client: string }> = {};
-        data.forEach((s: any) => {
-          const dateKey = typeof s.date === 'string' ? s.date.slice(0, 10) : new Date(s.date).toISOString().slice(0, 10);
-          if (s.status === 'booked' || s.status === 'completed' || s.status === 'pending') {
-            statuses[dateKey] = 'booked';
-            info[dateKey] = {
-              event: s.eventTitle || s.title || '예약된 행사',
-              client: s.clientName || '고객',
-            };
-          } else if (s.status === 'unavailable') {
-            statuses[dateKey] = 'unavailable';
-          }
-        });
+        const { statuses, info } = buildScheduleMaps(data);
         setDateStatuses(statuses);
         setBookedInfo(info);
+        writeScheduleCache(monthKey, { statuses, info });
       })
       .catch(() => {});
   }, [authUser, currentMonth]);
