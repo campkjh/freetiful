@@ -1543,9 +1543,9 @@ export class AdminService {
           })
         : Promise.resolve([]),
     ]);
-    const favoriteProMap = new Map(favoritePros.map((p) => [p.id, p]));
-    const favoriteBusinessMap = new Map(favoriteBusinesses.map((b) => [b.id, b]));
-    const paymentProMap = new Map(paymentPros.map((p) => [p.id, p]));
+    const favoriteProMap = new Map(favoritePros.map((p) => [p.id, p] as const));
+    const favoriteBusinessMap = new Map(favoriteBusinesses.map((b) => [b.id, b] as const));
+    const paymentProMap = new Map(paymentPros.map((p) => [p.id, p] as const));
 
     return {
       user,

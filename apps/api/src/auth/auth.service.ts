@@ -94,8 +94,8 @@ export class AuthService {
         data: { userId: toUserId },
       });
     }
-    // ChatMessage.senderId 재매핑
-    await this.prisma.chatMessage.updateMany({
+    // Message.senderId 재매핑
+    await this.prisma.message.updateMany({
       where: { senderId: fromUserId },
       data: { senderId: toUserId },
     });
