@@ -16,7 +16,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { ProService } from './pro.service';
-import { UpdateProProfileDto } from './dto/pro.dto';
+import { UpdateProProfileDto, UpdateProVisibilityDto } from './dto/pro.dto';
 
 @ApiTags('pro')
 @Controller('pro')
@@ -39,6 +39,14 @@ export class ProController {
   @ApiOperation({ summary: '내 프로 프로필 업데이트 (없으면 draft 생성)' })
   updateMyProfile(@Req() req, @Body() dto: UpdateProProfileDto) {
     return this.proService.updateProfile(req.user.id, dto);
+  }
+
+  @Put('profile/visibility')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 프로 프로필 공개/숨김 설정' })
+  updateMyProfileVisibility(@Req() req, @Body() dto: UpdateProVisibilityDto) {
+    return this.proService.updateProfileVisibility(req.user.id, dto);
   }
 
   @Post('profile')

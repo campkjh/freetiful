@@ -112,9 +112,13 @@ export class ProService implements OnModuleInit {
       gender?: string;
       isNationwide?: boolean;
       isProfileHidden?: boolean;
+      profileHidden?: boolean;
+      profilehidden?: boolean;
     },
   ) {
     const existing = await this.prisma.proProfile.findUnique({ where: { userId } });
+    const nextProfileHidden =
+      data.isProfileHidden ?? data.profileHidden ?? data.profilehidden;
 
     const fields = {
       ...(data.shortIntro !== undefined ? { shortIntro: data.shortIntro } : {}),
@@ -125,7 +129,7 @@ export class ProService implements OnModuleInit {
       ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
       ...(data.gender !== undefined ? { gender: data.gender } : {}),
       ...(data.isNationwide !== undefined ? { isNationwide: data.isNationwide } : {}),
-      ...(data.isProfileHidden !== undefined ? { isProfileHidden: data.isProfileHidden } : {}),
+      ...(nextProfileHidden !== undefined ? { isProfileHidden: nextProfileHidden } : {}),
     };
 
     if (!existing) {
@@ -142,6 +146,22 @@ export class ProService implements OnModuleInit {
     });
     this.discovery.invalidateCache(updated.id);
     return updated;
+  }
+
+  async updateProfileVisibility(
+    userId: string,
+    data: {
+      isProfileHidden?: boolean;
+      profileHidden?: boolean;
+      profilehidden?: boolean;
+    },
+  ) {
+    const nextProfileHidden =
+      data.isProfileHidden ?? data.profileHidden ?? data.profilehidden;
+    if (nextProfileHidden === undefined) {
+      return this.getProfile(userId);
+    }
+    return this.updateProfile(userId, { isProfileHidden: nextProfileHidden });
   }
 
   // ─── Profile Images ──────────────────────────────────────────────────────

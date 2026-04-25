@@ -43,6 +43,20 @@ export const prosApi = {
   }) =>
     apiClient.put(`${BASE}/pro/profile`, data).then((r) => r.data),
 
+  updateProfileVisibility: (isProfileHidden: boolean) =>
+    apiClient
+      .put(`${BASE}/pro/profile/visibility`, { isProfileHidden })
+      .then((r) => r.data)
+      .catch((error) => {
+        const status = error?.response?.status;
+        if (status === 404 || status === 405) {
+          return apiClient
+            .put(`${BASE}/pro/profile`, { isProfileHidden })
+            .then((r) => r.data);
+        }
+        throw error;
+      }),
+
   uploadImage: (file: File) => {
     const form = new FormData();
     form.append('file', file);

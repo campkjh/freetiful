@@ -836,7 +836,7 @@ export default function ProDashboardPage() {
     writeDashboardCache({ profileHidden: nextHidden });
 
     try {
-      const updated: any = await prosApi.updateMyProfile({ isProfileHidden: nextHidden });
+      const updated: any = await prosApi.updateProfileVisibility(nextHidden);
       const confirmedHidden = Boolean(updated?.isProfileHidden ?? nextHidden);
       setProfileHidden(confirmedHidden);
       writeDashboardCache({ profileHidden: confirmedHidden });
