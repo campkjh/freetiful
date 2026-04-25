@@ -69,11 +69,18 @@ export default function AdminUsersPage() {
   useEffect(() => { fetchUsers(); }, []);
 
   const handleRoleChange = async (id: string, role: string) => {
-    if (!confirm(`권한을 ${role}로 변경하시겠습니까?`)) return;
+    const message = role === 'pro'
+      ? '이 유저를 전문가(pro)로 전환할까요? 프로필이 없으면 승인된 전문가 프로필이 자동 생성됩니다.'
+      : `권한을 ${role}로 변경하시겠습니까?`;
+    if (!confirm(message)) return;
     try {
-      await adminFetch('PATCH', `/api/v1/admin/users/${id}/role`, { role });
-      toast.success('권한이 변경되었습니다');
-      setUsers((prev) => prev.map((u) => u.id === id ? { ...u, role } : u));
+      const result = await adminFetch('PATCH', `/api/v1/admin/users/${id}/role`, { role });
+      toast.success(role === 'pro' ? '전문가 계정으로 전환되었습니다' : '권한이 변경되었습니다');
+      setUsers((prev) => prev.map((u) => u.id === id ? {
+        ...u,
+        role: result?.role || role,
+        ...(result?.proProfile !== undefined ? { proProfile: result.proProfile } : {}),
+      } : u));
     } catch { toast.error('변경 실패'); }
   };
 

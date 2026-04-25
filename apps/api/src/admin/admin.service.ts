@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
+  private readonly editableUserRoles = ['general', 'pro', 'business', 'admin'];
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
@@ -93,6 +94,48 @@ export class AdminService {
         reviewCount: reviews.length,
       },
     });
+  }
+
+  private formatAdminProProfileSummary(profile: {
+    id: string;
+    status: string;
+    shortIntro: string | null;
+    _count?: { images: number; services: number };
+  }) {
+    const imageCount = profile._count?.images || 0;
+    const serviceCount = profile._count?.services || 0;
+    return {
+      id: profile.id,
+      status: profile.status,
+      hasIntro: !!profile.shortIntro,
+      imageCount,
+      serviceCount,
+      isEmpty: !profile.shortIntro && imageCount === 0 && serviceCount === 0,
+    };
+  }
+
+  private async ensureApprovedProProfile(userId: string) {
+    const now = new Date();
+    const profile = await this.prisma.proProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        status: 'approved',
+        approvedAt: now,
+      },
+      update: {
+        status: 'approved',
+        approvedAt: now,
+      },
+      select: {
+        id: true,
+        status: true,
+        shortIntro: true,
+        _count: { select: { images: true, services: true } },
+      },
+    });
+    this.discoveryService.invalidateCache(profile.id);
+    return this.formatAdminProProfileSummary(profile);
   }
 
   /** 어드민이 특정 유저(또는 다수 유저)에게 쿠폰 발급 — UsersService 헬퍼 위임 */
@@ -1263,17 +1306,7 @@ export class AdminService {
             }
           : null,
         proProfile: u.proProfile
-          ? {
-              id: u.proProfile.id,
-              status: u.proProfile.status,
-              hasIntro: !!u.proProfile.shortIntro,
-              imageCount: u.proProfile._count.images,
-              serviceCount: u.proProfile._count.services,
-              isEmpty:
-                !u.proProfile.shortIntro &&
-                u.proProfile._count.images === 0 &&
-                u.proProfile._count.services === 0,
-            }
+          ? this.formatAdminProProfileSummary(u.proProfile)
           : null,
       })),
       total,
@@ -1490,11 +1523,18 @@ export class AdminService {
       if (data[field] !== undefined) allowed[field] = data[field] === '' ? null : data[field];
     }
     if (allowed.pointBalance !== undefined) allowed.pointBalance = Number(allowed.pointBalance) || 0;
+    if (allowed.role !== undefined && !this.editableUserRoles.includes(allowed.role)) {
+      throw new BadRequestException('변경할 수 없는 권한입니다.');
+    }
 
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: allowed,
     });
+
+    if (allowed.role === 'pro') {
+      await this.ensureApprovedProProfile(userId);
+    }
 
     if (data.notificationSettings && typeof data.notificationSettings === 'object') {
       const settingsFields = [
@@ -1527,7 +1567,38 @@ export class AdminService {
 
   // ─── 유저 권한 변경 ──────────────────────────────────────────────────────
   async updateUserRole(userId: string, role: string) {
-    return this.prisma.user.update({ where: { id: userId }, data: { role: role as any } });
+    if (!this.editableUserRoles.includes(role)) {
+      throw new BadRequestException('변경할 수 없는 권한입니다.');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { role: role as any },
+      select: {
+        id: true,
+        role: true,
+        proProfile: {
+          select: {
+            id: true,
+            status: true,
+            shortIntro: true,
+            _count: { select: { images: true, services: true } },
+          },
+        },
+      },
+    });
+    const proProfile = role === 'pro'
+      ? await this.ensureApprovedProProfile(userId)
+      : user.proProfile
+        ? this.formatAdminProProfileSummary(user.proProfile)
+        : null;
+
+    return {
+      success: true,
+      id: user.id,
+      role: user.role,
+      proProfile,
+    };
   }
 
   // ─── 이메일 중복 유저 진단 / 정리 ─────────────────────────────────────────
