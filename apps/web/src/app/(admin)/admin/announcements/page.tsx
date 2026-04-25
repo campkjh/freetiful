@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Eye, EyeOff, Pin, PinOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -114,6 +115,22 @@ export default function AdminAnnouncementsPage() {
     }
   };
 
+  const handleExport = () => {
+    exportRowsToXls('admin-announcements', '공지사항 관리', items, [
+      { header: '순번', value: (_, index) => index + 1 },
+      { header: '공지ID', value: (row) => row.id },
+      { header: '제목', value: (row) => row.title },
+      { header: '내용', value: (row) => row.content },
+      { header: '태그', value: (row) => row.tag || '' },
+      { header: '고정', value: (row) => row.isPinned },
+      { header: '게시', value: (row) => row.isPublished },
+      { header: '게시일', value: (row) => formatExportDate(row.publishedAt, true) },
+      { header: '생성일', value: (row) => formatExportDate(row.createdAt, true) },
+      { header: '수정일', value: (row) => formatExportDate(row.updatedAt, true) },
+    ]);
+    toast.success(`${items.length.toLocaleString()}건 엑셀 다운로드 완료`);
+  };
+
   return (
     <div className="space-y-5">
       {/* 헤더 */}
@@ -122,6 +139,7 @@ export default function AdminAnnouncementsPage() {
           <h1 className="text-[22px] font-bold text-[#191F28] tracking-tight">공지사항 관리</h1>
           <p className="text-[13px] text-[#8B95A1] mt-0.5">공지 생성 · 고정 · 게시 여부 관리</p>
         </div>
+        <AdminExportButton loading={false} onClick={handleExport} />
       </div>
 
       {/* 새 공지 등록 */}

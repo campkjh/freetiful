@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Building2, RefreshCw, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -42,6 +43,7 @@ export default function AdminBusinessesPage() {
   const [rows, setRows] = useState<BusinessUserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -70,6 +72,40 @@ export default function AdminBusinessesPage() {
 
   useEffect(() => { fetchData(1, ''); }, []);
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllAdminRows<BusinessUserItem>({
+        fetchPage: async (p, limit) => {
+          const params = new URLSearchParams({ page: String(p), limit: String(limit) });
+          if (search.trim()) params.set('search', search.trim());
+          if (dateRange.startDate) params.set('startDate', dateRange.startDate);
+          if (dateRange.endDate) params.set('endDate', dateRange.endDate);
+          const data = await adminFetch('GET', `/api/v1/admin/businesses?${params.toString()}`, undefined, { cache: false });
+          return { rows: data.data || [], total: data.total };
+        },
+      });
+
+      exportRowsToXls('admin-businesses', 'Biz 고객사 관리', rows, [
+        { header: '순번', value: (_, index) => index + 1 },
+        { header: '업체ID', value: (row) => row.id },
+        { header: '업체명', value: (row) => row.businessName },
+        { header: '업종', value: (row) => row.businessType || '' },
+        { header: '주소', value: (row) => row.address || '' },
+        { header: '전화', value: (row) => row.phone || '' },
+        { header: '상태', value: (row) => row.status },
+        { header: '이미지수', value: (row) => row.images?.length || 0 },
+        { header: '카테고리', value: (row) => row.categories?.map((c) => c.category?.name).filter(Boolean).join(', ') || '' },
+        { header: '등록일', value: (row) => formatExportDate(row.createdAt, true) },
+      ]);
+      toast.success(`${rows.length.toLocaleString()}개 엑셀 다운로드 완료`);
+    } catch (e: any) {
+      toast.error(`엑셀 다운로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasMore = rows.length < total;
 
   return (
@@ -82,14 +118,17 @@ export default function AdminBusinessesPage() {
             비즈니스 고객 계정과 연결된 업체 프로필을 확인합니다.
           </p>
         </div>
-        <button
-          onClick={() => fetchData(1, search, dateRange)}
-          disabled={loading}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
-          title="새로고침"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-2">
+          <AdminExportButton loading={exporting} onClick={handleExport} />
+          <button
+            onClick={() => fetchData(1, search, dateRange)}
+            disabled={loading}
+            className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+            title="새로고침"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       <div className="admin-toolbar p-4">

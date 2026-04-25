@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw, Check, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -60,6 +61,7 @@ export default function AdminSettlementsPage() {
   const [summary, setSummary] = useState<ListResponse['summary']>({ pendingCount: 0, pendingAmount: 0, settledCount: 0, settledAmount: 0 });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('pending');
   const [page, setPage] = useState(1);
@@ -123,15 +125,58 @@ export default function AdminSettlementsPage() {
     }
   }
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const rows = await fetchAllAdminRows<SettlementLogItem>({
+        fetchPage: async (p, limit) => {
+          const params = new URLSearchParams({ page: String(p), limit: String(limit) });
+          if (filter !== 'all') params.set('status', filter);
+          if (dateRange.startDate) params.set('startDate', dateRange.startDate);
+          if (dateRange.endDate) params.set('endDate', dateRange.endDate);
+          const data: ListResponse = await adminFetch('GET', `/api/v1/admin/settlements?${params.toString()}`, undefined, { cache: false });
+          return { rows: data.data || [], total: data.meta?.total, hasMore: data.meta?.hasMore };
+        },
+      });
+
+      exportRowsToXls('admin-settlements', '정산 관리', rows, [
+        { header: '순번', value: (_, index) => index + 1 },
+        { header: '정산ID', value: (row) => row.id },
+        { header: '결제ID', value: (row) => row.paymentId },
+        { header: '프로', value: (row) => row.proProfile?.user?.name || '' },
+        { header: '프로이메일', value: (row) => row.proProfile?.user?.email || '' },
+        { header: '고객', value: (row) => row.payment?.user?.name || '' },
+        { header: '행사', value: (row) => row.payment?.quotations?.[0]?.title || '' },
+        { header: '행사일', value: (row) => formatExportDate(row.payment?.quotations?.[0]?.eventDate) },
+        { header: '금액', value: (row) => row.amount },
+        { header: '플랫폼수수료', value: (row) => row.platformFee },
+        { header: '정산액', value: (row) => row.netAmount },
+        { header: '상태', value: (row) => STATUS_LABELS[row.status] || row.status },
+        { header: '정산일', value: (row) => formatExportDate(row.settledAt, true) },
+        { header: '처리자', value: (row) => row.settledBy?.name || '' },
+        { header: '메모', value: (row) => row.note || '' },
+        { header: '생성일', value: (row) => formatExportDate(row.createdAt, true) },
+      ]);
+      toast.success(`${rows.length.toLocaleString()}건 엑셀 다운로드 완료`);
+    } catch (e: any) {
+      toast.error(`엑셀 다운로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3">
           <Link href="/admin" className="p-1 hover:bg-gray-100 rounded-lg"><ArrowLeft size={20} /></Link>
           <h1 className="text-lg font-bold text-gray-900">정산 관리</h1>
-          <button onClick={() => fetchList(1, filter, dateRange)} className="ml-auto p-2 hover:bg-gray-100 rounded-lg">
-            <RefreshCw size={16} className="text-gray-500" />
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <AdminExportButton loading={exporting} onClick={handleExport} />
+            <button onClick={() => fetchList(1, filter, dateRange)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <RefreshCw size={16} className="text-gray-500" />
+            </button>
+          </div>
         </div>
       </div>
 

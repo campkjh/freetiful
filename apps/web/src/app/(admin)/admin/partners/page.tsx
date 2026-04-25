@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminPartnersApi, type AdminPartnerListItem } from '@/lib/api/admin-partners.api';
 
@@ -28,6 +29,7 @@ export default function AdminPartnersPage() {
   const [items, setItems] = useState<AdminPartnerListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -78,6 +80,42 @@ export default function AdminPartnersPage() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllAdminRows<AdminPartnerListItem>({
+        fetchPage: async (p, limit) => {
+          const data = await adminPartnersApi.list({
+            page: p,
+            limit,
+            search: search || undefined,
+            startDate: dateRange.startDate || undefined,
+            endDate: dateRange.endDate || undefined,
+          });
+          return { rows: data.data || [], total: data.total };
+        },
+      });
+
+      exportRowsToXls('admin-partners', '웨딩 파트너 업체', rows, [
+        { header: '순번', value: (_, index) => index + 1 },
+        { header: '업체ID', value: (row) => row.id },
+        { header: '업체명', value: (row) => row.businessName },
+        { header: '업종', value: (row) => row.businessType || '' },
+        { header: '카테고리', value: (row) => row.categories?.map((c) => c.category?.name).filter(Boolean).join(', ') || '' },
+        { header: '주소', value: (row) => row.address || '' },
+        { header: '전화', value: (row) => row.phone || '' },
+        { header: '상태', value: (row) => statusLabel[row.status]?.text || row.status },
+        { header: '이미지수', value: (row) => row.images?.length || 0 },
+        { header: '등록일', value: (row) => formatExportDate(row.createdAt, true) },
+      ]);
+      toast.success(`${rows.length.toLocaleString()}개 엑셀 다운로드 완료`);
+    } catch (e: any) {
+      toast.error(`엑셀 다운로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasMore = items.length < total;
 
   return (
@@ -85,6 +123,7 @@ export default function AdminPartnersPage() {
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-xl font-bold text-gray-900">웨딩 파트너 업체</h1>
         <span className="ml-auto text-sm text-gray-400">총 {total}개</span>
+        <AdminExportButton loading={exporting} onClick={handleExport} />
         <Link
           href="/admin/partners/new"
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA]"

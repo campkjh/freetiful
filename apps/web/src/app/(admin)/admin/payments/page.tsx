@@ -6,6 +6,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -36,6 +37,7 @@ export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [filterStatus, setFilterStatus] = useState('전체');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -69,6 +71,37 @@ export default function AdminPaymentsPage() {
 
   useEffect(() => { fetchPayments(); }, []);
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllAdminRows<PaymentItem>({
+        fetchPage: async (p, limit) => {
+          const params: any = { page: p, limit };
+          if (filterStatus !== '전체') params.status = filterStatus;
+          if (dateRange.startDate) params.startDate = dateRange.startDate;
+          if (dateRange.endDate) params.endDate = dateRange.endDate;
+          const data = await adminFetch('GET', `/api/v1/admin/payments?${new URLSearchParams(params).toString()}`, undefined, { cache: false });
+          return { rows: data.data || [], total: data.total };
+        },
+      });
+
+      exportRowsToXls('admin-payments', '결제 관리', rows, [
+        { header: '순번', value: (_, index) => index + 1 },
+        { header: '결제ID', value: (row) => row.id },
+        { header: '유저', value: (row) => row.userName || '' },
+        { header: '전문가', value: (row) => row.proName || '' },
+        { header: '금액', value: (row) => row.amount },
+        { header: '상태', value: (row) => statusLabels[row.status] || row.status },
+        { header: '결제일', value: (row) => formatExportDate(row.createdAt, true) },
+      ]);
+      toast.success(`${rows.length.toLocaleString()}건 엑셀 다운로드 완료`);
+    } catch (e: any) {
+      toast.error(`엑셀 다운로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasMore = payments.length < total;
   const visibleAmount = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
 
@@ -85,6 +118,7 @@ export default function AdminPaymentsPage() {
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">
           총 {total.toLocaleString()}건 · ₩{visibleAmount.toLocaleString()}
         </span>
+        <AdminExportButton loading={exporting} onClick={handleExport} />
         <button
           onClick={() => fetchPayments(1, filterStatus, dateRange)}
           disabled={loading}

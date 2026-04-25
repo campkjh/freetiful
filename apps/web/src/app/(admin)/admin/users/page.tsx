@@ -6,6 +6,7 @@ import { ArrowLeft, Search, Trash2, RefreshCw, AlertTriangle, Archive, Smartphon
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -47,10 +48,19 @@ const deviceColors: Record<string, string> = {
   app: 'bg-violet-50 text-violet-600',
 };
 
+const roleLabel: Record<string, string> = {
+  general: '일반',
+  user: '일반',
+  pro: '전문가',
+  business: '비즈',
+  admin: '관리자',
+};
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('전체');
   const [page, setPage] = useState(1);
@@ -146,6 +156,42 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllAdminRows<UserItem>({
+        fetchPage: async (p, limit) => {
+          const params: any = { page: p, limit };
+          if (search) params.search = search;
+          if (filterRole !== '전체') params.role = filterRole;
+          if (dateRange.startDate) params.startDate = dateRange.startDate;
+          if (dateRange.endDate) params.endDate = dateRange.endDate;
+          const data = await adminFetch('GET', `/api/v1/admin/users?${new URLSearchParams(params).toString()}`, undefined, { cache: false });
+          return { rows: data.data || [], total: data.total };
+        },
+      });
+
+      exportRowsToXls('admin-users', '유저 관리', rows, [
+        { header: '번호', value: (_, index) => index + 1 },
+        { header: '유저ID', value: (row) => row.id },
+        { header: '이름', value: (row) => row.name },
+        { header: '이메일', value: (row) => row.email },
+        { header: '가입기기', value: (row) => row.signupDevice?.label || 'Web' },
+        { header: '권한', value: (row) => roleLabel[row.role] || row.role },
+        { header: '프로필상태', value: (row) => row.proProfile?.status || '' },
+        { header: '프로필사진수', value: (row) => row.proProfile?.imageCount ?? '' },
+        { header: '서비스수', value: (row) => row.proProfile?.serviceCount ?? '' },
+        { header: '결제수', value: (row) => row.paymentCount },
+        { header: '가입일', value: (row) => formatExportDate(row.createdAt, true) },
+      ]);
+      toast.success(`${rows.length.toLocaleString()}명 엑셀 다운로드 완료`);
+    } catch (e: any) {
+      toast.error(`엑셀 다운로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasMore = users.length < total;
 
   return (
@@ -159,6 +205,7 @@ export default function AdminUsersPage() {
           <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">유저 관리</h1>
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
+        <AdminExportButton loading={exporting} onClick={handleExport} />
         <button
           onClick={() => fetchUsers(1, search, filterRole, dateRange)}
           disabled={loading}

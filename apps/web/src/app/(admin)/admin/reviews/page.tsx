@@ -6,6 +6,7 @@ import { ArrowLeft, Trash2, RefreshCw, Star, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
@@ -18,6 +19,7 @@ interface ReviewItem {
   comment: string;
   createdAt: string;
   isAnonymous: boolean;
+  isVisible?: boolean;
   adminCreated?: boolean;
   eventDate?: string | null;
   eventTime?: string | null;
@@ -76,6 +78,7 @@ export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
@@ -156,6 +159,44 @@ export default function AdminReviewsPage() {
     } catch { toast.error('삭제 실패'); }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllAdminRows<ReviewItem>({
+        fetchPage: async (p, limit) => {
+          const params = new URLSearchParams({ page: String(p), limit: String(limit) });
+          if (dateRange.startDate) params.set('startDate', dateRange.startDate);
+          if (dateRange.endDate) params.set('endDate', dateRange.endDate);
+          const data = await adminFetch('GET', `/api/v1/admin/reviews?${params.toString()}`, undefined, { cache: false });
+          return { rows: data.data || [], total: data.total };
+        },
+      });
+
+      exportRowsToXls('admin-reviews', '리뷰 관리', rows, [
+        { header: '순번', value: (_, index) => index + 1 },
+        { header: '리뷰ID', value: (row) => row.id },
+        { header: '작성자', value: (row) => row.isAnonymous ? '익명' : row.reviewerName || '' },
+        { header: '전문가', value: (row) => row.proName || '' },
+        { header: '평점', value: (row) => Number(row.avgRating).toFixed(1) },
+        { header: '내용', value: (row) => row.comment || '' },
+        { header: '행사명', value: (row) => row.eventTitle || '' },
+        { header: '행사일', value: (row) => formatExportDate(row.eventDate) },
+        { header: '행사시간', value: (row) => formatTime(row.eventTime) },
+        { header: '행사장소', value: (row) => row.eventLocation || '' },
+        { header: '금액', value: (row) => row.amount ?? '' },
+        { header: '리뷰일', value: (row) => formatExportDate(row.createdAt, true) },
+        { header: '관리자등록', value: (row) => !!row.adminCreated },
+        { header: '익명', value: (row) => row.isAnonymous },
+        { header: '노출', value: (row) => row.isVisible !== false },
+      ]);
+      toast.success(`${rows.length.toLocaleString()}건 엑셀 다운로드 완료`);
+    } catch (e: any) {
+      toast.error(`엑셀 다운로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasMore = reviews.length < total;
 
   return (
@@ -169,6 +210,7 @@ export default function AdminReviewsPage() {
           <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">리뷰 관리</h1>
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}건</span>
+        <AdminExportButton loading={exporting} onClick={handleExport} />
         <button
           onClick={() => fetchReviews(1, dateRange)}
           disabled={loading}

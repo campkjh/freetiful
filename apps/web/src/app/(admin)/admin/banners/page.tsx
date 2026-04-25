@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Save, Eye, EyeOff, ImageOff, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -167,6 +168,23 @@ export default function AdminBannersPage() {
     }
   };
 
+  const handleExport = () => {
+    exportRowsToXls('admin-banners', '배너 관리', items, [
+      { header: '순번', value: (_, index) => index + 1 },
+      { header: '배너ID', value: (row) => row.id },
+      { header: '제목', value: (row) => row.title },
+      { header: '부제목', value: (row) => row.subtitle },
+      { header: '이미지URL', value: (row) => row.imageUrl },
+      { header: '링크URL', value: (row) => row.linkUrl || '' },
+      { header: '배경색', value: (row) => row.bgColor || '' },
+      { header: '순서', value: (row) => row.sortOrder },
+      { header: '활성', value: (row) => row.isActive },
+      { header: '생성일', value: (row) => formatExportDate(row.createdAt, true) },
+      { header: '수정일', value: (row) => formatExportDate(row.updatedAt, true) },
+    ]);
+    toast.success(`${items.length.toLocaleString()}건 엑셀 다운로드 완료`);
+  };
+
   return (
     <div className="space-y-5">
       {/* 헤더 */}
@@ -175,6 +193,7 @@ export default function AdminBannersPage() {
           <h1 className="text-[22px] font-bold text-[#191F28] tracking-tight">배너 관리</h1>
           <p className="text-[13px] text-[#8B95A1] mt-0.5">홈 상단 슬라이드 배너 등록 · 순서 · 활성화</p>
         </div>
+        <AdminExportButton loading={false} onClick={handleExport} />
       </div>
 
       {/* 새 배너 등록 */}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, GripVertical, Eye, EyeOff, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminExportButton, exportRowsToXls } from '../_components/AdminExportButton';
 import { adminFetch } from '../_components/adminFetch';
 
 interface PlanTemplate {
@@ -111,11 +112,27 @@ export default function AdminPlanTemplatesPage() {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, includedItems: it.includedItems.filter((_, i) => i !== idx) } : it)));
   };
 
+  const handleExport = () => {
+    exportRowsToXls('admin-plan-templates', '서비스 플랜 템플릿', items, [
+      { header: '순번', value: (_, index) => index + 1 },
+      { header: '템플릿ID', value: (row) => row.id },
+      { header: '플랜키', value: (row) => row.planKey },
+      { header: '플랜명', value: (row) => row.label },
+      { header: '설명', value: (row) => row.description || '' },
+      { header: '기본가격', value: (row) => row.defaultPrice },
+      { header: '포함항목', value: (row) => row.includedItems.join(', ') },
+      { header: '표시순서', value: (row) => row.displayOrder },
+      { header: '활성', value: (row) => row.isActive },
+    ]);
+    toast.success(`${items.length.toLocaleString()}개 엑셀 다운로드 완료`);
+  };
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-xl font-bold text-gray-900">서비스 플랜 템플릿</h1>
         <span className="ml-auto text-sm text-gray-400">{items.length}개</span>
+        <AdminExportButton loading={false} onClick={handleExport} />
       </div>
 
       <p className="text-sm text-gray-500 mb-6">

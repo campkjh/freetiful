@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, Save, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -118,6 +119,22 @@ export default function AdminFaqsPage() {
     }
   };
 
+  const handleExport = () => {
+    exportRowsToXls('admin-faqs', 'FAQ 관리', filteredItems, [
+      { header: '순번', value: (_, index) => index + 1 },
+      { header: 'FAQ ID', value: (row) => row.id },
+      { header: '카테고리', value: (row) => row.category },
+      { header: '질문', value: (row) => row.question },
+      { header: '답변', value: (row) => row.answer },
+      { header: '표시순서', value: (row) => row.displayOrder },
+      { header: '활성', value: (row) => row.isActive },
+      { header: '게시', value: (row) => row.isPublished },
+      { header: '생성일', value: (row) => formatExportDate(row.createdAt, true) },
+      { header: '수정일', value: (row) => formatExportDate(row.updatedAt, true) },
+    ]);
+    toast.success(`${filteredItems.length.toLocaleString()}건 엑셀 다운로드 완료`);
+  };
+
   return (
     <div className="space-y-5">
       {/* 헤더 */}
@@ -126,6 +143,7 @@ export default function AdminFaqsPage() {
           <h1 className="text-[22px] font-bold text-[#191F28] tracking-tight">FAQ 관리</h1>
           <p className="text-[13px] text-[#8B95A1] mt-0.5">자주 묻는 질문 등록 · 카테고리 · 게시 관리</p>
         </div>
+        <AdminExportButton loading={false} onClick={handleExport} />
       </div>
 
       {/* 새 FAQ 등록 */}

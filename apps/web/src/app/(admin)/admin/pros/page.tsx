@@ -6,6 +6,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminExportButton, exportRowsToXls, fetchAllAdminRows } from '../_components/AdminExportButton';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
@@ -36,6 +37,7 @@ export default function AdminProsPage() {
   const [pros, setPros] = useState<ProItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('전체');
   const [page, setPage] = useState(1);
@@ -125,6 +127,41 @@ export default function AdminProsPage() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllAdminRows<ProItem>({
+        fetchPage: async (p, limit) => {
+          const params: any = { page: p, limit };
+          if (search) params.search = search;
+          if (filterStatus !== '전체') params.status = filterStatus;
+          if (dateRange.startDate) params.startDate = dateRange.startDate;
+          if (dateRange.endDate) params.endDate = dateRange.endDate;
+          const data = await adminFetch('GET', `/api/v1/admin/pros?${new URLSearchParams(params).toString()}`, undefined, { cache: false });
+          return { rows: data.data || [], total: data.total };
+        },
+      });
+
+      exportRowsToXls('admin-pros', '전문가 관리', rows, [
+        { header: '순번', value: (_, index) => index + 1 },
+        { header: '전문가ID', value: (row) => row.id },
+        { header: '이름', value: (row) => row.name },
+        { header: '이메일', value: (row) => row.email },
+        { header: '상태', value: (row) => statusLabel[row.status]?.text || row.status },
+        { header: '평점', value: (row) => row.avgRating ?? '' },
+        { header: '리뷰수', value: (row) => row.reviewCount },
+        { header: '푸딩', value: (row) => row.puddingCount ?? '' },
+        { header: '파트너로고 노출', value: (row) => row.showPartnersLogo },
+        { header: '추천 노출', value: (row) => row.isFeatured },
+      ]);
+      toast.success(`${rows.length.toLocaleString()}명 엑셀 다운로드 완료`);
+    } catch (e: any) {
+      toast.error(`엑셀 다운로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
   const hasMore = pros.length < total;
 
@@ -136,6 +173,7 @@ export default function AdminProsPage() {
           <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">전문가 관리</h1>
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
+        <AdminExportButton loading={exporting} onClick={handleExport} />
         <button
           onClick={() => fetchPros(1, search, filterStatus, dateRange)}
           disabled={loading}

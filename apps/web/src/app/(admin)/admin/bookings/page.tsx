@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { CalendarDays, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
+import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminInfiniteScroll } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -92,6 +93,7 @@ export default function AdminBookingsPage() {
   const [rows, setRows] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState<(typeof FILTERS)[number][0]>('all');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -159,6 +161,83 @@ export default function AdminBookingsPage() {
 
   useEffect(() => { fetchData(1, filter); }, []);
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllAdminRows<BookingItem>({
+        fetchPage: async (p, limit) => {
+          const params = new URLSearchParams({ page: String(p), limit: String(limit) });
+          if (filter !== 'all') params.set('status', filter);
+          if (dateRange.startDate) params.set('startDate', dateRange.startDate);
+          if (dateRange.endDate) params.set('endDate', dateRange.endDate);
+
+          try {
+            const data = await adminFetch('GET', `/api/v1/admin/bookings?${params.toString()}`, undefined, { cache: false });
+            return { rows: data.data || [], total: data.total, hasMore: data.hasMore };
+          } catch (e: any) {
+            if (e?.response?.status !== 404) throw e;
+            const fallbackParams = new URLSearchParams({ page: String(p), limit: String(limit) });
+            const paymentStatus = paymentStatusFilter(filter);
+            if (paymentStatus) fallbackParams.set('status', paymentStatus);
+            if (dateRange.startDate) fallbackParams.set('startDate', dateRange.startDate);
+            if (dateRange.endDate) fallbackParams.set('endDate', dateRange.endDate);
+            const data = await adminFetch('GET', `/api/v1/admin/payments?${fallbackParams.toString()}`, undefined, { cache: false });
+            return {
+              rows: (data.data || []).map((payment: PaymentItem) => ({
+                id: payment.id,
+                source: 'quotation',
+                sourceLabel: '결제 예약',
+                status: payment.status,
+                normalizedStatus: normalizePaymentStatus(payment.status),
+                userName: payment.userName,
+                userEmail: null,
+                userPhone: null,
+                proName: payment.proName,
+                categoryName: null,
+                eventCategoryName: null,
+                eventDate: null,
+                eventTime: null,
+                eventLocation: null,
+                amount: payment.amount,
+                paymentStatus: payment.status,
+                deliveryCount: null,
+                chatRoomCount: null,
+                deliveredPros: [],
+                createdAt: payment.createdAt,
+              })),
+              total: data.total,
+            };
+          }
+        },
+      });
+
+      exportRowsToXls('admin-bookings', '의뢰 예약 관리', rows, [
+        { header: '순번', value: (_, index) => index + 1 },
+        { header: 'ID', value: (row) => row.id },
+        { header: '유형', value: (row) => row.sourceLabel },
+        { header: '의뢰인', value: (row) => row.userName || '' },
+        { header: '이메일', value: (row) => row.userEmail || '' },
+        { header: '연락처', value: (row) => row.userPhone || '' },
+        { header: '전문가/전달', value: (row) => row.proName || row.deliveredPros.map((pro) => pro.name).filter(Boolean).join(', ') || '' },
+        { header: '카테고리', value: (row) => row.eventCategoryName || row.categoryName || '' },
+        { header: '행사일', value: (row) => formatExportDate(row.eventDate) },
+        { header: '행사시간', value: (row) => timeText(row.eventTime) },
+        { header: '행사장소', value: (row) => row.eventLocation || '' },
+        { header: '금액', value: (row) => row.amount ?? '' },
+        { header: '상태', value: (row) => row.normalizedStatus === 'pending' ? '대기' : row.normalizedStatus === 'confirmed' ? '확정' : '취소/만료' },
+        { header: '결제상태', value: (row) => row.paymentStatus || '' },
+        { header: '전달수', value: (row) => row.deliveryCount ?? '' },
+        { header: '채팅방수', value: (row) => row.chatRoomCount ?? '' },
+        { header: '생성일', value: (row) => formatExportDate(row.createdAt, true) },
+      ]);
+      toast.success(`${rows.length.toLocaleString()}건 엑셀 다운로드 완료`);
+    } catch (e: any) {
+      toast.error(`엑셀 다운로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasMore = rows.length < total;
 
   return (
@@ -171,14 +250,17 @@ export default function AdminBookingsPage() {
             매칭 요청과 견적/결제 예약 데이터를 함께 봅니다.
           </p>
         </div>
-        <button
-          onClick={() => fetchData(1, filter, dateRange)}
-          disabled={loading}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
-          title="새로고침"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-2">
+          <AdminExportButton loading={exporting} onClick={handleExport} />
+          <button
+            onClick={() => fetchData(1, filter, dateRange)}
+            disabled={loading}
+            className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+            title="새로고침"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       <div className="admin-toolbar flex flex-wrap gap-2 p-3">
