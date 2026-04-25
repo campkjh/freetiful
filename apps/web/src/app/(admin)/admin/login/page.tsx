@@ -103,7 +103,7 @@ export default function AdminLoginPage() {
               type="email"
               placeholder="이메일을 입력해주세요"
               autoComplete="email"
-              className="w-full h-12 px-4 bg-[#F9F9F9] border-0 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4E8FFF]"
+              className="w-full h-12 px-4 bg-[#F9F9F9] border-0 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
             />
             {errors.email && <p className="text-red-500 text-xs mt-1.5">{errors.email.message}</p>}
           </div>
@@ -116,7 +116,7 @@ export default function AdminLoginPage() {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="비밀번호를 입력해주세요"
                 autoComplete="current-password"
-                className="w-full h-12 px-4 pr-12 bg-[#F9F9F9] border-0 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4E8FFF]"
+                className="w-full h-12 px-4 pr-12 bg-[#F9F9F9] border-0 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
               />
               <button
                 type="button"
@@ -133,7 +133,7 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-[50px] bg-[#4E8FFF] hover:bg-[#3D7FEF] disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors mt-6"
+            className="w-full h-[50px] bg-[#3180F7] hover:bg-[#1B64DA] disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors mt-6"
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
@@ -160,13 +160,13 @@ export default function AdminLoginPage() {
               type="password"
               placeholder="ADMIN_SECRET_KEY"
               autoComplete="off"
-              className="min-w-0 flex-1 rounded-xl bg-white px-3 text-sm font-semibold text-[#191F28] outline-none ring-1 ring-[#E5E8EB] focus:ring-2 focus:ring-[#4E8FFF]"
+              className="min-w-0 flex-1 rounded-lg bg-white px-3 text-sm font-semibold text-[#191F28] outline-none ring-1 ring-[#E5E8EB] focus:ring-2 focus:ring-[#3180F7]"
             />
             <button
               type="button"
               onClick={loginWithAdminKey}
               disabled={keyLoading}
-              className="h-11 rounded-xl bg-[#191F28] px-4 text-[13px] font-bold text-white disabled:bg-gray-300"
+              className="h-11 rounded-lg bg-[#3180F7] px-4 text-[13px] font-bold text-white disabled:bg-gray-300"
             >
               {keyLoading ? '확인 중' : '입장'}
             </button>

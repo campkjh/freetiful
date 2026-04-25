@@ -167,35 +167,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const AdminBrand = () => (
-    <Link href="/admin" className="flex min-w-0 items-center gap-3" aria-label="Freetiful 관리자 홈">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white">
-        <Image
-          src="/icon.svg"
-          alt="Freetiful"
-          width={28}
-          height={28}
-          priority
-          className="h-7 w-7 object-contain"
-        />
-      </span>
+    <Link href="/admin" className="flex min-w-0 items-center gap-4" aria-label="Freetiful 관리자 홈">
       <Image
         src="/images/logo-freetiful-wordmark.svg"
         alt="Freetiful"
-        width={116}
+        width={118}
         height={34}
         priority
         className="h-[24px] w-auto object-contain"
       />
-      <span className="hidden h-5 w-px bg-[#E5E8EB] sm:block" />
-      <span className="hidden whitespace-nowrap text-[18px] font-black text-[#191F28] sm:block">관리자 센터</span>
+      <span className="hidden h-4 w-px bg-[#E5E8EB] sm:block" />
+      <span className="hidden whitespace-nowrap text-[16px] font-bold leading-none text-[#191F28] sm:block">관리자 센터</span>
     </Link>
   );
 
   const Sidebar = ({ onClickItem }: { onClickItem?: () => void }) => (
-    <nav className="space-y-7">
+    <nav className="space-y-5">
       {NAV_SECTIONS.map((section) => (
-        <section key={section.label} className="space-y-2">
-          <div className="flex w-full items-center justify-between px-1 text-left text-[13px] font-bold text-[#8B95A1]">
+        <section key={section.label} className="space-y-1">
+          <div className="flex w-full items-center justify-between px-6 pb-1 text-left text-[13px] font-medium text-[#8B95A1]">
             <span>{section.label}</span>
             <ChevronDown className="h-3.5 w-3.5 text-[#B0B8C1]" />
           </div>
@@ -207,10 +197,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   key={item.href}
                   href={item.href}
                   onClick={onClickItem}
-                  className={`admin-nav-item block rounded-lg px-5 py-4 text-[14px] font-bold ${
+                  className={`admin-nav-item block min-h-[54px] rounded-lg px-6 py-[17px] text-[14px] font-semibold leading-5 ${
                     active
-                      ? 'active bg-[#F2F7FF] text-[#3182F6]'
-                      : 'text-[#6B7684] hover:bg-[#F7FAFF] hover:text-[#191F28]'
+                      ? 'active bg-[#F7F9FC] text-[#3180F7]'
+                      : 'text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#191F28]'
                   }`}
                 >
                   {item.label}
@@ -228,30 +218,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!checked) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#E5E8EB] border-t-[#3182F6]" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#E5E8EB] border-t-[#3180F7]" />
       </div>
     );
   }
 
   return (
     <div className="admin-shell flex h-screen flex-col overflow-hidden bg-white text-[#191F28]">
-      <header className="admin-topbar flex h-[68px] shrink-0 items-center border-b border-[#E5E8EB] bg-white px-5 md:px-8">
+      <header className="admin-topbar flex h-[68px] shrink-0 items-center border-b border-[#E5E8EB] bg-white px-5 md:px-8 xl:px-[60px]">
         <AdminBrand />
 
-        <nav className="ml-10 hidden h-full items-center gap-2 lg:flex">
+        <nav className="ml-12 hidden h-full items-center gap-7 lg:flex">
           {TOP_NAV.map((item) => {
             const active = isTopActive(item);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`admin-topnav-link flex h-full items-center px-4 text-[14px] font-bold ${
-                  active ? 'text-[#3182F6]' : 'text-[#4E5968] hover:text-[#3182F6]'
+                className={`admin-topnav-link flex h-full items-center text-[14px] font-medium ${
+                  active ? 'text-[#3180F7]' : 'text-[#4E5968] hover:text-[#3180F7]'
                 }`}
               >
                 <span className="relative flex h-full items-center">
                   {item.label}
-                  {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#3182F6]" />}
                 </span>
               </Link>
             );
@@ -271,13 +260,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Image src="/icon.svg" alt="관리자" width={24} height={24} className="h-6 w-6 object-contain" />
             )}
           </span>
-          <span className="max-w-[120px] truncate text-[14px] font-black text-[#191F28]">
+          <span className="max-w-[120px] truncate text-[13px] font-semibold text-[#191F28]">
             {authUser?.name || '관리자'}
           </span>
           <button
             type="button"
             onClick={handleLogout}
-            className="admin-icon-button flex items-center gap-1.5 rounded-md px-2.5 py-2 text-[13px] font-bold text-[#8B95A1] hover:bg-[#F7F8FA] hover:text-[#3182F6]"
+            className="admin-icon-button flex items-center gap-1.5 rounded-md px-2.5 py-2 text-[12px] font-normal text-[#8B95A1] hover:bg-[#F7F8FA] hover:text-[#3180F7]"
           >
             <LogOut className="h-4 w-4" />
             로그아웃
@@ -295,12 +284,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-[300px] shrink-0 overflow-y-auto border-r border-[#F2F4F6] bg-white px-6 py-8 md:block">
+        <aside className="hidden w-[304px] shrink-0 overflow-y-auto border-r border-[#F2F4F6] bg-white px-6 py-8 md:block">
           <Sidebar />
           <div className="mt-8 border-t border-[#F2F4F6] pt-5">
             <Link
               href="/main"
-              className="admin-nav-item flex items-center gap-2 rounded-lg px-5 py-4 text-[14px] font-bold text-[#8B95A1] hover:bg-[#F7FAFF] hover:text-[#191F28]"
+              className="admin-nav-item flex min-h-[54px] items-center gap-2 rounded-lg px-6 py-[17px] text-[14px] font-semibold text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#191F28]"
             >
               <ExternalLink className="h-4 w-4" />
               홈으로
@@ -309,11 +298,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </aside>
 
         <main className="admin-main min-w-0 flex-1 overflow-auto bg-white">
-          <div className="admin-page-frame w-full px-5 py-8 md:px-9 lg:px-12 xl:px-16 2xl:px-20" key={pathname}>
+          <div className="admin-page-frame w-full px-5 py-8 md:px-9 lg:px-12 xl:px-14 2xl:px-[54px]" key={pathname}>
             <div className="mb-7 flex items-center justify-between border-b border-transparent md:hidden">
               <div>
-                <p className="text-[12px] font-bold text-[#B0B8C1]">관리자 센터</p>
-                <h1 className="mt-1 text-[24px] font-black text-[#191F28]">{activeLabel}</h1>
+                <p className="text-[12px] font-normal text-[#B0B8C1]">관리자 센터</p>
+                <h1 className="mt-1 text-[16px] font-bold text-[#191F28]">{activeLabel}</h1>
               </div>
             </div>
             {children}
@@ -342,7 +331,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   href="/main"
                   onClick={() => setMobileOpen(false)}
-                  className="admin-nav-item flex items-center gap-2 rounded-lg px-5 py-4 text-[14px] font-bold text-[#8B95A1] hover:bg-[#F7FAFF] hover:text-[#191F28]"
+                  className="admin-nav-item flex min-h-[54px] items-center gap-2 rounded-lg px-6 py-[17px] text-[14px] font-semibold text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#191F28]"
                 >
                   <ExternalLink className="h-4 w-4" />
                   홈으로
@@ -350,7 +339,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="admin-nav-item mt-1 flex w-full items-center gap-2 rounded-lg px-5 py-4 text-[14px] font-bold text-[#8B95A1] hover:bg-[#F7FAFF] hover:text-[#3182F6]"
+                  className="admin-nav-item mt-1 flex min-h-[54px] w-full items-center gap-2 rounded-lg px-6 py-[17px] text-[14px] font-semibold text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#3180F7]"
                 >
                   <LogOut className="h-4 w-4" />
                   로그아웃
