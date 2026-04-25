@@ -114,6 +114,70 @@ const IconUser = () => (
 
 const UPCOMING_SCHEDULES: { id: string; proName: string; category: string; date: string; time: string; location: string; proImage: string }[] = [];
 
+type ProStats = { revenue: number; reviews: number; pudding: number; rank: number | null };
+
+const PRO_STATS_EMPTY: ProStats = { revenue: 0, reviews: 0, pudding: 0, rank: null };
+const MY_PRO_STATS_CACHE_KEY = 'freetiful-my-pro-stats-cache-v1';
+const PUDDING_STORAGE_KEY = 'freetiful-pudding';
+const PRO_CATEGORY_CACHE_KEY = 'freetiful-my-pro-category';
+
+function readStoredPudding() {
+  if (typeof window === 'undefined') return 0;
+  try {
+    return Number(localStorage.getItem(PUDDING_STORAGE_KEY) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function readCachedProStats(): ProStats | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(MY_PRO_STATS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const rank = parsed.rank == null ? null : Number(parsed.rank);
+    return {
+      revenue: Number(parsed.revenue || 0),
+      reviews: Number(parsed.reviews || 0),
+      pudding: Number(parsed.pudding ?? readStoredPudding()),
+      rank: rank != null && Number.isFinite(rank) ? rank : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedProStats(stats: ProStats) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(MY_PRO_STATS_CACHE_KEY, JSON.stringify({ ...stats, ts: Date.now() }));
+    localStorage.setItem(PUDDING_STORAGE_KEY, String(stats.pudding));
+  } catch {}
+}
+
+function readStoredProProfileStatus(): 'draft' | 'pending' | 'approved' | 'rejected' | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const status = localStorage.getItem('proRegistrationComplete');
+    if (status === 'true' || status === 'approved') return 'approved';
+    if (status === 'pending') return 'pending';
+    if (status === 'rejected') return 'rejected';
+    if (status === 'draft') return 'draft';
+  } catch {}
+  return null;
+}
+
+function readStoredProCategory() {
+  if (typeof window === 'undefined') return '사회자';
+  try {
+    return localStorage.getItem(PRO_CATEGORY_CACHE_KEY) || '사회자';
+  } catch {
+    return '사회자';
+  }
+}
+
 function getUserFromStorage() {
   if (typeof window === 'undefined') return { name: '사용자', email: '', image: '', linkedAccounts: [], points: 0, coupons: 0, role: 'general' };
   try {
@@ -294,13 +358,16 @@ export default function MyPage() {
   const { logout: authLogout } = useAuth();
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
-  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(null);
-  const [proCategoryName, setProCategoryName] = useState<string>('사회자');
+  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(() => readStoredProProfileStatus());
+  const [proCategoryName, setProCategoryName] = useState<string>(() => readStoredProCategory());
   const [isPro, setIsPro] = useState(false);
   const [couponCount, setCouponCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
   // 프로 통계 (이번달 매출 / 총 리뷰 / 푸딩)
-  const [proStats, setProStats] = useState<{ revenue: number; reviews: number; pudding: number }>({ revenue: 0, reviews: 0, pudding: 0 });
+  const [proStats, setProStats] = useState<ProStats>(() => {
+    const cached = readCachedProStats();
+    return cached || { ...PRO_STATS_EMPTY, pudding: readStoredPudding() };
+  });
 
   // 최근 30초 이내 방문 시 진입 애니메이션 스킵 (하위 페이지 뒤로가기 중복 방지)
   const skipAnim = (() => {
@@ -315,10 +382,27 @@ export default function MyPage() {
   const animOrNone = (base: React.CSSProperties) => skipAnim ? undefined : base;
 
   useEffect(() => {
+    let cancelled = false;
     const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);
 
+    const updateProStats = (patch: Partial<ProStats>) => {
+      if (cancelled) return;
+      setProStats((prev) => {
+        const next = { ...prev, ...patch };
+        writeCachedProStats(next);
+        return next;
+      });
+    };
+
     if (authUser) {
+      const cachedStats = readCachedProStats();
+      if (cachedStats) {
+        setProStats(cachedStats);
+      } else {
+        setProStats((prev) => ({ ...prev, pudding: readStoredPudding() }));
+      }
+
       // Use real API data
       setUser({
         name: authUser.name || '게스트',
@@ -332,23 +416,35 @@ export default function MyPage() {
       setIsPro(authUser.role === 'pro');
       // Fetch point balance from API
       usersApi.getPointBalance().then((res) => {
-        setUser((prev) => ({ ...prev, points: res.balance }));
+        if (!cancelled) setUser((prev) => ({ ...prev, points: res.balance }));
       }).catch(() => {});
-      // 프로 통계 병렬 로드 (이번달 매출 / 받은 리뷰 수 / 푸딩 잔액)
-      Promise.allSettled([
-        apiClient.get('/api/v1/pro/revenue'),
-        apiClient.get('/api/v1/review/mine', { params: { page: 1, limit: 1 } }),
-        apiClient.get('/api/v1/pro/pudding'),
-      ]).then(([rev, rev2, pud]) => {
-        setProStats((prev) => ({
-          revenue: rev.status === 'fulfilled' ? Number((rev.value as any)?.data?.thisMonth || 0) : prev.revenue,
-          reviews: rev2.status === 'fulfilled' ? Number((rev2.value as any)?.data?.total || 0) : prev.reviews,
-          pudding: pud.status === 'fulfilled' ? Number((pud.value as any)?.data?.balance || 0) : prev.pudding,
-        }));
-      });
+
+      // 프로 통계는 서로 기다리지 않고 각각 도착하는 즉시 갱신한다.
+      apiClient.get('/api/v1/pro/pudding', { params: { _t: Date.now() }, timeout: 5000 })
+        .then((res) => {
+          const data = (res as any)?.data || {};
+          const pudding = Number(data.balance ?? data.puddingCount ?? 0);
+          const rank = data.rank == null && data.puddingRank == null ? null : Number(data.rank ?? data.puddingRank);
+          updateProStats({ pudding, rank: rank != null && Number.isFinite(rank) ? rank : null });
+        })
+        .catch(() => {});
+
+      apiClient.get('/api/v1/pro/revenue', { timeout: 7000 })
+        .then((res) => {
+          updateProStats({ revenue: Number((res as any)?.data?.thisMonth || 0) });
+        })
+        .catch(() => {});
+
+      apiClient.get('/api/v1/review/mine', { params: { page: 1, limit: 1 }, timeout: 7000 })
+        .then((res) => {
+          updateProStats({ reviews: Number((res as any)?.data?.total || 0) });
+        })
+        .catch(() => {});
     } else if (loggedIn) {
       setUser(getUserFromStorage());
     }
+
+    return () => { cancelled = true; };
   }, [authUser]);
 
   useEffect(() => {
@@ -365,7 +461,10 @@ export default function MyPage() {
           setProProfileStatus(status);
           // 프로가 설정한 카테고리를 추출 (categories 관계에서)
           const catName = profile?.categories?.[0]?.category?.name;
-          if (catName) setProCategoryName(catName);
+          if (catName) {
+            setProCategoryName(catName);
+            try { localStorage.setItem(PRO_CATEGORY_CACHE_KEY, catName); } catch {}
+          }
           // User.profileImageUrl 을 프로 대표 이미지로 동기화 (카카오 기본 → 프로 대표 사진)
           const primary = profile?.images?.find((img: any) => img.isPrimary) || profile?.images?.[0];
           const effectiveImage = primary?.imageUrl || profile?.user?.profileImageUrl;
@@ -456,8 +555,7 @@ export default function MyPage() {
   // 승인된 프로만 PRO 뷰로 분기. role=pro 이지만 ProProfile 미승인인 경우는 일반 뷰로 폴백.
   const isApprovedPro = isPro && proProfileStatus === 'approved';
   if (isApprovedPro) {
-    // 상위 15% 여부는 정확 계산 불가 (어드민 랭킹 테이블 필요) — 푸딩>=100 이면 "상위권" 표현
-    const isTopRank = proStats.pudding >= 100;
+    const isTopRank = (proStats.rank != null && proStats.rank <= 10) || proStats.pudding >= 100;
     return (
       <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
         {/* Header */}
@@ -514,7 +612,9 @@ export default function MyPage() {
               <p className="text-[13px] font-bold text-amber-800">푸딩 랭킹 시스템</p>
             </div>
             <p className="text-[12px] text-amber-600 ml-[28px]">
-              현재 보유: <strong>{proStats.pudding}개</strong>{isTopRank ? ' (상위권)' : ''}
+              현재 보유: <strong>{proStats.pudding.toLocaleString()}개</strong>
+              {proStats.rank != null && <> · <strong>{proStats.rank}위</strong></>}
+              {isTopRank ? ' (상위권)' : ''}
             </p>
             <p className="text-[11px] text-amber-500 ml-[28px] mt-0.5">푸딩을 사용하면 프로필이 상단에 노출됩니다</p>
           </div>

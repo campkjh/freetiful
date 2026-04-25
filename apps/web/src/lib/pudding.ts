@@ -35,7 +35,9 @@ export async function getPuddingAsync(): Promise<number> {
   if (isAuthenticated()) {
     try {
       const res = await apiClient.get('/api/v1/pro/pudding');
-      return res.data?.puddingCount || 0;
+      const balance = Number(res.data?.balance ?? res.data?.puddingCount ?? 0);
+      try { localStorage.setItem(PUDDING_KEY, String(balance)); } catch {}
+      return balance;
     } catch {}
   }
   return getPudding();
@@ -54,7 +56,7 @@ export async function getPuddingHistoryAsync(): Promise<PuddingTransaction[]> {
   if (isAuthenticated()) {
     try {
       const res = await apiClient.get('/api/v1/pro/pudding');
-      return (res.data?.transactions || []).map((t: any) => ({
+      return (res.data?.history || res.data?.transactions || []).map((t: any) => ({
         id: t.id,
         type: t.reason || t.type,
         amount: t.amount,
