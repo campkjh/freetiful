@@ -28,6 +28,15 @@ interface BookingItem {
   createdAt: string;
 }
 
+interface PaymentItem {
+  id: string;
+  amount: number;
+  status: string;
+  userName: string | null;
+  proName: string | null;
+  createdAt: string;
+}
+
 const LIMIT = 20;
 
 const FILTERS = [
@@ -59,6 +68,19 @@ function timeText(value?: string | null) {
   return value.slice(0, 5);
 }
 
+function normalizePaymentStatus(status: string): BookingItem['normalizedStatus'] {
+  if (status === 'completed' || status === 'settled') return 'confirmed';
+  if (status === 'failed' || status === 'refunded') return 'cancelled';
+  return 'pending';
+}
+
+function paymentStatusFilter(status: string) {
+  if (status === 'pending') return 'pending';
+  if (status === 'confirmed') return 'completed';
+  if (status === 'cancelled') return 'refunded';
+  return '';
+}
+
 export default function AdminBookingsPage() {
   const [rows, setRows] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +97,41 @@ export default function AdminBookingsPage() {
       setRows(data.data || []);
       setTotal(data.total || 0);
     } catch (e: any) {
+      if (e?.response?.status === 404) {
+        try {
+          const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
+          const paymentStatus = paymentStatusFilter(status);
+          if (paymentStatus) params.set('status', paymentStatus);
+          const data = await adminFetch('GET', `/api/v1/admin/payments?${params.toString()}`);
+          setRows((data.data || []).map((payment: PaymentItem) => ({
+            id: payment.id,
+            source: 'quotation',
+            sourceLabel: '결제 예약',
+            status: payment.status,
+            normalizedStatus: normalizePaymentStatus(payment.status),
+            userName: payment.userName,
+            userEmail: null,
+            userPhone: null,
+            proName: payment.proName,
+            categoryName: null,
+            eventCategoryName: null,
+            eventDate: null,
+            eventTime: null,
+            eventLocation: null,
+            amount: payment.amount,
+            paymentStatus: payment.status,
+            deliveryCount: null,
+            chatRoomCount: null,
+            deliveredPros: [],
+            createdAt: payment.createdAt,
+          })));
+          setTotal(data.total || 0);
+          return;
+        } catch (fallbackError: any) {
+          toast.error(`의뢰/예약 로드 실패: ${fallbackError?.response?.data?.message || fallbackError?.message || ''}`);
+          return;
+        }
+      }
       toast.error(`의뢰/예약 로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
     } finally {
       setLoading(false);

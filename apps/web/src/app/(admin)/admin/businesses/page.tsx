@@ -8,22 +8,14 @@ import { adminFetch } from '../_components/adminFetch';
 
 interface BusinessUserItem {
   id: string;
-  name: string;
-  email: string | null;
+  businessName: string;
+  businessType: string | null;
+  address: string | null;
   phone: string | null;
-  role: string;
+  status: string;
   createdAt: string;
-  businessProfile: null | {
-    id: string;
-    businessName: string;
-    businessType: string | null;
-    status: string;
-    phone: string | null;
-    address: string | null;
-    imageCount: number;
-    categoryCount: number;
-    createdAt: string;
-  };
+  images?: Array<{ imageUrl: string }>;
+  categories?: Array<{ category?: { name: string } }>;
 }
 
 const LIMIT = 20;
@@ -54,9 +46,9 @@ export default function AdminBusinessesPage() {
   const fetchData = async (p = page, s = search) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(p), limit: String(LIMIT), role: 'business' });
+      const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
       if (s.trim()) params.set('search', s.trim());
-      const data = await adminFetch('GET', `/api/v1/admin/users?${params.toString()}`);
+      const data = await adminFetch('GET', `/api/v1/admin/businesses?${params.toString()}`);
       setRows(data.data || []);
       setTotal(data.total || 0);
     } catch (e: any) {
@@ -133,7 +125,7 @@ export default function AdminBusinessesPage() {
               </tr>
             ) : (
               rows.map((r) => {
-                const profile = r.businessProfile;
+                const categoryNames = r.categories?.map((c) => c.category?.name).filter(Boolean).join(', ');
                 return (
                   <tr key={r.id} className="hover:bg-[#F7FAFF]">
                     <td className="px-4 py-3">
@@ -142,45 +134,33 @@ export default function AdminBusinessesPage() {
                           <Building2 size={18} />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-bold text-[#191F28]">{r.name || '-'}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-[#8B95A1]">{r.email || '-'}</p>
+                          <p className="font-bold text-[#191F28]">{r.businessName || '-'}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-[#8B95A1]">{r.businessType || '분류 없음'}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {profile ? (
-                        <>
-                          <p className="font-bold text-[#191F28]">{profile.businessName}</p>
-                          <p className="mt-0.5 max-w-[260px] truncate text-[11px] text-[#8B95A1]">
-                            {profile.businessType || '분류 없음'} · 이미지 {profile.imageCount} · 카테고리 {profile.categoryCount}
-                          </p>
-                        </>
-                      ) : (
-                        <span className="text-[12px] font-semibold text-[#B0B8C1]">비즈 프로필 없음</span>
-                      )}
+                      <p className="font-bold text-[#191F28]">{r.businessName}</p>
+                      <p className="mt-0.5 max-w-[260px] truncate text-[11px] text-[#8B95A1]">
+                        이미지 {r.images?.length || 0} · {categoryNames || '카테고리 없음'}
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-[12px] font-semibold text-[#6B7684]">
-                      <p>{profile?.phone || r.phone || '-'}</p>
-                      <p className="mt-0.5 max-w-[220px] truncate text-[#8B95A1]">{profile?.address || '-'}</p>
+                      <p>{r.phone || '-'}</p>
+                      <p className="mt-0.5 max-w-[220px] truncate text-[#8B95A1]">{r.address || '-'}</p>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone[profile?.status || 'draft'] || 'bg-gray-100 text-gray-500'}`}>
-                        {profile?.status || 'profile_missing'}
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone[r.status || 'draft'] || 'bg-gray-100 text-gray-500'}`}>
+                        {r.status || 'draft'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-[12px] font-semibold text-[#8B95A1]">
-                      {dateText(profile?.createdAt || r.createdAt)}
+                      {dateText(r.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {profile ? (
-                        <Link href={`/admin/partners/${profile.id}`} className="rounded-xl bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-100">
-                          프로필 관리
-                        </Link>
-                      ) : (
-                        <Link href={`/admin/users/${r.id}`} className="rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-200">
-                          계정 상세
-                        </Link>
-                      )}
+                      <Link href={`/admin/partners/${r.id}`} className="rounded-xl bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-100">
+                        프로필 관리
+                      </Link>
                     </td>
                   </tr>
                 );
