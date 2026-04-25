@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { notificationApi, getCachedNotifications } from '@/lib/api/notification.api';
+import { ProNotificationListSkeleton } from '../_components/ProSkeletons';
 
 /* ─── Icons ─── */
 
@@ -148,10 +149,13 @@ export default function NotificationsPage() {
     if (Array.isArray(cached)) return cached.map(mapFromApi);
     return [];
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const loadNotifications = useCallback(async () => {
-    if (!authUser) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res: any = await notificationApi.getList({ page: 1, limit: 50 });
@@ -222,9 +226,7 @@ export default function NotificationsPage() {
       {/* Notification List */}
       <div className="px-4 mt-2">
         {loading && notifications.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-sm text-gray-400">불러오는 중…</p>
-          </div>
+          <ProNotificationListSkeleton className="" />
         ) : notifications.length === 0 ? (
           <div className="py-16 text-center">
             <div className="flex justify-center mb-3">

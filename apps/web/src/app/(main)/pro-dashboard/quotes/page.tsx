@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { quotationApi } from '@/lib/api/quotation.api';
+import { ProCardListSkeleton } from '../_components/ProSkeletons';
 
 /* ─── Icons ─── */
 
@@ -116,6 +117,7 @@ export default function QuotesPage() {
   const [customReason, setCustomReason] = useState('');
   const [confirmAccept, setConfirmAccept] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [loading, setLoading] = useState(true);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -128,11 +130,13 @@ export default function QuotesPage() {
       setQuotes(INITIAL_QUOTES);
       localStorage.setItem('pro-quotes', JSON.stringify(INITIAL_QUOTES));
     }
-  }, []);
+    if (!authUser) setLoading(false);
+  }, [authUser]);
 
   // Fetch quotes from API when authenticated
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser) { setLoading(false); return; }
+    setLoading(true);
     quotationApi.getForPro()
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -148,7 +152,8 @@ export default function QuotesPage() {
           })));
         }
       })
-      .catch(() => { /* fallback to local data */ });
+      .catch(() => { /* fallback to local data */ })
+      .finally(() => setLoading(false));
   }, [authUser]);
 
   useEffect(() => {
@@ -232,7 +237,9 @@ export default function QuotesPage() {
 
       {/* List */}
       <div className="px-4 mt-4">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <ProCardListSkeleton count={4} avatar actions className="space-y-3" />
+        ) : filtered.length === 0 ? (
           <div className="py-16 text-center">
             <div className="flex justify-center mb-3"><EmptyIcon /></div>
             <p className="text-sm text-gray-400">해당하는 견적이 없습니다</p>

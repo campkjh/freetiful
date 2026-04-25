@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, Users, TrendingUp, Calendar } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
+import { ProChartSkeleton, ProMetricGridSkeleton } from '../_components/ProSkeletons';
 
 interface Analytics {
   weeklyViews: number;
@@ -23,6 +24,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (!authUser) { setLoading(false); return; }
+    setLoading(true);
     apiClient.get<Analytics>('/api/v1/pro/analytics')
       .then((res) => setData(res.data))
       .catch(() => setData(null))
@@ -42,17 +44,20 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      {loading ? (
+        <ProMetricGridSkeleton count={4} columns="grid-cols-2" />
+      ) : (
       <div className="px-4 mt-4 grid grid-cols-2 gap-3">
         <div className="card p-4">
           <Eye size={16} className="text-blue-500 mb-2" />
           <p className="text-xs text-gray-500">누적 프로필 조회수</p>
-          <p className="text-2xl font-black text-gray-900 mt-1">{loading ? '...' : (data?.weeklyViews ?? 0)}</p>
+          <p className="text-2xl font-black text-gray-900 mt-1">{data?.weeklyViews ?? 0}</p>
           <p className="text-[10px] text-gray-400">최근 업데이트 기준</p>
         </div>
         <div className="card p-4">
           <Users size={16} className="text-green-500 mb-2" />
           <p className="text-xs text-gray-500">이번 주 문의</p>
-          <p className="text-2xl font-black text-gray-900 mt-1">{loading ? '...' : (data?.weeklyInquiries ?? 0)}</p>
+          <p className="text-2xl font-black text-gray-900 mt-1">{data?.weeklyInquiries ?? 0}</p>
           <p className={`text-[10px] flex items-center gap-0.5 ${inquiryDiff >= 0 ? 'text-green-500' : 'text-red-500'}`}>
             <TrendingUp size={10} /> {inquiryDiff >= 0 ? '+' : ''}{inquiryDiff}건 전주 대비
           </p>
@@ -60,17 +65,21 @@ export default function AnalyticsPage() {
         <div className="card p-4">
           <Calendar size={16} className="text-purple-500 mb-2" />
           <p className="text-xs text-gray-500">이번 주 예약</p>
-          <p className="text-2xl font-black text-gray-900 mt-1">{loading ? '...' : (data?.weeklyBookings ?? 0)}</p>
+          <p className="text-2xl font-black text-gray-900 mt-1">{data?.weeklyBookings ?? 0}</p>
           <p className="text-[10px] text-gray-400">확정된 예약</p>
         </div>
         <div className="card p-4">
           <TrendingUp size={16} className="text-orange-500 mb-2" />
           <p className="text-xs text-gray-500">전환율</p>
-          <p className="text-2xl font-black text-gray-900 mt-1">{loading ? '...' : (data?.conversionRate ?? '0%')}</p>
+          <p className="text-2xl font-black text-gray-900 mt-1">{data?.conversionRate ?? '0%'}</p>
           <p className="text-[10px] text-gray-400">조회 → 문의</p>
         </div>
       </div>
+      )}
 
+      {loading ? (
+        <ProChartSkeleton className="px-4 mt-5" />
+      ) : (
       <div className="px-4 mt-5">
         <h3 className="text-sm font-bold text-gray-900 mb-3">주간 요일별 예약</h3>
         <div className="card p-4">
@@ -88,6 +97,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </div>
+      )}
 
       {!loading && (!data || data.weeklyInquiries === 0) && (
         <div className="px-4 mt-5 mb-8">

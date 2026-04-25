@@ -8,6 +8,7 @@ import { ArrowLeft, Clock, Users, User, MessageCircle, ChevronRight, MapPin, Cal
 import { chatApi, type ChatRoomItem } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { ProCardListSkeleton } from '../_components/ProSkeletons';
 
 type Filter = 'all' | 'pending' | 'replied' | 'match';
 
@@ -95,6 +96,7 @@ export default function InquiriesPage() {
 
   useEffect(() => {
     if (!authUser) { setLoading(false); return; }
+    setLoading(true);
     chatApi.getRooms({ page: 1 })
       .then((res) => {
         const rooms = (res.data.data || []) as ChatRoomItem[];
@@ -114,6 +116,7 @@ export default function InquiriesPage() {
 
   useEffect(() => {
     if (!authUser) { setLoadingMatch(false); return; }
+    setLoadingMatch(true);
     matchApi.getProRequests()
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
@@ -236,11 +239,7 @@ export default function InquiriesPage() {
       {filter === 'match' && (
         <div className="px-4 py-4 space-y-3">
           {loadingMatch ? (
-            <div className="space-y-3">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="card p-4 animate-pulse h-40" />
-              ))}
-            </div>
+            <ProCardListSkeleton count={2} actions className="space-y-3" />
           ) : matchDeliveries.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-gray-400 text-sm">새 예약 요청이 없습니다</p>
@@ -320,19 +319,7 @@ export default function InquiriesPage() {
       {filter !== 'match' && (
         <div className="px-4 py-4 space-y-3">
           {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="card p-4 animate-pulse">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-200" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-24" />
-                      <div className="h-3 bg-gray-100 rounded w-full" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ProCardListSkeleton count={4} className="space-y-3" />
           ) : filtered.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-gray-400 text-sm">문의가 없습니다</p>

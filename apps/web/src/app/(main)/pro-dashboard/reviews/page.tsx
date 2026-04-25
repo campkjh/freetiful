@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { reviewApi } from '@/lib/api/review.api';
+import { ProReviewListSkeleton, SkeletonBlock } from '../_components/ProSkeletons';
 
 /* ─── Icons ─── */
 
@@ -98,6 +99,7 @@ export default function ReviewsPage() {
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
   const [hasDemoData, setHasDemoData] = useState(false);
   const [apiReviews, setApiReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
@@ -109,7 +111,8 @@ export default function ReviewsPage() {
 
   // Fetch reviews from API when authenticated
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser) { setLoading(false); return; }
+    setLoading(true);
     reviewApi.getMine()
       .then((data) => {
         if (Array.isArray(data)) {
@@ -125,7 +128,8 @@ export default function ReviewsPage() {
           })));
         }
       })
-      .catch(() => { /* fallback to local data */ });
+      .catch(() => { /* fallback to local data */ })
+      .finally(() => setLoading(false));
   }, [authUser]);
 
   function saveReply(reviewId: string) {
@@ -162,6 +166,24 @@ export default function ReviewsPage() {
         className="px-4 mt-5"
       >
         <div className="bg-white rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+          {loading ? (
+            <>
+              <div className="mb-4 flex items-center gap-4">
+                <SkeletonBlock className="h-9 w-9 rounded-xl" />
+                <div>
+                  <SkeletonBlock className="mb-2 h-8 w-16 rounded" />
+                  <SkeletonBlock className="mb-1.5 h-3 w-24 rounded" />
+                  <SkeletonBlock className="h-2.5 w-16 rounded" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <SkeletonBlock key={index} className="h-12 rounded-lg" />
+                ))}
+              </div>
+            </>
+          ) : (
+          <>
           <div className="flex items-center gap-4 mb-4">
             <BigStarIcon />
             <div>
@@ -184,6 +206,8 @@ export default function ReviewsPage() {
               </div>
             ))}
           </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -193,7 +217,9 @@ export default function ReviewsPage() {
       >
         <h2 className="text-base font-bold text-gray-900 mb-4">전체 리뷰</h2>
 
-        {reviews.map((review, idx) => (
+        {loading ? (
+          <ProReviewListSkeleton count={4} />
+        ) : reviews.map((review, idx) => (
           <div
             key={review.id}
             className={`py-4 ${idx < reviews.length - 1 ? 'border-b border-gray-100' : ''}`}

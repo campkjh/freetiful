@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, TrendingUp, Trophy, Info } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
+import { ProCardListSkeleton, ProRankingSkeleton, SkeletonBlock } from '../_components/ProSkeletons';
 
 const EARNING_RULES = [
   { action: '1:1 견적 답변', pudding: '+3', icon: '💬' },
@@ -51,6 +52,7 @@ export default function PuddingPage() {
 
   useEffect(() => {
     if (!authUser) { setLoading(false); return; }
+    setLoading(true);
     Promise.all([
       apiClient.get('/api/v1/pro/pudding').then((r) => r.data).catch(() => null),
       apiClient.get('/api/v1/pro/pudding/rank').then((r) => r.data).catch(() => null),
@@ -92,12 +94,25 @@ export default function PuddingPage() {
       <div className="bg-gradient-to-r from-yellow-400 to-orange-400 mx-4 mt-4 rounded-2xl p-5 text-white">
         <p className="text-xs opacity-80">내 푸딩</p>
         <div className="flex items-end justify-between mt-1">
-          <p className="text-4xl font-black">{loading ? '...' : (balance ?? 0)}</p>
+          {loading ? (
+            <SkeletonBlock className="h-10 w-24 rounded-lg bg-white/30" />
+          ) : (
+            <p className="text-4xl font-black">{balance ?? 0}</p>
+          )}
           <div className="text-right">
-            <p className="text-lg font-bold">
-              {myRank == null ? '랭킹 없음' : myRank <= 3 ? `${['🥇','🥈','🥉'][myRank - 1]} ${myRank}위` : `${myRank}위`}
-            </p>
-            <p className="text-[10px] opacity-70">실시간 랭킹 반영</p>
+            {loading ? (
+              <>
+                <SkeletonBlock className="ml-auto mb-1.5 h-5 w-20 rounded bg-white/30" />
+                <SkeletonBlock className="ml-auto h-2.5 w-24 rounded bg-white/30" />
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-bold">
+                  {myRank == null ? '랭킹 없음' : myRank <= 3 ? `${['🥇','🥈','🥉'][myRank - 1]} ${myRank}위` : `${myRank}위`}
+                </p>
+                <p className="text-[10px] opacity-70">실시간 랭킹 반영</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -114,10 +129,13 @@ export default function PuddingPage() {
         <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1">
           <Trophy size={14} className="text-yellow-500" /> 오늘의 랭킹
         </h3>
+        {loading && ranking.length === 0 ? (
+          <ProRankingSkeleton />
+        ) : (
         <div className="card overflow-hidden">
           {ranking.length === 0 ? (
             <div className="px-4 py-6 text-center text-[13px] text-gray-400">
-              {loading ? '불러오는 중...' : '아직 랭킹 데이터가 없습니다'}
+              아직 랭킹 데이터가 없습니다
             </div>
           ) : ranking.map((r) => (
             <div key={r.rank} className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 ${
@@ -136,6 +154,7 @@ export default function PuddingPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       <div className="px-4 mt-5">
@@ -155,10 +174,13 @@ export default function PuddingPage() {
 
       <div className="px-4 mt-5 mb-8">
         <h3 className="text-sm font-bold text-gray-900 mb-3">획득 내역</h3>
+        {loading && history.length === 0 ? (
+          <ProCardListSkeleton count={4} avatar className="" />
+        ) : (
         <div className="card">
           {history.length === 0 ? (
             <div className="px-4 py-6 text-center text-[13px] text-gray-400">
-              {loading ? '불러오는 중...' : '획득 내역이 없습니다'}
+              획득 내역이 없습니다
             </div>
           ) : history.map((item) => (
             <div key={item.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0">
@@ -180,6 +202,7 @@ export default function PuddingPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

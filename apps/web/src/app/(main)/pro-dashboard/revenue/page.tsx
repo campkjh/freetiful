@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { ProCardListSkeleton, ProChartSkeleton, ProMetricGridSkeleton } from '../_components/ProSkeletons';
 
 /* ─── Icons ─── */
 
@@ -86,7 +87,7 @@ export default function RevenuePage() {
   const [tab, setTab] = useState<'all' | 'pending' | 'settled'>('all');
 
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser) { setLoading(false); return; }
     setLoading(true);
     const params = new URLSearchParams({ limit: '100' });
     if (tab !== 'all') params.set('status', tab);
@@ -126,6 +127,9 @@ export default function RevenuePage() {
       </div>
 
       {/* Summary */}
+      {loading ? (
+        <ProMetricGridSkeleton count={3} />
+      ) : (
       <div className="px-4 mt-5 grid grid-cols-3 gap-2">
         {[
           { icon: <MoneyBagIcon />, label: '총 매출', value: formatCurrency(meta.totalAmount), color: 'text-gray-900' },
@@ -139,9 +143,12 @@ export default function RevenuePage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Chart */}
-      {monthlyData.length > 0 && (
+      {loading ? (
+        <ProChartSkeleton />
+      ) : monthlyData.length > 0 && (
         <div className="px-4 mt-6">
           <h2 className="text-[15px] font-bold text-gray-900 mb-3">월별 매출 추이</h2>
           <div className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
@@ -182,7 +189,7 @@ export default function RevenuePage() {
       {/* Transaction List */}
       <div className="px-4 mt-3">
         {loading ? (
-          <div className="py-8 text-center text-sm text-gray-400">불러오는 중…</div>
+          <ProCardListSkeleton count={5} avatar className="space-y-3" />
         ) : logs.length === 0 ? (
           <div className="py-10 text-center">
             <p className="text-sm text-gray-400">정산 내역이 없습니다</p>

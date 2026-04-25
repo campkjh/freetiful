@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { ProChartSkeleton, ProMetricGridSkeleton, SkeletonBlock } from '../_components/ProSkeletons';
 
 const BackIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -125,6 +126,9 @@ export default function ViewsPage() {
         </div>
       </div>
 
+      {loading ? (
+        <ProMetricGridSkeleton count={2} columns="grid-cols-2" />
+      ) : (
       <div className="px-4 mt-5 grid grid-cols-2 gap-3">
         <div className="bg-white rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
           <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center mb-2">
@@ -132,7 +136,7 @@ export default function ViewsPage() {
           </div>
           <p className="text-[11px] text-gray-400 font-medium">총 조회수</p>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <p className="text-xl font-bold text-gray-900">{loading ? '...' : totalViews.toLocaleString()}</p>
+            <p className="text-xl font-bold text-gray-900">{totalViews.toLocaleString()}</p>
             <TrendUpIcon />
           </div>
           <p className="text-[10px] text-green-500 font-bold mt-0.5">최근 활동 기준</p>
@@ -143,12 +147,16 @@ export default function ViewsPage() {
           </div>
           <p className="text-[11px] text-gray-400 font-medium">순 방문자</p>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <p className="text-xl font-bold text-gray-900">{loading ? '...' : uniqueVisitors.toLocaleString()}</p>
+            <p className="text-xl font-bold text-gray-900">{uniqueVisitors.toLocaleString()}</p>
           </div>
           <p className="text-[10px] text-gray-400 font-medium mt-0.5">조회수 기반 추정</p>
         </div>
       </div>
+      )}
 
+      {loading ? (
+        <ProChartSkeleton className="px-4 mt-8" />
+      ) : (
       <div className="px-4 mt-8">
         <h2 className="text-base font-bold text-gray-900 mb-4">최근 7일 조회수</h2>
         <div className="bg-white rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
@@ -173,6 +181,7 @@ export default function ViewsPage() {
           </div>
         </div>
       </div>
+      )}
 
       <div className="px-4 mt-8">
         <div className="flex items-center gap-2 mb-4">
@@ -180,7 +189,22 @@ export default function ViewsPage() {
           <h2 className="text-base font-bold text-gray-900">프로필 키워드</h2>
         </div>
 
-        {keywordRows.length === 0 ? (
+        {loading ? (
+          <div className="rounded-2xl bg-white px-4 shadow-sm">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="flex items-center justify-between border-b border-gray-100 py-3 last:border-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <SkeletonBlock className="h-4 w-5 rounded" />
+                  <SkeletonBlock className="h-3.5 w-28 rounded" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <SkeletonBlock className="h-3 w-10 rounded" />
+                  <SkeletonBlock className="h-3 w-6 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : keywordRows.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 text-center">
             <p className="text-[13px] text-gray-500">프로필 키워드 데이터가 아직 없습니다</p>
             <p className="text-[12px] text-gray-400 mt-1">프로필에 지역, 태그, 서비스명을 추가하면 분석 항목이 채워집니다</p>

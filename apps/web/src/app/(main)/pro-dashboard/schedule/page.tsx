@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { scheduleApi } from '@/lib/api/schedule.api';
+import { ProCalendarSkeleton } from '../_components/ProSkeletons';
 
 const STATUS_COLORS: Record<string, string> = {
   available: 'bg-white text-gray-900',
@@ -62,10 +63,11 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dateStatuses, setDateStatuses] = useState<Record<string, DateStatus>>({});
   const [bookedInfo, setBookedInfo] = useState<Record<string, { event: string; client: string }>>({});
+  const [loading, setLoading] = useState(true);
 
   // 월 변경 또는 인증 상태 변경 시 실제 스케줄 조회
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser) { setLoading(false); return; }
     const y = currentMonth.getFullYear();
     const m = String(currentMonth.getMonth() + 1).padStart(2, '0');
     const monthKey = `${y}-${m}`;
@@ -73,7 +75,9 @@ export default function SchedulePage() {
     if (cached) {
       setDateStatuses(cached.statuses);
       setBookedInfo(cached.info);
+      setLoading(false);
     } else {
+      setLoading(true);
       setDateStatuses({});
       setBookedInfo({});
     }
@@ -85,7 +89,8 @@ export default function SchedulePage() {
         setBookedInfo(info);
         writeScheduleCache(monthKey, { statuses, info });
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [authUser, currentMonth]);
 
   const year = currentMonth.getFullYear();
@@ -127,6 +132,9 @@ export default function SchedulePage() {
       </div>
 
       {/* Calendar */}
+      {loading && Object.keys(dateStatuses).length === 0 ? (
+        <ProCalendarSkeleton />
+      ) : (
       <div className="bg-white px-4 py-4">
         <div className="flex items-center justify-between mb-4">
           <button onClick={prevMonth} className="p-1"><ChevronLeft size={20} className="text-gray-600" /></button>
@@ -170,6 +178,7 @@ export default function SchedulePage() {
           })}
         </div>
       </div>
+      )}
 
       {/* Legend */}
       <div className="px-4 py-3 flex items-center gap-4">
