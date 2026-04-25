@@ -57,6 +57,26 @@ export class ProController {
     return this.proService.createProfile(req.user.id);
   }
 
+  @Get('profile-handover/candidates')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '기존 프로필 인수 후보 목록' })
+  getProfileHandoverCandidates(
+    @Req() req,
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.proService.getProfileHandoverCandidates(req.user.id, search, Number(limit) || 30);
+  }
+
+  @Post('profile-handover/:proProfileId/claim')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '기존 프로필을 현재 계정으로 인수' })
+  claimProfileHandover(@Req() req, @Param('proProfileId') proProfileId: string) {
+    return this.proService.claimProfileHandover(req.user.id, proProfileId);
+  }
+
   // ─── Registration ────────────────────────────────────────────────────────
 
   @Post('register')

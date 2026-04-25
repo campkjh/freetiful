@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Check } from 'lucide-react';
+import { ArrowRight, ChevronLeft, Check, UserRoundCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const REQUIRED_TERMS = [
@@ -112,6 +112,32 @@ export default function TermsPage() {
           프리티풀 파트너스를 시작하시려면<br/>아래의 약관 동의가 필요합니다
         </motion.p>
       </div>
+
+      {/* Existing profile handover */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.18 }}
+        className="px-4 mb-4"
+      >
+        <motion.button
+          type="button"
+          onClick={() => router.push('/pro-register/handover')}
+          whileTap={{ scale: 0.98 }}
+          className="flex w-full items-center gap-3 rounded-2xl border border-[#3180F7]/15 bg-[#F2F7FF] px-4 py-4 text-left"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#3180F7] shadow-sm">
+            <UserRoundCheck size={20} strokeWidth={2.4} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-bold text-gray-900">기존 프로필 인수하기</span>
+            <span className="mt-0.5 block text-[12px] leading-4 text-gray-500">
+              이미 등록된 사회자 프로필을 내 계정으로 연결
+            </span>
+          </span>
+          <ArrowRight size={18} className="shrink-0 text-[#3180F7]" />
+        </motion.button>
+      </motion.div>
 
       {/* All Agree */}
       <motion.div

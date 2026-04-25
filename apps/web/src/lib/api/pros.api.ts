@@ -1,13 +1,38 @@
 import { apiClient } from './client';
-import type { ProProfile } from '@prettyful/types';
+import type { ProProfile, User } from '@prettyful/types';
 
 const BASE = '/api/v1';
+
+export interface ProfileHandoverCandidate {
+  id: string;
+  ownerUserId: string;
+  isMine: boolean;
+  name: string;
+  profileImageUrl: string | null;
+  shortIntro: string | null;
+  mainExperience: string | null;
+  careerYears: number | null;
+  avgRating: number;
+  reviewCount: number;
+  basePrice: number | null;
+  categories: string[];
+}
 
 // 읽기(list/get/reviews 등)는 discoveryApi 에서 처리함.
 // 이 파일은 "내 프로 프로필" 쓰기 작업 전용.
 export const prosApi = {
   getMyProfile: () =>
     apiClient.get<ProProfile>(`${BASE}/pro/profile`).then((r) => r.data),
+
+  getProfileHandoverCandidates: (params?: { search?: string; limit?: number }) =>
+    apiClient
+      .get<ProfileHandoverCandidate[]>(`${BASE}/pro/profile-handover/candidates`, { params })
+      .then((r) => r.data),
+
+  claimProfileHandover: (proProfileId: string) =>
+    apiClient
+      .post<{ user: User; profile: ProProfile }>(`${BASE}/pro/profile-handover/${proProfileId}/claim`)
+      .then((r) => r.data),
 
   submitRegistration: (data: {
     name?: string;

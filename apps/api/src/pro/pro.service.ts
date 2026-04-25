@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Inject,
   forwardRef,
   OnModuleInit,
@@ -98,6 +99,173 @@ export class ProService implements OnModuleInit {
     return this.prisma.proProfile.create({
       data: { userId, status: 'draft' },
     });
+  }
+
+  async getProfileHandoverCandidates(userId: string, search?: string, limit = 30) {
+    const normalizedLimit = Math.min(Math.max(Number(limit) || 30, 1), 50);
+    const keyword = search?.trim();
+    const seedOwnerWhere = {
+      OR: [
+        { email: { endsWith: '@freetiful.com' } },
+        { email: { endsWith: '@freetiful.internal' } },
+      ],
+    };
+
+    const candidates = await this.prisma.proProfile.findMany({
+      where: {
+        status: 'approved',
+        OR: [
+          { userId },
+          { user: { isActive: true, ...seedOwnerWhere } },
+        ],
+        ...(keyword
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { user: { name: { contains: keyword, mode: 'insensitive' } } },
+                    { shortIntro: { contains: keyword, mode: 'insensitive' } },
+                    { mainExperience: { contains: keyword, mode: 'insensitive' } },
+                    { categories: { some: { category: { name: { contains: keyword, mode: 'insensitive' } } } } },
+                  ],
+                },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        user: { select: { id: true, name: true, profileImageUrl: true } },
+        images: { orderBy: { displayOrder: 'asc' }, take: 1 },
+        categories: { include: { category: { select: { name: true } } } },
+        services: { where: { isActive: true }, orderBy: { displayOrder: 'asc' }, take: 1 },
+      },
+      orderBy: [{ reviewCount: 'desc' }, { createdAt: 'asc' }],
+      take: normalizedLimit,
+    });
+
+    return candidates.map((profile) => ({
+      id: profile.id,
+      ownerUserId: profile.userId,
+      isMine: profile.userId === userId,
+      name: profile.user?.name || '이름 없음',
+      profileImageUrl: profile.images[0]?.imageUrl || profile.user?.profileImageUrl || null,
+      shortIntro: profile.shortIntro,
+      mainExperience: profile.mainExperience,
+      careerYears: profile.careerYears,
+      avgRating: Number(profile.avgRating),
+      reviewCount: profile.reviewCount,
+      basePrice: profile.services[0]?.basePrice ?? null,
+      categories: profile.categories.map((item) => item.category.name),
+    }));
+  }
+
+  async claimProfileHandover(userId: string, proProfileId: string) {
+    const target = await this.prisma.proProfile.findUnique({
+      where: { id: proProfileId },
+      include: {
+        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+        images: { orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }], take: 1 },
+      },
+    });
+
+    if (!target) {
+      throw new NotFoundException('인수할 프로필을 찾을 수 없습니다.');
+    }
+
+    const ownerEmail = target.user?.email || '';
+    const canClaim =
+      target.userId === userId ||
+      ownerEmail.endsWith('@freetiful.com') ||
+      ownerEmail.endsWith('@freetiful.internal');
+    if (!canClaim) {
+      throw new ConflictException('이미 실제 계정에 연결된 프로필입니다.');
+    }
+
+    const currentProfile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      select: { id: true, status: true },
+    });
+
+    if (currentProfile && currentProfile.id !== target.id && currentProfile.status === 'approved') {
+      throw new ConflictException('이미 승인된 프로필이 연결되어 있습니다.');
+    }
+
+    const oldUserId = target.userId;
+    const profileImageUrl = target.images[0]?.imageUrl || target.user?.profileImageUrl || null;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (currentProfile && currentProfile.id !== target.id) {
+        await tx.proProfile.delete({ where: { id: currentProfile.id } });
+      }
+
+      const userUpdate = await tx.user.update({
+        where: { id: userId },
+        data: {
+          role: 'pro',
+          ...(target.user?.name ? { name: target.user.name } : {}),
+          ...(profileImageUrl ? { profileImageUrl } : {}),
+        },
+        select: {
+          id: true,
+          role: true,
+          name: true,
+          phone: true,
+          email: true,
+          profileImageUrl: true,
+          referralCode: true,
+          pointBalance: true,
+          isActive: true,
+          createdAt: true,
+        },
+      });
+
+      const profile = await tx.proProfile.update({
+        where: { id: target.id },
+        data: {
+          userId,
+          status: 'approved',
+          isProfileHidden: false,
+          rejectionReason: null,
+          approvedAt: target.approvedAt || new Date(),
+        },
+      });
+
+      if (oldUserId !== userId) {
+        const rooms = await tx.chatRoom.findMany({
+          where: { proProfileId: target.id },
+          select: { id: true },
+        });
+        const roomIds = rooms.map((room) => room.id);
+        if (roomIds.length > 0) {
+          await tx.chatRoomMember.deleteMany({
+            where: { userId, roomId: { in: roomIds } },
+          });
+          await tx.chatRoomMember.updateMany({
+            where: { userId: oldUserId, roomId: { in: roomIds } },
+            data: { userId },
+          });
+          await tx.message.updateMany({
+            where: { senderId: oldUserId, roomId: { in: roomIds } },
+            data: { senderId: userId },
+          });
+        }
+
+        await tx.user.update({
+          where: { id: oldUserId },
+          data: { role: 'general' },
+        }).catch(() => null);
+      }
+
+      return { user: userUpdate, profile };
+    });
+
+    this.discovery.invalidateCache(target.id);
+    this.discovery.invalidateCache();
+
+    return {
+      user: result.user,
+      profile: await this.getProfile(userId),
+    };
   }
 
   async updateProfile(
