@@ -86,7 +86,7 @@ function formatBudget(min: number | null, max: number | null): string {
 
 export default function InquiriesPage() {
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('match');
   const [inquiries, setInquiries] = useState<InquiryView[]>([]);
   const [matchDeliveries, setMatchDeliveries] = useState<MatchDeliveryView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,6 +169,8 @@ export default function InquiriesPage() {
       const res = await chatApi.createRoomAsPro(m.customerId, m.matchRequestId);
       const roomId = (res as any)?.data?.id || (res as any)?.id;
       if (roomId) {
+        setMatchDeliveries((prev) => prev.filter((item) => item.id !== m.id));
+        window.dispatchEvent(new Event('freetiful:match-requests-changed'));
         router.push(`/chat/${roomId}`);
       } else {
         toast.error('채팅방 생성에 실패했습니다');
@@ -184,6 +186,7 @@ export default function InquiriesPage() {
     try {
       await matchApi.respond(deliveryId, 'reject');
       setMatchDeliveries((prev) => prev.filter((m) => m.id !== deliveryId));
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       toast.success('거절 처리되었습니다');
     } catch (e: any) {
       toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
@@ -201,7 +204,7 @@ export default function InquiriesPage() {
       <div className="bg-white px-4 pt-12 pb-3 sticky top-0 z-10 border-b border-gray-100">
         <div className="flex items-center gap-3 mb-3">
           <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
-          <h1 className="text-lg font-bold">문의 관리</h1>
+          <h1 className="text-lg font-bold">새 요청</h1>
           {(pendingCount + matchCount) > 0 && (
             <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendingCount + matchCount}</span>
           )}

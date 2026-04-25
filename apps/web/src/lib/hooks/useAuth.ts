@@ -23,6 +23,7 @@ export function useAuth() {
 
   const handleLoginResponse = (data: LoginResponse, skipOnboarding = false) => {
     setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
+    try { sessionStorage.removeItem('freetiful-auth-switching'); } catch {}
     void syncPushRegistration(data.user.id);
     // 소셜 로그인은 온보딩 스킵, 이메일 가입만 온보딩
     if (skipOnboarding || (!data.isNewUser && data.user.name)) {

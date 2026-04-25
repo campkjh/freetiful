@@ -537,7 +537,7 @@ function QuotePage() {
     localStorage.setItem('freetiful-quote-submitted', 'true');
     addPoints('quote_request', 200, '견적 요청 적립');
     toast.success(isEvent ? '행사 견적 요청이 접수되었습니다.' : `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.`);
-    router.push('/requests');
+    router.replace('/main');
   };
 
   const handleSurveyComplete = async () => {

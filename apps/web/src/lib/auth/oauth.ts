@@ -1,4 +1,5 @@
 import toast from 'react-hot-toast';
+import { clearUserScopedAuthStorage, useAuthStore } from '@/lib/store/auth.store';
 
 type Provider = 'kakao' | 'naver' | 'google';
 const AUTH_RETURN_TO_KEY = 'freetiful-auth-return-to';
@@ -69,6 +70,12 @@ export function startOAuth(provider: Provider) {
   if (typeof window === 'undefined') return;
 
   rememberAuthReturnTo();
+  try {
+    useAuthStore.getState().logout();
+    clearUserScopedAuthStorage();
+    sessionStorage.setItem('freetiful-auth-switching', 'true');
+  } catch {}
+
   const w = window as any;
   const ios = w?.webkit?.messageHandlers as Record<string, { postMessage: (msg: object) => void } | undefined> | undefined;
   const and = w?.Android as Record<string, (() => void) | undefined> | undefined;

@@ -208,6 +208,7 @@ export async function completeNativeLogin(
   useAuthStore.getState().setAuth(user, tokens.accessToken, tokens.refreshToken);
 
   try {
+    sessionStorage.removeItem('freetiful-auth-switching');
     localStorage.setItem('userRole', user.role || 'general');
   } catch {}
 

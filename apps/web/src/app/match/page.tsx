@@ -202,7 +202,7 @@ export default function MatchRequestPage() {
         },
       });
       toast.success('견적 요청이 전문가들에게 전달되었습니다.');
-      router.push('/requests');
+      router.replace('/main');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '견적 요청 생성에 실패했습니다.');
     } finally {

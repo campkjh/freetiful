@@ -11,6 +11,7 @@ import { reviewApi } from '@/lib/api/review.api';
 import { scheduleApi } from '@/lib/api/schedule.api';
 import { matchApi } from '@/lib/api/match.api';
 import { apiClient } from '@/lib/api/client';
+import { chatApi } from '@/lib/api/chat.api';
 import { invalidateProCache } from '@/lib/api/discovery.api';
 import {
   ProCardListSkeleton,
@@ -255,6 +256,43 @@ function formatDate(iso: string) {
   return `${m}/${day} (${weekday})`;
 }
 
+function timeAgo(dateStr?: string | null) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '';
+  const diff = Date.now() - d.getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '방금';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const days = Math.floor(hr / 24);
+  return days < 7 ? `${days}일 전` : `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function formatMatchTime(value?: string | null) {
+  if (!value) return '';
+  if (/^\d{2}:\d{2}$/.test(value)) return value;
+  const isoTime = String(value).match(/T(\d{2}:\d{2})/);
+  if (isoTime) return isoTime[1];
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatMatchBudget(min?: number | null, max?: number | null) {
+  const fmt = (n: number) => n >= 10000 ? `${Math.round(n / 10000)}만` : n.toLocaleString();
+  if (min != null && max != null) return `${fmt(min)}원 ~ ${fmt(max)}원`;
+  if (min != null) return `${fmt(min)}원 이상`;
+  if (max != null) return `${fmt(max)}원 이하`;
+  return '협의';
+}
+
+function getMatchRaw(delivery: any) {
+  const raw = delivery?.matchRequest?.rawUserInput;
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+}
+
 function todayString() {
   const d = new Date();
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
@@ -307,6 +345,7 @@ export default function ProDashboardPage() {
   const [profileHiddenSaving, setProfileHiddenSaving] = useState(false);
   const [rejectSched, setRejectSched] = useState<{ id: string; userName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [initiatingMatchChat, setInitiatingMatchChat] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cachedSectionsRef = useRef({
     scheduleRequests: false,
@@ -420,18 +459,35 @@ export default function ProDashboardPage() {
   // 사회자/전문가 매치 요청 (홈 > 전문결혼식사회자 찾기 에서 고객이 보낸 요청들)
   useEffect(() => {
     if (!authUser) { setMatchRequestsLoading(false); return; }
-    if (!cachedSectionsRef.current.matchRequests) setMatchRequestsLoading(true);
-    matchApi.getProRequests()
-      .then((data: any) => {
-        const items = Array.isArray(data) ? data : (data?.data || []);
-        // pending 또는 viewed 상태의 요청만 "새 요청" 카운트
-        const active = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
-        setMatchRequests(active);
-        cachedSectionsRef.current.matchRequests = true;
-        writeDashboardCache({ matchRequests: active });
-      })
-      .catch(() => {})
-      .finally(() => setMatchRequestsLoading(false));
+    let cancelled = false;
+    const load = (silent = false) => {
+      if (!silent && !cachedSectionsRef.current.matchRequests) setMatchRequestsLoading(true);
+      matchApi.getProRequests()
+        .then((data: any) => {
+          if (cancelled) return;
+          const items = Array.isArray(data) ? data : (data?.data || []);
+          // pending 또는 viewed 상태의 요청만 "새 요청" 카운트
+          const active = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
+          setMatchRequests(active);
+          cachedSectionsRef.current.matchRequests = true;
+          writeDashboardCache({ matchRequests: active });
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setMatchRequestsLoading(false);
+        });
+    };
+    load();
+    const refresh = () => load(true);
+    const interval = window.setInterval(() => load(true), 15000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('freetiful:match-requests-changed', refresh);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('freetiful:match-requests-changed', refresh);
+    };
   }, [authUser]);
 
   const refreshScheduleRequests = () => {
@@ -440,6 +496,18 @@ export default function ProDashboardPage() {
         const next = Array.isArray(data) ? data : [];
         setScheduleRequests(next);
         writeDashboardCache({ scheduleRequests: next });
+      })
+      .catch(() => {});
+  };
+
+  const refreshMatchRequests = () => {
+    matchApi.getProRequests()
+      .then((data: any) => {
+        const items = Array.isArray(data) ? data : (data?.data || []);
+        const active = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
+        setMatchRequests(active);
+        writeDashboardCache({ matchRequests: active });
+        window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       })
       .catch(() => {});
   };
@@ -480,6 +548,49 @@ export default function ProDashboardPage() {
       });
       setRejectSched(null);
       setRejectReason('');
+    } catch (e: any) {
+      toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    }
+  };
+
+  const handleStartMatchChat = async (delivery: any) => {
+    if (initiatingMatchChat) return;
+    const customerId = delivery?.matchRequest?.user?.id;
+    if (!customerId) {
+      toast.error('고객 정보를 확인할 수 없습니다.');
+      return;
+    }
+    setInitiatingMatchChat(delivery.id);
+    try {
+      await matchApi.respond(delivery.id, 'accept').catch(() => {});
+      const res = await chatApi.createRoomAsPro(customerId, delivery.matchRequestId);
+      const roomId = (res as any)?.data?.id || (res as any)?.id;
+      setMatchRequests((prev) => {
+        const next = prev.filter((m) => m.id !== delivery.id);
+        writeDashboardCache({ matchRequests: next });
+        return next;
+      });
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      if (roomId) router.push(`/chat/${roomId}`);
+      else toast.error('채팅방 생성에 실패했습니다');
+    } catch (e: any) {
+      toast.error(`채팅 연결 실패: ${e?.response?.data?.message || e?.message || ''}`);
+      refreshMatchRequests();
+    } finally {
+      setInitiatingMatchChat(null);
+    }
+  };
+
+  const handleRejectMatch = async (deliveryId: string) => {
+    try {
+      await matchApi.respond(deliveryId, 'reject');
+      setMatchRequests((prev) => {
+        const next = prev.filter((m) => m.id !== deliveryId);
+        writeDashboardCache({ matchRequests: next });
+        return next;
+      });
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      toast.success('새 요청을 거절했습니다');
     } catch (e: any) {
       toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
     }
@@ -928,6 +1039,111 @@ export default function ProDashboardPage() {
             </div>
           )}
         </div>
+        )}
+      </div>
+
+      {/* ── 새 요청 (전문결혼식사회자찾기에서 전달된 매칭 요청) ── */}
+      <div className="px-4 mt-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[15px] font-bold text-gray-900">새 요청</h2>
+            {matchRequests.length > 0 && (
+              <span className="bg-[#3180F7] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {matchRequests.length}
+              </span>
+            )}
+          </div>
+          <Link href="/pro-dashboard/inquiries" className="flex items-center gap-0.5 text-[11px] font-medium text-[#3180F7]">
+            전체 <ChevronRightIcon />
+          </Link>
+        </div>
+        <p className="text-[11px] text-gray-500 mb-3">
+          고객이 선택해서 보낸 견적 요청 · 수락 시 채팅으로 연결
+        </p>
+
+        {matchRequestsLoading ? (
+          <ProCardListSkeleton count={2} actions className="space-y-3" />
+        ) : (
+          <div className="space-y-3">
+            {matchRequests.slice(0, 3).map((delivery: any) => {
+              const request = delivery.matchRequest || {};
+              const raw = getMatchRaw(delivery);
+              const customer = request.user || {};
+              const eventDate = request.eventDate || raw.date || null;
+              const eventTime = raw.timeStart || request.eventTime || null;
+              const eventTimeEnd = raw.timeEnd || null;
+              const tags = [
+                ...(Array.isArray(raw.moods) ? raw.moods : []),
+                ...(request.styles || []).map((s: any) => s.styleOption?.name || '').filter(Boolean),
+                ...(request.personalities || []).map((p: any) => p.personalityOption?.name || '').filter(Boolean),
+              ].filter(Boolean);
+
+              return (
+                <div key={`match-${delivery.id}`} className="bg-white rounded-2xl border border-[#3180F7]/30 p-4 shadow-sm space-y-3">
+                  <div className="flex items-start gap-3">
+                    <img src={customer.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">새 요청</span>
+                        <p className="text-sm font-bold text-gray-900 truncate">{customer.name || '고객'}</p>
+                        <span className="text-[10px] text-gray-300 ml-auto shrink-0">{timeAgo(delivery.deliveredAt)}</span>
+                      </div>
+                      <p className="text-[13px] text-gray-700 font-medium">
+                        {[request.category?.name || raw.categoryName, request.eventCategory?.name || raw.eventType || raw.eventName].filter(Boolean).join(' · ') || '행사 요청'}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
+                        <span>📅 {eventDate ? formatDate(eventDate) : '미정'}{eventTime ? ` ${formatMatchTime(eventTime)}${eventTimeEnd ? ` ~ ${formatMatchTime(eventTimeEnd)}` : ''}` : ''}</span>
+                        {(request.eventLocation || raw.location) && <span>📍 {request.eventLocation || raw.location}</span>}
+                      </div>
+                      {raw.planLabel && (
+                        <p className="text-[12px] font-bold text-gray-700 mt-1.5">선택 플랜: {raw.planLabel}</p>
+                      )}
+                      <p className="text-[12px] font-bold text-[#3180F7] mt-1.5">
+                        {formatMatchBudget(request.budgetMin ?? null, request.budgetMax ?? null)}
+                      </p>
+                      {tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {tags.slice(0, 6).map((tag: string, i: number) => (
+                            <span key={`${tag}-${i}`} className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {raw.note && (
+                        <p className="text-[12px] text-gray-600 mt-2 bg-gray-50 rounded-xl px-3 py-2 line-clamp-2">
+                          {raw.note}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2 border-t border-gray-50">
+                    <button
+                      onClick={() => handleRejectMatch(delivery.id)}
+                      disabled={initiatingMatchChat === delivery.id}
+                      className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-50"
+                    >
+                      거절
+                    </button>
+                    <button
+                      onClick={() => handleStartMatchChat(delivery)}
+                      disabled={initiatingMatchChat === delivery.id}
+                      className="flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-60"
+                    >
+                      {initiatingMatchChat === delivery.id ? '연결 중…' : '수락 + 채팅'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {matchRequests.length === 0 && (
+              <div className="py-10 text-center">
+                <p className="text-sm text-gray-400">새로 도착한 견적 요청이 없습니다</p>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

@@ -130,12 +130,13 @@ export class MatchService {
       },
     });
 
-    // 선택한 전문가가 있으면 해당 전문가에게만, 없으면 카테고리 일치 전문가에게 fan-out
-    void this.fanoutMatchRequestToPros(
+    // 선택한 전문가가 있으면 해당 전문가에게만, 없으면 카테고리 일치 전문가에게 fan-out.
+    // 전달 레코드가 만들어진 뒤 성공 응답을 보내야 전문가 홈/새요청에 즉시 보인다.
+    await this.fanoutMatchRequestToPros(
       matchRequest.id,
       category.id,
       data.selectedProProfileIds,
-    ).catch(() => {});
+    );
 
     return matchRequest;
   }

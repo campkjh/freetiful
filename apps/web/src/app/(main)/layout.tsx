@@ -12,6 +12,7 @@ import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
+import { matchApi } from '@/lib/api/match.api';
 
 type NavIconProps = { className?: string };
 
@@ -39,6 +40,14 @@ const ChatNavIcon = ({ className }: NavIconProps) => (
   </svg>
 );
 
+const NewRequestNavIcon = ({ className }: NavIconProps) => (
+  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+    <path d="M9.3 4.9h11.4c1.6 0 2.9 1.3 2.9 2.9v14.4c0 1.6-1.3 2.9-2.9 2.9H9.3c-1.6 0-2.9-1.3-2.9-2.9V7.8c0-1.6 1.3-2.9 2.9-2.9Z" fill="currentColor" opacity="0.18" />
+    <path d="M10.7 9.6h8.6M10.7 14.1h8.6M10.7 18.6h5.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M20.8 4.9h-3.1a2.7 2.7 0 0 0-5.4 0H9.2v4.3h11.6V4.9Z" fill="currentColor" />
+  </svg>
+);
+
 const FavoritesNavIcon = ({ className }: NavIconProps) => (
   <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
     <path d="M15 24.5333L6.22971 16.1939C3.95859 13.7403 3.95859 9.76001 6.22971 7.30647C8.50083 4.85292 12.1887 4.85292 14.4598 7.30647L15 7.88867L15.5402 7.30647C17.8113 4.85292 21.4992 4.85292 23.7703 7.30647C26.0414 9.76001 26.0414 13.7403 23.7703 16.1939L15 24.5333Z" fill="currentColor" />
@@ -62,10 +71,11 @@ const USER_NAV_ITEMS = [
 ];
 
 const PRO_NAV_ITEMS = [
-  { href: '/pro-dashboard', icon: HomeNavIcon,     label: '홈' },
-  { href: '/schedule',      icon: ScheduleNavIcon, label: '스케줄' },
-  { href: '/chat',          icon: ChatNavIcon,     label: '채팅' },
-  { href: '/my',            icon: MyNavIcon,       label: '마이' },
+  { href: '/pro-dashboard',           icon: HomeNavIcon,       label: '홈' },
+  { href: '/pro-dashboard/inquiries', icon: NewRequestNavIcon, label: '새요청' },
+  { href: '/schedule',                icon: ScheduleNavIcon,   label: '스케줄' },
+  { href: '/chat',                    icon: ChatNavIcon,       label: '채팅' },
+  { href: '/my',                      icon: MyNavIcon,         label: '마이' },
 ];
 
 const HIDE_NAV_PATTERNS = [
@@ -114,23 +124,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
+  const authHydrated = useAuthStore((s) => s.hasHydrated);
+  const [newRequestCount, setNewRequestCount] = useState(0);
 
   // 로그인이 필요한 ��이지 패턴
   const AUTH_REQUIRED = [/^\/chat/, /^\/schedule/, /^\/favorites/, /^\/my/, /^\/quote/, /^\/pro-/];
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
-    // localStorage의 zustand persist 데이터에 user/accessToken이 있으면 로그인된 것으로 간주
-    // (authUser가 hydration 전에 null일 수 있으므로 persist 원본도 확인)
-    let hasPersistedToken = false;
-    try {
-      const raw = localStorage.getItem('prettyful-auth');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        hasPersistedToken = !!(parsed?.state?.accessToken || parsed?.state?.user);
-      }
-    } catch {}
-    const isLoggedIn = authUser !== null || hasPersistedToken;
+    if (!authHydrated) return;
+    const isLoggedIn = authUser !== null;
     if (!isLoggedIn && needsAuth) {
       rememberAuthReturnTo();
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
@@ -146,14 +149,49 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       setShowLoginModal(false);
     }
     if (isLoggedIn) {
-      const realPro = authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro';
+      const realPro = authUser?.role === 'pro';
       const viewing = localStorage.getItem('viewAsUser') === 'true';
       setActualIsPro(realPro);
       setViewAsUser(viewing);
       // 실제 pro 이지만 일반 유저 뷰 토글이 켜져있으면 네비를 user로
       setIsPro(realPro && !viewing);
+    } else {
+      setActualIsPro(false);
+      setViewAsUser(false);
+      setIsPro(false);
     }
-  }, [pathname, needsAuth, authUser]);
+  }, [pathname, needsAuth, authUser, authHydrated]);
+
+  useEffect(() => {
+    if (!authHydrated || !authUser || authUser.role !== 'pro' || viewAsUser) {
+      setNewRequestCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    const refresh = () => {
+      matchApi.getProRequests()
+        .then((data: any) => {
+          if (cancelled) return;
+          const items = Array.isArray(data) ? data : (data?.data || []);
+          setNewRequestCount(items.filter((m: any) => m.status === 'pending' || m.status === 'viewed').length);
+        })
+        .catch(() => {
+          if (!cancelled) setNewRequestCount(0);
+        });
+    };
+
+    refresh();
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('freetiful:match-requests-changed', refresh);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('freetiful:match-requests-changed', refresh);
+    };
+  }, [authHydrated, authUser?.id, authUser?.role, viewAsUser]);
 
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
@@ -241,11 +279,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <nav className="flex items-center gap-1">
             {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
               const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
+              const badge = label === '새요청' ? newRequestCount : 0;
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full text-[14px] font-medium ${
+                  className={`relative flex items-center gap-2.5 px-5 py-2.5 rounded-full text-[14px] font-medium ${
                     active
                       ? 'text-gray-900 bg-gray-100/80 font-bold'
                       : 'text-gray-500 hover:text-gray-800 hover:bg-surface-100/80'
@@ -254,6 +293,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 >
                   <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
                   {label}
+                  {badge > 0 && (
+                    <span className="min-w-[18px] h-[18px] rounded-full bg-[#3180F7] px-1 text-[10px] font-bold leading-[18px] text-white text-center">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -340,6 +384,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
                   const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
                   const isBiz = href === '/biz';
+                  const badge = label === '새요청' ? newRequestCount : 0;
                   const itemStyle: React.CSSProperties = {
                     opacity: bizCollapsing ? 0 : 1,
                     transform: bizCollapsing ? 'scale(0.5)' : 'scale(1)',
@@ -370,7 +415,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       key={href}
                       href={href}
                       data-nav={label}
-                      className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
+                      className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
                         active ? 'text-gray-900' : 'text-gray-400'
                       }`}
                       style={itemStyle}
@@ -384,6 +429,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       }}
                     >
                       <Icon className={`h-5 w-5 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
+                      {badge > 0 && (
+                        <span className="absolute right-1 top-0 min-w-[16px] h-[16px] rounded-full bg-[#3180F7] px-1 text-[9px] font-bold leading-[16px] text-white text-center shadow-sm">
+                          {badge > 99 ? '99+' : badge}
+                        </span>
+                      )}
                       <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
                     </Link>
                   );
