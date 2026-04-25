@@ -14,10 +14,11 @@ import {
 import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
 
-const ADMIN_EMAILS = ['admin@freetiful.com'];
+const ADMIN_EMAILS = ['admin@freetiful.com', 'freetiful2025@naver.com', 'freetiful2025@admin.com'];
 
 function isAdminUser(user: { email?: string | null; role?: string | null } | null) {
-  return !!user && (user.role === 'admin' || (!!user.email && ADMIN_EMAILS.includes(user.email)));
+  const email = user?.email?.toLowerCase();
+  return !!user && (user.role === 'admin' || (!!email && ADMIN_EMAILS.includes(email)));
 }
 
 type AdminNavItem = {
@@ -133,10 +134,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
     if (!authUser) {
+      setChecked(false);
       router.replace('/admin/login');
       return;
     }
     if (!isAdminUser(authUser)) {
+      setChecked(false);
       router.replace('/admin/login');
       return;
     }

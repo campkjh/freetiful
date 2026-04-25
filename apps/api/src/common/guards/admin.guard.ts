@@ -18,7 +18,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class AdminGuard implements CanActivate {
   private readonly ADMIN_EMAILS = [
     'admin@freetiful.com',
-    // 필요 시 추가
+    'freetiful2025@naver.com',
+    'freetiful2025@admin.com',
   ];
 
   constructor(
@@ -58,7 +59,8 @@ export class AdminGuard implements CanActivate {
     });
     if (!user) throw new UnauthorizedException('유효하지 않은 토큰입니다');
 
-    if (user.role === 'admin' || (user.email && this.ADMIN_EMAILS.includes(user.email))) {
+    const email = user.email?.toLowerCase();
+    if (user.role === 'admin' || (email && this.ADMIN_EMAILS.includes(email))) {
       req.user = user;
       return true;
     }

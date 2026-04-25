@@ -10,10 +10,11 @@ import { authApi } from '@/lib/api/auth.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import toast from 'react-hot-toast';
 
-const ADMIN_EMAILS = ['admin@freetiful.com'];
+const ADMIN_EMAILS = ['admin@freetiful.com', 'freetiful2025@naver.com', 'freetiful2025@admin.com'];
 
 function isAdminUser(user: { email?: string | null; role?: string | null }) {
-  return user.role === 'admin' || (!!user.email && ADMIN_EMAILS.includes(user.email));
+  const email = user.email?.toLowerCase();
+  return user.role === 'admin' || (!!email && ADMIN_EMAILS.includes(email));
 }
 
 const schema = z.object({

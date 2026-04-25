@@ -34,6 +34,18 @@ interface UserItem {
   };
 }
 
+function parseUsersPayload(data: any): { rows: UserItem[]; total: number } {
+  const rows = Array.isArray(data?.data)
+    ? data.data
+    : Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data)
+        ? data
+        : [];
+  const total = Number(data?.total ?? data?.meta?.total ?? data?.pagination?.total ?? rows.length);
+  return { rows, total: Number.isFinite(total) ? total : rows.length };
+}
+
 const roleColors: Record<string, string> = {
   general: 'bg-gray-100 text-gray-600',
   user: 'bg-gray-100 text-gray-600',
@@ -80,10 +92,10 @@ export default function AdminUsersPage() {
       if (r !== '전체') params.role = r;
       if (range.startDate) params.startDate = range.startDate;
       if (range.endDate) params.endDate = range.endDate;
-      const data = await adminFetch('GET', `/api/v1/admin/users?${new URLSearchParams(params).toString()}`);
-      const nextUsers = data.data || [];
+      const data = await adminFetch('GET', `/api/v1/admin/users?${new URLSearchParams(params).toString()}`, undefined, { cache: false });
+      const { rows: nextUsers, total: nextTotal } = parseUsersPayload(data);
       setUsers((prev) => append ? appendUniqueById(prev, nextUsers) : nextUsers);
-      setTotal(data.total || 0);
+      setTotal(nextTotal);
       setPage(p);
     } catch (e: any) {
       const err = extractAdminError(e);
@@ -168,7 +180,8 @@ export default function AdminUsersPage() {
           if (dateRange.startDate) params.startDate = dateRange.startDate;
           if (dateRange.endDate) params.endDate = dateRange.endDate;
           const data = await adminFetch('GET', `/api/v1/admin/users?${new URLSearchParams(params).toString()}`, undefined, { cache: false });
-          return { rows: data.data || [], total: data.total };
+          const parsed = parseUsersPayload(data);
+          return { rows: parsed.rows, total: parsed.total };
         },
       });
 
