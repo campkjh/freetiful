@@ -121,6 +121,7 @@ interface ProDetailData {
     responseTime: string;
     contactTime: string;
   };
+  descriptionHtml?: string;
   reviews: {
     id: string;
     name: string;
@@ -135,6 +136,72 @@ interface ProDetailData {
   }[];
   recommendedPros: { id: string; name: string; role: string; rating: number; reviews: number; experience: number; image: string; tags: string[]; isPartner: boolean }[];
   alsoViewed: { id: string; title: string; price: number; rating?: number; reviewCount?: number; author: string; image: string; category?: string }[];
+}
+
+function decodeHtmlEntities(value: string) {
+  if (typeof document === 'undefined') {
+    return value
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = value;
+  return textarea.value;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function stripUnsafeHtml(html: string) {
+  if (!html.trim()) return '';
+  const source = /&lt;\/?[a-z][\s\S]*?&gt;/i.test(html) ? decodeHtmlEntities(html) : html;
+
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+    return source
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
+      .replace(/\son\w+=["'][^"']*["']/gi, '')
+      .replace(/\s(href|src)=["']\s*javascript:[^"']*["']/gi, '')
+      .replace(/\sstyle=["'][^"']*(javascript:|expression\s*\(|behavior\s*:)[^"']*["']/gi, '');
+  }
+
+  const doc = new DOMParser().parseFromString(source, 'text/html');
+  doc.querySelectorAll('script, style, iframe, object, embed, link, meta').forEach((node) => node.remove());
+  doc.body.querySelectorAll('*').forEach((node) => {
+    Array.from(node.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim().toLowerCase();
+      const isUnsafeUrl = (name === 'href' || name === 'src') && value.startsWith('javascript:');
+      const isUnsafeStyle = name === 'style' && /(javascript:|expression\s*\(|behavior\s*:)/i.test(attr.value);
+      if (name.startsWith('on') || isUnsafeUrl || isUnsafeStyle) {
+        node.removeAttribute(attr.name);
+      }
+    });
+  });
+  return doc.body.innerHTML;
+}
+
+function textToHtml(text: string) {
+  if (!text.trim()) return '';
+  return text
+    .split(/\n{2,}/)
+    .map((block) => `<p>${escapeHtml(block.trim()).replace(/\n/g, '<br />')}</p>`)
+    .join('');
+}
+
+function buildDescriptionHtml(html: string | null | undefined, fallbackText: string) {
+  const cleaned = stripUnsafeHtml(html || '');
+  if (cleaned.trim()) return cleaned;
+  return textToHtml(fallbackText);
 }
 
 function mapRecommendedPros(items: any[] = [], currentId: string) {
@@ -157,6 +224,7 @@ function mapRecommendedPros(items: any[] = [], currentId: string) {
 function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDetailData {
   const images = [p.profileImageUrl, ...(p.images || [])].filter(Boolean);
   const proCategory = p.categories?.[0] || '사회자';
+  const fallbackDescription = [p.shortIntro, p.mainExperience].filter(Boolean).join('\n\n') || `안녕하세요. ${proCategory} ${p.name}입니다.`;
   const plans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
     id: t.planKey,
     label: t.label,
@@ -193,7 +261,8 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
       workDays: 14,
       revisions: 1,
     }],
-    description: [p.shortIntro, p.mainExperience].filter(Boolean).join('\n\n') || `안녕하세요. ${proCategory} ${p.name}입니다.`,
+    description: fallbackDescription,
+    descriptionHtml: buildDescriptionHtml(null, fallbackDescription),
     expertStats: {
       totalDeals: p.reviewCount || 0,
       satisfaction: p.avgRating ? Math.round((p.avgRating / 5) * 100) : 0,
@@ -253,11 +322,10 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     proReply: r.proReply ? { date: r.proRepliedAt ? new Date(r.proRepliedAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '', content: r.proReply } : undefined,
   }));
 
-  const descParts = [
+  const fallbackDescription = [
     `안녕하세요. ${proCategory} ${userName}입니다.`,
     res.shortIntro ? `\n${res.shortIntro}` : '',
     res.mainExperience ? `\n\n주요 경력:\n• ${res.mainExperience.split('/').map((s: string) => s.trim()).join('\n• ')}` : '',
-    res.detailHtml || '',
   ].filter(Boolean).join('');
 
   return {
@@ -276,7 +344,8 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     reviewCount: res.reviewCount || 0,
     favoriteCount: res.favoriteCount || 0,
     plans,
-    description: descParts,
+    description: fallbackDescription,
+    descriptionHtml: buildDescriptionHtml(res.detailHtml, fallbackDescription),
     expertStats: {
       totalDeals: res.reviewCount || 0,
       satisfaction: res.avgRating ? Math.round((res.avgRating / 5) * 100) : 0,
@@ -585,6 +654,8 @@ export default function ProDetailPage() {
         const ytIds = videoUrls.map((u) => extractYoutubeId(u)).filter(Boolean) as string[];
         const ytId = ytIds[0];
         const allImages = photos.length > 0 ? photos : ['/images/placeholder.avif'];
+        const detailHtml = localStorage.getItem('proRegister_description') || '';
+        const fallbackDescription = `안녕하세요. 사회자 ${name}입니다.\n\n${intro}\n\n${career ? `주요 경력:\n• ${career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`;
 
         setPro({
           id: 'my-pro',
@@ -609,7 +680,8 @@ export default function ProDetailPage() {
             workDays: 14,
             revisions: idx + 1,
           })),
-          description: `안녕하세요. 사회자 ${name}입니다.\n\n${intro}\n\n${career ? `주요 경력:\n• ${career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`,
+          description: fallbackDescription,
+          descriptionHtml: buildDescriptionHtml(detailHtml, fallbackDescription),
           expertStats: {
             totalDeals: careerYears * 8 + 10,
             satisfaction: 100,
@@ -1348,8 +1420,8 @@ export default function ProDetailPage() {
         )}
 
         {/* Description text */}
-        <div className={`whitespace-pre-line text-[15px] leading-[1.8] text-gray-800 text-center ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`}>
-          {pro.description}
+        <div className={`pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`}>
+          <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || buildDescriptionHtml(null, pro.description) }} />
           {!descExpanded && (
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
           )}
