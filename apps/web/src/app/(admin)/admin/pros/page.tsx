@@ -181,7 +181,7 @@ export default function AdminProsPage() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {['전체', 'pending', 'approved', 'rejected', 'draft', 'suspended'].map((st) => (
+            {['전체', 'pending', 'approved', 'rejected', 'suspended'].map((st) => (
               <button
                 key={st}
                 onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
@@ -189,7 +189,7 @@ export default function AdminProsPage() {
                   filterStatus === st ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
                 }`}
               >
-                {st === '전체' ? '전체' : st === 'pending' ? '대기' : st === 'approved' ? '승인' : st === 'rejected' ? '반려' : st === 'draft' ? '임시' : '중지'}
+                {st === '전체' ? '전체' : st === 'pending' ? '승인대기' : st === 'approved' ? '전문가' : st === 'rejected' ? '반려' : '중지'}
               </button>
             ))}
           </div>

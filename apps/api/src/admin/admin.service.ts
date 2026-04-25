@@ -377,9 +377,14 @@ export class AdminService {
   async getPros(params: { page?: number; limit?: number; status?: string; search?: string; startDate?: string; endDate?: string }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
+    const visibleStatuses = ['pending', 'approved', 'rejected', 'suspended'];
     const where: any = {};
     this.applyCreatedAtRange(where, params);
-    if (params.status) where.status = params.status;
+    if (params.status && visibleStatuses.includes(params.status)) {
+      where.status = params.status;
+    } else {
+      where.status = { in: visibleStatuses };
+    }
     if (params.search) {
       where.user = { name: { contains: params.search, mode: 'insensitive' } };
     }
