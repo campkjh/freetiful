@@ -28,7 +28,7 @@ export class ProController {
   @Get('profile')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  @ApiOperation({ summary: '내 프로 프로필 조회 (images/services/faqs/categories 포함, 없으면 null)' })
+  @ApiOperation({ summary: '내 프로 프로필 조회 (images/services/faqs/categories 포함)' })
   getMyProfile(@Req() req) {
     return this.proService.getProfile(req.user.id);
   }

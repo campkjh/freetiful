@@ -233,17 +233,6 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (role === 'pro') {
-      const approvedProfile = await this.prisma.proProfile.findUnique({
-        where: { userId },
-        select: { id: true, status: true },
-      });
-
-      if (!approvedProfile || approvedProfile.status !== 'approved') {
-        throw new BadRequestException('승인된 전문가 프로필이 있어야 프로 모드로 전환할 수 있습니다.');
-      }
-    }
-
     // role 전환 시 role 만 업데이트. discovery 목록은 user.role 로 필터하므로
     // ProProfile.status 는 건드리지 않아도 자동으로 숨겨짐.
     // (나중에 다시 pro 모드로 돌아오면 기존 approved 프로필 그대로 복구됨)
