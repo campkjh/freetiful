@@ -25,11 +25,6 @@ import { AdminGuard } from '../common/guards/admin.guard';
 export class AdminController {
   constructor(private adminService: AdminService) {}
 
-  @Post('seed-pros')
-  async seedPros() {
-    return this.adminService.seedPros();
-  }
-
   @Post('transfer-pro-profile')
   async transferProProfile(
     @Body('sourceEmail') sourceEmail: string,
@@ -155,6 +150,19 @@ export class AdminController {
   @Post('cleanup-empty-profiles')
   async cleanupEmptyProfiles() {
     return this.adminService.cleanupEmptyProProfiles();
+  }
+
+  @Get('bookings')
+  async getBookings(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.adminService.getBookings({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      status,
+    });
   }
 
   @Get('payments')

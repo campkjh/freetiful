@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, Star, CreditCard, UserCheck, ChevronRight, RefreshCw, Sprout, Calendar, Building2, ArrowRightLeft, Wallet } from 'lucide-react';
+import { Users, Star, CreditCard, UserCheck, ChevronRight, RefreshCw, Calendar, Building2, ArrowRightLeft, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from './_components/adminFetch';
 
@@ -18,10 +18,9 @@ interface Stats {
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [transferSource, setTransferSource] = useState('leesj@freetiful.com');
-  const [transferTarget, setTransferTarget] = useState('lsja3713@hanmail.net');
+  const [transferSource, setTransferSource] = useState('');
+  const [transferTarget, setTransferTarget] = useState('');
   const [transferring, setTransferring] = useState(false);
 
   const fetchStats = async () => {
@@ -39,21 +38,6 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => { fetchStats(); }, []);
-
-  const handleSeed = async () => {
-    if (!confirm('전문가 데이터를 시드하시겠습니까?')) return;
-    setSeeding(true);
-    try {
-      const data = await adminFetch('POST', '/api/v1/admin/seed-pros');
-      toast.success(`완료: 생성 ${data.created}, 스킵 ${data.skipped}, 오류 ${data.errors}`);
-      fetchStats();
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
-      toast.error(`시드 실패: ${msg}`);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const handleCleanup = async () => {
     if (!confirm('이미지 0장인 approved 프로필을 전부 draft 로 강등하시겠습니까? (공개 목록에서 사라짐)')) return;
@@ -213,7 +197,7 @@ export default function AdminDashboardPage() {
       {/* 관리자 도구 */}
       <div className="admin-card p-5">
         <h2 className="text-[16px] font-black text-[#191F28] mb-3">관리자 도구</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             onClick={handleCleanup}
             className="px-4 py-3 rounded-2xl bg-[#F7F8FA] hover:bg-[#F2F4F6] text-left"
@@ -228,17 +212,7 @@ export default function AdminDashboardPage() {
             <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
               <ArrowRightLeft size={13} /> 프로필 이관
             </span>
-            <span className="block text-[11px] text-[#8B95A1] mt-0.5">더미 → 실계정</span>
-          </button>
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            className="px-4 py-3 rounded-2xl bg-[#F7F8FA] hover:bg-[#F2F4F6] disabled:opacity-50 text-left"
-          >
-            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
-              <Sprout size={13} /> {seeding ? '시드 중...' : '전문가 시드'}
-            </span>
-            <span className="block text-[11px] text-[#8B95A1] mt-0.5">데모 데이터 주입</span>
+            <span className="block text-[11px] text-[#8B95A1] mt-0.5">계정 연결 정리</span>
           </button>
         </div>
       </div>
@@ -255,16 +229,16 @@ export default function AdminDashboardPage() {
           >
             <div className="px-6 pt-6 pb-2">
               <h2 className="text-[18px] font-bold text-[#191F28]">프로필 이관</h2>
-              <p className="text-[12px] text-[#8B95A1] mt-1">더미 계정 → 실계정</p>
+              <p className="text-[12px] text-[#8B95A1] mt-1">기존 계정 → 대상 계정</p>
             </div>
             <div className="px-6 py-4 space-y-4">
               <p className="text-[12px] text-[#6B7684] leading-relaxed">
-                source 계정의 프로 프로필(이미지·서비스·리뷰·채팅 등)을 target 계정으로 통째로 이관합니다.
-                target에 기존 프로필이 있으면 삭제되고, source 이메일은 archived-... 로 변경됩니다.
+                기존 계정의 프로 프로필(이미지·서비스·리뷰·채팅 등)을 대상 계정으로 통째로 이관합니다.
+                대상 계정에 기존 프로필이 있으면 삭제되고, 기존 계정은 비활성화됩니다.
               </p>
               <div>
                 <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
-                  source (더미) 이메일
+                  기존 계정 이메일
                 </label>
                 <input
                   type="email"
@@ -275,7 +249,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
-                  target (실계정) 이메일
+                  대상 계정 이메일
                 </label>
                 <input
                   type="email"
