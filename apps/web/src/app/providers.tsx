@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { installNativeAuthBridge } from '@/lib/auth/native-login';
 import { useAuthStore } from '@/lib/store/auth.store';
 import {
   initNativePushBridge,
@@ -22,6 +23,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
+    installNativeAuthBridge();
     initNativePushBridge();
     const state = useAuthStore.getState();
     if (state.accessToken) void syncPushRegistration(state.user?.id);

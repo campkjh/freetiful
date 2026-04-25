@@ -203,17 +203,11 @@ class ViewController: UIViewController,
                   let accessToken  = info["accessToken"]  as? String,
                   let refreshToken = info["refreshToken"] as? String,
                   let userJSON     = info["userJSON"]     as? String else { return }
-            let escape: (String) -> String = { s in
-                s.replacingOccurrences(of: "\\", with: "\\\\")
-                 .replacingOccurrences(of: "\"", with: "\\\"")
-            }
-            let js = """
-            (function() {
-              var auth = { state: { user: \(userJSON), accessToken: "\(escape(accessToken))", refreshToken: "\(escape(refreshToken))" }, version: 0 };
-              localStorage.setItem('prettyful-auth', JSON.stringify(auth));
-              window.location.href = '\(kWebBase)/main';
-            })();
-            """
+            let js = self.authInjectionScript(
+                accessToken: accessToken,
+                refreshToken: refreshToken,
+                userJSON: userJSON
+            )
             self.webView.evaluateJavaScript(js) { _, err in
                 if let err = err { print("❌ loginCompleted JS 주입 실패:", err) }
             }
@@ -304,17 +298,54 @@ class ViewController: UIViewController,
         }.resume()
     }
 
-    /// Zustand의 localStorage 키 `prettyful-auth`에 JWT를 주입하고 /main으로 이동합니다.
-    private func injectJWT(accessToken: String, refreshToken: String, userJSON: String) {
+    private func authInjectionScript(accessToken: String, refreshToken: String, userJSON: String) -> String {
         let safe = { (s: String) in s.replacingOccurrences(of: "\\", with: "\\\\")
                                      .replacingOccurrences(of: "\"", with: "\\\"") }
-        let js = """
+        return """
         (function() {
-          var auth = { state: { user: \(userJSON), accessToken: "\(safe(accessToken))", refreshToken: "\(safe(refreshToken))" }, version: 0 };
+          var payload = {
+            user: \(userJSON),
+            tokens: {
+              accessToken: "\(safe(accessToken))",
+              refreshToken: "\(safe(refreshToken))"
+            }
+          };
+          var auth = {
+            state: {
+              user: payload.user,
+              accessToken: payload.tokens.accessToken,
+              refreshToken: payload.tokens.refreshToken
+            },
+            version: 0
+          };
           localStorage.setItem('prettyful-auth', JSON.stringify(auth));
-          window.location.href = '\(kWebBase)/main';
+          localStorage.setItem('userRole', payload.user && payload.user.role ? payload.user.role : 'general');
+
+          var goMain = function() { window.location.href = '\(kWebBase)/main'; };
+          try {
+            var handler = window.FreetifulAuth && window.FreetifulAuth.completeLogin
+              ? window.FreetifulAuth.completeLogin
+              : window.freetifulCompleteLogin;
+            if (handler) {
+              var result = handler(payload);
+              if (result && typeof result.catch === 'function') result.catch(goMain);
+            } else {
+              goMain();
+            }
+          } catch (e) {
+            goMain();
+          }
         })();
         """
+    }
+
+    /// Zustand의 localStorage 키 `prettyful-auth`에 JWT를 주입하고 /main으로 이동합니다.
+    private func injectJWT(accessToken: String, refreshToken: String, userJSON: String) {
+        let js = authInjectionScript(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            userJSON: userJSON
+        )
         DispatchQueue.main.async {
             self.webView?.evaluateJavaScript(js) { _, err in
                 if let err = err { print("❌ JS 주입 실패:", err) }

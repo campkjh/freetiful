@@ -1,57 +1,25 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { authApi } from '@/lib/api/auth.api';
-import { usersApi } from '@/lib/api/users.api';
-import { useAuthStore } from '@/lib/store/auth.store';
-
-function deriveCredentials(googleId: string) {
-  return {
-    email: `google_${googleId}@google.freetiful.com`,
-    password: `google_${googleId}_freetiful_oauth_v1`,
-  };
-}
+import { useEffect, useRef, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { loginFromNativeCallback } from '@/lib/auth/native-login';
 
 function GoogleMobileInner() {
-  const router = useRouter();
   const params = useSearchParams();
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const hasStarted = useRef(false);
   const [status, setStatus] = useState('구글 로그인 처리 중...');
 
   useEffect(() => {
-    const googleId = params.get('googleId');
-    const name = params.get('name') || '구글 사용자';
-    const profileImageUrl = params.get('profileImageUrl') || '';
-    if (!googleId) {
-      setStatus('잘못된 요청입니다.');
-      return;
-    }
-
+    if (hasStarted.current) return;
+    hasStarted.current = true;
     (async () => {
       try {
-        const { email, password } = deriveCredentials(googleId);
-        setStatus('로그인 중...');
-        let data;
-        try {
-          data = await authApi.emailLogin(email, password);
-        } catch {
-          setStatus('계정 생성 중...');
-          data = await authApi.emailRegister({ email, password, name });
-        }
-        setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
-        if (profileImageUrl) {
-          try {
-            const updated = await usersApi.updateProfile({ profileImageUrl });
-            setAuth(updated, data.tokens.accessToken, data.tokens.refreshToken);
-          } catch (e) { console.warn('[google-mobile] image 업데이트 실패', e); }
-        }
-        window.location.replace("/main");
+        await loginFromNativeCallback('google', params, { onStatus: setStatus });
       } catch (e: any) {
         setStatus(`로그인 실패: ${e?.response?.data?.message || e?.message || '알 수 없는 오류'}`);
       }
     })();
-  }, [params, router, setAuth]);
+  }, [params]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
