@@ -21,4 +21,5 @@ WORKDIR /app/apps/api
 EXPOSE 4000
 
 # 스키마 변경을 런타임에 적용하고 Nest 빌드 출력 경로를 자동 감지한다.
-CMD ["sh", "-c", "timeout 30 npx prisma db push --skip-generate --accept-data-loss || echo 'prisma db push skipped/failed - continuing'; if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]
+# DB push가 실패한 상태로 새 앱을 띄우면 새 Prisma 필드 조회에서 500이 발생하므로 배포를 중단한다.
+CMD ["sh", "-c", "timeout 180 npx prisma db push --skip-generate --accept-data-loss && if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]
