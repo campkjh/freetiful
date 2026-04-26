@@ -12,6 +12,7 @@ import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
+import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import { matchApi } from '@/lib/api/match.api';
 
 type NavIconProps = { className?: string };
@@ -110,6 +111,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션 (한 번만)
   const [navExpanding, setNavExpanding] = useState(false);
   const [bizCollapsing, setBizCollapsing] = useState(false);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
 
   // 최초 마운트 시 한 번만 등장 애니메이션, 탭 전환 시 재실행 안함
   useEffect(() => {
@@ -136,11 +138,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const isLoggedIn = authUser !== null;
     if (!isLoggedIn && needsAuth) {
       rememberAuthReturnTo();
-      const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
-      if (iosBridge) {
-        iosBridge.postMessage({});
+      if (requestNativeLoginSheet({ reason: 'auth-required', returnTo: pathname })) {
         setShowLoginModal(false);
-        // iOS 네이티브 모달은 취소 이벤트를 웹으로 전달하지 않음 → 취소 시 홈에 남도록 선제 이동
+        // 네이티브 모달은 취소 이벤트를 웹으로 전달하지 않을 수 있음 → 취소 시 홈에 남도록 선제 이동
         router.replace('/main');
       } else {
         setShowLoginModal(true);
@@ -197,8 +197,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const handler = () => {
       rememberAuthReturnTo();
-      const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
-      if (iosBridge) { iosBridge.postMessage({}); return; }
+      if (requestNativeLoginSheet({ reason: 'manual' })) return;
       setShowLoginModal(true);
     };
     window.addEventListener('freetiful:show-login', handler);
@@ -256,6 +255,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const onScroll = () => {
       const currentY = window.scrollY;
+      setHeaderScrolled(currentY > 12);
       if (currentY > lastScrollY.current && currentY > 80) {
         setNavVisible(false);
       } else {
@@ -269,11 +269,24 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-surface-50">
-      {/* ─── Desktop Top Navigation (Glass) ──────────────────────────── */}
-      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 glass border-b border-gray-100/50`}>
-        <div className="max-w-7xl mx-auto px-8 h-[72px] flex items-center justify-between">
-          <Link href={homeHref} className="text-[22px] font-black text-primary-500 tracking-tight">
-            Freetiful
+      {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
+      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50`}>
+        <div
+          className={`mx-auto h-[72px] flex items-center justify-between transition-all duration-500 ease-out ${
+            headerScrolled
+              ? 'max-w-[760px] mt-2 px-6 rounded-full backdrop-blur-xl bg-white/75 shadow-[0_12px_40px_rgba(15,23,42,0.10)] border border-gray-200/60'
+              : 'max-w-7xl px-8 bg-white/80 backdrop-blur-xl border-b border-gray-100'
+          }`}
+        >
+          <Link href={homeHref} className="flex items-center" aria-label="Freetiful 홈">
+            <Image
+              src="/images/logo-freetiful-wordmark.svg"
+              alt="Freetiful"
+              width={118}
+              height={35}
+              priority
+              className="h-[26px] w-auto"
+            />
           </Link>
 
           <nav className="flex items-center gap-1">

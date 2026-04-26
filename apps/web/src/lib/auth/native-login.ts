@@ -13,6 +13,7 @@ import { syncPushRegistration } from '@/lib/utils/push';
 
 type NativeProvider = 'kakao' | 'naver' | 'google' | 'apple';
 type SearchParamReader = Pick<URLSearchParams, 'get'>;
+type NativeBridgePayload = Record<string, unknown>;
 
 type NativeLoginPayload = {
   user?: User;
@@ -170,6 +171,63 @@ function parseBridgePayload(payload: NativeLoginPayload | string): NativeLoginPa
   } catch {
     return null;
   }
+}
+
+function callNativeBridgeMethod(
+  target: unknown,
+  methodNames: string[],
+  payload: NativeBridgePayload,
+) {
+  if (!target || typeof target !== 'object') return false;
+  const bridge = target as Record<string, unknown>;
+  const message = JSON.stringify(payload);
+
+  for (const methodName of methodNames) {
+    const method = bridge[methodName];
+    if (typeof method !== 'function') continue;
+
+    try {
+      method.call(bridge, message);
+      return true;
+    } catch {
+      try {
+        method.call(bridge);
+        return true;
+      } catch {}
+    }
+  }
+
+  return false;
+}
+
+export function requestNativeLoginSheet(payload: NativeBridgePayload = {}) {
+  if (typeof window === 'undefined') return false;
+
+  const win = window as Window & {
+    webkit?: {
+      messageHandlers?: Record<string, { postMessage?: (message: unknown) => void } | undefined>;
+    };
+    Android?: unknown;
+    FreetifulAndroid?: unknown;
+    ReactNativeWebView?: { postMessage?: (message: string) => void };
+  };
+
+  const iosBridge = win.webkit?.messageHandlers?.showNativeLogin;
+  if (typeof iosBridge?.postMessage === 'function') {
+    iosBridge.postMessage(payload);
+    return true;
+  }
+
+  const androidMethodNames = ['showNativeLogin', 'showLogin', 'openLogin', 'login'];
+  if (callNativeBridgeMethod(win.Android, androidMethodNames, payload)) return true;
+  if (callNativeBridgeMethod(win.FreetifulAndroid, androidMethodNames, payload)) return true;
+
+  if (typeof win.ReactNativeWebView?.postMessage === 'function') {
+    win.ReactNativeWebView.postMessage(JSON.stringify({ type: 'showNativeLogin', ...payload }));
+    return true;
+  }
+
+  return false;
 }
 
 function normalizeLoginPayload(payload: NativeLoginPayload | string): LoginResponse | null {

@@ -476,12 +476,13 @@ export default function MyPage() {
           try { localStorage.setItem('freetiful-my-pro-id', profileUser.proProfile.id); } catch {}
         }
 
+        const shouldSyncBaseProfileImage = !profileUser?.proProfile;
         if (
           profileUser?.id === authUser.id &&
           (
             profileUser.role !== authUser.role ||
             profileUser.name !== authUser.name ||
-            profileUser.profileImageUrl !== authUser.profileImageUrl ||
+            (shouldSyncBaseProfileImage && profileUser.profileImageUrl !== authUser.profileImageUrl) ||
             profileUser.pointBalance !== authUser.pointBalance
           )
         ) {
@@ -489,7 +490,7 @@ export default function MyPage() {
             ...authUser,
             role: serverRole,
             name: profileUser.name,
-            profileImageUrl: profileUser.profileImageUrl,
+            profileImageUrl: shouldSyncBaseProfileImage ? profileUser.profileImageUrl : authUser.profileImageUrl,
             pointBalance: profileUser.pointBalance,
           });
         }
@@ -505,10 +506,14 @@ export default function MyPage() {
           const primary = (profile as any)?.images?.find((img: any) => img.isPrimary) || (profile as any)?.images?.[0];
           const effectiveImage = primary?.imageUrl || (profile as any)?.user?.profileImageUrl;
           if (effectiveImage && effectiveImage !== useAuthStore.getState().user?.profileImageUrl) {
+            const currentUser = useAuthStore.getState().user || authUser;
             useAuthStore.getState().setUser({
-              ...(useAuthStore.getState().user || authUser),
+              ...currentUser,
               profileImageUrl: effectiveImage,
             });
+            if (currentUser.id === authUser.id) {
+              setUser((prev) => ({ ...prev, image: effectiveImage }));
+            }
           }
         }
       })

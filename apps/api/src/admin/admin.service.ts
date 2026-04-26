@@ -22,6 +22,16 @@ export class AdminService {
     private usersService: UsersService,
   ) {}
 
+  private async safeStatsQuery<T>(label: string, query: Promise<T>, fallback: T): Promise<T> {
+    try {
+      return await query;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Admin stats query failed (${label}): ${message}`);
+      return fallback;
+    }
+  }
+
   private buildDateRange(params?: { startDate?: string; endDate?: string }) {
     const range: any = {};
     if (params?.startDate) {
@@ -916,6 +926,16 @@ export class AdminService {
     const sevenDayRange = rangeFromOffset(6);
     const thirtyDayRange = rangeFromOffset(29);
     const thisMonthStart = new Date(`${thisMonthKey}T00:00:00.000+09:00`);
+    const emptyRows: any[] = [];
+    const zeroAmountAggregate = { _sum: { amount: 0 } } as any;
+    const zeroSettlementAggregate = { _sum: { netAmount: 0 } } as any;
+    const zeroPuddingAggregate = { _sum: { amount: 0 } } as any;
+    const zeroProAggregate = {
+      _sum: { profileViews: 0, puddingCount: 0, reviewCount: 0 },
+      _avg: { avgRating: 0, responseRate: 0 },
+    } as any;
+    const zeroBusinessAggregate = { _sum: { profileViews: 0 } } as any;
+    const safe = <T>(label: string, query: Promise<T>, fallback: T) => this.safeStatsQuery(label, query, fallback);
 
     const [
       totalUsers,
@@ -969,76 +989,76 @@ export class AdminService {
       topPuddingPros,
       topRevenueGroups,
     ] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { isActive: true } }),
-      this.prisma.user.count({ where: { isBanned: true } }),
-      this.prisma.user.count({ where: { createdAt: todayRange } }),
-      this.prisma.user.count({ where: { createdAt: sevenDayRange } }),
-      this.prisma.user.count({ where: { createdAt: thirtyDayRange } }),
-      this.prisma.user.groupBy({ by: ['role'], _count: true }),
-      this.prisma.proProfile.count({ where: { status: 'approved' } }),
-      this.prisma.proProfile.count({ where: { status: 'pending' } }),
-      this.prisma.proProfile.groupBy({ by: ['status'], _count: true }),
-      this.prisma.proProfile.aggregate({
+      safe('totalUsers', this.prisma.user.count(), 0),
+      safe('activeUsers', this.prisma.user.count({ where: { isActive: true } }), 0),
+      safe('bannedUsers', this.prisma.user.count({ where: { isBanned: true } }), 0),
+      safe('newUsersToday', this.prisma.user.count({ where: { createdAt: todayRange } }), 0),
+      safe('newUsers7d', this.prisma.user.count({ where: { createdAt: sevenDayRange } }), 0),
+      safe('newUsers30d', this.prisma.user.count({ where: { createdAt: thirtyDayRange } }), 0),
+      safe('userRoles', this.prisma.user.groupBy({ by: ['role'], _count: true }), emptyRows),
+      safe('totalPros', this.prisma.proProfile.count({ where: { status: 'approved' } }), 0),
+      safe('pendingPros', this.prisma.proProfile.count({ where: { status: 'pending' } }), 0),
+      safe('proStatuses', this.prisma.proProfile.groupBy({ by: ['status'], _count: true }), emptyRows),
+      safe('proAggregate', this.prisma.proProfile.aggregate({
         _sum: { profileViews: true, puddingCount: true, reviewCount: true },
         _avg: { avgRating: true, responseRate: true },
-      }),
-      this.prisma.businessProfile.count(),
-      this.prisma.businessProfile.groupBy({ by: ['status'], _count: true }),
-      this.prisma.businessProfile.aggregate({ _sum: { profileViews: true } }),
-      this.prisma.review.count(),
-      this.prisma.review.count({ where: { isVisible: true } }),
-      this.prisma.favorite.count(),
-      this.prisma.favorite.count({ where: { targetType: 'pro' } }),
-      this.prisma.favorite.count({ where: { targetType: 'business' } }),
-      this.prisma.matchRequest.count(),
-      this.prisma.matchRequest.groupBy({ by: ['status'], _count: true }),
-      this.prisma.matchDelivery.count(),
-      this.prisma.matchDelivery.count({ where: { viewedAt: { not: null } } }),
-      this.prisma.matchDelivery.count({ where: { repliedAt: { not: null } } }),
-      this.prisma.chatRoom.count(),
-      this.prisma.chatRoom.count({ where: { createdAt: sevenDayRange } }),
-      this.prisma.message.count({ where: { isDeleted: false } }),
-      this.prisma.message.count({ where: { isDeleted: false, createdAt: sevenDayRange } }),
-      this.prisma.quotation.count(),
-      this.prisma.quotation.groupBy({ by: ['status'], _count: true }),
-      this.prisma.payment.count(),
-      this.prisma.payment.groupBy({ by: ['status'], _count: true, _sum: { amount: true } }),
-      this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: todayRange }, _sum: { amount: true } }),
-      this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: sevenDayRange }, _sum: { amount: true } }),
-      this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: { gte: thisMonthStart } }, _sum: { amount: true } }),
-      this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: thirtyDayRange }, _sum: { amount: true } }),
-      this.prisma.payment.aggregate({ where: { status: 'completed' }, _sum: { amount: true } }),
-      this.prisma.settlementLog.groupBy({ by: ['status'], _count: true }),
-      this.prisma.settlementLog.aggregate({ where: { status: 'pending' }, _sum: { netAmount: true } }),
-      this.prisma.settlementLog.aggregate({ where: { status: 'settled' }, _sum: { netAmount: true } }),
-      this.prisma.notification.count(),
-      this.prisma.notification.count({ where: { isRead: false } }),
-      this.prisma.notification.count({ where: { sentPush: true } }),
-      this.prisma.pushToken.count({ where: { isActive: true } }),
-      this.prisma.pushSubscription.count(),
-      this.prisma.puddingTransaction.aggregate({ _sum: { amount: true } }),
-      this.prisma.puddingTransaction.aggregate({ where: { createdAt: thirtyDayRange }, _sum: { amount: true } }),
-      this.prisma.proProfile.findMany({
+      }), zeroProAggregate),
+      safe('totalBusinesses', this.prisma.businessProfile.count(), 0),
+      safe('businessStatuses', this.prisma.businessProfile.groupBy({ by: ['status'], _count: true }), emptyRows),
+      safe('businessAggregate', this.prisma.businessProfile.aggregate({ _sum: { profileViews: true } }), zeroBusinessAggregate),
+      safe('totalReviews', this.prisma.review.count(), 0),
+      safe('visibleReviews', this.prisma.review.count({ where: { isVisible: true } }), 0),
+      safe('totalFavorites', this.prisma.favorite.count(), 0),
+      safe('proFavorites', this.prisma.favorite.count({ where: { targetType: 'pro' } }), 0),
+      safe('businessFavorites', this.prisma.favorite.count({ where: { targetType: 'business' } }), 0),
+      safe('totalMatchRequests', this.prisma.matchRequest.count(), 0),
+      safe('matchStatuses', this.prisma.matchRequest.groupBy({ by: ['status'], _count: true }), emptyRows),
+      safe('totalDeliveries', this.prisma.matchDelivery.count(), 0),
+      safe('viewedDeliveries', this.prisma.matchDelivery.count({ where: { viewedAt: { not: null } } }), 0),
+      safe('repliedDeliveries', this.prisma.matchDelivery.count({ where: { repliedAt: { not: null } } }), 0),
+      safe('totalChatRooms', this.prisma.chatRoom.count(), 0),
+      safe('chatRooms7d', this.prisma.chatRoom.count({ where: { createdAt: sevenDayRange } }), 0),
+      safe('totalMessages', this.prisma.message.count({ where: { isDeleted: false } }), 0),
+      safe('messages7d', this.prisma.message.count({ where: { isDeleted: false, createdAt: sevenDayRange } }), 0),
+      safe('totalQuotations', this.prisma.quotation.count(), 0),
+      safe('quotationStatuses', this.prisma.quotation.groupBy({ by: ['status'], _count: true }), emptyRows),
+      safe('totalPayments', this.prisma.payment.count(), 0),
+      safe('paymentStatuses', this.prisma.payment.groupBy({ by: ['status'], _count: true, _sum: { amount: true } }), emptyRows),
+      safe('revenueToday', this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: todayRange }, _sum: { amount: true } }), zeroAmountAggregate),
+      safe('revenue7d', this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: sevenDayRange }, _sum: { amount: true } }), zeroAmountAggregate),
+      safe('thisMonthRevenue', this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: { gte: thisMonthStart } }, _sum: { amount: true } }), zeroAmountAggregate),
+      safe('revenue30d', this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: thirtyDayRange }, _sum: { amount: true } }), zeroAmountAggregate),
+      safe('totalRevenue', this.prisma.payment.aggregate({ where: { status: 'completed' }, _sum: { amount: true } }), zeroAmountAggregate),
+      safe('settlementStatuses', this.prisma.settlementLog.groupBy({ by: ['status'], _count: true }), emptyRows),
+      safe('pendingSettlementAmount', this.prisma.settlementLog.aggregate({ where: { status: 'pending' }, _sum: { netAmount: true } }), zeroSettlementAggregate),
+      safe('settledSettlementAmount', this.prisma.settlementLog.aggregate({ where: { status: 'settled' }, _sum: { netAmount: true } }), zeroSettlementAggregate),
+      safe('totalNotifications', this.prisma.notification.count(), 0),
+      safe('unreadNotifications', this.prisma.notification.count({ where: { isRead: false } }), 0),
+      safe('sentPushNotifications', this.prisma.notification.count({ where: { sentPush: true } }), 0),
+      safe('activePushTokens', this.prisma.pushToken.count({ where: { isActive: true } }), 0),
+      safe('pushSubscriptions', this.prisma.pushSubscription.count(), 0),
+      safe('totalPudding', this.prisma.puddingTransaction.aggregate({ _sum: { amount: true } }), zeroPuddingAggregate),
+      safe('pudding30d', this.prisma.puddingTransaction.aggregate({ where: { createdAt: thirtyDayRange }, _sum: { amount: true } }), zeroPuddingAggregate),
+      safe('topViewedPros', this.prisma.proProfile.findMany({
         where: { status: 'approved' },
         include: { user: { select: { name: true } } },
         orderBy: { profileViews: 'desc' },
         take: 5,
-      }),
-      this.prisma.proProfile.findMany({
+      }), emptyRows),
+      safe('topPuddingPros', this.prisma.proProfile.findMany({
         where: { status: 'approved' },
         include: { user: { select: { name: true } } },
         orderBy: { puddingCount: 'desc' },
         take: 5,
-      }),
-      this.prisma.payment.groupBy({
+      }), emptyRows),
+      safe('topRevenueGroups', this.prisma.payment.groupBy({
         by: ['proProfileId'],
         where: { status: 'completed' },
         _sum: { amount: true },
         _count: true,
         orderBy: { _sum: { amount: 'desc' } },
         take: 5,
-      }),
+      }), emptyRows),
     ]);
 
     const seriesKeys = Array.from({ length: 14 }, (_, idx) => keyFromOffset(13 - idx));
@@ -1052,42 +1072,42 @@ export class AdminService {
       dailyMessageRows,
       dailyRevenueRows,
     ] = await Promise.all([
-      this.prisma.$queryRaw<any[]>`
+      safe('dailyUsersRows', this.prisma.$queryRaw<any[]>`
         SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
         FROM users
         WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
         GROUP BY 1
-      `,
-      this.prisma.$queryRaw<any[]>`
+      `, emptyRows),
+      safe('dailyMatchRows', this.prisma.$queryRaw<any[]>`
         SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
         FROM match_requests
         WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
         GROUP BY 1
-      `,
-      this.prisma.$queryRaw<any[]>`
+      `, emptyRows),
+      safe('dailyPaymentRows', this.prisma.$queryRaw<any[]>`
         SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
         FROM payments
         WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
         GROUP BY 1
-      `,
-      this.prisma.$queryRaw<any[]>`
+      `, emptyRows),
+      safe('dailyChatRows', this.prisma.$queryRaw<any[]>`
         SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
         FROM chat_rooms
         WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
         GROUP BY 1
-      `,
-      this.prisma.$queryRaw<any[]>`
+      `, emptyRows),
+      safe('dailyMessageRows', this.prisma.$queryRaw<any[]>`
         SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
         FROM messages
         WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd} AND "isDeleted" = false
         GROUP BY 1
-      `,
-      this.prisma.$queryRaw<any[]>`
+      `, emptyRows),
+      safe('dailyRevenueRows', this.prisma.$queryRaw<any[]>`
         SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COALESCE(SUM(amount), 0)::bigint AS value
         FROM payments
         WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd} AND status = 'completed'
         GROUP BY 1
-      `,
+      `, emptyRows),
     ]);
     const valueMap = (rows: Array<{ date: string; value: number | bigint }>) => new Map(
       rows.map((row) => [row.date, Number(row.value || 0)]),
@@ -1110,10 +1130,10 @@ export class AdminService {
 
     const topRevenueIds = topRevenueGroups.map((row) => row.proProfileId);
     const topRevenueProfiles = topRevenueIds.length
-      ? await this.prisma.proProfile.findMany({
+      ? await safe('topRevenueProfiles', this.prisma.proProfile.findMany({
           where: { id: { in: topRevenueIds } },
           include: { user: { select: { name: true } } },
-        })
+        }), emptyRows)
       : [];
     const topRevenueMap = new Map(topRevenueProfiles.map((p) => [p.id, p.user?.name || '전문가']));
     const groupCount = (value: any) => (

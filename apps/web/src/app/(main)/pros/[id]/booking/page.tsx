@@ -8,7 +8,8 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { scheduleApi } from '@/lib/api/schedule.api';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
-import { startOAuth } from '@/lib/auth/oauth';
+import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
+import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 
 // ─── Helpers ───────────────────────────────────────────────
 function getDaysOfWeek(year: number, month: number, holidays: Record<string, string>) {
@@ -273,6 +274,11 @@ export default function BookingPage() {
 
   const handleBook = () => {
     if (!authUser) {
+      rememberAuthReturnTo();
+      if (requestNativeLoginSheet({ reason: 'booking' })) {
+        setShowLoginModal(false);
+        return;
+      }
       setShowLoginModal(true);
       return;
     }

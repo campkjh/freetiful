@@ -24,12 +24,20 @@ import {
 /* ─── Detailed SVG Icons (multi-layered, flat-color, premium) ─── */
 
 const BellIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-    <path d="M13 2C9.13 2 6 5.13 6 9V13.5L4 17.5H22L20 13.5V9C20 5.13 16.87 2 13 2Z" fill="#D1D5DB" />
-    <path d="M13 2C9.13 2 6 5.13 6 9V13.5L4 17.5H13V2Z" fill="#E5E7EB" />
-    <rect x="10.5" y="19" width="5" height="3.5" rx="1.75" fill="#9CA3AF" />
-    <circle cx="19" cy="5" r="4" fill="#EF4444" />
-    <text x="19" y="7" textAnchor="middle" fill="#fff" fontSize="6" fontWeight="bold">3</text>
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <rect x="3" y="3" width="22" height="22" rx="11" fill="#EFF6FF" />
+    <path
+      d="M14 7.5C11.65 7.5 9.75 9.4 9.75 11.75V15.4L8.2 18.25H19.8L18.25 15.4V11.75C18.25 9.4 16.35 7.5 14 7.5Z"
+      fill="#3180F7"
+    />
+    <path
+      d="M14 7.5C11.65 7.5 9.75 9.4 9.75 11.75V15.4L8.2 18.25H14V7.5Z"
+      fill="#60A5FA"
+    />
+    <path d="M12.2 19.25C12.45 20.1 13.15 20.7 14 20.7C14.85 20.7 15.55 20.1 15.8 19.25H12.2Z" fill="#2563EB" />
+    <path d="M7.4 10.5C7.75 9.1 8.65 7.9 9.85 7.15" stroke="#93C5FD" strokeWidth="1.6" strokeLinecap="round" />
+    <path d="M20.6 10.5C20.25 9.1 19.35 7.9 18.15 7.15" stroke="#93C5FD" strokeWidth="1.6" strokeLinecap="round" />
+    <circle cx="20.5" cy="7.5" r="3" fill="#EF4444" stroke="white" strokeWidth="1.4" />
   </svg>
 );
 
@@ -245,6 +253,14 @@ const modalSheet = {
   visible: { y: 0, transition: { type: 'spring', damping: 28, stiffness: 300 } },
   exit: { y: '100%', transition: { duration: 0.25 } },
 };
+
+const TOSS_CARD_MOTION = 'toss-pressable transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out active:scale-[0.985] hover:-translate-y-0.5 hover:border-[#3180F7]/35 hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]';
+const TOSS_BUTTON_MOTION = 'toss-pressable transition-[transform,box-shadow,background-color,color] duration-200 ease-out active:scale-[0.97]';
+const TOSS_ICON_MOTION = 'toss-pressable transition-[transform,background-color] duration-200 ease-out active:scale-[0.9] hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3180F7]/25';
+
+function tossDelay(index: number, base = 0) {
+  return { animationDelay: `${base + index * 45}ms` };
+}
 
 /* ─── Helpers ─── */
 
@@ -904,17 +920,22 @@ export default function ProDashboardPage() {
               {todayString()}
             </p>
           </div>
-          <Link href="/pro-dashboard/notifications">
-            <div className="relative p-2">
-              <BellIcon />
-            </div>
+          <Link
+            href="/pro-dashboard/notifications"
+            aria-label="알림"
+            className={`relative flex h-11 w-11 items-center justify-center rounded-full ${TOSS_ICON_MOTION}`}
+          >
+            <BellIcon />
           </Link>
         </div>
       </div>
 
       {/* ── Profile Visibility ── */}
       <div className="px-4 mt-4">
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        <div
+          className={`toss-fade-up flex items-center justify-between gap-4 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
+          style={tossDelay(0, 20)}
+        >
           <div className="min-w-0">
             <p className="text-[14px] font-bold text-gray-900">프로필 숨김</p>
             <p className="mt-0.5 text-[11px] leading-4 text-gray-400">
@@ -930,7 +951,7 @@ export default function ProDashboardPage() {
             aria-label="프로필 숨김 설정"
             disabled={profileHiddenLoading || profileHiddenSaving}
             onClick={handleToggleProfileHidden}
-            className={`relative h-8 w-[52px] shrink-0 rounded-full p-1 transition-colors duration-300 active:scale-95 disabled:opacity-60 ${
+            className={`toss-pressable relative h-8 w-[52px] shrink-0 rounded-full p-1 transition-[background-color,transform] duration-300 active:scale-[0.94] disabled:opacity-60 ${
               profileHidden ? 'bg-[#3180F7]' : 'bg-gray-200'
             }`}
           >
@@ -960,9 +981,10 @@ export default function ProDashboardPage() {
             <div key={i}>
               <Link href={stat.href}>
                 <div
-                  className="bg-white rounded-xl p-2.5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] active:bg-gray-50 transition-colors"
+                  className={`toss-fade-up group rounded-xl bg-white p-2.5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
+                  style={tossDelay(i, 70)}
                 >
-                  <div className={`w-7 h-7 ${stat.bg} rounded-lg flex items-center justify-center mb-1.5`}>
+                  <div className={`w-7 h-7 ${stat.bg} rounded-lg flex items-center justify-center mb-1.5 transition-transform duration-200 ease-out group-hover:scale-105 group-active:scale-95`}>
                     {stat.icon}
                   </div>
                   <p className="text-[10px] text-gray-400 font-medium leading-tight">{stat.label}</p>
@@ -995,11 +1017,15 @@ export default function ProDashboardPage() {
         ) : (
         <div className="space-y-3">
           {/* 결제 기반 스케줄 요청 (고객이 결제하여 대기중) */}
-          {scheduleRequests.map((req) => {
+          {scheduleRequests.map((req, i) => {
             const d = new Date(req.date);
             const dateLabel = `${d.getMonth() + 1}월 ${d.getDate()}일`;
             return (
-              <div key={`sched-${req.id}`} className="bg-white rounded-2xl border border-[#3180F7]/30 p-4 shadow-sm space-y-3">
+              <div
+                key={`sched-${req.id}`}
+                className={`toss-fade-up rounded-2xl border border-[#3180F7]/30 bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
+                style={tossDelay(i, 140)}
+              >
                 <div className="flex items-start gap-3">
                   <img src={req.clientImage || '/images/default-profile.svg'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -1018,13 +1044,13 @@ export default function ProDashboardPage() {
                 <div className="flex gap-2 pt-2 border-t border-gray-50">
                   <button
                     onClick={() => setRejectSched({ id: req.id, userName: req.clientName })}
-                    className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold active:scale-95 transition-transform"
+                    className={`flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold hover:bg-gray-200 ${TOSS_BUTTON_MOTION}`}
                   >
                     거절
                   </button>
                   <button
                     onClick={() => handleAcceptSchedule(req.id, true)}
-                    className="flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform"
+                    className={`flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
                   >
                     수락 + 채팅 열기
                   </button>
@@ -1065,7 +1091,7 @@ export default function ProDashboardPage() {
           <ProCardListSkeleton count={2} actions className="space-y-3" />
         ) : (
           <div className="space-y-3">
-            {matchRequests.slice(0, 3).map((delivery: any) => {
+            {matchRequests.slice(0, 3).map((delivery: any, i: number) => {
               const request = delivery.matchRequest || {};
               const raw = getMatchRaw(delivery);
               const customer = request.user || {};
@@ -1079,7 +1105,11 @@ export default function ProDashboardPage() {
               ].filter(Boolean);
 
               return (
-                <div key={`match-${delivery.id}`} className="bg-white rounded-2xl border border-[#3180F7]/30 p-4 shadow-sm space-y-3">
+                <div
+                  key={`match-${delivery.id}`}
+                  className={`toss-fade-up rounded-2xl border border-[#3180F7]/30 bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
+                  style={tossDelay(i, 160)}
+                >
                   <div className="flex items-start gap-3">
                     <img src={customer.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -1122,14 +1152,14 @@ export default function ProDashboardPage() {
                     <button
                       onClick={() => handleRejectMatch(delivery.id)}
                       disabled={initiatingMatchChat === delivery.id}
-                      className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-50"
+                      className={`flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold hover:bg-gray-200 disabled:opacity-50 ${TOSS_BUTTON_MOTION}`}
                     >
                       거절
                     </button>
                     <button
                       onClick={() => handleStartMatchChat(delivery)}
                       disabled={initiatingMatchChat === delivery.id}
-                      className="flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-60"
+                      className={`flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 disabled:opacity-60 ${TOSS_BUTTON_MOTION}`}
                     >
                       {initiatingMatchChat === delivery.id ? '연결 중…' : '수락 + 채팅'}
                     </button>
@@ -1151,7 +1181,7 @@ export default function ProDashboardPage() {
       <>
         {contextMenu && (
           <div
-            className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
+            className="toss-soft-pop fixed z-50 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
             style={{ top: contextMenu.y, left: Math.min(contextMenu.x, window.innerWidth - 140) }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1166,7 +1196,7 @@ export default function ProDashboardPage() {
         )}
       </>
 
-      {/* ── 다가오는 일정 (2-col 컴팩트) ── */}
+      {/* ── 다가오는 일정 ── */}
       <div
         className="px-4 mt-6"
       >
@@ -1182,20 +1212,41 @@ export default function ProDashboardPage() {
         ) : upcomingEvents.length === 0 ? (
           <p className="text-[12px] text-gray-400 text-center py-5">예정된 일정이 없습니다</p>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-3">
             {upcomingEvents.map((ev, i) => (
               <div
                 key={i}
-                className="bg-white rounded-xl p-2.5 border border-gray-100 shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+                className={`toss-fade-up rounded-2xl border border-[#3180F7]/30 bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
+                style={tossDelay(i, 170)}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[12px] font-bold text-gray-900">{ev.date} ({ev.day})</span>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                    ev.status === '확정' ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'
-                  }`}>{ev.status}</span>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                    <img src="/images/new-quote.svg" alt="" width={20} height={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">예약된 행사</span>
+                      <p className="text-sm font-bold text-gray-900 truncate">{ev.eventType || '일정'}</p>
+                      <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        ev.status === '확정' ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'
+                      }`}>
+                        {ev.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
+                      <span>📅 {ev.date} ({ev.day})</span>
+                      {ev.venue && <span>📍 {ev.venue}</span>}
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[11px] text-gray-700 truncate">{ev.eventType}</p>
-                {ev.venue && <p className="text-[10px] text-gray-400 truncate mt-0.5">{ev.venue}</p>}
+                <div className="pt-2 border-t border-gray-50">
+                  <Link
+                    href="/schedule"
+                    className={`block h-10 leading-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold text-center shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
+                  >
+                    일정 보기
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -1220,7 +1271,8 @@ export default function ProDashboardPage() {
           ) : recentReviews.map((review, i) => (
             <div
               key={review.id}
-              className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm"
+              className={`toss-fade-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm ${TOSS_CARD_MOTION}`}
+              style={tossDelay(i, 190)}
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-2">
@@ -1270,13 +1322,13 @@ export default function ProDashboardPage() {
                       <div className="flex gap-2 mt-1.5">
                         <button
                           onClick={() => setReplyingTo(null)}
-                          className="px-3 py-1.5 text-[11px] text-gray-400 font-medium"
+                          className={`px-3 py-1.5 text-[11px] text-gray-400 font-medium ${TOSS_BUTTON_MOTION}`}
                         >
                           취소
                         </button>
                         <button
                           onClick={() => saveReply(review.id)}
-                          className="px-3 py-1.5 bg-[#3180F7] text-white text-[11px] font-bold rounded-lg"
+                          className={`px-3 py-1.5 bg-[#3180F7] text-white text-[11px] font-bold rounded-lg shadow-[0_6px_14px_rgba(49,128,247,0.14)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
                         >
                           등록
                         </button>
@@ -1285,7 +1337,7 @@ export default function ProDashboardPage() {
                   ) : (
                     <button
                       onClick={() => setReplyingTo(review.id)}
-                      className="flex items-center gap-1 mt-2 text-[11px] text-[#3180F7] font-medium"
+                      className={`flex items-center gap-1 mt-2 text-[11px] text-[#3180F7] font-medium ${TOSS_BUTTON_MOTION}`}
                     >
                       <ReplyIcon /> 답글 작성
                     </button>
@@ -1308,7 +1360,10 @@ export default function ProDashboardPage() {
         {revenueLoading ? (
           <ProRevenueSkeleton />
         ) : (
-        <div className="bg-white rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        <div
+          className={`toss-fade-up rounded-2xl bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
+          style={tossDelay(0, 210)}
+        >
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-medium text-gray-500">이번 달</span>
@@ -1350,12 +1405,12 @@ export default function ProDashboardPage() {
         {confirmAccept && (
           <div
             key="accept-overlay"
-            className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-6"
+            className="toss-modal-fade fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-6"
             onClick={() => setConfirmAccept(null)}
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+              className="toss-soft-pop bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
             >
               <h3 className="text-base font-bold text-gray-900 text-center mb-2">견적 수락</h3>
               <p className="text-sm text-gray-500 text-center mb-6">
@@ -1364,13 +1419,13 @@ export default function ProDashboardPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmAccept(null)}
-                  className="flex-1 py-3 rounded-xl bg-gray-100 text-sm font-bold text-gray-500"
+                  className={`flex-1 py-3 rounded-xl bg-gray-100 text-sm font-bold text-gray-500 hover:bg-gray-200 ${TOSS_BUTTON_MOTION}`}
                 >
                   취소
                 </button>
                 <button
                   onClick={() => handleAccept(confirmAccept)}
-                  className="flex-1 py-3 rounded-xl bg-[#3180F7] text-sm font-bold text-white"
+                  className={`flex-1 py-3 rounded-xl bg-[#3180F7] text-sm font-bold text-white shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
                 >
                   수락하기
                 </button>
@@ -1382,8 +1437,8 @@ export default function ProDashboardPage() {
 
       {/* ── 행사 예약 거절 (사유 입력 + 전액 환불) ── */}
       {rejectSched && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => { setRejectSched(null); setRejectReason(''); }}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-t-3xl w-full shadow-xl">
+        <div className="toss-modal-fade fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => { setRejectSched(null); setRejectReason(''); }}>
+          <div onClick={(e) => e.stopPropagation()} className="toss-bottom-sheet bg-white rounded-t-3xl w-full shadow-xl">
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-gray-200 rounded-full" />
             </div>
@@ -1404,14 +1459,14 @@ export default function ProDashboardPage() {
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => { setRejectSched(null); setRejectReason(''); }}
-                  className="flex-1 h-12 rounded-xl bg-gray-100 text-gray-600 text-[15px] font-bold"
+                  className={`flex-1 h-12 rounded-xl bg-gray-100 text-gray-600 text-[15px] font-bold hover:bg-gray-200 ${TOSS_BUTTON_MOTION}`}
                 >
                   취소
                 </button>
                 <button
                   onClick={handleRejectSchedule}
                   disabled={!rejectReason.trim()}
-                  className="flex-1 h-12 rounded-xl bg-red-500 text-white text-[15px] font-bold active:scale-95 disabled:opacity-40"
+                  className={`flex-1 h-12 rounded-xl bg-red-500 text-white text-[15px] font-bold shadow-[0_6px_14px_rgba(239,68,68,0.18)] hover:bg-red-600 disabled:opacity-40 ${TOSS_BUTTON_MOTION}`}
                 >
                   거절 · 환불
                 </button>
@@ -1426,12 +1481,12 @@ export default function ProDashboardPage() {
         {rejectTarget && (
           <div
             key="reject-overlay"
-            className="fixed inset-0 z-50 bg-black/40 flex items-end"
+            className="toss-modal-fade fixed inset-0 z-50 bg-black/40 flex items-end"
             onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto shadow-xl"
+              className="toss-bottom-sheet bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto shadow-xl"
             >
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 bg-gray-200 rounded-full" />
@@ -1450,7 +1505,7 @@ export default function ProDashboardPage() {
                     <button
                       key={reason}
                       onClick={() => setSelectedReason(reason)}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium ${TOSS_BUTTON_MOTION} ${
                         selectedReason === reason
                           ? 'bg-[#3180F7] text-white'
                           : 'bg-gray-50 text-gray-700 active:bg-gray-100'
@@ -1473,7 +1528,7 @@ export default function ProDashboardPage() {
                 <button
                   onClick={handleReject}
                   disabled={!selectedReason || (selectedReason === '기타' && !customReason.trim())}
-                  className="w-full py-3.5 rounded-xl bg-[#3180F7] text-white text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                  className={`w-full py-3.5 rounded-xl bg-[#3180F7] text-white text-sm font-bold shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed ${TOSS_BUTTON_MOTION}`}
                 >
                   거절하기
                 </button>
@@ -1482,6 +1537,80 @@ export default function ProDashboardPage() {
           </div>
         )}
       </>
+
+      <style jsx global>{`
+        @keyframes toss-fade-up {
+          from {
+            opacity: 0;
+            transform: translate3d(0, 12px, 0) scale(0.99);
+          }
+          to {
+            opacity: 1;
+            transform: translate3d(0, 0, 0) scale(1);
+          }
+        }
+
+        @keyframes toss-soft-pop {
+          from {
+            opacity: 0;
+            transform: scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes toss-bottom-sheet {
+          from {
+            opacity: 0;
+            transform: translate3d(0, 18px, 0);
+          }
+          to {
+            opacity: 1;
+            transform: translate3d(0, 0, 0);
+          }
+        }
+
+        @keyframes toss-modal-fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .toss-pressable {
+          -webkit-tap-highlight-color: transparent;
+          will-change: transform;
+        }
+
+        .toss-fade-up {
+          animation: toss-fade-up 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .toss-soft-pop {
+          animation: toss-soft-pop 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .toss-bottom-sheet {
+          animation: toss-bottom-sheet 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .toss-modal-fade {
+          animation: toss-modal-fade 160ms ease-out both;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .toss-fade-up,
+          .toss-soft-pop,
+          .toss-bottom-sheet,
+          .toss-modal-fade {
+            animation: none !important;
+          }
+
+          .toss-pressable {
+            transition-duration: 0ms !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -10,7 +10,8 @@ import { discoveryApi } from '@/lib/api/discovery.api';
 import { apiClient } from '@/lib/api/client';
 import { matchApi } from '@/lib/api/match.api';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
-import { startOAuth } from '@/lib/auth/oauth';
+import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
+import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 
 const stepVariants = {
   initial: { opacity: 0, x: 40 },
@@ -425,6 +426,11 @@ function QuotePage() {
 
   const handleSubmitClick = () => {
     if (authUser === null) {
+      rememberAuthReturnTo();
+      if (requestNativeLoginSheet({ reason: 'quote-submit' })) {
+        setShowLoginModal(false);
+        return;
+      }
       setShowLoginModal(true);
       return;
     }

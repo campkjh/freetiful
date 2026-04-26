@@ -190,24 +190,6 @@ const ProIconCalendar = () => (
     <rect x="14.5" y="2" width="2.5" height="4" rx="1.25" fill="#93C5FD"/>
   </svg>
 );
-const ProIconClock = () => (
-  <svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="12" r="10" fill="#E5E7EB"/>
-    <path d="M12 7v5l3.5 3.5" stroke="#6B7280" strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-);
-const ProIconPin = () => (
-  <svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EF4444"/>
-    <circle cx="12" cy="9" r="2.5" fill="white"/>
-  </svg>
-);
-const ProIconWon = () => (
-  <svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="12" r="10" fill="#10B981"/>
-    <text x="12" y="16" textAnchor="middle" fill="white" fontSize="11" fontWeight="bold" fontFamily="system-ui">₩</text>
-  </svg>
-);
 
 function ProScheduleView() {
   const authUser = useAuthStore((s) => s.user);
@@ -301,55 +283,52 @@ function ProScheduleView() {
           const dateObj = new Date(booking.date);
           const dateLabel = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 (${DAYS_KR[dateObj.getDay()]})`;
           return (
-            <div key={booking.id} className="bg-white border border-gray-100 rounded-2xl p-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              {/* Top: Client + Status */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="8" r="4" fill="#9CA3AF"/>
-                      <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" fill="#9CA3AF"/>
-                    </svg>
+            <div key={booking.id} className="bg-white rounded-2xl border border-[#3180F7]/30 p-4 shadow-sm space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="8" r="4" fill="#93C5FD"/>
+                    <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" fill="#60A5FA"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">예약된 행사</span>
+                    <p className="text-sm font-bold text-gray-900 truncate">{booking.clientName || '고객'}</p>
+                    <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${status.bgColor} ${status.textColor}`}>
+                      {status.label}
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-[15px] font-bold text-gray-900">{booking.clientName}</p>
-                    <p className="text-[12px] text-gray-400">{booking.eventType}</p>
+                  <p className="text-[13px] text-gray-700 font-medium">{booking.eventType || '행사'}</p>
+                  <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
+                    <span>📅 {dateLabel}</span>
+                    {booking.time && <span>🕒 {booking.time}</span>}
+                    {booking.venue && <span>📍 {booking.venue}</span>}
                   </div>
-                </div>
-                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${status.bgColor} ${status.textColor}`}>
-                  {status.label}
-                </span>
-              </div>
-
-              {/* Details */}
-              <div className="space-y-1.5 mb-3">
-                <div className="flex items-center gap-2 text-[13px] text-gray-600">
-                  <ProIconCalendar /><span className="text-[12px]">{dateLabel}</span>
-                </div>
-                <div className="flex items-center gap-2 text-[13px] text-gray-600">
-                  <ProIconClock /><span className="text-[12px]">{booking.time}</span>
-                </div>
-                <div className="flex items-center gap-2 text-[13px] text-gray-600">
-                  <ProIconPin /><span className="text-[12px]">{booking.venue}</span>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {booking.plan && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                        {booking.plan}
+                      </span>
+                    )}
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${booking.paymentStatus === '결제완료' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                      {booking.paymentStatus}
+                    </span>
+                  </div>
+                  <p className="text-[12px] font-bold text-[#3180F7] mt-2">
+                    {booking.amount}원
+                  </p>
                 </div>
               </div>
 
-              {/* Plan + Payment */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[11px] font-medium text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full">{booking.plan}</span>
-                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${booking.paymentStatus === '결제완료' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                  {booking.paymentStatus}
-                </span>
-                <div className="flex items-center gap-1 ml-auto">
-                  <ProIconWon />
-                  <span className="text-[13px] font-bold text-gray-900">{booking.amount}원</span>
-                </div>
+              <div className="pt-2 border-t border-gray-50">
+                <Link
+                  href={`/schedule/${booking.paymentId || booking.id}`}
+                  className="block h-10 leading-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold text-center active:scale-95 transition-transform"
+                >
+                  예약 상세보기
+                </Link>
               </div>
-
-              {/* Action */}
-              <Link href={`/schedule/${booking.paymentId || booking.id}`} className="block w-full py-2.5 text-[14px] text-white font-bold text-center" style={{ backgroundColor: '#2B313D', borderRadius: 12 }}>
-                상세보기
-              </Link>
             </div>
           );
         })}

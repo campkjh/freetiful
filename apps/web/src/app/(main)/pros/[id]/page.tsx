@@ -17,7 +17,8 @@ import {
 } from '@/lib/api/favorite.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId } from '@/lib/chat-prewarm';
-import { startOAuth } from '@/lib/auth/oauth';
+import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
+import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -1818,7 +1819,15 @@ export default function ProDetailPage() {
                 disabled={openingChat}
                 onClick={async () => {
                   setShowTooltip(false);
-                  if (!authUser) { setLoginModal(true); return; }
+                  if (!authUser) {
+                    rememberAuthReturnTo();
+                    if (requestNativeLoginSheet({ reason: 'pro-detail-chat' })) {
+                      setLoginModal(false);
+                      return;
+                    }
+                    setLoginModal(true);
+                    return;
+                  }
                   // 본인의 프로 페이지면 차단
                   const myProId = typeof window !== 'undefined' ? localStorage.getItem('freetiful-my-pro-id') : null;
                   if (myProId && myProId === pro.id) {

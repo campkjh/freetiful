@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes } from '@nestjs/swagger';
@@ -23,7 +24,95 @@ import { AdminGuard } from '../common/guards/admin.guard';
 // - /api/v1/api/v1/admin/* : 글로벌 prefix + 'api/v1/admin' (구 배포 호환)
 @Controller(['admin', 'api/v1/admin'])
 export class AdminController {
+  private readonly logger = new Logger(AdminController.name);
+
   constructor(private adminService: AdminService) {}
+
+  private getFallbackStats() {
+    const now = Date.now();
+    const kstOffset = 9 * 60 * 60 * 1000;
+    const dayMs = 24 * 60 * 60 * 1000;
+    const dailySeries = Array.from({ length: 14 }, (_, idx) => {
+      const key = new Date(now + kstOffset - (13 - idx) * dayMs).toISOString().slice(5, 10).replace('-', '.');
+      return { date: key, users: 0, matchRequests: 0, payments: 0, chats: 0, messages: 0, revenue: 0 };
+    });
+    const zeroStatus = { pending: 0, completed: 0, cancelled: 0, settled: 0 };
+
+    return {
+      totalUsers: 0,
+      allUsers: 0,
+      activeUsers: 0,
+      inactiveUsers: 0,
+      bannedUsers: 0,
+      newUsersToday: 0,
+      newUsers7d: 0,
+      newUsers30d: 0,
+      userRoles: { general: 0, pro: 0, business: 0, admin: 0 },
+      totalPros: 0,
+      pendingPros: 0,
+      totalReviews: 0,
+      visibleReviews: 0,
+      thisMonthRevenue: 0,
+      totalRevenue: 0,
+      revenue: { today: 0, last7d: 0, last30d: 0, thisMonth: 0, total: 0 },
+      profiles: {
+        proViews: 0,
+        businessViews: 0,
+        totalViews: 0,
+        avgRating: 0,
+        avgResponseRate: 0,
+        proStatus: { approved: 0, pending: 0, draft: 0, rejected: 0, suspended: 0 },
+        businessTotal: 0,
+        businessStatus: { approved: 0, pending: 0, draft: 0, rejected: 0 },
+      },
+      engagement: {
+        favorites: 0,
+        proFavorites: 0,
+        businessFavorites: 0,
+        chatRooms: 0,
+        chatRooms7d: 0,
+        messages: 0,
+        messages7d: 0,
+        notifications: 0,
+        unreadNotifications: 0,
+        sentPushNotifications: 0,
+        activePushTokens: 0,
+        pushSubscriptions: 0,
+      },
+      funnel: {
+        profileViews: 0,
+        favorites: 0,
+        matchRequests: 0,
+        deliveries: 0,
+        viewedDeliveries: 0,
+        repliedDeliveries: 0,
+        chatRooms: 0,
+        quotations: 0,
+        paidQuotations: 0,
+        payments: 0,
+        completedPayments: 0,
+        reviews: 0,
+      },
+      rates: {
+        favoriteCtr: 0,
+        chatCtr: 0,
+        deliveryViewRate: 0,
+        deliveryReplyRate: 0,
+        quotationPaidRate: 0,
+        paymentSuccessRate: 0,
+        reviewWriteRate: 0,
+        pushSendRate: 0,
+      },
+      matchRequests: { total: 0, open: 0, matched: 0, cancelled: 0, expired: 0 },
+      quotations: { total: 0, pending: 0, accepted: 0, paid: 0, cancelled: 0, refunded: 0, expired: 0 },
+      payments: { total: 0, pending: 0, completed: 0, failed: 0, refunded: 0, escrowed: 0, settled: 0, completedAmount: 0, refundedAmount: 0 },
+      settlements: { ...zeroStatus, pendingAmount: 0, settledAmount: 0 },
+      pudding: { total: 0, last30d: 0, profileBalance: 0 },
+      dailySeries,
+      topLists: { viewedPros: [], puddingPros: [], revenuePros: [] },
+      degraded: true,
+    };
+  }
 
   @Post('transfer-pro-profile')
   async transferProProfile(
@@ -103,7 +192,13 @@ export class AdminController {
 
   @Get('stats')
   async getStats() {
-    return this.adminService.getStats();
+    try {
+      return await this.adminService.getStats();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Admin stats failed: ${message}`);
+      return this.getFallbackStats();
+    }
   }
 
   @Get('users')

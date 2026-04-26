@@ -139,6 +139,7 @@ interface Stats {
     puddingPros?: TopListItem[];
     revenuePros?: TopListItem[];
   };
+  degraded?: boolean;
 }
 
 const BLUE = '#3180F7';
@@ -156,6 +157,223 @@ const formatNumber = (value: unknown) => toNumber(value).toLocaleString('ko-KR')
 const formatMoney = (value: unknown) => `₩${formatNumber(value)}`;
 const formatRate = (value: unknown) => `${toNumber(value).toFixed(1)}%`;
 
+const sumBy = <T,>(items: T[], picker: (item: T) => unknown) => (
+  items.reduce((sum, item) => sum + toNumber(picker(item)), 0)
+);
+
+const countByStatus = (items: Array<{ status?: string }>, status: string) => (
+  items.filter((item) => item.status === status).length
+);
+
+const getKstDayKey = (date = new Date()) => new Date(date.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+const getKstStartDate = (dayOffset: number) => {
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const key = new Date(now + 9 * 60 * 60 * 1000 - dayOffset * dayMs).toISOString().slice(0, 10);
+  return key;
+};
+
+const createEmptyDailySeries = () => (
+  Array.from({ length: 14 }, (_, idx) => {
+    const key = getKstStartDate(13 - idx);
+    return {
+      date: key.slice(5).replace('-', '.'),
+      users: 0,
+      matchRequests: 0,
+      payments: 0,
+      chats: 0,
+      messages: 0,
+      revenue: 0,
+    };
+  })
+);
+
+async function adminFetchSafe(path: string, fallback: any) {
+  try {
+    return await adminFetch('GET', path, undefined, { cache: false });
+  } catch (error) {
+    console.warn('[admin] fallback stats source failed', path, error);
+    return fallback;
+  }
+}
+
+async function fetchFallbackStats(): Promise<Stats> {
+  const todayKey = getKstDayKey();
+  const sevenDayKey = getKstStartDate(6);
+  const thirtyDayKey = getKstStartDate(29);
+  const thisMonthKey = `${todayKey.slice(0, 7)}-01`;
+  const emptyList = { data: [], total: 0, meta: { total: 0 } };
+
+  const [
+    users,
+    generalUsers,
+    proUsers,
+    businessUsers,
+    adminUsers,
+    pros,
+    approvedPros,
+    pendingPros,
+    businesses,
+    bookings,
+    reviews,
+    payments,
+    settlements,
+  ] = await Promise.all([
+    adminFetchSafe('/api/v1/admin/users?limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/users?role=general&limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/users?role=pro&limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/users?role=business&limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/users?role=admin&limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/pros?limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/pros?status=approved&limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/pros?status=pending&limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/businesses?limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/bookings?limit=1000', emptyList),
+    adminFetchSafe('/api/v1/admin/reviews?limit=1', emptyList),
+    adminFetchSafe('/api/v1/admin/payments?limit=1000', emptyList),
+    adminFetchSafe('/api/v1/admin/settlements?limit=1000', emptyList),
+  ]);
+
+  const paymentRows = Array.isArray(payments?.data) ? payments.data : [];
+  const settlementRows = Array.isArray(settlements?.data) ? settlements.data : [];
+  const bookingRows = Array.isArray(bookings?.data) ? bookings.data : [];
+  const completedPayments = paymentRows.filter((payment: any) => payment.status === 'completed');
+  const refundedPayments = paymentRows.filter((payment: any) => payment.status === 'refunded');
+  const revenueToday = sumBy(completedPayments.filter((payment: any) => getKstDayKey(new Date(payment.createdAt)) === todayKey), (payment: any) => payment.amount);
+  const revenue7d = sumBy(completedPayments.filter((payment: any) => getKstDayKey(new Date(payment.createdAt)) >= sevenDayKey), (payment: any) => payment.amount);
+  const revenue30d = sumBy(completedPayments.filter((payment: any) => getKstDayKey(new Date(payment.createdAt)) >= thirtyDayKey), (payment: any) => payment.amount);
+  const revenueThisMonth = sumBy(completedPayments.filter((payment: any) => getKstDayKey(new Date(payment.createdAt)) >= thisMonthKey), (payment: any) => payment.amount);
+  const revenueTotal = sumBy(completedPayments, (payment: any) => payment.amount);
+  const paidQuotations = bookingRows.filter((booking: any) => booking.source === 'quotation' && booking.status === 'paid').length;
+  const matchRequests = bookingRows.filter((booking: any) => booking.source === 'matchRequest');
+  const quotations = bookingRows.filter((booking: any) => booking.source === 'quotation');
+  const pendingSettlementAmount = sumBy(settlementRows.filter((item: any) => item.status === 'pending'), (item: any) => item.netAmount);
+  const settledSettlementAmount = sumBy(settlementRows.filter((item: any) => item.status === 'settled'), (item: any) => item.netAmount);
+
+  return {
+    totalUsers: toNumber(generalUsers?.total),
+    allUsers: toNumber(users?.total),
+    activeUsers: toNumber(users?.total),
+    inactiveUsers: 0,
+    bannedUsers: 0,
+    newUsersToday: 0,
+    newUsers7d: 0,
+    newUsers30d: 0,
+    userRoles: {
+      general: toNumber(generalUsers?.total),
+      pro: toNumber(proUsers?.total),
+      business: toNumber(businessUsers?.total),
+      admin: toNumber(adminUsers?.total),
+    },
+    totalPros: toNumber(approvedPros?.total ?? pros?.total),
+    pendingPros: toNumber(pendingPros?.total),
+    totalReviews: toNumber(reviews?.total),
+    visibleReviews: toNumber(reviews?.total),
+    thisMonthRevenue: revenueThisMonth,
+    totalRevenue: revenueTotal,
+    revenue: {
+      today: revenueToday,
+      last7d: revenue7d,
+      last30d: revenue30d,
+      thisMonth: revenueThisMonth,
+      total: revenueTotal,
+    },
+    profiles: {
+      proViews: 0,
+      businessViews: 0,
+      totalViews: 0,
+      avgRating: 0,
+      avgResponseRate: 0,
+      proStatus: {
+        approved: toNumber(approvedPros?.total),
+        pending: toNumber(pendingPros?.total),
+        draft: 0,
+        rejected: 0,
+        suspended: 0,
+      },
+      businessTotal: toNumber(businesses?.total),
+      businessStatus: { approved: toNumber(businesses?.total), pending: 0, draft: 0, rejected: 0 },
+    },
+    engagement: {
+      favorites: 0,
+      proFavorites: 0,
+      businessFavorites: 0,
+      chatRooms: 0,
+      chatRooms7d: 0,
+      messages: 0,
+      messages7d: 0,
+      notifications: 0,
+      unreadNotifications: 0,
+      sentPushNotifications: 0,
+      activePushTokens: 0,
+      pushSubscriptions: 0,
+    },
+    funnel: {
+      profileViews: 0,
+      favorites: 0,
+      matchRequests: toNumber(bookings?.total) || matchRequests.length,
+      deliveries: sumBy(matchRequests, (booking: any) => booking.deliveryCount),
+      viewedDeliveries: 0,
+      repliedDeliveries: 0,
+      chatRooms: sumBy(matchRequests, (booking: any) => booking.chatRoomCount),
+      quotations: quotations.length,
+      paidQuotations,
+      payments: toNumber(payments?.total ?? paymentRows.length),
+      completedPayments: completedPayments.length,
+      reviews: toNumber(reviews?.total),
+    },
+    rates: {
+      favoriteCtr: 0,
+      chatCtr: 0,
+      deliveryViewRate: 0,
+      deliveryReplyRate: 0,
+      quotationPaidRate: quotations.length ? Math.round((paidQuotations / quotations.length) * 1000) / 10 : 0,
+      paymentSuccessRate: paymentRows.length ? Math.round((completedPayments.length / paymentRows.length) * 1000) / 10 : 0,
+      reviewWriteRate: completedPayments.length ? Math.round((toNumber(reviews?.total) / completedPayments.length) * 1000) / 10 : 0,
+      pushSendRate: 0,
+    },
+    matchRequests: {
+      total: toNumber(bookings?.total) || matchRequests.length,
+      open: countByStatus(matchRequests, 'open'),
+      matched: countByStatus(matchRequests, 'matched'),
+      cancelled: countByStatus(matchRequests, 'cancelled'),
+      expired: countByStatus(matchRequests, 'expired'),
+    },
+    quotations: {
+      total: quotations.length,
+      pending: countByStatus(quotations, 'pending'),
+      accepted: countByStatus(quotations, 'accepted'),
+      paid: paidQuotations,
+      cancelled: countByStatus(quotations, 'cancelled'),
+      refunded: countByStatus(quotations, 'refunded'),
+      expired: countByStatus(quotations, 'expired'),
+    },
+    payments: {
+      total: toNumber(payments?.total ?? paymentRows.length),
+      pending: countByStatus(paymentRows, 'pending'),
+      completed: completedPayments.length,
+      failed: countByStatus(paymentRows, 'failed'),
+      refunded: refundedPayments.length,
+      escrowed: countByStatus(paymentRows, 'escrowed'),
+      settled: countByStatus(paymentRows, 'settled'),
+      completedAmount: revenueTotal,
+      refundedAmount: sumBy(refundedPayments, (payment: any) => payment.amount),
+    },
+    settlements: {
+      pending: countByStatus(settlementRows, 'pending'),
+      settled: countByStatus(settlementRows, 'settled'),
+      cancelled: countByStatus(settlementRows, 'cancelled'),
+      pendingAmount: pendingSettlementAmount,
+      settledAmount: settledSettlementAmount,
+    },
+    pudding: { total: 0, last30d: 0, profileBalance: 0 },
+    dailySeries: createEmptyDailySeries(),
+    topLists: { viewedPros: [], puddingPros: [], revenuePros: [] },
+    degraded: true,
+  };
+}
+
 function AdminSection({
   eyebrow,
   title,
@@ -168,11 +386,11 @@ function AdminSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
+    <section className="space-y-3">
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           {eyebrow && <p className="text-[12px] font-normal text-[#B0B8C1]">{eyebrow}</p>}
-          <h2 className={eyebrow ? 'mt-2 text-[16px] font-bold text-[#191F28]' : 'text-[16px] font-bold text-[#191F28]'}>
+          <h2 className={eyebrow ? 'mt-1 text-[18px] font-bold text-[#191F28]' : 'text-[18px] font-bold text-[#191F28]'}>
             <AdminTerm term={title}>{title}</AdminTerm>
           </h2>
         </div>
@@ -185,7 +403,7 @@ function AdminSection({
 
 function MetricBand({
   items,
-  minWidth = 860,
+  minWidth,
 }: {
   items: Array<{ label: string; value: string; sub?: string; tone?: 'blue' | 'green' | 'red' | 'gray' }>;
   minWidth?: number;
@@ -198,32 +416,21 @@ function MetricBand({
   };
 
   return (
-    <div className="admin-list-card overflow-x-auto">
-      <table className="w-full" style={{ minWidth }}>
-        <thead>
-          <tr>
-            {items.map((item) => (
-              <th key={item.label} className="px-6 text-center">
-                <AdminTerm term={item.label}>{item.label}</AdminTerm>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            {items.map((item) => (
-              <td key={item.label} className="px-6 text-center">
-                <span className={`font-semibold ${item.tone ? toneMap[item.tone] : 'text-[#333D4B]'}`}>
-                  {item.value}
-                </span>
-                {item.sub && (
-                  <span className="mt-0.5 block text-[12px] font-normal text-[#8B95A1]">{item.sub}</span>
-                )}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
+    <div
+      className="grid gap-3"
+      style={{ gridTemplateColumns: minWidth ? `repeat(auto-fit, minmax(${Math.min(180, Math.max(128, minWidth / Math.max(items.length, 1)))}px, 1fr))` : 'repeat(auto-fit, minmax(138px, 1fr))' }}
+    >
+      {items.map((item) => (
+        <div key={item.label} className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
+          <p className="text-[12px] font-semibold text-[#8B95A1]">
+            <AdminTerm term={item.label}>{item.label}</AdminTerm>
+          </p>
+          <p className={`mt-2 text-[18px] font-bold leading-6 ${item.tone ? toneMap[item.tone] : 'text-[#191F28]'}`}>
+            {item.value}
+          </p>
+          {item.sub && <p className="mt-1 text-[12px] font-normal leading-4 text-[#8B95A1]">{item.sub}</p>}
+        </div>
+      ))}
     </div>
   );
 }
@@ -326,7 +533,7 @@ function ChartPanel({
   chart?: 'line' | 'bar';
 }) {
   return (
-    <div className="admin-metric-card border-y border-[#E5E8EB] bg-white px-4 py-4">
+    <div className="admin-metric-card rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[12px] font-semibold text-[#4E5968]">
           <AdminTerm term={title}>{title}</AdminTerm>
@@ -354,11 +561,11 @@ function ProgressList({
   suffix?: string;
 }) {
   return (
-    <div className="space-y-3 border-y border-[#E5E8EB] py-4">
+    <div className="space-y-2">
       {items.map((item) => {
         const width = Math.min(100, Math.max(0, item.value));
         return (
-          <div key={item.label}>
+          <div key={item.label} className="rounded-lg bg-[#F7F8FA] p-3">
             <div className="mb-1.5 flex items-center justify-between gap-3">
               <span className="text-[13px] font-semibold text-[#333D4B]">
                 <AdminTerm term={item.label}>{item.label}</AdminTerm>
@@ -389,9 +596,9 @@ function FunnelList({
   const max = Math.max(...items.map((item) => item.value), 1);
 
   return (
-    <div className="space-y-3 border-y border-[#E5E8EB] py-4">
+    <div className="space-y-2">
       {items.map((item, index) => (
-        <div key={item.label} className="grid grid-cols-[112px_1fr_96px] items-center gap-3">
+        <div key={item.label} className="grid grid-cols-[86px_1fr_72px] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 sm:grid-cols-[112px_1fr_88px]">
           <span className="text-[12px] font-semibold text-[#4E5968]">
             <AdminTerm term={item.label}>{item.label}</AdminTerm>
           </span>
@@ -419,9 +626,9 @@ function BreakdownList({
 }) {
   const max = Math.max(...items.map((item) => item.value), 1);
   return (
-    <div className="space-y-3 border-y border-[#E5E8EB] py-4">
+    <div className="space-y-2">
       {items.map((item) => (
-        <div key={item.label} className="grid grid-cols-[96px_1fr_72px] items-center gap-3">
+        <div key={item.label} className="grid grid-cols-[76px_1fr_64px] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 sm:grid-cols-[96px_1fr_72px]">
           <span className="text-[12px] font-semibold text-[#4E5968]">
             <AdminTerm term={item.label}>{item.label}</AdminTerm>
           </span>
@@ -450,7 +657,7 @@ function TopList({
   formatter?: (value: unknown) => string;
 }) {
   return (
-    <div className="admin-list-card overflow-x-auto">
+    <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-[16px] font-bold text-[#191F28]">
           <AdminTerm term={title}>{title}</AdminTerm>
@@ -459,29 +666,22 @@ function TopList({
           <AdminTerm term={valueLabel}>{valueLabel}</AdminTerm>
         </span>
       </div>
-      <table className="w-full min-w-[360px]">
-        <thead>
-          <tr>
-            <th className="px-4 text-left">순위</th>
-            <th className="px-4 text-left">전문가</th>
-            <th className="px-4 text-right"><AdminTerm term={valueLabel}>{valueLabel}</AdminTerm></th>
-          </tr>
-        </thead>
-        <tbody>
-          {(items.length ? items : [{ id: 'empty', name: '-', value: 0 }]).map((item, index) => (
-            <tr key={item.id}>
-              <td className="px-4 text-[#8B95A1]">{index + 1}</td>
-              <td className="px-4 font-semibold text-[#333D4B]">{item.name}</td>
-              <td className="px-4 text-right font-semibold text-[#191F28]">
-                {formatter(item.value)}
-                {item.count != null && item.count > 0 && (
-                  <span className="ml-1 text-[12px] font-normal text-[#8B95A1]">({formatNumber(item.count)}건)</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="space-y-2">
+        {(items.length ? items : [{ id: 'empty', name: '-', value: 0 }]).map((item, index) => (
+          <div key={item.id} className="flex min-h-[48px] items-center justify-between gap-3 rounded-lg bg-[#F7F8FA] px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[12px] font-bold text-[#3180F7]">{index + 1}</span>
+              <span className="truncate text-[13px] font-semibold text-[#333D4B]">{item.name}</span>
+            </div>
+            <span className="shrink-0 text-right text-[13px] font-bold text-[#191F28]">
+              {formatter(item.value)}
+              {item.count != null && item.count > 0 && (
+                <span className="ml-1 text-[12px] font-normal text-[#8B95A1]">({formatNumber(item.count)}건)</span>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -503,9 +703,15 @@ export default function AdminDashboardPage() {
       });
       setStats(data);
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
-      const status = e?.response?.status;
-      toast.error(`통계 로드 실패${status ? ` (${status})` : ''}: ${msg}`, { duration: 6000 });
+      try {
+        const fallbackStats = await fetchFallbackStats();
+        setStats(fallbackStats);
+        if (force) toast.success('대체 통계로 새로고침했습니다.');
+      } catch (fallbackError: any) {
+        const msg = fallbackError?.response?.data?.message || fallbackError?.message || e?.response?.data?.message || e?.message || '알 수 없는 오류';
+        const status = fallbackError?.response?.status || e?.response?.status;
+        toast.error(`통계 로드 실패${status ? ` (${status})` : ''}: ${msg}`, { duration: 6000 });
+      }
     } finally {
       setLoading(false);
     }
@@ -783,16 +989,21 @@ export default function AdminDashboardPage() {
   }, [stats]);
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-start justify-between">
+    <div className="mx-auto max-w-[1180px] space-y-6 pb-10">
+      <div className="flex items-start justify-between rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
         <div>
           <p className="text-[12px] font-normal text-[#B0B8C1]">운영 센터</p>
-          <h1 className="mt-3 text-[16px] font-bold text-[#191F28]">관리자 홈</h1>
+          <div className="mt-3 flex items-center gap-2">
+            <h1 className="text-[16px] font-bold text-[#191F28]">관리자 홈</h1>
+            {stats?.degraded && (
+              <span className="rounded-full bg-[#FFF6E0] px-2 py-0.5 text-[11px] font-semibold text-[#B76E00]">간이 통계</span>
+            )}
+          </div>
         </div>
         <button
           onClick={() => fetchStats(true)}
           disabled={loading}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-lg bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] disabled:opacity-50"
+          className="admin-icon-button flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
         >
           <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
@@ -800,63 +1011,128 @@ export default function AdminDashboardPage() {
       </div>
 
       {loading ? (
-        <div className="admin-list-card animate-pulse">
-          <div className="grid grid-cols-4 border-y border-[#E5E8EB] bg-[#F7F8FA]">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-[54px] px-6 py-4"><div className="h-3 w-20 rounded bg-gray-100" /></div>)}
-          </div>
-          <div className="grid grid-cols-4 border-b border-[#E5E8EB]">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-[54px] px-6 py-4"><div className="h-4 w-24 rounded bg-gray-100" /></div>)}
-          </div>
+        <div className="grid animate-pulse gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
+              <div className="h-3 w-20 rounded bg-gray-100" />
+              <div className="mt-4 h-5 w-28 rounded bg-gray-100" />
+              <div className="mt-2 h-3 w-16 rounded bg-gray-100" />
+            </div>
+          ))}
         </div>
       ) : stats && (
-        <>
-          <AdminSection
-            eyebrow="페이먼츠 센터"
-            title="매출 요약"
-            aside={<span className="text-[12px] font-normal text-[#8B95A1]">실제 결제완료 기준</span>}
-          >
-            <MetricBand items={summaryItems} />
-          </AdminSection>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
+            <div className="space-y-6">
+              <AdminSection
+                eyebrow="페이먼츠 센터"
+                title="매출 요약"
+                aside={<span className="text-[12px] font-normal text-[#8B95A1]">실제 결제완료 기준</span>}
+              >
+                <MetricBand items={summaryItems} />
+              </AdminSection>
 
-          <AdminSection
-            eyebrow="유저 센터"
-            title="유저 진입 · 계정 상태"
-            aside={<span className="text-[12px] font-normal text-[#8B95A1]">오늘 · 7일 · 30일 신규 유입</span>}
-          >
-            <MetricBand items={userItems} minWidth={1120} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-              <ChartPanel
-                title="일별 신규 유저"
-                value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.users), 0))}명`}
-                points={dailySeries}
-                dataKey="users"
-                color={BLUE}
-                chart="bar"
-              />
-              <div className="admin-list-card">
-                <div className="mb-3 flex items-center gap-2">
-                  <Users className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="역할 분포">역할 분포</AdminTerm></h3>
+              <AdminSection
+                eyebrow="유저 센터"
+                title="유저 진입 · 계정 상태"
+                aside={<span className="text-[12px] font-normal text-[#8B95A1]">오늘 · 7일 · 30일 신규 유입</span>}
+              >
+                <MetricBand items={userItems} minWidth={1120} />
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+                  <ChartPanel
+                    title="일별 신규 유저"
+                    value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.users), 0))}명`}
+                    points={dailySeries}
+                    dataKey="users"
+                    color={BLUE}
+                    chart="bar"
+                  />
+                  <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Users className="h-4 w-4 text-[#3180F7]" />
+                      <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="역할 분포">역할 분포</AdminTerm></h3>
+                    </div>
+                    <BreakdownList items={roleItems} />
+                  </div>
                 </div>
-                <BreakdownList items={roleItems} />
-              </div>
+              </AdminSection>
             </div>
-          </AdminSection>
+
+            <div className="space-y-6">
+              <AdminSection
+                title="관리 메뉴"
+                aside={<span className="text-[12px] font-normal text-[#8B95A1]">{navItems.length}개 센터</span>}
+              >
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const countClass = item.countTone === 'warn'
+                      ? 'bg-[#FFF3F3] text-[#F04452]'
+                      : 'bg-[#F3F8FF] text-[#3180F7]';
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="admin-icon-button group flex min-h-[74px] items-center gap-3 rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)] hover:border-[#D6E7FF] hover:bg-[#FBFDFF]"
+                      >
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F3F8FF] text-[#3180F7]">
+                          <Icon size={18} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-bold text-[#191F28]">{item.label}</span>
+                          <span className="mt-0.5 block truncate text-[12px] font-normal text-[#8B95A1]">{item.desc}</span>
+                        </span>
+                        {item.count && (
+                          <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${countClass}`}>
+                            {item.count}
+                          </span>
+                        )}
+                        <ChevronRight size={16} className="shrink-0 text-[#B0B8C1] transition-colors group-hover:text-[#3180F7]" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </AdminSection>
+
+              <AdminSection title="관리자 도구">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  <button
+                    onClick={handleCleanup}
+                    className="rounded-lg border border-[#E5E8EB] bg-white p-4 text-left shadow-[0_8px_22px_rgba(25,31,40,0.04)] hover:bg-[#F7F8FA]"
+                  >
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
+                      <Search size={13} /> 빈 프로필 정리
+                    </span>
+                    <span className="mt-1 block text-[12px] font-normal text-[#8B95A1]">이미지 0 → draft 강등</span>
+                  </button>
+                  <button
+                    onClick={() => setTransferOpen(true)}
+                    className="rounded-lg border border-[#E5E8EB] bg-white p-4 text-left shadow-[0_8px_22px_rgba(25,31,40,0.04)] hover:bg-[#F7F8FA]"
+                  >
+                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
+                      <ArrowRightLeft size={13} /> 프로필 이관
+                    </span>
+                    <span className="mt-1 block text-[12px] font-normal text-[#8B95A1]">계정 연결 정리</span>
+                  </button>
+                </div>
+              </AdminSection>
+            </div>
+          </div>
 
           <AdminSection
             eyebrow="전환 센터"
             title="CTR · 전환율"
             aside={<span className="text-[12px] font-normal text-[#8B95A1]">프로필 조회 이후 행동 기준</span>}
           >
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <div className="admin-list-card">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="핵심 비율">핵심 비율</AdminTerm></h3>
                 </div>
                 <ProgressList items={ctrItems} suffix="%" />
               </div>
-              <div className="admin-list-card">
+              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="전환 퍼널">전환 퍼널</AdminTerm></h3>
@@ -873,7 +1149,7 @@ export default function AdminDashboardPage() {
           >
             <MetricBand items={operationItems} minWidth={1120} />
             <MetricBand items={notificationItems} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
               <ChartPanel
                 title="요청 생성"
                 value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.matchRequests), 0))}건`}
@@ -905,7 +1181,7 @@ export default function AdminDashboardPage() {
             aside={<span className="text-[12px] font-normal text-[#8B95A1]">거래 흐름 전체</span>}
           >
             <MetricBand items={commerceItems} minWidth={1120} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <ChartPanel
                 title="일별 결제 건수"
                 value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.payments), 0))}건`}
@@ -923,29 +1199,29 @@ export default function AdminDashboardPage() {
                 formatter={formatMoney}
               />
             </div>
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
-              <div className="admin-list-card">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="요청 상태">요청 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={matchStatusItems} />
               </div>
-              <div className="admin-list-card">
+              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <UserCheck className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="견적 상태">견적 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={quotationStatusItems} />
               </div>
-              <div className="admin-list-card">
+              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="결제 상태">결제 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={paymentStatusItems} />
               </div>
-              <div className="admin-list-card">
+              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <Wallet className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="정산 상태">정산 상태</AdminTerm></h3>
@@ -960,15 +1236,15 @@ export default function AdminDashboardPage() {
             title="승인 상태 · 랭킹"
             aside={<span className="text-[12px] font-normal text-[#8B95A1]">조회수 · 푸딩 · 매출 TOP</span>}
           >
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="admin-list-card">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="전문가 상태">전문가 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={proStatusItems} />
               </div>
-              <div className="admin-list-card">
+              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="웨딩파트너 상태">웨딩파트너 상태</AdminTerm></h3>
@@ -976,7 +1252,7 @@ export default function AdminDashboardPage() {
                 <BreakdownList items={businessStatusItems} />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
               <TopList
                 title="조회수 TOP"
                 items={stats.topLists?.viewedPros || []}
@@ -995,92 +1271,8 @@ export default function AdminDashboardPage() {
               />
             </div>
           </AdminSection>
-        </>
+        </div>
       )}
-
-      <AdminSection
-        title="관리 메뉴"
-        aside={<span className="text-[12px] font-normal text-[#8B95A1]">총 {navItems.length}개 센터</span>}
-      >
-        <div className="admin-list-card">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px]">
-              <thead>
-                <tr>
-                  <th className="px-6 text-left">센터</th>
-                  <th className="px-6 text-left">관리범위</th>
-                  <th className="px-6 text-center">현황</th>
-                  <th className="px-6 text-center">이동</th>
-                </tr>
-              </thead>
-              <tbody>
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const countClass = item.countTone === 'warn'
-                    ? 'bg-[#FFF3F3] text-[#F04452]'
-                    : 'bg-[#F3F8FF] text-[#3180F7]';
-                  return (
-                    <tr key={item.href}>
-                      <td className="px-6">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F3F8FF] text-[#3180F7]">
-                            <Icon size={16} />
-                          </span>
-                          <span className="font-semibold text-[#191F28]">{item.label}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 text-[#6B7684]">{item.desc}</td>
-                      <td className="px-6 text-center">
-                        {item.count ? (
-                          <span className={`inline-flex rounded-lg px-2.5 py-1 text-[12px] font-semibold ${countClass}`}>
-                            {item.count}
-                          </span>
-                        ) : (
-                          <span className="text-[#B0B8C1]">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 text-center">
-                        <Link
-                          href={item.href}
-                          className="admin-icon-button inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#8B95A1] hover:bg-[#F3F8FF] hover:text-[#3180F7]"
-                          aria-label={`${item.label}로 이동`}
-                        >
-                          <ChevronRight size={16} />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </AdminSection>
-
-      <AdminSection title="관리자 도구">
-        <div className="admin-list-card">
-          <div className="grid grid-cols-1 gap-2 border-y border-[#E5E8EB] py-3 sm:grid-cols-2">
-            <button
-              onClick={handleCleanup}
-              className="rounded-lg bg-[#F7F8FA] px-4 py-3 text-left hover:bg-[#F2F4F6]"
-            >
-              <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
-                <Search size={13} /> 빈 프로필 정리
-              </span>
-              <span className="mt-0.5 block text-[12px] font-normal text-[#8B95A1]">이미지 0 → draft 강등</span>
-            </button>
-            <button
-              onClick={() => setTransferOpen(true)}
-              className="rounded-lg bg-[#F7F8FA] px-4 py-3 text-left hover:bg-[#F2F4F6]"
-            >
-              <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
-                <ArrowRightLeft size={13} /> 프로필 이관
-              </span>
-              <span className="mt-0.5 block text-[12px] font-normal text-[#8B95A1]">계정 연결 정리</span>
-            </button>
-          </div>
-        </div>
-      </AdminSection>
 
       {transferOpen && (
         <div

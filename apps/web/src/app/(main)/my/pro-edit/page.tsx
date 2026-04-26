@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { getPlanTemplates, getPlanTemplatesSync } from '@/lib/api/plan-templates.api';
+import { prosApi } from '@/lib/api/pros.api';
 /* ─── Constants ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
@@ -15,6 +17,8 @@ const REGIONS = ['전국가능', '수도권(서울/인천/경기)', '강원도',
 const LANGUAGES = ['영어', '일본어', '중국어', '스페인어', '프랑스어', '독일어', '러시아어', '아랍어', '베트남어', '태국어'];
 
 const CAREER_YEARS = Array.from({ length: 30 }, (_, i) => i + 1);
+const PRO_EDIT_PROFILE_CACHE_PREFIX = 'freetiful-pro-edit-profile-cache-v1';
+const PRO_EDIT_PROFILE_CACHE_TTL = 60 * 60_000;
 
 /* ─── Helpers ─── */
 function ls(key: string, fallback: string = ''): string {
@@ -27,6 +31,60 @@ function lsJson<T>(key: string, fallback: T): T {
     const v = localStorage.getItem(key);
     return v ? JSON.parse(v) : fallback;
   } catch { return fallback; }
+}
+
+function getProEditProfileCacheKey(userId?: string | null) {
+  return `${PRO_EDIT_PROFILE_CACHE_PREFIX}:${userId || 'anonymous'}`;
+}
+
+function compactProfileForCache(profile: any) {
+  if (!profile || typeof profile !== 'object') return null;
+  return {
+    id: profile.id,
+    userId: profile.userId,
+    status: profile.status,
+    user: profile.user,
+    shortIntro: profile.shortIntro,
+    careerYears: profile.careerYears,
+    awards: profile.awards,
+    tags: profile.tags,
+    detailHtml: profile.detailHtml,
+    gender: profile.gender,
+    youtubeUrl: profile.youtubeUrl,
+    images: profile.images,
+    faqs: profile.faqs,
+    categories: profile.categories,
+    regions: profile.regions,
+    isNationwide: profile.isNationwide,
+    languages: profile.languages,
+    services: profile.services,
+  };
+}
+
+function readProEditProfileCache(userId?: string | null) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(getProEditProfileCacheKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.ts || Date.now() - parsed.ts > PRO_EDIT_PROFILE_CACHE_TTL) return null;
+    if (userId && parsed.userId && parsed.userId !== userId) return null;
+    return parsed.profile || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeProEditProfileCache(userId: string | undefined | null, profile: any) {
+  if (typeof window === 'undefined' || !userId) return;
+  const compact = compactProfileForCache(profile);
+  if (!compact) return;
+  try {
+    localStorage.setItem(
+      getProEditProfileCacheKey(userId),
+      JSON.stringify({ ts: Date.now(), userId, profile: compact }),
+    );
+  } catch {}
 }
 
 /* ─── Section wrapper ─── */
@@ -82,7 +140,6 @@ export default function ProEditPage() {
   const authUser = useAuthStore((s) => s.user);
 
   /* ── State ── */
-  const [accountInfo, setAccountInfo] = useState<{ email: string; userId: string; proProfileId: string; status: string } | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState('');
@@ -101,30 +158,28 @@ export default function ProEditPage() {
 
   /* ── Pricing (Premium/Superior/Enterprise 등 어드민 템플릿 기반) ── */
   type PlanTpl = { planKey: string; label: string; defaultPrice: number; description: string; includedItems: string[] };
-  const [planTemplates, setPlanTemplates] = useState<PlanTpl[]>([]);
+  const toPlanTpl = (t: any): PlanTpl => ({
+    planKey: t.planKey,
+    label: t.label,
+    defaultPrice: Number(t.defaultPrice) || 0,
+    description: t.description || '',
+    includedItems: Array.isArray(t.includedItems) ? t.includedItems : [],
+  });
+  const [planTemplates, setPlanTemplates] = useState<PlanTpl[]>(() => getPlanTemplatesSync().map(toPlanTpl));
   const [enabledPlans, setEnabledPlans] = useState<Set<string>>(new Set());
   const [planPrices, setPlanPrices] = useState<Record<string, number>>({});
   const [customOptions, setCustomOptions] = useState<Record<string, { name: string; price: number }[]>>({});
-  const [activePlanTab, setActivePlanTab] = useState<string>('');
+  const [activePlanTab, setActivePlanTab] = useState<string>(() => getPlanTemplatesSync()[0]?.planKey || '');
   const [newOptName, setNewOptName] = useState('');
   const [newOptPrice, setNewOptPrice] = useState('');
   useEffect(() => {
-    import('@/lib/api/client').then(({ apiClient }) => {
-      apiClient.get('/api/v1/plan-templates')
-        .then((res: any) => {
-          const data = Array.isArray(res.data) ? res.data : [];
-          const tpls: PlanTpl[] = data.map((t: any) => ({
-            planKey: t.planKey,
-            label: t.label,
-            defaultPrice: Number(t.defaultPrice) || 0,
-            description: t.description || '',
-            includedItems: Array.isArray(t.includedItems) ? t.includedItems : [],
-          }));
-          setPlanTemplates(tpls);
-          if (!activePlanTab && tpls.length > 0) setActivePlanTab(tpls[0].planKey);
-        })
-        .catch(() => {});
-    });
+    getPlanTemplates()
+      .then((data) => {
+        const tpls = data.map(toPlanTpl);
+        setPlanTemplates(tpls);
+        setActivePlanTab((current) => current || tpls[0]?.planKey || '');
+      })
+      .catch(() => {});
   }, []);
   const detailEditorRef = useRef<HTMLDivElement>(null);
   const detailImageInputRef = useRef<HTMLInputElement>(null);
@@ -260,6 +315,63 @@ export default function ProEditPage() {
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showCareerSheet, setShowCareerSheet] = useState(false);
 
+  const applyLoadedProfile = (p: any) => {
+    if (!p?.id) return;
+    localStorage.setItem('freetiful-my-pro-id', p.id);
+    if (p.shortIntro) setIntro(p.shortIntro);
+    if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
+    if (p.awards) setAwards(p.awards);
+    if (Array.isArray(p.tags)) {
+      const specialty = p.tags.filter((t: string) => ALL_CATEGORIES.includes(t));
+      const quality = p.tags.filter((t: string) => !ALL_CATEGORIES.includes(t));
+      if (specialty.length > 0) setSelectedCategories(specialty);
+      setTags(quality);
+    }
+    if (p.detailHtml) {
+      setDetailHtml(p.detailHtml);
+      if (detailEditorRef.current) detailEditorRef.current.innerHTML = p.detailHtml;
+    }
+    if (p.gender) setGender(p.gender);
+    if (p.youtubeUrl) {
+      setVideos((prev) => prev.includes(p.youtubeUrl) ? prev : [p.youtubeUrl, ...prev]);
+    }
+    if (p.user?.name) setName(p.user.name);
+    if (p.user?.phone) setPhone(p.user.phone);
+    if (Array.isArray(p.images) && p.images.length > 0) {
+      setPhotos(p.images.map((img: any) => img.imageUrl || img).filter(Boolean));
+      const primaryIdx = p.images.findIndex((img: any) => img.isPrimary);
+      if (primaryIdx >= 0) setMainPhotoIndex(primaryIdx);
+    }
+    if (Array.isArray(p.faqs) && p.faqs.length > 0) {
+      setFaqItems(p.faqs.map((f: any) => ({ q: f.question, a: f.answer })));
+    }
+    if (Array.isArray(p.categories) && p.categories.length > 0) {
+      const catName = p.categories[0]?.category?.name;
+      if (catName) setCategory(catName);
+    }
+    if (Array.isArray(p.regions) && p.regions.length > 0) {
+      const names = p.regions.map((r: any) => r?.region?.name).filter(Boolean);
+      if (names.length > 0) setSelectedRegions(names);
+    } else if (p.isNationwide) {
+      setSelectedRegions(['전국가능']);
+    }
+    if (Array.isArray(p.languages) && p.languages.length > 0) {
+      setLanguages(p.languages.map((l: any) => l.languageCode).filter(Boolean));
+    }
+    if (Array.isArray(p.services) && p.services.length > 0) {
+      const enabled = new Set<string>();
+      const prices: Record<string, number> = {};
+      for (const s of p.services) {
+        if (!s?.title) continue;
+        const key = String(s.title).toLowerCase();
+        enabled.add(key);
+        if (typeof s.basePrice === 'number' && s.basePrice > 0) prices[key] = s.basePrice;
+      }
+      if (enabled.size > 0) setEnabledPlans(enabled);
+      if (Object.keys(prices).length > 0) setPlanPrices(prices);
+    }
+  };
+
   /* ── Load from localStorage (즉시) + 서버(최신 기준 덮어쓰기) ── */
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -283,77 +395,16 @@ export default function ProEditPage() {
     if (Array.isArray(savedVideos)) setVideos(savedVideos);
     setFaqItems(lsJson('proRegister_faq', []));
 
+    const cachedProfile = readProEditProfileCache(authUser?.id);
+    if (cachedProfile) applyLoadedProfile(cachedProfile);
+
     // 2) 서버에서 최신 프로필 가져와 덮어쓰기 (stale localStorage 방지) + my-pro-id 저장
     (async () => {
       try {
-        const { prosApi } = await import('@/lib/api/pros.api');
         const p: any = await prosApi.getMyProfile();
         if (!p?.id) return;
-        // 내 프로 ID localStorage 저장 — 상세페이지에서 skipCache 판단에 사용
-        localStorage.setItem('freetiful-my-pro-id', p.id);
-        setAccountInfo({
-          email: p.user?.email || '',
-          userId: p.userId || p.user?.id || '',
-          proProfileId: p.id,
-          status: p.status || '',
-        });
-        if (p.shortIntro) setIntro(p.shortIntro);
-        if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
-        if (p.awards) setAwards(p.awards);
-        // tags 필드는 전문영역(selectedCategories) + 일반 태그(tags)가 합쳐 저장됨 → 분리해 복원
-        if (Array.isArray(p.tags)) {
-          const specialty = p.tags.filter((t: string) => ALL_CATEGORIES.includes(t));
-          const quality = p.tags.filter((t: string) => !ALL_CATEGORIES.includes(t));
-          if (specialty.length > 0) setSelectedCategories(specialty);
-          setTags(quality);
-        }
-        if (p.detailHtml) {
-          setDetailHtml(p.detailHtml);
-          if (detailEditorRef.current) detailEditorRef.current.innerHTML = p.detailHtml;
-        }
-        if (p.gender) setGender(p.gender);
-        if (p.youtubeUrl) {
-          setVideos((prev) => prev.includes(p.youtubeUrl) ? prev : [p.youtubeUrl, ...prev]);
-        }
-        if (p.user?.name) setName(p.user.name);
-        if (p.user?.phone) setPhone(p.user.phone);
-        if (Array.isArray(p.images) && p.images.length > 0) {
-          setPhotos(p.images.map((img: any) => img.imageUrl || img).filter(Boolean));
-          const primaryIdx = p.images.findIndex((img: any) => img.isPrimary);
-          if (primaryIdx >= 0) setMainPhotoIndex(primaryIdx);
-        }
-        if (Array.isArray(p.faqs) && p.faqs.length > 0) {
-          setFaqItems(p.faqs.map((f: any) => ({ q: f.question, a: f.answer })));
-        }
-        // categories → 전문가분류 (사회자/쇼호스트/축가·연주)
-        if (Array.isArray(p.categories) && p.categories.length > 0) {
-          const catName = p.categories[0]?.category?.name;
-          if (catName) setCategory(catName);
-        }
-        // regions → 활동 지역
-        if (Array.isArray(p.regions) && p.regions.length > 0) {
-          const names = p.regions.map((r: any) => r?.region?.name).filter(Boolean);
-          if (names.length > 0) setSelectedRegions(names);
-        } else if (p.isNationwide) {
-          setSelectedRegions(['전국가능']);
-        }
-        // languages → 언어
-        if (Array.isArray(p.languages) && p.languages.length > 0) {
-          setLanguages(p.languages.map((l: any) => l.languageCode).filter(Boolean));
-        }
-        // services → 가격 설정 (title 그대로 key 로 사용; 매핑은 UI 에서 템플릿과 매칭)
-        if (Array.isArray(p.services) && p.services.length > 0) {
-          const enabled = new Set<string>();
-          const prices: Record<string, number> = {};
-          for (const s of p.services) {
-            if (!s?.title) continue;
-            const key = String(s.title).toLowerCase();
-            enabled.add(key);
-            if (typeof s.basePrice === 'number' && s.basePrice > 0) prices[key] = s.basePrice;
-          }
-          if (enabled.size > 0) setEnabledPlans(enabled);
-          if (Object.keys(prices).length > 0) setPlanPrices(prices);
-        }
+        applyLoadedProfile(p);
+        writeProEditProfileCache(authUser?.id || p.userId || p.user?.id, p);
       } catch { /* 로컬 폼 유지 */ }
     })();
   }, [authUser?.id]);
@@ -425,7 +476,6 @@ export default function ProEditPage() {
 
     // 2) 서버에 업데이트 (pro detail 페이지 반영)
     try {
-      const { prosApi } = await import('@/lib/api/pros.api');
       const awardsArray = awards.split('\n').filter(Boolean);
       // 전문영역 + 일반 태그 병합해서 tags 필드에 저장 (중복 제거)
       const mergedTags = Array.from(new Set([...selectedCategories, ...tags].filter(Boolean)));
@@ -493,6 +543,7 @@ export default function ProEditPage() {
         // User.profileImageUrl을 최신 대표사진으로 동기화 (카카오 기본 → 프로 등록 대표사진)
         // 프로 프로필에서 isPrimary 이미지 직접 추출 — User.profileImageUrl보다 신뢰도 높음
         const myProfile: any = await prosApi.getMyProfile().catch(() => null);
+        if (myProfile?.id) writeProEditProfileCache(authUser?.id || myProfile.userId || myProfile.user?.id, myProfile);
         const primary = myProfile?.images?.find((img: any) => img.isPrimary) || myProfile?.images?.[0];
         const newUrl = primary?.imageUrl || myProfile?.user?.profileImageUrl;
         if (newUrl && authUser) {
@@ -549,19 +600,6 @@ export default function ProEditPage() {
           </div>
         )}
       </>
-
-      {/* ─── 계정 진단 배너 (같은 사람 2개 계정 문제 추적용) ─── */}
-      {accountInfo && (
-        <div className="mx-4 mt-3 mb-1 bg-amber-50/60 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900">
-          <p className="font-bold text-[12px] mb-1">현재 수정 중인 계정</p>
-          <div className="space-y-0.5 font-mono">
-            <p>이메일: <span className="font-semibold">{accountInfo.email || '(없음)'}</span></p>
-            <p>프로필 상태: <span className="font-semibold">{accountInfo.status}</span></p>
-            <p className="text-amber-700">프로필 ID: {accountInfo.proProfileId.slice(0, 8)}…</p>
-          </div>
-          <p className="text-[10px] text-amber-700 mt-2">여러 계정(같은 이메일이라도 대소문자나 공백 차이로 분리)이 있을 수 있습니다. 공개 목록에서 '내가 아닌 내 이름'이 보이면 어드민에 중복 계정 병합을 요청하세요.</p>
-        </div>
-      )}
 
       {/* ─── 1. 기본 정보 ─── */}
       <Section title="기본 정보" defaultOpen={true}>
