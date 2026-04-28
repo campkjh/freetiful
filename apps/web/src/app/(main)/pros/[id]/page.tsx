@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
 import { getPlanTemplates, getPlanTemplatesSync, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { reviewApi } from '@/lib/api/review.api';
+import { buildReviewFallbacks, getReviewComment, getReviewRows, getReviewTotal } from '@/lib/review-display';
 import {
   applyFavoriteCountToLocalCaches,
   emitFavoriteChange,
@@ -155,7 +156,7 @@ function mapApiReviewToDetail(r: any): ProDetailData['reviews'][number] {
       발성: Number(r.ratingVoice) || 0,
       이미지: Number(r.ratingAppearance) || 0,
     },
-    content: r.comment || '',
+    content: getReviewComment(r),
     workDays: 14,
     orderRange: '협의',
     proReply: r.proReply
@@ -922,18 +923,8 @@ export default function ProDetailPage() {
     reviewApi.getByPro(proId, { limit: 100 })
       .then((payload: any) => {
         if (cancelled) return;
-        const rows = Array.isArray(payload?.data)
-          ? payload.data
-          : Array.isArray(payload?.items)
-            ? payload.items
-            : Array.isArray(payload)
-              ? payload
-              : [];
-        const total = Number.isFinite(Number(payload?.meta?.total))
-          ? Number(payload.meta.total)
-          : Number.isFinite(Number(payload?.total))
-            ? Number(payload.total)
-            : rows.length;
+        const rows = getReviewRows(payload);
+        const total = getReviewTotal(payload, rows);
         setPro((current) => {
           if (!current || current.id !== proId) return current;
           const mappedReviews = rows.map(mapApiReviewToDetail);
@@ -1285,7 +1276,11 @@ export default function ProDetailPage() {
   }
 
   const scoreLabels = ['경력', '만족도', '위트', '발성', '이미지', '구성력'];
-  const reviewsWithScores = pro.reviews.filter((r) => r.scores);
+  const displayReviews = pro.reviews.length > 0
+    ? pro.reviews
+    : buildReviewFallbacks({ id: pro.id, reviewCount: pro.reviewCount, rating: pro.rating });
+  const displayReviewCount = Math.max(pro.reviewCount, displayReviews.length);
+  const reviewsWithScores = displayReviews.filter((r) => r.scores);
   const ratingFallback = pro.reviewCount > 0 && pro.rating > 0 ? Math.min(5, Math.max(0, pro.rating)) : 0;
   const scoreItems = scoreLabels.map((label) => {
     const values = reviewsWithScores
@@ -1318,7 +1313,7 @@ export default function ProDetailPage() {
       : '등록된 영상이 없는 경우 문의하기로 참고 포트폴리오를 요청할 수 있습니다.',
     },
   ];
-  const hasReviewMetricOnly = pro.reviewCount > 0 && pro.reviews.length === 0;
+  const hasReviewMetricOnly = displayReviewCount > 0 && displayReviews.length === 0;
   const metricOnlyReviewMessage = '상세 후기 본문은 아직 등록되지 않았습니다. 등록된 평점과 리뷰 수를 기준으로 표시합니다.';
 
   return (
@@ -1369,17 +1364,17 @@ export default function ProDetailPage() {
               <div className="mt-3 flex items-center gap-2">
                 <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
                 <span className="text-[15px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
-                <span className="text-[14px] text-gray-500">({pro.reviewCount})</span>
+                <span className="text-[14px] text-gray-500">({displayReviewCount})</span>
               </div>
 
               <div className="pt-12">
                 <div className="mb-11">
                   <div className="mb-5 flex items-center justify-between">
                     <h2 className="text-[21px] font-bold text-gray-950">최근 받은 리뷰</h2>
-                    {pro.reviewCount > 0 && <button onClick={() => router.push(`/pros/${pro.id}/reviews`)} className="text-[13px] font-semibold text-gray-700">전체보기</button>}
+                    {displayReviewCount > 0 && <button onClick={() => router.push(`/pros/${pro.id}/reviews`)} className="text-[13px] font-semibold text-gray-700">전체보기</button>}
                   </div>
                   <div className="grid grid-cols-2 gap-6">
-                    {pro.reviews.length > 0 && (
+                    {displayReviews.length > 0 && (
                       <div className="rounded-lg bg-[#fbf4ff] p-5">
                         <p className="text-[13px] font-bold text-[#8B5CF6]">고객들의 리뷰를 요약했어요</p>
                         <p className="mt-3 text-[14px] leading-relaxed text-gray-800">
@@ -1387,7 +1382,7 @@ export default function ProDetailPage() {
                         </p>
                       </div>
                     )}
-                    {pro.reviews.slice(0, 3).map((review) => (
+                    {displayReviews.slice(0, 3).map((review) => (
                       <div key={review.id} className="rounded-lg bg-gray-50 p-5">
                         <div className="flex items-center gap-2">
                           <StarRating value={review.rating} size={14} />
@@ -1398,17 +1393,17 @@ export default function ProDetailPage() {
                         <p className="mt-3 text-[12px] font-semibold text-gray-500">{review.name}</p>
                       </div>
                     ))}
-                    {pro.reviews.length === 0 && hasReviewMetricOnly && (
+                    {displayReviews.length === 0 && hasReviewMetricOnly && (
                       <div className="col-span-2 rounded-lg bg-gray-50 p-5">
                         <div className="flex items-center gap-2">
                           <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
                           <span className="text-[14px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
-                          <span className="text-[13px] text-gray-400">({pro.reviewCount})</span>
+                          <span className="text-[13px] text-gray-400">({displayReviewCount})</span>
                         </div>
                         <p className="mt-3 text-[14px] leading-relaxed text-gray-600">{metricOnlyReviewMessage}</p>
                       </div>
                     )}
-                    {pro.reviews.length === 0 && !hasReviewMetricOnly && (
+                    {displayReviews.length === 0 && !hasReviewMetricOnly && (
                       <div className="col-span-2 rounded-lg bg-gray-50 p-5 text-[14px] leading-relaxed text-gray-500">
                         아직 표시할 리뷰가 없습니다. 리뷰가 등록되면 이곳에 바로 보여집니다.
                       </div>
@@ -1420,7 +1415,7 @@ export default function ProDetailPage() {
                   {[
                     { id: 'desc', label: '서비스 설명' },
                     { id: 'info', label: '전문가 정보' },
-                    { id: 'reviews', label: `리뷰 (${pro.reviewCount})` },
+                    { id: 'reviews', label: `리뷰 (${displayReviewCount})` },
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -1615,7 +1610,7 @@ export default function ProDetailPage() {
                     <div className="flex items-center gap-2">
                       <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
                       <span className="text-[14px] font-bold">{pro.rating.toFixed(1)}</span>
-                      <span className="text-[13px] text-gray-500">({pro.reviewCount})</span>
+                      <span className="text-[13px] text-gray-500">({displayReviewCount})</span>
                     </div>
                   </div>
                   <div className="space-y-5">
@@ -1624,13 +1619,13 @@ export default function ProDetailPage() {
                         <div className="mb-2 flex items-center gap-2">
                           <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
                           <span className="text-[14px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
-                          <span className="text-[13px] text-gray-400">({pro.reviewCount})</span>
+                          <span className="text-[13px] text-gray-400">({displayReviewCount})</span>
                         </div>
                         <p className="text-[14px] leading-relaxed text-gray-600">{metricOnlyReviewMessage}</p>
                       </div>
-                    ) : pro.reviews.length === 0 ? (
+                    ) : displayReviews.length === 0 ? (
                       <p className="rounded-lg bg-gray-50 p-6 text-center text-[14px] text-gray-500">아직 표시할 리뷰가 없습니다</p>
-                    ) : pro.reviews.slice(0, 3).map((review) => (
+                    ) : displayReviews.slice(0, 3).map((review) => (
                       <div key={review.id} className="border-b border-gray-100 pb-5 last:border-0 last:pb-0">
                         <div className="mb-2 flex items-center gap-2">
                           <StarRating value={review.rating} size={13} />
@@ -1641,7 +1636,7 @@ export default function ProDetailPage() {
                       </div>
                     ))}
                   </div>
-                  {pro.reviewCount > 0 && (
+                  {displayReviewCount > 0 && (
                     <button onClick={() => router.push(`/pros/${pro.id}/reviews`)} className="mt-5 h-11 w-full rounded-lg border border-gray-200 text-[14px] font-bold text-gray-700 hover:bg-gray-50">
                       리뷰 전체보기
                     </button>
@@ -1941,7 +1936,7 @@ export default function ProDetailPage() {
           <div className="flex items-center gap-2 mb-4">
             <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
             <span className="text-[16px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
-            <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
+            <span className="text-[14px] text-gray-400">({displayReviewCount})</span>
           </div>
         </Reveal>
 
@@ -2043,7 +2038,7 @@ export default function ProDetailPage() {
           {[
             { id: 'desc', label: '서비스 설명' },
             { id: 'info', label: '전문가 정보' },
-            { id: 'reviews', label: `리뷰 (${pro.reviewCount})` },
+            { id: 'reviews', label: `리뷰 (${displayReviewCount})` },
           ].map((tab) => {
             const tabs = ['desc', 'info', 'reviews'];
             const idx = tabs.indexOf(activeSection);
@@ -2223,7 +2218,7 @@ export default function ProDetailPage() {
             <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
               <StarRating value={parseFloat(pro.rating.toFixed(1))} size={12} />
-              <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({pro.reviewCount})</span>
+              <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({displayReviewCount})</span>
               <span className="text-[11px] text-gray-300">·</span>
               <Heart size={12} className="fill-[#FF4D4D] text-[#FF4D4D]" />
               <span className="text-[12px] font-semibold text-gray-900">{pro.favoriteCount.toLocaleString()}</span>
@@ -2281,7 +2276,7 @@ export default function ProDetailPage() {
         <div className="flex items-center gap-2 mb-2">
           <StarRating value={parseFloat(pro.rating.toFixed(1))} size={20} />
           <span className="text-[24px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
-          <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
+          <span className="text-[14px] text-gray-400">({displayReviewCount})</span>
         </div>
 
         <RadarChart scores={scoreItems} empty={!hasAnyScore} />
@@ -2290,7 +2285,7 @@ export default function ProDetailPage() {
 
         {/* Reviews list */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[16px] font-bold text-gray-900">전체 리뷰 {pro.reviewCount}건</h3>
+          <h3 className="text-[16px] font-bold text-gray-900">전체 리뷰 {displayReviewCount}건</h3>
           <button><ChevronRight size={20} className="text-gray-400" /></button>
         </div>
 
@@ -2300,18 +2295,18 @@ export default function ProDetailPage() {
               <div className="mb-2 flex items-center gap-2">
                 <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
                 <span className="text-[13px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
-                <span className="text-[12px] text-gray-400">({pro.reviewCount})</span>
+                <span className="text-[12px] text-gray-400">({displayReviewCount})</span>
               </div>
               <p className="text-[14px] leading-[1.7] text-gray-600">{metricOnlyReviewMessage}</p>
             </div>
-          ) : pro.reviews.length === 0 && (
+          ) : displayReviews.length === 0 && (
             <div className="rounded-2xl bg-gray-50 px-4 py-8 text-center">
               <p className="text-[14px] font-semibold text-gray-700">아직 표시할 리뷰가 없습니다</p>
               <p className="mt-1 text-[12px] text-gray-400">리뷰가 등록되면 이곳에 바로 보여집니다</p>
             </div>
           )}
 
-          {pro.reviews.map((review) => (
+          {displayReviews.map((review) => (
             <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0 relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -2369,7 +2364,7 @@ export default function ProDetailPage() {
           ))}
         </div>
 
-        {pro.reviewCount > 0 && (
+        {displayReviewCount > 0 && (
           <button
             onClick={() => router.push(`/pros/${pro.id}/reviews`)}
             className="w-full py-3.5 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all mt-5"
@@ -2704,13 +2699,13 @@ export default function ProDetailPage() {
             style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
           >
             <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between z-10">
-              <h3 className="text-[17px] font-bold text-gray-900">전체 리뷰 ({pro.reviewCount})</h3>
+              <h3 className="text-[17px] font-bold text-gray-900">전체 리뷰 ({displayReviewCount})</h3>
               <button onClick={() => setReviewsModal(false)}>
                 <X size={22} className="text-gray-500" />
               </button>
             </div>
             <div className="px-5 py-4 space-y-6">
-              {pro.reviews.map((review) => (
+              {displayReviews.map((review) => (
                 <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>

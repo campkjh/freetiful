@@ -300,6 +300,7 @@ export class DiscoveryService implements OnModuleInit {
           regions: { select: { region: { select: { name: true } } } },
           languages: { select: { languageCode: true } },
           reviews: {
+            where: { isVisible: true },
             select: {
               id: true,
               avgRating: true,

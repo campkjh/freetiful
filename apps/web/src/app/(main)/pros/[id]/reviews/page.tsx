@@ -8,6 +8,13 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { reviewApi } from '@/lib/api/review.api';
 import { apiClient } from '@/lib/api/client';
+import {
+  buildReviewFallbacks,
+  getReviewComment,
+  getReviewRows,
+  getReviewTotal,
+  type ReviewDisplayItem,
+} from '@/lib/review-display';
 
 const BRAND = '#3180F7';
 
@@ -23,15 +30,7 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   );
 }
 
-const REVIEWS = [
-  { id: 'r1', name: '나른********', rating: 5.0, date: '26.02.09 13:18', scores: { 경력: 5.0, 만족도: 5.0, 구성력: 5.0, 위트: 4.5, 발성: 5.0, 이미지: 5.0 }, content: '상담과정부터 행사 진행, 마무리까지 모두 빠르고 친절하게 응대해 주셨어요! 진행도 상황에 맞게 톤 바꿔가시면서 잘 진행해 주셨습니다!', workDays: 13, orderRange: '100만원 ~ 200만원', badge: '대행사/에이전시', proReply: { date: '26.02.09', content: '어머 매니저님 빠른 후기 감사합니다 +_+!!' } },
-  { id: 'r2', name: '스트********', rating: 5.0, date: '25.06.10 12:00', scores: { 경력: 4.5, 만족도: 5.0, 구성력: 5.0, 위트: 5.0, 발성: 4.5, 이미지: 5.0 }, content: '꼼꼼하고 안정적으로 촬영 잘 마쳤습니다~', workDays: 3, orderRange: '80만원 ~ 90만원', badge: 'Biz·기업' },
-  { id: 'r3', name: '행복한신부', rating: 5.0, date: '26.01.15 09:30', scores: { 경력: 5.0, 만족도: 5.0, 구성력: 4.5, 위트: 5.0, 발성: 5.0, 이미지: 5.0 }, content: '결혼식 진행이 정말 매끄러웠어요. 하객분들 모두 칭찬하셨습니다.', workDays: 7, orderRange: '50만원 ~ 80만원', badge: '개인' },
-  { id: 'r4', name: '이벤트기획', rating: 4.5, date: '25.12.20 15:00', scores: { 경력: 5.0, 만족도: 4.5, 구성력: 5.0, 위트: 4.0, 발성: 5.0, 이미지: 4.5 }, content: '기업 송년회 MC로 섭외했는데 분위기 띄우기를 잘 하시네요. 다음에도 부탁드립니다.', workDays: 5, orderRange: '150만원 ~ 200만원', badge: 'Biz·기업' },
-  { id: 'r5', name: '웨딩플래너', rating: 5.0, date: '25.11.05 11:00', scores: { 경력: 5.0, 만족도: 5.0, 구성력: 5.0, 위트: 5.0, 발성: 5.0, 이미지: 5.0 }, content: '저희 플래너 측에서도 감탄한 진행이었습니다. 센스가 남다르세요!', workDays: 10, orderRange: '80만원 ~ 100만원', badge: '대행사/에이전시' },
-];
-
-type ReviewItem = (typeof REVIEWS)[number];
+type ReviewItem = ReviewDisplayItem;
 
 function formatReviewDate(value?: string | Date | null) {
   if (!value) return '';
@@ -60,7 +59,7 @@ function mapApiReview(r: any): ReviewItem {
       발성: Number(r.ratingVoice) || 0,
       이미지: Number(r.ratingAppearance) || 0,
     },
-    content: r.comment || '',
+    content: getReviewComment(r),
     workDays: Number(r.workDays) || 0,
     orderRange: r.orderRange || '',
     badge: r.badge || '',
@@ -129,12 +128,15 @@ export default function ReviewsPage() {
       }
 
       const reviewPayload = reviewsResult.status === 'fulfilled' ? reviewsResult.value : null;
-      const apiItems = Array.isArray((reviewPayload as any)?.data) ? (reviewPayload as any).data : [];
-      const apiTotal = Number((reviewPayload as any)?.meta?.total) || 0;
+      const apiItems = getReviewRows(reviewPayload);
+      const apiTotal = getReviewTotal(reviewPayload, apiItems);
       const reviews = mergeReviewRows(apiItems, detailReviews);
-      setDetailReviewCount(Math.max(detailCount, apiTotal, reviews.length));
+      const displayItems = reviews.length > 0
+        ? reviews.map(mapApiReview)
+        : buildReviewFallbacks({ id, reviewCount: Math.max(detailCount, apiTotal), rating: detailRating });
+      setDetailReviewCount(Math.max(detailCount, apiTotal, displayItems.length));
       setDetailAvgRating(detailRating);
-      setApiReviews(reviews.map(mapApiReview));
+      setApiReviews(displayItems);
     }).catch(() => {
       if (alive) setApiReviews([]);
     });

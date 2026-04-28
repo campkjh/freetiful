@@ -132,10 +132,24 @@ export class ReviewService {
   /** 전문가의 리뷰 목록 (공개) */
   async getReviewsByPro(proProfileId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
+    const proProfile = await this.prisma.proProfile.findFirst({
+      where: {
+        OR: [
+          { id: proProfileId },
+          { userId: proProfileId },
+        ],
+      },
+      select: { id: true },
+    });
+    const targetProfileIds = Array.from(new Set([proProfileId, proProfile?.id].filter(Boolean) as string[]));
+    const where: any = {
+      proProfileId: targetProfileIds.length > 1 ? { in: targetProfileIds } : targetProfileIds[0],
+      isVisible: true,
+    };
 
     const [reviews, total] = await Promise.all([
       this.prisma.review.findMany({
-        where: { proProfileId, isVisible: true },
+        where,
         include: {
           reviewer: {
             select: { id: true, name: true, profileImageUrl: true },
@@ -146,7 +160,7 @@ export class ReviewService {
         take: limit,
       }),
       this.prisma.review.count({
-        where: { proProfileId, isVisible: true },
+        where,
       }),
     ]);
 
