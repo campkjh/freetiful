@@ -23,6 +23,7 @@ interface ProItem {
   reviewCount: number;
   puddingCount?: number;
   isFeatured: boolean;
+  isProfileHidden: boolean;
 }
 
 const statusLabel: Record<string, { text: string; className: string }> = {
@@ -108,6 +109,15 @@ export default function AdminProsPage() {
     } catch { toast.error('변경 실패'); }
   };
 
+  const handleToggleHidden = async (id: string) => {
+    const target = pros.find((p) => p.id === id);
+    if (!target) return;
+    try {
+      await adminFetch('PATCH', `/api/v1/admin/pros/${id}`, { isProfileHidden: !target.isProfileHidden });
+      setPros((prev) => prev.map((p) => p.id === id ? { ...p, isProfileHidden: !p.isProfileHidden } : p));
+    } catch { toast.error('변경 실패'); }
+  };
+
   const handleAwardPudding = async (id: string, name: string) => {
     const input = window.prompt(`${name} 에게 지급할 푸딩 수량 (양수=적립, 음수=차감)`, '100');
     if (input === null) return;
@@ -154,6 +164,7 @@ export default function AdminProsPage() {
         { header: '푸딩', value: (row) => row.puddingCount ?? '' },
         { header: '파트너로고 노출', value: (row) => row.showPartnersLogo },
         { header: '추천 노출', value: (row) => row.isFeatured },
+        { header: '프로필 숨김', value: (row) => row.isProfileHidden },
       ]);
       toast.success(`${rows.length.toLocaleString()}명 엑셀 다운로드 완료`);
     } catch (e: any) {
@@ -226,7 +237,7 @@ export default function AdminProsPage() {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
-            {['전체', 'pending', 'approved', 'rejected', 'suspended'].map((st) => (
+            {['전체', 'draft', 'pending', 'approved', 'rejected', 'suspended'].map((st) => (
               <button
                 key={st}
                 onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
@@ -234,7 +245,7 @@ export default function AdminProsPage() {
                   filterStatus === st ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
                 }`}
               >
-                {st === '전체' ? '전체' : st === 'pending' ? '승인대기' : st === 'approved' ? '전문가' : st === 'rejected' ? '반려' : '중지'}
+                {st === '전체' ? '전체' : st === 'draft' ? '임시저장' : st === 'pending' ? '승인대기' : st === 'approved' ? '전문가' : st === 'rejected' ? '반려' : '중지'}
               </button>
             ))}
           </div>
@@ -264,6 +275,7 @@ export default function AdminProsPage() {
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="푸딩">푸딩</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="로고">로고</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="추천">추천</AdminTerm></th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로필상태">숨김</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
               </tr>
             </thead>
@@ -271,7 +283,7 @@ export default function AdminProsPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={9} className="px-4 py-3">
+                    <td colSpan={10} className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="skeleton h-10 w-10 rounded-full" />
                         <div className="flex-1 space-y-2">
@@ -284,7 +296,7 @@ export default function AdminProsPage() {
                   </tr>
                 ))
               ) : pros.length === 0 ? (
-                <tr><td colSpan={9} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
+                <tr><td colSpan={10} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
               ) : pros.map((pro) => (
                 <tr key={pro.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
@@ -317,6 +329,15 @@ export default function AdminProsPage() {
                         checked={pro.isFeatured}
                         onChange={() => handleToggleFeatured(pro.id)}
                         ariaLabel={`${pro.name} 추천 노출`}
+                      />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-center">
+                      <AdminSwitch
+                        checked={pro.isProfileHidden}
+                        onChange={() => handleToggleHidden(pro.id)}
+                        ariaLabel={`${pro.name} 프로필 숨김`}
                       />
                     </div>
                   </td>

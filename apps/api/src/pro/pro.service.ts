@@ -630,10 +630,10 @@ export class ProService implements OnModuleInit {
   ) {
     // 전화번호만 업데이트 가능. 이름은 User.name (가입 시 설정) 을 그대로 사용 —
     // 프로 등록/수정 과정에서 User.name 을 덮어쓰면 일반 모드로 돌아와도 이름이 바뀌는 버그 발생
-    if (data.phone) {
+    if (data.phone !== undefined) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: { phone: data.phone },
+        data: { phone: data.phone == null ? null : data.phone.trim() || null },
       });
     }
 
@@ -662,50 +662,58 @@ export class ProService implements OnModuleInit {
     });
 
     // Photos: base64 data URL → webp on disk → ProProfileImage 재생성
-    if (Array.isArray(data.photos) && data.photos.length > 0) {
-      const mainIdx = Math.max(0, Math.min(data.mainPhotoIndex ?? 0, data.photos.length - 1));
-      const savedImages: { path: string; originalPath: string; index: number }[] = [];
-      const failures: { index: number; error: string }[] = [];
-
-      for (let i = 0; i < data.photos.length; i++) {
-        try {
-          const processed = await this.savePhotoFromDataUrl(data.photos[i]);
-          if (processed) savedImages.push({ ...processed, index: i });
-          else failures.push({ index: i, error: 'invalid data URL' });
-        } catch (e: any) {
-          failures.push({ index: i, error: e?.message || String(e) });
-        }
-      }
-
-      // 모든 사진 실패 시 에러로 터뜨려 프론트가 알림 표시
-      if (savedImages.length === 0) {
-        throw new BadRequestException(
-          `사진 업로드 실패 (${failures.length}장): ${failures.map((f) => f.error).join('; ')}`,
-        );
-      }
-
-      // 성공한 사진만 있을 때 기존 이미지 교체
-      await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
-      for (const img of savedImages) {
-        await this.prisma.proProfileImage.create({
-          data: {
-            proProfileId: profile.id,
-            imageUrl: img.path,
-            originalUrl: img.originalPath,
-            displayOrder: img.index,
-            isPrimary: img.index === mainIdx,
-            hasFace: true,
-          },
-        });
-      }
-
-      // 대표 사진을 User.profileImageUrl 로 동기화 — 프로필 아바타(마이페이지/채팅/견적카드)에 반영됨
-      const primary = savedImages.find((img) => img.index === mainIdx) || savedImages[0];
-      if (primary) {
+    if (Array.isArray(data.photos)) {
+      if (data.photos.length === 0) {
+        await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
         await this.prisma.user.update({
           where: { id: userId },
-          data: { profileImageUrl: primary.path },
+          data: { profileImageUrl: null },
         });
+      } else {
+        const mainIdx = Math.max(0, Math.min(data.mainPhotoIndex ?? 0, data.photos.length - 1));
+        const savedImages: { path: string; originalPath: string; index: number }[] = [];
+        const failures: { index: number; error: string }[] = [];
+
+        for (let i = 0; i < data.photos.length; i++) {
+          try {
+            const processed = await this.savePhotoFromDataUrl(data.photos[i]);
+            if (processed) savedImages.push({ ...processed, index: i });
+            else failures.push({ index: i, error: 'invalid data URL' });
+          } catch (e: any) {
+            failures.push({ index: i, error: e?.message || String(e) });
+          }
+        }
+
+        // 모든 사진 실패 시 에러로 터뜨려 프론트가 알림 표시
+        if (savedImages.length === 0) {
+          throw new BadRequestException(
+            `사진 업로드 실패 (${failures.length}장): ${failures.map((f) => f.error).join('; ')}`,
+          );
+        }
+
+        // 성공한 사진만 있을 때 기존 이미지 교체
+        await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
+        for (const img of savedImages) {
+          await this.prisma.proProfileImage.create({
+            data: {
+              proProfileId: profile.id,
+              imageUrl: img.path,
+              originalUrl: img.originalPath,
+              displayOrder: img.index,
+              isPrimary: img.index === mainIdx,
+              hasFace: true,
+            },
+          });
+        }
+
+        // 대표 사진을 User.profileImageUrl 로 동기화 — 프로필 아바타(마이페이지/채팅/견적카드)에 반영됨
+        const primary = savedImages.find((img) => img.index === mainIdx) || savedImages[0];
+        if (primary) {
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: { profileImageUrl: primary.path },
+          });
+        }
       }
     }
 
@@ -795,16 +803,20 @@ export class ProService implements OnModuleInit {
     // 지역: 프로가 선택한 활동 지역 배열을 ProRegion 에 저장
     if (Array.isArray(data.regions)) {
       const uniqueRegions = Array.from(new Set(data.regions.filter(Boolean).map((r) => r.trim())));
-      const isNationwide = uniqueRegions.length === 0 || uniqueRegions.includes('전국');
+      const isNationwideRegion = (name: string) => name === '전국' || name === '전국가능' || name.startsWith('전국');
+      const isNationwide = uniqueRegions.length === 0 || uniqueRegions.some(isNationwideRegion);
       const regionRecords: { id: string }[] = [];
       for (const name of uniqueRegions) {
+        const canonicalName = isNationwideRegion(name) ? '전국' : name;
         let region = await this.prisma.region.findFirst({
-          where: { name },
+          where: isNationwideRegion(name)
+            ? { OR: [{ name: canonicalName }, { isNationwide: true }, { name: { startsWith: '전국' } }] }
+            : { name: canonicalName },
           select: { id: true },
         });
         if (!region) {
           region = await this.prisma.region.create({
-            data: { name, isNationwide: name === '전국' },
+            data: { name: canonicalName, isNationwide: isNationwideRegion(name) },
             select: { id: true },
           });
         }

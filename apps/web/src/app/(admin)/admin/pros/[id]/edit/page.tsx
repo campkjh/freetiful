@@ -11,9 +11,33 @@ import { adminFetch } from '../../../_components/adminFetch';
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
 const OTHER_TAGS = ['레슨/클래스', '쇼호스트', '축가/연주'];
+const ALL_CATEGORIES = [...WEDDING_TAGS, ...EVENT_TAGS, ...OTHER_TAGS];
 const REGIONS = ['전국가능', '수도권(서울/인천/경기)', '강원도', '충청권', '전라권', '경상권', '제주'];
 const LANGUAGES = ['영어', '일본어', '중국어', '스페인어', '프랑스어', '독일어', '러시아어', '아랍어', '베트남어', '태국어'];
 const CAREER_YEARS = Array.from({ length: 30 }, (_, i) => i + 1);
+
+function normalizeRegionForUi(name: string) {
+  return name === '전국' ? '전국가능' : name;
+}
+
+function normalizeRegionForApi(name: string) {
+  return name === '전국가능' ? '전국' : name;
+}
+
+function sameStringArray(a: string[], b: string[]) {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+function parseExtraTagsInput(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[,\n]/)
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    ),
+  );
+}
 
 /* ─── Section wrapper (pro-edit 동일) ─── */
 function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
@@ -58,6 +82,8 @@ export default function AdminProEditPage() {
   const params = useParams();
   const proId = params?.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialPhotosRef = useRef<string[]>([]);
+  const initialMainPhotoIndexRef = useRef(0);
 
   /* ── Loading / error ── */
   const [loading, setLoading] = useState(true);
@@ -72,6 +98,7 @@ export default function AdminProEditPage() {
   const [intro, setIntro] = useState('');
   const [careerYears, setCareerYears] = useState(1);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [extraTagsInput, setExtraTagsInput] = useState('');
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [mainPhotoIndex, setMainPhotoIndex] = useState(0);
@@ -93,6 +120,7 @@ export default function AdminProEditPage() {
   const [status, setStatus] = useState<string>('pending');
   const [isFeatured, setIsFeatured] = useState(false);
   const [showPartnersLogo, setShowPartnersLogo] = useState(false);
+  const [isProfileHidden, setIsProfileHidden] = useState(false);
   const [basePrice, setBasePrice] = useState(0);
   const [adminRelations, setAdminRelations] = useState<any>(null);
 
@@ -115,9 +143,13 @@ export default function AdminProEditPage() {
         setMainExperience(d.mainExperience || '');
         setAwards(d.awards || '');
         setDetailHtml(d.detailHtml || '');
-        setPhotos((d.images || []).map((img: any) => img.imageUrl));
+        const imageUrls = (d.images || []).map((img: any) => img.imageUrl).filter(Boolean);
+        setPhotos(imageUrls);
+        initialPhotosRef.current = imageUrls;
         const primaryIdx = (d.images || []).findIndex((img: any) => img.isPrimary);
-        setMainPhotoIndex(primaryIdx >= 0 ? primaryIdx : 0);
+        const nextMainPhotoIndex = primaryIdx >= 0 ? primaryIdx : 0;
+        setMainPhotoIndex(nextMainPhotoIndex);
+        initialMainPhotoIndexRef.current = nextMainPhotoIndex;
         setLanguages((d.languages || []).map((l: any) => l.languageCode));
         setServices((d.services || []).map((s: any) => ({
           title: s.title || '',
@@ -125,13 +157,18 @@ export default function AdminProEditPage() {
           basePrice: s.basePrice || 0,
         })));
         setFaqItems((d.faqs || []).map((f: any) => ({ q: f.question || '', a: f.answer || '' })));
-        setSelectedCategories((d.categories || []).map((c: any) => c.category?.name).filter(Boolean));
-        setCategory((d.categories || [])[0]?.category?.name || '');
-        setSelectedRegions((d.regions || []).map((r: any) => r.region?.name).filter(Boolean));
+        const categoryNames = (d.categories || []).map((c: any) => c.category?.name).filter(Boolean);
+        const profileTags = Array.isArray(d.tags) ? d.tags.filter(Boolean) : [];
+        const specialtyTags = profileTags.filter((tag: string) => ALL_CATEGORIES.includes(tag));
+        setSelectedCategories(specialtyTags.length > 0 ? specialtyTags : categoryNames.filter((tag: string) => ALL_CATEGORIES.includes(tag)));
+        setExtraTagsInput(profileTags.filter((tag: string) => !ALL_CATEGORIES.includes(tag)).join(', '));
+        setCategory(categoryNames[0] || '');
+        setSelectedRegions((d.regions || []).map((r: any) => normalizeRegionForUi(r.region?.name || '')).filter(Boolean));
         setVideos(d.youtubeUrl ? [d.youtubeUrl] : []);
         setStatus(d.status || 'pending');
         setIsFeatured(!!d.isFeatured);
         setShowPartnersLogo(!!d.showPartnersLogo);
+        setIsProfileHidden(!!d.isProfileHidden);
         setBasePrice(d.services?.[0]?.basePrice || 0);
         setAdminRelations(d.adminRelations || null);
       } catch (e: any) {
@@ -241,34 +278,45 @@ export default function AdminProEditPage() {
         description: s.description || undefined,
         basePrice: s.basePrice || undefined,
       }));
-      if (basePrice > 0) {
-        if (normalizedServices.length > 0) normalizedServices[0] = { ...normalizedServices[0], basePrice };
-        else normalizedServices.push({ title: '기본 플랜', description: undefined, basePrice });
+      if (Number.isFinite(basePrice)) {
+        const normalizedBasePrice = basePrice > 0 ? basePrice : undefined;
+        if (normalizedServices.length > 0) normalizedServices[0] = { ...normalizedServices[0], basePrice: normalizedBasePrice };
+        else if (basePrice > 0) normalizedServices.push({ title: '기본 플랜', description: undefined, basePrice });
       }
+      const photosChanged =
+        !sameStringArray(photos, initialPhotosRef.current) ||
+        mainPhotoIndex !== initialMainPhotoIndexRef.current;
+      const mergedTags = Array.from(new Set([...selectedCategories, ...parseExtraTagsInput(extraTagsInput)].map((tag) => tag.trim()).filter(Boolean)));
       const payload = {
-        name: name || undefined,
-        phone: phone || undefined,
-        gender: gender || undefined,
-        shortIntro: intro || undefined,
+        name: name.trim(),
+        phone,
+        gender,
+        shortIntro: intro,
         mainExperience: mainExperience || (awardsArray.length > 0 ? awardsArray.join(' / ') : undefined),
         careerYears: careerYears || undefined,
-        awards: awards || undefined,
+        awards,
         youtubeUrl: videos[0] || '',
-        detailHtml: detailHtml || undefined,
-        photos: photos.length > 0 ? photos : undefined,
-        mainPhotoIndex,
+        detailHtml,
+        photos: photosChanged ? photos : undefined,
+        mainPhotoIndex: photosChanged ? mainPhotoIndex : undefined,
         services: normalizedServices,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages.length > 0 ? languages : [],
         category: category || selectedCategories[0] || undefined,
-        regions: selectedRegions,
-        tags: selectedCategories,
+        regions: selectedRegions.map(normalizeRegionForApi),
+        tags: mergedTags,
         // 어드민 전용
         status,
         isFeatured,
         showPartnersLogo,
+        isProfileHidden,
         basePrice: basePrice || undefined,
       };
+      if (!payload.name) {
+        toast.error('이름은 필수입니다');
+        setSaving(false);
+        return;
+      }
       await adminFetch('PATCH', `/api/v1/admin/pros/${proId}/full`, payload);
       toast.success('저장되었습니다');
       setTimeout(() => router.push('/admin/pros'), 600);
@@ -341,7 +389,15 @@ export default function AdminProEditPage() {
               onChange={setShowPartnersLogo}
               label="파트너 로고 노출"
             />
+            <AdminSwitch
+              checked={isProfileHidden}
+              onChange={setIsProfileHidden}
+              label="프로필 숨김"
+            />
           </div>
+          <p className="rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-semibold leading-5 text-[#3180F7]">
+            프로필 숨김을 켜면 홈, BEST 사회자, 사회자 리스트와 검색에서 즉시 제외됩니다.
+          </p>
           <div>
             <label className="block text-[12px] font-bold text-gray-400 mb-1.5">기본 가격 (basePrice)</label>
             <input
@@ -595,6 +651,17 @@ export default function AdminProEditPage() {
             <div className="flex flex-wrap gap-2">
               {OTHER_TAGS.map((c) => <TagChip key={c} label={c} selected={selectedCategories.includes(c)} onToggle={() => toggleCategory(c)} />)}
             </div>
+          </div>
+          <div>
+            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">기타 태그</label>
+            <textarea
+              value={extraTagsInput}
+              onChange={(e) => setExtraTagsInput(e.target.value)}
+              placeholder="쉼표 또는 줄바꿈으로 입력"
+              rows={2}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[14px] text-gray-900 outline-none focus:border-[#3180F7] resize-none"
+            />
+            <p className="mt-1 text-[11px] font-medium text-gray-400">전문영역 목록에 없는 기존 태그도 저장 시 보존됩니다.</p>
           </div>
         </div>
       </Section>

@@ -483,7 +483,7 @@ export class AdminService {
   async getPros(params: { page?: number; limit?: number; status?: string; search?: string; startDate?: string; endDate?: string }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
-    const visibleStatuses = ['pending', 'approved', 'rejected', 'suspended'];
+    const visibleStatuses = ['draft', 'pending', 'approved', 'rejected', 'suspended'];
     const where: any = {};
     this.applyCreatedAtRange(where, params);
     if (params.status && visibleStatuses.includes(params.status)) {
@@ -492,7 +492,13 @@ export class AdminService {
       where.status = { in: visibleStatuses };
     }
     if (params.search) {
-      where.user = { name: { contains: params.search, mode: 'insensitive' } };
+      where.OR = [
+        { user: { name: { contains: params.search, mode: 'insensitive' } } },
+        { user: { email: { contains: params.search, mode: 'insensitive' } } },
+        { user: { phone: { contains: params.search, mode: 'insensitive' } } },
+        { shortIntro: { contains: params.search, mode: 'insensitive' } },
+        { mainExperience: { contains: params.search, mode: 'insensitive' } },
+      ];
     }
 
     const [data, total] = await Promise.all([
@@ -522,6 +528,7 @@ export class AdminService {
         puddingCount: p.puddingCount,
         isFeatured: p.isFeatured,
         showPartnersLogo: p.showPartnersLogo,
+        isProfileHidden: p.isProfileHidden,
         createdAt: p.createdAt,
       })),
       total,
@@ -668,9 +675,10 @@ export class AdminService {
     const editableFields = [
       'shortIntro', 'mainExperience', 'careerYears', 'awards',
       'youtubeUrl', 'detailHtml', 'gender',
-      'isFeatured', 'showPartnersLogo', 'status',
+      'isFeatured', 'showPartnersLogo', 'isProfileHidden', 'status',
     ];
     for (const k of editableFields) if (data[k] !== undefined) allowed[k] = data[k];
+    if (data.status === 'approved') allowed.approvedAt = new Date();
 
     const profile = await this.prisma.proProfile.update({
       where: { id: proProfileId },
@@ -685,9 +693,15 @@ export class AdminService {
       await this.prisma.user.update({
         where: { id: profile.userId },
         data: {
-          ...(data.name !== undefined ? { name: data.name } : {}),
-          ...(data.phone !== undefined ? { phone: data.phone } : {}),
+          ...(data.name !== undefined && String(data.name).trim() ? { name: String(data.name).trim() } : {}),
+          ...(data.phone !== undefined ? { phone: data.phone == null ? null : String(data.phone).trim() || null } : {}),
         },
+      });
+    }
+    if (data.status === 'approved') {
+      await this.prisma.user.update({
+        where: { id: profile.userId },
+        data: { role: 'pro' },
       });
     }
 
@@ -724,11 +738,23 @@ export class AdminService {
       tags: Array.isArray(data.tags) ? data.tags : undefined,
     });
 
-    // 어드민은 User.name 을 직접 바꿀 수 있음 (일반 pro-edit 에서는 불가)
-    if (data.name !== undefined) {
+    if (Array.isArray(data.photos) && data.photos.length === 0) {
+      await this.prisma.proProfileImage.deleteMany({ where: { proProfileId } });
       await this.prisma.user.update({
         where: { id: profile.userId },
-        data: { name: data.name },
+        data: { profileImageUrl: null },
+      });
+    }
+
+    // 어드민은 User.name/phone 과 승인 role 을 직접 바꿀 수 있음
+    const userPatch: any = {};
+    if (data.name !== undefined && String(data.name).trim()) userPatch.name = String(data.name).trim();
+    if (data.phone !== undefined) userPatch.phone = data.phone == null ? null : String(data.phone).trim() || null;
+    if (data.status === 'approved') userPatch.role = 'pro';
+    if (Object.keys(userPatch).length > 0) {
+      await this.prisma.user.update({
+        where: { id: profile.userId },
+        data: userPatch,
       });
     }
 
@@ -736,6 +762,7 @@ export class AdminService {
     const adminOnly: any = {};
     if (data.isFeatured !== undefined) adminOnly.isFeatured = data.isFeatured;
     if (data.showPartnersLogo !== undefined) adminOnly.showPartnersLogo = data.showPartnersLogo;
+    if (data.isProfileHidden !== undefined) adminOnly.isProfileHidden = data.isProfileHidden;
     if (data.status !== undefined) {
       adminOnly.status = data.status;
       if (data.status === 'approved') adminOnly.approvedAt = new Date();
@@ -834,6 +861,7 @@ export class AdminService {
       { proProfileId },
     ).catch(() => {});
 
+    this.discoveryService.invalidateCache(proProfileId);
     return { success: true, proProfileId };
   }
 
@@ -853,6 +881,7 @@ export class AdminService {
       { proProfileId },
     ).catch(() => {});
 
+    this.discoveryService.invalidateCache(proProfileId);
     return { success: true, proProfileId };
   }
 
@@ -860,20 +889,24 @@ export class AdminService {
   async togglePartnersLogo(proProfileId: string) {
     const profile = await this.prisma.proProfile.findUnique({ where: { id: proProfileId } });
     if (!profile) throw new Error('Pro not found');
-    return this.prisma.proProfile.update({
+    const updated = await this.prisma.proProfile.update({
       where: { id: proProfileId },
       data: { showPartnersLogo: !profile.showPartnersLogo },
     });
+    this.discoveryService.invalidateCache(proProfileId);
+    return updated;
   }
 
   // ─── Featured 토글 ───────────────────────────────────────────────────────
   async toggleFeatured(proProfileId: string) {
     const profile = await this.prisma.proProfile.findUnique({ where: { id: proProfileId } });
     if (!profile) throw new Error('Pro not found');
-    return this.prisma.proProfile.update({
+    const updated = await this.prisma.proProfile.update({
       where: { id: proProfileId },
       data: { isFeatured: !profile.isFeatured },
     });
+    this.discoveryService.invalidateCache(proProfileId);
+    return updated;
   }
 
   /** 어드민 수동 푸딩 지급 (양수=적립, 음수=차감) + 트랜잭션 로그 */
@@ -902,6 +935,7 @@ export class AdminService {
         },
       }),
     ]);
+    this.discoveryService.invalidateCache(proProfileId);
     return { proProfileId, previousBalance: profile.puddingCount, amount, newBalance: nextCount };
   }
 
