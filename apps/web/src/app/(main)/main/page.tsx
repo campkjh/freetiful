@@ -383,8 +383,8 @@ interface BusinessPartner {
 const BIZ_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
-const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
-const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v1';
+const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v5';
+const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v2';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 function BusinessCard({ biz }: { biz: BusinessPartner }) {
