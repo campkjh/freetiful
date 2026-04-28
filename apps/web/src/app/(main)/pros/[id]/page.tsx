@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
+import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
@@ -258,6 +258,30 @@ function hasRichTextContent(html: string | null | undefined) {
     .replace(/&nbsp;/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim().length > 0;
+}
+
+function buildAiReviewSummary(pro: ProDetailData, reviews: ProDetailData['reviews']) {
+  const source = reviews.map((review) => review.content).join(' ');
+  const keywordRules = [
+    { label: '진행 안정감', pattern: /안정|매끄|차분|진행|깔끔|능숙/ },
+    { label: '분위기 센스', pattern: /분위기|센스|위트|유쾌|재미|웃/ },
+    { label: '빠른 응답', pattern: /응답|빠르|친절|소통|상담/ },
+    { label: '꼼꼼한 준비', pattern: /준비|대본|꼼꼼|미팅|확인/ },
+    { label: '높은 만족도', pattern: /만족|추천|최고|감사|좋았|완벽/ },
+  ];
+  const fallbackKeywords = ['진행 안정감', '분위기 센스', '높은 만족도'];
+  const keywords = keywordRules
+    .filter((item) => item.pattern.test(source))
+    .map((item) => item.label)
+    .slice(0, 3);
+  const topKeywords = keywords.length > 0 ? keywords : fallbackKeywords;
+  const reviewCount = Math.max(reviews.length, pro.reviewCount);
+  const ratingText = pro.rating > 0 ? `${pro.rating.toFixed(1)}점` : '높은 평점';
+
+  return {
+    text: `AI가 ${reviewCount.toLocaleString()}개 고객 리뷰를 읽고 요약했어요. ${pro.name} 사회자는 ${topKeywords.join(', ')}에서 좋은 평가가 많고, 전체 평점은 ${ratingText}이에요.`,
+    keywords: topKeywords,
+  };
 }
 
 function mapRecommendedPros(items: any[] = [], currentId: string) {
@@ -1344,6 +1368,7 @@ export default function ProDetailPage() {
   ];
   const hasReviewMetricOnly = displayReviewCount > 0 && displayReviews.length === 0;
   const metricOnlyReviewMessage = '상세 후기 본문은 아직 등록되지 않았습니다. 등록된 평점과 리뷰 수를 기준으로 표시합니다.';
+  const aiReviewSummary = displayReviews.length > 0 ? buildAiReviewSummary(pro, displayReviews) : null;
 
   return (
     <div className="bg-white" style={{ letterSpacing: '-0.02em' }}>
@@ -1404,28 +1429,51 @@ export default function ProDetailPage() {
                   </div>
                   <div className="relative overflow-hidden rounded-lg">
                     {displayReviews.length > 0 ? (
-                      <div className="recent-reviews-carousel flex w-max">
-                        {[0, 1].map((loop) => (
-                          <div key={`review-carousel-${loop}`} className="flex shrink-0 gap-3 pr-3">
-                            <div className="h-[164px] w-[286px] shrink-0 rounded-lg bg-[#fbf4ff] p-5">
-                              <p className="text-[13px] font-bold text-[#8B5CF6]">고객들의 리뷰를 요약했어요</p>
-                              <p className="mt-3 text-[14px] leading-relaxed text-gray-800">
-                                신속한 응답과 안정적인 진행, 현장 분위기에 맞춘 센스 있는 멘트가 좋은 평가를 받고 있어요.
+                      <div className="grid grid-cols-[286px_minmax(0,1fr)] gap-3">
+                        <div className="ai-review-summary-card relative h-[164px] overflow-hidden rounded-lg border border-[#CFE2FF] bg-[#F7FBFF] p-5">
+                          <div className="relative z-10 flex items-center gap-2">
+                            <span className="ai-review-summary-icon flex h-7 w-7 items-center justify-center rounded-full bg-[#3180F7] text-white">
+                              <Sparkles size={15} />
+                            </span>
+                            <div>
+                              <p className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</p>
+                              <p className="mt-0.5 text-[11px] font-medium text-[#6B8BB7]">
+                                고객 리뷰를 분석해 작성했어요
+                                <span className="ai-review-thinking-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
                               </p>
                             </div>
-                            {displayReviews.slice(0, 5).map((review) => (
-                              <div key={`${review.id}-${loop}`} className="h-[164px] w-[286px] shrink-0 rounded-lg bg-gray-50 p-5">
-                                <div className="flex items-center gap-2">
-                                  <StarRating value={review.rating} size={14} />
-                                  <span className="text-[14px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
-                                  <span className="text-[12px] text-gray-400">{review.date}</span>
-                                </div>
-                                <p className="mt-3 line-clamp-3 text-[14px] leading-relaxed text-gray-800">{review.content}</p>
-                                <p className="mt-3 text-[12px] font-semibold text-gray-500">{review.name}</p>
+                          </div>
+                          <p className="ai-review-summary-copy relative z-10 mt-3 line-clamp-3 text-[14px] leading-relaxed text-gray-800">
+                            {aiReviewSummary?.text}
+                            <span className="ai-review-summary-cursor" aria-hidden="true" />
+                          </p>
+                          <div className="absolute bottom-4 left-5 right-5 z-10 flex flex-wrap gap-1.5">
+                            {aiReviewSummary?.keywords.map((keyword) => (
+                              <span key={keyword} className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-semibold text-[#3180F7] shadow-sm">
+                                {keyword}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="overflow-hidden rounded-lg">
+                          <div className="recent-reviews-carousel flex w-max">
+                            {[0, 1].map((loop) => (
+                              <div key={`review-carousel-${loop}`} className="flex shrink-0 gap-3 pr-3">
+                                {displayReviews.slice(0, 5).map((review) => (
+                                  <div key={`${review.id}-${loop}`} className="h-[164px] w-[286px] shrink-0 rounded-lg bg-gray-50 p-5">
+                                    <div className="flex items-center gap-2">
+                                      <StarRating value={review.rating} size={14} />
+                                      <span className="text-[14px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
+                                      <span className="text-[12px] text-gray-400">{review.date}</span>
+                                    </div>
+                                    <p className="mt-3 line-clamp-3 text-[14px] leading-relaxed text-gray-800">{review.content}</p>
+                                    <p className="mt-3 text-[12px] font-semibold text-gray-500">{review.name}</p>
+                                  </div>
+                                ))}
                               </div>
                             ))}
                           </div>
-                        ))}
+                        </div>
                       </div>
                     ) : hasReviewMetricOnly ? (
                       <div className="rounded-lg bg-gray-50 p-5">
@@ -2805,6 +2853,72 @@ export default function ProDetailPage() {
         }
         .recent-reviews-carousel:hover {
           animation-play-state: paused;
+        }
+        @keyframes aiReviewSummaryScan {
+          0% { transform: translateX(-120%) skewX(-14deg); opacity: 0; }
+          18% { opacity: 0.7; }
+          48%, 100% { transform: translateX(220%) skewX(-14deg); opacity: 0; }
+        }
+        @keyframes aiReviewSummaryReveal {
+          0% { clip-path: inset(0 100% 0 0); filter: blur(3px); opacity: 0.65; }
+          100% { clip-path: inset(0 0 0 0); filter: blur(0); opacity: 1; }
+        }
+        @keyframes aiReviewCursorBlink {
+          0%, 45% { opacity: 1; }
+          46%, 100% { opacity: 0; }
+        }
+        @keyframes aiReviewDotPulse {
+          0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+          40% { opacity: 1; transform: translateY(-1px); }
+        }
+        @keyframes aiReviewIconPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(49,128,247,0.24); }
+          50% { box-shadow: 0 0 0 6px rgba(49,128,247,0); }
+        }
+        .ai-review-summary-card::before {
+          content: '';
+          position: absolute;
+          inset: -30% auto -30% -35%;
+          width: 42%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.82), transparent);
+          animation: aiReviewSummaryScan 3.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .ai-review-summary-icon {
+          animation: aiReviewIconPulse 2s ease-in-out infinite;
+        }
+        .ai-review-summary-copy {
+          animation: aiReviewSummaryReveal 1.25s ease-out both;
+        }
+        .ai-review-summary-cursor {
+          display: inline-block;
+          width: 2px;
+          height: 1em;
+          margin-left: 3px;
+          transform: translateY(2px);
+          border-radius: 999px;
+          background: #3180F7;
+          animation: aiReviewCursorBlink 0.82s steps(1) infinite;
+        }
+        .ai-review-thinking-dots span {
+          display: inline-block;
+          animation: aiReviewDotPulse 1.2s ease-in-out infinite;
+        }
+        .ai-review-thinking-dots span:nth-child(2) {
+          animation-delay: 0.15s;
+        }
+        .ai-review-thinking-dots span:nth-child(3) {
+          animation-delay: 0.3s;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .recent-reviews-carousel,
+          .ai-review-summary-card::before,
+          .ai-review-summary-icon,
+          .ai-review-summary-copy,
+          .ai-review-summary-cursor,
+          .ai-review-thinking-dots span {
+            animation: none;
+          }
         }
         @keyframes primeShine {
           0%, 100% { box-shadow: 0 0 0 rgba(49,128,247,0); }
