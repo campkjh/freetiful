@@ -10,6 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "prisma migrate deploy",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:seed:naver-businesses": "ts-node prisma/seed-naver-businesses.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate"
   },

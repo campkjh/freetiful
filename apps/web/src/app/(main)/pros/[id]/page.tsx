@@ -922,8 +922,18 @@ export default function ProDetailPage() {
     reviewApi.getByPro(proId, { limit: 100 })
       .then((payload: any) => {
         if (cancelled) return;
-        const rows = Array.isArray(payload?.data) ? payload.data : [];
-        const total = Number.isFinite(Number(payload?.meta?.total)) ? Number(payload.meta.total) : rows.length;
+        const rows = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload)
+              ? payload
+              : [];
+        const total = Number.isFinite(Number(payload?.meta?.total))
+          ? Number(payload.meta.total)
+          : Number.isFinite(Number(payload?.total))
+            ? Number(payload.total)
+            : rows.length;
         setPro((current) => {
           if (!current || current.id !== proId) return current;
           const mappedReviews = rows.map(mapApiReviewToDetail);
@@ -1006,7 +1016,6 @@ export default function ProDetailPage() {
   const [phoneModal, setPhoneModal] = useState(false);
   const [loginModal, setLoginModal] = useState(false);
   const [reviewMenu, setReviewMenu] = useState<string | null>(null);
-  const [heroVideoPlaying, setHeroVideoPlaying] = useState(false);
   const [playingVideos, setPlayingVideos] = useState<Set<string>>(new Set());
 
   const descRef = useRef<HTMLDivElement>(null);
@@ -1888,36 +1897,13 @@ export default function ProDetailPage() {
 
         {/* YouTube 영상 썸네일 (우측 하단) */}
         {pro.youtubeId && (
-          <div
-            className="absolute bottom-4 right-4 w-[130px] aspect-[5/3] rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)] border-2 border-white/90 bg-black z-10"
-          >
-            {heroVideoPlaying ? (
-              <iframe
-                className="w-full h-full"
-                src={`https://www.youtube.com/embed/${pro.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${pro.youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
-                title="YouTube preview"
-                allow="autoplay; encrypted-media"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setHeroVideoPlaying(true)}
-                className="relative w-full h-full block"
-                aria-label="영상 미리보기 재생"
-              >
-                <img
-                  src={`https://img.youtube.com/vi/${pro.youtubeId}/mqdefault.jpg`}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <span className="absolute inset-0 flex items-center justify-center bg-black/10">
-                  <span className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow-sm">
-                    <Play size={16} className="fill-gray-900 text-gray-900 ml-0.5" />
-                  </span>
-                </span>
-              </button>
-            )}
+          <div className="absolute bottom-4 right-4 z-10 aspect-video w-[168px] overflow-hidden rounded-2xl border-2 border-white/90 bg-black shadow-[0_4px_22px_rgba(0,0,0,0.42)]">
+            <iframe
+              className="h-full w-full"
+              src={`https://www.youtube.com/embed/${pro.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${pro.youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
+              title="YouTube preview"
+              allow="autoplay; encrypted-media; picture-in-picture"
+            />
           </div>
         )}
       </div>
@@ -2143,48 +2129,46 @@ export default function ProDetailPage() {
 
         {/* YouTube 영상 리스트 */}
         {pro.youtubeVideos && pro.youtubeVideos.length > 0 && (
-          <Reveal delay={200}>
-            <div className="mt-8">
-              <h3 className="text-[16px] font-bold text-gray-900 mb-3">영상</h3>
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x ml-[-2.5px] pl-[2.5px] pr-4">
-                {pro.youtubeVideos.map((video) => (
-                  <div key={video.id} className="shrink-0 w-[260px] snap-start">
-                    <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
-                      {playingVideos.has(video.id) ? (
-                        <iframe
-                          className="w-full h-full"
-                          src={`https://www.youtube.com/embed/${video.id}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
-                          title={video.title}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
+          <div className="mt-8">
+            <h3 className="text-[16px] font-bold text-gray-900 mb-3">영상</h3>
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x ml-[-2.5px] pl-[2.5px] pr-4">
+              {pro.youtubeVideos.map((video) => (
+                <div key={video.id} className="shrink-0 w-[260px] snap-start">
+                  <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
+                    {playingVideos.has(video.id) ? (
+                      <iframe
+                        className="w-full h-full"
+                        src={`https://www.youtube.com/embed/${video.id}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
+                        title={video.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
+                        className="relative w-full h-full block"
+                        aria-label={`${video.title} 재생`}
+                      >
+                        <img
+                          src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          loading="lazy"
                         />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
-                          className="relative w-full h-full block"
-                          aria-label={`${video.title} 재생`}
-                        >
-                          <img
-                            src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                          <span className="absolute inset-0 flex items-center justify-center bg-black/20">
-                            <span className="w-11 h-11 rounded-full bg-white/95 flex items-center justify-center shadow-sm">
-                              <Play size={18} className="fill-gray-900 text-gray-900 ml-0.5" />
-                            </span>
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <span className="w-11 h-11 rounded-full bg-white/95 flex items-center justify-center shadow-sm">
+                            <Play size={18} className="fill-gray-900 text-gray-900 ml-0.5" />
                           </span>
-                        </button>
-                      )}
-                    </div>
-                    <p className="mt-2 text-[13px] font-medium text-gray-700 leading-tight line-clamp-1">{video.title}</p>
+                        </span>
+                      </button>
+                    )}
                   </div>
-                ))}
-              </div>
+                  <p className="mt-2 text-[13px] font-medium text-gray-700 leading-tight line-clamp-1">{video.title}</p>
+                </div>
+              ))}
             </div>
-          </Reveal>
+          </div>
         )}
       </div>
 

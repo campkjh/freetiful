@@ -188,7 +188,7 @@ export default function FavoritesPage() {
     setFavLoading(!hadInitialProsRef.current);
 
     // 캐시/프리뷰를 먼저 보여주고, 서버 데이터는 조용히 맞춰서 최신화.
-    favoriteApi.getList({ limit: FAVORITES_PAGE_LIMIT, withTotal: false }, { force: hadInitialProsRef.current })
+    favoriteApi.getList({ limit: FAVORITES_PAGE_LIMIT, withTotal: false })
       .then((res: any) => {
         if (cancelled || !res?.items) return;
         setFavPros(dedupePros(res.items.map(mapFavoriteToPro).filter((p: FavProItem | null): p is FavProItem => p !== null)));

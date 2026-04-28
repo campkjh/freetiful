@@ -523,32 +523,16 @@ export default function ProEditPage() {
           useAuthStore.getState().setUser({ ...authUser, profileImageUrl: newImg });
         }
       } catch {}
-      // 캐시 무효화 (클라 + 서버 + 브라우저 HTTP) + 내 프로 ID 저장
-      let myProId: string | null = null;
+      // 저장 완료 후 불필요한 상세/목록 재호출을 기다리지 않고 즉시 반영한다.
+      const myProId: string | null = editResponse?.id || editResponse?.profile?.id || null;
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
         invalidateProCache(); // 클라 메모리 캐시 전체 삭제
         try { localStorage.removeItem('freetiful-pros-cache'); } catch {}
-        const { apiClient } = await import('@/lib/api/client');
-        const { data: myPro } = await apiClient.get('/api/v1/pro/profile').catch(() => ({ data: null }));
-        if (myPro?.id) {
-          myProId = myPro.id;
-          localStorage.setItem('freetiful-my-pro-id', myPro.id);
-          // 서버 캐시 강제 리프레시 (공개 리스트까지)
-          await Promise.allSettled([
-            apiClient.get(`/api/v1/discovery/pros/${myPro.id}?nocache=1&_=${Date.now()}`),
-            apiClient.get(`/api/v1/discovery/pros?_=${Date.now()}`),
-          ]);
+        if (myProId) {
+          localStorage.setItem('freetiful-my-pro-id', myProId);
         }
-        // User.profileImageUrl을 최신 대표사진으로 동기화 (카카오 기본 → 프로 등록 대표사진)
-        // 프로 프로필에서 isPrimary 이미지 직접 추출 — User.profileImageUrl보다 신뢰도 높음
-        const myProfile: any = await prosApi.getMyProfile().catch(() => null);
-        if (myProfile?.id) writeProEditProfileCache(authUser?.id || myProfile.userId || myProfile.user?.id, myProfile);
-        const primary = myProfile?.images?.find((img: any) => img.isPrimary) || myProfile?.images?.[0];
-        const newUrl = primary?.imageUrl || myProfile?.user?.profileImageUrl;
-        if (newUrl && authUser) {
-          useAuthStore.getState().setUser({ ...authUser, profileImageUrl: newUrl });
-        }
+        writeProEditProfileCache(authUser?.id || editResponse?.userId || editResponse?.user?.id, editResponse);
       } catch {}
       setToast('저장되었습니다');
       // 상세 페이지로 이동 (타임스탬프로 HTTP 캐시 버스트)
@@ -558,7 +542,7 @@ export default function ProEditPage() {
         } else {
           setToast('');
         }
-      }, 600);
+      }, 180);
     } catch (e) {
       console.error('프로필 저장 실패:', e);
       setToast('저장에 실패했습니다. 다시 시도해주세요.');

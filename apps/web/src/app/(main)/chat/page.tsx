@@ -35,6 +35,26 @@ const ClientAvatar = ({ name }: { name: string }) => (
   </div>
 );
 
+function mapApiRoomToChatRoom(r: any): ChatRoom {
+  return {
+    id: r.id,
+    iAmPro: !!r.iAmPro,
+    otherUser: {
+      id: r.otherUser.id,
+      name: r.otherUser.name,
+      // 룸 기준 역할을 사용한다. 내가 프로 측이면 상대는 고객, 아니면 상대 프로의 카테고리.
+      role: r.iAmPro ? '고객' : (r.otherUser.category || '사회자'),
+      profileImageUrl: r.otherUser.profileImageUrl || '',
+    },
+    lastMessage: r.lastMessage?.content || '',
+    lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
+    unreadCount: r.unreadCount,
+    isPinned: false,
+    isArchived: false,
+    isHidden: false,
+  };
+}
+
 export default function ChatListPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
@@ -42,6 +62,7 @@ export default function ChatListPage() {
   const [roomsLoading, setRoomsLoading] = useState(() => useChatStore.getState().rooms.length === 0);
   const authUser = useAuthStore((s) => s.user);
   const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
+  const [rooms, setRooms] = useState<ChatRoom[]>(() => useChatStore.getState().rooms.map(mapApiRoomToChatRoom));
 
   useEffect(() => {
     const loggedIn = authUser !== null;
@@ -67,27 +88,10 @@ export default function ChatListPage() {
   // 같은 유저가 한 룸에서는 고객, 다른 룸에서는 사회자일 수 있음
   useEffect(() => {
     if (!authUser) return;
-    setRooms(apiRooms.map((r) => ({
-      id: r.id,
-      iAmPro: !!r.iAmPro,
-      otherUser: {
-        id: r.otherUser.id,
-        name: r.otherUser.name,
-        // 내가 이 룸의 프로 측이면 상대는 '고객', 아니면 상대의 실제 카테고리
-        role: r.iAmPro ? '고객' : (r.otherUser.category || '사회자'),
-        profileImageUrl: r.otherUser.profileImageUrl || '',
-      },
-      lastMessage: r.lastMessage?.content || '',
-      lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
-      unreadCount: r.unreadCount,
-      isPinned: false,
-      isArchived: false,
-      isHidden: false,
-    })));
+    setRooms(apiRooms.map(mapApiRoomToChatRoom));
     if (apiRooms.length > 0) setRoomsLoading(false);
   }, [apiRooms, authUser]);
 
-  const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

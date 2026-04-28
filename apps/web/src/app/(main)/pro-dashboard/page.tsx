@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Bell } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { quotationApi } from '@/lib/api/quotation.api';
@@ -327,8 +328,26 @@ function clearPublicProCaches() {
 export default function ProDashboardPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const [name, setName] = useState('');
-  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [initialDashboardCache] = useState<DashboardCache | null>(() => readDashboardCache());
+  const hasCachedScheduleRequests = initialDashboardCache?.scheduleRequests != null;
+  const hasCachedMatchRequests = initialDashboardCache?.matchRequests != null;
+  const hasCachedInquiryRooms = initialDashboardCache?.inquiryRooms != null;
+  const hasCachedQuotes = initialDashboardCache?.quotes != null;
+  const hasCachedReviews =
+    initialDashboardCache?.recentReviews != null ||
+    initialDashboardCache?.reviewCount != null ||
+    initialDashboardCache?.avgRating != null;
+  const hasCachedUpcoming = initialDashboardCache?.upcomingEvents != null;
+  const hasCachedPudding = initialDashboardCache?.puddingCount != null;
+  const hasCachedRevenue =
+    initialDashboardCache?.monthlyRevenue != null ||
+    initialDashboardCache?.lastMonthRevenue != null ||
+    initialDashboardCache?.profileViews != null;
+  const [name, setName] = useState(() => {
+    if (typeof window === 'undefined') return '프로';
+    return localStorage.getItem('proRegister_name') || '프로';
+  });
+  const [quotes, setQuotes] = useState<Quote[]>(() => initialDashboardCache?.quotes ?? []);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
@@ -337,41 +356,41 @@ export default function ProDashboardPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [savedReplies, setSavedReplies] = useState<Record<string, string>>({});
-  const [puddingCount, setPuddingCount] = useState(0);
-  const [reviewCount, setReviewCount] = useState(0);
-  const [avgRating, setAvgRating] = useState('0.0');
-  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
-  const [lastMonthRevenue, setLastMonthRevenue] = useState(0);
-  const [profileViews, setProfileViews] = useState(0);
-  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
-  const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
-  const [inquiryRooms, setInquiryRooms] = useState<{ id: string; userName: string; image: string; message: string; receivedAt: string; unread: number }[]>([]);
-  const [scheduleRequests, setScheduleRequests] = useState<any[]>([]);
-  const [matchRequests, setMatchRequests] = useState<any[]>([]);
-  const [scheduleRequestsLoading, setScheduleRequestsLoading] = useState(true);
-  const [matchRequestsLoading, setMatchRequestsLoading] = useState(true);
-  const [inquiryRoomsLoading, setInquiryRoomsLoading] = useState(true);
-  const [quotesLoading, setQuotesLoading] = useState(true);
-  const [reviewsLoading, setReviewsLoading] = useState(true);
-  const [upcomingLoading, setUpcomingLoading] = useState(true);
-  const [puddingLoading, setPuddingLoading] = useState(true);
-  const [revenueLoading, setRevenueLoading] = useState(true);
-  const [profileHidden, setProfileHidden] = useState(false);
-  const [profileHiddenLoading, setProfileHiddenLoading] = useState(true);
+  const [puddingCount, setPuddingCount] = useState(() => initialDashboardCache?.puddingCount ?? 0);
+  const [reviewCount, setReviewCount] = useState(() => initialDashboardCache?.reviewCount ?? 0);
+  const [avgRating, setAvgRating] = useState(() => initialDashboardCache?.avgRating ?? '0.0');
+  const [monthlyRevenue, setMonthlyRevenue] = useState(() => initialDashboardCache?.monthlyRevenue ?? 0);
+  const [lastMonthRevenue, setLastMonthRevenue] = useState(() => initialDashboardCache?.lastMonthRevenue ?? 0);
+  const [profileViews, setProfileViews] = useState(() => initialDashboardCache?.profileViews ?? 0);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>(() => initialDashboardCache?.upcomingEvents ?? []);
+  const [recentReviews, setRecentReviews] = useState<RecentReview[]>(() => initialDashboardCache?.recentReviews ?? []);
+  const [inquiryRooms, setInquiryRooms] = useState<{ id: string; userName: string; image: string; message: string; receivedAt: string; unread: number }[]>(() => initialDashboardCache?.inquiryRooms ?? []);
+  const [scheduleRequests, setScheduleRequests] = useState<any[]>(() => initialDashboardCache?.scheduleRequests ?? []);
+  const [matchRequests, setMatchRequests] = useState<any[]>(() => initialDashboardCache?.matchRequests ?? []);
+  const [scheduleRequestsLoading, setScheduleRequestsLoading] = useState(!hasCachedScheduleRequests);
+  const [matchRequestsLoading, setMatchRequestsLoading] = useState(!hasCachedMatchRequests);
+  const [inquiryRoomsLoading, setInquiryRoomsLoading] = useState(!hasCachedInquiryRooms);
+  const [quotesLoading, setQuotesLoading] = useState(!hasCachedQuotes);
+  const [reviewsLoading, setReviewsLoading] = useState(!hasCachedReviews);
+  const [upcomingLoading, setUpcomingLoading] = useState(!hasCachedUpcoming);
+  const [puddingLoading, setPuddingLoading] = useState(!hasCachedPudding);
+  const [revenueLoading, setRevenueLoading] = useState(!hasCachedRevenue);
+  const [profileHidden, setProfileHidden] = useState(() => initialDashboardCache?.profileHidden ?? false);
+  const [profileHiddenLoading, setProfileHiddenLoading] = useState(initialDashboardCache?.profileHidden == null);
   const [profileHiddenSaving, setProfileHiddenSaving] = useState(false);
   const [rejectSched, setRejectSched] = useState<{ id: string; userName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [initiatingMatchChat, setInitiatingMatchChat] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cachedSectionsRef = useRef({
-    scheduleRequests: false,
-    matchRequests: false,
-    inquiryRooms: false,
-    quotes: false,
-    reviews: false,
-    upcoming: false,
-    pudding: false,
-    revenue: false,
+    scheduleRequests: hasCachedScheduleRequests,
+    matchRequests: hasCachedMatchRequests,
+    inquiryRooms: hasCachedInquiryRooms,
+    quotes: hasCachedQuotes,
+    reviews: hasCachedReviews,
+    upcoming: hasCachedUpcoming,
+    pudding: hasCachedPudding,
+    revenue: hasCachedRevenue,
   });
 
   useEffect(() => {
@@ -925,7 +944,7 @@ export default function ProDashboardPage() {
             aria-label="알림"
             className={`relative flex h-11 w-11 items-center justify-center rounded-full ${TOSS_ICON_MOTION}`}
           >
-            <BellIcon />
+            <Bell size={22} strokeWidth={2.1} className="text-[#3180F7]" />
           </Link>
         </div>
       </div>

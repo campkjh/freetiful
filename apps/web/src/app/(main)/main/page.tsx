@@ -512,17 +512,29 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
             <img src={tertiaryImage} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
           </div>
         </div>
-        {/* YouTube 썸네일 이미지 (iframe 대신 — 성능 최적화) */}
+        {/* Mobile YouTube preview */}
         {pro.youtubeId && (
-          <div className="absolute bottom-2 right-2 w-[40%] aspect-video rounded-lg overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/90 bg-black z-10 flex items-center justify-center">
+          <div className="absolute bottom-2 right-2 z-10 aspect-video w-[52%] overflow-hidden rounded-xl border border-white/90 bg-black shadow-[0_4px_16px_rgba(0,0,0,0.34)] lg:hidden">
+            <iframe
+              className="h-full w-full"
+              src={`https://www.youtube.com/embed/${pro.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${pro.youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
+              title={`${pro.name} preview`}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              loading="lazy"
+            />
+          </div>
+        )}
+        {/* Desktop YouTube thumbnail: 1eb5ca PC home style */}
+        {pro.youtubeId && (
+          <div className="absolute bottom-2 right-2 z-10 hidden aspect-video w-[40%] items-center justify-center overflow-hidden rounded-lg border border-white/90 bg-black shadow-[0_2px_10px_rgba(0,0,0,0.3)] lg:flex">
             <img
               src={`https://img.youtube.com/vi/${pro.youtubeId}/mqdefault.jpg`}
               alt=""
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90">
                 <svg width="8" height="10" viewBox="0 0 8 10" fill="none"><path d="M0 0L8 5L0 10V0Z" fill="#333"/></svg>
               </div>
             </div>
@@ -935,7 +947,7 @@ export default function HomePage() {
     } catch {}
 
     let cancelled = false;
-    apiClient.get('/api/v1/business', { params: { limit: 12 } })
+    apiClient.get('/api/v1/business', { params: { limit: 90 } })
       .then((res) => {
         if (cancelled) return;
         const items = Array.isArray(res.data) ? res.data : res.data?.items;
@@ -1070,7 +1082,6 @@ export default function HomePage() {
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     return new Set(readStoredFavoriteIds());
   });
-  const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
   const [bannerIdx, setBannerIdx] = useState(0);
   const [bannerDragOffset, setBannerDragOffset] = useState(0);
   const bannerPointerStartRef = useRef<{ x: number; y: number; active: boolean } | null>(null);
@@ -1146,6 +1157,7 @@ export default function HomePage() {
   }, []);
 
   const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat || b.tags.includes(selectedBizCat));
+
   const warmProsList = () => {
     discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false, realtime: true }).catch(() => {});
   };
@@ -1406,30 +1418,6 @@ export default function HomePage() {
               </div>
             </Link>
           </div>
-        </div>
-
-        {/* 3. Category text tabs */}
-        <div
-          className="flex gap-2 overflow-x-auto scrollbar-hide px-[10px] py-2 lg:px-0 lg:py-3 opacity-0"
-          style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
-        >
-          {['결혼식사회자', '행사 맞춤의뢰', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스'].map((tab) => {
-            const active = selectedMobileTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setSelectedMobileTab(tab)}
-                className={`shrink-0 text-[12px] lg:text-[13px] font-medium px-3 lg:px-4 py-1.5 lg:py-2 rounded-[12px] transition-all duration-300 active:scale-95 ${
-                  active
-                    ? 'bg-[#2B313D] text-white shadow-[0_2px_8px_rgba(43,49,61,0.2)]'
-                    : 'text-[#51535C]'
-                }`}
-                style={active ? {} : { backgroundColor: '#F2F3F5' }}
-              >
-                {tab}
-              </button>
-            );
-          })}
         </div>
 
         {/* 4. Icon category grid — 5x2, 스와이프로 다음 페이지 */}
@@ -2062,11 +2050,11 @@ export default function HomePage() {
         </section>
         <div className="my-6 border-t border-gray-100" />
 
-        {/* 6. 웨딩 파트너 (API 데이터 있을 때만 노출) */}
+        {/* 6. 웨딩 파트너 (Mobile: 카테고리별 분리, PC: 1eb5ca 탭형) */}
         {businesses.length > 0 && (
           <>
             <section>
-              <div className="mb-6">
+              <div className="mb-4 lg:mb-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="section-title">웨딩 파트너</h3>
@@ -2076,7 +2064,7 @@ export default function HomePage() {
                     전체보기 <ChevronRight size={16} />
                   </Link>
                 </div>
-                <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+                <div className="hidden gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:flex lg:px-0">
                   <button onClick={() => setSelectedBizCat(null)} className={`relative isolate chip ${selectedBizCat === null ? 'text-white' : 'chip-inactive'}`}>
                     {selectedBizCat === null && <span className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} />}
                     <span className="relative">전체</span>
@@ -2089,19 +2077,53 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-              {filteredBiz.length > 0 ? (
-                <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory scroll-pl-[10px]">
-                  {filteredBiz.slice(0, 8).map((biz) => (
-                    <div key={biz.id} className="shrink-0 w-[78%] snap-start lg:w-[32%]">
-                      <BusinessCard biz={biz} />
+
+              <div className="space-y-6 lg:hidden">
+                {WEDDING_PARTNER_CATEGORIES.map((cat) => {
+                  const items = businesses
+                    .filter((biz) => biz.category === cat || biz.tags.includes(cat))
+                    .slice(0, 8);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={cat}>
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <h4 className="text-[16px] font-bold text-gray-900">{cat}</h4>
+                        <Link href={`/businesses?category=${encodeURIComponent(cat)}`} className="flex items-center gap-0.5 text-[12px] font-medium text-gray-400">
+                          전체보기 <ChevronRight size={14} />
+                        </Link>
+                      </div>
+                      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] scroll-pl-[10px] lg:mx-0 lg:px-0">
+                        {items.map((biz) => (
+                          <div key={biz.id} className="w-[64%] shrink-0 snap-start sm:w-[42%] lg:w-[23%]">
+                            <BusinessCard biz={biz} />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
-                  해당 카테고리의 웨딩 파트너를 준비 중입니다
-                </div>
-              )}
+                  );
+                })}
+                {WEDDING_PARTNER_CATEGORIES.every((cat) => !businesses.some((biz) => biz.category === cat || biz.tags.includes(cat))) && (
+                  <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
+                    웨딩 파트너를 준비 중입니다
+                  </div>
+                )}
+              </div>
+
+              <div className="hidden lg:block">
+                {filteredBiz.length > 0 ? (
+                  <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+                    {filteredBiz.slice(0, 8).map((biz) => (
+                      <div key={biz.id} className="shrink-0 w-[32%] snap-start">
+                        <BusinessCard biz={biz} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
+                    해당 카테고리의 웨딩 파트너를 준비 중입니다
+                  </div>
+                )}
+              </div>
             </section>
             <div className="my-6 border-t border-gray-100" />
           </>
