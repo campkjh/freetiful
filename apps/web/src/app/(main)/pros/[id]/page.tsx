@@ -117,6 +117,7 @@ interface ProDetailData {
   favoriteCount: number;
   plans: { id: string; label: string; price: number; duration: string; title: string; desc: string[]; workDays: number; revisions: number }[];
   description: string;
+  hasDescriptionContent: boolean;
   expertStats: {
     totalDeals: number;
     satisfaction: number;
@@ -249,6 +250,16 @@ function buildDescriptionHtml(html: string | null | undefined, fallbackText: str
   return textToHtml(fallbackText);
 }
 
+function hasRichTextContent(html: string | null | undefined) {
+  const cleaned = stripUnsafeHtml(html || '');
+  return cleaned
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim().length > 0;
+}
+
 function mapRecommendedPros(items: any[] = [], currentId: string) {
   return items
     .filter((p: any) => p.id !== currentId)
@@ -308,7 +319,8 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
       revisions: 1,
     }],
     description: fallbackDescription,
-    descriptionHtml: buildDescriptionHtml(null, fallbackDescription),
+    hasDescriptionContent: false,
+    descriptionHtml: '',
     expertStats: {
       totalDeals: p.reviewCount || 0,
       satisfaction: p.avgRating ? Math.round((p.avgRating / 5) * 100) : 0,
@@ -364,6 +376,7 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     res.shortIntro ? `\n${res.shortIntro}` : '',
     res.mainExperience ? `\n\n주요 경력:\n• ${res.mainExperience.split('/').map((s: string) => s.trim()).join('\n• ')}` : '',
   ].filter(Boolean).join('');
+  const hasDescriptionContent = hasRichTextContent(res.detailHtml);
 
   return {
     id: res.id,
@@ -383,7 +396,8 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     favoriteCount: res.favoriteCount || 0,
     plans,
     description: fallbackDescription,
-    descriptionHtml: buildDescriptionHtml(res.detailHtml, fallbackDescription),
+    hasDescriptionContent,
+    descriptionHtml: hasDescriptionContent ? buildDescriptionHtml(res.detailHtml, '') : '',
     expertStats: {
       totalDeals: res.reviewCount || 0,
       satisfaction: res.avgRating ? Math.round((res.avgRating / 5) * 100) : 0,
@@ -816,6 +830,7 @@ export default function ProDetailPage() {
           }
         } catch {}
         const fallbackDescription = `안녕하세요. 사회자 ${name}입니다.\n\n${intro}\n\n${career ? `주요 경력:\n• ${career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`;
+        const hasDescriptionContent = hasRichTextContent(detailHtml);
 
         setPro({
           id: 'my-pro',
@@ -842,7 +857,8 @@ export default function ProDetailPage() {
             revisions: idx + 1,
           })),
           description: fallbackDescription,
-          descriptionHtml: buildDescriptionHtml(detailHtml, fallbackDescription),
+          hasDescriptionContent,
+          descriptionHtml: hasDescriptionContent ? buildDescriptionHtml(detailHtml, '') : '',
           expertStats: {
             totalDeals: careerYears * 8 + 10,
             satisfaction: 100,
@@ -1046,7 +1062,7 @@ export default function ProDetailPage() {
   // Active section auto-tracking on scroll + header solid bg
   useEffect(() => {
     const sections: Array<{ id: 'desc' | 'info' | 'reviews'; ref: React.RefObject<HTMLDivElement> }> = [
-      { id: 'desc', ref: descRef },
+      ...(pro?.hasDescriptionContent ? [{ id: 'desc' as const, ref: descRef }] : []),
       { id: 'info', ref: infoRef },
       { id: 'reviews', ref: reviewsRef },
     ];
@@ -1057,7 +1073,7 @@ export default function ProDetailPage() {
       ticking = true;
       rafId = requestAnimationFrame(() => {
         const nextScrollY = window.scrollY + 120;
-        let current: 'desc' | 'info' | 'reviews' = 'desc';
+        let current: 'desc' | 'info' | 'reviews' = sections[0]?.id || 'info';
         sections.forEach(({ id, ref }) => {
           if (ref.current && ref.current.offsetTop <= nextScrollY) current = id;
         });
@@ -1076,7 +1092,13 @@ export default function ProDetailPage() {
       window.removeEventListener('scroll', onScroll);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, []);
+  }, [pro?.hasDescriptionContent]);
+
+  useEffect(() => {
+    if (pro && !pro.hasDescriptionContent && activeSection === 'desc') {
+      setActiveSection('info');
+    }
+  }, [activeSection, pro?.hasDescriptionContent]);
 
   // Body scroll lock when modals open
   useEffect(() => {
@@ -1280,6 +1302,13 @@ export default function ProDetailPage() {
     ? pro.reviews
     : buildReviewFallbacks({ id: pro.id, reviewCount: pro.reviewCount, rating: pro.rating });
   const displayReviewCount = Math.max(pro.reviewCount, displayReviews.length);
+  const hasDescriptionContent = Boolean(pro.hasDescriptionContent && pro.descriptionHtml?.trim());
+  const detailSectionTabs: Array<{ id: 'desc' | 'info' | 'reviews'; label: string }> = [
+    ...(hasDescriptionContent ? [{ id: 'desc' as const, label: '서비스 설명' }] : []),
+    { id: 'info', label: '전문가 정보' },
+    { id: 'reviews', label: `리뷰 (${displayReviewCount})` },
+  ];
+  const activeSectionIndex = Math.max(0, detailSectionTabs.findIndex((tab) => tab.id === activeSection));
   const reviewsWithScores = displayReviews.filter((r) => r.scores);
   const ratingFallback = pro.reviewCount > 0 && pro.rating > 0 ? Math.min(5, Math.max(0, pro.rating)) : 0;
   const scoreItems = scoreLabels.map((label) => {
@@ -1416,11 +1445,7 @@ export default function ProDetailPage() {
                 </div>
 
                 <div className="sticky top-[108px] z-40 mb-10 flex border-b border-gray-200 bg-white">
-                  {[
-                    { id: 'desc', label: '서비스 설명' },
-                    { id: 'info', label: '전문가 정보' },
-                    { id: 'reviews', label: `리뷰 (${displayReviewCount})` },
-                  ].map((tab) => (
+                  {detailSectionTabs.map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => scrollToDesktopSection(tab.id as 'desc' | 'info' | 'reviews')}
@@ -1431,12 +1456,14 @@ export default function ProDetailPage() {
                   ))}
                 </div>
 
-                <section id="desktop-desc" className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
-                    <h3 className="text-[19px] font-bold text-gray-950">전문가 소개</h3>
-                    <div className="pro-detail-html text-[14px] leading-[1.8] text-gray-800" dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || buildDescriptionHtml(null, pro.description) }} />
-                  </div>
-                </section>
+                {hasDescriptionContent && (
+                  <section id="desktop-desc" className="mb-9 rounded-lg border border-gray-200 p-6">
+                    <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                      <h3 className="text-[19px] font-bold text-gray-950">전문가 소개</h3>
+                      <div className="pro-detail-html text-[14px] leading-[1.8] text-gray-800" dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
+                    </div>
+                  </section>
+                )}
 
                 <section className="mb-9 rounded-lg border border-gray-200 p-6">
                   <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
@@ -2039,13 +2066,7 @@ export default function ProDetailPage() {
       {/* ─── Section Tabs (Sticky below header) ─── */}
       <div className="sticky top-[60px] z-30 bg-white border-b border-gray-200">
         <div className="flex relative">
-          {[
-            { id: 'desc', label: '서비스 설명' },
-            { id: 'info', label: '전문가 정보' },
-            { id: 'reviews', label: `리뷰 (${displayReviewCount})` },
-          ].map((tab) => {
-            const tabs = ['desc', 'info', 'reviews'];
-            const idx = tabs.indexOf(activeSection);
+          {detailSectionTabs.map((tab) => {
             return (
               <button
                 key={tab.id}
@@ -2061,8 +2082,8 @@ export default function ProDetailPage() {
           <span
             className="absolute bottom-[-1px] h-[2px] bg-[#3180F7] transition-all duration-500"
             style={{
-              left: `${(['desc', 'info', 'reviews'].indexOf(activeSection) * 100) / 3}%`,
-              width: `${100 / 3}%`,
+              left: `${(activeSectionIndex * 100) / detailSectionTabs.length}%`,
+              width: `${100 / detailSectionTabs.length}%`,
               transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
             }}
           />
@@ -2070,10 +2091,11 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── 서비스 설명 Section ─── */}
-      <div ref={descRef} className="px-2.5 pt-8">
-        <Reveal>
-          <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
-        </Reveal>
+      {hasDescriptionContent && (
+        <div ref={descRef} className="px-2.5 pt-8">
+          <Reveal>
+            <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
+          </Reveal>
 
         {pro.isPrime && (
           <Reveal delay={100}>
@@ -2105,7 +2127,7 @@ export default function ProDetailPage() {
 
         {/* Description text */}
         <div className={`pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`}>
-          <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || buildDescriptionHtml(null, pro.description) }} />
+          <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
           {!descExpanded && (
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
           )}
@@ -2169,7 +2191,8 @@ export default function ProDetailPage() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* ─── 프리티풀의 다른 검증된 전문가 ─── */}
       <div className="px-4 pt-10">
