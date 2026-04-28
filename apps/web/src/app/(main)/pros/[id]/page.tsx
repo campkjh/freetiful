@@ -1455,7 +1455,7 @@ export default function ProDetailPage() {
                             ))}
                           </div>
                         </div>
-                        <div className="overflow-hidden rounded-lg">
+                        <div className="recent-reviews-carousel-frame relative overflow-hidden rounded-lg">
                           <div className="recent-reviews-carousel flex w-max">
                             {[0, 1].map((loop) => (
                               <div key={`review-carousel-${loop}`} className="flex shrink-0 gap-3 pr-3">
@@ -2854,6 +2854,24 @@ export default function ProDetailPage() {
         .recent-reviews-carousel:hover {
           animation-play-state: paused;
         }
+        .recent-reviews-carousel-frame::before,
+        .recent-reviews-carousel-frame::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          z-index: 12;
+          width: 58px;
+          pointer-events: none;
+        }
+        .recent-reviews-carousel-frame::before {
+          left: 0;
+          background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.86) 24%, rgba(255,255,255,0) 100%);
+        }
+        .recent-reviews-carousel-frame::after {
+          right: 0;
+          background: linear-gradient(270deg, #fff 0%, rgba(255,255,255,0.86) 24%, rgba(255,255,255,0) 100%);
+        }
         @keyframes aiReviewSummaryScan {
           0% { transform: translateX(-120%) skewX(-14deg); opacity: 0; }
           18% { opacity: 0.7; }
@@ -2915,8 +2933,8 @@ export default function ProDetailPage() {
           position: absolute;
           inset: -42% -28% -42% -28%;
           background:
-            repeating-radial-gradient(ellipse at center, rgba(49,128,247,0.16) 0 1px, transparent 1px 15px),
-            linear-gradient(135deg, rgba(49,128,247,0.14), rgba(139,92,246,0.16), transparent 62%);
+            linear-gradient(115deg, rgba(49,128,247,0) 0%, rgba(49,128,247,0.16) 32%, rgba(139,92,246,0.18) 54%, rgba(139,92,246,0) 76%),
+            linear-gradient(24deg, transparent 18%, rgba(49,128,247,0.08) 42%, rgba(139,92,246,0.1) 62%, transparent 84%);
           mix-blend-mode: multiply;
           animation: aiReviewWavePulse 5.6s ease-in-out infinite;
           pointer-events: none;
