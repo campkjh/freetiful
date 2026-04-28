@@ -1430,7 +1430,7 @@ export default function ProDetailPage() {
                   <div className="relative overflow-hidden rounded-lg">
                     {displayReviews.length > 0 ? (
                       <div className="grid grid-cols-[286px_minmax(0,1fr)] gap-3">
-                        <div className="ai-review-summary-card relative flex h-[164px] flex-col overflow-hidden rounded-lg border border-[#CFE2FF] bg-[#F7FBFF] p-5">
+                        <div className="ai-review-summary-card relative flex h-[164px] flex-col overflow-hidden rounded-lg border p-5">
                           <div className="relative z-10 flex items-center gap-2">
                             <span className="ai-review-summary-icon flex h-6 w-6 items-center justify-center text-[#3180F7]">
                               <Sparkles size={20} fill="#3180F7" stroke="#3180F7" strokeWidth={1.6} />
@@ -1449,7 +1449,7 @@ export default function ProDetailPage() {
                           </p>
                           <div className="relative z-10 mt-auto flex flex-wrap gap-1.5 pt-2">
                             {aiReviewSummary?.keywords.map((keyword) => (
-                              <span key={keyword} className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-semibold text-[#3180F7] shadow-sm">
+                              <span key={keyword} className="ai-review-keyword-pill rounded-full px-2 py-1 text-[11px] font-semibold text-[#3180F7]">
                                 {keyword}
                               </span>
                             ))}
@@ -2875,18 +2875,70 @@ export default function ProDetailPage() {
           0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(49,128,247,0)); }
           50% { transform: scale(1.08); filter: drop-shadow(0 4px 8px rgba(49,128,247,0.22)); }
         }
+        @keyframes aiReviewCardAura {
+          0%, 100% {
+            border-color: rgba(49,128,247,0.24);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.72), 0 8px 24px rgba(49,128,247,0.08);
+            background-position: 0% 50%;
+          }
+          50% {
+            border-color: rgba(139,92,246,0.28);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.82), 0 10px 30px rgba(124,58,237,0.12);
+            background-position: 100% 50%;
+          }
+        }
+        @keyframes aiReviewWavePulse {
+          0% {
+            transform: translateX(-34%) scale(0.92);
+            opacity: 0.2;
+          }
+          50% {
+            transform: translateX(10%) scale(1.08);
+            opacity: 0.42;
+          }
+          100% {
+            transform: translateX(42%) scale(1.18);
+            opacity: 0;
+          }
+        }
         .ai-review-summary-card::before {
           content: '';
           position: absolute;
           inset: -30% auto -30% -35%;
           width: 42%;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.82), transparent);
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.76), rgba(139,92,246,0.12), transparent);
           animation: aiReviewSummaryScan 3.8s ease-in-out infinite;
           pointer-events: none;
+        }
+        .ai-review-summary-card::after {
+          content: '';
+          position: absolute;
+          inset: -42% -28% -42% -28%;
+          background:
+            repeating-radial-gradient(ellipse at center, rgba(49,128,247,0.16) 0 1px, transparent 1px 15px),
+            linear-gradient(135deg, rgba(49,128,247,0.14), rgba(139,92,246,0.16), transparent 62%);
+          mix-blend-mode: multiply;
+          animation: aiReviewWavePulse 5.6s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .ai-review-summary-card {
+          border-color: rgba(49,128,247,0.24);
+          background:
+            linear-gradient(135deg, rgba(49,128,247,0.12) 0%, rgba(139,92,246,0.09) 48%, rgba(255,255,255,0.96) 100%),
+            linear-gradient(90deg, rgba(255,255,255,0.94), rgba(246,249,255,0.94));
+          background-size: 220% 220%, 100% 100%;
+          isolation: isolate;
+          animation: aiReviewCardAura 4.8s ease-in-out infinite;
         }
         .ai-review-summary-icon {
           transform-origin: center;
           animation: aiReviewIconPulse 2s ease-in-out infinite;
+        }
+        .ai-review-keyword-pill {
+          border: 1px solid rgba(49,128,247,0.14);
+          background: rgba(255,255,255,0.74);
+          box-shadow: 0 4px 12px rgba(49,128,247,0.08);
+          backdrop-filter: blur(8px);
         }
         .ai-review-summary-copy {
           animation: aiReviewSummaryReveal 1.25s ease-out both;
@@ -2914,6 +2966,8 @@ export default function ProDetailPage() {
         @media (prefers-reduced-motion: reduce) {
           .recent-reviews-carousel,
           .ai-review-summary-card::before,
+          .ai-review-summary-card::after,
+          .ai-review-summary-card,
           .ai-review-summary-icon,
           .ai-review-summary-copy,
           .ai-review-summary-cursor,
