@@ -31,52 +31,113 @@ const REVIEWS = [
   { id: 'r5', name: '웨딩플래너', rating: 5.0, date: '25.11.05 11:00', scores: { 경력: 5.0, 만족도: 5.0, 구성력: 5.0, 위트: 5.0, 발성: 5.0, 이미지: 5.0 }, content: '저희 플래너 측에서도 감탄한 진행이었습니다. 센스가 남다르세요!', workDays: 10, orderRange: '80만원 ~ 100만원', badge: '대행사/에이전시' },
 ];
 
+type ReviewItem = (typeof REVIEWS)[number];
+
+function formatReviewDate(value?: string | Date | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' });
+}
+
+function maskReviewerName(name?: string | null, isAnonymous?: boolean) {
+  if (isAnonymous) return '익명';
+  if (!name) return '고객';
+  return `${name.slice(0, 1)}**${'****'}`;
+}
+
+function mapApiReview(r: any): ReviewItem {
+  return {
+    id: String(r.id),
+    name: maskReviewerName(r.reviewer?.name, r.isAnonymous),
+    rating: Number(r.avgRating) || 0,
+    date: formatReviewDate(r.createdAt),
+    scores: {
+      경력: Number(r.ratingExperience) || 0,
+      만족도: Number(r.ratingSatisfaction) || 0,
+      구성력: Number(r.ratingComposition) || 0,
+      위트: Number(r.ratingWit) || 0,
+      발성: Number(r.ratingVoice) || 0,
+      이미지: Number(r.ratingAppearance) || 0,
+    },
+    content: r.comment || '',
+    workDays: Number(r.workDays) || 0,
+    orderRange: r.orderRange || '',
+    badge: r.badge || '',
+    proReply: r.proReply
+      ? { date: formatReviewDate(r.proRepliedAt || r.updatedAt || r.createdAt), content: r.proReply }
+      : undefined,
+  };
+}
+
+function mergeReviewRows(primary: any[] = [], secondary: any[] = []) {
+  const seen = new Set<string>();
+  const merged: any[] = [];
+  [...primary, ...secondary].forEach((review, index) => {
+    const key = String(review?.id || `${review?.createdAt || ''}-${review?.comment || ''}-${index}`);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(review);
+  });
+  return merged;
+}
+
+function mergeReviewItems(items: ReviewItem[]) {
+  const seen = new Set<string>();
+  return items.filter((review, index) => {
+    const key = String(review.id || `${review.date}-${review.content}-${index}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function ReviewsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [menuId, setMenuId] = useState<string | null>(null);
-  const [userReviews, setUserReviews] = useState<typeof REVIEWS>([]);
+  const [userReviews, setUserReviews] = useState<ReviewItem[]>([]);
   const [canWriteReview, setCanWriteReview] = useState(false);
-  const [apiReviews, setApiReviews] = useState<typeof REVIEWS | null>(null);
+  const [apiReviews, setApiReviews] = useState<ReviewItem[] | null>(null);
   const [proName, setProName] = useState<string>('');
+  const [detailReviewCount, setDetailReviewCount] = useState(0);
+  const [detailAvgRating, setDetailAvgRating] = useState(0);
 
   // API에서 리뷰 가져오기
   useEffect(() => {
     if (!id) return;
+    let alive = true;
+    setApiReviews(null);
 
-    // Fetch pro name
-    apiClient.get(`/api/v1/discovery/pros/${id}`)
-      .then((res) => {
-        const name = res.data?.user?.name || res.data?.name || '';
+    Promise.allSettled([
+      apiClient.get(`/api/v1/discovery/pros/${id}`, { params: { nocache: 1, _: Date.now() } }),
+      reviewApi.getByPro(id, { limit: 100 }),
+    ]).then(([detailResult, reviewsResult]) => {
+      if (!alive) return;
+
+      let detailReviews: any[] = [];
+      let detailCount = 0;
+      let detailRating = 0;
+      if (detailResult.status === 'fulfilled') {
+        const detail = detailResult.value.data;
+        const name = detail?.user?.name || detail?.name || '';
         if (name) setProName(name);
-      })
-      .catch(() => {});
-    reviewApi.getByPro(id, { limit: 50 })
-      .then((res: any) => {
-        if (res.data?.length > 0) {
-          setApiReviews(res.data.map((r: any) => ({
-            id: r.id,
-            name: r.isAnonymous ? '익명' : (r.reviewer?.name?.slice(0, 1) + '**' + '****') || '고객',
-            rating: Number(r.avgRating) || 0,
-            date: new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }),
-            scores: {
-              경력: Number(r.ratingExperience) || 0,
-              만족도: Number(r.ratingSatisfaction) || 0,
-              구성력: Number(r.ratingComposition) || 0,
-              위트: Number(r.ratingWit) || 0,
-              발성: Number(r.ratingVoice) || 0,
-              이미지: Number(r.ratingAppearance) || 0,
-            },
-            content: r.comment || '',
-            workDays: 0,
-            orderRange: '',
-            badge: '',
-            proReply: r.proReply ? { date: new Date(r.proReplyAt || r.updatedAt).toLocaleDateString('ko-KR'), content: r.proReply } : undefined,
-          })));
-        }
-      })
-      .catch(() => {});
+        detailCount = Number(detail?.reviewCount) || 0;
+        detailRating = Number(detail?.avgRating) || 0;
+        detailReviews = Array.isArray(detail?.reviews) ? detail.reviews : [];
+      }
+
+      const reviewPayload = reviewsResult.status === 'fulfilled' ? reviewsResult.value : null;
+      const apiItems = Array.isArray((reviewPayload as any)?.data) ? (reviewPayload as any).data : [];
+      const apiTotal = Number((reviewPayload as any)?.meta?.total) || 0;
+      const reviews = mergeReviewRows(apiItems, detailReviews);
+      setDetailReviewCount(Math.max(detailCount, apiTotal, reviews.length));
+      setDetailAvgRating(detailRating);
+      setApiReviews(reviews.map(mapApiReview));
+    }).catch(() => {
+      if (alive) setApiReviews([]);
+    });
 
     // 결제 완료 건이 있는지 확인 (리뷰 작성 권한)
     if (authUser) {
@@ -85,7 +146,9 @@ export default function ReviewsPage() {
           const payments = res.data?.data || [];
           // 이 프로와 결제 완료된 건이 있는지 확인
           const hasCompletedPayment = payments.some((p: any) =>
-            p.status === 'completed' && !p.reviewId
+            p.status === 'completed' &&
+            !p.reviewId &&
+            (p.proProfileId === id || p.proProfile?.id === id || p.quotations?.some((q: any) => q.proProfileId === id))
           );
           setCanWriteReview(hasCompletedPayment);
         })
@@ -98,18 +161,24 @@ export default function ReviewsPage() {
       const proReviews = stored.filter((r: any) => r.proId === id);
       setUserReviews(proReviews);
     } catch {}
+
+    return () => { alive = false; };
   }, [id, authUser]);
 
-  const allReviews = [...userReviews, ...(apiReviews || [])];
+  const allReviews = mergeReviewItems([...userReviews, ...(apiReviews || [])]);
+  const hasMetricOnlyReviews = allReviews.length === 0 && detailReviewCount > 0 && detailAvgRating > 0;
+  const displayedReviewCount = Math.max(allReviews.length, detailReviewCount);
+  const missingReviewDetailCount = Math.max(0, displayedReviewCount - allReviews.length);
+  const metricOnlyReviewMessage = '상세 후기 본문은 아직 등록되지 않았습니다. 등록된 평점과 리뷰 수를 기준으로 표시합니다.';
 
   const avgRating = allReviews.length > 0
     ? Math.round((allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length) * 10) / 10
-    : 0;
+    : detailAvgRating;
 
   const SCORE_KEYS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
   const categoryScores = SCORE_KEYS.map((label) => {
     const vals = allReviews.map((r) => (r.scores as Record<string, number>)[label] || 0).filter(Boolean);
-    const avg = vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+    const avg = vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : detailAvgRating;
     return { label, value: Math.round(avg * 10) / 10 };
   });
 
@@ -130,7 +199,7 @@ export default function ReviewsPage() {
         <div className="flex items-center gap-2 mb-3">
           <StarRating value={avgRating} size={22} />
           <span className="text-[26px] font-bold text-gray-900">{avgRating.toFixed(1)}</span>
-          <span className="text-[15px] text-gray-400">({allReviews.length})</span>
+          <span className="text-[15px] text-gray-400">({displayedReviewCount})</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {categoryScores.map((item) => (
@@ -165,6 +234,38 @@ export default function ReviewsPage() {
             </div>
           </div>
         ) : null}
+
+        {apiReviews === null && userReviews.length === 0 && (
+          <div className="py-12 text-center text-[13px] text-gray-400">리뷰를 불러오는 중입니다</div>
+        )}
+
+        {apiReviews !== null && hasMetricOnlyReviews && (
+          <div className="py-6">
+            <div className="rounded-2xl bg-gray-50 px-4 py-5">
+              <div className="mb-2 flex items-center gap-2">
+                <StarRating value={avgRating} size={14} />
+                <span className="text-[13px] font-bold text-gray-900">{avgRating.toFixed(1)}</span>
+                <span className="text-[12px] text-gray-400">({displayedReviewCount})</span>
+              </div>
+              <p className="text-[14px] leading-[1.7] text-gray-800">{metricOnlyReviewMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {apiReviews !== null && allReviews.length > 0 && missingReviewDetailCount > 0 && (
+          <div className="py-3">
+            <div className="rounded-xl bg-[#F5F8FF] px-4 py-3 text-[12px] font-semibold text-[#3180F7]">
+              나머지 {missingReviewDetailCount.toLocaleString()}개 리뷰 상세를 동기화하고 있습니다.
+            </div>
+          </div>
+        )}
+
+        {apiReviews !== null && allReviews.length === 0 && !hasMetricOnlyReviews && (
+          <div className="py-12 text-center">
+            <p className="text-[14px] font-semibold text-gray-700">아직 표시할 리뷰가 없습니다</p>
+            <p className="mt-1 text-[12px] text-gray-400">리뷰가 등록되면 이곳에 바로 보여집니다</p>
+          </div>
+        )}
 
         {allReviews.map((review) => (
           <div key={review.id} className="py-5 relative">

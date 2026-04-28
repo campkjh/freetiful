@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
 import { getPlanTemplates, getPlanTemplatesSync, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import { reviewApi } from '@/lib/api/review.api';
 import {
   applyFavoriteCountToLocalCaches,
   emitFavoriteChange,
@@ -109,6 +110,7 @@ interface ProDetailData {
   isPrime: boolean;
   youtubeId?: string;
   youtubeVideos: { id: string; title: string }[];
+  faqs: { question: string; answer: string }[];
   rating: number;
   reviewCount: number;
   favoriteCount: number;
@@ -137,6 +139,47 @@ interface ProDetailData {
   }[];
   recommendedPros: { id: string; name: string; role: string; rating: number; reviews: number; experience: number; image: string; tags: string[]; isPartner: boolean }[];
   alsoViewed: { id: string; title: string; price: number; rating?: number; reviewCount?: number; author: string; image: string; category?: string }[];
+}
+
+function mapApiReviewToDetail(r: any): ProDetailData['reviews'][number] {
+  return {
+    id: r.id,
+    name: r.isAnonymous ? '익명' : (r.reviewer?.name ? r.reviewer.name.slice(0, 2) + '********' : '고객'),
+    rating: Number(r.avgRating) || 5.0,
+    date: r.createdAt ? new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '',
+    scores: {
+      경력: Number(r.ratingExperience) || 0,
+      만족도: Number(r.ratingSatisfaction) || 0,
+      구성력: Number(r.ratingComposition) || 0,
+      위트: Number(r.ratingWit) || 0,
+      발성: Number(r.ratingVoice) || 0,
+      이미지: Number(r.ratingAppearance) || 0,
+    },
+    content: r.comment || '',
+    workDays: 14,
+    orderRange: '협의',
+    proReply: r.proReply
+      ? {
+          date: r.proRepliedAt ? new Date(r.proRepliedAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '',
+          content: r.proReply,
+        }
+      : undefined,
+  };
+}
+
+function mergeDetailReviews(
+  primary: ProDetailData['reviews'] = [],
+  secondary: ProDetailData['reviews'] = [],
+) {
+  const seen = new Set<string>();
+  const merged: ProDetailData['reviews'] = [];
+  [...primary, ...secondary].forEach((review, index) => {
+    const key = String(review.id || `${review.date}-${review.content}-${index}`);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(review);
+  });
+  return merged;
 }
 
 function decodeHtmlEntities(value: string) {
@@ -249,6 +292,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     isPrime: p.isFeatured || false,
     youtubeId: extractYoutubeId(p.youtubeUrl),
     youtubeVideos: [],
+    faqs: [],
     rating: p.avgRating || 0,
     reviewCount: p.reviewCount || 0,
     favoriteCount: p.favoriteCount || 0,
@@ -304,24 +348,15 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     };
   });
 
-  const reviews = (res.reviews || []).map((r: any) => ({
-    id: r.id,
-    name: r.isAnonymous ? '익명' : (r.reviewer?.name ? r.reviewer.name.slice(0, 2) + '********' : '고객'),
-    rating: Number(r.avgRating) || 5.0,
-    date: new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }),
-    scores: {
-      경력: r.ratingExperience,
-      만족도: r.ratingSatisfaction,
-      구성력: r.ratingComposition,
-      위트: r.ratingWit,
-      발성: r.ratingVoice,
-      이미지: r.ratingAppearance,
-    },
-    content: r.comment || '',
-    workDays: 14,
-    orderRange: '협의',
-    proReply: r.proReply ? { date: r.proRepliedAt ? new Date(r.proRepliedAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '', content: r.proReply } : undefined,
-  }));
+  const reviews = (res.reviews || []).map(mapApiReviewToDetail);
+  const faqs = Array.isArray(res.faqs)
+    ? res.faqs
+        .map((f: any) => ({
+          question: String(f.question || '').trim(),
+          answer: String(f.answer || '').trim(),
+        }))
+        .filter((f: { question: string; answer: string }) => f.question && f.answer)
+    : [];
 
   const fallbackDescription = [
     `안녕하세요. ${proCategory} ${userName}입니다.`,
@@ -341,6 +376,7 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     isPrime: res.isFeatured || res.showPartnersLogo || false,
     youtubeId: ytId,
     youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
+    faqs,
     rating: res.avgRating || 0,
     reviewCount: res.reviewCount || 0,
     favoriteCount: res.favoriteCount || 0,
@@ -359,20 +395,6 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     recommendedPros,
     alsoViewed: [],
   };
-}
-
-function getInitialProDetail(id: string | undefined): ProDetailData | null {
-  if (!id || id === 'my-pro') return null;
-  const planTemplates = getPlanTemplatesSync();
-  const cachedDetail = getCachedProDetail(id);
-  if (cachedDetail) {
-    try {
-      return mapApiProDetail(cachedDetail, planTemplates);
-    } catch {}
-  }
-  const cachedPreview = getCachedProPreview(id);
-  if (cachedPreview) return mapListProPreview(cachedPreview, planTemplates);
-  return null;
 }
 
 // ─── Components ─────────────────────────────────────────────
@@ -532,6 +554,131 @@ function ScoreBars({ items }: { items: { label: string; value: number }[] }) {
   );
 }
 
+function DesktopMetricCard({
+  label,
+  value,
+  caption,
+  kind,
+  percent = 100,
+}: {
+  label: string;
+  value: React.ReactNode;
+  caption: string;
+  kind: 'bars' | 'gauge' | 'badge' | 'check' | 'score';
+  percent?: number;
+}) {
+  const { ref, visible } = useReveal(0.25);
+  const safePercent = Math.max(0, Math.min(100, percent));
+  const bars = [34, 48, 62, 74, 86, safePercent || 58];
+  const dash = 2 * Math.PI * 17;
+
+  return (
+    <div ref={ref} className="min-h-[150px] rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-semibold text-gray-500">{label}</p>
+          <p className="mt-1 text-[20px] font-bold leading-tight text-gray-950">{value}</p>
+        </div>
+        <span className="rounded-full bg-[#EAF3FF] px-2.5 py-1 text-[11px] font-bold text-[#3180F7]">{caption}</span>
+      </div>
+
+      {kind === 'bars' && (
+        <div className="flex h-12 items-end gap-1.5">
+          {bars.map((height, index) => (
+            <span
+              key={index}
+              className="flex-1 rounded-sm"
+              style={{
+                height: visible ? `${height}%` : '14%',
+                background: index === bars.length - 1 ? '#3180F7' : '#E5E7EB',
+                transition: `height 700ms cubic-bezier(0.22, 1, 0.36, 1) ${index * 70}ms`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {kind === 'gauge' && (
+        <div className="flex items-center gap-3">
+          <svg width="54" height="54" viewBox="0 0 44 44">
+            <circle cx="22" cy="22" r="17" fill="none" stroke="#E5E7EB" strokeWidth="5" />
+            <circle
+              cx="22"
+              cy="22"
+              r="17"
+              fill="none"
+              stroke="#3180F7"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray={dash}
+              strokeDashoffset={visible ? dash * (1 - safePercent / 100) : dash}
+              transform="rotate(-90 22 22)"
+              style={{ transition: 'stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1)' }}
+            />
+          </svg>
+          <div className="flex-1">
+            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-[#3180F7]"
+                style={{
+                  width: visible ? `${safePercent}%` : '0%',
+                  transition: 'width 900ms cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+              />
+            </div>
+            <p className="mt-2 text-[12px] text-gray-500">최근 리뷰 기준 만족 지표</p>
+          </div>
+        </div>
+      )}
+
+      {kind === 'badge' && (
+        <div className="grid grid-cols-3 gap-1.5">
+          {['기본', '인증', '기업'].map((item) => {
+            const active = String(value).includes(item);
+            return (
+              <span key={item} className={`flex h-9 items-center justify-center rounded-md text-[12px] font-bold ${active ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                {item}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {kind === 'check' && (
+        <div className="space-y-2">
+          {['거래 증빙', '기업 행사', '정산 가능'].map((item) => (
+            <div key={item} className="flex items-center gap-2 text-[12px] font-semibold text-gray-700">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EAF3FF] text-[#3180F7]">
+                <Check size={13} strokeWidth={3} />
+              </span>
+              {item}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {kind === 'score' && (
+        <div className="space-y-2.5">
+          <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#3180F7] to-[#6BA5FA]"
+              style={{
+                width: visible ? `${safePercent}%` : '0%',
+                transition: 'width 900ms cubic-bezier(0.22, 1, 0.36, 1)',
+              }}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {['경력', '발성', '구성력'].map((item) => (
+              <span key={item} className="rounded-md bg-gray-50 py-1.5 text-center text-[11px] font-bold text-gray-500">{item}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // 기존 사회자별 기업로고 매핑 (각 사회자가 함께한 기업)
 const PRO_COMPANY_LOGOS: Record<string, string[]> = {
   '1': ['/images/company-logos/ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg', '/images/company-logos/D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg', '/images/company-logos/BRqtD2yZxxRP08TEpNXXNlHvXxtA9Dck7kO4rNAiyud7WyX1EudEU0Y7XpRaIi0eGipOIqU1iZRx06TjD87Bu_8PuSHC-vYi2expOi_ie9INQgZ_8lkfsq7WCiYGssRZvARyM-hmOKkZEOhr4vxl6Q.svg'],
@@ -620,10 +767,9 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
 export default function ProDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [initialPro] = useState(() => getInitialProDetail(id));
-  const [pro, setPro] = useState<ProDetailData | null>(() => initialPro);
+  const [pro, setPro] = useState<ProDetailData | null>(null);
   const [apiError, setApiError] = useState(false);
-  const [apiLoading, setApiLoading] = useState(() => !initialPro);
+  const [apiLoading, setApiLoading] = useState(true);
 
   // 어드민 설정 플랜 템플릿 로드 (모든 플랜 가격/이름/포함항목의 단일 소스)
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>(() => getPlanTemplatesSync());
@@ -656,6 +802,18 @@ export default function ProDetailPage() {
         const ytId = ytIds[0];
         const allImages = photos.length > 0 ? photos : ['/images/placeholder.avif'];
         const detailHtml = localStorage.getItem('proRegister_description') || '';
+        let localFaqs: { question: string; answer: string }[] = [];
+        try {
+          const rawFaqs = JSON.parse(localStorage.getItem('proRegister_faq') || '[]');
+          if (Array.isArray(rawFaqs)) {
+            localFaqs = rawFaqs
+              .map((f: any) => ({
+                question: String(f.question || f.q || '').trim(),
+                answer: String(f.answer || f.a || '').trim(),
+              }))
+              .filter((f: { question: string; answer: string }) => f.question && f.answer);
+          }
+        } catch {}
         const fallbackDescription = `안녕하세요. 사회자 ${name}입니다.\n\n${intro}\n\n${career ? `주요 경력:\n• ${career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`;
 
         setPro({
@@ -668,6 +826,7 @@ export default function ProDetailPage() {
           isPrime: true,
           youtubeId: ytId,
           youtubeVideos: ytIds.map((id, i) => ({ id, title: `${name} 사회자 진행 영상 ${i + 1}` })),
+          faqs: localFaqs,
           rating: 5.0,
           reviewCount: 0,
           favoriteCount: 0,
@@ -755,18 +914,61 @@ export default function ProDetailPage() {
     return () => { cancelled = true; };
   }, [id]);
 
+  // 상세 API/목록 캐시에 수치만 남아 있는 경우를 막기 위해 리뷰 전용 API로 실제 리뷰와 건수를 동기화한다.
+  useEffect(() => {
+    const proId = pro?.id;
+    if (!proId || proId === 'my-pro') return;
+    let cancelled = false;
+    reviewApi.getByPro(proId, { limit: 100 })
+      .then((payload: any) => {
+        if (cancelled) return;
+        const rows = Array.isArray(payload?.data) ? payload.data : [];
+        const total = Number.isFinite(Number(payload?.meta?.total)) ? Number(payload.meta.total) : rows.length;
+        setPro((current) => {
+          if (!current || current.id !== proId) return current;
+          const mappedReviews = rows.map(mapApiReviewToDetail);
+          const hasDetailReviewsOrMetrics = current.reviews.length > 0 || current.reviewCount > 0 || current.rating > 0;
+          const nextReviews = mergeDetailReviews(mappedReviews, current.reviews);
+          const nextTotal = Math.max(
+            total,
+            nextReviews.length,
+            hasDetailReviewsOrMetrics ? current.reviewCount || current.reviews.length : 0,
+          );
+          const nextRating = nextTotal > 0 ? current.rating : 0;
+          return {
+            ...current,
+            rating: nextRating,
+            reviewCount: nextTotal,
+            reviews: nextReviews,
+            expertStats: {
+              ...current.expertStats,
+              totalDeals: nextTotal,
+              satisfaction: nextRating ? Math.round((nextRating / 5) * 100) : 0,
+            },
+          };
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [pro?.id]);
+
   const [activeImage, setActiveImage] = useState(0);
-  const [activePlan, setActivePlan] = useState(() => ((initialPro?.plans?.length || 0) > 1 ? 1 : 0));
+  const [activePlan, setActivePlan] = useState(0);
+  const activePlanAutoSelectedRef = useRef<string | null>(null);
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const authUser = useAuthStore((s) => s.user);
-  const [isFavorited, setIsFavorited] = useState(() => {
+  const [isFavorited, setIsFavorited] = useState(false);
+
+  useEffect(() => {
     try {
       const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      return stored.includes(id);
-    } catch { return false; }
-  });
+      setIsFavorited(stored.includes(id));
+    } catch {
+      setIsFavorited(false);
+    }
+  }, [id]);
 
   // Check favorite status from API
   useEffect(() => {
@@ -810,6 +1012,12 @@ export default function ProDetailPage() {
   const descRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
   const reviewsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!pro?.id || activePlanAutoSelectedRef.current === pro.id) return;
+    activePlanAutoSelectedRef.current = pro.id;
+    setActivePlan(pro.plans.length > 1 ? 1 : 0);
+  }, [pro?.id, pro?.plans.length]);
   const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
@@ -971,6 +1179,31 @@ export default function ProDetailPage() {
     applyFavoriteState(!isFavorited);
   };
 
+  const handleInquiry = async () => {
+    if (!pro) return;
+    if (!authUser) {
+      rememberAuthReturnTo();
+      if (requestNativeLoginSheet({ reason: 'pro-detail-chat' })) {
+        setLoginModal(false);
+        return;
+      }
+      setLoginModal(true);
+      return;
+    }
+    const nameParam = encodeURIComponent(pro.name || '');
+    const imgParam = encodeURIComponent(pro.profileImage || '');
+    const preWarmed = getPreWarmByProId(pro.id);
+    if (preWarmed?.roomId) {
+      router.push(`/chat/${preWarmed.roomId}?name=${nameParam}&img=${imgParam}`);
+      return;
+    }
+    setOpeningChat(true);
+    const pre = preWarmChat(pro.id);
+    const resolvedId = await pre.roomIdPromise;
+    setOpeningChat(false);
+    if (resolvedId) router.push(`/chat/${resolvedId}?name=${nameParam}&img=${imgParam}`);
+  };
+
   const handlePurchase = () => {
     router.push(`/pros/${pro?.id || id}/booking`);
   };
@@ -985,6 +1218,15 @@ export default function ProDetailPage() {
     const target = section === 'desc' ? descRef.current : section === 'info' ? infoRef.current : reviewsRef.current;
     if (target) {
       const y = target.getBoundingClientRect().top + window.scrollY - 100;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  };
+
+  const scrollToDesktopSection = (section: 'desc' | 'info' | 'reviews') => {
+    setActiveSection(section);
+    const target = document.getElementById(`desktop-${section}`);
+    if (target) {
+      const y = target.getBoundingClientRect().top + window.scrollY - 176;
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
@@ -1033,8 +1275,464 @@ export default function ProDetailPage() {
     );
   }
 
+  const scoreLabels = ['경력', '만족도', '위트', '발성', '이미지', '구성력'];
+  const reviewsWithScores = pro.reviews.filter((r) => r.scores);
+  const ratingFallback = pro.reviewCount > 0 && pro.rating > 0 ? Math.min(5, Math.max(0, pro.rating)) : 0;
+  const scoreItems = scoreLabels.map((label) => {
+    const values = reviewsWithScores
+      .map((r) => r.scores?.[label])
+      .filter((v): v is number => v != null && v > 0);
+    return {
+      label,
+      value: values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : ratingFallback,
+    };
+  });
+  const hasAnyScore = scoreItems.some((item) => item.value > 0);
+  const potentialScore = Math.round(scoreItems.reduce((sum, item) => sum + item.value * 20, 0));
+  const displayFaqs = pro.faqs.length > 0 ? pro.faqs : [
+    {
+      question: `${pro.categoryName || '사회자'} 섭외는 어떻게 진행되나요?`,
+      answer: '문의하기로 일정과 장소, 행사 성격을 알려주시면 전문가가 가능 여부와 견적을 확인해 답변드립니다. 이후 결제와 사전 미팅을 통해 진행 방향을 조율합니다.',
+    },
+    {
+      question: '행사 전 준비 자료는 언제 전달하면 되나요?',
+      answer: '행사 개요, 식순, 요청 멘트, 참고 대본이 있다면 일정 확정 후 전달해 주세요. 결혼식은 보통 본식 한 달 전후로 사전 질문지를 기반으로 대본을 맞춰갑니다.',
+    },
+    {
+      question: '세금계산서 발행이 가능한가요?',
+      answer: `${pro.expertStats.taxInvoice} 상태입니다. 기업 행사나 기관 행사의 증빙 방식은 문의 단계에서 함께 확인할 수 있습니다.`,
+    },
+    {
+      question: '진행 영상이나 포트폴리오는 어디에서 볼 수 있나요?',
+      answer: pro.youtubeVideos.length > 0
+        ? '상세페이지의 영상 섹션에서 대표 진행 영상을 확인할 수 있습니다.'
+      : '등록된 영상이 없는 경우 문의하기로 참고 포트폴리오를 요청할 수 있습니다.',
+    },
+  ];
+  const hasReviewMetricOnly = pro.reviewCount > 0 && pro.reviews.length === 0;
+  const metricOnlyReviewMessage = '상세 후기 본문은 아직 등록되지 않았습니다. 등록된 평점과 리뷰 수를 기준으로 표시합니다.';
+
   return (
-    <div className="bg-white" style={{ letterSpacing: '-0.02em', paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
+    <div className="bg-white" style={{ letterSpacing: '-0.02em' }}>
+      <div className="hidden lg:block min-h-screen bg-white pb-24">
+        <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
+          <div className="mx-auto flex h-[58px] max-w-[1180px] items-center gap-7 px-8">
+            <Link href="/main" className="flex items-center">
+              <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-7 w-auto" />
+            </Link>
+            <div className="flex h-11 flex-1 max-w-[520px] items-center rounded-full border border-gray-300 px-5 shadow-sm">
+              <span className="flex-1 text-[14px] text-gray-400">어떤 전문가가 필요하세요?</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.3" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" />
+              </svg>
+            </div>
+            <nav className="ml-auto flex items-center gap-6 text-[14px] font-semibold text-gray-900">
+              <Link href="/biz">엔터프라이즈</Link>
+              <Link href="/pro-register/terms">전문가 등록</Link>
+              <button type="button" onClick={() => setLoginModal(true)}>로그인</button>
+            </nav>
+          </div>
+          <div className="border-t border-gray-100">
+            <div className="mx-auto flex h-[50px] max-w-[1180px] items-center gap-8 px-8 text-[14px] font-semibold text-gray-900">
+              {['업종별', '전체', '전문 결혼식 사회자', '전문 행사 사회자', '기업행사', '컨퍼런스', '외국어 사회자', '프리티풀 Biz'].map((item, idx) => (
+                <button key={item} className={`whitespace-nowrap ${idx === 0 ? 'text-[#3180F7]' : ''}`}>{item}</button>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-[1180px] px-8 pt-8">
+          <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10">
+            <div>
+              <div className="mb-5 flex items-center justify-between">
+                <p className="text-[13px] text-gray-500">전문가 찾기 &gt; {pro.categoryName || '사회자'} &gt; {pro.name}</p>
+                <div className="flex items-center gap-5 text-[14px] font-bold text-gray-900">
+                  <button onClick={handleToggleFavorite} className="flex items-center gap-1.5">
+                    <Heart size={18} className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-900'} />
+                    {pro.favoriteCount.toLocaleString()}
+                  </button>
+                  <button onClick={handleShare}><Share2 size={18} /></button>
+                </div>
+              </div>
+
+              <h1 className="max-w-[780px] text-[34px] font-bold leading-tight text-gray-950">{pro.title}</h1>
+              <div className="mt-3 flex items-center gap-2">
+                <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
+                <span className="text-[15px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
+                <span className="text-[14px] text-gray-500">({pro.reviewCount})</span>
+              </div>
+
+              <div className="pt-12">
+                <div className="mb-11">
+                  <div className="mb-5 flex items-center justify-between">
+                    <h2 className="text-[21px] font-bold text-gray-950">최근 받은 리뷰</h2>
+                    {pro.reviewCount > 0 && <button onClick={() => router.push(`/pros/${pro.id}/reviews`)} className="text-[13px] font-semibold text-gray-700">전체보기</button>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    {pro.reviews.length > 0 && (
+                      <div className="rounded-lg bg-[#fbf4ff] p-5">
+                        <p className="text-[13px] font-bold text-[#8B5CF6]">고객들의 리뷰를 요약했어요</p>
+                        <p className="mt-3 text-[14px] leading-relaxed text-gray-800">
+                          신속한 응답과 안정적인 진행, 현장 분위기에 맞춘 센스 있는 멘트가 좋은 평가를 받고 있어요.
+                        </p>
+                      </div>
+                    )}
+                    {pro.reviews.slice(0, 3).map((review) => (
+                      <div key={review.id} className="rounded-lg bg-gray-50 p-5">
+                        <div className="flex items-center gap-2">
+                          <StarRating value={review.rating} size={14} />
+                          <span className="text-[14px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
+                          <span className="text-[12px] text-gray-400">{review.date}</span>
+                        </div>
+                        <p className="mt-3 line-clamp-3 text-[14px] leading-relaxed text-gray-800">{review.content}</p>
+                        <p className="mt-3 text-[12px] font-semibold text-gray-500">{review.name}</p>
+                      </div>
+                    ))}
+                    {pro.reviews.length === 0 && hasReviewMetricOnly && (
+                      <div className="col-span-2 rounded-lg bg-gray-50 p-5">
+                        <div className="flex items-center gap-2">
+                          <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
+                          <span className="text-[14px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
+                          <span className="text-[13px] text-gray-400">({pro.reviewCount})</span>
+                        </div>
+                        <p className="mt-3 text-[14px] leading-relaxed text-gray-600">{metricOnlyReviewMessage}</p>
+                      </div>
+                    )}
+                    {pro.reviews.length === 0 && !hasReviewMetricOnly && (
+                      <div className="col-span-2 rounded-lg bg-gray-50 p-5 text-[14px] leading-relaxed text-gray-500">
+                        아직 표시할 리뷰가 없습니다. 리뷰가 등록되면 이곳에 바로 보여집니다.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="sticky top-[108px] z-40 mb-10 flex border-b border-gray-200 bg-white">
+                  {[
+                    { id: 'desc', label: '서비스 설명' },
+                    { id: 'info', label: '전문가 정보' },
+                    { id: 'reviews', label: `리뷰 (${pro.reviewCount})` },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => scrollToDesktopSection(tab.id as 'desc' | 'info' | 'reviews')}
+                      className={`mr-7 h-12 border-b-2 text-[15px] font-bold ${activeSection === tab.id ? 'border-gray-950 text-gray-950' : 'border-transparent text-gray-500'}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <section id="desktop-desc" className="mb-9 rounded-lg border border-gray-200 p-6">
+                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                    <h3 className="text-[19px] font-bold text-gray-950">전문가 소개</h3>
+                    <div className="pro-detail-html text-[14px] leading-[1.8] text-gray-800" dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || buildDescriptionHtml(null, pro.description) }} />
+                  </div>
+                </section>
+
+                <section className="mb-9 rounded-lg border border-gray-200 p-6">
+                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                    <h3 className="text-[19px] font-bold text-gray-950">영상</h3>
+                    <div>
+                      {pro.youtubeVideos.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          {pro.youtubeVideos.map((video) => (
+                            <div key={video.id}>
+                              <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+                                {playingVideos.has(video.id) ? (
+                                  <iframe
+                                    className="h-full w-full"
+                                    src={`https://www.youtube.com/embed/${video.id}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
+                                    title={video.title}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  />
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
+                                    className="relative block h-full w-full"
+                                    aria-label={`${video.title} 재생`}
+                                  >
+                                    <img src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                                    <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
+                                        <Play size={19} className="ml-0.5 fill-gray-950 text-gray-950" />
+                                      </span>
+                                    </span>
+                                  </button>
+                                )}
+                              </div>
+                              <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-gray-700">{video.title}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-lg bg-gray-50 p-6 text-[14px] text-gray-500">등록된 진행 영상이 없습니다. 문의하기로 포트폴리오를 요청할 수 있어요.</div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                <section id="desktop-info" className="mb-9">
+                  <h2 className="mb-6 text-[22px] font-bold text-gray-950">전문가 정보</h2>
+                  <div className="grid grid-cols-3 gap-5">
+                    {[
+                      {
+                        label: '총 거래 건수',
+                        value: <CountUp value={pro.expertStats.totalDeals} suffix="건" />,
+                        caption: '거래',
+                        kind: 'bars' as const,
+                        percent: Math.min(100, Math.max(18, pro.expertStats.totalDeals * 12)),
+                      },
+                      {
+                        label: '만족도',
+                        value: `${pro.expertStats.satisfaction}%`,
+                        caption: '만족',
+                        kind: 'gauge' as const,
+                        percent: pro.expertStats.satisfaction,
+                      },
+                      {
+                        label: '회원구분',
+                        value: pro.expertStats.memberType,
+                        caption: '인증',
+                        kind: 'badge' as const,
+                        percent: 100,
+                      },
+                      {
+                        label: '세금계산서',
+                        value: pro.expertStats.taxInvoice,
+                        caption: '증빙',
+                        kind: 'check' as const,
+                        percent: 100,
+                      },
+                      {
+                        label: '포텐셜 점수',
+                        value: hasAnyScore ? `${potentialScore}점` : '평가 대기',
+                        caption: '평가',
+                        kind: 'score' as const,
+                        percent: hasAnyScore ? Math.min(100, potentialScore / 6) : 0,
+                      },
+                    ].map((item) => (
+                      <DesktopMetricCard key={item.label} {...item} />
+                    ))}
+                  </div>
+                  <div className="mt-5 grid grid-cols-[minmax(0,1fr)_280px] gap-5">
+                    <div className="rounded-lg border border-gray-200 p-5">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h3 className="text-[17px] font-bold text-gray-950">포텐셜 점수</h3>
+                        <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-[12px] font-bold text-[#3180F7]">
+                          {hasAnyScore ? `${potentialScore}점` : '세부 평가 대기'}
+                        </span>
+                      </div>
+                      <RadarChart scores={scoreItems} empty={!hasAnyScore} />
+                      {hasAnyScore && <ScoreBars items={scoreItems} />}
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-5">
+                      <div className="flex items-center gap-3">
+                        <img src={pro.profileImage} alt="" className="h-14 w-14 rounded-full object-cover" />
+                        <div>
+                          <p className="text-[16px] font-bold text-gray-950">{pro.name}</p>
+                          <p className="mt-1 text-[13px] text-gray-500">{pro.categoryName || '사회자'} 전문가</p>
+                        </div>
+                      </div>
+                      <div className="mt-5 space-y-3 text-[13px] text-gray-700">
+                        <div className="flex justify-between gap-4"><span>연락 가능 시간</span><strong>{pro.expertStats.contactTime}</strong></div>
+                        <div className="flex justify-between gap-4"><span>평균 응답 시간</span><strong>{pro.expertStats.responseTime}</strong></div>
+                        <div className="flex justify-between gap-4"><span>파트너 인증</span><strong>{pro.isPrime ? '인증 완료' : '심사 완료'}</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="mb-9 rounded-lg border border-gray-200 p-6">
+                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                    <h3 className="text-[19px] font-bold text-gray-950">대상자</h3>
+                    <ul className="space-y-3 text-[14px] text-gray-800">
+                      {['전문 결혼식 사회자를 찾는 예비부부', '기업행사와 컨퍼런스 진행이 필요한 담당자', '현장 분위기에 맞춘 안정적인 진행을 원하는 고객', '검증된 전문가와 직접 소통하고 싶은 고객'].map((item) => (
+                        <li key={item} className="flex items-start gap-3"><Check size={18} className="mt-0.5 text-gray-500" />{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </section>
+
+                <section className="mb-9 rounded-lg border border-gray-200 p-6">
+                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                    <h3 className="text-[19px] font-bold text-gray-950">서비스 내용</h3>
+                    <div className="text-[14px] leading-relaxed text-gray-800">
+                      {plan.desc.slice(0, 3).map((line, idx) => (
+                        <p key={idx} className="mb-2 flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-gray-500" />{line}</p>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="mb-9">
+                  <h2 className="mb-6 text-[22px] font-bold text-gray-950">전문가 이력</h2>
+                  <div className="rounded-lg border border-gray-200 p-6">
+                    {[
+                      ['경력 사항', pro.description || `${pro.categoryName || '사회자'} ${pro.name} 전문가`],
+                      ['보유 자격증', pro.isPrime ? '프리티풀 인증 전문가' : '프로필 심사 완료'],
+                      ['학력 전공', pro.categoryName || '전문 진행'],
+                    ].map(([title, body]) => (
+                      <div key={title} className="mb-6 last:mb-0">
+                        <p className="mb-3 text-[15px] font-bold text-gray-950">ㆍ {title}</p>
+                        <div className="whitespace-pre-line rounded-lg bg-gray-50 p-5 text-[14px] leading-relaxed text-gray-700">{body}</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="mb-9 rounded-lg border border-gray-200 p-6">
+                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                    <h3 className="text-[19px] font-bold text-gray-950">FAQ</h3>
+                    <div className="divide-y divide-gray-100">
+                      {displayFaqs.map((faq, index) => (
+                        <details key={`${faq.question}-${index}`} className="group py-4 first:pt-0 last:pb-0">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-[15px] font-bold text-gray-950">
+                            <span>Q. {faq.question}</span>
+                            <ChevronDown size={18} className="shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
+                          </summary>
+                          <p className="mt-3 whitespace-pre-line text-[14px] leading-relaxed text-gray-700">A. {faq.answer}</p>
+                        </details>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                <section id="desktop-reviews" className="mb-9 rounded-lg border border-gray-200 p-6">
+                  <div className="mb-5 flex items-center justify-between">
+                    <h3 className="text-[19px] font-bold text-gray-950">리뷰</h3>
+                    <div className="flex items-center gap-2">
+                      <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
+                      <span className="text-[14px] font-bold">{pro.rating.toFixed(1)}</span>
+                      <span className="text-[13px] text-gray-500">({pro.reviewCount})</span>
+                    </div>
+                  </div>
+                  <div className="space-y-5">
+                    {hasReviewMetricOnly ? (
+                      <div className="rounded-lg bg-gray-50 p-6">
+                        <div className="mb-2 flex items-center gap-2">
+                          <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
+                          <span className="text-[14px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
+                          <span className="text-[13px] text-gray-400">({pro.reviewCount})</span>
+                        </div>
+                        <p className="text-[14px] leading-relaxed text-gray-600">{metricOnlyReviewMessage}</p>
+                      </div>
+                    ) : pro.reviews.length === 0 ? (
+                      <p className="rounded-lg bg-gray-50 p-6 text-center text-[14px] text-gray-500">아직 표시할 리뷰가 없습니다</p>
+                    ) : pro.reviews.slice(0, 3).map((review) => (
+                      <div key={review.id} className="border-b border-gray-100 pb-5 last:border-0 last:pb-0">
+                        <div className="mb-2 flex items-center gap-2">
+                          <StarRating value={review.rating} size={13} />
+                          <span className="text-[13px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
+                          <span className="text-[12px] text-gray-400">{review.date}</span>
+                        </div>
+                        <p className="text-[14px] leading-relaxed text-gray-800">{review.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {pro.reviewCount > 0 && (
+                    <button onClick={() => router.push(`/pros/${pro.id}/reviews`)} className="mt-5 h-11 w-full rounded-lg border border-gray-200 text-[14px] font-bold text-gray-700 hover:bg-gray-50">
+                      리뷰 전체보기
+                    </button>
+                  )}
+                </section>
+
+                {pro.recommendedPros.length > 0 && (
+                  <section className="mb-9">
+                    <div className="mb-5 flex items-end justify-between">
+                      <h2 className="text-[22px] font-bold leading-tight text-gray-950">사회자 인기전문가 어때요?</h2>
+                      <Link href="/pros" className="text-[13px] font-bold text-gray-600">더보기</Link>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      {pro.recommendedPros.slice(0, 6).map((item) => (
+                        <Link key={item.id} href={`/pros/${item.id}`} className="group overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md">
+                          <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                            <Image src={item.image || '/images/default-profile.svg'} alt={item.name} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="230px" />
+                            {item.isPartner && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-[#3180F7] shadow-sm">Partners</span>}
+                          </div>
+                          <div className="p-4">
+                            <p className="line-clamp-1 text-[15px] font-bold text-gray-950">{item.role} {item.name}</p>
+                            <div className="mt-2 flex items-center gap-1.5">
+                              <StarRating value={parseFloat(item.rating.toFixed(1))} size={12} />
+                              <span className="text-[12px] font-bold text-gray-950">{item.rating.toFixed(1)}</span>
+                              <span className="text-[12px] text-gray-400">({item.reviews})</span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              <span className="rounded bg-[#EAF3FF] px-2 py-1 text-[11px] font-bold text-[#3180F7]">경력 {item.experience}년</span>
+                              {item.tags.slice(0, 1).map((tag) => (
+                                <span key={tag} className="rounded bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-500">{tag}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
+
+            <aside className="space-y-7">
+              <button onClick={() => setImageModal(pro.images[activeImage] || pro.mainImage)} className="relative block aspect-[4/3] w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-100 shadow-sm">
+                <Image src={pro.images[activeImage] || pro.mainImage} alt={pro.name} fill className="object-cover" sizes="360px" />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
+                  <p className="text-[13px] font-medium opacity-80">{pro.categoryName || '사회자'} {pro.name}</p>
+                  <p className="mt-1 line-clamp-2 text-[18px] font-bold leading-tight">{pro.description || pro.title}</p>
+                </div>
+                <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white">{activeImage + 1} / {pro.images.length}</span>
+              </button>
+
+              <div className="sticky top-[132px] rounded-lg border border-gray-200 bg-white shadow-sm">
+                <div className="grid border-b border-gray-200" style={{ gridTemplateColumns: `repeat(${Math.max(1, pro.plans.length)}, minmax(0, 1fr))` }}>
+                  {pro.plans.map((p, i) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setActivePlan(i)}
+                      className={`relative h-12 text-[14px] font-bold ${activePlan === i ? 'text-gray-950' : 'text-gray-500'}`}
+                    >
+                      {p.label}
+                      {activePlan === i && <span className="absolute bottom-[-1px] left-5 right-5 h-[3px] bg-gray-950" />}
+                    </button>
+                  ))}
+                </div>
+                <div className="p-5">
+                  <div className="flex items-end gap-1">
+                    {plan.price > 0 ? (
+                      <>
+                        <span className="text-[24px] font-bold text-gray-950">{plan.price.toLocaleString()}원</span>
+                        <span className="pb-1 text-[12px] text-gray-500">(VAT 포함가)</span>
+                      </>
+                    ) : (
+                      <span className="text-[22px] font-bold text-gray-500">가격 문의</span>
+                    )}
+                  </div>
+                  <p className="mt-3 text-[15px] font-bold text-gray-950">{plan.title}</p>
+                  <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-gray-700">
+                    {plan.desc.slice(0, 4).map((item, idx) => (
+                      <li key={idx}>{item}</li>
+                    ))}
+                  </ul>
+                  <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 text-[13px] text-gray-700">
+                    <div className="flex items-center justify-between"><span>작업일</span><strong>{plan.workDays}일</strong></div>
+                    <div className="flex items-center justify-between"><span>수정 횟수</span><strong>{plan.revisions >= 3 ? '제한 없음' : `${plan.revisions}회`}</strong></div>
+                    <div className="flex items-center justify-between"><span>자료 제공</span><Check size={18} className="text-gray-900" /></div>
+                  </div>
+                  <button onClick={handleInquiry} className="mt-6 h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 hover:bg-gray-50">
+                    전문가에게 문의하기
+                  </button>
+                  <button onClick={handlePurchase} className="mt-3 h-[52px] w-full rounded-lg bg-gray-950 text-[15px] font-bold text-white hover:bg-black">
+                    구매하기
+                  </button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </main>
+      </div>
+
+      <div className="lg:hidden" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
       {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
       <div
         className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
@@ -1602,23 +2300,8 @@ export default function ProDetailPage() {
           <span className="text-[14px] text-gray-400">({pro.reviewCount})</span>
         </div>
 
-        {/* Radar Chart - 리뷰 세부 점수 평균. 데이터가 없으면 회색 빈 상태로 안내 */}
-        {(() => {
-          const reviewsWithScores = pro.reviews.filter(r => r.scores);
-          const keys = ['경력', '만족도', '위트', '발성', '이미지', '구성력'];
-          const avgScore = (key: string) => {
-            const vals = reviewsWithScores.map(r => r.scores?.[key]).filter((v): v is number => v != null && v > 0);
-            return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-          };
-          const scoreItems = keys.map((label) => ({ label, value: avgScore(label) }));
-          const hasAnyScore = scoreItems.some((s) => s.value > 0);
-          return (
-            <>
-              <RadarChart scores={scoreItems} empty={!hasAnyScore} />
-              {hasAnyScore && <ScoreBars items={scoreItems} />}
-            </>
-          );
-        })()}
+        <RadarChart scores={scoreItems} empty={!hasAnyScore} />
+        {hasAnyScore && <ScoreBars items={scoreItems} />}
 
 
         {/* Reviews list */}
@@ -1628,6 +2311,22 @@ export default function ProDetailPage() {
         </div>
 
         <div className="space-y-6">
+          {hasReviewMetricOnly ? (
+            <div className="rounded-2xl bg-gray-50 px-4 py-5">
+              <div className="mb-2 flex items-center gap-2">
+                <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
+                <span className="text-[13px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
+                <span className="text-[12px] text-gray-400">({pro.reviewCount})</span>
+              </div>
+              <p className="text-[14px] leading-[1.7] text-gray-600">{metricOnlyReviewMessage}</p>
+            </div>
+          ) : pro.reviews.length === 0 && (
+            <div className="rounded-2xl bg-gray-50 px-4 py-8 text-center">
+              <p className="text-[14px] font-semibold text-gray-700">아직 표시할 리뷰가 없습니다</p>
+              <p className="mt-1 text-[12px] text-gray-400">리뷰가 등록되면 이곳에 바로 보여집니다</p>
+            </div>
+          )}
+
           {pro.reviews.map((review) => (
             <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0 relative">
               <div className="flex items-center justify-between mb-2">
@@ -1686,12 +2385,14 @@ export default function ProDetailPage() {
           ))}
         </div>
 
-        <button
-          onClick={() => router.push(`/pros/${pro.id}/reviews`)}
-          className="w-full py-3.5 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all mt-5"
-        >
-          리뷰 전체보기
-        </button>
+        {pro.reviewCount > 0 && (
+          <button
+            onClick={() => router.push(`/pros/${pro.id}/reviews`)}
+            className="w-full py-3.5 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all mt-5"
+          >
+            리뷰 전체보기
+          </button>
+        )}
       </div>
 
       {/* ─── Expandable panels ─── */}
@@ -1871,6 +2572,7 @@ export default function ProDetailPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
       </div>
 
