@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect, type MouseEvent 
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, Star, ChevronRight, MapPin } from 'lucide-react';
+import { Search, Bell, Star, ChevronRight, ArrowRight, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
+import StackBanner from '@/components/home/StackBanner';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
@@ -444,6 +445,21 @@ const BANNERS = [
   { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png' },
 ];
 
+const HERO_CATEGORIES = [
+  { name: 'MC·사회자', emoji: '🎤', badge: '인기' },
+  { name: '축가', emoji: '🎵' },
+  { name: '연주', emoji: '🎹' },
+  { name: '쇼호스트', emoji: '📺' },
+  { name: '웨딩홀', emoji: '💒', badge: '업종별' },
+  { name: '스튜디오', emoji: '📷', badge: '업종별' },
+  { name: '드레스', emoji: '👗' },
+  { name: '헤어·메이크업', emoji: '💄' },
+  { name: 'AI 매칭', emoji: '✨', badge: 'Best' },
+  { name: '전체보기', emoji: '⊞' },
+];
+
+const CATEGORIES = ['전체', 'MC', '가수', '쇼호스트'];
+
 const HOME_REGIONS = ['전국', '서울/경기', '충청', '경상', '전라', '강원', '제주'];
 
 function getRegionAliases(region: string) {
@@ -512,17 +528,29 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
             <img src={tertiaryImage} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
           </div>
         </div>
-        {/* YouTube 썸네일 이미지 (iframe 대신 — 성능 최적화) */}
+        {/* Mobile YouTube preview */}
         {pro.youtubeId && (
-          <div className="absolute bottom-2 right-2 w-[40%] aspect-video rounded-lg overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/90 bg-black z-10 flex items-center justify-center">
+          <div className="absolute bottom-2 right-2 z-10 aspect-video w-[52%] overflow-hidden rounded-xl border border-white/90 bg-black shadow-[0_4px_16px_rgba(0,0,0,0.34)] lg:hidden">
+            <iframe
+              className="h-full w-full"
+              src={`https://www.youtube.com/embed/${pro.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${pro.youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
+              title={`${pro.name} preview`}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              loading="lazy"
+            />
+          </div>
+        )}
+        {/* Desktop YouTube thumbnail: 1eb5ca PC home style */}
+        {pro.youtubeId && (
+          <div className="absolute bottom-2 right-2 z-10 hidden aspect-video w-[40%] items-center justify-center overflow-hidden rounded-lg border border-white/90 bg-black shadow-[0_2px_10px_rgba(0,0,0,0.3)] lg:flex">
             <img
               src={`https://img.youtube.com/vi/${pro.youtubeId}/mqdefault.jpg`}
               alt=""
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90">
                 <svg width="8" height="10" viewBox="0 0 8 10" fill="none"><path d="M0 0L8 5L0 10V0Z" fill="#333"/></svg>
               </div>
             </div>
@@ -935,7 +963,7 @@ export default function HomePage() {
     } catch {}
 
     let cancelled = false;
-    apiClient.get('/api/v1/business', { params: { limit: 12 } })
+    apiClient.get('/api/v1/business', { params: { limit: 90 } })
       .then((res) => {
         if (cancelled) return;
         const items = Array.isArray(res.data) ? res.data : res.data?.items;
@@ -1070,7 +1098,6 @@ export default function HomePage() {
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     return new Set(readStoredFavoriteIds());
   });
-  const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
   const [bannerIdx, setBannerIdx] = useState(0);
   const [bannerDragOffset, setBannerDragOffset] = useState(0);
   const bannerPointerStartRef = useRef<{ x: number; y: number; active: boolean } | null>(null);
@@ -1114,8 +1141,6 @@ export default function HomePage() {
     moveBanner(dx < 0 ? 1 : -1, length);
     window.setTimeout(() => { bannerSwipeLockRef.current = false; }, 260);
   };
-  const desktopHeroBanners = BANNERS;
-  const desktopHeroBannerIdx = bannerIdx % desktopHeroBanners.length;
   const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
   const [viewedPros, setViewedPros] = useState<{ id: string; time: number }[]>([]);
   useEffect(() => {
@@ -1146,6 +1171,7 @@ export default function HomePage() {
   }, []);
 
   const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat || b.tags.includes(selectedBizCat));
+
   const warmProsList = () => {
     discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false, realtime: true }).catch(() => {});
   };
@@ -1408,30 +1434,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 3. Category text tabs */}
-        <div
-          className="flex gap-2 overflow-x-auto scrollbar-hide px-[10px] py-2 lg:px-0 lg:py-3 opacity-0"
-          style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
-        >
-          {['결혼식사회자', '행사 맞춤의뢰', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스'].map((tab) => {
-            const active = selectedMobileTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setSelectedMobileTab(tab)}
-                className={`shrink-0 text-[12px] lg:text-[13px] font-medium px-3 lg:px-4 py-1.5 lg:py-2 rounded-[12px] transition-all duration-300 active:scale-95 ${
-                  active
-                    ? 'bg-[#2B313D] text-white shadow-[0_2px_8px_rgba(43,49,61,0.2)]'
-                    : 'text-[#51535C]'
-                }`}
-                style={active ? {} : { backgroundColor: '#F2F3F5' }}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
-
         {/* 4. Icon category grid — 5x2, 스와이프로 다음 페이지 */}
         <CategorySwiper />
 
@@ -1509,199 +1511,67 @@ export default function HomePage() {
 
       </div>
 
-      {/* ─── Desktop Hero (6032c0b reference) ─────────────────────── */}
-      <div className="hidden lg:block bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-4xl mx-auto px-8 pt-16 pb-12 text-center">
-          <Reveal>
-            <h2 className="mb-3 text-[36px] font-bold leading-tight text-gray-900">
-              당신의 특별한 날,<br />
-              <span className="text-[#3180F7]">완벽한 전문가</span>를 만나세요
-            </h2>
-          </Reveal>
-          <Reveal delay={100}>
-            <p className="mb-8 text-[16px] text-gray-500">
-              결혼식부터 기업행사까지 프리미엄 전문가 플랫폼 프리티풀
-            </p>
-          </Reveal>
-
-          <Reveal delay={200}>
-            <Link
-              href="/search"
-              onMouseEnter={warmProsList}
-              className="mx-auto mb-10 flex max-w-xl items-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-left shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md"
-            >
-              <Search size={20} className="shrink-0 text-gray-400" />
-              <span className="text-[15px] text-gray-400">어떤 전문가를 찾으시나요?</span>
-            </Link>
-          </Reveal>
-
-          <Reveal delay={250}>
-            <div className="mb-10 flex flex-wrap justify-center gap-2.5">
-              {['결혼식사회자', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스', '축가', '쇼호스트'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => router.push(`/pros?category=${encodeURIComponent(tab)}`)}
-                  className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-[14px] font-medium text-gray-700 shadow-sm transition-all duration-200 hover:border-[#2B313D] hover:bg-[#2B313D] hover:text-white"
-                >
-                  {tab}
-                </button>
-              ))}
+      {/* ─── Desktop Hero ────────────────────────────────────────────── */}
+      <div className="hidden lg:block bg-white border-b border-gray-100/50">
+        <div className="max-w-7xl mx-auto px-8 py-20">
+          <div className="flex items-center justify-between gap-16">
+            <div className="flex-1 max-w-xl">
+              <p className="eyebrow mb-4">WEDDING PROFESSIONALS</p>
+              <h2 className="headline mb-5">
+                당신의 특별한 날,<br />
+                <span className="text-primary-500">완벽한 전문가</span>를 만나세요
+              </h2>
+              <p className="text-[16px] text-gray-500 mb-10 leading-relaxed max-w-[50ch]">
+                웨딩 MC, 축가 가수, 쇼호스트까지<br />
+                AI 매칭으로 딱 맞는 전문가를 추천받으세요
+              </p>
+              <div className="flex gap-3">
+                <Link href="/match" className="btn-primary w-auto inline-flex items-center gap-2 px-8">
+                  견적 요청하기 <ArrowRight size={18} />
+                </Link>
+                <Link href="/pros" className="btn-outline w-auto px-8">
+                  전문가 둘러보기
+                </Link>
+              </div>
             </div>
-          </Reveal>
-
-          <Reveal delay={300}>
-            <div className="mx-auto mb-10 flex max-w-2xl justify-center gap-4">
-              <Link
-                href="/quote?mode=wedding"
-                className="group relative h-[140px] flex-1 overflow-hidden rounded-2xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
-              >
-                <video
-                  ref={registerHeroVideo}
-                  src="/images/reference-video-1775801211148.mp4#t=0.001"
-                  muted
-                  playsInline
-                  preload="metadata"
-                  controls={false}
-                  disablePictureInPicture
-                  webkit-playsinline="true"
-                  x5-playsinline="true"
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <span className="absolute right-3 top-3 rounded-full bg-[#2B313D] px-3 py-1 text-[11px] font-bold text-white">빠른무료견적</span>
-                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
-                  <div>
-                    <span className="block text-[18px] font-bold leading-tight text-white">전문결혼식</span>
-                    <span className="block text-[18px] font-bold leading-tight text-white">사회자 찾기</span>
-                  </div>
-                  <ChevronRight size={22} className="shrink-0 text-white/80" />
-                </div>
-              </Link>
-
-              <Link
-                href="/quote?mode=event"
-                className="group relative flex h-[140px] flex-1 items-center gap-5 overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
-              >
-                <span className="absolute right-3 top-3 z-20 rounded-full bg-[#3180F7] px-3 py-1 text-[10px] font-bold text-white">Biz</span>
-                <video
-                  ref={registerHeroVideo}
-                  src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.001"
-                  muted
-                  playsInline
-                  preload="metadata"
-                  controls={false}
-                  disablePictureInPicture
-                  webkit-playsinline="true"
-                  x5-playsinline="true"
-                  className="relative z-10 h-[120px] w-[120px] shrink-0 rounded-2xl object-cover"
-                  style={{ transition: 'opacity 0.2s ease' }}
-                  onTimeUpdate={(e) => {
-                    const v = e.currentTarget;
-                    if (v.duration - v.currentTime <= 0.2) {
-                      v.style.opacity = `${(v.duration - v.currentTime) / 0.2}`;
-                    } else if (v.currentTime <= 0.2) {
-                      v.style.opacity = `${v.currentTime / 0.2}`;
-                    } else {
-                      v.style.opacity = '1';
-                    }
-                  }}
-                />
-                <div className="relative z-10 text-left">
-                  <span className="block text-[22px] font-bold leading-tight text-[#2B313D]">전문 행사</span>
-                  <span className="block text-[22px] font-bold leading-tight text-[#2B313D]">사회자 찾기</span>
-                </div>
-              </Link>
+            <div className="flex-1 max-w-lg">
+              <StackBanner banners={banners} />
             </div>
-          </Reveal>
-
-          <div className="mx-auto mb-10 grid max-w-3xl grid-cols-8 gap-4">
-            {[
-              { name: '외국어사회자', img: '/images/cat-foreign-mc.png', href: '/pros?category=외국어사회자' },
-              { name: '웨딩홀', img: '/images/cat-wedding-hall.png', href: '/businesses?category=웨딩홀' },
-              { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
-              { name: '피부과', img: '/images/cat-derma.png', href: '/businesses?category=피부과' },
-              { name: '드레스', img: '/images/cat-dress.png', href: '/businesses?category=드레스' },
-              { name: '헤메샵', img: '/images/cat-hair-makeup.png', href: '/businesses?category=헤메샵' },
-              { name: '스냅·영상', img: '/images/cat-snap-video.png', href: '/businesses?category=스냅·영상' },
-              { name: '축가·연주', img: '/images/cat-singer.png', href: '/pros?category=축가·연주' },
-            ].map((item) => (
-              <Link key={item.name} href={item.href} className="group flex flex-col items-center gap-1.5">
-                <div className="flex h-[56px] w-[56px] items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
-                  <img src={item.img} alt={item.name} className="h-full w-full object-contain" />
-                </div>
-                <span className="text-center text-[12px] font-medium leading-tight text-gray-600 transition-colors group-hover:text-gray-900">{item.name}</span>
-              </Link>
-            ))}
           </div>
 
-          <div className="mx-auto max-w-3xl">
-            <div
-              className="relative w-full overflow-hidden rounded-2xl"
-              style={{ aspectRatio: '1170/300', touchAction: 'pan-y' }}
-              onPointerDown={(e) => {
-                if (desktopHeroBanners.length <= 1) return;
-                bannerPointerStartRef.current = { x: e.clientX, y: e.clientY, active: true };
-                setBannerDragOffset(0);
-                if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
-              }}
-              onPointerMove={(e) => {
-                const start = bannerPointerStartRef.current;
-                if (!start?.active) return;
-                const dx = e.clientX - start.x;
-                const dy = e.clientY - start.y;
-                if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
-                setBannerDragOffset(Math.max(-110, Math.min(110, dx)));
-              }}
-              onPointerUp={(e) => {
-                const start = bannerPointerStartRef.current;
-                if (!start?.active) return;
-                bannerPointerStartRef.current = null;
-                finishBannerSwipe(e.clientX - start.x, e.clientY - start.y, desktopHeroBanners.length);
-              }}
-              onPointerCancel={() => {
-                bannerPointerStartRef.current = null;
-                setBannerDragOffset(0);
-              }}
-            >
-              <div
-                className="flex h-full"
-                style={{
-                  width: `${desktopHeroBanners.length * 100}%`,
-                  transform: `translateX(-${desktopHeroBannerIdx * (100 / desktopHeroBanners.length)}%) translateX(${bannerDragOffset}px)`,
-                  transition: bannerDragOffset === 0 ? 'transform 0.5s ease-out' : 'none',
-                }}
+          <div className="flex items-start justify-between mt-14 gap-2">
+            {HERO_CATEGORIES.map((cat) => (
+              <Link
+                key={cat.name}
+                href={cat.name === '전체보기' ? '/pros' : `/pros?category=${encodeURIComponent(cat.name)}`}
+                className="flex flex-col items-center gap-2 group w-[90px]"
               >
-                {desktopHeroBanners.map((b, i) => (
-                  <div
-                    key={b.id || i}
-                    className="h-full shrink-0 cursor-pointer"
-                    style={{ width: `${100 / desktopHeroBanners.length}%` }}
-                  >
-                    {b.image ? (
-                      <img src={b.image} alt="" className="h-full w-full object-cover" draggable={false} />
-                    ) : (
-                      <div className={`flex h-full w-full items-center px-6 ${b.bgColor}`}>
-                        <div>
-                          <p className="text-[13px] font-medium text-white/80">{b.title}</p>
-                          <p className="mt-1 text-[20px] font-bold text-white">{b.subtitle}</p>
-                        </div>
-                      </div>
-                    )}
+                <div className="relative">
+                  {cat.badge && (
+                    <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 z-10 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                      cat.badge === 'Best'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-white text-red-500 border border-red-400'
+                    }`}>
+                      {cat.badge}
+                    </span>
+                  )}
+                  <div className="w-14 h-14 rounded-2xl bg-surface-50 flex items-center justify-center text-[28px] group-hover:bg-surface-100 group-hover:scale-105 transition-all duration-200">
+                    {cat.emoji}
                   </div>
-                ))}
-              </div>
-              <div className="absolute bottom-3 right-4 rounded-full bg-black/30 px-2.5 py-1 text-[11px] font-medium text-white">
-                {desktopHeroBannerIdx + 1} / {desktopHeroBanners.length}
-              </div>
-            </div>
+                </div>
+                <span className="text-[13px] text-gray-700 font-medium text-center leading-tight group-hover:text-gray-900 transition-colors">
+                  {cat.name}
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="px-[10px] lg:px-8 pt-0 pb-6 lg:py-12 space-y-4 lg:space-y-10 lg:max-w-7xl lg:mx-auto">
-
+      <div className="px-[10px] lg:px-0 pt-0 pb-6 lg:py-12 space-y-4 lg:space-y-10 lg:max-w-7xl lg:mx-auto lg:px-8">
         <div className="hidden lg:flex gap-2.5 overflow-x-auto scrollbar-hide">
-          {['전체', '결혼식사회자', '행사 MC', '기업행사', '연례행사', '체육대회', '컨퍼런스'].map((cat, i) => (
+          {CATEGORIES.map((cat, i) => (
             <button key={cat} className={i === 0 ? 'chip-active' : 'chip-inactive'}>
               {cat}
             </button>
@@ -2062,11 +1932,11 @@ export default function HomePage() {
         </section>
         <div className="my-6 border-t border-gray-100" />
 
-        {/* 6. 웨딩 파트너 (API 데이터 있을 때만 노출) */}
+        {/* 6. 웨딩 파트너 (Mobile: 카테고리별 분리, PC: 1eb5ca 탭형) */}
         {businesses.length > 0 && (
           <>
             <section>
-              <div className="mb-6">
+              <div className="mb-4 lg:mb-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="section-title">웨딩 파트너</h3>
@@ -2076,7 +1946,7 @@ export default function HomePage() {
                     전체보기 <ChevronRight size={16} />
                   </Link>
                 </div>
-                <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
+                <div className="hidden gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:flex lg:px-0">
                   <button onClick={() => setSelectedBizCat(null)} className={`relative isolate chip ${selectedBizCat === null ? 'text-white' : 'chip-inactive'}`}>
                     {selectedBizCat === null && <span className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} />}
                     <span className="relative">전체</span>
@@ -2089,19 +1959,53 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-              {filteredBiz.length > 0 ? (
-                <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory scroll-pl-[10px]">
-                  {filteredBiz.slice(0, 8).map((biz) => (
-                    <div key={biz.id} className="shrink-0 w-[78%] snap-start lg:w-[32%]">
-                      <BusinessCard biz={biz} />
+
+              <div className="space-y-6 lg:hidden">
+                {WEDDING_PARTNER_CATEGORIES.map((cat) => {
+                  const items = businesses
+                    .filter((biz) => biz.category === cat || biz.tags.includes(cat))
+                    .slice(0, 8);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={cat}>
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <h4 className="text-[16px] font-bold text-gray-900">{cat}</h4>
+                        <Link href={`/businesses?category=${encodeURIComponent(cat)}`} className="flex items-center gap-0.5 text-[12px] font-medium text-gray-400">
+                          전체보기 <ChevronRight size={14} />
+                        </Link>
+                      </div>
+                      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] scroll-pl-[10px] lg:mx-0 lg:px-0">
+                        {items.map((biz) => (
+                          <div key={biz.id} className="w-[64%] shrink-0 snap-start sm:w-[42%] lg:w-[23%]">
+                            <BusinessCard biz={biz} />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
-                  해당 카테고리의 웨딩 파트너를 준비 중입니다
-                </div>
-              )}
+                  );
+                })}
+                {WEDDING_PARTNER_CATEGORIES.every((cat) => !businesses.some((biz) => biz.category === cat || biz.tags.includes(cat))) && (
+                  <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
+                    웨딩 파트너를 준비 중입니다
+                  </div>
+                )}
+              </div>
+
+              <div className="hidden lg:block">
+                {filteredBiz.length > 0 ? (
+                  <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+                    {filteredBiz.slice(0, 8).map((biz) => (
+                      <div key={biz.id} className="shrink-0 w-[32%] snap-start">
+                        <BusinessCard biz={biz} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
+                    해당 카테고리의 웨딩 파트너를 준비 중입니다
+                  </div>
+                )}
+              </div>
             </section>
             <div className="my-6 border-t border-gray-100" />
           </>
