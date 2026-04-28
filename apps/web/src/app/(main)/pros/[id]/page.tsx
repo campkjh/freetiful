@@ -1373,28 +1373,33 @@ export default function ProDetailPage() {
                     <h2 className="text-[21px] font-bold text-gray-950">최근 받은 리뷰</h2>
                     {displayReviewCount > 0 && <button onClick={() => router.push(`/pros/${pro.id}/reviews`)} className="text-[13px] font-semibold text-gray-700">전체보기</button>}
                   </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    {displayReviews.length > 0 && (
-                      <div className="rounded-lg bg-[#fbf4ff] p-5">
-                        <p className="text-[13px] font-bold text-[#8B5CF6]">고객들의 리뷰를 요약했어요</p>
-                        <p className="mt-3 text-[14px] leading-relaxed text-gray-800">
-                          신속한 응답과 안정적인 진행, 현장 분위기에 맞춘 센스 있는 멘트가 좋은 평가를 받고 있어요.
-                        </p>
+                  <div className="relative overflow-hidden rounded-lg">
+                    {displayReviews.length > 0 ? (
+                      <div className="recent-reviews-carousel flex w-max">
+                        {[0, 1].map((loop) => (
+                          <div key={`review-carousel-${loop}`} className="flex shrink-0 gap-3 pr-3">
+                            <div className="h-[164px] w-[286px] shrink-0 rounded-lg bg-[#fbf4ff] p-5">
+                              <p className="text-[13px] font-bold text-[#8B5CF6]">고객들의 리뷰를 요약했어요</p>
+                              <p className="mt-3 text-[14px] leading-relaxed text-gray-800">
+                                신속한 응답과 안정적인 진행, 현장 분위기에 맞춘 센스 있는 멘트가 좋은 평가를 받고 있어요.
+                              </p>
+                            </div>
+                            {displayReviews.slice(0, 5).map((review) => (
+                              <div key={`${review.id}-${loop}`} className="h-[164px] w-[286px] shrink-0 rounded-lg bg-gray-50 p-5">
+                                <div className="flex items-center gap-2">
+                                  <StarRating value={review.rating} size={14} />
+                                  <span className="text-[14px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
+                                  <span className="text-[12px] text-gray-400">{review.date}</span>
+                                </div>
+                                <p className="mt-3 line-clamp-3 text-[14px] leading-relaxed text-gray-800">{review.content}</p>
+                                <p className="mt-3 text-[12px] font-semibold text-gray-500">{review.name}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    {displayReviews.slice(0, 3).map((review) => (
-                      <div key={review.id} className="rounded-lg bg-gray-50 p-5">
-                        <div className="flex items-center gap-2">
-                          <StarRating value={review.rating} size={14} />
-                          <span className="text-[14px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
-                          <span className="text-[12px] text-gray-400">{review.date}</span>
-                        </div>
-                        <p className="mt-3 line-clamp-3 text-[14px] leading-relaxed text-gray-800">{review.content}</p>
-                        <p className="mt-3 text-[12px] font-semibold text-gray-500">{review.name}</p>
-                      </div>
-                    ))}
-                    {displayReviews.length === 0 && hasReviewMetricOnly && (
-                      <div className="col-span-2 rounded-lg bg-gray-50 p-5">
+                    ) : hasReviewMetricOnly ? (
+                      <div className="rounded-lg bg-gray-50 p-5">
                         <div className="flex items-center gap-2">
                           <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
                           <span className="text-[14px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
@@ -1402,9 +1407,8 @@ export default function ProDetailPage() {
                         </div>
                         <p className="mt-3 text-[14px] leading-relaxed text-gray-600">{metricOnlyReviewMessage}</p>
                       </div>
-                    )}
-                    {displayReviews.length === 0 && !hasReviewMetricOnly && (
-                      <div className="col-span-2 rounded-lg bg-gray-50 p-5 text-[14px] leading-relaxed text-gray-500">
+                    ) : (
+                      <div className="rounded-lg bg-gray-50 p-5 text-[14px] leading-relaxed text-gray-500">
                         아직 표시할 리뷰가 없습니다. 리뷰가 등록되면 이곳에 바로 보여집니다.
                       </div>
                     )}
@@ -2767,6 +2771,17 @@ export default function ProDetailPage() {
         @keyframes slideInLeft {
           0% { opacity: 0; transform: translateX(-12px); }
           100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes recentReviewsSlideLTR {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+        .recent-reviews-carousel {
+          animation: recentReviewsSlideLTR 34s linear infinite;
+          will-change: transform;
+        }
+        .recent-reviews-carousel:hover {
+          animation-play-state: paused;
         }
         @keyframes primeShine {
           0%, 100% { box-shadow: 0 0 0 rgba(49,128,247,0); }
