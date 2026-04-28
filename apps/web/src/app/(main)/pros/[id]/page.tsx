@@ -1430,10 +1430,10 @@ export default function ProDetailPage() {
                   <div className="relative overflow-hidden rounded-lg">
                     {displayReviews.length > 0 ? (
                       <div className="grid grid-cols-[286px_minmax(0,1fr)] gap-3">
-                        <div className="ai-review-summary-card relative h-[164px] overflow-hidden rounded-lg border border-[#CFE2FF] bg-[#F7FBFF] p-5">
+                        <div className="ai-review-summary-card relative flex h-[164px] flex-col overflow-hidden rounded-lg border border-[#CFE2FF] bg-[#F7FBFF] p-5">
                           <div className="relative z-10 flex items-center gap-2">
-                            <span className="ai-review-summary-icon flex h-7 w-7 items-center justify-center rounded-full bg-[#3180F7] text-white">
-                              <Sparkles size={15} />
+                            <span className="ai-review-summary-icon flex h-6 w-6 items-center justify-center text-[#3180F7]">
+                              <Sparkles size={20} fill="#3180F7" stroke="#3180F7" strokeWidth={1.6} />
                             </span>
                             <div>
                               <p className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</p>
@@ -1443,11 +1443,11 @@ export default function ProDetailPage() {
                               </p>
                             </div>
                           </div>
-                          <p className="ai-review-summary-copy relative z-10 mt-3 line-clamp-3 text-[14px] leading-relaxed text-gray-800">
+                          <p className="ai-review-summary-copy relative z-10 mt-3 line-clamp-2 text-[14px] leading-relaxed text-gray-800">
                             {aiReviewSummary?.text}
                             <span className="ai-review-summary-cursor" aria-hidden="true" />
                           </p>
-                          <div className="absolute bottom-4 left-5 right-5 z-10 flex flex-wrap gap-1.5">
+                          <div className="relative z-10 mt-auto flex flex-wrap gap-1.5 pt-2">
                             {aiReviewSummary?.keywords.map((keyword) => (
                               <span key={keyword} className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-semibold text-[#3180F7] shadow-sm">
                                 {keyword}
@@ -2872,8 +2872,8 @@ export default function ProDetailPage() {
           40% { opacity: 1; transform: translateY(-1px); }
         }
         @keyframes aiReviewIconPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(49,128,247,0.24); }
-          50% { box-shadow: 0 0 0 6px rgba(49,128,247,0); }
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(49,128,247,0)); }
+          50% { transform: scale(1.08); filter: drop-shadow(0 4px 8px rgba(49,128,247,0.22)); }
         }
         .ai-review-summary-card::before {
           content: '';
@@ -2885,6 +2885,7 @@ export default function ProDetailPage() {
           pointer-events: none;
         }
         .ai-review-summary-icon {
+          transform-origin: center;
           animation: aiReviewIconPulse 2s ease-in-out infinite;
         }
         .ai-review-summary-copy {
