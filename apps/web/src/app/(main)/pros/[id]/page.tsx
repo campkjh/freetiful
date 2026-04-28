@@ -1447,9 +1447,9 @@ export default function ProDetailPage() {
                             {aiReviewSummary?.text}
                             <span className="ai-review-summary-cursor" aria-hidden="true" />
                           </p>
-                          <div className="relative z-10 mt-auto flex flex-wrap gap-1.5 pt-2">
+                          <div className="relative z-10 mt-auto flex flex-wrap gap-1 pt-2">
                             {aiReviewSummary?.keywords.map((keyword) => (
-                              <span key={keyword} className="ai-review-keyword-pill rounded-full px-2 py-1 text-[11px] font-semibold text-[#3180F7]">
+                              <span key={keyword} className="ai-review-keyword-pill px-2 py-1 text-[11px] font-semibold text-gray-950">
                                 {keyword}
                               </span>
                             ))}
@@ -2953,9 +2953,10 @@ export default function ProDetailPage() {
           animation: aiReviewIconPulse 2s ease-in-out infinite;
         }
         .ai-review-keyword-pill {
-          border: 1px solid rgba(49,128,247,0.14);
-          background: rgba(255,255,255,0.74);
-          box-shadow: 0 4px 12px rgba(49,128,247,0.08);
+          border: 1px solid rgba(17,24,39,0.08);
+          border-radius: 10px;
+          background: rgba(17,24,39,0.08);
+          box-shadow: 0 3px 10px rgba(17,24,39,0.05);
           backdrop-filter: blur(8px);
         }
         .ai-review-summary-copy {
