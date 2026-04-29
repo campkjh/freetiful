@@ -20,7 +20,7 @@ import {
   isPopularBusinessPartner,
   sortPopularPartnersFirst,
 } from '@/lib/business-popularity';
-import { deriveBusinessTagSuggestions } from '@/lib/business-tags';
+import { deriveBusinessTagSuggestions, extractBusinessTagsFromHtml } from '@/lib/business-tags';
 import {
   getWeddingPartnerImageSet,
   getWeddingPartnerSectionCategories,
@@ -1187,14 +1187,17 @@ export default function HomePage() {
             new Set(displayCategories.filter((name): name is string => Boolean(name && name !== '인기'))),
           );
           const address = b.address || '';
+          const markerTags = extractBusinessTagsFromHtml(b.descriptionHtml);
           const sourceTags = Array.isArray(b.tags) && b.tags.length > 0
             ? b.tags
-            : deriveBusinessTagSuggestions({
-              businessName,
-              businessType: b.businessType,
-              address,
-              categoryNames: businessCategories,
-            });
+            : markerTags.length > 0
+              ? markerTags
+              : deriveBusinessTagSuggestions({
+                businessName,
+                businessType: b.businessType,
+                address,
+                categoryNames: businessCategories,
+              });
           return {
             id: b.id || String(i),
             category: businessCategories[0] || b.businessType || '웨딩홀',

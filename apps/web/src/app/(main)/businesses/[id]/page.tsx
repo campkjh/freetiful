@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Share2, Heart, MapPin, Phone, Globe, Instagram } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
-import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
+import {
+  deriveBusinessTagSuggestions,
+  extractBusinessTagsFromHtml,
+  normalizeBusinessTags,
+  stripBusinessTagMarker,
+} from '@/lib/business-tags';
 import {
   getWeddingPartnerImageSet,
   getWeddingPartnerSectionCategories,
@@ -76,17 +81,21 @@ export default function BusinessDetailPage() {
     ...getWeddingPartnerSectionCategories(partnerImageSet),
   ]));
   const category = categoryNames[0] || partnerImageSet?.category || '웨딩파트너';
+  const markerTags = extractBusinessTagsFromHtml(biz.descriptionHtml);
   const tags = normalizeBusinessTags(
     Array.isArray(biz.tags) && biz.tags.length > 0
       ? biz.tags
-      : deriveBusinessTagSuggestions({
-        businessName: biz.businessName,
-        businessType: biz.businessType,
-        address: biz.address,
-        categoryNames,
-      }),
+      : markerTags.length > 0
+        ? markerTags
+        : deriveBusinessTagSuggestions({
+          businessName: biz.businessName,
+          businessType: biz.businessType,
+          address: biz.address,
+          categoryNames,
+        }),
     6,
   );
+  const descriptionHtml = stripBusinessTagMarker(biz.descriptionHtml);
 
   return (
     <div className="bg-white min-h-screen pb-24">
@@ -179,12 +188,12 @@ export default function BusinessDetailPage() {
         )}
       </div>
 
-      {biz.descriptionHtml && (
+      {descriptionHtml && (
         <div className="px-4 py-5">
           <h3 className="text-sm font-bold text-gray-900 mb-3">소개</h3>
           <div
             className="prose prose-sm max-w-none text-gray-600"
-            dangerouslySetInnerHTML={{ __html: biz.descriptionHtml }}
+            dangerouslySetInnerHTML={{ __html: descriptionHtml }}
           />
         </div>
       )}

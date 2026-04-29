@@ -29,6 +29,8 @@ const NAME_TAG_RULES: Array<{ test: RegExp; tags: string[] }> = [
   { test: /헤어|메이크|메이크업|살롱/i, tags: ['신부스타일링', '혼주스타일링'] },
 ];
 
+const TAG_MARKER_RE = /<!--freetiful-business-tags:([A-Za-z0-9+/=]+)-->/;
+
 export function normalizeBusinessTags(values: unknown[], max = 6) {
   const seen = new Set<string>();
   const tags: string[] = [];
@@ -42,6 +44,52 @@ export function normalizeBusinessTags(values: unknown[], max = 6) {
   }
 
   return tags;
+}
+
+function encodeUtf8Base64(value: string) {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(value, 'utf8').toString('base64');
+  }
+
+  const binary = encodeURIComponent(value).replace(/%([0-9A-F]{2})/g, (_, hex) => {
+    return String.fromCharCode(Number.parseInt(hex, 16));
+  });
+  return btoa(binary);
+}
+
+function decodeUtf8Base64(value: string) {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(value, 'base64').toString('utf8');
+  }
+
+  const binary = atob(value);
+  const escaped = Array.from(binary, (char) => {
+    return `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`;
+  }).join('');
+  return decodeURIComponent(escaped);
+}
+
+export function extractBusinessTagsFromHtml(html?: string | null) {
+  const encoded = html?.match(TAG_MARKER_RE)?.[1];
+  if (!encoded) return [];
+
+  try {
+    return normalizeBusinessTags(JSON.parse(decodeUtf8Base64(encoded)), 6);
+  } catch {
+    return [];
+  }
+}
+
+export function stripBusinessTagMarker(html?: string | null) {
+  return String(html || '').replace(TAG_MARKER_RE, '').trim();
+}
+
+export function withBusinessTagMarker(html: string | null | undefined, tags: unknown[]) {
+  const cleanHtml = stripBusinessTagMarker(html);
+  const normalizedTags = normalizeBusinessTags(tags, 6);
+  if (normalizedTags.length === 0) return cleanHtml;
+
+  return `${cleanHtml}\n<!--freetiful-business-tags:${encodeUtf8Base64(JSON.stringify(normalizedTags))}-->`.trim();
 }
 
 export function deriveBusinessTagSuggestions(input: {

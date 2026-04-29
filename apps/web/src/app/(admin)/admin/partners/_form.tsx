@@ -22,7 +22,13 @@ import {
   type AdminPartnerInput,
   type AdminBusinessCategory,
 } from '@/lib/api/admin-partners.api';
-import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
+import {
+  deriveBusinessTagSuggestions,
+  extractBusinessTagsFromHtml,
+  normalizeBusinessTags,
+  stripBusinessTagMarker,
+  withBusinessTagMarker,
+} from '@/lib/business-tags';
 
 type ImageItem = AdminPartnerDetail['images'][number];
 
@@ -92,11 +98,14 @@ export default function PartnerForm({ mode, partnerId }: Props) {
         setInstagramUrl(d.instagramUrl || '');
         setWebsiteUrl(d.websiteUrl || '');
         setVideoUrl(d.videoUrl || '');
-        setDescriptionHtml(d.descriptionHtml || '');
+        setDescriptionHtml(stripBusinessTagMarker(d.descriptionHtml || ''));
         setStatus(d.status || 'approved');
         const loadedCategories = (d.categories || []).map((c) => c.category?.name).filter(Boolean) as string[];
         setSelectedCategories(loadedCategories);
-        const loadedTags = normalizeBusinessTags(Array.isArray(d.tags) ? d.tags : [], 6);
+        const loadedTags = normalizeBusinessTags([
+          ...(Array.isArray(d.tags) ? d.tags : []),
+          ...extractBusinessTagsFromHtml(d.descriptionHtml),
+        ], 6);
         setTags(loadedTags.length > 0 ? loadedTags : deriveBusinessTagSuggestions({
           businessName: d.businessName,
           businessType: d.businessType,
@@ -153,7 +162,7 @@ export default function PartnerForm({ mode, partnerId }: Props) {
     instagramUrl: instagramUrl.trim() || null,
     websiteUrl: websiteUrl.trim() || null,
     videoUrl: videoUrl.trim() || null,
-    descriptionHtml: descriptionHtml || null,
+    descriptionHtml: withBusinessTagMarker(descriptionHtml, tags) || null,
     tags,
     categoryNames: selectedCategories,
     status,

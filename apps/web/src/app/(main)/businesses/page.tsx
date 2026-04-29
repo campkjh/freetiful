@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronDown, ChevronUp, SlidersHorizontal, Heart, X, MapPi
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
-import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
+import { deriveBusinessTagSuggestions, extractBusinessTagsFromHtml, normalizeBusinessTags } from '@/lib/business-tags';
 import {
   getWeddingPartnerImageSet,
   getWeddingPartnerSectionCategories,
@@ -129,15 +129,18 @@ export default function BusinessListPage() {
             ]));
             const displayCategory = displayCategories[0] || b.businessType || '전체';
             const address = b.address || '';
+            const markerTags = extractBusinessTagsFromHtml(b.descriptionHtml);
             const tags = normalizeBusinessTags(
               Array.isArray(b.tags) && b.tags.length > 0
                 ? b.tags
-                : deriveBusinessTagSuggestions({
-                  businessName,
-                  businessType: b.businessType,
-                  address,
-                  categoryNames: displayCategories,
-                }),
+                : markerTags.length > 0
+                  ? markerTags
+                  : deriveBusinessTagSuggestions({
+                    businessName,
+                    businessType: b.businessType,
+                    address,
+                    categoryNames: displayCategories,
+                  }),
               5,
             );
             const region = address.split(' ')[0] || displayCategory || '';
