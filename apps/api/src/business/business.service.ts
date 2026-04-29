@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { resolveBusinessTags } from './business-tags';
+import { resolveBusinessTags, stripBusinessTagMarker } from './business-tags';
 
 @Injectable()
 export class BusinessService {
@@ -35,7 +35,11 @@ export class BusinessService {
     ]);
 
     return {
-      items: items.map((item) => ({ ...item, tags: resolveBusinessTags(item) })),
+      items: items.map((item) => ({
+        ...item,
+        descriptionHtml: stripBusinessTagMarker(item.descriptionHtml),
+        tags: resolveBusinessTags(item),
+      })),
       total,
       page,
       limit,
@@ -65,6 +69,10 @@ export class BusinessService {
       data: { profileViews: { increment: 1 } },
     });
 
-    return { ...business, tags: resolveBusinessTags(business) };
+    return {
+      ...business,
+      descriptionHtml: stripBusinessTagMarker(business.descriptionHtml),
+      tags: resolveBusinessTags(business),
+    };
   }
 }

@@ -29,6 +29,8 @@ const NAME_TAG_RULES: Array<{ test: RegExp; tags: string[] }> = [
   { test: /헤어|메이크|메이크업|살롱/i, tags: ['신부스타일링', '혼주스타일링'] },
 ];
 
+const TAG_MARKER_RE = /<!--freetiful-business-tags:([A-Za-z0-9+/=]+)-->/;
+
 function uniqueClean(values: unknown[], max = 6) {
   const seen = new Set<string>();
   const cleaned: string[] = [];
@@ -46,6 +48,31 @@ function uniqueClean(values: unknown[], max = 6) {
 
 export function normalizeBusinessTags(values: unknown, max = 6) {
   return uniqueClean(Array.isArray(values) ? values : [], max);
+}
+
+export function extractBusinessTagsFromHtml(html?: string | null) {
+  const encoded = html?.match(TAG_MARKER_RE)?.[1];
+  if (!encoded) return [];
+
+  try {
+    return normalizeBusinessTags(JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')));
+  } catch {
+    return [];
+  }
+}
+
+export function stripBusinessTagMarker(html?: string | null) {
+  const stripped = String(html || '').replace(TAG_MARKER_RE, '').trim();
+  return stripped || null;
+}
+
+export function withBusinessTagMarker(html: string | null | undefined, tags: unknown) {
+  const cleanHtml = stripBusinessTagMarker(html);
+  const normalizedTags = normalizeBusinessTags(tags);
+  if (normalizedTags.length === 0) return cleanHtml;
+
+  const encoded = Buffer.from(JSON.stringify(normalizedTags), 'utf8').toString('base64');
+  return `${cleanHtml || ''}\n<!--freetiful-business-tags:${encoded}-->`.trim();
 }
 
 export function deriveBusinessTags(input: {
@@ -73,10 +100,14 @@ export function resolveBusinessTags(business: {
   businessType?: string | null;
   address?: string | null;
   tags?: string[] | null;
+  descriptionHtml?: string | null;
   categories?: Array<{ category?: { name?: string | null } | null }>;
 }) {
   const storedTags = normalizeBusinessTags(business.tags);
   if (storedTags.length > 0) return storedTags;
+
+  const markerTags = extractBusinessTagsFromHtml(business.descriptionHtml);
+  if (markerTags.length > 0) return markerTags;
 
   return deriveBusinessTags({
     businessName: business.businessName,

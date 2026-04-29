@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { createHash } from 'crypto';
 import { BusinessStatus, PrismaClient, UserRole } from '@prisma/client';
-import { deriveBusinessTags } from '../src/business/business-tags';
+import { deriveBusinessTags, withBusinessTagMarker } from '../src/business/business-tags';
 
 const prisma = new PrismaClient();
 
@@ -122,6 +122,10 @@ async function upsertBusinessFromNaver(categoryName: (typeof CATEGORIES)[number]
     address,
     categoryNames: [categoryName],
   });
+  const descriptionHtml = withBusinessTagMarker(
+    `<p>${name}은(는) 네이버 지역검색 기준으로 등록된 ${categoryName} 파트너입니다.</p>${address ? `<p><strong>주소</strong> ${address}</p>` : ''}`,
+    tags,
+  );
   const sourceKey = hashKey(`${categoryName}:${name}:${address || link}`);
   const email = `naver-${sourceKey.slice(0, 16)}@freetiful.local`;
 
@@ -152,9 +156,8 @@ async function upsertBusinessFromNaver(categoryName: (typeof CATEGORIES)[number]
       businessType: categoryName,
       address,
       phone: phone || null,
-      tags,
       websiteUrl: link || null,
-      descriptionHtml: `<p>${name}은(는) 네이버 지역검색 기준으로 등록된 ${categoryName} 파트너입니다.</p>${address ? `<p><strong>주소</strong> ${address}</p>` : ''}`,
+      descriptionHtml,
       approvedAt: new Date(),
     },
     update: {
@@ -163,9 +166,8 @@ async function upsertBusinessFromNaver(categoryName: (typeof CATEGORIES)[number]
       businessType: categoryName,
       address,
       phone: phone || null,
-      tags,
       websiteUrl: link || null,
-      descriptionHtml: `<p>${name}은(는) 네이버 지역검색 기준으로 등록된 ${categoryName} 파트너입니다.</p>${address ? `<p><strong>주소</strong> ${address}</p>` : ''}`,
+      descriptionHtml,
       approvedAt: new Date(),
     },
     select: { id: true },
