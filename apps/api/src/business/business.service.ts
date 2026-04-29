@@ -44,7 +44,7 @@ export class BusinessService {
         where,
         skip,
         take: normalizedLimit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'asc' },
         select: {
           id: true,
           businessName: true,

@@ -550,7 +550,7 @@ const WEDDING_PARTNER_SECTION_ORDER = BIZ_CATEGORIES.filter((category) => catego
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
-const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v5';
+const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v6';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 function BusinessCard({ biz }: { biz: BusinessPartner }) {
@@ -1175,9 +1175,9 @@ export default function HomePage() {
             ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
             : [];
           const mergedImages = mergeWeddingPartnerImages(
+            partnerImageSet?.images,
             [b.image, b.imageUrl],
             apiImages,
-            partnerImageSet?.images,
           );
           const displayCategories = Array.from(new Set([
             ...(visibleCategories.length > 0 ? visibleCategories : categories),
