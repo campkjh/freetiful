@@ -235,6 +235,44 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';
 
+  const syncViewMode = (nextViewAsUser: boolean) => {
+    try {
+      if (nextViewAsUser) localStorage.setItem('viewAsUser', 'true');
+      else localStorage.removeItem('viewAsUser');
+    } catch {}
+    setViewAsUser(nextViewAsUser);
+    setIsPro(actualIsPro && !nextViewAsUser);
+    window.dispatchEvent(new CustomEvent('freetiful:view-mode-changed', { detail: { viewAsUser: nextViewAsUser } }));
+  };
+
+  const handleViewModeToggle = () => {
+    const nextViewAsUser = isPro;
+    syncViewMode(nextViewAsUser);
+
+    if (pathname === '/my') return;
+    router.push(nextViewAsUser ? '/main' : '/pro-dashboard');
+  };
+
+  useEffect(() => {
+    const syncFromStorage = () => {
+      if (!actualIsPro) {
+        setViewAsUser(false);
+        setIsPro(false);
+        return;
+      }
+      const viewing = localStorage.getItem('viewAsUser') === 'true';
+      setViewAsUser(viewing);
+      setIsPro(!viewing);
+    };
+
+    window.addEventListener('storage', syncFromStorage);
+    window.addEventListener('freetiful:view-mode-changed', syncFromStorage);
+    return () => {
+      window.removeEventListener('storage', syncFromStorage);
+      window.removeEventListener('freetiful:view-mode-changed', syncFromStorage);
+    };
+  }, [actualIsPro]);
+
   // pathname 변경 시 collapsing 리셋
   useEffect(() => {
     setBizCollapsing(false);
@@ -375,19 +413,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 {actualIsPro && (
                   <button
                     aria-label={isPro ? '일반 유저로 보기' : '프로 모드로 돌아가기'}
-                    onClick={() => {
-                      if (isPro) {
-                        localStorage.setItem('viewAsUser', 'true');
-                        setViewAsUser(true);
-                        setIsPro(false);
-                        router.push('/main');
-                      } else {
-                        localStorage.removeItem('viewAsUser');
-                        setViewAsUser(false);
-                        setIsPro(true);
-                        router.push('/pro-dashboard');
-                      }
-                    }}
+                    onClick={handleViewModeToggle}
                     className="shrink-0 w-[40px] h-[40px] rounded-full flex items-center justify-center text-gray-500 bg-gray-100/80 active:scale-90 transition-transform mr-1"
                   >
                     {isPro ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}

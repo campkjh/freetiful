@@ -165,6 +165,24 @@ function readStoredProCategory() {
   }
 }
 
+function readViewAsUserFlag() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem('viewAsUser') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeViewAsUserFlag(enabled: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (enabled) localStorage.setItem('viewAsUser', 'true');
+    else localStorage.removeItem('viewAsUser');
+  } catch {}
+  window.dispatchEvent(new CustomEvent('freetiful:view-mode-changed', { detail: { viewAsUser: enabled } }));
+}
+
 function writeStoredProProfileStatus(status: 'draft' | 'pending' | 'approved' | 'rejected' | null) {
   if (typeof window === 'undefined') return;
   try {
@@ -356,6 +374,7 @@ export default function MyPage() {
   const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(null);
   const [proCategoryName, setProCategoryName] = useState<string>(() => readStoredProCategory());
   const [isPro, setIsPro] = useState(false);
+  const [viewAsUser, setViewAsUser] = useState(() => readViewAsUserFlag());
   const [couponCount, setCouponCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
   // 프로 통계 (이번달 매출 / 총 리뷰 / 푸딩)
@@ -375,6 +394,17 @@ export default function MyPage() {
     } catch { return false; }
   })();
   const animOrNone = (base: React.CSSProperties) => skipAnim ? undefined : base;
+
+  useEffect(() => {
+    const syncViewAsUser = () => setViewAsUser(readViewAsUserFlag());
+    syncViewAsUser();
+    window.addEventListener('storage', syncViewAsUser);
+    window.addEventListener('freetiful:view-mode-changed', syncViewAsUser);
+    return () => {
+      window.removeEventListener('storage', syncViewAsUser);
+      window.removeEventListener('freetiful:view-mode-changed', syncViewAsUser);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -542,17 +572,23 @@ export default function MyPage() {
     }
 
     if (proProfileStatus === 'approved') {
-      if (authUser) {
-        usersApi.switchRole('pro').then(() => {
-          useAuthStore.getState().setUser({ ...authUser, role: 'pro' as any });
-          window.location.reload();
-        }).catch(() => {
-          setProProfileStatus(null);
-          setProRegistrationPending(false);
-          clearStoredProModeForCurrentAccount();
-          router.push('/pro-register/terms');
-        });
+      writeViewAsUserFlag(false);
+      setViewAsUser(false);
+
+      if (authUser.role === 'pro') {
+        setIsPro(true);
+        return;
       }
+
+      usersApi.switchRole('pro').then((updatedUser) => {
+        useAuthStore.getState().setUser({ ...authUser, ...updatedUser, role: 'pro' as any });
+        setIsPro(true);
+      }).catch(() => {
+        setProProfileStatus(null);
+        setProRegistrationPending(false);
+        clearStoredProModeForCurrentAccount();
+        router.push('/pro-register/terms');
+      });
     } else {
       router.push('/pro-register/terms');
     }
@@ -587,19 +623,16 @@ export default function MyPage() {
   };
 
   const handleSwitchToGeneral = () => {
-    if (authUser) {
-      usersApi.switchRole('general').then(() => {
-        useAuthStore.getState().setUser({ ...authUser, role: 'general' as any });
-        window.location.reload();
-      }).catch(() => {});
-    } else {
-      localStorage.setItem('userRole', 'general');
-      window.location.reload();
-    }
+    writeViewAsUserFlag(true);
+    setViewAsUser(true);
   };
 
   // 승인된 프로만 PRO 뷰로 분기. role=pro 이지만 ProProfile 미승인인 경우는 일반 뷰로 폴백.
-  const isApprovedPro = isPro && proProfileStatus === 'approved';
+  const isApprovedPro = isPro && proProfileStatus === 'approved' && !viewAsUser;
+  const partnerSwitchTitle = isPro && viewAsUser ? '프로회원뷰로 전환하기 🎉' : '파트너스로 전환하기 🎉';
+  const partnerSwitchDescription = isPro && viewAsUser
+    ? '프로 승인 계정입니다. 전문가 마이페이지로 돌아가세요'
+    : '파트너 승인 완료! 지금 바로 전문가 모드로 시작하세요';
   if (isApprovedPro) {
     const isTopRank = (proStats.rank != null && proStats.rank <= 10) || proStats.pudding >= 100;
     return (
@@ -812,7 +845,7 @@ export default function MyPage() {
         )}
 
         {/* Pro Approved — 파트너스 전환 버튼 */}
-        {proProfileStatus === 'approved' && !isPro && (
+        {proProfileStatus === 'approved' && !isApprovedPro && (
           <button
             onClick={handlePartnerApply}
             className="mt-3 w-full rounded-xl bg-gradient-to-r from-[#3180F7] to-[#5B9AFE] px-4 py-4 flex items-center gap-3 shadow-[0_4px_16px_rgba(49,128,247,0.3)] active:scale-[0.98] transition-transform"
@@ -824,8 +857,8 @@ export default function MyPage() {
               </svg>
             </div>
             <div className="flex-1 text-left">
-              <p className="text-[15px] font-bold text-white">파트너스로 전환하기 🎉</p>
-              <p className="text-[12px] text-white/80 mt-0.5">파트너 승인 완료! 지금 바로 전문가 모드로 시작하세요</p>
+              <p className="text-[15px] font-bold text-white">{partnerSwitchTitle}</p>
+              <p className="text-[12px] text-white/80 mt-0.5">{partnerSwitchDescription}</p>
             </div>
             <ChevronRight size={20} className="text-white shrink-0" />
           </button>
