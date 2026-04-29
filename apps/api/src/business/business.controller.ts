@@ -14,8 +14,9 @@ export class BusinessController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
     @Query('search') search?: string,
+    @Query('category') category?: string,
   ) {
-    return this.businessService.getBusinesses(+page, +limit, search);
+    return this.businessService.getBusinesses(+page, +limit, search, category);
   }
 
   @Get(':id')

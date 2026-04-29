@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent, type WheelEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -57,21 +57,285 @@ const FILTER_GROUPS = [
 
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
-const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v5';
+const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v6';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
+const BUSINESS_PAGE_SIZE = 24;
+const BUSINESS_PREVIEW_LIMIT = 8;
+
+interface BusinessCachePayload {
+  data: RankItem[];
+  total: number;
+  page: number;
+  ts: number;
+}
+
+function getInitialBusinessCategory() {
+  if (typeof window === 'undefined') return '전체';
+  const category = new URLSearchParams(window.location.search).get('category');
+  return category && SUB_CATEGORIES.includes(category) ? category : '전체';
+}
+
+function getBusinessCacheKey(category: string) {
+  return `${BUSINESS_CACHE_KEY}:${category}`;
+}
+
+function readBusinessCache(category: string): BusinessCachePayload | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem(getBusinessCacheKey(category));
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    if (Date.now() - parsed.ts > BUSINESS_CACHE_TTL || !Array.isArray(parsed.data)) return null;
+    return {
+      data: parsed.data,
+      total: Number(parsed.total) || parsed.data.length,
+      page: Number(parsed.page) || 1,
+      ts: parsed.ts,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeBusinessCache(category: string, payload: Omit<BusinessCachePayload, 'ts'>) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(getBusinessCacheKey(category), JSON.stringify({ ...payload, ts: Date.now() }));
+  } catch {}
+}
+
+function getBusinessListParams(category: string, page: number, limit: number) {
+  return {
+    page,
+    limit,
+    ...(category !== '전체' ? { category } : {}),
+  };
+}
+
+function mapBusinessToRankItem(b: any, index: number, rankOffset = 0): RankItem {
+  const categories = Array.isArray(b.categories)
+    ? b.categories.map((c: any) => c?.category?.name).filter(Boolean)
+    : [];
+  const businessName = b.title || b.name || b.businessName || '';
+  const partnerImageSet = getWeddingPartnerImageSet(businessName, b.businessName, b.name, b.title);
+  const apiImages = Array.isArray(b.images)
+    ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
+    : [];
+  const mergedImages = mergeWeddingPartnerImages(
+    [b.image, b.imageUrl],
+    apiImages,
+    partnerImageSet?.images,
+  );
+  const displayCategories = Array.from(new Set([
+    ...categories.filter((name: string) => name !== '인기'),
+    ...getWeddingPartnerSectionCategories(partnerImageSet),
+  ]));
+  const displayCategory = displayCategories[0] || b.businessType || '전체';
+  const address = b.address || '';
+  const markerTags = extractBusinessTagsFromHtml(b.descriptionHtml);
+  const tags = normalizeBusinessTags(
+    Array.isArray(b.tags) && b.tags.length > 0
+      ? b.tags
+      : markerTags.length > 0
+        ? markerTags
+        : deriveBusinessTagSuggestions({
+          businessName,
+          businessType: b.businessType,
+          address,
+          categoryNames: displayCategories,
+        }),
+    5,
+  );
+  const region = address.split(' ')[0] || displayCategory || '';
+
+  return {
+    id: b.id || String(rankOffset + index),
+    rank: b.rank || rankOffset + index + 1,
+    category: displayCategory,
+    title: businessName,
+    region: b.region || region,
+    clinic: b.clinic || displayCategories.join(' · ') || region || b.businessType || '',
+    rating: b.rating ?? 0,
+    reviewCount: b.reviewCount ?? 0,
+    originalPrice: b.originalPrice,
+    discountPercent: b.discountPercent,
+    finalPrice: b.finalPrice ?? b.price ?? 0,
+    hasAppPay: b.hasAppPay ?? false,
+    hasAppBooking: b.hasAppBooking ?? false,
+    image: mergedImages[0] || '/images/default-profile.svg',
+    tags,
+    verifiedBadge: b.verifiedBadge,
+  };
+}
+
+function mapBusinesses(items: any[], rankOffset = 0) {
+  return items.map((business, index) => mapBusinessToRankItem(business, index, rankOffset));
+}
+
+interface BusinessRankListProps {
+  items: RankItem[];
+  favorites: Set<string>;
+  onToggleFav?: (id: string) => void;
+  muted?: boolean;
+}
+
+function BusinessRankList({ items, favorites, onToggleFav, muted = false }: BusinessRankListProps) {
+  return (
+    <div className={`divide-y divide-gray-50 bg-white ${muted ? 'pointer-events-none opacity-70' : ''}`}>
+      {items.map((item, index) => (
+        <Link
+          key={item.id}
+          href={`/businesses/${item.id}`}
+          tabIndex={muted ? -1 : 0}
+          aria-hidden={muted}
+          className="flex gap-3 px-4 py-4 group active:bg-gray-50/50 transition-colors"
+        >
+          <div className="relative w-[120px] h-[120px] shrink-0 rounded-xl overflow-hidden bg-gray-100">
+            <Image
+              src={item.image}
+              alt={item.title}
+              fill
+              priority={!muted && index < 2}
+              className="object-cover"
+              sizes="120px"
+            />
+            <div className="absolute top-0 left-0 w-[28px] h-[28px] bg-[#3180F7] flex items-center justify-center rounded-br-xl">
+              <span className="text-[15px] font-bold text-white">{item.rank}</span>
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0 flex flex-col">
+            {item.verifiedBadge && (
+              <div className="flex items-center gap-1 mb-0.5">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#3180F7">
+                  <path d="M12 2l2.5 4.5 5 .5-3.5 3.5 1 5-5-2.5-5 2.5 1-5L4.5 7l5-.5L12 2z" />
+                </svg>
+                <span className="text-[11px] font-bold text-[#3180F7]">{item.verifiedBadge}</span>
+              </div>
+            )}
+
+            <p className="text-[15px] font-bold text-gray-900 leading-[1.3] line-clamp-2 pr-6">{item.title}</p>
+            <p className="text-[12px] text-gray-500 mt-0.5 leading-tight">
+              {item.region} · {item.clinic}
+            </p>
+
+            {item.tags.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {item.tags.slice(0, 3).map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[10px] font-bold text-[#3180F7]"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-1 mt-0.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="#FFB800">
+                <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
+              </svg>
+              <span className="text-[13px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
+              <span className="text-[12px] text-gray-400">({item.reviewCount})</span>
+            </div>
+
+            <div className="mt-1">
+              {item.originalPrice && item.discountPercent ? (
+                <>
+                  <div className="flex items-center gap-1.5 leading-tight">
+                    <span className="text-[11px] text-gray-400">VAT 포함 ·</span>
+                    <span className="text-[12px] text-gray-400 line-through">{item.originalPrice.toLocaleString()}원</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 leading-tight">
+                    <span className="text-[15px] font-bold text-[#3180F7]">{item.discountPercent}%</span>
+                    <span className="text-[17px] font-bold text-gray-900">{item.finalPrice.toLocaleString()}원</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-[11px] text-gray-400 leading-tight">VAT 포함</div>
+                  <div className="text-[17px] font-bold text-gray-900 leading-tight">{item.finalPrice.toLocaleString()}원</div>
+                </>
+              )}
+
+              <div className="flex items-center gap-1.5 mt-1">
+                {item.hasAppPay && (
+                  <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#EAF3FF] text-[10px] font-bold text-[#3180F7]">
+                    <span className="w-3 h-3 rounded-sm bg-[#3180F7] flex items-center justify-center text-white text-[8px]">$</span>
+                    앱결제
+                  </span>
+                )}
+                {item.hasAppBooking && (
+                  <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#E7F9EC] text-[10px] font-bold text-[#00A550]">
+                    <span className="w-3 h-3 rounded-sm bg-[#00A550] flex items-center justify-center text-white text-[8px]">✓</span>
+                    앱예약
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {!muted && onToggleFav && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); onToggleFav(item.id); }}
+              className="shrink-0 self-start p-1 active:scale-90 transition-transform"
+              aria-label={favorites.has(item.id) ? '찜 해제' : '찜하기'}
+            >
+              <Heart
+                size={22}
+                className={favorites.has(item.id) ? 'fill-[#FF4D4D] text-[#FF4D4D]' : 'text-gray-300'}
+              />
+            </button>
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 // ─── Page ──────────────────────────────────────────────────
 export default function BusinessListPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-biz') : true);
+  const [initialBusinessSnapshot] = useState(() => {
+    const category = getInitialBusinessCategory();
+    const cache = readBusinessCache(category);
+    return { category, cache };
+  });
+  const [loading, setLoading] = useState(() => !initialBusinessSnapshot.cache?.data.length);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('전국');
-  const [selectedCategory, setSelectedCategory] = useState('전체');
+  const [selectedCategory, setSelectedCategory] = useState(initialBusinessSnapshot.category);
   const categoryTabsRef = useRef<HTMLDivElement | null>(null);
   const activeTabRef = useRef<HTMLButtonElement | null>(null);
+  const listViewportRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeOffsetRef = useRef(0);
+  const lastWheelSwipeAtRef = useRef(0);
   const [tabIndicator, setTabIndicator] = useState({ left: 28, width: 36 });
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [rankItems, setRankItems] = useState<RankItem[]>(MOCK_RANK_ITEMS);
+  const [rankItems, setRankItems] = useState<RankItem[]>(() => initialBusinessSnapshot.cache?.data ?? MOCK_RANK_ITEMS);
+  const [businessPage, setBusinessPage] = useState(() => initialBusinessSnapshot.cache?.page ?? 1);
+  const [businessTotal, setBusinessTotal] = useState(() => initialBusinessSnapshot.cache?.total ?? initialBusinessSnapshot.cache?.data.length ?? 0);
+  const [categoryPreviewItems, setCategoryPreviewItems] = useState<Record<string, RankItem[]>>(() => {
+    const cache = initialBusinessSnapshot.cache;
+    return cache?.data.length ? { [initialBusinessSnapshot.category]: cache.data.slice(0, BUSINESS_PREVIEW_LIMIT) } : {};
+  });
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [listViewportWidth, setListViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 360));
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<Record<string, Set<string>>>(() =>
+    Object.fromEntries(FILTER_GROUPS.map((g) => [g.key, new Set<string>()]))
+  );
+
+  const currentCategoryIndex = SUB_CATEGORIES.indexOf(selectedCategory);
+  const previousCategory = currentCategoryIndex > 0 ? SUB_CATEGORIES[currentCategoryIndex - 1] : null;
+  const nextCategory = currentCategoryIndex >= 0 && currentCategoryIndex < SUB_CATEGORIES.length - 1
+    ? SUB_CATEGORIES[currentCategoryIndex + 1]
+    : null;
 
   const updateTabIndicator = useCallback(() => {
     const activeTab = activeTabRef.current;
@@ -84,6 +348,8 @@ export default function BusinessListPage() {
 
   const selectCategory = useCallback((category: string) => {
     setSelectedCategory(category);
+    swipeOffsetRef.current = 0;
+    setSwipeOffset(0);
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (category === '전체') params.delete('category');
@@ -92,83 +358,87 @@ export default function BusinessListPage() {
     window.history.replaceState(null, '', `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`);
   }, []);
 
-  // Fetch businesses from API
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem(BUSINESS_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.ts < BUSINESS_CACHE_TTL && Array.isArray(parsed.data)) {
-          setRankItems(parsed.data);
-        }
-      }
-    } catch {}
+    let cancelled = false;
+    const cached = readBusinessCache(selectedCategory);
+    if (cached?.data.length) {
+      setRankItems(cached.data);
+      setBusinessTotal(cached.total);
+      setBusinessPage(cached.page);
+      setLoading(false);
+      setCategoryPreviewItems((prev) => ({
+        ...prev,
+        [selectedCategory]: cached.data.slice(0, BUSINESS_PREVIEW_LIMIT),
+      }));
+    } else {
+      setRankItems([]);
+      setBusinessTotal(0);
+      setBusinessPage(1);
+      setLoading(true);
+    }
 
-    apiClient.get('/api/v1/business', { params: { limit: 100 } })
+    apiClient.get('/api/v1/business', { params: getBusinessListParams(selectedCategory, 1, BUSINESS_PAGE_SIZE) })
       .then((res) => {
+        if (cancelled) return;
         const data = res.data;
         const items = Array.isArray(data) ? data : data?.items;
-        if (Array.isArray(items) && items.length > 0) {
-          const mapped = items.map((b: any, i: number) => {
-            const categories = Array.isArray(b.categories)
-              ? b.categories.map((c: any) => c?.category?.name).filter(Boolean)
-              : [];
-            const businessName = b.title || b.name || b.businessName || '';
-            const partnerImageSet = getWeddingPartnerImageSet(businessName, b.businessName, b.name, b.title);
-            const apiImages = Array.isArray(b.images)
-              ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
-              : [];
-            const mergedImages = mergeWeddingPartnerImages(
-              [b.image, b.imageUrl],
-              apiImages,
-              partnerImageSet?.images,
-            );
-            const displayCategories = Array.from(new Set([
-              ...categories.filter((name: string) => name !== '인기'),
-              ...getWeddingPartnerSectionCategories(partnerImageSet),
-            ]));
-            const displayCategory = displayCategories[0] || b.businessType || '전체';
-            const address = b.address || '';
-            const markerTags = extractBusinessTagsFromHtml(b.descriptionHtml);
-            const tags = normalizeBusinessTags(
-              Array.isArray(b.tags) && b.tags.length > 0
-                ? b.tags
-                : markerTags.length > 0
-                  ? markerTags
-                  : deriveBusinessTagSuggestions({
-                    businessName,
-                    businessType: b.businessType,
-                    address,
-                    categoryNames: displayCategories,
-                  }),
-              5,
-            );
-            const region = address.split(' ')[0] || displayCategory || '';
-            return {
-              id: b.id || String(i),
-              rank: b.rank || i + 1,
-              category: displayCategory,
-              title: businessName,
-              region: b.region || region,
-              clinic: b.clinic || displayCategories.join(' · ') || region || b.businessType || '',
-              rating: b.rating ?? 0,
-              reviewCount: b.reviewCount ?? 0,
-              originalPrice: b.originalPrice,
-              discountPercent: b.discountPercent,
-              finalPrice: b.finalPrice ?? b.price ?? 0,
-              hasAppPay: b.hasAppPay ?? false,
-              hasAppBooking: b.hasAppBooking ?? false,
-              image: mergedImages[0] || '/images/default-profile.svg',
-              tags,
-              verifiedBadge: b.verifiedBadge,
-            };
-          });
-          setRankItems(mapped);
-          try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: mapped, ts: Date.now() })); } catch {}
-        }
+        const total = Number(data?.total) || (Array.isArray(items) ? items.length : 0);
+        const mapped = Array.isArray(items) ? mapBusinesses(items) : [];
+        setRankItems(mapped);
+        setBusinessTotal(total);
+        setBusinessPage(1);
+        setCategoryPreviewItems((prev) => ({
+          ...prev,
+          [selectedCategory]: mapped.slice(0, BUSINESS_PREVIEW_LIMIT),
+        }));
+        writeBusinessCache(selectedCategory, { data: mapped, total, page: 1 });
       })
-      .catch(() => { /* fallback to MOCK_RANK_ITEMS */ });
-  }, []);
+      .catch(() => {
+        if (!cached?.data.length) setRankItems(MOCK_RANK_ITEMS);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const categories = [previousCategory, nextCategory].filter((category): category is string => Boolean(category));
+
+    categories.forEach((category) => {
+      if (category in categoryPreviewItems) return;
+
+      const cached = readBusinessCache(category);
+      if (cached?.data.length) {
+        setCategoryPreviewItems((prev) => ({
+          ...prev,
+          [category]: cached.data.slice(0, BUSINESS_PREVIEW_LIMIT),
+        }));
+        return;
+      }
+
+      apiClient.get('/api/v1/business', { params: getBusinessListParams(category, 1, BUSINESS_PREVIEW_LIMIT) })
+        .then((res) => {
+          if (cancelled) return;
+          const data = res.data;
+          const items = Array.isArray(data) ? data : data?.items;
+          if (!Array.isArray(items)) return;
+          setCategoryPreviewItems((prev) => ({
+            ...prev,
+            [category]: mapBusinesses(items).slice(0, BUSINESS_PREVIEW_LIMIT),
+          }));
+        })
+        .catch(() => {});
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previousCategory, nextCategory, categoryPreviewItems]);
 
   useEffect(() => {
     const syncCategoryFromUrl = () => {
@@ -194,28 +464,41 @@ export default function BusinessListPage() {
     return () => window.removeEventListener('resize', updateTabIndicator);
   }, [updateTabIndicator]);
 
-  useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-biz', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
+  useEffect(() => {
+    const element = listViewportRef.current;
+    if (!element || typeof window === 'undefined') return;
+    const updateWidth = () => setListViewportWidth(element.clientWidth || window.innerWidth);
+
+    updateWidth();
+    let resizeObserver: ResizeObserver | null = null;
+    if ('ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(updateWidth);
+      resizeObserver.observe(element);
+    }
+    window.addEventListener('resize', updateWidth);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filters, setFilters] = useState<Record<string, Set<string>>>(() =>
-    Object.fromEntries(FILTER_GROUPS.map((g) => [g.key, new Set<string>()]))
-  );
 
-  const toggleFav = (id: string) => {
+  const toggleFav = useCallback((id: string) => {
     setFavorites((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const toggleFilterOption = (groupKey: string, option: string) => {
+  const toggleFilterOption = useCallback((groupKey: string, option: string) => {
     setFilters((prev) => {
       const next = { ...prev };
       const set = new Set(next[groupKey]);
@@ -224,15 +507,21 @@ export default function BusinessListPage() {
       next[groupKey] = set;
       return next;
     });
-  };
+  }, []);
 
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     setFilters(Object.fromEntries(FILTER_GROUPS.map((g) => [g.key, new Set<string>()])));
-  };
+  }, []);
 
-  const totalActiveFilters = Object.values(filters).reduce((sum, set) => sum + set.size, 0);
-  const activeFilterValues = Object.values(filters).flatMap((set) => Array.from(set));
-  const visibleRankItems = rankItems.filter((item) => {
+  const totalActiveFilters = useMemo(
+    () => Object.values(filters).reduce((sum, set) => sum + set.size, 0),
+    [filters],
+  );
+  const activeFilterValues = useMemo(
+    () => Object.values(filters).flatMap((set) => Array.from(set)),
+    [filters],
+  );
+  const visibleRankItems = useMemo(() => rankItems.filter((item) => {
     const categoryMatched = selectedCategory === '전체' || item.category === selectedCategory || item.clinic.includes(selectedCategory);
     const regionMatched = selectedRegion === '전국' || selectedRegion === '내 위치' || item.region.includes(selectedRegion);
     const detailMatched = activeFilterValues.length === 0 || activeFilterValues.some((value) => {
@@ -240,34 +529,126 @@ export default function BusinessListPage() {
       return target.includes(value);
     });
     return categoryMatched && regionMatched && detailMatched;
-  });
+  }), [activeFilterValues, rankItems, selectedCategory, selectedRegion]);
 
-  if (loading) {
-    return (
-      <div className="bg-white min-h-screen pb-20">
-        <div className="h-[52px] px-4 flex items-center gap-3">
-          <div className="skeleton w-6 h-6 rounded" />
-          <div className="skeleton h-5 w-24 rounded" />
-        </div>
-        <div className="px-4 py-2 flex gap-2">
-          {[1,2,3,4,5].map(i => <div key={i} className="skeleton h-8 w-16 rounded-full shrink-0" />)}
-        </div>
-        <div className="px-4 mt-4 space-y-4">
-          {[1,2,3,4].map(i => (
-            <div key={i} className="flex gap-3">
-              <div className="skeleton w-[100px] h-[100px] rounded-xl shrink-0" />
-              <div className="flex-1 space-y-2 py-1">
-                <div className="skeleton h-4 w-20 rounded" />
-                <div className="skeleton h-5 w-full rounded" />
-                <div className="skeleton h-3 w-32 rounded" />
-                <div className="skeleton h-4 w-24 rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+  const hasMoreBusinesses = businessTotal > rankItems.length;
+
+  const loadMoreBusinesses = useCallback(async () => {
+    if (loading || loadingMore || !hasMoreBusinesses) return;
+    const nextPage = businessPage + 1;
+    setLoadingMore(true);
+
+    try {
+      const res = await apiClient.get('/api/v1/business', {
+        params: getBusinessListParams(selectedCategory, nextPage, BUSINESS_PAGE_SIZE),
+      });
+      const data = res.data;
+      const items = Array.isArray(data) ? data : data?.items;
+      const total = Number(data?.total) || businessTotal;
+      const mapped = Array.isArray(items) ? mapBusinesses(items, rankItems.length) : [];
+      const ids = new Set(rankItems.map((item) => item.id));
+      const merged = [...rankItems, ...mapped.filter((item) => !ids.has(item.id))];
+
+      setBusinessTotal(total);
+      setBusinessPage(nextPage);
+      setRankItems(merged);
+      writeBusinessCache(selectedCategory, { data: merged, total, page: nextPage });
+      setCategoryPreviewItems((preview) => ({
+        ...preview,
+        [selectedCategory]: merged.slice(0, BUSINESS_PREVIEW_LIMIT),
+      }));
+    } catch {
+      toast.error('목록을 더 불러오지 못했습니다');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [businessPage, businessTotal, hasMoreBusinesses, loading, loadingMore, rankItems, selectedCategory]);
+
+  useEffect(() => {
+    const element = loadMoreRef.current;
+    if (!element || !hasMoreBusinesses || loading || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) void loadMoreBusinesses();
+      },
+      { rootMargin: '560px 0px' },
     );
-  }
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasMoreBusinesses, loadMoreBusinesses, loading, loadingMore, visibleRankItems.length]);
+
+  const goToAdjacentCategory = useCallback((direction: -1 | 1) => {
+    const currentIndex = SUB_CATEGORIES.indexOf(selectedCategory);
+    const targetCategory = SUB_CATEGORIES[currentIndex + direction];
+    if (targetCategory) selectCategory(targetCategory);
+  }, [selectCategory, selectedCategory]);
+
+  const handleSwipeStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+    swipeOffsetRef.current = 0;
+    setSwipeOffset(0);
+  }, []);
+
+  const handleSwipeMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    if (!start || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 8 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+
+    const hasTarget = deltaX > 0 ? Boolean(previousCategory) : Boolean(nextCategory);
+    const nextOffset = hasTarget
+      ? Math.max(-112, Math.min(112, deltaX * 0.42))
+      : Math.max(-26, Math.min(26, deltaX * 0.12));
+    swipeOffsetRef.current = nextOffset;
+    setSwipeOffset(nextOffset);
+  }, [nextCategory, previousCategory]);
+
+  const handleSwipeEnd = useCallback(() => {
+    const offset = swipeOffsetRef.current;
+    if (offset <= -38 && nextCategory) goToAdjacentCategory(1);
+    if (offset >= 38 && previousCategory) goToAdjacentCategory(-1);
+    swipeStartRef.current = null;
+    swipeOffsetRef.current = 0;
+    setSwipeOffset(0);
+  }, [goToAdjacentCategory, nextCategory, previousCategory]);
+
+  const handleHorizontalWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaX) < 48 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+    const now = Date.now();
+    if (now - lastWheelSwipeAtRef.current < 650) return;
+    lastWheelSwipeAtRef.current = now;
+    event.preventDefault();
+    goToAdjacentCategory(event.deltaX > 0 ? 1 : -1);
+  }, [goToAdjacentCategory]);
+
+  const renderPreviewPane = useCallback((category: string | null) => (
+    <div className="h-full overflow-hidden rounded-[18px] border border-gray-100 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+      {category ? (
+        <>
+          <div className="px-4 py-3 border-b border-gray-50">
+            <span className="text-[13px] font-bold text-gray-900">{category}</span>
+          </div>
+          <BusinessRankList
+            items={(categoryPreviewItems[category] || []).slice(0, 3)}
+            favorites={favorites}
+            muted
+          />
+        </>
+      ) : (
+        <div className="h-[220px]" />
+      )}
+    </div>
+  ), [categoryPreviewItems, favorites]);
+
+  const paneWidth = Math.max(280, listViewportWidth - 72);
+  const paneGap = 12;
+  const baseTranslate = -(paneWidth + paneGap) + 24;
+  const showListSkeleton = loading && rankItems.length === 0;
 
   return (
     <div className="bg-white min-h-screen pb-20" style={{ letterSpacing: '-0.02em' }}>
@@ -480,136 +861,88 @@ export default function BusinessListPage() {
       `}} />
 
       {/* ─── Rank Items ─── */}
-      <div className="divide-y divide-gray-50">
-        {visibleRankItems.map((item) => (
-          <Link
-            key={item.id}
-            href={`/businesses/${item.id}`}
-            className="flex gap-3 px-4 py-4 group active:bg-gray-50/50 transition-colors"
-          >
-            {/* Image with rank badge */}
-            <div className="relative w-[120px] h-[120px] shrink-0 rounded-xl overflow-hidden bg-gray-100">
-              <Image
-                src={item.image}
-                alt={item.title}
-                fill
-                className="object-cover"
-                sizes="120px"
-              />
-              {/* Rank number badge */}
-              <div className="absolute top-0 left-0 w-[28px] h-[28px] bg-[#3180F7] flex items-center justify-center rounded-br-xl">
-                <span className="text-[15px] font-bold text-white">{item.rank}</span>
-              </div>
-            </div>
+      <div
+        ref={listViewportRef}
+        className="overflow-hidden touch-pan-y"
+        onTouchStart={handleSwipeStart}
+        onTouchMove={handleSwipeMove}
+        onTouchCancel={handleSwipeEnd}
+        onTouchEnd={handleSwipeEnd}
+        onWheel={handleHorizontalWheel}
+      >
+        <div
+          className="flex items-start will-change-transform"
+          style={{
+            gap: paneGap,
+            transform: `translate3d(${baseTranslate + swipeOffset}px, 0, 0)`,
+            transition: swipeOffset === 0 ? 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+          }}
+        >
+          <div className="shrink-0" style={{ width: paneWidth }} aria-hidden>
+            {renderPreviewPane(previousCategory)}
+          </div>
 
-            {/* Info */}
-            <div className="flex-1 min-w-0 flex flex-col">
-              {/* Verified badge */}
-              {item.verifiedBadge && (
-                <div className="flex items-center gap-1 mb-0.5">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="#3180F7">
-                    <path d="M12 2l2.5 4.5 5 .5-3.5 3.5 1 5-5-2.5-5 2.5 1-5L4.5 7l5-.5L12 2z" />
-                  </svg>
-                  <span className="text-[11px] font-bold text-[#3180F7]">{item.verifiedBadge}</span>
-                </div>
-              )}
-
-              {/* Title */}
-              <p className="text-[15px] font-bold text-gray-900 leading-[1.3] line-clamp-2 pr-6">{item.title}</p>
-
-              {/* Location */}
-              <p className="text-[12px] text-gray-500 mt-0.5 leading-tight">
-                {item.region} · {item.clinic}
-              </p>
-
-              {item.tags.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {item.tags.slice(0, 3).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[10px] font-bold text-[#3180F7]"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Rating */}
-              <div className="flex items-center gap-1 mt-0.5">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="#FFB800">
-                  <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
-                </svg>
-                <span className="text-[13px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
-                <span className="text-[12px] text-gray-400">({item.reviewCount})</span>
-              </div>
-
-              {/* Price */}
-              <div className="mt-1">
-                {item.originalPrice && item.discountPercent ? (
-                  <>
-                    <div className="flex items-center gap-1.5 leading-tight">
-                      <span className="text-[11px] text-gray-400">VAT 포함 ·</span>
-                      <span className="text-[12px] text-gray-400 line-through">{item.originalPrice.toLocaleString()}원</span>
+          <div className="shrink-0 bg-white" style={{ width: paneWidth }}>
+            {showListSkeleton ? (
+              <div className="px-4 mt-4 space-y-4">
+                {[1, 2, 3, 4].map((item) => (
+                  <div key={item} className="flex gap-3">
+                    <div className="skeleton w-[120px] h-[120px] rounded-xl shrink-0" />
+                    <div className="flex-1 space-y-2 py-1">
+                      <div className="skeleton h-4 w-20 rounded" />
+                      <div className="skeleton h-5 w-full rounded" />
+                      <div className="skeleton h-3 w-32 rounded" />
+                      <div className="skeleton h-4 w-24 rounded" />
                     </div>
-                    <div className="flex items-baseline gap-1.5 leading-tight">
-                      <span className="text-[15px] font-bold text-[#3180F7]">{item.discountPercent}%</span>
-                      <span className="text-[17px] font-bold text-gray-900">{item.finalPrice.toLocaleString()}원</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-[11px] text-gray-400 leading-tight">VAT 포함</div>
-                    <div className="text-[17px] font-bold text-gray-900 leading-tight">{item.finalPrice.toLocaleString()}원</div>
-                  </>
+                  </div>
+                ))}
+              </div>
+            ) : visibleRankItems.length > 0 ? (
+              <>
+                <BusinessRankList
+                  items={visibleRankItems}
+                  favorites={favorites}
+                  onToggleFav={toggleFav}
+                />
+                {hasMoreBusinesses && (
+                  <div ref={loadMoreRef} className="px-4 py-5">
+                    {loadingMore ? (
+                      <div className="flex gap-3">
+                        <div className="skeleton w-[96px] h-[96px] rounded-xl shrink-0" />
+                        <div className="flex-1 space-y-2 py-1">
+                          <div className="skeleton h-4 w-20 rounded" />
+                          <div className="skeleton h-5 w-full rounded" />
+                          <div className="skeleton h-3 w-32 rounded" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-8" />
+                    )}
+                  </div>
                 )}
-
-                {/* App badges */}
-                <div className="flex items-center gap-1.5 mt-1">
-                  {item.hasAppPay && (
-                    <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#EAF3FF] text-[10px] font-bold text-[#3180F7]">
-                      <span className="w-3 h-3 rounded-sm bg-[#3180F7] flex items-center justify-center text-white text-[8px]">$</span>
-                      앱결제
-                    </span>
-                  )}
-                  {item.hasAppBooking && (
-                    <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#E7F9EC] text-[10px] font-bold text-[#00A550]">
-                      <span className="w-3 h-3 rounded-sm bg-[#00A550] flex items-center justify-center text-white text-[8px]">✓</span>
-                      앱예약
-                    </span>
-                  )}
-                </div>
+              </>
+            ) : (
+              <div className="px-4 py-16 text-center">
+                <p className="text-[14px] font-semibold text-gray-500">조건에 맞는 업체가 없습니다</p>
+                <button
+                  onClick={() => {
+                    selectCategory('전체');
+                    setSelectedRegion('전국');
+                    clearAllFilters();
+                  }}
+                  className="mt-3 px-4 h-[36px] rounded-full bg-gray-900 text-white text-[13px] font-bold active:scale-95 transition-transform"
+                >
+                  필터 초기화
+                </button>
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* Heart */}
-            <button
-              onClick={(e) => { e.preventDefault(); toggleFav(item.id); }}
-              className="shrink-0 self-start p-1 active:scale-90 transition-transform"
-            >
-              <Heart
-                size={22}
-                className={favorites.has(item.id) ? 'fill-[#FF4D4D] text-[#FF4D4D]' : 'text-gray-300'}
-              />
-            </button>
-          </Link>
-        ))}
-      </div>
-      {visibleRankItems.length === 0 && (
-        <div className="px-4 py-16 text-center">
-          <p className="text-[14px] font-semibold text-gray-500">조건에 맞는 업체가 없습니다</p>
-          <button
-            onClick={() => {
-              selectCategory('전체');
-              setSelectedRegion('전국');
-              clearAllFilters();
-            }}
-            className="mt-3 px-4 h-[36px] rounded-full bg-gray-900 text-white text-[13px] font-bold active:scale-95 transition-transform"
-          >
-            필터 초기화
-          </button>
+          <div className="shrink-0" style={{ width: paneWidth }} aria-hidden>
+            {renderPreviewPane(nextCategory)}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* ─── Scroll to Top ─── */}
       <button

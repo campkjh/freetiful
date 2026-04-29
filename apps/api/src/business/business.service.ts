@@ -6,44 +6,89 @@ import { resolveBusinessTags, stripBusinessTagMarker } from './business-tags';
 export class BusinessService {
   constructor(private prisma: PrismaService) {}
 
-  async getBusinesses(page: number, limit: number, search?: string) {
-    const skip = (page - 1) * limit;
+  async getBusinesses(page: number, limit: number, search?: string, category?: string) {
+    const normalizedPage = Math.max(1, Number.isFinite(page) ? page : 1);
+    const normalizedLimit = Math.min(Math.max(1, Number.isFinite(limit) ? limit : 20), 100);
+    const skip = (normalizedPage - 1) * normalizedLimit;
 
     const where: any = {
       status: 'approved',
     };
+    const andFilters: any[] = [];
 
     if (search) {
-      where.OR = [
-        { businessName: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } },
-      ];
+      andFilters.push({
+        OR: [
+          { businessName: { contains: search, mode: 'insensitive' } },
+          { address: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (category && category !== '전체') {
+      andFilters.push({
+        categories: {
+          some: {
+            category: { name: category },
+          },
+        },
+      });
+    }
+
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
     }
 
     const [items, total] = await Promise.all([
       this.prisma.businessProfile.findMany({
         where,
         skip,
-        take: limit,
+        take: normalizedLimit,
         orderBy: { createdAt: 'desc' },
-        include: {
-          categories: { include: { category: true } },
-          images: { orderBy: { displayOrder: 'asc' }, take: 1 },
+        select: {
+          id: true,
+          businessName: true,
+          businessType: true,
+          address: true,
+          descriptionHtml: true,
+          createdAt: true,
+          approvedAt: true,
+          categories: {
+            select: {
+              category: {
+                select: { name: true },
+              },
+            },
+          },
+          images: {
+            orderBy: { displayOrder: 'asc' },
+            take: 1,
+            select: { imageUrl: true },
+          },
         },
       }),
       this.prisma.businessProfile.count({ where }),
     ]);
 
     return {
-      items: items.map((item) => ({
-        ...item,
-        descriptionHtml: stripBusinessTagMarker(item.descriptionHtml),
-        tags: resolveBusinessTags(item),
-      })),
+      items: items.map((item) => {
+        const tags = resolveBusinessTags(item);
+        return {
+          id: item.id,
+          businessName: item.businessName,
+          businessType: item.businessType,
+          address: item.address,
+          createdAt: item.createdAt,
+          approvedAt: item.approvedAt,
+          categories: item.categories,
+          images: item.images,
+          tags,
+        };
+      }),
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      page: normalizedPage,
+      limit: normalizedLimit,
+      totalPages: Math.ceil(total / normalizedLimit),
     };
   }
 
