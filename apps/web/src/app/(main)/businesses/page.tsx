@@ -61,6 +61,7 @@ const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v6';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_PAGE_SIZE = 24;
 const BUSINESS_PREVIEW_LIMIT = 8;
+const BUSINESS_LEGACY_FALLBACK_LIMIT = 100;
 
 interface BusinessCachePayload {
   data: RankItem[];
@@ -170,6 +171,53 @@ function mapBusinessToRankItem(b: any, index: number, rankOffset = 0): RankItem 
 
 function mapBusinesses(items: any[], rankOffset = 0) {
   return items.map((business, index) => mapBusinessToRankItem(business, index, rankOffset));
+}
+
+function matchesBusinessCategory(item: RankItem, category: string) {
+  if (category === '전체') return true;
+  return item.category === category || item.clinic.includes(category) || item.tags.some((tag) => tag.includes(category));
+}
+
+function prepareBusinessItems(rawItems: any[], category: string, rankOffset = 0) {
+  const mapped = mapBusinesses(rawItems, rankOffset);
+  if (category === '전체') return { items: mapped, backendScoped: true };
+
+  const scopedItems = mapped.filter((item) => matchesBusinessCategory(item, category));
+  return {
+    items: scopedItems.length === mapped.length ? mapped : scopedItems,
+    backendScoped: mapped.length === 0 || scopedItems.length === mapped.length,
+  };
+}
+
+async function fetchBusinessPage(category: string, page: number, limit: number, allowLegacyFallback = true) {
+  const res = await apiClient.get('/api/v1/business', {
+    params: getBusinessListParams(category, page, limit),
+  });
+  const data = res.data;
+  const rawItems = Array.isArray(data) ? data : data?.items;
+  const rawList = Array.isArray(rawItems) ? rawItems : [];
+  const prepared = prepareBusinessItems(rawList, category, (page - 1) * limit);
+
+  if (category !== '전체' && !prepared.backendScoped && allowLegacyFallback && page === 1) {
+    const fallbackRes = await apiClient.get('/api/v1/business', {
+      params: { page: 1, limit: BUSINESS_LEGACY_FALLBACK_LIMIT },
+    });
+    const fallbackData = fallbackRes.data;
+    const fallbackRawItems = Array.isArray(fallbackData) ? fallbackData : fallbackData?.items;
+    const fallbackList = Array.isArray(fallbackRawItems) ? fallbackRawItems : [];
+    const fallbackPrepared = prepareBusinessItems(fallbackList, category);
+    return {
+      items: fallbackPrepared.items,
+      total: fallbackPrepared.items.length,
+      page: 1,
+    };
+  }
+
+  return {
+    items: prepared.items,
+    total: prepared.backendScoped ? Number(data?.total) || prepared.items.length : prepared.items.length,
+    page,
+  };
 }
 
 interface BusinessRankListProps {
@@ -377,13 +425,9 @@ export default function BusinessListPage() {
       setLoading(true);
     }
 
-    apiClient.get('/api/v1/business', { params: getBusinessListParams(selectedCategory, 1, BUSINESS_PAGE_SIZE) })
-      .then((res) => {
+    fetchBusinessPage(selectedCategory, 1, BUSINESS_PAGE_SIZE)
+      .then(({ items: mapped, total }) => {
         if (cancelled) return;
-        const data = res.data;
-        const items = Array.isArray(data) ? data : data?.items;
-        const total = Number(data?.total) || (Array.isArray(items) ? items.length : 0);
-        const mapped = Array.isArray(items) ? mapBusinesses(items) : [];
         setRankItems(mapped);
         setBusinessTotal(total);
         setBusinessPage(1);
@@ -421,15 +465,12 @@ export default function BusinessListPage() {
         return;
       }
 
-      apiClient.get('/api/v1/business', { params: getBusinessListParams(category, 1, BUSINESS_PREVIEW_LIMIT) })
-        .then((res) => {
+      fetchBusinessPage(category, 1, BUSINESS_PREVIEW_LIMIT)
+        .then(({ items }) => {
           if (cancelled) return;
-          const data = res.data;
-          const items = Array.isArray(data) ? data : data?.items;
-          if (!Array.isArray(items)) return;
           setCategoryPreviewItems((prev) => ({
             ...prev,
-            [category]: mapBusinesses(items).slice(0, BUSINESS_PREVIEW_LIMIT),
+            [category]: items.slice(0, BUSINESS_PREVIEW_LIMIT),
           }));
         })
         .catch(() => {});
@@ -539,13 +580,12 @@ export default function BusinessListPage() {
     setLoadingMore(true);
 
     try {
-      const res = await apiClient.get('/api/v1/business', {
-        params: getBusinessListParams(selectedCategory, nextPage, BUSINESS_PAGE_SIZE),
-      });
-      const data = res.data;
-      const items = Array.isArray(data) ? data : data?.items;
-      const total = Number(data?.total) || businessTotal;
-      const mapped = Array.isArray(items) ? mapBusinesses(items, rankItems.length) : [];
+      const { items: mapped, total } = await fetchBusinessPage(
+        selectedCategory,
+        nextPage,
+        BUSINESS_PAGE_SIZE,
+        false,
+      );
       const ids = new Set(rankItems.map((item) => item.id));
       const merged = [...rankItems, ...mapped.filter((item) => !ids.has(item.id))];
 
