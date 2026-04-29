@@ -16,6 +16,7 @@ import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminPartnersApi, type AdminPartnerListItem } from '@/lib/api/admin-partners.api';
+import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
 
 const statusLabel: Record<string, { text: string; className: string }> = {
   approved: { text: '승인', className: 'bg-green-50 text-green-600' },
@@ -25,6 +26,17 @@ const statusLabel: Record<string, { text: string; className: string }> = {
 };
 
 const LIMIT = 20;
+
+function getPartnerListTags(row: AdminPartnerListItem) {
+  const storedTags = normalizeBusinessTags(row.tags || [], 6);
+  if (storedTags.length > 0) return storedTags;
+  return deriveBusinessTagSuggestions({
+    businessName: row.businessName,
+    businessType: row.businessType,
+    address: row.address,
+    categoryNames: row.categories?.map((c) => c.category?.name),
+  }).slice(0, 6);
+}
 
 export default function AdminPartnersPage() {
   const [items, setItems] = useState<AdminPartnerListItem[]>([]);
@@ -103,6 +115,7 @@ export default function AdminPartnersPage() {
         { header: '업체명', value: (row) => row.businessName },
         { header: '업종', value: (row) => row.businessType || '' },
         { header: '카테고리', value: (row) => row.categories?.map((c) => c.category?.name).filter(Boolean).join(', ') || '' },
+        { header: '태그', value: (row) => getPartnerListTags(row).join(', ') },
         { header: '주소', value: (row) => row.address || '' },
         { header: '전화', value: (row) => row.phone || '' },
         { header: '상태', value: (row) => statusLabel[row.status]?.text || row.status },
@@ -185,6 +198,7 @@ export default function AdminPartnersPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이미지</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">업체명</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">카테고리</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">태그</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">주소</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">전화</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">등록일</th>
@@ -195,13 +209,13 @@ export default function AdminPartnersPage() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-sm text-gray-400">
+                  <td colSpan={9} className="text-center py-12 text-sm text-gray-400">
                     로딩 중...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-sm text-gray-400">
+                  <td colSpan={9} className="text-center py-12 text-sm text-gray-400">
                     등록된 업체가 없습니다
                   </td>
                 </tr>
@@ -209,6 +223,7 @@ export default function AdminPartnersPage() {
                 items.map((b) => {
                   const thumb = b.images?.[0]?.imageUrl || null;
                   const cats = b.categories?.map((c) => c.category?.name).filter(Boolean) || [];
+                  const tags = getPartnerListTags(b);
                   return (
                     <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
@@ -236,6 +251,22 @@ export default function AdminPartnersPage() {
                                 className="text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 font-medium"
                               >
                                 {c}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-300">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {tags.length ? (
+                          <div className="flex max-w-[220px] flex-wrap gap-1">
+                            {tags.slice(0, 4).map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[11px] font-bold text-[#3182F6]"
+                              >
+                                {tag}
                               </span>
                             ))}
                           </div>

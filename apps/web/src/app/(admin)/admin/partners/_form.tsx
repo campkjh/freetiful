@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -22,6 +22,7 @@ import {
   type AdminPartnerInput,
   type AdminBusinessCategory,
 } from '@/lib/api/admin-partners.api';
+import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
 
 type ImageItem = AdminPartnerDetail['images'][number];
 
@@ -60,6 +61,8 @@ export default function PartnerForm({ mode, partnerId }: Props) {
   const [descriptionHtml, setDescriptionHtml] = useState('');
   const [status, setStatus] = useState<string>('approved');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
   const [categories, setCategories] = useState<AdminBusinessCategory[]>([]);
   const [images, setImages] = useState<ImageItem[]>([]);
@@ -91,9 +94,15 @@ export default function PartnerForm({ mode, partnerId }: Props) {
         setVideoUrl(d.videoUrl || '');
         setDescriptionHtml(d.descriptionHtml || '');
         setStatus(d.status || 'approved');
-        setSelectedCategories(
-          (d.categories || []).map((c) => c.category?.name).filter(Boolean) as string[],
-        );
+        const loadedCategories = (d.categories || []).map((c) => c.category?.name).filter(Boolean) as string[];
+        setSelectedCategories(loadedCategories);
+        const loadedTags = normalizeBusinessTags(Array.isArray(d.tags) ? d.tags : [], 6);
+        setTags(loadedTags.length > 0 ? loadedTags : deriveBusinessTagSuggestions({
+          businessName: d.businessName,
+          businessType: d.businessType,
+          address: d.address,
+          categoryNames: loadedCategories,
+        }).slice(0, 6));
         setImages(d.images || []);
       } catch (e: any) {
         toast.error(`로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
@@ -109,6 +118,30 @@ export default function PartnerForm({ mode, partnerId }: Props) {
     );
   };
 
+  const suggestedTags = useMemo(() => (
+    deriveBusinessTagSuggestions({
+      businessName,
+      businessType,
+      address,
+      categoryNames: selectedCategories,
+    }).filter((tag) => !tags.includes(tag)).slice(0, 8)
+  ), [address, businessName, businessType, selectedCategories, tags]);
+
+  const addTags = (values: unknown[]) => {
+    setTags((prev) => normalizeBusinessTags([...prev, ...values], 6));
+  };
+
+  const addTagInput = () => {
+    const values = tagInput.split(/[,，\n]/).map((value) => value.trim()).filter(Boolean);
+    if (values.length === 0) return;
+    addTags(values);
+    setTagInput('');
+  };
+
+  const removeTag = (tag: string) => {
+    setTags((prev) => prev.filter((item) => item !== tag));
+  };
+
   const buildPayload = (): AdminPartnerInput => ({
     businessName: businessName.trim(),
     businessType: businessType.trim() || null,
@@ -121,6 +154,7 @@ export default function PartnerForm({ mode, partnerId }: Props) {
     websiteUrl: websiteUrl.trim() || null,
     videoUrl: videoUrl.trim() || null,
     descriptionHtml: descriptionHtml || null,
+    tags,
     categoryNames: selectedCategories,
     status,
   });
@@ -294,6 +328,62 @@ export default function PartnerForm({ mode, partnerId }: Props) {
               })}
             </div>
           )}
+        </Field>
+
+        <Field label="태그 (최대 6개 · 홈/목록/상세 노출)">
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2 rounded-xl bg-[#F9FAFB] px-3 py-2">
+              {tags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#E8F3FF] px-3 py-1.5 text-[12px] font-bold text-[#3182F6]"
+                >
+                  {tag}
+                  <X size={12} />
+                </button>
+              ))}
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onBlur={addTagInput}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    addTagInput();
+                  }
+                  if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+                    removeTag(tags[tags.length - 1]);
+                  }
+                }}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData('text');
+                  if (!/[,\n，]/.test(pasted)) return;
+                  e.preventDefault();
+                  addTags(pasted.split(/[,，\n]/));
+                }}
+                placeholder={tags.length === 0 ? '예: 웨딩케어, 프리미엄홀' : '태그 추가'}
+                className="min-w-[160px] flex-1 bg-transparent py-1.5 text-[13px] font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
+              />
+            </div>
+            {suggestedTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                <span className="py-1 text-[11px] font-semibold text-[#8B95A1]">추천</span>
+                {suggestedTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => addTags([tag])}
+                    className="rounded-full border border-[#E5E8EB] bg-white px-2.5 py-1 text-[11px] font-bold text-[#4E5968] hover:border-[#3182F6] hover:text-[#3182F6]"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </Field>
 
         <div className="grid grid-cols-2 gap-3">

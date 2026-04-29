@@ -480,6 +480,7 @@ model BusinessProfile {
   lng                Decimal?       @db.Decimal(11, 8)
   phone              String?
   descriptionHtml    String?
+  tags               String[]       @default([])
   instagramUrl       String?
   websiteUrl         String?
   videoUrl           String?

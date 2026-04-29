@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Share2, Heart, MapPin, Phone, Globe, Instagram } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
 import {
   getWeddingPartnerImageSet,
+  getWeddingPartnerSectionCategories,
   mergeWeddingPartnerImages,
 } from '@/lib/wedding-partner-images';
 
@@ -18,6 +20,8 @@ interface BizDetail {
   instagramUrl?: string | null;
   websiteUrl?: string | null;
   descriptionHtml?: string | null;
+  businessType?: string | null;
+  tags?: string[];
   categories: Array<{ category: { name: string } }>;
   images: Array<{ imageUrl: string }>;
 }
@@ -67,7 +71,22 @@ export default function BusinessDetailPage() {
   const apiImages = Array.isArray(biz.images) ? biz.images.map((i) => i.imageUrl).filter(Boolean) : [];
   const mergedImages = mergeWeddingPartnerImages(apiImages, partnerImageSet?.images);
   const images = mergedImages.length > 0 ? mergedImages : ['/images/default-profile.svg'];
-  const category = biz.categories[0]?.category?.name || partnerImageSet?.category || '웨딩파트너';
+  const categoryNames = Array.from(new Set([
+    ...(biz.categories || []).map((item) => item.category?.name).filter(Boolean),
+    ...getWeddingPartnerSectionCategories(partnerImageSet),
+  ]));
+  const category = categoryNames[0] || partnerImageSet?.category || '웨딩파트너';
+  const tags = normalizeBusinessTags(
+    Array.isArray(biz.tags) && biz.tags.length > 0
+      ? biz.tags
+      : deriveBusinessTagSuggestions({
+        businessName: biz.businessName,
+        businessType: biz.businessType,
+        address: biz.address,
+        categoryNames,
+      }),
+    6,
+  );
 
   return (
     <div className="bg-white min-h-screen pb-24">
@@ -110,6 +129,19 @@ export default function BusinessDetailPage() {
       <div className="px-4 pb-4 border-b border-gray-100">
         <span className="text-xs text-primary-500 font-bold">{category}</span>
         <h1 className="text-2xl font-bold text-gray-900 mt-1">{biz.businessName}</h1>
+
+        {tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-[#F2F7FF] px-2.5 py-1 text-[11px] font-bold text-[#3180F7]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="space-y-2 mt-4">
           {biz.address && (

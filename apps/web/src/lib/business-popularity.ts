@@ -27,8 +27,14 @@ export function getBusinessDisplayTags(
   businessType?: string | null,
   isPopular = false,
   maxTags = 3,
+  sourceTags: unknown[] = [],
 ) {
-  const baseTags = categoryNames.filter((name) => name !== POPULAR_PARTNER_TAG);
+  const explicitTags = sourceTags
+    .map((tag) => String(tag || '').trim())
+    .filter((tag) => tag && tag !== POPULAR_PARTNER_TAG);
+  const baseTags = explicitTags.length > 0
+    ? explicitTags
+    : categoryNames.filter((name) => name !== POPULAR_PARTNER_TAG);
   const tags = isPopular ? [POPULAR_PARTNER_TAG, ...baseTags] : [...baseTags];
 
   if (tags.length === 0 && businessType) tags.push(businessType);
