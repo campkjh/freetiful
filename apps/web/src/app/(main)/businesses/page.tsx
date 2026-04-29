@@ -64,12 +64,12 @@ const FILTER_GROUPS = [
 
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
-const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v7';
+const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v8';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_PAGE_SIZE = 24;
 const BUSINESS_PREVIEW_LIMIT = 8;
 const BUSINESS_LEGACY_FALLBACK_LIMIT = 100;
-const BUSINESS_REQUEST_VERSION = '20260429-order-images';
+const BUSINESS_REQUEST_VERSION = '20260429-category-quality';
 
 interface BusinessCachePayload {
   data: RankItem[];

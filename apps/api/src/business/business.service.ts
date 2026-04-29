@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveBusinessTags, stripBusinessTagMarker } from './business-tags';
+import { isBusinessRelevantToAnyCategory, isBusinessRelevantToCategory } from './business-quality';
+
+const BUSINESS_LIST_MAX_CANDIDATES = 1000;
 
 @Injectable()
 export class BusinessService {
@@ -39,36 +42,40 @@ export class BusinessService {
       where.AND = andFilters;
     }
 
-    const [items, total] = await Promise.all([
-      this.prisma.businessProfile.findMany({
-        where,
-        skip,
-        take: normalizedLimit,
-        orderBy: { createdAt: 'asc' },
-        select: {
-          id: true,
-          businessName: true,
-          businessType: true,
-          address: true,
-          descriptionHtml: true,
-          createdAt: true,
-          approvedAt: true,
-          categories: {
-            select: {
-              category: {
-                select: { name: true },
-              },
+    const candidates = await this.prisma.businessProfile.findMany({
+      where,
+      take: BUSINESS_LIST_MAX_CANDIDATES,
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        businessName: true,
+        businessType: true,
+        address: true,
+        descriptionHtml: true,
+        createdAt: true,
+        approvedAt: true,
+        categories: {
+          select: {
+            category: {
+              select: { name: true },
             },
           },
-          images: {
-            orderBy: { displayOrder: 'asc' },
-            take: 1,
-            select: { imageUrl: true },
-          },
         },
-      }),
-      this.prisma.businessProfile.count({ where }),
-    ]);
+        images: {
+          orderBy: { displayOrder: 'asc' },
+          take: 1,
+          select: { imageUrl: true },
+        },
+      },
+    });
+
+    const filteredItems = candidates.filter((item) => (
+      category && category !== '전체'
+        ? isBusinessRelevantToCategory(item, category)
+        : isBusinessRelevantToAnyCategory(item)
+    ));
+    const items = filteredItems.slice(skip, skip + normalizedLimit);
+    const total = filteredItems.length;
 
     return {
       items: items.map((item) => {
