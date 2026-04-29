@@ -8,6 +8,10 @@ import { ChevronLeft, ChevronDown, ChevronUp, SlidersHorizontal, Heart, X, MapPi
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
+import {
+  getWeddingPartnerImageSet,
+  mergeWeddingPartnerImages,
+} from '@/lib/wedding-partner-images';
 
 // ─── Types ─────────────────────────────────────────────────
 interface RankItem {
@@ -50,7 +54,7 @@ const FILTER_GROUPS = [
 
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
-const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v1';
+const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v2';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 // ─── Page ──────────────────────────────────────────────────
@@ -106,16 +110,26 @@ export default function BusinessListPage() {
             const categories = Array.isArray(b.categories)
               ? b.categories.map((c: any) => c?.category?.name).filter(Boolean)
               : [];
-            const primaryImage = Array.isArray(b.images) ? b.images[0]?.imageUrl : undefined;
+            const businessName = b.title || b.name || b.businessName || '';
+            const partnerImageSet = getWeddingPartnerImageSet(businessName, b.businessName, b.name, b.title);
+            const apiImages = Array.isArray(b.images)
+              ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
+              : [];
+            const mergedImages = mergeWeddingPartnerImages(
+              [b.image, b.imageUrl],
+              apiImages,
+              partnerImageSet?.images,
+            );
+            const displayCategory = categories[0] || partnerImageSet?.category || b.businessType || '전체';
             const address = b.address || '';
-            const region = address.split(' ')[0] || categories[0] || '';
+            const region = address.split(' ')[0] || displayCategory || '';
             return {
               id: b.id || String(i),
               rank: b.rank || i + 1,
-              category: categories[0] || b.businessType || '전체',
-              title: b.title || b.name || b.businessName || '',
+              category: displayCategory,
+              title: businessName,
               region: b.region || region,
-              clinic: b.clinic || categories.join(' · ') || region || b.businessType || '',
+              clinic: b.clinic || categories.join(' · ') || partnerImageSet?.category || region || b.businessType || '',
               rating: b.rating ?? 0,
               reviewCount: b.reviewCount ?? 0,
               originalPrice: b.originalPrice,
@@ -123,7 +137,7 @@ export default function BusinessListPage() {
               finalPrice: b.finalPrice ?? b.price ?? 0,
               hasAppPay: b.hasAppPay ?? false,
               hasAppBooking: b.hasAppBooking ?? false,
-              image: b.image || b.imageUrl || primaryImage || '/images/default-profile.svg',
+              image: mergedImages[0] || '/images/default-profile.svg',
               verifiedBadge: b.verifiedBadge,
             };
           });

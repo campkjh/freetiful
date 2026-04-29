@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Share2, Heart, MapPin, Phone, Globe, Instagram } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import {
+  getWeddingPartnerImageSet,
+  mergeWeddingPartnerImages,
+} from '@/lib/wedding-partner-images';
 
 interface BizDetail {
   id: string;
@@ -59,8 +63,11 @@ export default function BusinessDetailPage() {
     );
   }
 
-  const images = biz.images.length > 0 ? biz.images.map((i) => i.imageUrl) : ['/images/default-profile.svg'];
-  const category = biz.categories[0]?.category?.name || '웨딩파트너';
+  const partnerImageSet = getWeddingPartnerImageSet(biz.businessName);
+  const apiImages = Array.isArray(biz.images) ? biz.images.map((i) => i.imageUrl).filter(Boolean) : [];
+  const mergedImages = mergeWeddingPartnerImages(apiImages, partnerImageSet?.images);
+  const images = mergedImages.length > 0 ? mergedImages : ['/images/default-profile.svg'];
+  const category = biz.categories[0]?.category?.name || partnerImageSet?.category || '웨딩파트너';
 
   return (
     <div className="bg-white min-h-screen pb-24">

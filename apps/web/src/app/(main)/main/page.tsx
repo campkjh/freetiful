@@ -20,6 +20,10 @@ import {
   isPopularBusinessPartner,
   sortPopularPartnersFirst,
 } from '@/lib/business-popularity';
+import {
+  getWeddingPartnerImageSet,
+  mergeWeddingPartnerImages,
+} from '@/lib/wedding-partner-images';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import {
   applyFavoriteCountToLocalCaches,
@@ -542,7 +546,7 @@ const BIZ_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
-const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v2';
+const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v3';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 function BusinessCard({ biz }: { biz: BusinessPartner }) {
@@ -1134,15 +1138,29 @@ export default function HomePage() {
           const categories = getBusinessCategoryNames(b);
           const visibleCategories = categories.filter((name) => name !== '인기');
           const isPopular = isPopularBusinessPartner(b, categories);
-          const primaryImage = Array.isArray(b.images) ? b.images[0]?.imageUrl : undefined;
+          const businessName = b.businessName || b.name || b.title || '웨딩 파트너';
+          const partnerImageSet = getWeddingPartnerImageSet(businessName, b.name, b.title);
+          const apiImages = Array.isArray(b.images)
+            ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
+            : [];
+          const mergedImages = mergeWeddingPartnerImages(
+            [b.image, b.imageUrl],
+            apiImages,
+            partnerImageSet?.images,
+          );
+          const displayCategories = visibleCategories.length > 0
+            ? visibleCategories
+            : partnerImageSet?.category
+              ? [partnerImageSet.category]
+              : categories;
           const address = b.address || '';
           return {
             id: b.id || String(i),
-            category: visibleCategories[0] || b.businessType || '웨딩홀',
-            name: b.businessName || b.name || b.title || '웨딩 파트너',
+            category: displayCategories[0] || b.businessType || '웨딩홀',
+            name: businessName,
             location: address.split(' ')[0] || b.region || '전국',
-            images: [b.image || b.imageUrl || primaryImage || '/images/default-profile.svg'],
-            tags: getBusinessDisplayTags(categories, b.businessType, isPopular),
+            images: mergedImages.length > 0 ? mergedImages : ['/images/default-profile.svg'],
+            tags: getBusinessDisplayTags(displayCategories, b.businessType, isPopular),
             isPopular,
             originalPrice: b.originalPrice ?? 0,
             discountPercent: b.discountPercent ?? 0,
