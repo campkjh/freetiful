@@ -295,9 +295,6 @@ function BusinessRankList({ items, favorites, onToggleFav, muted = false }: Busi
                 image.src = item.imageFallback || '/images/default-profile.svg';
               }}
             />
-            <div className="absolute top-0 left-0 w-[28px] h-[28px] bg-[#3180F7] flex items-center justify-center rounded-br-xl">
-              <span className="text-[15px] font-bold text-white">{item.rank}</span>
-            </div>
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col">
