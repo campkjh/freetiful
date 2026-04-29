@@ -320,7 +320,7 @@ function BusinessRankList({ items, favorites, onToggleFav, muted = false }: Busi
                 {item.tags.slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[10px] font-bold text-[#3180F7]"
+                    className="rounded-[5px] bg-[#F2F4F6] px-2 py-0.5 text-[10px] font-medium text-[#4E5968]"
                   >
                     {tag}
                   </span>
