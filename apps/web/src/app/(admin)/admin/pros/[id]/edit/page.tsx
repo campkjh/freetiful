@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminSwitch } from '../../../_components/AdminSwitch';
-import { adminFetch } from '../../../_components/adminFetch';
+import { adminFetch, adminUpload } from '../../../_components/adminFetch';
 
 /* ─── Constants (pro-edit와 동일) ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
@@ -88,6 +88,11 @@ export default function AdminProEditPage() {
   const [services, setServices] = useState<{ title: string; description: string; basePrice: number }[]>([]);
   const [mainExperience, setMainExperience] = useState('');
   const [detailHtml, setDetailHtml] = useState('');
+  const detailEditorRef = useRef<HTMLDivElement>(null);
+  const detailImageInputRef = useRef<HTMLInputElement>(null);
+  const detailColorInputRef = useRef<HTMLInputElement>(null);
+  const detailSelectionRef = useRef<Range | null>(null);
+  const [detailImageUploading, setDetailImageUploading] = useState(false);
 
   // 어드민 전용
   const [status, setStatus] = useState<string>('pending');
@@ -213,6 +218,142 @@ export default function AdminProEditPage() {
     setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   const removeService = (i: number) => setServices((prev) => prev.filter((_, idx) => idx !== i));
 
+  const normalizeEditorHtml = (html: string) => {
+    const cleaned = html.replace(/<div><br><\/div>/gi, '').replace(/<br>/gi, '').trim();
+    return cleaned ? html : '';
+  };
+
+  const readDetailHtml = () => normalizeEditorHtml(detailEditorRef.current?.innerHTML ?? detailHtml);
+
+  const saveDetailSelection = () => {
+    const editor = detailEditorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    const node = range.commonAncestorContainer;
+    const container = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode;
+    if (container && editor.contains(container)) {
+      detailSelectionRef.current = range.cloneRange();
+    }
+  };
+
+  const restoreDetailSelection = () => {
+    const editor = detailEditorRef.current;
+    const range = detailSelectionRef.current;
+    const selection = window.getSelection();
+    if (!editor || !range || !selection) return false;
+    const node = range.commonAncestorContainer;
+    const container = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode;
+    if (!container || !editor.contains(container)) return false;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  };
+
+  const syncDetailHtml = () => {
+    const html = readDetailHtml();
+    setDetailHtml(html);
+    saveDetailSelection();
+    return html;
+  };
+
+  const execDetailFormat = (command: string, value?: string) => {
+    detailEditorRef.current?.focus();
+    restoreDetailSelection();
+    document.execCommand(command, false, value);
+    syncDetailHtml();
+  };
+
+  const insertDetailHtmlAtSelection = (html: string) => {
+    const editor = detailEditorRef.current;
+    if (!editor) return;
+    editor.focus();
+    restoreDetailSelection();
+    document.execCommand('insertHTML', false, html);
+    syncDetailHtml();
+  };
+
+  const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('이미지를 읽지 못했습니다'));
+    reader.readAsDataURL(file);
+  });
+
+  const buildEmbeddedDetailImageUrl = async (file: File) => {
+    const rawDataUrl = await readFileAsDataUrl(file);
+    return new Promise<string>((resolve) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const maxSide = 1400;
+        const scale = Math.min(1, maxSide / Math.max(img.width || maxSide, img.height || maxSide));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(rawDataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            resolve(rawDataUrl);
+            return;
+          }
+          readFileAsDataUrl(new File([blob], 'detail-image.webp', { type: blob.type || 'image/webp' }))
+            .then(resolve)
+            .catch(() => resolve(rawDataUrl));
+        }, 'image/webp', 0.86);
+      };
+      img.onerror = () => resolve(rawDataUrl);
+      img.src = rawDataUrl;
+    });
+  };
+
+  const isMissingDetailUploadEndpoint = (error: any) => {
+    const status = Number(error?.response?.status);
+    const message = String(error?.response?.data?.message || error?.response?.data || error?.message || '');
+    return status === 404 || status === 405 || /Cannot\s+POST|detail-image/i.test(message);
+  };
+
+  const onDetailImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (!file.type.startsWith('image/')) {
+      toast.error('이미지 파일만 업로드할 수 있습니다');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('이미지는 10MB 이하로 업로드해 주세요');
+      return;
+    }
+
+    setDetailImageUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const uploaded = await adminUpload(`/admin/pros/${proId}/detail-image`, form);
+      const url = uploaded?.url || uploaded?.imageUrl || uploaded?.path;
+      if (!url) throw new Error('업로드 URL을 받지 못했습니다');
+      const safeUrl = String(url).replace(/"/g, '&quot;');
+      insertDetailHtmlAtSelection(`<figure><img src="${safeUrl}" alt="" /></figure><p><br></p>`);
+      toast.success('이미지가 업로드되었습니다');
+    } catch (error: any) {
+      if (isMissingDetailUploadEndpoint(error)) {
+        const embeddedUrl = await buildEmbeddedDetailImageUrl(file);
+        const safeUrl = embeddedUrl.replace(/"/g, '&quot;');
+        insertDetailHtmlAtSelection(`<figure><img src="${safeUrl}" alt="" /></figure><p><br></p>`);
+        toast.success('이미지를 상세 HTML에 삽입했습니다');
+        return;
+      }
+      toast.error(`이미지 업로드 실패: ${error?.response?.data?.message || error?.message || ''}`, { duration: 6000 });
+    } finally {
+      setDetailImageUploading(false);
+    }
+  };
+
   const refreshRelations = async () => {
     if (!proId) return;
     const d = await adminFetch('GET', `/api/v1/admin/pros/${proId}`);
@@ -245,22 +386,23 @@ export default function AdminProEditPage() {
         if (normalizedServices.length > 0) normalizedServices[0] = { ...normalizedServices[0], basePrice };
         else normalizedServices.push({ title: '기본 플랜', description: undefined, basePrice });
       }
+      const currentDetailHtml = readDetailHtml();
       const payload = {
-        name: name || undefined,
-        phone: phone || undefined,
-        gender: gender || undefined,
-        shortIntro: intro || undefined,
-        mainExperience: mainExperience || (awardsArray.length > 0 ? awardsArray.join(' / ') : undefined),
-        careerYears: careerYears || undefined,
-        awards: awards || undefined,
+        name,
+        phone,
+        gender,
+        shortIntro: intro,
+        mainExperience,
+        careerYears,
+        awards,
         youtubeUrl: videos[0] || '',
-        detailHtml: detailHtml || undefined,
-        photos: photos.length > 0 ? photos : undefined,
+        detailHtml: currentDetailHtml,
+        photos,
         mainPhotoIndex,
         services: normalizedServices,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages.length > 0 ? languages : [],
-        category: category || selectedCategories[0] || undefined,
+        category,
         regions: selectedRegions,
         tags: selectedCategories,
         // 어드민 전용
@@ -780,13 +922,61 @@ export default function AdminProEditPage() {
 
       {/* ─── 13. 상세 HTML ─── */}
       <Section title="상세 HTML (detailHtml)">
-        <textarea
-          value={detailHtml}
-          onChange={(e) => setDetailHtml(e.target.value)}
-          placeholder="상세 설명 HTML"
-          rows={6}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-[#3180F7] resize-none font-mono"
-        />
+        <div className="space-y-3">
+          <div className="bg-[#F9F9F9] rounded-xl px-3 py-2 flex items-center gap-0.5 flex-wrap">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('bold'); }} className="w-8 h-8 flex items-center justify-center font-bold text-gray-800 text-sm rounded hover:bg-gray-200" title="굵게">B</button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('italic'); }} className="w-8 h-8 flex items-center justify-center italic text-gray-800 text-sm rounded hover:bg-gray-200" title="기울임">I</button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('underline'); }} className="w-8 h-8 flex items-center justify-center underline text-gray-800 text-sm rounded hover:bg-gray-200" title="밑줄">U</button>
+            <div className="w-px h-5 bg-gray-300 mx-1" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('formatBlock', '<h3>'); }} className="px-2 h-8 flex items-center justify-center text-xs font-bold text-gray-700 rounded hover:bg-gray-200" title="제목">H</button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('formatBlock', '<p>'); }} className="px-2 h-8 flex items-center justify-center text-xs text-gray-700 rounded hover:bg-gray-200" title="본문">P</button>
+            <div className="w-px h-5 bg-gray-300 mx-1" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyLeft'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="왼쪽">
+              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="0" y="6" width="10" height="2" rx="1"/><rect x="0" y="12" width="13" height="2" rx="1"/></svg>
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyCenter'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="중앙">
+              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="3" y="6" width="10" height="2" rx="1"/><rect x="1.5" y="12" width="13" height="2" rx="1"/></svg>
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyRight'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="오른쪽">
+              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="6" y="6" width="10" height="2" rx="1"/><rect x="3" y="12" width="13" height="2" rx="1"/></svg>
+            </button>
+            <div className="w-px h-5 bg-gray-300 mx-1" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('insertUnorderedList'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="글머리기호">
+              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><circle cx="1.5" cy="2" r="1.5"/><rect x="5" y="1" width="11" height="2" rx="1"/><circle cx="1.5" cy="7" r="1.5"/><rect x="5" y="6" width="11" height="2" rx="1"/><circle cx="1.5" cy="12" r="1.5"/><rect x="5" y="11" width="11" height="2" rx="1"/></svg>
+            </button>
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('insertOrderedList'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 text-xs font-bold rounded hover:bg-gray-200" title="번호목록">1.</button>
+            <div className="w-px h-5 bg-gray-300 mx-1" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); detailColorInputRef.current?.click(); }} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200" title="글자색">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><text x="8" y="11" textAnchor="middle" fill="#1F2937" fontSize="10" fontWeight="bold">A</text><rect x="4" y="13" width="8" height="2" fill="#3180F7"/></svg>
+            </button>
+            <input ref={detailColorInputRef} type="color" className="hidden" onChange={(e) => execDetailFormat('foreColor', e.target.value)} />
+            <button
+              type="button"
+              disabled={detailImageUploading}
+              onMouseDown={(e) => { e.preventDefault(); saveDetailSelection(); detailImageInputRef.current?.click(); }}
+              className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200 disabled:opacity-40"
+              title={detailImageUploading ? '업로드 중' : '이미지'}
+            >
+              {detailImageUploading ? (
+                <span className="h-3.5 w-3.5 rounded-full border-2 border-gray-300 border-t-gray-800 animate-spin" />
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><circle cx="5.5" cy="6.5" r="1.2" fill="currentColor"/><path d="M3 12l3.3-3.3 2.2 2.2 1.5-1.5L13 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              )}
+            </button>
+            <input ref={detailImageInputRef} type="file" accept="image/*" className="hidden" disabled={detailImageUploading} onChange={onDetailImageSelected} />
+          </div>
+          <div
+            ref={detailEditorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={() => syncDetailHtml()}
+            onMouseUp={() => saveDetailSelection()}
+            onKeyUp={() => saveDetailSelection()}
+            onBlur={() => syncDetailHtml()}
+            dangerouslySetInnerHTML={{ __html: detailHtml }}
+            className="min-h-[260px] w-full border border-gray-200 rounded-xl px-4 py-4 text-[15px] leading-[1.7] text-gray-900 outline-none focus:border-[#3180F7] [&_figure]:my-3 [&_img]:max-w-full [&_img]:rounded-xl [&_img]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+          />
+        </div>
       </Section>
 
       {/* ─── Save Button ─── */}

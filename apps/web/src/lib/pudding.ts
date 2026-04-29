@@ -2,7 +2,7 @@ import { apiClient } from './api/client';
 import { useAuthStore } from './store/auth.store';
 
 // Pudding transaction types
-export type PuddingType = 'welcome' | 'charge' | 'boost' | 'promo' | 'bonus' | 'review' | 'admin_grant';
+export type PuddingType = 'welcome' | 'promo' | 'bonus' | 'review' | 'admin_grant';
 
 export interface PuddingTransaction {
   id: string;
@@ -86,29 +86,6 @@ export function addPudding(type: PuddingType, amount: number, description: strin
     history.unshift(transaction);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
   } catch {}
-}
-
-export function usePudding(amount: number, description: string, category?: string): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    const current = getPudding();
-    if (current < amount) return false;
-    const history = getPuddingHistory();
-    const transaction: PuddingTransaction = {
-      id: `pd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      type: 'boost',
-      amount: -amount,
-      description,
-      createdAt: Date.now(),
-      category: category || 'boost',
-    };
-    localStorage.setItem(PUDDING_KEY, String(current - amount));
-    history.unshift(transaction);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export function initWelcomePudding(): void {

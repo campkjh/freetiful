@@ -25,6 +25,93 @@ import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 const BRAND = '#3180F7';
 const BRAND_LIGHT = '#EAF3FF';
 
+const proSearchHref = (category?: string, q?: string) => {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (q) params.set('q', q);
+  const query = params.toString();
+  return query ? `/pros?${query}` : '/pros';
+};
+
+const PC_DETAIL_CATEGORY_MENUS = [
+  {
+    label: '업종별',
+    href: '/pros',
+    highlight: true,
+    items: [
+      { label: '전체 전문가', href: '/pros' },
+      { label: '결혼식 사회자', href: proSearchHref('사회자', '결혼식') },
+      { label: '행사 MC', href: proSearchHref('사회자', '행사') },
+      { label: '외국어 사회자', href: proSearchHref('외국어사회자') },
+      { label: '쇼호스트', href: proSearchHref('쇼호스트') },
+      { label: '축가·연주', href: proSearchHref('축가·연주') },
+    ],
+  },
+  {
+    label: '전체',
+    href: '/pros',
+    items: [
+      { label: '전체 전문가 보기', href: '/pros' },
+      { label: '인기 사회자 보기', href: proSearchHref('사회자') },
+      { label: '외국어 진행 가능', href: proSearchHref('외국어사회자') },
+    ],
+  },
+  {
+    label: '전문 결혼식 사회자',
+    href: proSearchHref('사회자', '결혼식'),
+    items: [
+      { label: '결혼식 사회자', href: proSearchHref('사회자', '결혼식') },
+      { label: '주례없는 예식', href: proSearchHref('사회자', '주례없는') },
+      { label: '외국어 예식 진행', href: proSearchHref('외국어사회자', '결혼식') },
+    ],
+  },
+  {
+    label: '전문 행사 사회자',
+    href: proSearchHref('사회자', '행사'),
+    items: [
+      { label: '행사 MC', href: proSearchHref('사회자', '행사') },
+      { label: '시상식 진행', href: proSearchHref('사회자', '시상식') },
+      { label: '레크리에이션', href: proSearchHref('사회자', '레크리에이션') },
+    ],
+  },
+  {
+    label: '기업행사',
+    href: proSearchHref('사회자', '기업행사'),
+    items: [
+      { label: '기업행사 사회자', href: proSearchHref('사회자', '기업행사') },
+      { label: '워크샵 진행', href: proSearchHref('사회자', '워크샵') },
+      { label: '창립기념식', href: proSearchHref('사회자', '창립기념식') },
+    ],
+  },
+  {
+    label: '컨퍼런스',
+    href: proSearchHref('사회자', '컨퍼런스'),
+    items: [
+      { label: '컨퍼런스 사회자', href: proSearchHref('사회자', '컨퍼런스') },
+      { label: '세미나 진행', href: proSearchHref('사회자', '세미나') },
+      { label: '포럼 진행', href: proSearchHref('사회자', '포럼') },
+    ],
+  },
+  {
+    label: '외국어 사회자',
+    href: proSearchHref('외국어사회자'),
+    items: [
+      { label: '영어 사회자', href: proSearchHref('외국어사회자', '영어') },
+      { label: '일본어 사회자', href: proSearchHref('외국어사회자', '일본어') },
+      { label: '중국어 사회자', href: proSearchHref('외국어사회자', '중국어') },
+    ],
+  },
+  {
+    label: '프리티풀 Biz',
+    href: '/biz',
+    items: [
+      { label: '기업 섭외 문의', href: '/biz' },
+      { label: '도입 사례', href: '/biz/clients' },
+      { label: '자주 묻는 질문', href: '/biz/faq' },
+    ],
+  },
+];
+
 // ─── Reveal Hook ────────────────────────────────────────────
 function useReveal(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
@@ -1334,11 +1421,32 @@ export default function ProDetailPage() {
             </nav>
           </div>
           <div className="border-t border-gray-100">
-            <div className="mx-auto flex h-[50px] max-w-[1180px] items-center gap-8 px-8 text-[14px] font-semibold text-gray-900">
-              {['업종별', '전체', '전문 결혼식 사회자', '전문 행사 사회자', '기업행사', '컨퍼런스', '외국어 사회자', '프리티풀 Biz'].map((item, idx) => (
-                <button key={item} className={`whitespace-nowrap ${idx === 0 ? 'text-[#3180F7]' : ''}`}>{item}</button>
+            <nav className="mx-auto flex h-[50px] max-w-[1180px] items-center gap-1.5 px-8 text-[14px] font-semibold text-gray-900" aria-label="전문가 카테고리">
+              {PC_DETAIL_CATEGORY_MENUS.map((menu) => (
+                <div key={menu.label} className="home-desktop-category-menu group relative">
+                  <Link
+                    href={menu.href}
+                    className={`flex items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200 hover:bg-gray-50 hover:text-gray-950 focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3180F7]/25 ${
+                      menu.highlight ? 'text-[#3180F7]' : 'text-gray-900'
+                    }`}
+                  >
+                    <span className="whitespace-nowrap">{menu.label}</span>
+                    <ChevronDown size={14} className="home-desktop-category-chevron text-gray-400 transition-transform duration-200 group-hover:rotate-180 group-hover:text-gray-700" />
+                  </Link>
+                  <div className="home-desktop-category-dropdown pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 w-[190px] -translate-x-1/2 translate-y-1 rounded-2xl p-1.5 text-left opacity-0 transition-all duration-200">
+                    {menu.items.map((item) => (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        className="block rounded-xl px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950 focus-visible:bg-gray-50 focus-visible:outline-none"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
               ))}
-            </div>
+            </nav>
           </div>
         </header>
 

@@ -30,7 +30,7 @@ export class DiscoveryController {
     @Res({ passthrough: true }) res?: any,
   ) {
     if (sort === 'pudding') {
-      res?.setHeader('Cache-Control', 'no-store, max-age=0');
+      res?.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
     } else {
       res?.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
     }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
+import { ChevronRight, LogOut, Star, Clock, MapPin, PencilLine } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
@@ -173,6 +173,17 @@ function writeStoredProProfileStatus(status: 'draft' | 'pending' | 'approved' | 
   } catch {}
 }
 
+function readStoredProProfileStatus(): 'draft' | 'pending' | 'approved' | 'rejected' | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const status = localStorage.getItem('proRegistrationComplete');
+    if (status === 'draft' || status === 'pending' || status === 'approved' || status === 'rejected') {
+      return status;
+    }
+  } catch {}
+  return null;
+}
+
 function clearStoredProModeForCurrentAccount() {
   if (typeof window === 'undefined') return;
   try {
@@ -292,7 +303,7 @@ const PRO_MENU_SECTIONS = [
   {
     title: '고객센터',
     items: [
-      { href: 'tel:02-1234-5678', icon: () => <ImgIcon src="/images/pro-mypage-icons/phone-inquiry.svg" />, label: '전화문의' },
+      { href: 'tel:02-765-8882', icon: () => <ImgIcon src="/images/pro-mypage-icons/phone-inquiry.svg" />, label: '전화문의' },
     ],
   },
   {
@@ -335,7 +346,7 @@ const MENU_SECTIONS = [
       { href: '/my/invite', icon: () => <ImgIcon src="/images/invite-friend.svg" />, label: '친구 초대', badge: '500P 적립' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
       { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/partners-apply.svg" />, label: '파트너 신청', action: 'partner' },
-      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/switch-role.svg" />, label: '프로유저 전환', action: 'switchToPro' },
+      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/switch-role.svg" />, label: '사회자로 전환', action: 'switchToPro' },
     ],
   },
 ];
@@ -353,7 +364,7 @@ export default function MyPage() {
   const { logout: authLogout } = useAuth();
   const router = useRouter();
   const [proRegistrationPending, setProRegistrationPending] = useState(false);
-  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(null);
+  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(() => readStoredProProfileStatus());
   const [proCategoryName, setProCategoryName] = useState<string>(() => readStoredProCategory());
   const [isPro, setIsPro] = useState(false);
   const [couponCount, setCouponCount] = useState(0);
@@ -459,6 +470,12 @@ export default function MyPage() {
 
     // 백엔드의 "현재 로그인 계정" 상태를 기준으로 프로 신청/승인 상태를 동기화한다.
     // localStorage는 빠른 캐시일 뿐 권한 판정의 원천으로 사용하지 않는다.
+    const cachedStatus = readStoredProProfileStatus();
+    if (cachedStatus) {
+      setProProfileStatus(cachedStatus);
+      setProRegistrationPending(cachedStatus === 'pending');
+    }
+
     usersApi.getProfile()
       .then(async (profileUser: any) => {
         if (cancelled) return;
@@ -614,24 +631,32 @@ export default function MyPage() {
 
         {/* Pro Profile */}
         <div className="px-4 pb-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
-          <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
-            <div className="relative">
-              <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
-              <div className="absolute -bottom-0.5 -right-0.5 bg-blue-500 rounded-full flex items-center justify-center" style={{ width: 20, height: 20 }}>
-                <svg width={10} height={10} viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
-                </svg>
+          <div className="flex items-center gap-3.5">
+            <Link href="/my/settings" className="flex flex-1 min-w-0 items-center gap-3.5 active:opacity-80 transition-opacity">
+              <div className="relative shrink-0">
+                <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
+                <div className="absolute -bottom-0.5 -right-0.5 bg-blue-500 rounded-full flex items-center justify-center" style={{ width: 20, height: 20 }}>
+                  <svg width={10} height={10} viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
+                  </svg>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[17px] font-bold text-gray-900">{proCategoryName} {user.name}</p>
-                <span className="text-[10px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded" style={{ lineHeight: 1.2 }}>PRO</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-[17px] font-bold text-gray-900">{proCategoryName} {user.name}</p>
+                  <span className="shrink-0 text-[10px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded" style={{ lineHeight: 1.2 }}>PRO</span>
+                </div>
+                <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
               </div>
-              <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
-            </div>
-            <ChevronRight size={20} className="text-gray-300 shrink-0" />
-          </Link>
+            </Link>
+            <Link
+              href="/my/pro-edit"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#3180F7] px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_6px_14px_rgba(49,128,247,0.24)] active:scale-[0.97] transition-transform"
+            >
+              <PencilLine size={14} />
+              <span>프로필 수정</span>
+            </Link>
+          </div>
 
           {/* Pro Quick Stats */}
           <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.1s both' })}>
@@ -645,7 +670,7 @@ export default function MyPage() {
               <p className="text-[11px] text-gray-400 mt-0.5">총 리뷰</p>
             </Link>
             <div className="w-px bg-gray-100" />
-            <Link href="/my/pudding-charge" className="flex-1 py-2 text-center">
+            <Link href="/my/pudding-history" className="flex-1 py-2 text-center">
               <p className="text-[17px] font-bold text-gray-900">{proStats.pudding}</p>
               <p className="text-[11px] text-gray-400 mt-0.5">푸딩</p>
             </Link>
@@ -662,7 +687,7 @@ export default function MyPage() {
               {proStats.rank != null && <> · <strong>{proStats.rank}위</strong></>}
               {isTopRank ? ' (상위권)' : ''}
             </p>
-            <p className="text-[11px] text-amber-500 ml-[28px] mt-0.5">푸딩을 사용하면 프로필이 상단에 노출됩니다</p>
+            <p className="text-[11px] text-amber-500 ml-[28px] mt-0.5">푸딩은 활동량과 랭킹 지표로 반영됩니다</p>
           </div>
         </div>
 
@@ -752,43 +777,51 @@ export default function MyPage() {
         </div>
       ) : (
       <div className="px-4 pb-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
-        <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
-          <div className="relative">
-            <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
-            <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5">
-              <div className="w-4.5 h-4.5 bg-[#2B313D] rounded-full flex items-center justify-center" style={{ width: 18, height: 18 }}>
-                <Star size={9} className="text-white fill-white" />
+        <div className="flex items-center gap-3.5">
+          <Link href="/my/settings" className="flex flex-1 min-w-0 items-center gap-3.5 active:opacity-80 transition-opacity">
+            <div className="relative shrink-0">
+              <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
+              <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5">
+                <div className="w-4.5 h-4.5 bg-[#2B313D] rounded-full flex items-center justify-center" style={{ width: 18, height: 18 }}>
+                  <Star size={9} className="text-white fill-white" />
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[17px] font-bold text-gray-900">{user.name}</p>
-              {user.linkedAccounts.includes('kakao') && (
-                <span className="w-[20px] h-[20px] rounded-full bg-[#FEE500] flex items-center justify-center shrink-0">
-                  <svg width="11" height="10" viewBox="0 0 24 22" fill="#3C1E1E"><path d="M12 1C5.37 1 0 5.13 0 10.2c0 3.26 2.17 6.12 5.44 7.74l-1.1 4.07c-.1.36.31.65.63.44l4.83-3.2c.72.1 1.46.15 2.2.15 6.63 0 12-4.13 12-9.2S18.63 1 12 1z"/></svg>
-                </span>
-              )}
-              {user.linkedAccounts.includes('google') && (
-                <span className="w-[20px] h-[20px] rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0">
-                  <svg width="12" height="12" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                </span>
-              )}
-              {user.linkedAccounts.includes('naver') && (
-                <span className="w-[20px] h-[20px] rounded-full bg-[#03C75A] flex items-center justify-center shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 20 20" fill="white"><path d="M13.56 10.7L6.17 0H0v20h6.44V9.3L13.83 20H20V0h-6.44z"/></svg>
-                </span>
-              )}
-              {user.linkedAccounts.includes('apple') && (
-                <span className="w-[20px] h-[20px] rounded-full bg-black flex items-center justify-center shrink-0">
-                  <svg width="10" height="12" viewBox="0 0 17 20" fill="white"><path d="M13.25 10.06c-.02-2.08 1.7-3.08 1.78-3.13-1-1.42-2.5-1.62-3.04-1.64-1.28-.13-2.53.76-3.18.76-.66 0-1.66-.75-2.74-.73A4.05 4.05 0 002.63 7.5C.86 10.53 2.18 14.95 3.88 17.38c.85 1.2 1.85 2.53 3.16 2.48 1.28-.05 1.76-.8 3.3-.8s1.98.8 3.32.77c1.37-.02 2.23-1.2 3.06-2.41.98-1.38 1.38-2.73 1.4-2.8-.03-.01-2.67-1.02-2.7-4.06-.02-2.55 2.08-3.78 2.18-3.84-1.2-1.76-3.06-1.96-3.72-2z"/></svg>
-                </span>
-              )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-[17px] font-bold text-gray-900">{user.name}</p>
+                {user.linkedAccounts.includes('kakao') && (
+                  <span className="w-[20px] h-[20px] rounded-full bg-[#FEE500] flex items-center justify-center shrink-0">
+                    <svg width="11" height="10" viewBox="0 0 24 22" fill="#3C1E1E"><path d="M12 1C5.37 1 0 5.13 0 10.2c0 3.26 2.17 6.12 5.44 7.74l-1.1 4.07c-.1.36.31.65.63.44l4.83-3.2c.72.1 1.46.15 2.2.15 6.63 0 12-4.13 12-9.2S18.63 1 12 1z"/></svg>
+                  </span>
+                )}
+                {user.linkedAccounts.includes('google') && (
+                  <span className="w-[20px] h-[20px] rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                  </span>
+                )}
+                {user.linkedAccounts.includes('naver') && (
+                  <span className="w-[20px] h-[20px] rounded-full bg-[#03C75A] flex items-center justify-center shrink-0">
+                    <svg width="10" height="10" viewBox="0 0 20 20" fill="white"><path d="M13.56 10.7L6.17 0H0v20h6.44V9.3L13.83 20H20V0h-6.44z"/></svg>
+                  </span>
+                )}
+                {user.linkedAccounts.includes('apple') && (
+                  <span className="w-[20px] h-[20px] rounded-full bg-black flex items-center justify-center shrink-0">
+                    <svg width="10" height="12" viewBox="0 0 17 20" fill="white"><path d="M13.25 10.06c-.02-2.08 1.7-3.08 1.78-3.13-1-1.42-2.5-1.62-3.04-1.64-1.28-.13-2.53.76-3.18.76-.66 0-1.66-.75-2.74-.73A4.05 4.05 0 002.63 7.5C.86 10.53 2.18 14.95 3.88 17.38c.85 1.2 1.85 2.53 3.16 2.48 1.28-.05 1.76-.8 3.3-.8s1.98.8 3.32.77c1.37-.02 2.23-1.2 3.06-2.41.98-1.38 1.38-2.73 1.4-2.8-.03-.01-2.67-1.02-2.7-4.06-.02-2.55 2.08-3.78 2.18-3.84-1.2-1.76-3.06-1.96-3.72-2z"/></svg>
+                  </span>
+                )}
+              </div>
+              <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
             </div>
-            <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
-          </div>
-          <ChevronRight size={20} className="text-gray-300 shrink-0" />
-        </Link>
+          </Link>
+          <Link
+            href="/my/settings"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#2B313D] px-3.5 py-2 text-[12px] font-bold text-white shadow-[0_6px_14px_rgba(43,49,61,0.18)] active:scale-[0.97] transition-transform"
+          >
+            <PencilLine size={14} />
+            <span>프로필 수정</span>
+          </Link>
+        </div>
 
         {/* Pro Registration Pending Banner */}
         {proRegistrationPending && proProfileStatus !== 'approved' && (
@@ -824,8 +857,8 @@ export default function MyPage() {
               </svg>
             </div>
             <div className="flex-1 text-left">
-              <p className="text-[15px] font-bold text-white">파트너스로 전환하기 🎉</p>
-              <p className="text-[12px] text-white/80 mt-0.5">파트너 승인 완료! 지금 바로 전문가 모드로 시작하세요</p>
+              <p className="text-[15px] font-bold text-white">사회자로 전환하기 🎉</p>
+              <p className="text-[12px] text-white/80 mt-0.5">승인 완료! 지금 바로 사회자 모드로 시작하세요</p>
             </div>
             <ChevronRight size={20} className="text-white shrink-0" />
           </button>

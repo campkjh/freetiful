@@ -106,10 +106,9 @@ export class DiscoveryService implements OnModuleInit {
     const { sort = 'rating', gender, minPrice, maxPrice, featured, region } = params;
     const search = params.search?.trim();
     const withTotal = params.withTotal !== false;
-    const isRealtimePuddingRank = sort === 'pudding';
 
     const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured, region, withTotal });
-    const cached = isRealtimePuddingRank ? null : this.getCached<any>(cacheKey);
+    const cached = this.getCached<any>(cacheKey);
     if (cached) return cached;
 
     // 공개 목록 조건:
@@ -204,6 +203,7 @@ export class DiscoveryService implements OnModuleInit {
           categories: { select: { category: { select: { name: true } } } },
           regions: { select: { region: { select: { name: true, isNationwide: true } } } },
           languages: { select: { languageCode: true } },
+          _count: { select: { reviews: { where: { isVisible: true } } } },
         },
         orderBy,
         skip: (page - 1) * limit,
@@ -225,37 +225,41 @@ export class DiscoveryService implements OnModuleInit {
     const favoriteCountMap = new Map(favoriteCounts.map((row) => [row.targetId, row._count.targetId]));
 
     const result = {
-      data: data.map((p) => ({
-        id: p.id,
-        userId: p.userId,
-        name: p.user.name,
-        // 전문가가 파트너 신청 시 올린 대표사진(primary) 우선, 없으면 User.profileImageUrl(카카오 기본) 폴백
-        profileImageUrl: p.images[0]?.imageUrl || p.user.profileImageUrl,
-        images: p.images.map((i) => i.imageUrl),
-        shortIntro: p.shortIntro,
-        mainExperience: p.mainExperience,
-        avgRating: Number(p.avgRating),
-        reviewCount: p.reviewCount,
-        careerYears: p.careerYears,
-        basePrice: p.services[0]?.basePrice,
-        isFeatured: p.isFeatured,
-        showPartnersLogo: p.showPartnersLogo,
-        puddingCount: p.puddingCount,
-        favoriteCount: favoriteCountMap.get(p.id) || 0,
-        gender: p.gender,
-        youtubeUrl: p.youtubeUrl,
-        isNationwide: p.isNationwide,
-        categories: p.categories.map((c) => c.category.name),
-        regions: p.regions.map((r) => r.region.name),
-        languages: p.languages.map((l) => l.languageCode),
-        tags: p.tags || [],
-      })),
+      data: data.map((p) => {
+        const visibleReviewCount = p._count.reviews;
+        const effectiveReviewCount = visibleReviewCount > 0 ? visibleReviewCount : p.reviewCount;
+        return {
+          id: p.id,
+          userId: p.userId,
+          name: p.user.name,
+          // 전문가가 파트너 신청 시 올린 대표사진(primary) 우선, 없으면 User.profileImageUrl(카카오 기본) 폴백
+          profileImageUrl: p.images[0]?.imageUrl || p.user.profileImageUrl,
+          images: p.images.map((i) => i.imageUrl),
+          shortIntro: p.shortIntro,
+          mainExperience: p.mainExperience,
+          avgRating: effectiveReviewCount > 0 ? Number(p.avgRating) : 0,
+          reviewCount: effectiveReviewCount,
+          careerYears: p.careerYears,
+          basePrice: p.services[0]?.basePrice,
+          isFeatured: p.isFeatured,
+          showPartnersLogo: p.showPartnersLogo,
+          puddingCount: p.puddingCount,
+          favoriteCount: favoriteCountMap.get(p.id) || 0,
+          gender: p.gender,
+          youtubeUrl: p.youtubeUrl,
+          isNationwide: p.isNationwide,
+          categories: p.categories.map((c) => c.category.name),
+          regions: p.regions.map((r) => r.region.name),
+          languages: p.languages.map((l) => l.languageCode),
+          tags: p.tags || [],
+        };
+      }),
       total,
       page,
       limit,
       hasMore: withTotal ? page * limit < total : data.length === limit,
     };
-    if (!isRealtimePuddingRank) this.setCached(cacheKey, result);
+    this.setCached(cacheKey, result);
     return result;
   }
 
@@ -299,7 +303,13 @@ export class DiscoveryService implements OnModuleInit {
           categories: { select: { category: { select: { name: true } } } },
           regions: { select: { region: { select: { name: true } } } },
           languages: { select: { languageCode: true } },
+          faqs: {
+            orderBy: { displayOrder: 'asc' },
+            select: { id: true, question: true, answer: true, displayOrder: true },
+          },
+          _count: { select: { reviews: { where: { isVisible: true } } } },
           reviews: {
+            where: { isVisible: true },
             select: {
               id: true,
               avgRating: true,
@@ -325,6 +335,8 @@ export class DiscoveryService implements OnModuleInit {
     ]);
 
     if (!pro) return null;
+    const visibleReviewCount = pro._count.reviews;
+    const effectiveReviewCount = visibleReviewCount > 0 ? visibleReviewCount : pro.reviewCount;
 
     this.prisma.proProfile.update({
       where: { id: proProfileId },
@@ -333,7 +345,8 @@ export class DiscoveryService implements OnModuleInit {
 
     const detailResult = {
       ...pro,
-      avgRating: Number(pro.avgRating),
+      avgRating: effectiveReviewCount > 0 ? Number(pro.avgRating) : 0,
+      reviewCount: effectiveReviewCount,
       categoryNames: pro.categories.map((c) => c.category.name),
       regionNames: pro.regions.map((r) => r.region.name),
       languageCodes: pro.languages.map((l) => l.languageCode),

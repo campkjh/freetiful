@@ -642,9 +642,9 @@ export default function ProfilePage() {
                 onClick={handleAiGenerate}
                 disabled={aiLoading}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#3180F7] to-[#8B5CF6] text-white text-[11px] font-bold shadow-sm active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-                title="사진·키워드로 상세페이지 자동 생성"
+                title="사진·키워드로 GPT Image 2 상세페이지 이미지까지 자동 생성"
               >
-                {aiLoading ? '생성 중...' : '✨ AI 자동 생성'}
+                {aiLoading ? '생성 중...' : '✨ AI 상세 생성'}
               </button>
             </div>
 

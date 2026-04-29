@@ -4,6 +4,15 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Share2, Heart, MapPin, Phone, Globe, Instagram } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import {
+  getWeddingPartnerImageSet,
+  mergeWeddingPartnerImages,
+} from '@/lib/wedding-partner-images';
+import {
+  BUSINESS_IMAGE_FALLBACK,
+  handleBusinessImageError,
+  toBusinessImageUrls,
+} from '@/lib/business-images';
 
 interface BizDetail {
   id: string;
@@ -59,8 +68,13 @@ export default function BusinessDetailPage() {
     );
   }
 
-  const images = biz.images.length > 0 ? biz.images.map((i) => i.imageUrl) : ['/images/default-profile.svg'];
-  const category = biz.categories[0]?.category?.name || '웨딩파트너';
+  const partnerImageSet = getWeddingPartnerImageSet(biz.businessName);
+  const apiImages = Array.isArray(biz.images) ? biz.images.map((i) => i.imageUrl).filter(Boolean) : [];
+  const mergedImages = partnerImageSet
+    ? mergeWeddingPartnerImages(partnerImageSet.images, apiImages)
+    : mergeWeddingPartnerImages(apiImages);
+  const images = toBusinessImageUrls(mergedImages.length > 0 ? mergedImages : [BUSINESS_IMAGE_FALLBACK]);
+  const category = biz.categories[0]?.category?.name || partnerImageSet?.category || '웨딩파트너';
 
   return (
     <div className="bg-white min-h-screen pb-24">
@@ -78,7 +92,12 @@ export default function BusinessDetailPage() {
 
       <div className="pt-12">
         <div className="relative aspect-[3/2] bg-gray-100 overflow-hidden">
-          <img src={images[activeImage]} alt={biz.businessName} className="w-full h-full object-cover" />
+          <img
+            src={images[activeImage]}
+            alt={biz.businessName}
+            className="w-full h-full object-cover"
+            onError={handleBusinessImageError}
+          />
           <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full">
             {activeImage + 1} / {images.length}
           </div>
@@ -93,7 +112,7 @@ export default function BusinessDetailPage() {
                   i === activeImage ? 'border-primary-500' : 'border-transparent'
                 }`}
               >
-                <img src={img} alt="" className="w-full h-full object-cover" />
+                <img src={img} alt="" className="w-full h-full object-cover" onError={handleBusinessImageError} />
               </button>
             ))}
           </div>

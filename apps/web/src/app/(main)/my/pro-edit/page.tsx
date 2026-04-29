@@ -272,7 +272,7 @@ export default function ProEditPage() {
       if (faqItems.length === 0 && Array.isArray(out.faqs) && out.faqs.length > 0) {
         setFaqItems(out.faqs.map((f) => ({ q: f.question, a: f.answer })));
       }
-      setToast('AI 텍스트 완료 — 이미지 생성 중...');
+      setToast('AI 텍스트 완료 — GPT Image 2 이미지 생성 중...');
 
       // 히어로 이미지는 별도 요청 (7-18초 소요) — 텍스트는 이미 에디터에 반영됨
       try {
@@ -581,9 +581,9 @@ export default function ProEditPage() {
             onClick={handleAiGenerate}
             disabled={aiLoading}
             className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#3180F7] to-[#8B5CF6] text-white text-[12px] font-bold shadow-sm active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-            title="사진·키워드로 소개글 자동 생성"
+            title="사진·키워드로 GPT Image 2 상세페이지 이미지까지 자동 생성"
           >
-            {aiLoading ? '생성 중...' : '✨ AI 자동 생성'}
+            {aiLoading ? '생성 중...' : '✨ AI 상세 생성'}
           </button>
         </div>
       </div>
@@ -1202,7 +1202,7 @@ export default function ProEditPage() {
       {/* ─── 10-1. 상세설명 (네이버 스마트에디터 스타일 + AI 자동 생성) ─── */}
       <Section title="상세설명" defaultOpen={false}>
         <div className="space-y-3">
-          <p className="text-[12px] text-gray-400">프로필 상세페이지에 노출될 자기소개 영역입니다. 헤더의 "✨ AI 자동 생성" 버튼을 누르면 여기에 자동으로 채워집니다.</p>
+          <p className="text-[12px] text-gray-400">프로필 상세페이지에 노출될 자기소개 영역입니다. 헤더의 "✨ AI 상세 생성" 버튼을 누르면 글과 상단 이미지가 자동으로 채워집니다.</p>
 
           {/* Toolbar — 네이버 스마트에디터 스타일 */}
           <div className="bg-[#F9F9F9] rounded-xl px-3 py-2 flex items-center gap-0.5 flex-wrap">

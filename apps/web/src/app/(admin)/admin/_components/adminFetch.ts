@@ -26,16 +26,24 @@ function detectAdminClientPlatform() {
   return 'web';
 }
 
-function buildAdminHeaders() {
+function buildAdminHeaders(options: { json?: boolean } = {}) {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     'x-platform': detectAdminClientPlatform(),
   };
+  if (options.json !== false) headers['Content-Type'] = 'application/json';
   const adminKey = (typeof window !== 'undefined' && localStorage.getItem('admin-key')) || '';
   const token = useAuthStore.getState().accessToken;
   if (adminKey) headers['x-admin-key'] = adminKey;
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
+}
+
+function normalizeAdminApiPath(path: string) {
+  const cleaned = path.startsWith('/') ? path : `/${path}`;
+  if (cleaned.startsWith('/api/v1/api/v1/')) return cleaned.replace('/api/v1/api/v1/', '/api/v1/');
+  if (cleaned.startsWith('/api/v1/')) return cleaned;
+  if (cleaned.startsWith('/admin/')) return `/api/v1${cleaned}`;
+  return cleaned;
 }
 
 async function refreshAdminAccessToken() {
@@ -75,10 +83,11 @@ export function clearAdminFetchCache(prefix?: string) {
  * - GET 요청은 짧게 메모리 캐싱 + in-flight dedupe 하여 페이지 왕복/필터 재진입 체감 속도를 줄임
  */
 export async function adminFetch(method: string, path: string, body?: any, options: AdminFetchOptions = {}) {
+  const requestPath = normalizeAdminApiPath(path);
   const normalizedMethod = method.toUpperCase();
   const isGet = normalizedMethod === 'GET';
   const shouldCache = isGet && options.cache !== false;
-  const cacheKey = shouldCache ? getCacheKey(path) : '';
+  const cacheKey = shouldCache ? getCacheKey(requestPath) : '';
   if (shouldCache) {
     const cached = getCache.get(cacheKey);
     if (cached && cached.expires > Date.now()) return cached.data;
@@ -100,20 +109,20 @@ export async function adminFetch(method: string, path: string, body?: any, optio
   const request = async () => {
     const headers = buildAdminHeaders();
     try {
-      return await performRequest(path, headers);
+      return await performRequest(requestPath, headers);
     } catch (e: any) {
       const status = e?.response?.status;
       const hasAdminKey = !!headers['x-admin-key'];
       if (status === 401 && !hasAdminKey && headers.Authorization) {
         const refreshedToken = await refreshAdminAccessToken();
         if (refreshedToken) {
-          return performRequest(path, { ...headers, Authorization: `Bearer ${refreshedToken}` });
+          return performRequest(requestPath, { ...headers, Authorization: `Bearer ${refreshedToken}` });
         }
       }
 
       // 404 이면서 admin 경로일 때 — double-prefix 폴백 재시도
-      if (status === 404 && path.includes('/api/v1/admin/')) {
-        const fallback = path.replace('/api/v1/admin/', '/api/v1/api/v1/admin/');
+      if (status === 404 && requestPath.includes('/api/v1/admin/')) {
+        const fallback = requestPath.replace('/api/v1/admin/', '/api/v1/api/v1/admin/');
         try {
           return await performRequest(fallback, headers);
         } catch (e2) {
@@ -149,4 +158,35 @@ export async function adminFetch(method: string, path: string, body?: any, optio
 
   inFlightGets.set(cacheKey, promise);
   return promise;
+}
+
+export async function adminUpload(path: string, form: FormData) {
+  const requestPath = normalizeAdminApiPath(path);
+  const performRequest = async (url: string, headers = buildAdminHeaders({ json: false })) => {
+    const res = await axios.post(url, form, {
+      headers,
+      timeout: 60000,
+    });
+    return res.data;
+  };
+
+  const headers = buildAdminHeaders({ json: false });
+  try {
+    const data = await performRequest(requestPath, headers);
+    clearAdminFetchCache();
+    return data;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const hasAdminKey = !!headers['x-admin-key'];
+    if (status === 401 && !hasAdminKey && headers.Authorization) {
+      const refreshedToken = await refreshAdminAccessToken();
+      if (refreshedToken) {
+        const data = await performRequest(requestPath, { ...headers, Authorization: `Bearer ${refreshedToken}` });
+        clearAdminFetchCache();
+        return data;
+      }
+    }
+    if (status === 401 || status === 403) clearAdminFetchCache();
+    throw e;
+  }
 }

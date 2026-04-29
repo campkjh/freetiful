@@ -1,0 +1,15 @@
+.git
+.turbo
+.vercel
+node_modules
+dist
+build
+.next
+coverage
+*.log
+*.tsbuildinfo
+
+# Railway currently deploys the API service only. Keep large web media out of
+# the backend upload archive so deploys do not hit Railway's payload limit.
+apps/web
+apps/api/dist

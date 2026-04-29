@@ -28,7 +28,7 @@ export interface AiHeroImageInput {
 }
 
 export const aiApi = {
-  status: () => apiClient.get<{ enabled: boolean }>(`${BASE}/status`).then((r) => r.data),
+  status: () => apiClient.get<{ enabled: boolean; imageEnabled?: boolean }>(`${BASE}/status`).then((r) => r.data),
   generateProfile: (input: AiProfileInput) =>
     apiClient.post<AiProfileOutput>(`${BASE}/generate-profile`, input, { timeout: 60000 }).then((r) => r.data),
   generateHeroImage: (input: AiHeroImageInput) =>

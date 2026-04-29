@@ -11,7 +11,10 @@ export class AiController {
 
   @Get('status')
   status() {
-    return { enabled: this.ai.isEnabled() };
+    return {
+      enabled: this.ai.isEnabled(),
+      imageEnabled: this.ai.isImageGenerationEnabled(),
+    };
   }
 
   @Post('generate-profile')

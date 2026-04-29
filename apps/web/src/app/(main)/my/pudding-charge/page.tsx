@@ -3,19 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ChevronLeft, Gift, Zap, Trophy, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, Gift, Zap, Trophy } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth.store';
-
-const PACKAGES = [
-  { id: 'starter', title: '스타터', pudding: 300, price: 9900, desc: '프로필 노출 테스트용' },
-  { id: 'standard', title: '스탠다드', pudding: 1100, price: 33000, desc: '문의 응답과 랭킹 관리용', badge: '추천' },
-  { id: 'growth', title: '그로스', pudding: 2500, price: 69000, desc: '집중 홍보 기간용' },
-];
-
-function won(n: number) {
-  return `₩${n.toLocaleString()}`;
-}
 
 export default function PuddingChargePage() {
   const router = useRouter();
@@ -23,7 +13,6 @@ export default function PuddingChargePage() {
   const [balance, setBalance] = useState(0);
   const [rank, setRank] = useState<number | null>(null);
   const [history, setHistory] = useState<any[]>([]);
-  const [selected, setSelected] = useState(PACKAGES[1].id);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
 
@@ -63,13 +52,11 @@ export default function PuddingChargePage() {
     }
   };
 
-  const selectedPackage = PACKAGES.find((item) => item.id === selected) || PACKAGES[0];
-
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-10">
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white/90 backdrop-blur-xl px-4 pt-12 pb-3">
         <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeft size={24} /></button>
-        <h1 className="text-[18px] font-bold">푸딩 충전</h1>
+        <h1 className="text-[18px] font-bold">푸딩</h1>
       </header>
 
       <section className="px-4 pt-5">
@@ -105,39 +92,6 @@ export default function PuddingChargePage() {
       </section>
 
       <section className="px-4 pt-6">
-        <h2 className="mb-3 text-[15px] font-bold text-gray-900">충전 패키지</h2>
-        <div className="space-y-2">
-          {PACKAGES.map((item) => {
-            const active = selected === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setSelected(item.id)}
-                className={`w-full rounded-2xl border bg-white p-4 text-left transition-all active:scale-[0.98] ${
-                  active ? 'border-[#3180F7] ring-2 ring-blue-50' : 'border-gray-100'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[15px] font-bold text-gray-900">{item.title}</p>
-                      {item.badge && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-[#3180F7]">{item.badge}</span>}
-                    </div>
-                    <p className="mt-1 text-[12px] text-gray-400">{item.desc}</p>
-                    <p className="mt-2 text-[18px] font-black text-amber-600">{item.pudding.toLocaleString()}푸딩</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[14px] font-bold text-gray-900">{won(item.price)}</p>
-                    {active && <CheckCircle2 size={18} className="ml-auto mt-2 text-[#3180F7]" />}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="px-4 pt-6">
         <h2 className="mb-3 text-[15px] font-bold text-gray-900">최근 푸딩 내역</h2>
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           {history.length === 0 ? (
@@ -155,15 +109,6 @@ export default function PuddingChargePage() {
           ))}
         </div>
       </section>
-
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-100 bg-white/95 px-4 py-3 backdrop-blur-xl">
-        <button
-          onClick={() => toast.success(`${selectedPackage.pudding.toLocaleString()}푸딩 충전 상품을 선택했습니다`)}
-          className="flex h-12 w-full items-center justify-center rounded-2xl bg-gray-900 text-[15px] font-bold text-white active:scale-[0.98] transition-transform"
-        >
-          {selectedPackage.title} {won(selectedPackage.price)} 충전하기
-        </button>
-      </div>
     </div>
   );
 }

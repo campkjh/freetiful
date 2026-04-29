@@ -724,11 +724,18 @@ export class AdminService {
       tags: Array.isArray(data.tags) ? data.tags : undefined,
     });
 
-    // 어드민은 User.name 을 직접 바꿀 수 있음 (일반 pro-edit 에서는 불가)
-    if (data.name !== undefined) {
+    if (typeof data.category === 'string' && !data.category.trim()) {
+      await this.prisma.proCategory.deleteMany({ where: { proProfileId } });
+    }
+
+    // 어드민은 User.name / phone 을 직접 바꿀 수 있음 (일반 pro-edit 에서는 불가)
+    const userPatch: any = {};
+    if (data.name !== undefined) userPatch.name = String(data.name || '');
+    if (data.phone !== undefined) userPatch.phone = String(data.phone || '').trim() || null;
+    if (Object.keys(userPatch).length > 0) {
       await this.prisma.user.update({
         where: { id: profile.userId },
-        data: { name: data.name },
+        data: userPatch,
       });
     }
 
@@ -874,6 +881,30 @@ export class AdminService {
       where: { id: proProfileId },
       data: { isFeatured: !profile.isFeatured },
     });
+  }
+
+  async uploadProDetailImage(proProfileId: string, file: Express.Multer.File) {
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { id: proProfileId },
+      select: { id: true },
+    });
+    if (!profile) throw new NotFoundException('프로필을 찾을 수 없습니다');
+    if (!file) throw new BadRequestException('업로드할 이미지를 선택해 주세요');
+
+    const processed = await this.imageService.processImage(file, {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 88,
+      requireFace: false,
+    });
+
+    return {
+      url: processed.webpPath || processed.path,
+      width: processed.width,
+      height: processed.height,
+      size: processed.size,
+      mimeType: processed.mimeType,
+    };
   }
 
   /** 어드민 수동 푸딩 지급 (양수=적립, 음수=차감) + 트랜잭션 로그 */
@@ -1061,11 +1092,45 @@ export class AdminService {
       }), emptyRows),
     ]);
 
+    const activitySummaryRows = await safe('activitySummaryRows', this.prisma.$queryRaw<any[]>`
+      WITH activity AS (
+        SELECT "userId", "createdAt" FROM sessions WHERE "createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "userId", "createdAt" FROM push_tokens WHERE "createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "userId", "createdAt" FROM push_subscriptions WHERE "createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "userId", "createdAt" FROM favorites WHERE "createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "userId", "createdAt" FROM match_requests WHERE "createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "userId", "createdAt" FROM chat_rooms WHERE "createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT pp."userId", cr."createdAt" FROM chat_rooms cr JOIN pro_profiles pp ON pp.id = cr."proProfileId" WHERE cr."createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "senderId" AS "userId", "createdAt" FROM messages WHERE "createdAt" >= ${thirtyDayRange.gte} AND "isDeleted" = false
+        UNION ALL SELECT q."userId", q."createdAt" FROM quotations q WHERE q."createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT pp."userId", q."createdAt" FROM quotations q JOIN pro_profiles pp ON pp.id = q."proProfileId" WHERE q."createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "userId", "createdAt" FROM payments WHERE "createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "reviewerId" AS "userId", "createdAt" FROM reviews WHERE "createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "userId", "readAt" AS "createdAt" FROM notifications WHERE "readAt" IS NOT NULL AND "readAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT pp."userId", pt."createdAt" FROM pudding_transactions pt JOIN pro_profiles pp ON pp.id = pt."proProfileId" WHERE pt."createdAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT "userId", "updatedAt" AS "createdAt" FROM pro_profiles WHERE "updatedAt" >= ${thirtyDayRange.gte} AND "updatedAt" > "createdAt"
+        UNION ALL SELECT "userId", "updatedAt" AS "createdAt" FROM business_profiles WHERE "updatedAt" >= ${thirtyDayRange.gte} AND "updatedAt" > "createdAt"
+        UNION ALL SELECT pp."userId", md."viewedAt" AS "createdAt" FROM match_deliveries md JOIN pro_profiles pp ON pp.id = md."proProfileId" WHERE md."viewedAt" IS NOT NULL AND md."viewedAt" >= ${thirtyDayRange.gte}
+        UNION ALL SELECT pp."userId", md."repliedAt" AS "createdAt" FROM match_deliveries md JOIN pro_profiles pp ON pp.id = md."proProfileId" WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= ${thirtyDayRange.gte}
+      )
+      SELECT
+        COUNT(DISTINCT "userId") FILTER (WHERE "createdAt" >= ${todayRange.gte} AND "createdAt" <= ${todayRange.lte})::int AS dau,
+        COUNT(DISTINCT "userId") FILTER (WHERE "createdAt" >= ${sevenDayRange.gte})::int AS wau,
+        COUNT(DISTINCT "userId") FILTER (WHERE "createdAt" >= ${thirtyDayRange.gte})::int AS mau,
+        COUNT(*) FILTER (WHERE "createdAt" >= ${todayRange.gte} AND "createdAt" <= ${todayRange.lte})::int AS "eventsToday",
+        COUNT(*) FILTER (WHERE "createdAt" >= ${sevenDayRange.gte})::int AS "events7d",
+        COUNT(*) FILTER (WHERE "createdAt" >= ${thirtyDayRange.gte})::int AS "events30d"
+      FROM activity
+      WHERE "userId" IS NOT NULL
+    `, emptyRows);
+    const activitySummary = activitySummaryRows[0] || {};
+
     const seriesKeys = Array.from({ length: 14 }, (_, idx) => keyFromOffset(13 - idx));
     const seriesStart = dayRange(seriesKeys[0]).gte;
     const seriesEnd = dayRange(seriesKeys[seriesKeys.length - 1]).lte;
     const [
       dailyUsersRows,
+      dailyActivityRows,
       dailyMatchRows,
       dailyPaymentRows,
       dailyChatRows,
@@ -1076,6 +1141,35 @@ export class AdminService {
         SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COUNT(*)::int AS value
         FROM users
         WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+        GROUP BY 1
+      `, emptyRows),
+      safe('dailyActivityRows', this.prisma.$queryRaw<any[]>`
+        WITH activity AS (
+          SELECT "userId", "createdAt" FROM sessions WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "userId", "createdAt" FROM push_tokens WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "userId", "createdAt" FROM push_subscriptions WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "userId", "createdAt" FROM favorites WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "userId", "createdAt" FROM match_requests WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "userId", "createdAt" FROM chat_rooms WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+          UNION ALL SELECT pp."userId", cr."createdAt" FROM chat_rooms cr JOIN pro_profiles pp ON pp.id = cr."proProfileId" WHERE cr."createdAt" >= ${seriesStart} AND cr."createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "senderId" AS "userId", "createdAt" FROM messages WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd} AND "isDeleted" = false
+          UNION ALL SELECT q."userId", q."createdAt" FROM quotations q WHERE q."createdAt" >= ${seriesStart} AND q."createdAt" <= ${seriesEnd}
+          UNION ALL SELECT pp."userId", q."createdAt" FROM quotations q JOIN pro_profiles pp ON pp.id = q."proProfileId" WHERE q."createdAt" >= ${seriesStart} AND q."createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "userId", "createdAt" FROM payments WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "reviewerId" AS "userId", "createdAt" FROM reviews WHERE "createdAt" >= ${seriesStart} AND "createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "userId", "readAt" AS "createdAt" FROM notifications WHERE "readAt" IS NOT NULL AND "readAt" >= ${seriesStart} AND "readAt" <= ${seriesEnd}
+          UNION ALL SELECT pp."userId", pt."createdAt" FROM pudding_transactions pt JOIN pro_profiles pp ON pp.id = pt."proProfileId" WHERE pt."createdAt" >= ${seriesStart} AND pt."createdAt" <= ${seriesEnd}
+          UNION ALL SELECT "userId", "updatedAt" AS "createdAt" FROM pro_profiles WHERE "updatedAt" >= ${seriesStart} AND "updatedAt" <= ${seriesEnd} AND "updatedAt" > "createdAt"
+          UNION ALL SELECT "userId", "updatedAt" AS "createdAt" FROM business_profiles WHERE "updatedAt" >= ${seriesStart} AND "updatedAt" <= ${seriesEnd} AND "updatedAt" > "createdAt"
+          UNION ALL SELECT pp."userId", md."viewedAt" AS "createdAt" FROM match_deliveries md JOIN pro_profiles pp ON pp.id = md."proProfileId" WHERE md."viewedAt" IS NOT NULL AND md."viewedAt" >= ${seriesStart} AND md."viewedAt" <= ${seriesEnd}
+          UNION ALL SELECT pp."userId", md."repliedAt" AS "createdAt" FROM match_deliveries md JOIN pro_profiles pp ON pp.id = md."proProfileId" WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= ${seriesStart} AND md."repliedAt" <= ${seriesEnd}
+        )
+        SELECT
+          to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date,
+          COUNT(DISTINCT "userId")::int AS users,
+          COUNT(*)::int AS events
+        FROM activity
+        WHERE "userId" IS NOT NULL
         GROUP BY 1
       `, emptyRows),
       safe('dailyMatchRows', this.prisma.$queryRaw<any[]>`
@@ -1112,7 +1206,13 @@ export class AdminService {
     const valueMap = (rows: Array<{ date: string; value: number | bigint }>) => new Map(
       rows.map((row) => [row.date, Number(row.value || 0)]),
     );
+    const activityMap = (
+      rows: Array<{ date: string; users?: number | bigint; events?: number | bigint }>,
+      key: 'users' | 'events',
+    ) => new Map(rows.map((row) => [row.date, Number(row[key] || 0)]));
     const dailyUsersMap = valueMap(dailyUsersRows);
+    const dailyActiveUsersMap = activityMap(dailyActivityRows, 'users');
+    const dailyActivityEventsMap = activityMap(dailyActivityRows, 'events');
     const dailyMatchMap = valueMap(dailyMatchRows);
     const dailyPaymentMap = valueMap(dailyPaymentRows);
     const dailyChatMap = valueMap(dailyChatRows);
@@ -1121,6 +1221,8 @@ export class AdminService {
     const dailySeries = seriesKeys.map((key) => ({
       date: key.slice(5).replace('-', '.'),
       users: dailyUsersMap.get(key) || 0,
+      activeUsers: dailyActiveUsersMap.get(key) || 0,
+      activityEvents: dailyActivityEventsMap.get(key) || 0,
       matchRequests: dailyMatchMap.get(key) || 0,
       payments: dailyPaymentMap.get(key) || 0,
       chats: dailyChatMap.get(key) || 0,
@@ -1167,6 +1269,16 @@ export class AdminService {
         pro: roleMap.pro || 0,
         business: roleMap.business || 0,
         admin: roleMap.admin || 0,
+      },
+      activity: {
+        dau: Number(activitySummary.dau || 0),
+        wau: Number(activitySummary.wau || 0),
+        mau: Number(activitySummary.mau || 0),
+        eventsToday: Number(activitySummary.eventsToday || 0),
+        events7d: Number(activitySummary.events7d || 0),
+        events30d: Number(activitySummary.events30d || 0),
+        basis: 'sessions_and_user_events',
+        note: '세션 생성, 푸시 등록, 찜, 요청, 채팅, 견적, 결제, 리뷰, 알림 열람 등 로그인 기반 행동 로그로 집계합니다.',
       },
       totalPros,
       pendingPros,

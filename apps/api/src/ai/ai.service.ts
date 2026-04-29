@@ -2,6 +2,11 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaService } from '../prisma/prisma.service';
 
+type ReferenceImage = {
+  mimeType: string;
+  data: string;
+};
+
 export interface GenerateProfileInput {
   name?: string;
   category?: string;          // 사회자 / 쇼호스트 / 축가/연주
@@ -25,6 +30,7 @@ export interface GenerateProfileOutput {
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly client: GoogleGenerativeAI | null;
+  private readonly openAiApiKey: string | null;
 
   constructor(private prisma: PrismaService) {
     // 이름 오타 방지: GEMINI_API_KEY / GEMINI_AI_KEY / GOOGLE_API_KEY 모두 인식
@@ -40,10 +46,19 @@ export class AiService {
       this.client = null;
       this.logger.warn('GEMINI_API_KEY not set — AI features disabled');
     }
+
+    this.openAiApiKey = process.env.OPENAI_API_KEY || null;
+    if (this.openAiApiKey) {
+      this.logger.log(`OpenAI image generation enabled (${this.getOpenAiImageModelNames()[0]})`);
+    }
   }
 
   isEnabled() {
     return this.client !== null;
+  }
+
+  isImageGenerationEnabled() {
+    return Boolean(this.openAiApiKey || this.client);
   }
 
   async generateProfile(input: GenerateProfileInput): Promise<GenerateProfileOutput> {
@@ -233,36 +248,51 @@ export class AiService {
     keywords?: string;
     imageDataUrls?: string[];
   }): Promise<{ url: string | null }> {
-    if (!this.client) {
-      throw new BadRequestException('AI 기능이 아직 설정되지 않았습니다.');
+    if (!this.openAiApiKey && !this.client) {
+      throw new BadRequestException('AI 이미지 생성 기능이 아직 설정되지 않았습니다.');
     }
-    const imageParts = (input.imageDataUrls || []).slice(0, 4).flatMap((url) => {
-      const match = url.match(/^data:(image\/[a-z]+);base64,(.+)$/i);
-      if (!match) return [];
-      return [{ inlineData: { mimeType: match[1], data: match[2] } }];
-    });
     const result = await this.generateHeroImage({
       category: input.category,
       keywords: input.keywords,
-      referenceImages: imageParts,
+      referenceImages: this.parseImageDataUrls(input.imageDataUrls || [], 4),
     });
     return result;
   }
 
   /**
-   * Gemini 2.5 Flash Image (Nano Banana) 로 히어로 이미지 생성.
+   * GPT Image 2 로 상세페이지 히어로 이미지를 먼저 생성하고,
+   * OpenAI 설정이 없거나 실패하면 기존 Gemini 이미지 모델로 폴백한다.
    * 성공 시 /uploads/:id 공개 URL 반환, 실패 시 null.
    */
   private async generateHeroImage(input: {
     category?: string;
     keywords?: string;
-    referenceImages?: { inlineData: { mimeType: string; data: string } }[];
+    referenceImages?: ReferenceImage[];
   }): Promise<{ url: string | null; debug: string[] }> {
     const debug: string[] = [];
-    if (!this.client) {
-      debug.push('client=null (no API key)');
+    if (!this.openAiApiKey && !this.client) {
+      debug.push('openai=null, gemini=null (no API key)');
       return { url: null, debug };
     }
+
+    const prompt = this.buildHeroImagePrompt(input);
+
+    const openAiImage = await this.generateOpenAiImage({
+      prompt,
+      referenceImages: input.referenceImages || [],
+      debug,
+    });
+    if (openAiImage) {
+      const url = await this.saveGeneratedImage(openAiImage.buffer, openAiImage.mimeType);
+      debug.push(`saved upload via ${openAiImage.modelName} id=${url.replace('/uploads/', '')}`);
+      return { url, debug };
+    }
+
+    if (!this.client) {
+      debug.push('gemini skipped: client=null');
+      return { url: null, debug };
+    }
+
     // 실측 SDK 호출 시간:
     //   gemini-2.5-flash-image           ~7.5초  (빠름, 먼저 시도)
     //   gemini-3.1-flash-image-preview  ~17.8초  (느려서 Vercel 타임아웃 위험)
@@ -273,22 +303,18 @@ export class AiService {
       'gemini-3.1-flash-image-preview',
     ].filter(Boolean) as string[];
 
-    const prompt = `Create a professional hero banner image for a Korean service commerce detail page (like Kmong/Soomgo style).
-Style: clean, modern, e-commerce product detail page aesthetic. Photorealistic, soft natural lighting.
-Brand color accent: vivid blue (#3180F7) — incorporate as subtle background gradient, highlight, or mood.
-Subject: Korean ${input.category || '사회자'} (event host/MC) in professional attire, confident and warm expression.
-Context: ${input.keywords || 'professional event hosting'}.
-Composition: wide 16:9 aspect, centered subject or left-aligned with blue-tinted background space on right for potential text.
-Mood: trustworthy, premium, approachable. Minimalist background (soft gray/blue gradient, subtle studio lighting).
-Strict: no text overlay, no logos, no watermarks. If reference photos are provided, match vibe/age/gender only (not identity).`;
-
     for (const modelName of imageModels) {
       const imageModel = this.client.getGenerativeModel({
         model: modelName,
         generationConfig: { responseModalities: ['TEXT', 'IMAGE'] as any } as any,
       });
       try {
-        const parts: any[] = [{ text: prompt }, ...(input.referenceImages || [])];
+        const parts: any[] = [
+          { text: prompt },
+          ...(input.referenceImages || []).map((image) => ({
+            inlineData: { mimeType: image.mimeType, data: image.data },
+          })),
+        ];
         const t0 = Date.now();
         const result = await imageModel.generateContent(parts);
         const elapsed = Date.now() - t0;
@@ -300,13 +326,10 @@ Strict: no text overlay, no logos, no watermarks. If reference photos are provid
             if (part?.inlineData?.data) {
               const mimeType = part.inlineData.mimeType || 'image/png';
               const buffer = Buffer.from(part.inlineData.data, 'base64');
-              const record = await this.prisma.uploadedFile.create({
-                data: { mimeType, data: buffer, size: buffer.length },
-                select: { id: true },
-              });
+              const url = await this.saveGeneratedImage(buffer, mimeType);
               this.logger.log(`Hero image generated via ${modelName} in ${elapsed}ms`);
-              debug.push(`saved upload id=${record.id}`);
-              return { url: `/uploads/${record.id}`, debug };
+              debug.push(`saved upload id=${url.replace('/uploads/', '')}`);
+              return { url, debug };
             }
           }
         }
@@ -319,5 +342,157 @@ Strict: no text overlay, no logos, no watermarks. If reference photos are provid
       }
     }
     return { url: null, debug };
+  }
+
+  private buildHeroImagePrompt(input: {
+    category?: string;
+    keywords?: string;
+  }) {
+    return `Create a premium hero banner image for a Korean expert profile detail page in a service commerce app.
+Style: clean, modern, high-end profile detail page aesthetic. Photorealistic, polished, soft natural lighting.
+Brand color accent: vivid blue (#3180F7) used subtly as lighting, background accent, or UI-like mood.
+Subject: Korean ${input.category || '사회자'} (professional event host/MC) in professional attire, confident and warm expression.
+Context and tone: ${input.keywords || 'trustworthy professional event hosting'}.
+Composition: wide 3:2 or 16:9 profile-detail hero. Subject may be centered or slightly left-aligned, with calm negative space that fits a mobile detail page top visual.
+Mood: trustworthy, premium, approachable, expert. Minimal background with soft gray/blue studio or event-hall atmosphere.
+Use uploaded reference images as visual reference for professional impression and styling when provided.
+Strict: no text overlay, no logos, no watermarks, no fake brand marks, no UI screenshots.`;
+  }
+
+  private parseImageDataUrls(urls: string[], limit: number): ReferenceImage[] {
+    return urls.slice(0, limit).flatMap((url) => {
+      const match = url.match(/^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/i);
+      if (!match) return [];
+      return [{ mimeType: match[1].toLowerCase().replace('image/jpg', 'image/jpeg'), data: match[2] }];
+    });
+  }
+
+  private getOpenAiImageModelNames() {
+    return Array.from(new Set([
+      process.env.OPENAI_IMAGE_MODEL,
+      'gpt-image-2',
+      'gpt-image-1.5',
+      'gpt-image-1',
+    ].filter(Boolean) as string[]));
+  }
+
+  private getOpenAiImageOptions() {
+    return {
+      size: process.env.OPENAI_IMAGE_SIZE || '1536x1024',
+      quality: process.env.OPENAI_IMAGE_QUALITY || 'medium',
+      outputFormat: process.env.OPENAI_IMAGE_OUTPUT_FORMAT || 'jpeg',
+    };
+  }
+
+  private outputFormatToMime(format: string) {
+    if (format === 'webp') return 'image/webp';
+    if (format === 'png') return 'image/png';
+    return 'image/jpeg';
+  }
+
+  private imageExtension(mimeType: string) {
+    if (mimeType.includes('png')) return 'png';
+    if (mimeType.includes('webp')) return 'webp';
+    return 'jpg';
+  }
+
+  private async generateOpenAiImage(input: {
+    prompt: string;
+    referenceImages: ReferenceImage[];
+    debug: string[];
+  }): Promise<{ buffer: Buffer; mimeType: string; modelName: string } | null> {
+    if (!this.openAiApiKey) {
+      input.debug.push('openai skipped: OPENAI_API_KEY not set');
+      return null;
+    }
+
+    const { size, quality, outputFormat } = this.getOpenAiImageOptions();
+    const mimeType = this.outputFormatToMime(outputFormat);
+
+    for (const modelName of this.getOpenAiImageModelNames()) {
+      try {
+        const t0 = Date.now();
+        const body = input.referenceImages.length > 0
+          ? this.buildOpenAiEditForm({
+              modelName,
+              prompt: input.prompt,
+              size,
+              quality,
+              outputFormat,
+              referenceImages: input.referenceImages,
+            })
+          : JSON.stringify({
+              model: modelName,
+              prompt: input.prompt,
+              n: 1,
+              size,
+              quality,
+              output_format: outputFormat,
+              moderation: 'auto',
+            });
+
+        const response = await fetch(
+          `https://api.openai.com/v1/images/${input.referenceImages.length > 0 ? 'edits' : 'generations'}`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${this.openAiApiKey}`,
+              ...(typeof body === 'string' ? { 'Content-Type': 'application/json' } : {}),
+            },
+            body,
+          },
+        );
+        const elapsed = Date.now() - t0;
+        const json: any = await response.json().catch(async () => ({ raw: await response.text().catch(() => '') }));
+        if (!response.ok) {
+          const message = json?.error?.message || json?.raw || response.statusText;
+          input.debug.push(`${modelName}: ${response.status} ${String(message).slice(0, 160)}`);
+          continue;
+        }
+        const b64 = json?.data?.[0]?.b64_json;
+        if (!b64) {
+          input.debug.push(`${modelName}: ${elapsed}ms, no b64_json`);
+          continue;
+        }
+        this.logger.log(`Hero image generated via ${modelName} in ${elapsed}ms`);
+        input.debug.push(`${modelName}: ${elapsed}ms, image=${Math.round(b64.length / 1024)}KB(base64)`);
+        return { buffer: Buffer.from(b64, 'base64'), mimeType, modelName };
+      } catch (e: any) {
+        input.debug.push(`${modelName} error: ${String(e?.message || e).slice(0, 160)}`);
+      }
+    }
+
+    return null;
+  }
+
+  private buildOpenAiEditForm(input: {
+    modelName: string;
+    prompt: string;
+    size: string;
+    quality: string;
+    outputFormat: string;
+    referenceImages: ReferenceImage[];
+  }) {
+    const form = new FormData();
+    form.append('model', input.modelName);
+    form.append('prompt', input.prompt);
+    form.append('size', input.size);
+    form.append('quality', input.quality);
+    form.append('output_format', input.outputFormat);
+    form.append('moderation', 'auto');
+    input.referenceImages.forEach((image, index) => {
+      const buffer = Buffer.from(image.data, 'base64');
+      const blob = new Blob([buffer], { type: image.mimeType });
+      form.append('image[]', blob, `reference-${index + 1}.${this.imageExtension(image.mimeType)}`);
+    });
+    return form;
+  }
+
+  private async saveGeneratedImage(buffer: Buffer, mimeType: string) {
+    const record = await this.prisma.uploadedFile.create({
+      data: { mimeType, data: buffer, size: buffer.length },
+      select: { id: true },
+    });
+    return `/uploads/${record.id}`;
   }
 }

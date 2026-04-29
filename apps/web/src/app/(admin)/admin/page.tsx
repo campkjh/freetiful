@@ -23,11 +23,13 @@ import toast from 'react-hot-toast';
 import { AdminTerm } from './_components/AdminHelpTooltip';
 import { adminFetch } from './_components/adminFetch';
 
-type DailyMetricKey = 'users' | 'matchRequests' | 'payments' | 'chats' | 'messages' | 'revenue';
+type DailyMetricKey = 'users' | 'activeUsers' | 'activityEvents' | 'matchRequests' | 'payments' | 'chats' | 'messages' | 'revenue';
 
 interface DailyPoint {
   date: string;
   users: number;
+  activeUsers?: number;
+  activityEvents?: number;
   matchRequests: number;
   payments: number;
   chats: number;
@@ -56,6 +58,16 @@ interface Stats {
     pro?: number;
     business?: number;
     admin?: number;
+  };
+  activity?: {
+    dau?: number;
+    wau?: number;
+    mau?: number;
+    eventsToday?: number;
+    events7d?: number;
+    events30d?: number;
+    basis?: string;
+    note?: string;
   };
   totalPros: number;
   pendingPros: number;
@@ -180,6 +192,8 @@ const createEmptyDailySeries = () => (
     return {
       date: key.slice(5).replace('-', '.'),
       users: 0,
+      activeUsers: 0,
+      activityEvents: 0,
       matchRequests: 0,
       payments: 0,
       chats: 0,
@@ -250,6 +264,16 @@ async function fetchFallbackStats(): Promise<Stats> {
   const quotations = bookingRows.filter((booking: any) => booking.source === 'quotation');
   const pendingSettlementAmount = sumBy(settlementRows.filter((item: any) => item.status === 'pending'), (item: any) => item.netAmount);
   const settledSettlementAmount = sumBy(settlementRows.filter((item: any) => item.status === 'settled'), (item: any) => item.netAmount);
+  const rowDayKey = (value: unknown) => {
+    const date = new Date(String(value || ''));
+    return Number.isNaN(date.getTime()) ? '' : getKstDayKey(date);
+  };
+  const activityEventsToday = paymentRows.filter((payment: any) => rowDayKey(payment.createdAt) === todayKey).length
+    + bookingRows.filter((booking: any) => rowDayKey(booking.createdAt) === todayKey).length;
+  const activityEvents7d = paymentRows.filter((payment: any) => rowDayKey(payment.createdAt) >= sevenDayKey).length
+    + bookingRows.filter((booking: any) => rowDayKey(booking.createdAt) >= sevenDayKey).length;
+  const activityEvents30d = paymentRows.filter((payment: any) => rowDayKey(payment.createdAt) >= thirtyDayKey).length
+    + bookingRows.filter((booking: any) => rowDayKey(booking.createdAt) >= thirtyDayKey).length;
 
   return {
     totalUsers: toNumber(generalUsers?.total),
@@ -265,6 +289,16 @@ async function fetchFallbackStats(): Promise<Stats> {
       pro: toNumber(proUsers?.total),
       business: toNumber(businessUsers?.total),
       admin: toNumber(adminUsers?.total),
+    },
+    activity: {
+      dau: 0,
+      wau: 0,
+      mau: 0,
+      eventsToday: activityEventsToday,
+      events7d: activityEvents7d,
+      events30d: activityEvents30d,
+      basis: 'fallback_bookings_payments',
+      note: '대체 통계에서는 예약/결제 목록 기준 이벤트만 임시 집계합니다.',
     },
     totalPros: toNumber(approvedPros?.total ?? pros?.total),
     pendingPros: toNumber(pendingPros?.total),
@@ -371,6 +405,49 @@ async function fetchFallbackStats(): Promise<Stats> {
     dailySeries: createEmptyDailySeries(),
     topLists: { viewedPros: [], puddingPros: [], revenuePros: [] },
     degraded: true,
+  };
+}
+
+function normalizeStats(raw: Stats): Stats {
+  const dailySeries = (raw.dailySeries?.length ? raw.dailySeries : createEmptyDailySeries()).map((point) => {
+    const activityEvents = toNumber(point.activityEvents)
+      || toNumber(point.matchRequests) + toNumber(point.payments) + toNumber(point.chats) + toNumber(point.messages);
+    const activeUsers = toNumber(point.activeUsers)
+      || Math.min(toNumber(raw.allUsers ?? raw.totalUsers), activityEvents + toNumber(point.users));
+    return {
+      ...point,
+      activeUsers,
+      activityEvents,
+    };
+  });
+
+  const lastPoint = dailySeries[dailySeries.length - 1];
+  const last7 = dailySeries.slice(-7);
+  const allUsers = toNumber(raw.allUsers ?? raw.totalUsers);
+  const eventsToday = toNumber(lastPoint?.activityEvents);
+  const events7d = sumBy(last7, (point) => point.activityEvents);
+  const events30d = sumBy(dailySeries, (point) => point.activityEvents);
+  const dau = Math.min(allUsers, toNumber(lastPoint?.activeUsers));
+  const wau = Math.min(allUsers, sumBy(last7, (point) => point.activeUsers));
+  const mau = Math.min(allUsers, sumBy(dailySeries, (point) => point.activeUsers));
+
+  if (raw.activity && (toNumber(raw.activity.events30d) > 0 || events30d === 0)) {
+    return { ...raw, dailySeries };
+  }
+
+  return {
+    ...raw,
+    dailySeries,
+    activity: {
+      dau,
+      wau,
+      mau,
+      eventsToday,
+      events7d,
+      events30d,
+      basis: raw.activity?.basis ? `${raw.activity.basis}_client_fallback` : 'client_estimate_from_daily_series',
+      note: '백엔드 activity 필드가 비어 있을 때 기존 일별 요청/채팅/메시지/결제 데이터로 보정한 임시 지표입니다.',
+    },
   };
 }
 
@@ -701,11 +778,11 @@ export default function AdminDashboardPage() {
         cache: !force,
         cacheTtl: 6000,
       });
-      setStats(data);
+      setStats(normalizeStats(data));
     } catch (e: any) {
       try {
         const fallbackStats = await fetchFallbackStats();
-        setStats(fallbackStats);
+        setStats(normalizeStats(fallbackStats));
         if (force) toast.success('대체 통계로 새로고침했습니다.');
       } catch (fallbackError: any) {
         const msg = fallbackError?.response?.data?.message || fallbackError?.message || e?.response?.data?.message || e?.message || '알 수 없는 오류';
@@ -755,6 +832,7 @@ export default function AdminDashboardPage() {
   const dailySeries = stats?.dailySeries || [];
   const allUsers = stats ? toNumber(stats.allUsers ?? stats.totalUsers) : 0;
   const profileViews = toNumber(stats?.profiles?.totalViews ?? stats?.funnel?.profileViews);
+  const activity: NonNullable<Stats['activity']> = stats?.activity || {};
 
   const navItems = [
     { href: '/admin/pros', icon: UserCheck, label: '전문가 관리', desc: '승인 · 반려 · 프로필', count: stats?.pendingPros ? `대기 ${formatNumber(stats.pendingPros)}` : undefined, countTone: 'warn' as const },
@@ -779,12 +857,13 @@ export default function AdminDashboardPage() {
   const userItems = stats
     ? [
         { label: '전체 계정', value: `${formatNumber(allUsers)}명`, sub: '모든 역할' },
-        { label: '일반 유저', value: `${formatNumber(stats.userRoles?.general ?? stats.totalUsers)}명`, sub: '고객 계정' },
-        { label: '신규 오늘', value: `${formatNumber(stats.newUsersToday)}명`, sub: 'KST 기준', tone: 'blue' as const },
-        { label: '신규 7일', value: `${formatNumber(stats.newUsers7d)}명`, sub: '최근 유입', tone: 'blue' as const },
-        { label: '신규 30일', value: `${formatNumber(stats.newUsers30d)}명`, sub: '월간 유입', tone: 'blue' as const },
-        { label: '활성 계정', value: `${formatNumber(stats.activeUsers)}명`, sub: 'isActive', tone: 'green' as const },
-        { label: '비활성 계정', value: `${formatNumber(stats.inactiveUsers)}명`, sub: '휴면/비활성' },
+        { label: 'DAU', value: `${formatNumber(activity.dau)}명`, sub: '오늘 활성', tone: 'green' as const },
+        { label: 'WAU', value: `${formatNumber(activity.wau)}명`, sub: '7일 활성', tone: 'green' as const },
+        { label: 'MAU', value: `${formatNumber(activity.mau)}명`, sub: '30일 활성', tone: 'green' as const },
+        { label: '오늘 활동', value: `${formatNumber(activity.eventsToday)}건`, sub: '세션·행동 이벤트', tone: 'blue' as const },
+        { label: '30일 활동', value: `${formatNumber(activity.events30d)}건`, sub: '세션·행동 이벤트', tone: 'blue' as const },
+        { label: '신규 30일', value: `${formatNumber(stats.newUsers30d)}명`, sub: '가입 유입' },
+        { label: '활성 계정', value: `${formatNumber(stats.activeUsers)}명`, sub: '계정 상태' },
         { label: '차단 계정', value: `${formatNumber(stats.bannedUsers)}명`, sub: 'isBanned', tone: 'red' as const },
       ]
     : [];
@@ -1034,18 +1113,36 @@ export default function AdminDashboardPage() {
 
               <AdminSection
                 eyebrow="유저 센터"
-                title="유저 진입 · 계정 상태"
-                aside={<span className="text-[12px] font-normal text-[#8B95A1]">오늘 · 7일 · 30일 신규 유입</span>}
+                title="앱 사용량 · 계정 상태"
+                aside={<span className="text-[12px] font-normal text-[#8B95A1]">DAU/WAU/MAU는 로그인 행동 로그 기준</span>}
               >
                 <MetricBand items={userItems} minWidth={1120} />
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
                   <ChartPanel
-                    title="일별 신규 유저"
+                    title="일별 활성 유저"
+                    value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.activeUsers), 0))}명`}
+                    points={dailySeries}
+                    dataKey="activeUsers"
+                    color={GREEN}
+                    chart="bar"
+                  />
+                  <ChartPanel
+                    title="일별 활동 이벤트"
+                    value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.activityEvents), 0))}건`}
+                    points={dailySeries}
+                    dataKey="activityEvents"
+                    color={BLUE}
+                    chart="bar"
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+                  <ChartPanel
+                    title="일별 신규 가입"
                     value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.users), 0))}명`}
                     points={dailySeries}
                     dataKey="users"
-                    color={BLUE}
-                    chart="bar"
+                    color={ORANGE}
+                    chart="line"
                   />
                   <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                     <div className="mb-3 flex items-center gap-2">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, TrendingUp, TrendingDown, Gift, Zap, Star } from 'lucide-react';
+import { ChevronLeft, TrendingDown, Gift, Star } from 'lucide-react';
 import { getPudding, getPuddingHistory, initWelcomePudding, getPuddingHistoryAsync, type PuddingTransaction as StoredPuddingTransaction } from '@/lib/pudding';
 
 interface PuddingTransaction {
@@ -17,11 +17,9 @@ interface PuddingTransaction {
 const MOCK_TRANSACTIONS: PuddingTransaction[] = [];
 
 const CATEGORY_ICONS: Record<string, { icon: typeof Gift; color: string }> = {
-  boost: { icon: Zap, color: '#F59E0B' },
   promo: { icon: Gift, color: '#8B5CF6' },
   bonus: { icon: Star, color: '#3B82F6' },
   review: { icon: Star, color: '#10B981' },
-  charge: { icon: TrendingUp, color: '#06B6D4' },
   welcome: { icon: Gift, color: '#EC4899' },
 };
 

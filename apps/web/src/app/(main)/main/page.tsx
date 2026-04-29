@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect, type MouseEvent 
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, Star, ChevronRight, MapPin } from 'lucide-react';
+import { Search, Bell, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -14,7 +14,23 @@ import {
   WEDDING_PARTNER_CATEGORY_ICONS,
   WEDDING_PARTNER_CATEGORY_TABS,
 } from '@/lib/business-categories';
-import { discoveryApi } from '@/lib/api/discovery.api';
+import {
+  getBusinessCategoryNames,
+  getBusinessDisplayTags,
+  isPopularBusinessPartner,
+  sortPopularPartnersFirst,
+} from '@/lib/business-popularity';
+import {
+  getWeddingPartnerImageSet,
+  getWeddingPartnerSectionCategories,
+  mergeWeddingPartnerImages,
+} from '@/lib/wedding-partner-images';
+import {
+  BUSINESS_IMAGE_FALLBACK,
+  handleBusinessImageError,
+  toBusinessImageUrls,
+} from '@/lib/business-images';
+import { discoveryApi, getCachedProList } from '@/lib/api/discovery.api';
 import {
   applyFavoriteCountToLocalCaches,
   emitFavoriteChange,
@@ -55,13 +71,24 @@ function shouldSkipHomeAnim(): boolean {
   return _homeSkipValue;
 }
 
+function useHomeAnimationSkip(): boolean {
+  const [skip, setSkip] = useState(false);
+  useEffect(() => {
+    setSkip(shouldSkipHomeAnim());
+  }, []);
+  return skip;
+}
+
 /* ─── Scroll Reveal Hook ──────────────────────────────────── */
 function useReveal(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
-  // 재방문 시 처음부터 visible=true로 시작해 애니메이션 스킵
-  const [visible, setVisible] = useState(() => typeof window !== 'undefined' && shouldSkipHomeAnim());
+  const [visible, setVisible] = useState(false);
   useEffect(() => {
     if (visible) return; // 이미 visible이면 observer 불필요
+    if (shouldSkipHomeAnim()) {
+      setVisible(true);
+      return;
+    }
     const el = ref.current;
     if (!el) return;
     const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVisible(true); }, { threshold });
@@ -310,8 +337,6 @@ interface ProData {
   regions: string[];
   languages: string[];
   isNationwide: boolean;
-  rating: number;
-  reviews: number;
   favoriteCount: number;
   pudding?: number;
   image: string;
@@ -333,8 +358,6 @@ function mapDiscoveryProToHomePro(p: any): ProData {
     regions: p.regions || [],
     languages: p.languages || [],
     isNationwide: p.isNationwide ?? false,
-    rating: Number(p.avgRating ?? 0),
-    reviews: p.reviewCount ?? 0,
     favoriteCount: p.favoriteCount ?? 0,
     pudding: p.puddingCount ?? 0,
     image: p.images?.[0] || p.profileImageUrl || '',
@@ -354,8 +377,6 @@ function mapDiscoveryProToHomePro(p: any): ProData {
 function sortByPuddingRank(items: ProData[]) {
   return [...items].sort((a, b) =>
     (b.pudding ?? 0) - (a.pudding ?? 0)
-    || b.rating - a.rating
-    || b.reviews - a.reviews
     || a.name.localeCompare(b.name, 'ko')
   );
 }
@@ -367,76 +388,319 @@ function isWeddingMcPro(pro: ProData) {
   });
 }
 
+const HOME_HERO_PROFILE_FALLBACK_IMAGES = [
+  '/images/pro-15/IMG_0196.avif',
+  '/images/pro-23/IMG_46511771924269213.avif',
+  '/images/pro-12/IMG_27221772621229571.avif',
+  '/images/pro-31/IMG_73341772850094485.avif',
+  '/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif',
+  '/images/pro-25/2-11772248201484.avif',
+  '/images/pro-01/10000133881772850005043.avif',
+  '/images/pro-18/20161016_161406_IMG_5921.avif',
+  '/images/pro-05/10000029811773033474612.avif',
+  '/images/pro-34/IMG_2920.avif',
+  '/images/pro-24/10001176941772847263491.avif',
+  '/images/pro-07/IMG_53011772965035335.avif',
+  '/images/pro-03/IMG_06781773894450803.avif',
+  '/images/pro-22/10000353831773035180593.avif',
+  '/images/pro-10/10000016211774440274171.avif',
+  '/images/pro-28/IMG_002209_01772081523241.avif',
+  '/images/pro-36/IMG_27041773036338469.avif',
+  '/images/pro-14/IMG_02661773035503788.avif',
+  '/images/pro-38/IMG_34281772111635068.avif',
+  '/images/pro-04/IMG_23601771788594274.avif',
+  '/images/pro-41/IMG_12201772513865121.avif',
+];
+
+function HomeHeroProfileMarqueeRow({
+  images,
+  direction = 'left',
+  speed = 80,
+}: {
+  images: string[];
+  direction?: 'left' | 'right';
+  speed?: number;
+}) {
+  const repeated = [...images, ...images, ...images];
+  return (
+    <div
+      className={`home-hero-profile-track home-hero-profile-track-${direction} flex w-max gap-4`}
+      style={{ '--home-hero-profile-speed': `${speed}s` } as React.CSSProperties}
+    >
+      {repeated.map((src, index) => (
+        <div
+          key={`${src}-${index}`}
+          className="h-[88px] w-[88px] shrink-0 overflow-hidden rounded-full border border-white/70 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.14)] xl:h-[104px] xl:w-[104px]"
+        >
+          <img
+            src={src}
+            alt=""
+            className="h-full w-full object-cover"
+            draggable={false}
+            loading="lazy"
+            decoding="async"
+            onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HomeHeroProfileMarquee({ images }: { images: string[] }) {
+  const profileImages = useMemo(() => {
+    const merged = [...images, ...HOME_HERO_PROFILE_FALLBACK_IMAGES]
+      .filter((src) => src && !src.includes('default-profile'));
+    return Array.from(new Set(merged)).slice(0, 24);
+  }, [images]);
+
+  const rows = [
+    profileImages.slice(0, 8),
+    profileImages.slice(8, 16),
+    profileImages.slice(16, 24),
+  ].filter((row) => row.length > 0);
+
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[600px] overflow-hidden">
+      <div
+        className="absolute left-1/2 top-0 flex -translate-x-1/2 flex-col gap-5 opacity-[0.31] xl:opacity-[0.34]"
+        style={{ transform: 'translateX(-50%) rotate(-12deg) scale(1.18)', transformOrigin: 'center' }}
+      >
+        {rows.map((row, index) => (
+          <HomeHeroProfileMarqueeRow
+            key={index}
+            images={index % 2 === 0 ? row : [...row].reverse()}
+            direction={index % 2 === 0 ? 'left' : 'right'}
+            speed={index === 0 ? 84 : index === 1 ? 96 : 90}
+          />
+        ))}
+        <HomeHeroProfileMarqueeRow
+          images={[...profileImages.slice(0, 8)].reverse()}
+          direction="right"
+          speed={104}
+        />
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/54 to-white" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.24),rgba(255,255,255,0.82)_78%)]" />
+    </div>
+  );
+}
+
+const desktopHeroMenuItems = [
+  {
+    label: '결혼식사회자',
+    items: ['전문결혼식사회자', '외국어사회자', '주례없는 예식'],
+  },
+  {
+    label: 'MC',
+    items: ['행사 MC', '방송 MC', '쇼호스트'],
+  },
+  {
+    label: '기업행사',
+    items: ['기업행사', '시상식', '워크샵'],
+  },
+  {
+    label: '연례행사',
+    items: ['연례행사', '송년회', '창립기념식'],
+  },
+  {
+    label: '체육대회',
+    items: ['체육대회', '레크리에이션', '팀빌딩'],
+  },
+  {
+    label: '컨퍼런스',
+    items: ['컨퍼런스', '세미나', '포럼'],
+  },
+  {
+    label: '축가',
+    items: ['축가·연주', '축가', '연주'],
+  },
+  {
+    label: '쇼호스트',
+    items: ['쇼호스트', '라이브커머스', '제품행사'],
+  },
+];
+
+const homeSearchSlotKeywords = [
+  '결혼식사회자',
+  '컨퍼런스사회자',
+  '돌잔치사회자',
+  '기업행사사회자',
+  '체육대회사회자',
+  '쇼호스트',
+];
+
+function proCategoryHref(category: string) {
+  return `/pros?category=${encodeURIComponent(category)}`;
+}
+
 /* placeholder to anchor subsequent edits */
 // ─── Business Partners (기업회원) ──────────────────────────────
 interface BusinessPartner {
   id: string;
   category: string;
+  categories: string[];
   name: string;
   location: string;
   images: string[];
   tags: string[];
+  isPopular: boolean;
   originalPrice: number;
   discountPercent: number;
 }
 
 const BIZ_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
+const WEDDING_PARTNER_SECTION_ORDER = BIZ_CATEGORIES.filter((category) => category !== '전체');
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
-const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v1';
+const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v8';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
+const BUSINESS_STALE_CACHE_TTL = 24 * 60 * 60_000;
+const HOME_PRO_LIST_PARAMS = { limit: 41, sort: 'pudding' as const, withTotal: false };
+
+function readCachedPayload<T>(primaryKey: string, prefix: string, ttl: number) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const keys = [
+      primaryKey,
+      ...Object.keys(localStorage)
+        .filter((key) => key.startsWith(prefix) && key !== primaryKey)
+        .sort()
+        .reverse(),
+    ];
+
+    let stale: T[] | null = null;
+    for (const key of keys) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const data = Array.isArray(parsed?.data) ? parsed.data : Array.isArray(parsed) ? parsed : null;
+      if (!data?.length) continue;
+      const age = Date.now() - Number(parsed?.ts || 0);
+      if (parsed?.ts && age < ttl) return data as T[];
+      if (!stale && (!parsed?.ts || age < BUSINESS_STALE_CACHE_TTL)) stale = data as T[];
+    }
+    return stale;
+  } catch {
+    return null;
+  }
+}
+
+function reviveCachedBusinessPartners(items: BusinessPartner[]) {
+  return items.map((business) => {
+    const imageSet = getWeddingPartnerImageSet(business.name);
+    const images = imageSet?.images.length
+      ? mergeWeddingPartnerImages(imageSet.images, business.images)
+      : mergeWeddingPartnerImages(business.images);
+
+    return {
+      ...business,
+      images: toBusinessImageUrls(images),
+      categories: Array.from(new Set([
+        ...(business.categories || []),
+        ...getWeddingPartnerSectionCategories(imageSet),
+      ])),
+    };
+  });
+}
+
+function readCachedHomeBusinesses() {
+  const cached = readCachedPayload<BusinessPartner>(BUSINESS_CACHE_KEY, 'freetiful-home-business-cache-', BUSINESS_CACHE_TTL);
+  return cached ? reviveCachedBusinessPartners(cached) : [];
+}
+
+function readCachedHomePros() {
+  const discoveryCached = getCachedProList(HOME_PRO_LIST_PARAMS);
+  if (discoveryCached?.data?.length) return sortByPuddingRank(discoveryCached.data.map(mapDiscoveryProToHomePro));
+
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem(HOME_PROS_CACHE_KEY);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 function BusinessCard({ biz }: { biz: BusinessPartner }) {
-  // 가상의 리뷰 데이터 (나중에 실제 데이터로 교체)
-  const highlightTag = biz.tags[0];
-  const highlightCount = 21;
-  const rating = 9.0;
-  const totalReviews = 927;
-
   return (
     <Link href={`/businesses/${biz.id}`} className="block group">
       {/* 상단 와이드 이미지 */}
       <div className="relative w-full aspect-[2/1] rounded-xl overflow-hidden bg-gray-100">
         <img
-          src={biz.images[0]}
+          src={biz.images[0] || BUSINESS_IMAGE_FALLBACK}
           alt={biz.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          onError={handleBusinessImageError}
         />
         {/* 좌측 상단 로고 마크 */}
         <div className="absolute top-3 left-3 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
           <span className="text-[12px] font-black text-gray-900">{biz.name.charAt(0)}</span>
         </div>
+        {biz.isPopular && (
+          <div className="absolute right-3 top-3 rounded-full bg-[#FF6B35] px-2.5 py-1 text-[11px] font-black text-white shadow-sm">
+            인기
+          </div>
+        )}
       </div>
 
       {/* 이름 */}
       <h4 className="mt-3 text-[16px] font-semibold text-gray-900 leading-[1.2] tracking-tight">{biz.name}</h4>
 
-      {/* 하이라이트 태그 */}
-      <p className="mt-1 text-[14px] font-semibold text-[#FF6B35] leading-tight">{highlightTag} 후기 {highlightCount}개</p>
-
-      {/* 별점 + 후기수 + 위치 */}
+      {/* 위치 */}
       <div className="mt-1 flex items-center gap-1.5 text-[13px] text-gray-500 leading-tight">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="#FFB800" className="shrink-0">
-          <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
-        </svg>
-        <span className="font-semibold text-gray-900">{rating.toFixed(1)}</span>
-        <span className="text-gray-300">·</span>
-        <span>후기 {totalReviews.toLocaleString()}개</span>
-        <span className="text-gray-300">·</span>
+        <MapPin size={13} className="shrink-0 text-gray-300" />
         <span>{biz.location}</span>
       </div>
 
       {/* 태그 */}
       <div className="mt-2 flex flex-wrap gap-1">
         {biz.tags.map((tag) => (
-          <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>
+          <span
+            key={tag}
+            className={`flex items-center rounded-[5px] px-1.5 text-[10px] font-medium ${
+              tag === '인기'
+                ? 'bg-[#FFF0E8] text-[#FF6B35]'
+                : 'bg-gray-100 text-gray-600'
+            }`}
+            style={{ height: 22 }}
+          >
             {tag}
           </span>
         ))}
       </div>
     </Link>
   );
+}
+
+function getBusinessPartnerSections(businesses: BusinessPartner[]) {
+  const grouped = new Map<string, BusinessPartner[]>();
+
+  businesses.forEach((business) => {
+    const categories = business.categories.length > 0 ? business.categories : [business.category];
+    categories
+      .filter((category) => category && category !== '전체' && category !== '인기')
+      .forEach((category) => {
+        const items = grouped.get(category) || [];
+        items.push(business);
+        grouped.set(category, items);
+      });
+  });
+
+  const orderedCategories = [
+    ...WEDDING_PARTNER_SECTION_ORDER,
+    ...Array.from(grouped.keys()).filter((category) => !WEDDING_PARTNER_SECTION_ORDER.includes(category)),
+  ];
+
+  return orderedCategories
+    .map((category) => ({
+      category,
+      businesses: sortPopularPartnersFirst(grouped.get(category) || []),
+    }))
+    .filter((section) => section.businesses.length > 0);
 }
 
 const BANNERS = [
@@ -481,7 +745,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
   toggleFavorite: (e: MouseEvent, id: string) => void;
   index: number;
 }) {
-  const skipAnim = shouldSkipHomeAnim();
+  const skipAnim = useHomeAnimationSkip();
   const primaryImage = pro.images[0] || pro.image || '/images/default-profile.svg';
   const secondaryImage = pro.images[1] || primaryImage;
   const tertiaryImage = pro.images[2] || primaryImage;
@@ -548,11 +812,6 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
         )}
         <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[15px] lg:font-bold">{pro.categories[0]|| '사회자'} {pro.name}</h4>
         <div className="flex items-center gap-2 mt-0.5 mb-1">
-          <div className="flex items-center gap-0.5">
-            <Star size={11} className="fill-yellow-400 text-yellow-400" />
-            <span className="text-[12px] font-bold text-gray-900">{pro.rating}</span>
-            <span className="text-[11px] text-gray-400">({pro.reviews})</span>
-          </div>
           <div className="flex items-center gap-0.5">
             <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
             <span className="text-[11px] text-gray-400">{pro.favoriteCount ?? pro.pudding ?? 0}</span>
@@ -662,34 +921,69 @@ function LanguageBadge() {
   }, []);
   return (
     <span
-      className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold text-white whitespace-nowrap"
-      style={{
-        background: 'rgba(17, 17, 17, 0.2)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.5)',
-        animation: 'langFade 2s ease-in-out infinite',
-      }}
-      key={idx}
+      className="home-category-language-badge absolute bottom-0 left-1/2 z-20 -translate-x-1/2 overflow-hidden rounded-full"
     >
-      {LANGS[idx]}
+      <span
+        className="home-category-language-badge-track"
+        style={{ transform: `translateY(-${idx * 16}px)` }}
+      >
+        {LANGS.map((lang) => (
+          <span key={lang} className="home-category-language-badge-item">
+            {lang}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }
 
-function CategorySwiper() {
-  const CAT_DIR = '/images/category-icons';
+type HomeCategoryItem = { name: string; img: string; href: string };
+const HOME_CATEGORY_ICON_DIR = '/images/category-icons';
+
+function getHomeCategoryItems(): HomeCategoryItem[] {
   const weddingPartnerCats = WEDDING_PARTNER_CATEGORIES.map((name) => ({
     name,
-    img: `${CAT_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS[name]}`,
+    img: `${HOME_CATEGORY_ICON_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS[name]}`,
     href: `/businesses?category=${encodeURIComponent(name)}`,
   }));
-  const allCats = [
-    { name: '외국어사회자', img: `${CAT_DIR}/foreign-mc.png`, href: '/pros?category=외국어사회자' },
+  return [
+    { name: '외국어사회자', img: `${HOME_CATEGORY_ICON_DIR}/foreign-mc.png`, href: '/pros?category=외국어사회자' },
     ...weddingPartnerCats.slice(0, 8),
-    { name: '축가연주', img: `${CAT_DIR}/singer.png`, href: '/pros?category=축가·연주' },
+    { name: '축가연주', img: `${HOME_CATEGORY_ICON_DIR}/singer.png`, href: '/pros?category=축가·연주' },
     ...weddingPartnerCats.slice(8),
   ];
+}
+
+function HomeCategoryIcon({ item }: { item: HomeCategoryItem }) {
+  return (
+    <>
+      {item.name === '웨딩홀' ? (
+        <video
+          src="/images/wedding-hall-video.mp4"
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          className="w-full h-full object-cover rounded-full"
+          ref={(v) => { if (v) v.playbackRate = 0.5; }}
+          onEnded={(e) => {
+            const v = e.currentTarget;
+            setTimeout(() => { v.currentTime = 0; v.play().catch(() => {}); }, 1500);
+          }}
+        />
+      ) : item.name === '가전' ? (
+        <ApplianceIconSwap />
+      ) : (
+        <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
+      )}
+      {item.name === '헤어' && <CherryBlossomAnimation />}
+    </>
+  );
+}
+
+function CategorySwiper() {
+  const skipAnim = useHomeAnimationSkip();
+  const allCats = getHomeCategoryItems();
   const PAGE_SIZE = 10;
   const pages: typeof allCats[] = [];
   for (let i = 0; i < allCats.length; i += PAGE_SIZE) pages.push(allCats.slice(i, i + PAGE_SIZE));
@@ -725,30 +1019,11 @@ function CategorySwiper() {
                   key={item.name}
                   href={item.href}
                   className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
-                  style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + i * 0.04}s forwards` }}
+                  style={skipAnim ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + i * 0.04}s forwards` }}
                 >
                   <div className="w-[60px] h-[60px] lg:w-16 lg:h-16 flex items-center justify-center relative">
-                    {item.name === '웨딩홀' ? (
-                      <video
-                        src="/images/wedding-hall-video.mp4"
-                        autoPlay
-                        muted
-                        playsInline
-                        preload="auto"
-                        className="w-full h-full object-cover rounded-full"
-                        ref={(v) => { if (v) v.playbackRate = 0.5; }}
-                        onEnded={(e) => {
-                          const v = e.currentTarget;
-                          setTimeout(() => { v.currentTime = 0; v.play().catch(() => {}); }, 1500);
-                        }}
-                      />
-                    ) : item.name === '가전' ? (
-                      <ApplianceIconSwap />
-                    ) : (
-                      <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
-                    )}
+                    <HomeCategoryIcon item={item} />
                     {item.name === '외국어사회자' && <LanguageBadge />}
-                    {item.name === '헤어' && <CherryBlossomAnimation />}
                   </div>
                   <span className="text-[12px] lg:text-[13px] font-medium text-center leading-tight mt-1" style={{ color: '#51535C' }}>{item.name}</span>
                 </Link>
@@ -795,11 +1070,29 @@ function CategorySwiper() {
 }
 
 export default function HomePage() {
-  prepareHomeAnimationDecision();
   const authUser = useAuthStore((s) => s.user);
-  const [unreadNotifications, setUnreadNotifications] = useState(() => getCachedUnreadCount());
-  const [apiPros, setApiPros] = useState<ProData[] | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [apiPros, setApiPros] = useState<ProData[] | null>(() => readCachedHomePros());
+  const [phonePreviewSrc, setPhonePreviewSrc] = useState<string | null>(null);
+  const skipHomeAnim = useHomeAnimationSkip();
   useEffect(() => () => resetHomeAnimationDecision(), []);
+
+  useEffect(() => {
+    const isPhonePreview = new URLSearchParams(window.location.search).has('phonePreview');
+    if (isPhonePreview) {
+      setPhonePreviewSrc(null);
+      return;
+    }
+
+    const media = window.matchMedia('(min-width: 1024px)');
+    const syncPhonePreview = () => {
+      setPhonePreviewSrc(media.matches ? '/main?phonePreview=1' : null);
+    };
+
+    syncPhonePreview();
+    media.addEventListener('change', syncPhonePreview);
+    return () => media.removeEventListener('change', syncPhonePreview);
+  }, []);
 
   useEffect(() => {
     if (!authUser) {
@@ -856,21 +1149,16 @@ export default function HomePage() {
   useEffect(() => {
     let cancelled = false;
     // 캐시에서 즉시 표시 (두 번째 방문부터 무한 로딩 방지)
-    try {
-      const cached = localStorage.getItem(HOME_PROS_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) setApiPros(parsed);
-      }
-    } catch {}
+    const cachedPros = readCachedHomePros();
+    if (cachedPros?.length) setApiPros(cachedPros);
 
     // 타임아웃: 8초 내 응답 없으면 빈 배열로 설정
     const timeout = setTimeout(() => {
       setApiPros((prev) => prev ?? []);
     }, 8000);
 
-    const loadRealtimePuddingRank = () => {
-      discoveryApi.getProList({ limit: 41, sort: 'pudding', withTotal: false, realtime: true })
+    const loadPuddingRank = () => {
+      discoveryApi.getProList(HOME_PRO_LIST_PARAMS)
         .then((res) => {
           if (cancelled) return;
           clearTimeout(timeout);
@@ -897,11 +1185,11 @@ export default function HomePage() {
         });
     };
 
-    loadRealtimePuddingRank();
-    const interval = window.setInterval(loadRealtimePuddingRank, 20_000);
-    const onFocus = () => loadRealtimePuddingRank();
+    loadPuddingRank();
+    const interval = window.setInterval(loadPuddingRank, 60_000);
+    const onFocus = () => loadPuddingRank();
     const onVisible = () => {
-      if (document.visibilityState === 'visible') loadRealtimePuddingRank();
+      if (document.visibilityState === 'visible') loadPuddingRank();
     };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisible);
@@ -917,48 +1205,63 @@ export default function HomePage() {
 
   // Use API data only - no mock fallback
   const prosData = useMemo(() => sortByPuddingRank(apiPros || []), [apiPros]);
+  const heroProfileImages = useMemo(() => {
+    const images = prosData.flatMap((pro) => [pro.image, ...pro.images])
+      .filter((src): src is string => Boolean(src && !src.includes('default-profile')));
+    return Array.from(new Set(images)).slice(0, 24);
+  }, [prosData]);
   const bestWeddingPros = useMemo(() => {
     const weddingPros = prosData.filter(isWeddingMcPro);
     return weddingPros.length > 0 ? weddingPros : prosData;
   }, [prosData]);
-  const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
+  const [businesses, setBusinesses] = useState<BusinessPartner[]>(() => readCachedHomeBusinesses());
 
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem(BUSINESS_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.ts < BUSINESS_CACHE_TTL && Array.isArray(parsed.data)) {
-          setBusinesses(parsed.data);
-        }
-      }
-    } catch {}
+    const cachedBusinesses = readCachedHomeBusinesses();
+    if (cachedBusinesses.length > 0) setBusinesses(cachedBusinesses);
 
     let cancelled = false;
-    apiClient.get('/api/v1/business', { params: { limit: 12 } })
+    apiClient.get('/api/v1/business', { params: { limit: 100 } })
       .then((res) => {
         if (cancelled) return;
         const items = Array.isArray(res.data) ? res.data : res.data?.items;
         if (!Array.isArray(items)) return;
         const mapped: BusinessPartner[] = items.map((b: any, i: number) => {
-          const categories = Array.isArray(b.categories)
-            ? b.categories.map((c: any) => c?.category?.name).filter(Boolean)
+          const categories = getBusinessCategoryNames(b);
+          const visibleCategories = categories.filter((name) => name !== '인기');
+          const isPopular = isPopularBusinessPartner(b, categories);
+          const businessName = b.businessName || b.name || b.title || '웨딩 파트너';
+          const partnerImageSet = getWeddingPartnerImageSet(businessName, b.name, b.title);
+          const apiImages = Array.isArray(b.images)
+            ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
             : [];
-          const primaryImage = Array.isArray(b.images) ? b.images[0]?.imageUrl : undefined;
+          const mergedImages = partnerImageSet
+            ? mergeWeddingPartnerImages(partnerImageSet.images, [b.image, b.imageUrl], apiImages)
+            : mergeWeddingPartnerImages([b.image, b.imageUrl], apiImages);
+          const displayCategories = Array.from(new Set([
+            ...(visibleCategories.length > 0 ? visibleCategories : categories),
+            ...getWeddingPartnerSectionCategories(partnerImageSet),
+          ]));
+          const businessCategories = Array.from(
+            new Set(displayCategories.filter((name): name is string => Boolean(name && name !== '인기'))),
+          );
           const address = b.address || '';
           return {
             id: b.id || String(i),
-            category: categories[0] || b.businessType || '웨딩홀',
-            name: b.businessName || b.name || b.title || '웨딩 파트너',
+            category: businessCategories[0] || b.businessType || '웨딩홀',
+            categories: businessCategories.length > 0 ? businessCategories : [b.businessType || '웨딩홀'],
+            name: businessName,
             location: address.split(' ')[0] || b.region || '전국',
-            images: [b.image || b.imageUrl || primaryImage || '/images/default-profile.svg'],
-            tags: categories.length > 0 ? categories.slice(0, 3) : [b.businessType || '파트너'],
+            images: toBusinessImageUrls(mergedImages.length > 0 ? mergedImages : [BUSINESS_IMAGE_FALLBACK]),
+            tags: getBusinessDisplayTags(businessCategories, b.businessType, isPopular),
+            isPopular,
             originalPrice: b.originalPrice ?? 0,
             discountPercent: b.discountPercent ?? 0,
           };
         }).filter((b: BusinessPartner) => b.name.trim().length > 0);
-        setBusinesses(mapped);
-        try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: mapped, ts: Date.now() })); } catch {}
+        const sorted = sortPopularPartnersFirst(mapped);
+        setBusinesses(sorted);
+        try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: sorted, ts: Date.now() })); } catch {}
       })
       .catch(() => {});
 
@@ -980,7 +1283,7 @@ export default function HomePage() {
     }
     let cancelled = false;
     setRegionalLoading(true);
-    discoveryApi.getProList({ limit: 12, sort: 'rating', region: selectedRegion, withTotal: false })
+    discoveryApi.getProList({ limit: 12, sort: 'pudding', region: selectedRegion, withTotal: false })
       .then((res) => {
         if (cancelled) return;
         const mapped = (res.data || []).map(mapDiscoveryProToHomePro);
@@ -1114,9 +1417,8 @@ export default function HomePage() {
     moveBanner(dx < 0 ? 1 : -1, length);
     window.setTimeout(() => { bannerSwipeLockRef.current = false; }, 260);
   };
-  const desktopHeroBanners = BANNERS;
+  const desktopHeroBanners = banners.length > 0 ? banners : BANNERS;
   const desktopHeroBannerIdx = bannerIdx % desktopHeroBanners.length;
-  const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
   const [viewedPros, setViewedPros] = useState<{ id: string; time: number }[]>([]);
   useEffect(() => {
     try {
@@ -1145,7 +1447,7 @@ export default function HomePage() {
     return () => ro.disconnect();
   }, []);
 
-  const filteredBiz = businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat || b.tags.includes(selectedBizCat));
+  const businessPartnerSections = useMemo(() => getBusinessPartnerSections(businesses), [businesses]);
   const warmProsList = () => {
     discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false, realtime: true }).catch(() => {});
   };
@@ -1234,8 +1536,19 @@ export default function HomePage() {
     }
   };
 
-  const [loading, setLoading] = useState(() => typeof window !== 'undefined' ? !sessionStorage.getItem('visited-main') : true);
-  useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-main', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const visited = sessionStorage.getItem('visited-main') === '1';
+    if (visited) {
+      setLoading(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      setLoading(false);
+      sessionStorage.setItem('visited-main', '1');
+    }, 120);
+    return () => clearTimeout(t);
+  }, []);
 
   if (loading) {
     return (
@@ -1271,7 +1584,95 @@ export default function HomePage() {
   }
 
   return (
-    <div className="bg-white min-h-screen w-full">
+    <div className="home-pc-font-cap bg-white min-h-screen w-full">
+      {phonePreviewSrc && (
+        <div className="home-pc-floating-app-promo pointer-events-none fixed bottom-7 right-4 z-20 hidden flex-col items-end gap-3 lg:flex xl:bottom-8 xl:right-8">
+          <div aria-hidden="true" className="home-pc-floating-phone">
+            <div className="home-phone-preview-screen">
+              <iframe
+                src={phonePreviewSrc}
+                title="Freetiful mobile preview"
+                className="home-phone-preview-frame"
+                tabIndex={-1}
+              />
+            </div>
+            <img
+              src="/images/iphone-16-pro-black-titanium-portrait.png"
+              alt=""
+              className="home-phone-frame-image"
+              draggable={false}
+            />
+          </div>
+
+          <div className="home-floating-naver-search pointer-events-none" aria-hidden="true">
+            <svg className="home-floating-naver-n" viewBox="0 0 398 398" focusable="false">
+              <path d="M154.426 319.75H78.248V78.25H154.426L240.166 208.488V78.25H319.748V319.75H240.166L154.426 208.488V319.75Z" fill="#03EA6F" />
+            </svg>
+            <span className="home-floating-search-query">
+              <span className="home-floating-search-query-text">전문결혼식사회자는 프리티풀</span>
+            </span>
+            <span className="home-floating-search-caret" />
+            <svg className="home-floating-naver-ring" viewBox="0 0 312 312" focusable="false">
+              <path d="M155.928 0C242.044 0.00026389 311.854 69.8117 311.854 155.928C311.854 242.044 242.044 311.855 155.928 311.855C69.8115 311.855 0 242.044 0 155.928C0 69.8115 69.8115 0 155.928 0ZM155.929 93.2666C121.322 93.2666 93.2676 121.321 93.2676 155.928C93.2676 190.535 121.322 218.589 155.929 218.589C190.535 218.589 218.59 190.535 218.59 155.928C218.59 121.321 190.535 93.2666 155.929 93.2666Z" fill="url(#home-floating-naver-gradient)" />
+              <defs>
+                <linearGradient id="home-floating-naver-gradient" x1="80.9828" y1="32.1584" x2="227.505" y2="285.943" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#29FFAF" />
+                  <stop offset="1" stopColor="#00FF6D" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+
+          <div className="home-app-download-buttons pointer-events-auto">
+            <a
+              href="https://apps.apple.com/nz/app/%ED%94%84%EB%A6%AC%ED%8B%B0%ED%92%80-%EA%B2%B0%ED%98%BC%EC%8B%9D%EC%82%AC%ED%9A%8C%EC%9E%90-%EC%A7%84%ED%96%89%EC%9E%90-%ED%96%89%EC%82%AC-%EC%A0%84%EB%AC%B8%EA%B0%80-%EC%84%AD%EC%99%B8/id6745000474"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="home-app-download-button"
+              aria-label="App Store 다운로드"
+            >
+              <span className="home-app-download-icon home-app-download-icon-apple">
+                <svg viewBox="0 0 398 398" aria-hidden="true" focusable="false">
+                  <path
+                    d="M276.174 207.944C276.578 251.295 314.54 265.723 314.957 265.91C314.634 266.923 308.89 286.471 294.954 306.66C282.914 324.115 270.403 341.503 250.709 341.863C231.351 342.223 225.136 330.489 203.007 330.489C180.877 330.489 173.976 341.503 155.654 342.223C136.646 342.943 122.171 323.355 110.024 305.966C85.2175 270.377 66.2496 205.451 91.715 161.607C104.36 139.845 126.974 126.057 151.511 125.697C170.183 125.351 187.792 138.152 199.213 138.152C210.634 138.152 232.023 122.75 254.543 125.017C263.959 125.404 290.42 128.791 307.397 153.433C306.038 154.273 275.838 171.701 276.174 207.944ZM239.799 101.495C249.888 89.3874 256.682 72.5326 254.825 55.7578C240.283 56.3312 222.687 65.372 212.248 77.4664C202.899 88.1873 194.706 105.335 196.913 121.777C213.136 123.017 229.71 113.603 239.799 101.495Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+              <span className="home-app-download-copy">
+                <span>Download on the</span>
+                <span>App Store</span>
+              </span>
+            </a>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.freetiful.freetiful&hl=ko"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="home-app-download-button"
+              aria-label="Play Store 다운로드"
+            >
+              <span className="home-app-download-icon">
+                <svg viewBox="0 0 398 398" aria-hidden="true" focusable="false">
+                  <mask id="home-play-store-icon-mask" style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="95" y="62" width="245" height="274">
+                    <path d="M324.832 173.994C344.082 185.108 344.082 212.892 324.832 224.006L138.6 331.528C119.35 342.642 95.2873 328.749 95.2873 306.521L95.2874 91.4787C95.2874 69.2507 119.35 55.3583 138.6 66.4723L324.832 173.994Z" fill="#D9D9D9" />
+                  </mask>
+                  <g mask="url(#home-play-store-icon-mask)">
+                    <rect x="45.457" y="46.4658" width="215.716" height="215.716" transform="rotate(45 45.457 46.4658)" fill="#4EA0FF" />
+                    <rect x="197.992" y="199" width="215.716" height="215.716" transform="rotate(45 197.992 199)" fill="#FF4C50" />
+                    <rect x="350.525" y="46.4658" width="215.716" height="215.716" transform="rotate(45 350.525 46.4658)" fill="#FFBC28" />
+                    <rect x="197.992" y="-106.069" width="215.716" height="215.716" transform="rotate(45 197.992 -106.069)" fill="#34EA9B" />
+                  </g>
+                </svg>
+              </span>
+              <span className="home-app-download-copy">
+                <span>GET IT ON</span>
+                <span>Google Play</span>
+              </span>
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* ─── Mobile Header (Fixed, single row: logo + search + bell) ── */}
       <div
         ref={headerRef}
@@ -1347,7 +1748,7 @@ export default function HomePage() {
             <Link
               href="/quote"
               className="block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-[5.5/2.8] lg:aspect-[2.35/1] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.95] active:brightness-90"
-              style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
+              style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
               <video
                 ref={registerHeroVideo}
@@ -1374,7 +1775,7 @@ export default function HomePage() {
             <Link
               href="/quote?mode=event"
               className="relative rounded-2xl lg:rounded-[22px] px-3 lg:px-5 flex items-center -space-x-3 lg:-space-x-4 opacity-0 active:scale-[0.97] transition-transform"
-              style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
+              style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
               <RoundedRectBorderTrain color="#2B313D" />
               <video
@@ -1411,7 +1812,7 @@ export default function HomePage() {
         {/* 3. Category text tabs */}
         <div
           className="flex gap-2 overflow-x-auto scrollbar-hide px-[10px] py-2 lg:px-0 lg:py-3 opacity-0"
-          style={shouldSkipHomeAnim() ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
+          style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
         >
           {['결혼식사회자', '행사 맞춤의뢰', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스'].map((tab) => {
             const active = selectedMobileTab === tab;
@@ -1510,47 +1911,135 @@ export default function HomePage() {
       </div>
 
       {/* ─── Desktop Hero (6032c0b reference) ─────────────────────── */}
-      <div className="hidden lg:block bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-4xl mx-auto px-8 pt-16 pb-12 text-center">
+      <div className="relative hidden overflow-hidden bg-gradient-to-b from-gray-50 to-white lg:block">
+        <HomeHeroProfileMarquee images={heroProfileImages} />
+        <div className="relative z-10 max-w-6xl mx-auto px-8 pt-8 pb-0 text-center">
           <Reveal>
-            <h2 className="mb-3 text-[36px] font-bold leading-tight text-gray-900">
-              당신의 특별한 날,<br />
-              <span className="text-[#3180F7]">완벽한 전문가</span>를 만나세요
-            </h2>
-          </Reveal>
-          <Reveal delay={100}>
-            <p className="mb-8 text-[16px] text-gray-500">
-              결혼식부터 기업행사까지 프리미엄 전문가 플랫폼 프리티풀
-            </p>
-          </Reveal>
-
-          <Reveal delay={200}>
             <Link
               href="/search"
               onMouseEnter={warmProsList}
               className="mx-auto mb-10 flex max-w-xl items-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-left shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md"
             >
               <Search size={20} className="shrink-0 text-gray-400" />
-              <span className="text-[15px] text-gray-400">어떤 전문가를 찾으시나요?</span>
+              <span className="flex min-w-0 items-center gap-1.5 text-[15px]">
+                <span className="shrink-0 text-gray-400">어떤 전문가를 찾으시나요?</span>
+                <span className="home-search-slot" aria-hidden="true">
+                  <span className="home-search-slot-track">
+                    {[...homeSearchSlotKeywords, homeSearchSlotKeywords[0]].map((keyword, index) => (
+                      <span key={`${keyword}-${index}`} className="home-search-slot-item">
+                        {keyword}
+                      </span>
+                    ))}
+                  </span>
+                </span>
+                <span className="sr-only">{homeSearchSlotKeywords.join(', ')}</span>
+              </span>
             </Link>
           </Reveal>
 
-          <Reveal delay={250}>
-            <div className="mb-10 flex flex-wrap justify-center gap-2.5">
-              {['결혼식사회자', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스', '축가', '쇼호스트'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => router.push(`/pros?category=${encodeURIComponent(tab)}`)}
-                  className="rounded-full border border-gray-200 bg-white px-5 py-2.5 text-[14px] font-medium text-gray-700 shadow-sm transition-all duration-200 hover:border-[#2B313D] hover:bg-[#2B313D] hover:text-white"
-                >
-                  {tab}
-                </button>
+          <Reveal delay={100} className="relative z-40">
+            <div className="mb-8 flex flex-wrap justify-center gap-x-1.5 gap-y-1.5">
+              {desktopHeroMenuItems.map((menu) => (
+                <div key={menu.label} className="home-desktop-category-menu group relative">
+                  <Link
+                    href={proCategoryHref(menu.label)}
+                    className="flex items-center gap-1 rounded-xl px-3 py-2 text-[14px] font-semibold text-gray-700 transition-all duration-200 hover:bg-white/80 hover:text-gray-950 hover:shadow-sm focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3180F7]/25"
+                  >
+                    <span>{menu.label}</span>
+                    <ChevronDown size={14} className="home-desktop-category-chevron text-gray-400 transition-transform duration-200 group-hover:rotate-180 group-hover:text-gray-700" />
+                  </Link>
+                  <div className="home-desktop-category-dropdown pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 w-[148px] -translate-x-1/2 translate-y-1 rounded-2xl p-1.5 text-left opacity-0 transition-all duration-200">
+                    {menu.items.map((item) => (
+                      <Link
+                        key={item}
+                        href={proCategoryHref(item)}
+                        className="block rounded-xl px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950 focus-visible:bg-gray-50 focus-visible:outline-none"
+                      >
+                        {item}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </Reveal>
 
-          <Reveal delay={300}>
-            <div className="mx-auto mb-10 flex max-w-2xl justify-center gap-4">
+          <Reveal delay={150} className="relative z-10">
+            <div className="mx-auto mb-10 grid max-w-6xl grid-cols-[minmax(480px,1.95fr)_1fr_1fr] gap-4">
+              <div
+                className="group relative h-[140px] select-none overflow-hidden rounded-2xl shadow-sm"
+                style={{ touchAction: 'pan-y' }}
+                onPointerDown={(e) => {
+                  if (desktopHeroBanners.length <= 1) return;
+                  bannerPointerStartRef.current = { x: e.clientX, y: e.clientY, active: true };
+                  setBannerDragOffset(0);
+                  if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  const start = bannerPointerStartRef.current;
+                  if (!start?.active) return;
+                  const dx = e.clientX - start.x;
+                  const dy = e.clientY - start.y;
+                  if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
+                  setBannerDragOffset(Math.max(-110, Math.min(110, dx)));
+                }}
+                onPointerUp={(e) => {
+                  const start = bannerPointerStartRef.current;
+                  if (!start?.active) return;
+                  bannerPointerStartRef.current = null;
+                  finishBannerSwipe(e.clientX - start.x, e.clientY - start.y, desktopHeroBanners.length);
+                }}
+                onPointerCancel={() => {
+                  bannerPointerStartRef.current = null;
+                  setBannerDragOffset(0);
+                }}
+              >
+                <div
+                  className="flex h-full"
+                  style={{
+                    width: `${desktopHeroBanners.length * 100}%`,
+                    transform: `translateX(-${desktopHeroBannerIdx * (100 / desktopHeroBanners.length)}%) translateX(${bannerDragOffset}px)`,
+                    transition: bannerDragOffset === 0 ? 'transform 0.62s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+                  }}
+                >
+                  {desktopHeroBanners.map((banner, index) => (
+                    <div
+                      key={banner.id || index}
+                      className="h-full shrink-0 cursor-pointer"
+                      style={{ width: `${100 / desktopHeroBanners.length}%` }}
+                      onClick={() => {
+                        if (bannerSwipeLockRef.current) return;
+                        const link = (banner as any).linkUrl;
+                        if (!link) return;
+                        if (/^https?:\/\//.test(link)) window.open(link, '_blank');
+                        else window.location.href = link;
+                      }}
+                    >
+                      {banner.image ? (
+                        <img
+                          src={banner.image}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className={`flex h-full w-full items-center px-6 ${banner.bgColor || 'bg-[#2B313D]'}`}>
+                          <div className="text-left">
+                            <p className="text-[13px] font-medium text-white/80">{banner.title}</p>
+                            <p className="mt-1 text-[20px] font-bold text-white">{banner.subtitle}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <div className="absolute bottom-3 right-4 rounded-full bg-black/30 px-2.5 py-1 text-[11px] font-medium text-white">
+                  {desktopHeroBannerIdx + 1} / {desktopHeroBanners.length}
+                </div>
+              </div>
+
               <Link
                 href="/quote?mode=wedding"
                 className="group relative h-[140px] flex-1 overflow-hidden rounded-2xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
@@ -1580,9 +2069,11 @@ export default function HomePage() {
 
               <Link
                 href="/quote?mode=event"
-                className="group relative flex h-[140px] flex-1 items-center gap-5 overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
+                className="group relative flex h-[140px] flex-1 items-center gap-3 overflow-visible rounded-2xl border border-gray-200 bg-white py-3 pl-2 pr-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
               >
-                <span className="absolute right-3 top-3 z-20 rounded-full bg-[#3180F7] px-3 py-1 text-[10px] font-bold text-white">Biz</span>
+                <span className="event-biz-float-bubble absolute -top-5 right-4 z-30 rounded-full bg-[#3180F7] px-3.5 py-1.5 text-[11px] font-bold leading-none text-white">
+                  Biz
+                </span>
                 <video
                   ref={registerHeroVideo}
                   src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.001"
@@ -1593,7 +2084,7 @@ export default function HomePage() {
                   disablePictureInPicture
                   webkit-playsinline="true"
                   x5-playsinline="true"
-                  className="relative z-10 h-[120px] w-[120px] shrink-0 rounded-2xl object-cover"
+                  className="relative z-10 -ml-3 h-[112px] w-[112px] shrink-0 rounded-2xl object-cover"
                   style={{ transition: 'opacity 0.2s ease' }}
                   onTimeUpdate={(e) => {
                     const v = e.currentTarget;
@@ -1606,107 +2097,31 @@ export default function HomePage() {
                     }
                   }}
                 />
-                <div className="relative z-10 text-left">
-                  <span className="block text-[22px] font-bold leading-tight text-[#2B313D]">전문 행사</span>
-                  <span className="block text-[22px] font-bold leading-tight text-[#2B313D]">사회자 찾기</span>
+                <div className="relative z-10 min-w-0 flex-1 text-left">
+                  <span className="block whitespace-nowrap text-[20px] font-bold leading-tight text-[#2B313D]">전문행사</span>
+                  <span className="block whitespace-nowrap text-[20px] font-bold leading-tight text-[#2B313D]">사회자 찾기</span>
                 </div>
               </Link>
             </div>
           </Reveal>
 
-          <div className="mx-auto mb-10 grid max-w-3xl grid-cols-8 gap-4">
-            {[
-              { name: '외국어사회자', img: '/images/cat-foreign-mc.png', href: '/pros?category=외국어사회자' },
-              { name: '웨딩홀', img: '/images/cat-wedding-hall.png', href: '/businesses?category=웨딩홀' },
-              { name: '스튜디오', img: '/images/cat-studio.png', href: '/businesses?category=스튜디오' },
-              { name: '피부과', img: '/images/cat-derma.png', href: '/businesses?category=피부과' },
-              { name: '드레스', img: '/images/cat-dress.png', href: '/businesses?category=드레스' },
-              { name: '헤메샵', img: '/images/cat-hair-makeup.png', href: '/businesses?category=헤메샵' },
-              { name: '스냅·영상', img: '/images/cat-snap-video.png', href: '/businesses?category=스냅·영상' },
-              { name: '축가·연주', img: '/images/cat-singer.png', href: '/pros?category=축가·연주' },
-            ].map((item) => (
+          <div className="mx-auto mb-0 grid max-w-5xl grid-cols-9 gap-x-4 gap-y-5">
+            {getHomeCategoryItems().map((item) => (
               <Link key={item.name} href={item.href} className="group flex flex-col items-center gap-1.5">
-                <div className="flex h-[56px] w-[56px] items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
-                  <img src={item.img} alt={item.name} className="h-full w-full object-contain" />
+                <div className="relative flex h-[64px] w-[64px] items-center justify-center">
+                  <div className="home-pc-category-icon-shell relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-white/90 bg-white p-2 shadow-[0_14px_30px_rgba(15,23,42,0.12)] ring-1 ring-black/[0.03] transition-all duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
+                    <HomeCategoryIcon item={item} />
+                  </div>
+                  {item.name === '외국어사회자' && <LanguageBadge />}
                 </div>
                 <span className="text-center text-[12px] font-medium leading-tight text-gray-600 transition-colors group-hover:text-gray-900">{item.name}</span>
               </Link>
             ))}
           </div>
-
-          <div className="mx-auto max-w-3xl">
-            <div
-              className="relative w-full overflow-hidden rounded-2xl"
-              style={{ aspectRatio: '1170/300', touchAction: 'pan-y' }}
-              onPointerDown={(e) => {
-                if (desktopHeroBanners.length <= 1) return;
-                bannerPointerStartRef.current = { x: e.clientX, y: e.clientY, active: true };
-                setBannerDragOffset(0);
-                if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
-              }}
-              onPointerMove={(e) => {
-                const start = bannerPointerStartRef.current;
-                if (!start?.active) return;
-                const dx = e.clientX - start.x;
-                const dy = e.clientY - start.y;
-                if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
-                setBannerDragOffset(Math.max(-110, Math.min(110, dx)));
-              }}
-              onPointerUp={(e) => {
-                const start = bannerPointerStartRef.current;
-                if (!start?.active) return;
-                bannerPointerStartRef.current = null;
-                finishBannerSwipe(e.clientX - start.x, e.clientY - start.y, desktopHeroBanners.length);
-              }}
-              onPointerCancel={() => {
-                bannerPointerStartRef.current = null;
-                setBannerDragOffset(0);
-              }}
-            >
-              <div
-                className="flex h-full"
-                style={{
-                  width: `${desktopHeroBanners.length * 100}%`,
-                  transform: `translateX(-${desktopHeroBannerIdx * (100 / desktopHeroBanners.length)}%) translateX(${bannerDragOffset}px)`,
-                  transition: bannerDragOffset === 0 ? 'transform 0.5s ease-out' : 'none',
-                }}
-              >
-                {desktopHeroBanners.map((b, i) => (
-                  <div
-                    key={b.id || i}
-                    className="h-full shrink-0 cursor-pointer"
-                    style={{ width: `${100 / desktopHeroBanners.length}%` }}
-                  >
-                    {b.image ? (
-                      <img src={b.image} alt="" className="h-full w-full object-cover" draggable={false} />
-                    ) : (
-                      <div className={`flex h-full w-full items-center px-6 ${b.bgColor}`}>
-                        <div>
-                          <p className="text-[13px] font-medium text-white/80">{b.title}</p>
-                          <p className="mt-1 text-[20px] font-bold text-white">{b.subtitle}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="absolute bottom-3 right-4 rounded-full bg-black/30 px-2.5 py-1 text-[11px] font-medium text-white">
-                {desktopHeroBannerIdx + 1} / {desktopHeroBanners.length}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
-      <div className="px-[10px] lg:px-8 pt-0 pb-6 lg:py-12 space-y-4 lg:space-y-10 lg:max-w-7xl lg:mx-auto">
-
-        <div className="hidden lg:flex gap-2.5 overflow-x-auto scrollbar-hide">
-          {['전체', '결혼식사회자', '행사 MC', '기업행사', '연례행사', '체육대회', '컨퍼런스'].map((cat, i) => (
-            <button key={cat} className={i === 0 ? 'chip-active' : 'chip-inactive'}>
-              {cat}
-            </button>
-          ))}
-        </div>
+      <div className="px-[10px] lg:px-8 pt-0 pb-6 lg:pt-2 lg:pb-12 space-y-4 lg:space-y-7 lg:max-w-7xl lg:mx-auto">
 
         <LazySection height={2000}>
         {/* ═══════════════════════════════════════════════════════════ */}
@@ -1842,15 +2257,10 @@ export default function HomePage() {
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                   />
                 </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
                   <div>
                     <p className="text-[15px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
                     <p className="text-[12px] text-gray-400 mt-0.5 truncate">{pro.categories[0] || '사회자'}</p>
-                  </div>
-                  <div className="flex items-center gap-0.5">
-                    <Star size={11} className="fill-yellow-400 text-yellow-400" />
-                    <span className="text-[12px] font-bold text-gray-900">{pro.rating}</span>
-                    <span className="text-[11px] text-gray-400">({pro.reviews})</span>
                   </div>
                 </div>
               </Link>
@@ -2062,47 +2472,38 @@ export default function HomePage() {
         </section>
         <div className="my-6 border-t border-gray-100" />
 
-        {/* 6. 웨딩 파트너 (API 데이터 있을 때만 노출) */}
-        {businesses.length > 0 && (
+        {/* 6. 웨딩 파트너 — 업체가 있는 카테고리만 섹션 노출 */}
+        {businessPartnerSections.length > 0 && (
           <>
-            <section>
-              <div className="mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="section-title">웨딩 파트너</h3>
-                    <p className="section-subtitle mt-1">프리티풀이 엄선한 웨딩 업체를 만나보세요</p>
+            {businessPartnerSections.map((section, sectionIndex) => (
+              <section key={section.category}>
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="section-title">{section.category}</h3>
+                      <p className="section-subtitle mt-1">프리티풀이 엄선한 {section.category} 업체를 만나보세요</p>
+                    </div>
+                    <Link
+                      href={`/businesses?category=${encodeURIComponent(section.category)}`}
+                      className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600"
+                      style={{ transition: 'color 0.3s' }}
+                    >
+                      전체보기 <ChevronRight size={16} />
+                    </Link>
                   </div>
-                  <Link href="/businesses" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
-                    전체보기 <ChevronRight size={16} />
-                  </Link>
                 </div>
-                <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-                  <button onClick={() => setSelectedBizCat(null)} className={`relative isolate chip ${selectedBizCat === null ? 'text-white' : 'chip-inactive'}`}>
-                    {selectedBizCat === null && <span className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} />}
-                    <span className="relative">전체</span>
-                  </button>
-                  {BIZ_CATEGORIES.slice(1).map((cat) => (
-                    <button key={cat} onClick={() => setSelectedBizCat(selectedBizCat === cat ? null : cat)} className={`relative isolate chip ${selectedBizCat === cat ? 'text-white' : 'chip-inactive'}`}>
-                      {selectedBizCat === cat && <span className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} />}
-                      <span className="relative">{cat}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {filteredBiz.length > 0 ? (
                 <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory scroll-pl-[10px]">
-                  {filteredBiz.slice(0, 8).map((biz) => (
-                    <div key={biz.id} className="shrink-0 w-[78%] snap-start lg:w-[32%]">
+                  {section.businesses.slice(0, 8).map((biz) => (
+                    <div key={`${section.category}-${biz.id}`} className="shrink-0 w-[78%] snap-start lg:w-[32%]">
                       <BusinessCard biz={biz} />
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
-                  해당 카테고리의 웨딩 파트너를 준비 중입니다
-                </div>
-              )}
-            </section>
+                {sectionIndex < businessPartnerSections.length - 1 && (
+                  <div className="my-6 border-t border-gray-100" />
+                )}
+              </section>
+            ))}
             <div className="my-6 border-t border-gray-100" />
           </>
         )}

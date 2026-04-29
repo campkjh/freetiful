@@ -34,7 +34,7 @@ export class AdminController {
     const dayMs = 24 * 60 * 60 * 1000;
     const dailySeries = Array.from({ length: 14 }, (_, idx) => {
       const key = new Date(now + kstOffset - (13 - idx) * dayMs).toISOString().slice(5, 10).replace('-', '.');
-      return { date: key, users: 0, matchRequests: 0, payments: 0, chats: 0, messages: 0, revenue: 0 };
+      return { date: key, users: 0, activeUsers: 0, activityEvents: 0, matchRequests: 0, payments: 0, chats: 0, messages: 0, revenue: 0 };
     });
     const zeroStatus = { pending: 0, completed: 0, cancelled: 0, settled: 0 };
 
@@ -48,6 +48,16 @@ export class AdminController {
       newUsers7d: 0,
       newUsers30d: 0,
       userRoles: { general: 0, pro: 0, business: 0, admin: 0 },
+      activity: {
+        dau: 0,
+        wau: 0,
+        mau: 0,
+        eventsToday: 0,
+        events7d: 0,
+        events30d: 0,
+        basis: 'fallback',
+        note: '통계 API 장애 시 제공되는 대체값입니다.',
+      },
       totalPros: 0,
       pendingPros: 0,
       totalReviews: 0,
@@ -174,6 +184,16 @@ export class AdminController {
   @Patch('pros/:id/featured')
   async toggleFeatured(@Param('id') id: string) {
     return this.adminService.toggleFeatured(id);
+  }
+
+  @Post('pros/:id/detail-image')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  async uploadProDetailImage(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.adminService.uploadProDetailImage(id, file);
   }
 
   @Post('pros/:id/pudding')

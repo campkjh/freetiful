@@ -662,6 +662,14 @@ export class ProService implements OnModuleInit {
     });
 
     // Photos: base64 data URL → webp on disk → ProProfileImage 재생성
+    if (Array.isArray(data.photos) && data.photos.length === 0) {
+      await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { profileImageUrl: null },
+      });
+    }
+
     if (Array.isArray(data.photos) && data.photos.length > 0) {
       const mainIdx = Math.max(0, Math.min(data.mainPhotoIndex ?? 0, data.photos.length - 1));
       const savedImages: { path: string; originalPath: string; index: number }[] = [];

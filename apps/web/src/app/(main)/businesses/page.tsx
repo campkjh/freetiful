@@ -1,13 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { ChevronLeft, ChevronDown, ChevronUp, SlidersHorizontal, Heart, X, MapPin, ArrowUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
+import {
+  getBusinessCategoryNames,
+  getBusinessDisplayTags,
+  isPopularBusinessPartner,
+  sortPopularPartnersFirst,
+} from '@/lib/business-popularity';
+import {
+  getWeddingPartnerImageSet,
+  getWeddingPartnerSectionCategories,
+  mergeWeddingPartnerImages,
+} from '@/lib/wedding-partner-images';
+import {
+  BUSINESS_IMAGE_FALLBACK,
+  handleBusinessImageError,
+  toBusinessImageUrl,
+} from '@/lib/business-images';
 
 // ─── Types ─────────────────────────────────────────────────
 interface RankItem {
@@ -25,6 +40,8 @@ interface RankItem {
   hasAppPay: boolean;
   hasAppBooking: boolean;
   image: string;
+  tags: string[];
+  isPopular: boolean;
   verifiedBadge?: string;
 }
 
@@ -50,8 +67,110 @@ const FILTER_GROUPS = [
 
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
-const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v1';
+const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v8';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
+const BUSINESS_STALE_CACHE_TTL = 24 * 60 * 60_000;
+const BUSINESS_PAGE_SIZE = 80;
+const BUSINESS_ITEM_HEIGHT = 153;
+const BUSINESS_VIRTUAL_OVERSCAN = 8;
+
+function readCachedRankItems() {
+  if (typeof window === 'undefined') return MOCK_RANK_ITEMS;
+  try {
+    const keys = [
+      BUSINESS_CACHE_KEY,
+      ...Object.keys(localStorage)
+        .filter((key) => key.startsWith('freetiful-business-list-cache-') && key !== BUSINESS_CACHE_KEY)
+        .sort()
+        .reverse(),
+    ];
+
+    let stale: RankItem[] | null = null;
+    for (const key of keys) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const data = Array.isArray(parsed?.data) ? parsed.data : null;
+      if (!data?.length) continue;
+      const revived = reviveRankItemImages(data as RankItem[]);
+      const age = Date.now() - Number(parsed?.ts || 0);
+      if (parsed?.ts && age < BUSINESS_CACHE_TTL) return revived;
+      if (!stale && (!parsed?.ts || age < BUSINESS_STALE_CACHE_TTL)) stale = revived;
+    }
+    return stale || MOCK_RANK_ITEMS;
+  } catch {
+    return MOCK_RANK_ITEMS;
+  }
+}
+
+function reviveRankItemImages(items: RankItem[]) {
+  return items.map((item) => {
+    const imageSet = getWeddingPartnerImageSet(item.title);
+    if (!imageSet?.images.length) {
+      return { ...item, image: toBusinessImageUrl(item.image) };
+    }
+    return {
+      ...item,
+      image: toBusinessImageUrl(imageSet.images[0]),
+      category: item.category || imageSet.category,
+      tags: item.tags?.length ? item.tags : getWeddingPartnerSectionCategories(imageSet),
+    };
+  });
+}
+
+function mapBusinessToRankItem(b: any, i: number, offset = 0): RankItem {
+  const categories = getBusinessCategoryNames(b);
+  const visibleCategories = categories.filter((name) => name !== '인기');
+  const isPopular = isPopularBusinessPartner(b, categories);
+  const businessName = b.title || b.name || b.businessName || '';
+  const partnerImageSet = getWeddingPartnerImageSet(businessName, b.businessName, b.name, b.title);
+  const apiImages = Array.isArray(b.images)
+    ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
+    : [];
+  const mergedImages = partnerImageSet
+    ? mergeWeddingPartnerImages(partnerImageSet.images, [b.image, b.imageUrl], apiImages)
+    : mergeWeddingPartnerImages([b.image, b.imageUrl], apiImages);
+  const displayCategories = Array.from(new Set([
+    ...(visibleCategories.length > 0 ? visibleCategories : categories),
+    ...getWeddingPartnerSectionCategories(partnerImageSet),
+  ]));
+  const displayCategory = displayCategories[0] || b.businessType || '전체';
+  const address = b.address || '';
+  const region = address.split(' ')[0] || displayCategory || '';
+
+  return {
+    id: b.id || String(offset + i),
+    rank: b.rank || offset + i + 1,
+    category: displayCategory,
+    title: businessName,
+    region: b.region || region,
+    clinic: b.clinic || displayCategories.join(' · ') || region || b.businessType || '',
+    rating: b.rating ?? 0,
+    reviewCount: b.reviewCount ?? 0,
+    originalPrice: b.originalPrice,
+    discountPercent: b.discountPercent,
+    finalPrice: b.finalPrice ?? b.price ?? 0,
+    hasAppPay: b.hasAppPay ?? false,
+    hasAppBooking: b.hasAppBooking ?? false,
+    image: toBusinessImageUrl(mergedImages[0] || BUSINESS_IMAGE_FALLBACK),
+    tags: getBusinessDisplayTags(displayCategories, b.businessType, isPopular),
+    isPopular,
+    verifiedBadge: isPopular ? '인기' : b.verifiedBadge,
+  };
+}
+
+function mergeRankItems(current: RankItem[], incoming: RankItem[]) {
+  const seen = new Set<string>();
+  const merged: RankItem[] = [];
+
+  [...current, ...incoming].forEach((item) => {
+    if (!item.id || seen.has(item.id)) return;
+    seen.add(item.id);
+    merged.push(item);
+  });
+
+  return merged.map((item, index) => ({ ...item, rank: index + 1 }));
+}
 
 // ─── Page ──────────────────────────────────────────────────
 export default function BusinessListPage() {
@@ -64,7 +183,25 @@ export default function BusinessListPage() {
   const [tabIndicator, setTabIndicator] = useState({ left: 28, width: 36 });
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [rankItems, setRankItems] = useState<RankItem[]>(MOCK_RANK_ITEMS);
+  const [rankItems, setRankItems] = useState<RankItem[]>(() => readCachedRankItems());
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
+  const [scrollMetrics, setScrollMetrics] = useState(() => ({
+    y: 0,
+    height: typeof window === 'undefined' ? 900 : window.innerHeight,
+  }));
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<Record<string, Set<string>>>(() =>
+    Object.fromEntries(FILTER_GROUPS.map((g) => [g.key, new Set<string>()]))
+  );
+  const requestIdRef = useRef(0);
+  const rankItemsRef = useRef<RankItem[]>(rankItems);
+  const loadingPageRef = useRef(false);
+  const scrollFrameRef = useRef<number | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const updateTabIndicator = useCallback(() => {
     const activeTab = activeTabRef.current;
@@ -85,54 +222,9 @@ export default function BusinessListPage() {
     window.history.replaceState(null, '', `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`);
   }, []);
 
-  // Fetch businesses from API
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem(BUSINESS_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.ts < BUSINESS_CACHE_TTL && Array.isArray(parsed.data)) {
-          setRankItems(parsed.data);
-        }
-      }
-    } catch {}
-
-    apiClient.get('/api/v1/business', { params: { limit: 100 } })
-      .then((res) => {
-        const data = res.data;
-        const items = Array.isArray(data) ? data : data?.items;
-        if (Array.isArray(items) && items.length > 0) {
-          const mapped = items.map((b: any, i: number) => {
-            const categories = Array.isArray(b.categories)
-              ? b.categories.map((c: any) => c?.category?.name).filter(Boolean)
-              : [];
-            const primaryImage = Array.isArray(b.images) ? b.images[0]?.imageUrl : undefined;
-            const address = b.address || '';
-            const region = address.split(' ')[0] || categories[0] || '';
-            return {
-              id: b.id || String(i),
-              rank: b.rank || i + 1,
-              category: categories[0] || b.businessType || '전체',
-              title: b.title || b.name || b.businessName || '',
-              region: b.region || region,
-              clinic: b.clinic || categories.join(' · ') || region || b.businessType || '',
-              rating: b.rating ?? 0,
-              reviewCount: b.reviewCount ?? 0,
-              originalPrice: b.originalPrice,
-              discountPercent: b.discountPercent,
-              finalPrice: b.finalPrice ?? b.price ?? 0,
-              hasAppPay: b.hasAppPay ?? false,
-              hasAppBooking: b.hasAppBooking ?? false,
-              image: b.image || b.imageUrl || primaryImage || '/images/default-profile.svg',
-              verifiedBadge: b.verifiedBadge,
-            };
-          });
-          setRankItems(mapped);
-          try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: mapped, ts: Date.now() })); } catch {}
-        }
-      })
-      .catch(() => { /* fallback to MOCK_RANK_ITEMS */ });
-  }, []);
+    rankItemsRef.current = rankItems;
+  }, [rankItems]);
 
   useEffect(() => {
     const syncCategoryFromUrl = () => {
@@ -158,17 +250,30 @@ export default function BusinessListPage() {
     return () => window.removeEventListener('resize', updateTabIndicator);
   }, [updateTabIndicator]);
 
-  useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-biz', '1'); }, 300); return () => clearTimeout(t); }, [loading]);
+  useEffect(() => { if (!loading) return; const t = setTimeout(() => { setLoading(false); sessionStorage.setItem('visited-biz', '1'); }, 120); return () => clearTimeout(t); }, [loading]);
 
   useEffect(() => {
-    const onScroll = () => setShowScrollTop(window.scrollY > 400);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const updateScrollState = () => {
+      scrollFrameRef.current = null;
+      setShowScrollTop(window.scrollY > 400);
+      setScrollMetrics({ y: window.scrollY, height: window.innerHeight });
+    };
+    const scheduleScrollUpdate = () => {
+      if (scrollFrameRef.current !== null) return;
+      scrollFrameRef.current = window.requestAnimationFrame(updateScrollState);
+    };
+
+    updateScrollState();
+    window.addEventListener('scroll', scheduleScrollUpdate, { passive: true });
+    window.addEventListener('resize', scheduleScrollUpdate);
+    window.addEventListener('orientationchange', scheduleScrollUpdate);
+    return () => {
+      if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+      window.removeEventListener('scroll', scheduleScrollUpdate);
+      window.removeEventListener('resize', scheduleScrollUpdate);
+      window.removeEventListener('orientationchange', scheduleScrollUpdate);
+    };
   }, []);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filters, setFilters] = useState<Record<string, Set<string>>>(() =>
-    Object.fromEntries(FILTER_GROUPS.map((g) => [g.key, new Set<string>()]))
-  );
 
   const toggleFav = (id: string) => {
     setFavorites((prev) => {
@@ -195,16 +300,136 @@ export default function BusinessListPage() {
   };
 
   const totalActiveFilters = Object.values(filters).reduce((sum, set) => sum + set.size, 0);
-  const activeFilterValues = Object.values(filters).flatMap((set) => Array.from(set));
-  const visibleRankItems = rankItems.filter((item) => {
-    const categoryMatched = selectedCategory === '전체' || item.category === selectedCategory || item.clinic.includes(selectedCategory);
-    const regionMatched = selectedRegion === '전국' || selectedRegion === '내 위치' || item.region.includes(selectedRegion);
-    const detailMatched = activeFilterValues.length === 0 || activeFilterValues.some((value) => {
-      const target = `${item.title} ${item.region} ${item.clinic} ${item.category}`;
-      return target.includes(value);
+  const activeFilterValues = useMemo(() => Object.values(filters).flatMap((set) => Array.from(set)), [filters]);
+  const filterKey = useMemo(() => activeFilterValues.slice().sort().join(','), [activeFilterValues]);
+  const isDefaultQuery = selectedCategory === '전체' && selectedRegion === '전국' && filterKey.length === 0;
+
+  useEffect(() => {
+    if (rankItems.length === 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      setScrollMetrics({ y: window.scrollY, height: window.innerHeight });
     });
-    return categoryMatched && regionMatched && detailMatched;
-  });
+    return () => window.cancelAnimationFrame(frame);
+  }, [rankItems.length, selectedCategory, selectedRegion, filterKey]);
+
+  const loadBusinesses = useCallback(async (pageToLoad: number, append = false) => {
+    if (loadingPageRef.current) return;
+    loadingPageRef.current = true;
+    const requestId = ++requestIdRef.current;
+    setLoadingPage(true);
+
+    const params: Record<string, string | number> = {
+      page: pageToLoad,
+      limit: BUSINESS_PAGE_SIZE,
+      mode: 'list',
+    };
+    if (selectedCategory !== '전체') params.category = selectedCategory;
+    if (selectedRegion !== '전국' && selectedRegion !== '내 위치') params.region = selectedRegion;
+    if (filterKey) params.filters = filterKey;
+
+    try {
+      const res = await apiClient.get('/api/v1/business', { params });
+      if (requestId !== requestIdRef.current) return;
+      const data = res.data;
+      const items = Array.isArray(data) ? data : data?.items;
+      const totalCount = Number(data?.total || 0);
+      const totalPages = Number(data?.totalPages || 1);
+      const mapped = Array.isArray(items)
+        ? items.map((business: any, index: number) => mapBusinessToRankItem(business, index, (pageToLoad - 1) * BUSINESS_PAGE_SIZE))
+        : [];
+      const nextItems = append
+        ? mergeRankItems(rankItemsRef.current, mapped)
+        : mapped.map((item, index) => ({ ...item, rank: index + 1 }));
+      const sorted = pageToLoad === 1 && isDefaultQuery
+        ? sortPopularPartnersFirst(nextItems).map((item, index) => ({ ...item, rank: index + 1 }))
+        : nextItems;
+
+      rankItemsRef.current = sorted;
+      setRankItems(sorted);
+      setTotal(totalCount);
+      setCurrentPage(pageToLoad);
+      setHasMore(pageToLoad < totalPages && sorted.length < totalCount);
+      if (pageToLoad === 1 && isDefaultQuery) {
+        try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: sorted, ts: Date.now() })); } catch {}
+      }
+    } catch {
+      if (!append) setHasMore(false);
+    } finally {
+      loadingPageRef.current = false;
+      if (requestId === requestIdRef.current) setLoadingPage(false);
+    }
+  }, [filterKey, isDefaultQuery, selectedCategory, selectedRegion]);
+
+  useEffect(() => {
+    if (isDefaultQuery) {
+      const cachedItems = readCachedRankItems();
+      if (cachedItems.length > 0) {
+        rankItemsRef.current = cachedItems;
+        setRankItems(cachedItems);
+      } else {
+        rankItemsRef.current = [];
+        setRankItems([]);
+      }
+    } else {
+      rankItemsRef.current = [];
+      setRankItems([]);
+    }
+    setTotal(0);
+    setCurrentPage(1);
+    setHasMore(false);
+    loadBusinesses(1, false);
+  }, [filterKey, isDefaultQuery, loadBusinesses, selectedCategory, selectedRegion]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !hasMore) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !loadingPageRef.current) {
+        loadBusinesses(currentPage + 1, true);
+      }
+    }, { rootMargin: '600px 0px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [currentPage, hasMore, loadBusinesses, loadingPage]);
+
+  const visibleRankItems = useMemo(() => {
+    const detailFilters = filterKey ? filterKey.split(',').filter(Boolean) : [];
+    return rankItems.filter((item) => {
+      const categoryMatched = selectedCategory === '전체' || item.category === selectedCategory || item.clinic.includes(selectedCategory);
+      const regionMatched = selectedRegion === '전국' || selectedRegion === '내 위치' || item.region.includes(selectedRegion);
+      const detailMatched = detailFilters.length === 0 || detailFilters.some((value) => {
+        const target = `${item.title} ${item.region} ${item.clinic} ${item.category}`;
+        return target.includes(value);
+      });
+      return categoryMatched && regionMatched && detailMatched;
+    });
+  }, [filterKey, rankItems, selectedCategory, selectedRegion]);
+  const virtualWindow = useMemo(() => {
+    const listTop = listRef.current
+      ? listRef.current.getBoundingClientRect().top + scrollMetrics.y
+      : 0;
+    const viewportStart = Math.max(
+      0,
+      scrollMetrics.y - listTop - BUSINESS_ITEM_HEIGHT * BUSINESS_VIRTUAL_OVERSCAN,
+    );
+    const viewportEnd = Math.max(
+      viewportStart + BUSINESS_ITEM_HEIGHT,
+      scrollMetrics.y - listTop + scrollMetrics.height + BUSINESS_ITEM_HEIGHT * BUSINESS_VIRTUAL_OVERSCAN,
+    );
+    const start = Math.max(0, Math.floor(viewportStart / BUSINESS_ITEM_HEIGHT));
+    const end = Math.min(
+      visibleRankItems.length,
+      Math.max(start + 1, Math.ceil(viewportEnd / BUSINESS_ITEM_HEIGHT)),
+    );
+
+    return {
+      start,
+      end,
+      topSpacer: start * BUSINESS_ITEM_HEIGHT,
+      bottomSpacer: Math.max(0, (visibleRankItems.length - end) * BUSINESS_ITEM_HEIGHT),
+      items: visibleRankItems.slice(start, end),
+    };
+  }, [scrollMetrics, visibleRankItems]);
 
   if (loading) {
     return (
@@ -365,6 +590,11 @@ export default function BusinessListPage() {
           )}
         </div>
       )}
+      {total > 0 && (
+        <div className="px-4 pb-2 text-[11px] font-medium text-gray-400">
+          총 {total.toLocaleString()}개 중 {visibleRankItems.length.toLocaleString()}개 로드
+        </div>
+      )}
 
       {/* ─── Filter Floating Modal ─── */}
       {filterOpen && (
@@ -444,109 +674,149 @@ export default function BusinessListPage() {
       `}} />
 
       {/* ─── Rank Items ─── */}
-      <div className="divide-y divide-gray-50">
-        {visibleRankItems.map((item) => (
-          <Link
-            key={item.id}
-            href={`/businesses/${item.id}`}
-            className="flex gap-3 px-4 py-4 group active:bg-gray-50/50 transition-colors"
-          >
-            {/* Image with rank badge */}
-            <div className="relative w-[120px] h-[120px] shrink-0 rounded-xl overflow-hidden bg-gray-100">
-              <Image
-                src={item.image}
-                alt={item.title}
-                fill
-                className="object-cover"
-                sizes="120px"
-              />
-              {/* Rank number badge */}
-              <div className="absolute top-0 left-0 w-[28px] h-[28px] bg-[#3180F7] flex items-center justify-center rounded-br-xl">
-                <span className="text-[15px] font-bold text-white">{item.rank}</span>
-              </div>
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0 flex flex-col">
-              {/* Verified badge */}
-              {item.verifiedBadge && (
-                <div className="flex items-center gap-1 mb-0.5">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="#3180F7">
-                    <path d="M12 2l2.5 4.5 5 .5-3.5 3.5 1 5-5-2.5-5 2.5 1-5L4.5 7l5-.5L12 2z" />
-                  </svg>
-                  <span className="text-[11px] font-bold text-[#3180F7]">{item.verifiedBadge}</span>
-                </div>
-              )}
-
-              {/* Title */}
-              <p className="text-[15px] font-bold text-gray-900 leading-[1.3] line-clamp-2 pr-6">{item.title}</p>
-
-              {/* Location */}
-              <p className="text-[12px] text-gray-500 mt-0.5 leading-tight">
-                {item.region} · {item.clinic}
-              </p>
-
-              {/* Rating */}
-              <div className="flex items-center gap-1 mt-0.5">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="#FFB800">
-                  <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
-                </svg>
-                <span className="text-[13px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
-                <span className="text-[12px] text-gray-400">({item.reviewCount})</span>
+      <div ref={listRef}>
+        {virtualWindow.topSpacer > 0 && (
+          <div aria-hidden="true" style={{ height: virtualWindow.topSpacer }} />
+        )}
+        <div className="divide-y divide-gray-50">
+          {virtualWindow.items.map((item) => (
+            <Link
+              key={item.id}
+              href={`/businesses/${item.id}`}
+              className="flex min-h-[153px] gap-3 px-4 py-4 group active:bg-gray-50/50 transition-colors"
+            >
+              {/* Image */}
+              <div className="relative w-[120px] h-[120px] shrink-0 rounded-xl overflow-hidden bg-gray-100">
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  onError={handleBusinessImageError}
+                />
               </div>
 
-              {/* Price */}
-              <div className="mt-1">
-                {item.originalPrice && item.discountPercent ? (
-                  <>
-                    <div className="flex items-center gap-1.5 leading-tight">
-                      <span className="text-[11px] text-gray-400">VAT 포함 ·</span>
-                      <span className="text-[12px] text-gray-400 line-through">{item.originalPrice.toLocaleString()}원</span>
-                    </div>
-                    <div className="flex items-baseline gap-1.5 leading-tight">
-                      <span className="text-[15px] font-bold text-[#3180F7]">{item.discountPercent}%</span>
-                      <span className="text-[17px] font-bold text-gray-900">{item.finalPrice.toLocaleString()}원</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-[11px] text-gray-400 leading-tight">VAT 포함</div>
-                    <div className="text-[17px] font-bold text-gray-900 leading-tight">{item.finalPrice.toLocaleString()}원</div>
-                  </>
+              {/* Info */}
+              <div className="flex-1 min-w-0 flex flex-col">
+                {/* Verified badge */}
+                {item.verifiedBadge && (
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill={item.isPopular ? '#FF6B35' : '#3180F7'}>
+                      <path d="M12 2l2.5 4.5 5 .5-3.5 3.5 1 5-5-2.5-5 2.5 1-5L4.5 7l5-.5L12 2z" />
+                    </svg>
+                    <span className={`text-[11px] font-bold ${item.isPopular ? 'text-[#FF6B35]' : 'text-[#3180F7]'}`}>
+                      {item.verifiedBadge}
+                    </span>
+                  </div>
                 )}
 
-                {/* App badges */}
-                <div className="flex items-center gap-1.5 mt-1">
-                  {item.hasAppPay && (
-                    <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#EAF3FF] text-[10px] font-bold text-[#3180F7]">
-                      <span className="w-3 h-3 rounded-sm bg-[#3180F7] flex items-center justify-center text-white text-[8px]">$</span>
-                      앱결제
-                    </span>
+                {/* Title */}
+                <p className="text-[15px] font-bold text-gray-900 leading-[1.3] line-clamp-2 pr-6">{item.title}</p>
+
+                {/* Location */}
+                <p className="text-[12px] text-gray-500 mt-0.5 leading-tight">
+                  {item.region} · {item.clinic}
+                </p>
+
+                {/* Rating */}
+                <div className="flex items-center gap-1 mt-0.5">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="#FFB800">
+                    <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
+                  </svg>
+                  <span className="text-[13px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
+                  <span className="text-[12px] text-gray-400">({item.reviewCount})</span>
+                </div>
+
+                {/* Price */}
+                <div className="mt-1">
+                  {item.originalPrice && item.discountPercent ? (
+                    <>
+                      <div className="flex items-center gap-1.5 leading-tight">
+                        <span className="text-[11px] text-gray-400">VAT 포함 ·</span>
+                        <span className="text-[12px] text-gray-400 line-through">{item.originalPrice.toLocaleString()}원</span>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 leading-tight">
+                        <span className="text-[15px] font-bold text-[#3180F7]">{item.discountPercent}%</span>
+                        <span className="text-[17px] font-bold text-gray-900">{item.finalPrice.toLocaleString()}원</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[11px] text-gray-400 leading-tight">VAT 포함</div>
+                      <div className="text-[17px] font-bold text-gray-900 leading-tight">{item.finalPrice.toLocaleString()}원</div>
+                    </>
                   )}
-                  {item.hasAppBooking && (
-                    <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#E7F9EC] text-[10px] font-bold text-[#00A550]">
-                      <span className="w-3 h-3 rounded-sm bg-[#00A550] flex items-center justify-center text-white text-[8px]">✓</span>
-                      앱예약
-                    </span>
-                  )}
+
+                  {/* App badges */}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {item.hasAppPay && (
+                      <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#EAF3FF] text-[10px] font-bold text-[#3180F7]">
+                        <span className="w-3 h-3 rounded-sm bg-[#3180F7] flex items-center justify-center text-white text-[8px]">$</span>
+                        앱결제
+                      </span>
+                    )}
+                    {item.hasAppBooking && (
+                      <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#E7F9EC] text-[10px] font-bold text-[#00A550]">
+                        <span className="w-3 h-3 rounded-sm bg-[#00A550] flex items-center justify-center text-white text-[8px]">✓</span>
+                        앱예약
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Heart */}
-            <button
-              onClick={(e) => { e.preventDefault(); toggleFav(item.id); }}
-              className="shrink-0 self-start p-1 active:scale-90 transition-transform"
-            >
-              <Heart
-                size={22}
-                className={favorites.has(item.id) ? 'fill-[#FF4D4D] text-[#FF4D4D]' : 'text-gray-300'}
-              />
-            </button>
-          </Link>
-        ))}
+              {/* Heart */}
+              <button
+                onClick={(e) => { e.preventDefault(); toggleFav(item.id); }}
+                className="shrink-0 self-start p-1 active:scale-90 transition-transform"
+              >
+                <Heart
+                  size={22}
+                  className={favorites.has(item.id) ? 'fill-[#FF4D4D] text-[#FF4D4D]' : 'text-gray-300'}
+                />
+              </button>
+            </Link>
+          ))}
+        </div>
+        {virtualWindow.bottomSpacer > 0 && (
+          <div aria-hidden="true" style={{ height: virtualWindow.bottomSpacer }} />
+        )}
       </div>
-      {visibleRankItems.length === 0 && (
+      {loadingPage && visibleRankItems.length === 0 && (
+        <div className="px-4 py-6 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex gap-3">
+              <div className="skeleton w-[120px] h-[120px] rounded-xl shrink-0" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="skeleton h-4 w-20 rounded" />
+                <div className="skeleton h-5 w-full rounded" />
+                <div className="skeleton h-3 w-32 rounded" />
+                <div className="skeleton h-4 w-24 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {visibleRankItems.length > 0 && (
+        <div ref={loadMoreRef} className="px-4 py-6 text-center">
+          {loadingPage && (
+            <div className="mx-auto h-6 w-6 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin" />
+          )}
+          {!loadingPage && hasMore && (
+            <button
+              onClick={() => loadBusinesses(currentPage + 1, true)}
+              className="h-10 rounded-full bg-gray-100 px-5 text-[13px] font-bold text-gray-700 active:scale-95 transition-transform"
+            >
+              더 보기
+            </button>
+          )}
+          {!loadingPage && !hasMore && total > 0 && (
+            <p className="text-[12px] font-medium text-gray-400">전체 업체를 모두 불러왔습니다</p>
+          )}
+        </div>
+      )}
+      {visibleRankItems.length === 0 && !loadingPage && (
         <div className="px-4 py-16 text-center">
           <p className="text-[14px] font-semibold text-gray-500">조건에 맞는 업체가 없습니다</p>
           <button
