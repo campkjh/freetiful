@@ -16,6 +16,7 @@ export interface AdminPartnerListItem {
   address: string | null;
   phone: string | null;
   status: string;
+  tags: string[];
   createdAt: string;
   images: { imageUrl: string }[];
   categories: { category: { name: string } }[];
@@ -40,6 +41,7 @@ export interface AdminPartnerDetail {
   lng: string | number | null;
   phone: string | null;
   descriptionHtml: string | null;
+  tags: string[];
   instagramUrl: string | null;
   websiteUrl: string | null;
   videoUrl: string | null;
@@ -77,6 +79,7 @@ export interface AdminPartnerInput {
   lat?: number | string | null;
   lng?: number | string | null;
   descriptionHtml?: string | null;
+  tags?: string[];
   instagramUrl?: string | null;
   websiteUrl?: string | null;
   videoUrl?: string | null;

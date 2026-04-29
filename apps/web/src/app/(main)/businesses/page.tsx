@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronDown, ChevronUp, SlidersHorizontal, Heart, X, MapPi
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
+import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
 import {
   getWeddingPartnerImageSet,
   getWeddingPartnerSectionCategories,
@@ -30,6 +31,7 @@ interface RankItem {
   hasAppPay: boolean;
   hasAppBooking: boolean;
   image: string;
+  tags: string[];
   verifiedBadge?: string;
 }
 
@@ -55,7 +57,7 @@ const FILTER_GROUPS = [
 
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
-const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v4';
+const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v5';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 // ─── Page ──────────────────────────────────────────────────
@@ -127,6 +129,17 @@ export default function BusinessListPage() {
             ]));
             const displayCategory = displayCategories[0] || b.businessType || '전체';
             const address = b.address || '';
+            const tags = normalizeBusinessTags(
+              Array.isArray(b.tags) && b.tags.length > 0
+                ? b.tags
+                : deriveBusinessTagSuggestions({
+                  businessName,
+                  businessType: b.businessType,
+                  address,
+                  categoryNames: displayCategories,
+                }),
+              5,
+            );
             const region = address.split(' ')[0] || displayCategory || '';
             return {
               id: b.id || String(i),
@@ -143,6 +156,7 @@ export default function BusinessListPage() {
               hasAppPay: b.hasAppPay ?? false,
               hasAppBooking: b.hasAppBooking ?? false,
               image: mergedImages[0] || '/images/default-profile.svg',
+              tags,
               verifiedBadge: b.verifiedBadge,
             };
           });
@@ -219,7 +233,7 @@ export default function BusinessListPage() {
     const categoryMatched = selectedCategory === '전체' || item.category === selectedCategory || item.clinic.includes(selectedCategory);
     const regionMatched = selectedRegion === '전국' || selectedRegion === '내 위치' || item.region.includes(selectedRegion);
     const detailMatched = activeFilterValues.length === 0 || activeFilterValues.some((value) => {
-      const target = `${item.title} ${item.region} ${item.clinic} ${item.category}`;
+      const target = `${item.title} ${item.region} ${item.clinic} ${item.category} ${item.tags.join(' ')}`;
       return target.includes(value);
     });
     return categoryMatched && regionMatched && detailMatched;
@@ -504,6 +518,19 @@ export default function BusinessListPage() {
               <p className="text-[12px] text-gray-500 mt-0.5 leading-tight">
                 {item.region} · {item.clinic}
               </p>
+
+              {item.tags.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {item.tags.slice(0, 3).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[10px] font-bold text-[#3180F7]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Rating */}
               <div className="flex items-center gap-1 mt-0.5">

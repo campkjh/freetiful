@@ -6,6 +6,7 @@ import { ProService } from '../pro/pro.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { ImageService } from '../image/image.service';
 import { UsersService } from '../users/users.service';
+import { normalizeBusinessTags, resolveBusinessTags } from '../business/business-tags';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 
@@ -222,6 +223,7 @@ export class AdminService {
         { businessName: { contains: params.search, mode: 'insensitive' } },
         { businessType: { contains: params.search, mode: 'insensitive' } },
         { address: { contains: params.search, mode: 'insensitive' } },
+        { tags: { has: params.search } },
       ];
     }
 
@@ -247,6 +249,7 @@ export class AdminService {
         address: b.address,
         phone: b.phone,
         status: b.status,
+        tags: resolveBusinessTags(b),
         createdAt: b.createdAt,
         images: b.images.map((i) => ({ imageUrl: i.imageUrl })),
         categories: b.categories.map((c) => ({ category: { name: c.category.name } })),
@@ -266,7 +269,7 @@ export class AdminService {
       },
     });
     if (!business) throw new NotFoundException('업체를 찾을 수 없습니다');
-    return business;
+    return { ...business, tags: resolveBusinessTags(business) };
   }
 
   async createBusiness(data: {
@@ -281,6 +284,7 @@ export class AdminService {
     instagramUrl?: string;
     websiteUrl?: string;
     videoUrl?: string;
+    tags?: string[];
     categoryNames?: string[];
     status?: string;
   }) {
@@ -321,6 +325,9 @@ export class AdminService {
         lat: data.lat !== undefined && data.lat !== null && data.lat !== '' ? Number(data.lat) : null,
         lng: data.lng !== undefined && data.lng !== null && data.lng !== '' ? Number(data.lng) : null,
         descriptionHtml: data.descriptionHtml || null,
+        tags: Array.isArray(data.tags)
+          ? normalizeBusinessTags(data.tags)
+          : [],
         instagramUrl: data.instagramUrl || null,
         websiteUrl: data.websiteUrl || null,
         videoUrl: data.videoUrl || null,
@@ -334,7 +341,7 @@ export class AdminService {
         categories: { include: { category: true } },
       },
     });
-    return profile;
+    return { ...profile, tags: resolveBusinessTags(profile) };
   }
 
   async updateBusiness(
@@ -351,6 +358,7 @@ export class AdminService {
       instagramUrl?: string;
       websiteUrl?: string;
       videoUrl?: string;
+      tags?: string[];
       categoryNames?: string[];
       status?: string;
     },
@@ -367,6 +375,7 @@ export class AdminService {
     if (data.lat !== undefined) allowed.lat = data.lat === null || data.lat === '' ? null : Number(data.lat);
     if (data.lng !== undefined) allowed.lng = data.lng === null || data.lng === '' ? null : Number(data.lng);
     if (data.descriptionHtml !== undefined) allowed.descriptionHtml = data.descriptionHtml || null;
+    if (data.tags !== undefined) allowed.tags = normalizeBusinessTags(data.tags);
     if (data.instagramUrl !== undefined) allowed.instagramUrl = data.instagramUrl || null;
     if (data.websiteUrl !== undefined) allowed.websiteUrl = data.websiteUrl || null;
     if (data.videoUrl !== undefined) allowed.videoUrl = data.videoUrl || null;
@@ -398,7 +407,7 @@ export class AdminService {
         categories: { include: { category: true } },
       },
     });
-    return profile;
+    return { ...profile, tags: resolveBusinessTags(profile) };
   }
 
   async deleteBusiness(id: string) {

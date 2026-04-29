@@ -17,6 +17,7 @@ interface BusinessUserItem {
   address: string | null;
   phone: string | null;
   status: string;
+  tags?: string[];
   createdAt: string;
   images?: Array<{ imageUrl: string }>;
   categories?: Array<{ category?: { name: string } }>;
@@ -95,6 +96,7 @@ export default function AdminBusinessesPage() {
         { header: '주소', value: (row) => row.address || '' },
         { header: '전화', value: (row) => row.phone || '' },
         { header: '상태', value: (row) => row.status },
+        { header: '태그', value: (row) => row.tags?.join(', ') || '' },
         { header: '이미지수', value: (row) => row.images?.length || 0 },
         { header: '카테고리', value: (row) => row.categories?.map((c) => c.category?.name).filter(Boolean).join(', ') || '' },
         { header: '등록일', value: (row) => formatExportDate(row.createdAt, true) },
@@ -203,6 +205,15 @@ export default function AdminBusinessesPage() {
                       <p className="mt-0.5 max-w-[260px] truncate text-[11px] text-[#8B95A1]">
                         이미지 {r.images?.length || 0} · {categoryNames || '카테고리 없음'}
                       </p>
+                      {Boolean(r.tags?.length) && (
+                        <div className="mt-1 flex max-w-[280px] flex-wrap gap-1">
+                          {r.tags!.slice(0, 3).map((tag) => (
+                            <span key={tag} className="rounded-full bg-[#F2F7FF] px-2 py-0.5 text-[10px] font-bold text-[#3182F6]">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-[12px] font-semibold text-[#6B7684]">
                       <p>{r.phone || '-'}</p>
