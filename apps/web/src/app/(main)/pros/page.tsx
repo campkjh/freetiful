@@ -384,10 +384,20 @@ function ProsListContent() {
   const ALL_PROS = useMemo(() => apiPros, [apiPros]);
   const initialRegion = searchParams.get('region') || '전체';
   const categoryParam = searchParams.get('category') || '';
-  const isForeignFilter = categoryParam === '외국어사회자';
+  const initialQuery = searchParams.get('q') || searchParams.get('keyword') || '';
+  const normalizedCategoryParam = categoryParam.replace(/[\s/·-]/g, '');
+  const isForeignFilter = normalizedCategoryParam === '외국어사회자';
 
   // 카테고리 파라미터에 따라 초기 필터 설정
-  const initialType = categoryParam === '축가·연주' ? '축가/연주' : categoryParam === '쇼호스트' ? '쇼호스트' : isForeignFilter ? '외국어사회자' : '전체';
+  const initialType = categoryParam === '축가·연주' || categoryParam === '축가/연주'
+    ? '축가/연주'
+    : normalizedCategoryParam === '쇼호스트'
+      ? '쇼호스트'
+      : isForeignFilter
+        ? '외국어사회자'
+        : ['사회자', 'MC', '결혼식사회자', '전문결혼식사회자', '전문행사사회자', '행사MC'].includes(normalizedCategoryParam)
+          ? '사회자'
+          : '전체';
 
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('pudding_rank');
@@ -398,7 +408,7 @@ function ProsListContent() {
   const [page, setPage] = useState(1);
   const [scrolled, setScrolled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [listSettled, setListSettled] = useState(true);
   const tabSignature = `${selectedRegion}|${sortBy}|${selectedPrice}|${selectedLang}|${selectedType}`;
   const didMountTabMotion = useRef(false);
