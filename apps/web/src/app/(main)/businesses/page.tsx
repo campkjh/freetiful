@@ -69,6 +69,7 @@ const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_PAGE_SIZE = 24;
 const BUSINESS_PREVIEW_LIMIT = 8;
 const BUSINESS_LEGACY_FALLBACK_LIMIT = 100;
+const BUSINESS_REQUEST_VERSION = '20260429-order-images';
 
 interface BusinessCachePayload {
   data: RankItem[];
@@ -116,6 +117,7 @@ function getBusinessListParams(category: string, page: number, limit: number) {
   return {
     page,
     limit,
+    _v: BUSINESS_REQUEST_VERSION,
     ...(category !== '전체' ? { category } : {}),
   };
 }
@@ -238,7 +240,7 @@ async function fetchBusinessPage(category: string, page: number, limit: number, 
 
   if (category !== '전체' && !prepared.backendScoped && allowLegacyFallback && page === 1) {
     const fallbackRes = await apiClient.get('/api/v1/business', {
-      params: { page: 1, limit: BUSINESS_LEGACY_FALLBACK_LIMIT },
+      params: { page: 1, limit: BUSINESS_LEGACY_FALLBACK_LIMIT, _v: BUSINESS_REQUEST_VERSION },
     });
     const fallbackData = fallbackRes.data;
     const fallbackRawItems = Array.isArray(fallbackData) ? fallbackData : fallbackData?.items;

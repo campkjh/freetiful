@@ -552,6 +552,7 @@ const WEDDING_PARTNER_SECTION_ORDER = BIZ_CATEGORIES.filter((category) => catego
 const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
 const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v6';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
+const BUSINESS_REQUEST_VERSION = '20260429-order-images';
 
 function BusinessCard({ biz }: { biz: BusinessPartner }) {
   return (
@@ -1160,7 +1161,7 @@ export default function HomePage() {
     } catch {}
 
     let cancelled = false;
-    apiClient.get('/api/v1/business', { params: { limit: 100 } })
+    apiClient.get('/api/v1/business', { params: { limit: 100, _v: BUSINESS_REQUEST_VERSION } })
       .then((res) => {
         if (cancelled) return;
         const items = Array.isArray(res.data) ? res.data : res.data?.items;
