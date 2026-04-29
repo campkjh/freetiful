@@ -11,6 +11,7 @@
     "db:migrate:prod": "prisma migrate deploy",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:naver-businesses": "ts-node prisma/seed-naver-businesses.ts",
+    "db:seed:kakao-businesses": "ts-node prisma/seed-kakao-businesses.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate"
   },
