@@ -468,6 +468,15 @@ export const WEDDING_PARTNER_IMAGE_SETS = {
       "/images/wedding-partners/dermatology/037-25f3c1d5/13.webp"
     ]
   },
+  "데이뷰의원": {
+    "category": "피부과",
+    "images": [
+      "/images/wedding-partners/dermatology/dayview-clinic/01.webp",
+      "/images/wedding-partners/dermatology/dayview-clinic/02.webp",
+      "/images/wedding-partners/dermatology/dayview-clinic/03.webp",
+      "/images/wedding-partners/dermatology/dayview-clinic/04.webp"
+    ]
+  },
   "라스트노트필름": {
     "category": "DVD",
     "images": [

@@ -24,6 +24,19 @@ const CATEGORY_RULES = [
   { test: '본식스냅', category: '스냅', slug: 'ceremony-snap' },
 ];
 
+const MANUAL_IMAGE_SETS = [
+  {
+    name: '데이뷰의원',
+    category: '피부과',
+    images: [
+      '/images/wedding-partners/dermatology/dayview-clinic/01.webp',
+      '/images/wedding-partners/dermatology/dayview-clinic/02.webp',
+      '/images/wedding-partners/dermatology/dayview-clinic/03.webp',
+      '/images/wedding-partners/dermatology/dayview-clinic/04.webp',
+    ],
+  },
+];
+
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
 function normalizeText(value) {
@@ -212,6 +225,13 @@ async function main() {
       imageSets[normalizeManifestKey(businessName)] = {
         category: category.category,
         images: publicImages,
+      };
+    }
+
+    for (const manualImageSet of MANUAL_IMAGE_SETS.filter((item) => item.category === category.category)) {
+      imageSets[normalizeManifestKey(manualImageSet.name)] = {
+        category: manualImageSet.category,
+        images: manualImageSet.images,
       };
     }
   }
