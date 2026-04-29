@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Footer from '@/components/Footer';
 import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
@@ -248,6 +249,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const handleViewModeToggle = () => {
     const nextViewAsUser = isPro;
     syncViewMode(nextViewAsUser);
+    toast.success(nextViewAsUser ? '일반회원으로 전환되었습니다' : '프로회원으로 전환되었습니다', {
+      id: 'view-mode-switch',
+      duration: 1800,
+    });
 
     if (pathname === '/my') return;
     router.push(nextViewAsUser ? '/main' : '/pro-dashboard');
