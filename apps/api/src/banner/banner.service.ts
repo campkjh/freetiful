@@ -5,20 +5,26 @@ import { PrismaService } from '../prisma/prisma.service';
 export class BannerService {
   constructor(private prisma: PrismaService) {}
 
-  async listActive() {
+  private normalizePlacement(placement?: string | null) {
+    return placement === 'businesses' ? 'businesses' : 'home';
+  }
+
+  async listActive(placement?: string) {
     return this.prisma.banner.findMany({
-      where: { isActive: true },
+      where: { isActive: true, placement: this.normalizePlacement(placement) },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
   }
 
-  async listAll() {
+  async listAll(placement?: string) {
     return this.prisma.banner.findMany({
+      where: placement ? { placement: this.normalizePlacement(placement) } : undefined,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
   }
 
   async create(data: {
+    placement?: string;
     title?: string;
     subtitle?: string;
     imageUrl: string;
@@ -30,6 +36,7 @@ export class BannerService {
     if (!data.imageUrl) throw new NotFoundException('imageUrl 은 필수입니다');
     return this.prisma.banner.create({
       data: {
+        placement: this.normalizePlacement(data.placement),
         title: data.title ?? '',
         subtitle: data.subtitle ?? '',
         imageUrl: data.imageUrl,
@@ -46,6 +53,7 @@ export class BannerService {
     if (!existing) throw new NotFoundException('배너를 찾을 수 없습니다');
 
     const allowed: any = {};
+    if (data.placement !== undefined) allowed.placement = this.normalizePlacement(data.placement);
     if (data.title !== undefined) allowed.title = String(data.title ?? '');
     if (data.subtitle !== undefined) allowed.subtitle = String(data.subtitle ?? '');
     if (data.imageUrl !== undefined) allowed.imageUrl = String(data.imageUrl);

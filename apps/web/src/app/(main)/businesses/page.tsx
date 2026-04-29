@@ -42,6 +42,16 @@ interface RankItem {
   isPopular?: boolean;
 }
 
+interface ListBanner {
+  id: string;
+  title?: string;
+  subtitle?: string;
+  imageUrl?: string;
+  linkUrl?: string | null;
+  bgColor?: string | null;
+  placement?: string;
+}
+
 // ─── Mock Data ─────────────────────────────────────────────
 const REGIONS = ['전국', '경기', '서울', '부산', '인천', '대구', '충남/세종'];
 
@@ -65,6 +75,7 @@ const FILTER_GROUPS = [
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
 const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v8';
+const BUSINESS_BANNER_CACHE_KEY = 'freetiful-business-list-banners-cache-v1';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_PAGE_SIZE = 24;
 const BUSINESS_PREVIEW_LIMIT = 8;
@@ -110,6 +121,26 @@ function writeBusinessCache(category: string, payload: Omit<BusinessCachePayload
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(getBusinessCacheKey(category), JSON.stringify({ ...payload, ts: Date.now() }));
+  } catch {}
+}
+
+function readBusinessBannerCache(): ListBanner[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const cached = localStorage.getItem(BUSINESS_BANNER_CACHE_KEY);
+    if (!cached) return [];
+    const parsed = JSON.parse(cached);
+    if (!parsed || Date.now() - Number(parsed.ts || 0) > BUSINESS_CACHE_TTL || !Array.isArray(parsed.data)) return [];
+    return parsed.data;
+  } catch {
+    return [];
+  }
+}
+
+function writeBusinessBannerCache(data: ListBanner[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(BUSINESS_BANNER_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
   } catch {}
 }
 
@@ -362,6 +393,126 @@ function BusinessRankList({ items, favorites, onToggleFav, muted = false }: Busi
   );
 }
 
+function WeddingPartnerListBanner({ banners }: { banners: ListBanner[] }) {
+  const [current, setCurrent] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const pointerStartRef = useRef<{ x: number; y: number; active: boolean } | null>(null);
+  const swipeLockRef = useRef(false);
+
+  const move = useCallback((direction: 1 | -1) => {
+    if (banners.length <= 1) return;
+    setCurrent((index) => (index + direction + banners.length) % banners.length);
+  }, [banners.length]);
+
+  const finishSwipe = useCallback((dx: number, dy: number) => {
+    setDragOffset(0);
+    if (Math.abs(dx) < 44 || Math.abs(dx) < Math.abs(dy) || banners.length <= 1) return;
+    swipeLockRef.current = true;
+    move(dx < 0 ? 1 : -1);
+    window.setTimeout(() => { swipeLockRef.current = false; }, 260);
+  }, [banners.length, move]);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = window.setInterval(() => {
+      if (!pointerStartRef.current?.active) move(1);
+    }, 4500);
+    return () => window.clearInterval(timer);
+  }, [banners.length, move]);
+
+  useEffect(() => {
+    if (current >= banners.length) setCurrent(0);
+  }, [banners.length, current]);
+
+  if (banners.length === 0) return null;
+
+  return (
+    <section className="px-4 pb-3 pt-1 lg:px-0">
+      <div
+        className="relative mx-auto aspect-[1170/300] w-full max-w-[1170px] overflow-hidden rounded-2xl bg-[#F2F4F6] shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
+        onPointerDown={(event) => {
+          if (banners.length <= 1) return;
+          pointerStartRef.current = { x: event.clientX, y: event.clientY, active: true };
+          setDragOffset(0);
+        }}
+        onPointerMove={(event) => {
+          const start = pointerStartRef.current;
+          if (!start?.active) return;
+          const dx = event.clientX - start.x;
+          const dy = event.clientY - start.y;
+          if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+          setDragOffset(Math.max(-110, Math.min(110, dx)));
+        }}
+        onPointerUp={(event) => {
+          const start = pointerStartRef.current;
+          pointerStartRef.current = null;
+          if (!start) return;
+          finishSwipe(event.clientX - start.x, event.clientY - start.y);
+        }}
+        onPointerCancel={() => {
+          pointerStartRef.current = null;
+          setDragOffset(0);
+        }}
+      >
+        <div
+          className="flex h-full will-change-transform"
+          style={{
+            width: `${banners.length * 100}%`,
+            transform: `translateX(-${current * (100 / banners.length)}%) translateX(${dragOffset}px)`,
+            transition: dragOffset === 0 ? 'transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+          }}
+        >
+          {banners.map((banner) => {
+            const openLink = () => {
+              if (swipeLockRef.current || !banner.linkUrl) return;
+              window.location.href = banner.linkUrl;
+            };
+
+            return (
+              <button
+                key={banner.id}
+                type="button"
+                aria-label={banner.title || '웨딩파트너 배너'}
+                aria-disabled={!banner.linkUrl}
+                tabIndex={banner.linkUrl ? 0 : -1}
+                onClick={openLink}
+                className="relative h-full shrink-0 overflow-hidden text-left"
+                style={{
+                  width: `${100 / banners.length}%`,
+                  backgroundColor: banner.bgColor || '#2B313D',
+                  cursor: banner.linkUrl ? 'pointer' : 'default',
+                }}
+              >
+                {banner.imageUrl ? (
+                  <img
+                    src={banner.imageUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                    decoding="async"
+                    loading="eager"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col justify-end p-5">
+                    {banner.subtitle && <p className="text-[12px] font-semibold text-white/75">{banner.subtitle}</p>}
+                    {banner.title && <p className="mt-1 text-[18px] font-bold text-white">{banner.title}</p>}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {banners.length > 1 && (
+          <div className="absolute bottom-2 right-2 rounded-full bg-black/35 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+            {current + 1} / {banners.length}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────
 export default function BusinessListPage() {
   const router = useRouter();
@@ -391,6 +542,7 @@ export default function BusinessListPage() {
     const cache = initialBusinessSnapshot.cache;
     return cache?.data.length ? { [initialBusinessSnapshot.category]: cache.data.slice(0, BUSINESS_PREVIEW_LIMIT) } : {};
   });
+  const [listBanners, setListBanners] = useState<ListBanner[]>(() => readBusinessBannerCache());
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [listViewportWidth, setListViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 360));
   const [filterOpen, setFilterOpen] = useState(false);
@@ -403,6 +555,31 @@ export default function BusinessListPage() {
   const nextCategory = currentCategoryIndex >= 0 && currentCategoryIndex < SUB_CATEGORIES.length - 1
     ? SUB_CATEGORIES[currentCategoryIndex + 1]
     : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/v1/banners?placement=businesses')
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        if (cancelled) return;
+        const banners = Array.isArray(data)
+          ? data
+              .filter((banner: ListBanner) => banner.placement === 'businesses')
+              .map((banner: ListBanner) => ({
+                ...banner,
+                imageUrl: banner.imageUrl || '',
+                linkUrl: banner.linkUrl || null,
+              }))
+          : [];
+        setListBanners(banners);
+        writeBusinessBannerCache(banners);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const updateTabIndicator = useCallback(() => {
     const activeTab = activeTabRef.current;
@@ -841,6 +1018,8 @@ export default function BusinessListPage() {
           )}
         </div>
       )}
+
+      <WeddingPartnerListBanner banners={listBanners} />
 
       {/* ─── Filter Floating Modal ─── */}
       {filterOpen && (

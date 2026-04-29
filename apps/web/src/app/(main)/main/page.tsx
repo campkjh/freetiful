@@ -1336,7 +1336,7 @@ export default function HomePage() {
   const [banners, setBanners] = useState(BANNERS);
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/v1/banners').then((r) => r.ok ? r.json() : null).then((data) => {
+    fetch('/api/v1/banners?placement=home').then((r) => r.ok ? r.json() : null).then((data) => {
       if (cancelled || !Array.isArray(data) || data.length === 0) return;
       setBanners(data.map((b: any) => ({
         id: b.id,

@@ -1138,6 +1138,7 @@ model PlanTemplate {
 // ─── Banner (홈 상단 배너) ─────────────────────────────────────────
 model Banner {
   id           String   @id @default(uuid())
+  placement    String   @default("home") // home | businesses
   title        String   @default("")
   subtitle     String   @default("")
   imageUrl     String   // CDN/외부 이미지 URL 또는 /images/... public 경로
@@ -1148,6 +1149,7 @@ model Banner {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@index([placement, isActive, sortOrder])
   @@map("banners")
 }
 

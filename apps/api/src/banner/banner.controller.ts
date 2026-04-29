@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { BannerService } from './banner.service';
 import { AdminGuard } from '../common/guards/admin.guard';
@@ -8,10 +8,10 @@ import { AdminGuard } from '../common/guards/admin.guard';
 export class BannerController {
   constructor(private service: BannerService) {}
 
-  // 공개: 활성 배너만 반환 (홈 StackBanner 에서 사용)
+  // 공개: 활성 배너만 반환 (홈/웨딩파트너 배너에서 사용)
   @Get()
-  async list() {
-    return this.service.listActive();
+  async list(@Query('placement') placement?: string) {
+    return this.service.listActive(placement);
   }
 }
 
@@ -22,8 +22,8 @@ export class AdminBannerController {
   constructor(private service: BannerService) {}
 
   @Get()
-  async listAll() {
-    return this.service.listAll();
+  async listAll(@Query('placement') placement?: string) {
+    return this.service.listAll(placement);
   }
 
   @Post()

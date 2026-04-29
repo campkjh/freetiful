@@ -43,6 +43,7 @@ async function fileToResizedDataUrl(file: File, maxWidth = 1600, quality = 0.88)
 
 interface Banner {
   id: string;
+  placement: 'home' | 'businesses';
   title: string;
   subtitle: string;
   imageUrl: string;
@@ -55,6 +56,7 @@ interface Banner {
 }
 
 const emptyDraft = {
+  placement: 'home' as 'home' | 'businesses',
   title: '',
   subtitle: '',
   imageUrl: '',
@@ -63,6 +65,15 @@ const emptyDraft = {
   sortOrder: 0,
   isActive: true,
 };
+
+const BANNER_PLACEMENTS = [
+  { value: 'home', label: '홈' },
+  { value: 'businesses', label: '웨딩파트너 리스트' },
+] as const;
+
+function getPlacementLabel(value?: string) {
+  return BANNER_PLACEMENTS.find((item) => item.value === value)?.label || '홈';
+}
 
 export default function AdminBannersPage() {
   const [items, setItems] = useState<Banner[]>([]);
@@ -101,7 +112,7 @@ export default function AdminBannersPage() {
     setLoading(true);
     try {
       const data = await adminFetch('GET', '/api/v1/admin/banners');
-      setItems(Array.isArray(data) ? data : []);
+      setItems(Array.isArray(data) ? data.map((item: Banner) => ({ ...item, placement: item.placement || 'home' })) : []);
     } catch (e: any) {
       toast.error(`로드 실패: ${e?.response?.data?.message || e?.message || ''}`);
     } finally {
@@ -119,6 +130,7 @@ export default function AdminBannersPage() {
     setSavingId(item.id);
     try {
       await adminFetch('PATCH', `/api/v1/admin/banners/${item.id}`, {
+        placement: item.placement || 'home',
         title: item.title,
         subtitle: item.subtitle,
         imageUrl: item.imageUrl,
@@ -151,6 +163,7 @@ export default function AdminBannersPage() {
     setCreating(true);
     try {
       await adminFetch('POST', '/api/v1/admin/banners', {
+        placement: draft.placement,
         title: draft.title,
         subtitle: draft.subtitle,
         imageUrl: draft.imageUrl,
@@ -173,6 +186,7 @@ export default function AdminBannersPage() {
     exportRowsToXls('admin-banners', '배너 관리', items, [
       { header: '순번', value: (_, index) => index + 1 },
       { header: '배너ID', value: (row) => row.id },
+      { header: '노출위치', value: (row) => getPlacementLabel(row.placement) },
       { header: '제목', value: (row) => row.title },
       { header: '부제목', value: (row) => row.subtitle },
       { header: '이미지URL', value: (row) => row.imageUrl },
@@ -192,7 +206,7 @@ export default function AdminBannersPage() {
       <div className="flex items-center justify-between px-1">
         <div>
           <h1 className="text-[22px] font-bold text-[#191F28] tracking-tight">배너 관리</h1>
-          <p className="text-[13px] text-[#8B95A1] mt-0.5">홈 상단 슬라이드 배너 등록 · 순서 · 활성화</p>
+          <p className="text-[13px] text-[#8B95A1] mt-0.5">홈 · 웨딩파트너 리스트 상단 배너 등록 · 순서 · 활성화</p>
         </div>
         <AdminExportButton loading={false} onClick={handleExport} />
       </div>
@@ -248,6 +262,27 @@ export default function AdminBannersPage() {
 
         {/* 폼 */}
         <div className="space-y-3">
+            <div>
+              <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
+                <AdminTerm term="노출 위치">노출 위치</AdminTerm>
+              </label>
+              <div className="inline-flex rounded-2xl bg-[#F2F4F6] p-1">
+                {BANNER_PLACEMENTS.map((placement) => (
+                  <button
+                    key={placement.value}
+                    type="button"
+                    onClick={() => setDraft({ ...draft, placement: placement.value })}
+                    className={`h-9 rounded-xl px-4 text-[13px] font-bold transition-all ${
+                      draft.placement === placement.value
+                        ? 'bg-white text-[#3180F7] shadow-[0_4px_12px_rgba(49,128,247,0.16)]'
+                        : 'text-[#8B95A1] hover:text-[#4E5968]'
+                    }`}
+                  >
+                    {placement.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div>
               <label className="block text-[12px] font-medium text-[#8B95A1] mb-1.5">
                 <AdminTerm term="이미지 URL">이미지 URL</AdminTerm> * <span className="text-[#B0B8C1] font-normal">(파일 선택 또는 직접 입력)</span>
@@ -309,7 +344,7 @@ export default function AdminBannersPage() {
                   type="text"
                   value={draft.linkUrl}
                   onChange={(e) => setDraft({ ...draft, linkUrl: e.target.value })}
-                  placeholder="/pros 또는 https://..."
+                  placeholder="/businesses 또는 https://..."
                   className="w-full bg-[#F9FAFB] rounded-xl px-4 py-3 text-[14px] text-[#191F28] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#3182F6]"
                 />
               </div>
@@ -375,17 +410,29 @@ export default function AdminBannersPage() {
             {items.map((item) => (
               <div key={item.id} className="px-5 py-5 space-y-4">
                 {/* 썸네일 (풀폭, 실제 비율) */}
-                <div className="aspect-[1170/300] rounded-2xl bg-[#F2F4F6] overflow-hidden flex items-center justify-center" style={item.bgColor ? { backgroundColor: item.bgColor } : undefined}>
+                <div className="relative aspect-[1170/300] rounded-2xl bg-[#F2F4F6] overflow-hidden flex items-center justify-center" style={item.bgColor ? { backgroundColor: item.bgColor } : undefined}>
                   {item.imageUrl ? (
                     <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
                   ) : (
                     <ImageOff size={22} className="text-[#B0B8C1]" />
                   )}
+                  <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-[12px] font-bold text-[#3180F7] shadow-[0_4px_14px_rgba(15,23,42,0.12)]">
+                    {getPlacementLabel(item.placement)}
+                  </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
                   {/* 필드 */}
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr_1fr] gap-2">
+                      <select
+                        value={item.placement || 'home'}
+                        onChange={(e) => updateField(item.id, { placement: e.target.value as Banner['placement'] })}
+                        className="bg-[#F9FAFB] rounded-lg px-3 py-2 text-[13px] font-semibold text-[#191F28] focus:outline-none focus:ring-1 focus:ring-[#3182F6]"
+                      >
+                        {BANNER_PLACEMENTS.map((placement) => (
+                          <option key={placement.value} value={placement.value}>{placement.label}</option>
+                        ))}
+                      </select>
                       <input
                         type="text"
                         value={item.title}
