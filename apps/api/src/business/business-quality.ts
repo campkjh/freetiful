@@ -57,6 +57,16 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   가구: ['가구', '침대', '소파', '리빙', '한샘', '이케아', '테이블', '매트리스'],
 };
 
+const CATEGORY_REJECT_KEYWORDS: Record<string, string[]> = {
+  웨딩홀: ['장례', '상조', '떡볶이', '분식'],
+  드레스: ['웨딩홀', '예식장', '컨벤션'],
+  스튜디오: ['웨딩홀', '예식장', '컨벤션'],
+  성형외과: ['피부과'],
+  보석: ['무신사'],
+  자동차: ['하이마트', '가전'],
+  신혼여행: ['시티투어버스', '서울시티투어버스', '리무진'],
+};
+
 const TYPE_CATEGORY_RULES: Array<{ test: RegExp; categories: string[] }> = [
   { test: /웨딩홀|예식장|컨벤션|채플/, categories: ['웨딩홀'] },
   { test: /드레스|브라이덜|브라이드/, categories: ['드레스'] },
@@ -125,6 +135,10 @@ function hasGlobalRejectKeyword(text: string) {
   return hasAnyKeyword(text, GLOBAL_REJECT_KEYWORDS);
 }
 
+function hasCategoryRejectKeyword(text: string, category: string) {
+  return hasAnyKeyword(text, CATEGORY_REJECT_KEYWORDS[category] || []);
+}
+
 function isAllowedCrossCategory(category: string, typeCategories: string[], text: string) {
   if ((category === '헤어' || category === '메이크업') && typeCategories.some((item) => item === '헤어' || item === '메이크업')) {
     return true;
@@ -144,7 +158,7 @@ export function isBusinessRelevantToCategory(business: BusinessQualityInput, cat
   if (!WEDDING_PARTNER_CATEGORIES.includes(targetCategory)) return true;
 
   const text = getSearchText(business);
-  if (!text || hasGlobalRejectKeyword(text)) return false;
+  if (!text || hasGlobalRejectKeyword(text) || hasCategoryRejectKeyword(text, targetCategory)) return false;
 
   const typeCategories = getCategoriesForType(business.businessType);
   if (typeCategories.length > 0) {
