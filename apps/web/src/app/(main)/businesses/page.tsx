@@ -10,6 +10,7 @@ import { apiClient } from '@/lib/api/client';
 import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
 import {
   getWeddingPartnerImageSet,
+  getWeddingPartnerSectionCategories,
   mergeWeddingPartnerImages,
 } from '@/lib/wedding-partner-images';
 
@@ -54,7 +55,7 @@ const FILTER_GROUPS = [
 
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
-const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v2';
+const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v4';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 // ─── Page ──────────────────────────────────────────────────
@@ -120,7 +121,11 @@ export default function BusinessListPage() {
               apiImages,
               partnerImageSet?.images,
             );
-            const displayCategory = categories[0] || partnerImageSet?.category || b.businessType || '전체';
+            const displayCategories = Array.from(new Set([
+              ...categories.filter((name: string) => name !== '인기'),
+              ...getWeddingPartnerSectionCategories(partnerImageSet),
+            ]));
+            const displayCategory = displayCategories[0] || b.businessType || '전체';
             const address = b.address || '';
             const region = address.split(' ')[0] || displayCategory || '';
             return {
@@ -129,7 +134,7 @@ export default function BusinessListPage() {
               category: displayCategory,
               title: businessName,
               region: b.region || region,
-              clinic: b.clinic || categories.join(' · ') || partnerImageSet?.category || region || b.businessType || '',
+              clinic: b.clinic || displayCategories.join(' · ') || region || b.businessType || '',
               rating: b.rating ?? 0,
               reviewCount: b.reviewCount ?? 0,
               originalPrice: b.originalPrice,

@@ -1020,6 +1020,15 @@ export function getWeddingPartnerCategory(...names: Array<string | null | undefi
   return getWeddingPartnerImageSet(...names)?.category;
 }
 
+export function getWeddingPartnerSectionCategories(imageSet?: WeddingPartnerImageSet) {
+  const categories = imageSet?.category ? [imageSet.category] : [];
+  if (imageSet?.images.some((image) => image.includes('/hair-makeup/'))) {
+    categories.push('헤어', '메이크업');
+  }
+
+  return Array.from(new Set(categories.filter(Boolean)));
+}
+
 export function mergeWeddingPartnerImages(...groups: Array<ReadonlyArray<string | null | undefined> | undefined>) {
   const seen = new Set<string>();
   const merged: string[] = [];

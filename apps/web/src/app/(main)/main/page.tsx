@@ -22,6 +22,7 @@ import {
 } from '@/lib/business-popularity';
 import {
   getWeddingPartnerImageSet,
+  getWeddingPartnerSectionCategories,
   mergeWeddingPartnerImages,
 } from '@/lib/wedding-partner-images';
 import { discoveryApi } from '@/lib/api/discovery.api';
@@ -533,6 +534,7 @@ function proCategoryHref(category: string) {
 interface BusinessPartner {
   id: string;
   category: string;
+  categories: string[];
   name: string;
   location: string;
   images: string[];
@@ -543,10 +545,11 @@ interface BusinessPartner {
 }
 
 const BIZ_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
+const WEDDING_PARTNER_SECTION_ORDER = BIZ_CATEGORIES.filter((category) => category !== '전체');
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
-const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v3';
+const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v4';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 
 function BusinessCard({ biz }: { biz: BusinessPartner }) {
@@ -597,6 +600,33 @@ function BusinessCard({ biz }: { biz: BusinessPartner }) {
       </div>
     </Link>
   );
+}
+
+function getBusinessPartnerSections(businesses: BusinessPartner[]) {
+  const grouped = new Map<string, BusinessPartner[]>();
+
+  businesses.forEach((business) => {
+    const categories = business.categories.length > 0 ? business.categories : [business.category];
+    categories
+      .filter((category) => category && category !== '전체' && category !== '인기')
+      .forEach((category) => {
+        const items = grouped.get(category) || [];
+        items.push(business);
+        grouped.set(category, items);
+      });
+  });
+
+  const orderedCategories = [
+    ...WEDDING_PARTNER_SECTION_ORDER,
+    ...Array.from(grouped.keys()).filter((category) => !WEDDING_PARTNER_SECTION_ORDER.includes(category)),
+  ];
+
+  return orderedCategories
+    .map((category) => ({
+      category,
+      businesses: sortPopularPartnersFirst(grouped.get(category) || []),
+    }))
+    .filter((section) => section.businesses.length > 0);
 }
 
 const BANNERS = [
@@ -1148,19 +1178,22 @@ export default function HomePage() {
             apiImages,
             partnerImageSet?.images,
           );
-          const displayCategories = visibleCategories.length > 0
-            ? visibleCategories
-            : partnerImageSet?.category
-              ? [partnerImageSet.category]
-              : categories;
+          const displayCategories = Array.from(new Set([
+            ...(visibleCategories.length > 0 ? visibleCategories : categories),
+            ...getWeddingPartnerSectionCategories(partnerImageSet),
+          ]));
+          const businessCategories = Array.from(
+            new Set(displayCategories.filter((name): name is string => Boolean(name && name !== '인기'))),
+          );
           const address = b.address || '';
           return {
             id: b.id || String(i),
-            category: displayCategories[0] || b.businessType || '웨딩홀',
+            category: businessCategories[0] || b.businessType || '웨딩홀',
+            categories: businessCategories.length > 0 ? businessCategories : [b.businessType || '웨딩홀'],
             name: businessName,
             location: address.split(' ')[0] || b.region || '전국',
             images: mergedImages.length > 0 ? mergedImages : ['/images/default-profile.svg'],
-            tags: getBusinessDisplayTags(displayCategories, b.businessType, isPopular),
+            tags: getBusinessDisplayTags(businessCategories, b.businessType, isPopular),
             isPopular,
             originalPrice: b.originalPrice ?? 0,
             discountPercent: b.discountPercent ?? 0,
@@ -1326,7 +1359,6 @@ export default function HomePage() {
   };
   const desktopHeroBanners = banners.length > 0 ? banners : BANNERS;
   const desktopHeroBannerIdx = bannerIdx % desktopHeroBanners.length;
-  const [selectedBizCat, setSelectedBizCat] = useState<string | null>(null);
   const [viewedPros, setViewedPros] = useState<{ id: string; time: number }[]>([]);
   useEffect(() => {
     try {
@@ -1355,9 +1387,7 @@ export default function HomePage() {
     return () => ro.disconnect();
   }, []);
 
-  const filteredBiz = sortPopularPartnersFirst(
-    businesses.filter((b) => !selectedBizCat || b.category === selectedBizCat || b.tags.includes(selectedBizCat)),
-  );
+  const businessPartnerSections = useMemo(() => getBusinessPartnerSections(businesses), [businesses]);
   const warmProsList = () => {
     discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false, realtime: true }).catch(() => {});
   };
@@ -2382,47 +2412,38 @@ export default function HomePage() {
         </section>
         <div className="my-6 border-t border-gray-100" />
 
-        {/* 6. 웨딩 파트너 (API 데이터 있을 때만 노출) */}
-        {businesses.length > 0 && (
+        {/* 6. 웨딩 파트너 — 업체가 있는 카테고리만 섹션 노출 */}
+        {businessPartnerSections.length > 0 && (
           <>
-            <section>
-              <div className="mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="section-title">웨딩 파트너</h3>
-                    <p className="section-subtitle mt-1">프리티풀이 엄선한 웨딩 업체를 만나보세요</p>
+            {businessPartnerSections.map((section, sectionIndex) => (
+              <section key={section.category}>
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="section-title">{section.category}</h3>
+                      <p className="section-subtitle mt-1">프리티풀이 엄선한 {section.category} 업체를 만나보세요</p>
+                    </div>
+                    <Link
+                      href={`/businesses?category=${encodeURIComponent(section.category)}`}
+                      className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600"
+                      style={{ transition: 'color 0.3s' }}
+                    >
+                      전체보기 <ChevronRight size={16} />
+                    </Link>
                   </div>
-                  <Link href="/businesses" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
-                    전체보기 <ChevronRight size={16} />
-                  </Link>
                 </div>
-                <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-                  <button onClick={() => setSelectedBizCat(null)} className={`relative isolate chip ${selectedBizCat === null ? 'text-white' : 'chip-inactive'}`}>
-                    {selectedBizCat === null && <span className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} />}
-                    <span className="relative">전체</span>
-                  </button>
-                  {BIZ_CATEGORIES.slice(1).map((cat) => (
-                    <button key={cat} onClick={() => setSelectedBizCat(selectedBizCat === cat ? null : cat)} className={`relative isolate chip ${selectedBizCat === cat ? 'text-white' : 'chip-inactive'}`}>
-                      {selectedBizCat === cat && <span className="absolute inset-0 bg-gray-900 rounded-full" style={{ zIndex: -1 }} />}
-                      <span className="relative">{cat}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {filteredBiz.length > 0 ? (
                 <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory scroll-pl-[10px]">
-                  {filteredBiz.slice(0, 8).map((biz) => (
-                    <div key={biz.id} className="shrink-0 w-[78%] snap-start lg:w-[32%]">
+                  {section.businesses.slice(0, 8).map((biz) => (
+                    <div key={`${section.category}-${biz.id}`} className="shrink-0 w-[78%] snap-start lg:w-[32%]">
                       <BusinessCard biz={biz} />
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="rounded-xl bg-gray-50 px-4 py-6 text-center text-[13px] font-semibold text-gray-500">
-                  해당 카테고리의 웨딩 파트너를 준비 중입니다
-                </div>
-              )}
-            </section>
+                {sectionIndex < businessPartnerSections.length - 1 && (
+                  <div className="my-6 border-t border-gray-100" />
+                )}
+              </section>
+            ))}
             <div className="my-6 border-t border-gray-100" />
           </>
         )}
