@@ -328,34 +328,8 @@ function BusinessRankList({ items, favorites, onToggleFav, muted = false }: Busi
               </div>
             )}
 
-            <div className="flex items-center gap-1 mt-0.5">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="#FFB800">
-                <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
-              </svg>
-              <span className="text-[13px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
-              <span className="text-[12px] text-gray-400">({item.reviewCount})</span>
-            </div>
-
-            <div className="mt-1">
-              {item.originalPrice && item.discountPercent ? (
-                <>
-                  <div className="flex items-center gap-1.5 leading-tight">
-                    <span className="text-[11px] text-gray-400">VAT 포함 ·</span>
-                    <span className="text-[12px] text-gray-400 line-through">{item.originalPrice.toLocaleString()}원</span>
-                  </div>
-                  <div className="flex items-baseline gap-1.5 leading-tight">
-                    <span className="text-[15px] font-bold text-[#3180F7]">{item.discountPercent}%</span>
-                    <span className="text-[17px] font-bold text-gray-900">{item.finalPrice.toLocaleString()}원</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-[11px] text-gray-400 leading-tight">VAT 포함</div>
-                  <div className="text-[17px] font-bold text-gray-900 leading-tight">{item.finalPrice.toLocaleString()}원</div>
-                </>
-              )}
-
-              <div className="flex items-center gap-1.5 mt-1">
+            {(item.hasAppPay || item.hasAppBooking) && (
+              <div className="flex items-center gap-1.5 mt-2">
                 {item.hasAppPay && (
                   <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#EAF3FF] text-[10px] font-bold text-[#3180F7]">
                     <span className="w-3 h-3 rounded-sm bg-[#3180F7] flex items-center justify-center text-white text-[8px]">$</span>
@@ -369,7 +343,7 @@ function BusinessRankList({ items, favorites, onToggleFav, muted = false }: Busi
                   </span>
                 )}
               </div>
-            </div>
+            )}
           </div>
 
           {!muted && onToggleFav && (
