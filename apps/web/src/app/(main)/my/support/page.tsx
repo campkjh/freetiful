@@ -32,7 +32,7 @@ export default function SupportPage() {
 
         {/* 연락 방법 */}
         <div className="border border-gray-100 overflow-hidden" style={{ borderRadius: 12 }}>
-          <a href="tel:1544-0000" className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
+          <a href="tel:02-765-8882" className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
             <div className="flex-1">
               <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -42,7 +42,7 @@ export default function SupportPage() {
                 </svg>
                 전화 문의
               </p>
-              <p className="text-xs text-gray-400 ml-7">1544-0000</p>
+              <p className="text-xs text-gray-400 ml-7">02-765-8882</p>
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </a>
@@ -59,7 +59,12 @@ export default function SupportPage() {
             </div>
             <ChevronRight size={16} className="text-gray-300" />
           </a>
-          <button className="flex items-center gap-3 px-4 py-4 w-full text-left">
+          <a
+            href="http://pf.kakao.com/_axbJmn"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-4 w-full text-left"
+          >
             <div className="flex-1">
               <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -68,10 +73,10 @@ export default function SupportPage() {
                 </svg>
                 카카오톡 문의
               </p>
-              <p className="text-xs text-gray-400 ml-7">@프리티풀</p>
+              <p className="text-xs text-gray-400 ml-7">프리티풀 카카오톡 채널</p>
             </div>
             <ChevronRight size={16} className="text-gray-300" />
-          </button>
+          </a>
         </div>
 
         {/* 자주 가는 링크 */}
