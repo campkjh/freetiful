@@ -7,7 +7,12 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { scheduleApi } from '@/lib/api/schedule.api';
-import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import {
+  WEDDING_PLAN_TEMPLATES,
+  getWeddingPlanDisplayPrice,
+  getWeddingPlanTemplate,
+  normalizeWeddingPlanKey,
+} from '@/lib/wedding-plans';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 
@@ -39,7 +44,7 @@ const TIME_SLOTS = [
   '15:30', '16:00', '16:30', '17:00', '17:30', '18:00',
 ];
 
-// 초기 렌더용 폴백 — 실제 플랜 옵션은 어드민 설정 PlanTemplate + 프로 services 에서 동적 생성
+// 초기 렌더용 폴백 — 실제 플랜 옵션은 결혼식 사회자 services 에서 동적 생성
 const PLAN_OPTIONS: { id: string; name: string; originalPrice: number; discountPercent: number; finalPrice: number }[] = [];
 
 const MAX_SELECTIONS = 1;
@@ -120,42 +125,44 @@ export default function BookingPage() {
     return () => { alive = false; };
   }, [id]);
 
-  // 어드민 플랜 템플릿 로드 (프로가 서비스 미등록이면 이 값을 폴백으로 사용)
-  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
-  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
-
   const proInfo = {
     name: pro?.user?.name || pro?.name || fallbackInfo.name,
     image: pro?.images?.[0]?.imageUrl || pro?.user?.profileImageUrl || fallbackInfo.image,
     category: (pro?.categoryNames && pro.categoryNames[0]) || '사회자',
   };
 
-  // 전문가가 등록한 서비스 우선, 없으면 어드민 플랜 템플릿으로 폴백
+  // 전문가가 등록한 결혼식 서비스 우선, 없으면 결혼식 기본 플랜으로 폴백
   const plans = useMemo(() => {
     if (pro?.services && Array.isArray(pro.services) && pro.services.length > 0) {
-      return pro.services.filter((s: any) => s.isActive !== false).map((s: any, idx: number) => {
-        const title = s.title || s.name || `서비스 ${idx + 1}`;
-        // title 매칭으로 템플릿 price 를 최신값으로 사용 (프로가 커스텀 가격을 설정했으면 s.basePrice 우선)
-        const tpl = planTemplates.find((t) => t.label.toLowerCase() === title.toLowerCase() || t.planKey.toLowerCase() === title.toLowerCase());
-        const price = s.basePrice || tpl?.defaultPrice || 0;
-        return {
-          id: s.id || `svc-${idx}`,
-          name: `${title} 패키지`,
-          originalPrice: price,
-          discountPercent: 0,
-          finalPrice: price,
-        };
-      });
+      const seen = new Set<string>();
+      const servicePlans = pro.services
+        .filter((s: any) => s.isActive !== false)
+        .map((s: any, idx: number) => {
+          const title = s.title || s.name || `서비스 ${idx + 1}`;
+          const key = normalizeWeddingPlanKey(title);
+          const tpl = getWeddingPlanTemplate(key);
+          if (!tpl || seen.has(tpl.planKey)) return null;
+          seen.add(tpl.planKey);
+          const price = getWeddingPlanDisplayPrice(title, s.basePrice);
+          return {
+            id: tpl.planKey,
+            name: `${tpl.label} 패키지`,
+            originalPrice: price,
+            discountPercent: 0,
+            finalPrice: price,
+          };
+        })
+        .filter(Boolean);
+      if (servicePlans.length > 0) return servicePlans as typeof PLAN_OPTIONS;
     }
-    // 프로 서비스가 없으면 어드민 플랜 템플릿을 그대로 사용
-    return planTemplates.filter((t) => t.isActive).map((t) => ({
+    return WEDDING_PLAN_TEMPLATES.filter((t) => t.isActive).map((t) => ({
       id: `tpl-${t.planKey}`,
       name: `${t.label} 패키지`,
       originalPrice: t.defaultPrice,
       discountPercent: 0,
       finalPrice: t.defaultPrice,
     }));
-  }, [pro, planTemplates]);
+  }, [pro]);
 
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);

@@ -15,6 +15,7 @@ import { quotationApi } from '@/lib/api/quotation.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 export type { Message, ChatPartner, SystemPayload };
@@ -458,8 +459,9 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
   if (sys.kind === 'quote') {
     const planKey = String(sys.plan || '').toLowerCase();
     const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === planKey);
-    const planLabel = tpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : 'Premium');
-    const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' ? '#8B5CF6' : '#3180F7';
+    const weddingTpl = getWeddingPlanTemplate(normalizeWeddingPlanKey(planKey));
+    const planLabel = tpl?.label || weddingTpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : '1부 예식');
+    const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' || planKey === 'wedding_part12' ? '#8B5CF6' : '#3180F7';
 
     return (
       <div

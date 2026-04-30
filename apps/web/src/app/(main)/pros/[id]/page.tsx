@@ -8,9 +8,16 @@ import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, Arr
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
-import { getPlanTemplates, getPlanTemplatesSync, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import type { PlanTemplate } from '@/lib/api/plan-templates.api';
 import { reviewApi } from '@/lib/api/review.api';
 import { buildReviewFallbacks, getReviewComment, getReviewRows, getReviewTotal } from '@/lib/review-display';
+import {
+  WEDDING_PLAN_TEMPLATES,
+  buildWeddingServicesFromStorage,
+  getWeddingPlanDisplayPrice,
+  getWeddingPlanTemplate,
+  normalizeWeddingPlanKey,
+} from '@/lib/wedding-plans';
 import {
   applyFavoriteCountToLocalCaches,
   emitFavoriteChange,
@@ -466,24 +473,39 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
   const ytId = extractYoutubeId(res.youtubeUrl);
   const proCategory: string = (res.categoryNames && res.categoryNames[0]) || '사회자';
   const services = res.services || [];
-  const tplByLabel = new Map(planTemplates.map((t) => [t.label.toLowerCase(), t]));
-  const tplByKey = new Map(planTemplates.map((t) => [t.planKey.toLowerCase(), t]));
-  const plans = services.map((s: any, idx: number) => {
-    const labelKey = (s.title || '').toLowerCase();
-    const tpl = tplByLabel.get(labelKey) || tplByKey.get(labelKey);
-    return {
-      id: s.id || labelKey || `svc-${idx}`,
-      label: tpl?.label || s.title || `옵션 ${idx + 1}`,
-      price: s.basePrice || tpl?.defaultPrice || 0,
-      duration: tpl?.description || '',
-      title: s.description || tpl?.description || `${tpl?.label || s.title} 서비스`,
-      desc: tpl?.includedItems?.length
-        ? tpl.includedItems
-        : (s.description ? s.description.split('\n').filter(Boolean) : ['사회 진행']),
-      workDays: 14,
-      revisions: idx + 1,
-    };
-  });
+  const fallbackPlans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
+    id: t.planKey,
+    label: t.label,
+    price: t.defaultPrice,
+    duration: t.description || '',
+    title: t.description || `${t.label} 패키지`,
+    desc: t.includedItems?.length ? t.includedItems : ['사회 진행'],
+    workDays: 14,
+    revisions: idx + 1,
+  }));
+  const seenPlanKeys = new Set<string>();
+  const plans = services
+    .map((s: any, idx: number) => {
+      const normalizedKey = normalizeWeddingPlanKey(s.title || s.id);
+      const tpl = getWeddingPlanTemplate(normalizedKey);
+      if (!tpl || seenPlanKeys.has(tpl.planKey)) return null;
+      seenPlanKeys.add(tpl.planKey);
+      const serviceDescription = String(s.description || '').trim();
+      const desc = serviceDescription
+        ? serviceDescription.split(/\s+·\s+|\n/).map((line) => line.trim()).filter(Boolean)
+        : (tpl.includedItems?.length ? tpl.includedItems : ['사회 진행']);
+      return {
+        id: tpl.planKey,
+        label: tpl.label,
+        price: getWeddingPlanDisplayPrice(s.title || tpl.planKey, s.basePrice),
+        duration: tpl.description || '',
+        title: tpl.description || `${tpl.label} 패키지`,
+        desc,
+        workDays: 14,
+        revisions: idx + 1,
+      };
+    })
+    .filter(Boolean) as ProDetailData['plans'];
 
   const reviews = (res.reviews || []).map(mapApiReviewToDetail);
   const faqs = Array.isArray(res.faqs)
@@ -526,7 +548,7 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     rating: res.avgRating || 0,
     reviewCount: res.reviewCount || 0,
     favoriteCount: res.favoriteCount || 0,
-    plans,
+    plans: plans.length > 0 ? plans : fallbackPlans,
     description: fallbackDescription,
     hasDescriptionContent,
     descriptionHtml: hasDescriptionContent ? buildDescriptionHtml(res.detailHtml, '') : '',
@@ -918,12 +940,6 @@ export default function ProDetailPage() {
   const [apiError, setApiError] = useState(false);
   const [apiLoading, setApiLoading] = useState(true);
 
-  // 어드민 설정 플랜 템플릿 로드 (모든 플랜 가격/이름/포함항목의 단일 소스)
-  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>(() => getPlanTemplatesSync());
-  useEffect(() => {
-    getPlanTemplates().then(setPlanTemplates).catch(() => {});
-  }, []);
-
   // API에서 전문가 상세 데이터 가져오기
   useEffect(() => {
     if (!id) return;
@@ -972,6 +988,23 @@ export default function ProDetailPage() {
           if (Array.isArray(rs)) registeredRegions = rs.filter(Boolean);
         } catch {}
         const myProTags = ['사회자', ...registeredRegions].slice(0, 5);
+        const localPlanServices = buildWeddingServicesFromStorage();
+        const localPlans = localPlanServices.map((service, idx) => {
+          const tpl = getWeddingPlanTemplate(service.title);
+          const desc = service.description
+            ? service.description.split(/\s+·\s+|\n/).map((line) => line.trim()).filter(Boolean)
+            : (tpl?.includedItems || ['사회 진행']);
+          return {
+            id: tpl?.planKey || `wedding-local-${idx}`,
+            label: tpl?.label || service.title,
+            price: service.basePrice || tpl?.defaultPrice || 0,
+            duration: tpl?.description || '',
+            title: tpl?.description || service.title,
+            desc,
+            workDays: 14,
+            revisions: idx + 1,
+          };
+        });
 
         setPro({
           id: 'my-pro',
@@ -990,16 +1023,7 @@ export default function ProDetailPage() {
           rating: 5.0,
           reviewCount: 0,
           favoriteCount: 0,
-          plans: (planTemplates.length > 0 ? planTemplates : []).filter((t) => t.isActive).map((t, idx) => ({
-            id: t.planKey,
-            label: t.label,
-            price: t.defaultPrice,
-            duration: t.description || '',
-            title: t.description || `${t.label} 패키지`,
-            desc: t.includedItems,
-            workDays: 14,
-            revisions: idx + 1,
-          })),
+          plans: localPlans,
           description: fallbackDescription,
           hasDescriptionContent,
           descriptionHtml: hasDescriptionContent ? buildDescriptionHtml(detailHtml, '') : '',
@@ -1028,7 +1052,7 @@ export default function ProDetailPage() {
     // 본인 프로 페이지면 항상 최신 데이터 로드 (캐시 스킵)
     const myProId = typeof window !== 'undefined' ? localStorage.getItem('freetiful-my-pro-id') : null;
     const skipCache = myProId === id;
-    const effectivePlanTemplates = getPlanTemplatesSync();
+    const effectivePlanTemplates = WEDDING_PLAN_TEMPLATES;
     const cachedDetail = !skipCache ? getCachedProDetail(id) : null;
     const cachedPreview = !skipCache ? getCachedProPreview(id) : null;
     if (cachedDetail) {
@@ -1178,18 +1202,17 @@ export default function ProDetailPage() {
   useEffect(() => {
     if (!pro?.id || activePlanAutoSelectedRef.current === pro.id) return;
     activePlanAutoSelectedRef.current = pro.id;
-    setActivePlan(pro.plans.length > 1 ? 1 : 0);
+    setActivePlan(0);
   }, [pro?.id, pro?.plans.length]);
   const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
-  const plan = pro?.plans?.[activePlan] ?? { id: 'premium', label: 'Premium', price: 0, duration: '-', title: '가격 문의', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
+  const plan = pro?.plans?.[activePlan] ?? { id: 'wedding_part1', label: '1부 예식', price: 0, duration: '-', title: '가격 문의', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
 
   useEffect(() => {
     if (!pro?.plans?.length) return;
     setActivePlan((current) => {
       if (current >= pro.plans.length) return 0;
-      if (current === 0 && pro.plans.length > 1) return 1;
       return current;
     });
   }, [pro?.id, pro?.plans?.length]);
@@ -2255,34 +2278,6 @@ export default function ProDetailPage() {
               <li key={i} className="whitespace-pre-line">{i === 0 ? '- ' : '* '}{line}</li>
             ))}
           </ul>
-
-          {/* Custom options from localStorage (if pro registered them) */}
-          {typeof window !== 'undefined' && (() => {
-            try {
-              const stored = localStorage.getItem('proRegister_customOptions');
-              if (!stored) return null;
-              const customOptions = JSON.parse(stored);
-              const planOptions = customOptions[plan.id];
-              if (!planOptions || planOptions.length === 0) return null;
-              return (
-                <div className="mt-4 pt-3 border-t border-gray-100">
-                  <p className="text-[12px] font-bold text-amber-600 mb-2">추가 옵션</p>
-                  <ul className="space-y-1 text-[14px] text-gray-700 leading-relaxed">
-                    {planOptions.map((opt: {name: string, price: number} | string, i: number) => {
-                      const name = typeof opt === 'string' ? opt : opt.name;
-                      const price = typeof opt === 'string' ? 0 : opt.price;
-                      return (
-                        <li key={i} className="flex items-center justify-between">
-                          <span>+ {name}</span>
-                          {price > 0 && <span className="text-[13px] font-semibold text-gray-500">{price.toLocaleString()}원</span>}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              );
-            } catch { return null; }
-          })()}
 
         </div>
       </div>

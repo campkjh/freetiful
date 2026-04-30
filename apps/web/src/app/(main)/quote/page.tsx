@@ -10,6 +10,7 @@ import { discoveryApi } from '@/lib/api/discovery.api';
 import { apiClient } from '@/lib/api/client';
 import { matchApi } from '@/lib/api/match.api';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import { WEDDING_PLAN_TEMPLATES } from '@/lib/wedding-plans';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 
@@ -69,6 +70,8 @@ const PLAN_STYLES: Record<string, { icon: React.ReactElement; color: string }> =
   premium: { icon: <PlanIconPremium />, color: 'border-blue-200 bg-blue-50/40' },
   superior: { icon: <PlanIconSuperior />, color: 'border-violet-200 bg-violet-50/40' },
   enterprise: { icon: <PlanIconEnterprise />, color: 'border-amber-200 bg-amber-50/40' },
+  wedding_part1: { icon: <PlanIconPremium />, color: 'border-blue-200 bg-blue-50/40' },
+  wedding_part12: { icon: <PlanIconSuperior />, color: 'border-violet-200 bg-violet-50/40' },
 };
 const PLAN_FALLBACK_STYLE = { icon: <PlanIconPremium />, color: 'border-gray-200 bg-gray-50/40' };
 
@@ -175,7 +178,10 @@ function QuotePage() {
 
   // 어드민 플랜 템플릿 — 가격/이름/포함항목의 단일 소스
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
-  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!isEvent) return;
+    getPlanTemplates().then(setPlanTemplates).catch(() => {});
+  }, [isEvent]);
   const [matchCategories, setMatchCategories] = useState<MatchCategoryOption[]>([]);
   useEffect(() => {
     let alive = true;
@@ -189,17 +195,18 @@ function QuotePage() {
       });
     return () => { alive = false; };
   }, []);
-  const PLANS = planTemplates.filter((t) => t.isActive).map((t) => {
+  const activePlanTemplates = isEvent ? planTemplates : WEDDING_PLAN_TEMPLATES;
+  const PLANS = activePlanTemplates.filter((t) => t.isActive).map((t) => {
     const style = PLAN_STYLES[t.planKey] || PLAN_FALLBACK_STYLE;
     return { id: t.planKey, label: t.label, price: t.defaultPrice, desc: t.description || '', icon: style.icon, color: style.color };
   });
   // SERVICE_TABLE: 모든 플랜의 includedItems 를 합쳐 "이 플랜에 포함되는지" 매트릭스 생성
   const SERVICE_TABLE = (() => {
     const allItems = new Set<string>();
-    planTemplates.forEach((t) => t.includedItems.forEach((it) => allItems.add(it)));
+    activePlanTemplates.forEach((t) => t.includedItems.forEach((it) => allItems.add(it)));
     return Array.from(allItems).map((name) => {
       const row: any = { name };
-      planTemplates.forEach((t) => { row[t.planKey] = t.includedItems.includes(name); });
+      activePlanTemplates.forEach((t) => { row[t.planKey] = t.includedItems.includes(name); });
       return row;
     });
   })();
@@ -333,8 +340,8 @@ function QuotePage() {
           !p.categories?.length || p.categories.some((c: string) => c.includes('사회자') || c.toLowerCase().includes('mc'))
         );
         const planMatched = mcPros.filter((p) => {
-          if (plan === 'enterprise') return p.experience >= 8;
-          if (plan === 'superior') return p.experience >= 4;
+          if (isEvent && plan === 'enterprise') return p.experience >= 8;
+          if (isEvent && plan === 'superior') return p.experience >= 4;
           return true;
         });
         const candidates = planMatched.length > 0 ? planMatched : mcPros;
@@ -352,8 +359,8 @@ function QuotePage() {
             }
           }
           // 플랜은 정렬 우선순위에만 반영 — 경력이 높을수록 상위 플랜(Enterprise/Superior) 수행 가능
-          if (plan === 'enterprise' && p.experience >= 8) score += 20;
-          if (plan === 'superior' && p.experience >= 4) score += 10;
+          if (isEvent && plan === 'enterprise' && p.experience >= 8) score += 20;
+          if (isEvent && plan === 'superior' && p.experience >= 4) score += 10;
           return { pro: p, score };
         }).sort((a, b) => b.score - a.score);
         // 스코어 정렬만 하고 필터링으로 제외 안 함 (전부 노출)
@@ -659,7 +666,7 @@ function QuotePage() {
         {step === 'plan' && (
           <div key="plan">
             <h2 className="text-[22px] font-bold text-gray-900 mt-2 mb-1">플랜을 선택해주세요</h2>
-            <p className="text-[14px] text-gray-400 mb-6">행사 규모에 맞는 플랜을 골라주세요</p>
+            <p className="text-[14px] text-gray-400 mb-6">{isEvent ? '행사 규모에 맞는 플랜을 골라주세요' : '예식 진행 범위에 맞는 플랜을 골라주세요'}</p>
 
             {/* Plan selector — flat row with indicator */}
             <>

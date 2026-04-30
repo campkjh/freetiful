@@ -4,87 +4,75 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Check, Plus, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import {
+  WEDDING_OPTION_SUGGESTIONS,
+  WEDDING_PLAN_TEMPLATES,
+  migrateWeddingCustomOptions,
+  migrateWeddingPlanKeys,
+  migrateWeddingPlanPrices,
+} from '@/lib/wedding-plans';
 
-// 기본값 (API 로드 실패/지연 시 fallback). 어드민에서 수정 가능.
 type PlanTpl = { id: string; label: string; defaultPrice: number; desc: string; includedItems: string[] };
-const FALLBACK_PLANS: PlanTpl[] = [
-  { id: 'premium', label: 'Premium', defaultPrice: 450000, desc: '행사 1시간 진행', includedItems: ['사회 진행', '사전 미팅'] },
-  { id: 'superior', label: 'Superior', defaultPrice: 800000, desc: '행사 2시간 진행', includedItems: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'] },
-  { id: 'enterprise', label: 'Enterprise', defaultPrice: 1700000, desc: '6시간 풀타임', includedItems: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'] },
-  { id: 'test', label: 'Test', defaultPrice: 100, desc: '테스트용 (결제 플로우 확인)', includedItems: ['테스트 서비스'] },
-];
+const WEDDING_PLANS: PlanTpl[] = WEDDING_PLAN_TEMPLATES.map((plan) => ({
+  id: plan.planKey,
+  label: plan.label,
+  defaultPrice: plan.defaultPrice,
+  desc: plan.description || '',
+  includedItems: plan.includedItems,
+}));
 
 const TOTAL_STEPS = 7;
 const CURRENT_STEP = 6;
 
 export default function PricingPage() {
   const router = useRouter();
-  const [PLANS, setPLANS] = useState<PlanTpl[]>(FALLBACK_PLANS);
+  const [PLANS] = useState<PlanTpl[]>(WEDDING_PLANS);
   const COMMON_OPTIONS: Record<string, string[]> = Object.fromEntries(PLANS.map((p) => [p.id, p.includedItems]));
-
-  // 어드민 설정 플랜 로드
-  useEffect(() => {
-    import('@/lib/api/client').then(({ apiClient }) => {
-      apiClient.get('/api/v1/plan-templates')
-        .then((res: any) => {
-          const data = Array.isArray(res.data) ? res.data : [];
-          if (data.length > 0) {
-            setPLANS(data.map((t: any) => ({
-              id: t.planKey,
-              label: t.label,
-              defaultPrice: t.defaultPrice,
-              desc: t.description || '',
-              includedItems: Array.isArray(t.includedItems) ? t.includedItems : [],
-            })));
-          }
-        })
-        .catch(() => { /* fallback to FALLBACK_PLANS */ });
-    });
-  }, []);
 
   const [enabledPlans, setEnabledPlans] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('proRegister_enabledPlans');
-      return saved ? new Set(JSON.parse(saved)) : new Set(['premium']);
+      try {
+        const saved = localStorage.getItem('proRegister_enabledPlans');
+        return new Set(migrateWeddingPlanKeys(saved ? JSON.parse(saved) : []));
+      } catch {
+        return new Set(['wedding_part1']);
+      }
     }
-    return new Set(['premium']);
+    return new Set(['wedding_part1']);
   });
-  const [prices, setPrices] = useState<Record<string, string>>(() => {
+  const [prices, setPrices] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('proRegister_prices');
-      return saved ? JSON.parse(saved) : {};
+      try {
+        const saved = localStorage.getItem('proRegister_prices');
+        return migrateWeddingPlanPrices(saved ? JSON.parse(saved) : {});
+      } catch {
+        return migrateWeddingPlanPrices({});
+      }
     }
-    return {};
+    return migrateWeddingPlanPrices({});
   });
   const [customOptions, setCustomOptions] = useState<Record<string, {name: string, price: number}[]>>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('proRegister_customOptions');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Migration: convert old string[] format to {name, price}[] format
-        const migrated: Record<string, {name: string, price: number}[]> = {};
-        for (const key of Object.keys(parsed)) {
-          if (Array.isArray(parsed[key])) {
-            migrated[key] = parsed[key].map((item: string | {name: string, price: number}) =>
-              typeof item === 'string' ? { name: item, price: 0 } : item
-            );
-          } else {
-            migrated[key] = [];
-          }
-        }
-        return migrated;
+      try {
+        const saved = localStorage.getItem('proRegister_customOptions');
+        return migrateWeddingCustomOptions(saved ? JSON.parse(saved) : {});
+      } catch {
+        return migrateWeddingCustomOptions({});
       }
-      return { premium: [], superior: [], enterprise: [] };
     }
-    return { premium: [], superior: [], enterprise: [] };
+    return migrateWeddingCustomOptions({});
   });
-  const [activeTab, setActiveTab] = useState('premium');
+  const [activeTab, setActiveTab] = useState(() => [...enabledPlans][0] || 'wedding_part1');
   const [newOption, setNewOption] = useState('');
   const [newOptionPrice, setNewOptionPrice] = useState('');
 
   useEffect(() => { localStorage.setItem('proRegister_enabledPlans', JSON.stringify([...enabledPlans])); }, [enabledPlans]);
   useEffect(() => { localStorage.setItem('proRegister_prices', JSON.stringify(prices)); }, [prices]);
   useEffect(() => { localStorage.setItem('proRegister_customOptions', JSON.stringify(customOptions)); }, [customOptions]);
+  useEffect(() => {
+    if (enabledPlans.has(activeTab)) return;
+    setActiveTab([...enabledPlans][0] || 'wedding_part1');
+  }, [activeTab, enabledPlans]);
 
   const togglePlan = (id: string) => {
     setEnabledPlans(prev => {
@@ -148,7 +136,7 @@ export default function PricingPage() {
           transition={{ delay: 0.15 }}
           className="text-sm text-gray-400 mt-1"
         >
-          제공할 플랜과 가격을 설정해주세요
+          1부/1+2부 진행 여부와 추가 옵션을 설정해주세요
         </motion.p>
       </div>
 
@@ -156,7 +144,7 @@ export default function PricingPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {/* Plan toggles */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-6">
-          <p className="text-[13px] font-bold text-gray-900 mb-3">제공 플랜 선택</p>
+          <p className="text-[13px] font-bold text-gray-900 mb-3">제공 예식 플랜 선택</p>
           <div className="space-y-2">
             {PLANS.map((plan) => {
               const enabled = enabledPlans.has(plan.id);
@@ -234,7 +222,7 @@ export default function PricingPage() {
                   <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">가격</label>
                   <div className="h-12 bg-gray-50 border border-gray-100 rounded-xl px-4 flex items-center justify-between">
                     <span className="text-[18px] font-bold text-gray-900">
-                      {(PLANS.find(p => p.id === activeTab)?.defaultPrice ?? 0).toLocaleString()}원
+                      {(prices[activeTab] ?? PLANS.find(p => p.id === activeTab)?.defaultPrice ?? 0).toLocaleString()}원~
                     </span>
                     <span className="text-[12px] text-gray-400">고정 가격</span>
                   </div>
@@ -264,6 +252,21 @@ export default function PricingPage() {
                 {/* Custom options (editable) */}
                 <div>
                   <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">개인 옵션 (추가)</label>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {WEDDING_OPTION_SUGGESTIONS.map((suggestion) => (
+                      <button
+                        key={`${suggestion.name}-${suggestion.price}`}
+                        type="button"
+                        onClick={() => {
+                          setNewOption(suggestion.name);
+                          setNewOptionPrice(suggestion.price > 0 ? String(suggestion.price) : '');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-gray-100 text-[12px] font-semibold text-gray-600"
+                      >
+                        {suggestion.name}
+                      </button>
+                    ))}
+                  </div>
                   {(customOptions[activeTab] || []).length > 0 && (
                     <div className="space-y-1.5 mb-3">
                       {(customOptions[activeTab] || []).map((opt, i) => (
@@ -294,7 +297,7 @@ export default function PricingPage() {
                         value={newOption}
                         onChange={(e) => setNewOption(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addCustomOption()}
-                        placeholder="옵션명을 입력하세요"
+                        placeholder="예: 출장비, 다국어 사회"
                         className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                       />
                       <input
@@ -302,7 +305,7 @@ export default function PricingPage() {
                         value={newOptionPrice}
                         onChange={(e) => setNewOptionPrice(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addCustomOption()}
-                        placeholder="가격 (원)"
+                        placeholder="옵션 가격 (원)"
                         className="w-full h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
                       />
                     </div>

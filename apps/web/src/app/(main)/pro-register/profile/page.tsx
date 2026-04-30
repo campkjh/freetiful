@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon, CheckCircle, Che
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { prosApi } from '@/lib/api/pros.api';
+import { buildWeddingServicesFromStorage } from '@/lib/wedding-plans';
 
 const COMPANY_LOGOS: string[] = [
   '/images/company-logos/ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg',
@@ -1246,35 +1247,7 @@ export default function ProfilePage() {
                   try {
                     const photos: string[] = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
                     const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
-                    const enabledPlans: string[] = JSON.parse(localStorage.getItem('proRegister_enabledPlans') || '[]');
-                    const prices: Record<string, number> = JSON.parse(localStorage.getItem('proRegister_prices') || '{}');
-                    // 어드민 설정 템플릿을 우선으로 사용
-                    const { apiClient } = await import('@/lib/api/client');
-                    let planMetaMap: Record<string, { label: string; desc: string; defaultPrice: number }> = {};
-                    try {
-                      const res = await apiClient.get('/api/v1/plan-templates');
-                      const tpls = Array.isArray(res.data) ? res.data : [];
-                      for (const t of tpls) {
-                        planMetaMap[t.planKey] = { label: t.label, desc: t.description || '', defaultPrice: t.defaultPrice };
-                      }
-                    } catch {}
-                    // 하드코딩 폴백 (API 실패 시)
-                    const FALLBACK_META: Record<string, { label: string; desc: string; defaultPrice: number }> = {
-                      premium: { label: 'Premium', desc: '행사 1시간 진행', defaultPrice: 450000 },
-                      superior: { label: 'Superior', desc: '행사 2시간 진행', defaultPrice: 800000 },
-                      enterprise: { label: 'Enterprise', desc: '6시간 풀타임', defaultPrice: 1700000 },
-                      test: { label: 'Test', desc: '테스트용 (결제 플로우 확인)', defaultPrice: 100 },
-                    };
-                    const services = enabledPlans
-                      .map((id) => {
-                        const meta = planMetaMap[id] || FALLBACK_META[id];
-                        return {
-                          title: meta?.label || id,
-                          description: meta?.desc,
-                          basePrice: prices[id] ? Number(prices[id]) : meta?.defaultPrice,
-                        };
-                      })
-                      .filter((s) => s.title);
+                    const services = buildWeddingServicesFromStorage();
                     const faqs = Object.entries(faqContents)
                       .filter(([q, a]) => q && a)
                       .map(([question, answer]) => ({ question, answer }));

@@ -4,8 +4,17 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { getPlanTemplates, getPlanTemplatesSync } from '@/lib/api/plan-templates.api';
 import { prosApi } from '@/lib/api/pros.api';
+import {
+  WEDDING_OPTION_SUGGESTIONS,
+  WEDDING_PLAN_TEMPLATES,
+  buildWeddingServices,
+  migrateWeddingCustomOptions,
+  migrateWeddingPlanKeys,
+  migrateWeddingPlanPrices,
+  normalizeWeddingPlanKey,
+  parseWeddingOptionsFromDescription,
+} from '@/lib/wedding-plans';
 /* ─── Constants ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
@@ -174,7 +183,7 @@ export default function ProEditPage() {
   const [awards, setAwards] = useState('');
   const [detailHtml, setDetailHtml] = useState('');
 
-  /* ── Pricing (Premium/Superior/Enterprise 등 어드민 템플릿 기반) ── */
+  /* ── Pricing (결혼식 사회자 1부/1+2부 플랜 기반) ── */
   type PlanTpl = { planKey: string; label: string; defaultPrice: number; description: string; includedItems: string[] };
   const toPlanTpl = (t: any): PlanTpl => ({
     planKey: t.planKey,
@@ -183,22 +192,17 @@ export default function ProEditPage() {
     description: t.description || '',
     includedItems: Array.isArray(t.includedItems) ? t.includedItems : [],
   });
-  const [planTemplates, setPlanTemplates] = useState<PlanTpl[]>(() => getPlanTemplatesSync().map(toPlanTpl));
-  const [enabledPlans, setEnabledPlans] = useState<Set<string>>(new Set());
-  const [planPrices, setPlanPrices] = useState<Record<string, number>>({});
-  const [customOptions, setCustomOptions] = useState<Record<string, { name: string; price: number }[]>>({});
-  const [activePlanTab, setActivePlanTab] = useState<string>(() => getPlanTemplatesSync()[0]?.planKey || '');
+  const [planTemplates] = useState<PlanTpl[]>(() => WEDDING_PLAN_TEMPLATES.map(toPlanTpl));
+  const [enabledPlans, setEnabledPlans] = useState<Set<string>>(() => new Set(['wedding_part1']));
+  const [planPrices, setPlanPrices] = useState<Record<string, number>>(() => migrateWeddingPlanPrices({}));
+  const [customOptions, setCustomOptions] = useState<Record<string, { name: string; price: number }[]>>(() => migrateWeddingCustomOptions({}));
+  const [activePlanTab, setActivePlanTab] = useState<string>('wedding_part1');
   const [newOptName, setNewOptName] = useState('');
   const [newOptPrice, setNewOptPrice] = useState('');
   useEffect(() => {
-    getPlanTemplates()
-      .then((data) => {
-        const tpls = data.map(toPlanTpl);
-        setPlanTemplates(tpls);
-        setActivePlanTab((current) => current || tpls[0]?.planKey || '');
-      })
-      .catch(() => {});
-  }, []);
+    if (enabledPlans.has(activePlanTab)) return;
+    setActivePlanTab([...enabledPlans][0] || 'wedding_part1');
+  }, [activePlanTab, enabledPlans]);
   const detailEditorRef = useRef<HTMLDivElement>(null);
   const detailImageInputRef = useRef<HTMLInputElement>(null);
   const detailColorInputRef = useRef<HTMLInputElement>(null);
@@ -387,14 +391,25 @@ export default function ProEditPage() {
     if (Array.isArray(p.services) && p.services.length > 0) {
       const enabled = new Set<string>();
       const prices: Record<string, number> = {};
+      const options: Record<string, { name: string; price: number }[]> = migrateWeddingCustomOptions({});
       for (const s of p.services) {
         if (!s?.title) continue;
-        const key = String(s.title).toLowerCase();
+        const key = normalizeWeddingPlanKey(s.title || s.id);
+        if (!key) continue;
         enabled.add(key);
         if (typeof s.basePrice === 'number' && s.basePrice > 0) prices[key] = s.basePrice;
+        const parsedOptions = parseWeddingOptionsFromDescription(s.description);
+        if (parsedOptions.length > 0) {
+          options[key] = parsedOptions;
+        }
       }
-      if (enabled.size > 0) setEnabledPlans(enabled);
-      if (Object.keys(prices).length > 0) setPlanPrices(prices);
+      const migratedEnabled = migrateWeddingPlanKeys([...enabled]);
+      if (migratedEnabled.length > 0) {
+        setEnabledPlans(new Set(migratedEnabled));
+        setActivePlanTab(migratedEnabled[0]);
+      }
+      setPlanPrices(migrateWeddingPlanPrices(prices));
+      setCustomOptions(options);
     }
   };
 
@@ -420,6 +435,9 @@ export default function ProEditPage() {
     const savedVideos = lsJson<string[] | null>('proRegister_videos', null);
     if (Array.isArray(savedVideos)) setVideos(savedVideos);
     setFaqItems(lsJson('proRegister_faq', []));
+    setEnabledPlans(new Set(migrateWeddingPlanKeys(lsJson('proRegister_enabledPlans', []))));
+    setPlanPrices(migrateWeddingPlanPrices(lsJson('proRegister_prices', {})));
+    setCustomOptions(migrateWeddingCustomOptions(lsJson('proRegister_customOptions', {})));
 
     const cachedProfile = readProEditProfileCache(authUser?.id);
     if (cachedProfile) applyLoadedProfile(cachedProfile);
@@ -558,29 +576,16 @@ export default function ProEditPage() {
     localStorage.setItem('proRegister_awards', awards);
     localStorage.setItem('proRegister_videos', JSON.stringify(videos));
     localStorage.setItem('proRegister_faq', JSON.stringify(faqItems));
+    localStorage.setItem('proRegister_enabledPlans', JSON.stringify([...enabledPlans]));
+    localStorage.setItem('proRegister_prices', JSON.stringify(planPrices));
+    localStorage.setItem('proRegister_customOptions', JSON.stringify(customOptions));
 
     // 2) 서버에 업데이트 (pro detail 페이지 반영)
     try {
       const awardsArray = awards.split('\n').filter(Boolean);
       // 전문영역 + 일반 태그 병합해서 tags 필드에 저장 (중복 제거)
       const mergedTags = Array.from(new Set([...selectedCategories, ...tags].filter(Boolean)));
-      // 서비스(플랜) 구성: 활성화된 플랜만 services[] 로 전송
-      const servicesPayload = Array.from(enabledPlans)
-        .map((key) => {
-          const tpl = planTemplates.find(
-            (t) => t.planKey.toLowerCase() === key || t.label.toLowerCase() === key,
-          );
-          const label = tpl?.label || key;
-          const basePrice = planPrices[key] || tpl?.defaultPrice || undefined;
-          const customs = customOptions[key] || [];
-          const descBase = tpl?.description || '';
-          const descCustom = customs.length > 0
-            ? (descBase ? ' · ' : '') + '추가옵션: ' + customs.map((o) => `${o.name}${o.price > 0 ? `(+${o.price.toLocaleString()}원)` : ''}`).join(', ')
-            : '';
-          const description = (descBase + descCustom).trim() || undefined;
-          return { title: label, description, basePrice };
-        })
-        .filter((s) => s.title);
+      const servicesPayload = buildWeddingServices(enabledPlans, planPrices, customOptions);
 
       const editResponse: any = await prosApi.submitRegistration({
         // name 은 서버에서 무시됨 (User.name = 가입 시 실계정 이름, 변경 불가)
@@ -946,11 +951,11 @@ export default function ProEditPage() {
       <Section title="가격 설정">
         <div className="space-y-4">
           {planTemplates.length === 0 ? (
-            <p className="text-[13px] text-gray-400">어드민에서 설정한 플랜 템플릿을 불러오는 중입니다…</p>
+            <p className="text-[13px] text-gray-400">결혼식 사회 플랜을 불러오는 중입니다…</p>
           ) : (
             <>
               <div>
-                <p className="text-[12px] font-bold text-gray-500 mb-2">제공 플랜</p>
+                <p className="text-[12px] font-bold text-gray-500 mb-2">제공 예식 플랜</p>
                 <div className="space-y-2">
                   {planTemplates.map((t) => {
                     const key = t.planKey.toLowerCase();
@@ -961,7 +966,11 @@ export default function ProEditPage() {
                         onClick={() => {
                           setEnabledPlans((prev) => {
                             const next = new Set(prev);
-                            if (next.has(key)) next.delete(key); else next.add(key);
+                            if (next.has(key)) {
+                              if (next.size > 1) next.delete(key);
+                            } else {
+                              next.add(key);
+                            }
                             return next;
                           });
                           if (!enabled) setActivePlanTab(key);
@@ -1046,6 +1055,21 @@ export default function ProEditPage() {
 
                         <div>
                           <label className="block text-[11px] font-bold text-gray-400 mb-1.5">추가 옵션</label>
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {WEDDING_OPTION_SUGGESTIONS.map((suggestion) => (
+                              <button
+                                key={`${suggestion.name}-${suggestion.price}`}
+                                type="button"
+                                onClick={() => {
+                                  setNewOptName(suggestion.name);
+                                  setNewOptPrice(suggestion.price > 0 ? String(suggestion.price) : '');
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-gray-100 text-[12px] font-semibold text-gray-600"
+                              >
+                                {suggestion.name}
+                              </button>
+                            ))}
+                          </div>
                           {opts.length > 0 && (
                             <div className="space-y-1 mb-2">
                               {opts.map((opt, i) => (
@@ -1069,7 +1093,7 @@ export default function ProEditPage() {
                               type="text"
                               value={newOptName}
                               onChange={(e) => setNewOptName(e.target.value)}
-                              placeholder="옵션명"
+                              placeholder="예: 출장비"
                               className="flex-1 h-10 border border-gray-200 rounded-xl px-3 text-[14px] text-gray-900 outline-none focus:border-[#3180F7]"
                             />
                             <input

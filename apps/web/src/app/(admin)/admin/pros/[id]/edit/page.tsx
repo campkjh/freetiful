@@ -787,7 +787,7 @@ export default function AdminProEditPage() {
                 type="text"
                 value={s.title}
                 onChange={(e) => updateService(i, { title: e.target.value })}
-                placeholder="플랜 이름 (예: Premium)"
+                placeholder="플랜 이름 (예: 1부 예식)"
                 className="w-full text-[15px] font-bold text-gray-900 outline-none border-b border-gray-100 pb-2 pr-6"
               />
               <input
