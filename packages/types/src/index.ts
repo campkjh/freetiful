@@ -225,7 +225,7 @@ export interface MessageReaction {
 
 export interface Review {
   id: string;
-  paymentId: string;
+  paymentId: string | null;
   reviewerId: string;
   proProfileId: string;
   ratingSatisfaction: number;
@@ -240,6 +240,15 @@ export interface Review {
   proReply: string | null;
   createdAt: string;
   reviewer?: Partial<User>;
+  images?: ReviewImage[];
+}
+
+export interface ReviewImage {
+  id: string;
+  reviewId: string;
+  imageUrl: string;
+  originalUrl: string | null;
+  displayOrder: number;
 }
 
 // ─── Notification ────────────────────────────────────────────────────────────

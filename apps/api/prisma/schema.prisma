@@ -808,7 +808,7 @@ model RefundAccount {
 
 model Review {
   id                  String   @id @default(uuid())
-  paymentId           String   @unique
+  paymentId           String?  @unique
   reviewerId          String
   proProfileId        String
   ratingSatisfaction  Int
@@ -826,12 +826,27 @@ model Review {
   proRepliedAt        DateTime?
   createdAt           DateTime @default(now())
 
-  payment    Payment    @relation(fields: [paymentId], references: [id])
+  payment    Payment?   @relation(fields: [paymentId], references: [id])
   reviewer   User       @relation(fields: [reviewerId], references: [id])
   proProfile ProProfile @relation(fields: [proProfileId], references: [id])
+  images     ReviewImage[]
   reports    ReviewReport[]
 
   @@map("reviews")
+}
+
+model ReviewImage {
+  id           String   @id @default(uuid())
+  reviewId     String
+  imageUrl     String
+  originalUrl  String?
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, displayOrder])
+  @@map("review_images")
 }
 
 model ReviewReport {

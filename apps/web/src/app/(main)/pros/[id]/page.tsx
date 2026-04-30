@@ -225,6 +225,7 @@ interface ProDetailData {
     workDays: number;
     orderRange: string;
     badge?: string;
+    photos?: string[];
     proReply?: { date: string; content: string };
   }[];
   recommendedPros: { id: string; name: string; role: string; rating: number; reviews: number; experience: number; image: string; tags: string[]; isPartner: boolean }[];
@@ -232,6 +233,9 @@ interface ProDetailData {
 }
 
 function mapApiReviewToDetail(r: any): ProDetailData['reviews'][number] {
+  const photos = (Array.isArray(r.images) ? r.images : Array.isArray(r.photos) ? r.photos : [])
+    .map((item: any) => (typeof item === 'string' ? item : item?.imageUrl || item?.url))
+    .filter(Boolean);
   return {
     id: r.id,
     name: r.isAnonymous ? '익명' : (r.reviewer?.name ? r.reviewer.name.slice(0, 2) + '********' : '고객'),
@@ -248,6 +252,7 @@ function mapApiReviewToDetail(r: any): ProDetailData['reviews'][number] {
     content: getReviewComment(r),
     workDays: 14,
     orderRange: '협의',
+    photos,
     proReply: r.proReply
       ? {
           date: r.proRepliedAt ? new Date(r.proRepliedAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '',
@@ -1851,6 +1856,19 @@ export default function ProDetailPage() {
                           <span className="text-[12px] text-gray-400">{review.date}</span>
                         </div>
                         <p className="text-[14px] leading-relaxed text-gray-800">{review.content}</p>
+                        {review.photos && review.photos.length > 0 && (
+                          <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-hide">
+                            {review.photos.slice(0, 5).map((photo, index) => (
+                              <img
+                                key={`${review.id}-desktop-photo-${index}`}
+                                src={photo}
+                                alt=""
+                                className="h-[76px] w-[76px] shrink-0 rounded-lg object-cover"
+                                loading="lazy"
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2581,6 +2599,19 @@ export default function ProDetailPage() {
                 </div>
               )}
               <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
+              {review.photos && review.photos.length > 0 && (
+                <div className="mb-3 flex gap-2 overflow-x-auto scrollbar-hide">
+                  {review.photos.slice(0, 5).map((photo, index) => (
+                    <img
+                      key={`${review.id}-photo-${index}`}
+                      src={photo}
+                      alt=""
+                      className="h-[82px] w-[82px] shrink-0 rounded-xl object-cover"
+                      loading="lazy"
+                    />
+                  ))}
+                </div>
+              )}
               <p className="text-[12px] text-gray-400 mb-2">
                 행사일 : {review.workDays}일 | 주문 금액 : <span className="font-bold text-gray-600">{review.orderRange}</span>
               </p>

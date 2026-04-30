@@ -315,6 +315,10 @@ export class DiscoveryService implements OnModuleInit {
               proReply: true,
               proRepliedAt: true,
               createdAt: true,
+              images: {
+                orderBy: { displayOrder: 'asc' },
+                select: { id: true, imageUrl: true, displayOrder: true },
+              },
               reviewer: { select: { id: true, name: true, profileImageUrl: true } },
             },
             orderBy: { createdAt: 'desc' },

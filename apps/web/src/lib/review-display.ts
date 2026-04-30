@@ -8,6 +8,7 @@ export type ReviewDisplayItem = {
   workDays: number;
   orderRange: string;
   badge?: string;
+  photos?: string[];
   proReply?: { date: string; content: string };
 };
 

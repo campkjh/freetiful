@@ -161,8 +161,8 @@ export class ProController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: '프로필 이미지 순서 변경' })
-  reorderImages(@Req() req, @Body('ids') ids: string[]) {
-    return this.proService.reorderImages(req.user.id, ids);
+  reorderImages(@Req() req, @Body() body: { ids: string[]; primaryId?: string }) {
+    return this.proService.reorderImages(req.user.id, body.ids || [], body.primaryId);
   }
 
   @Put('profile/images/:id/adjust')

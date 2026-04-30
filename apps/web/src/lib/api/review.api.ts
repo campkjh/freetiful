@@ -4,7 +4,7 @@ const BASE = '/api/v1/review';
 
 export interface CreateReviewData {
   proProfileId: string;
-  paymentId: string;
+  paymentId?: string;
   ratingSatisfaction: number;
   ratingComposition: number;
   ratingExperience: number;
@@ -12,6 +12,7 @@ export interface CreateReviewData {
   ratingVoice: number;
   ratingWit: number;
   comment?: string;
+  photos?: string[];
   isAnonymous?: boolean;
 }
 

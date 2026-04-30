@@ -45,6 +45,13 @@ function maskReviewerName(name?: string | null, isAnonymous?: boolean) {
   return `${name.slice(0, 1)}**${'****'}`;
 }
 
+function getReviewPhotos(review: any) {
+  const rows = Array.isArray(review?.images) ? review.images : Array.isArray(review?.photos) ? review.photos : [];
+  return rows
+    .map((item: any) => (typeof item === 'string' ? item : item?.imageUrl || item?.url))
+    .filter(Boolean);
+}
+
 function mapApiReview(r: any): ReviewItem {
   return {
     id: String(r.id),
@@ -63,6 +70,7 @@ function mapApiReview(r: any): ReviewItem {
     workDays: Number(r.workDays) || 0,
     orderRange: r.orderRange || '',
     badge: r.badge || '',
+    photos: getReviewPhotos(r),
     proReply: r.proReply
       ? { date: formatReviewDate(r.proRepliedAt || r.updatedAt || r.createdAt), content: r.proReply }
       : undefined,
@@ -98,6 +106,7 @@ export default function ReviewsPage() {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [userReviews, setUserReviews] = useState<ReviewItem[]>([]);
   const [canWriteReview, setCanWriteReview] = useState(false);
+  const [canSelfReview, setCanSelfReview] = useState(false);
   const [apiReviews, setApiReviews] = useState<ReviewItem[] | null>(null);
   const [proName, setProName] = useState<string>('');
   const [detailReviewCount, setDetailReviewCount] = useState(0);
@@ -108,6 +117,8 @@ export default function ReviewsPage() {
     if (!id) return;
     let alive = true;
     setApiReviews(null);
+    setCanWriteReview(false);
+    setCanSelfReview(false);
 
     Promise.allSettled([
       apiClient.get(`/api/v1/discovery/pros/${id}`, { params: { nocache: 1, _: Date.now() } }),
@@ -155,6 +166,19 @@ export default function ReviewsPage() {
           setCanWriteReview(hasCompletedPayment);
         })
         .catch(() => {});
+      if (authUser.role === 'pro') {
+        import('@/lib/api/pros.api').then(({ prosApi }) => {
+          prosApi.getMyProfile()
+            .then((profile: any) => {
+              const isSelf = Boolean(profile?.id && (profile.id === id || profile.userId === id));
+              setCanSelfReview(isSelf);
+              if (isSelf) setCanWriteReview(true);
+            })
+            .catch(() => {});
+        });
+      } else {
+        setCanSelfReview(false);
+      }
     }
 
     // localStorage fallback
@@ -226,7 +250,7 @@ export default function ReviewsPage() {
               className="w-full flex items-center justify-center gap-2 py-3 bg-[#3180F7] text-white rounded-xl font-bold text-[14px] active:scale-[0.98] transition-transform"
             >
               <Pencil size={14} />
-              리뷰 작성하기
+              {canSelfReview ? '본인 리뷰 작성하기' : '리뷰 작성하기'}
             </Link>
           </div>
         ) : authUser ? (
@@ -306,6 +330,19 @@ export default function ReviewsPage() {
             </div>
 
             <p className="text-[13px] leading-[1.7] text-gray-800 mb-2">{review.content}</p>
+            {review.photos && review.photos.length > 0 && (
+              <div className="mb-3 flex gap-2 overflow-x-auto scrollbar-hide">
+                {review.photos.slice(0, 5).map((photo, index) => (
+                  <img
+                    key={`${review.id}-photo-${index}`}
+                    src={photo}
+                    alt=""
+                    className="h-20 w-20 shrink-0 rounded-xl object-cover"
+                    loading="lazy"
+                  />
+                ))}
+              </div>
+            )}
             <p className="text-[11px] text-gray-400">
               행사일 : {review.workDays}일 | 주문 금액 : <span className="font-bold text-gray-600">{review.orderRange}</span>
             </p>

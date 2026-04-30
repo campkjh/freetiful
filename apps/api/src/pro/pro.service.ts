@@ -349,11 +349,11 @@ export class ProService implements OnModuleInit {
       throw new BadRequestException('이미지는 최대 10장까지 등록할 수 있습니다.');
     }
 
-    // Minimum 4 images for profile completion — checked at submission, not upload
-    // requireFace = true for profile images
+    // Minimum 4 images for profile completion — checked at submission, not upload.
+    // 얼굴 인식 결과는 저장하되, 여러 장 업로드 중 한 장 때문에 전체 저장이 막히지 않게 한다.
     const processed = await this.imageService.processImage(file, {
       ...options,
-      requireFace: true,
+      requireFace: false,
       maxWidth: 1200,
       maxHeight: 1200,
       quality: 85,
@@ -417,12 +417,22 @@ export class ProService implements OnModuleInit {
           where: { id: first.id },
           data: { isPrimary: true },
         });
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { profileImageUrl: first.imageUrl },
+        });
+      } else {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { profileImageUrl: null },
+        });
       }
     }
   }
 
-  async reorderImages(userId: string, imageIds: string[]) {
+  async reorderImages(userId: string, imageIds: string[], primaryId?: string) {
     const profile = await this.getProfileByUserId(userId);
+    const normalizedPrimaryId = primaryId && imageIds.includes(primaryId) ? primaryId : imageIds[0];
 
     await this.prisma.$transaction(
       imageIds.map((id, index) =>
@@ -430,14 +440,14 @@ export class ProService implements OnModuleInit {
           where: { id, proProfileId: profile.id },
           data: {
             displayOrder: index,
-            isPrimary: index === 0,
+            isPrimary: id === normalizedPrimaryId,
           },
         }),
       ),
     );
 
     // 재정렬로 새 대표 사진이 바뀐 경우 User.profileImageUrl 동기화
-    const firstImageId = imageIds[0];
+    const firstImageId = normalizedPrimaryId;
     if (firstImageId) {
       const firstImg = await this.prisma.proProfileImage.findFirst({
         where: { id: firstImageId, proProfileId: profile.id },

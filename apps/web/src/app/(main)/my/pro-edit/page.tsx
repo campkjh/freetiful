@@ -20,6 +20,13 @@ const CAREER_YEARS = Array.from({ length: 30 }, (_, i) => i + 1);
 const PRO_EDIT_PROFILE_CACHE_PREFIX = 'freetiful-pro-edit-profile-cache-v1';
 const PRO_EDIT_PROFILE_CACHE_TTL = 60 * 60_000;
 
+type ProPhotoItem = {
+  id?: string;
+  url: string;
+  file?: File;
+  isLocal?: boolean;
+};
+
 /* ─── Helpers ─── */
 function ls(key: string, fallback: string = ''): string {
   if (typeof window === 'undefined') return fallback;
@@ -87,6 +94,16 @@ function writeProEditProfileCache(userId: string | undefined | null, profile: an
   } catch {}
 }
 
+function dataUrlToFile(dataUrl: string, filename: string) {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) return null;
+  const bytes = atob(match[2]);
+  const buffer = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i += 1) buffer[i] = bytes.charCodeAt(i);
+  const ext = match[1].split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+  return new File([buffer], `${filename}.${ext}`, { type: match[1] });
+}
+
 /* ─── Section wrapper ─── */
 function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -148,8 +165,9 @@ export default function ProEditPage() {
   const [careerYears, setCareerYears] = useState(1);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<ProPhotoItem[]>([]);
   const [mainPhotoIndex, setMainPhotoIndex] = useState(0);
+  const [removedPhotoIds, setRemovedPhotoIds] = useState<string[]>([]);
   const [selectedCompanyLogos, setSelectedCompanyLogos] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
@@ -258,7 +276,7 @@ export default function ProEditPage() {
         languages,
         awards: awards || undefined,
         keywords: intro || undefined, // 기존 한줄소개를 톤 힌트로 전달
-        imageDataUrls: photos.filter((p) => p?.startsWith('data:image/')).slice(0, 4),
+        imageDataUrls: photos.map((p) => p.url).filter((p) => p?.startsWith('data:image/')).slice(0, 4),
       });
       // 기존 값이 비어있는 필드만 덮어쓰기 (사용자가 입력한 값 보호)
       if (!intro && out.shortIntro) setIntro(out.shortIntro);
@@ -280,7 +298,7 @@ export default function ProEditPage() {
           name: name || undefined,
           category: category || undefined,
           keywords: intro || out.shortIntro,
-          imageDataUrls: photos.filter((p) => p?.startsWith('data:image/')).slice(0, 4),
+          imageDataUrls: photos.map((p) => p.url).filter((p) => p?.startsWith('data:image/')).slice(0, 4),
         });
         console.log('[AI Hero] response:', hero);
         if (hero.url) {
@@ -338,7 +356,15 @@ export default function ProEditPage() {
     if (p.user?.name) setName(p.user.name);
     if (p.user?.phone) setPhone(p.user.phone);
     if (Array.isArray(p.images) && p.images.length > 0) {
-      setPhotos(p.images.map((img: any) => img.imageUrl || img).filter(Boolean));
+      setPhotos(
+        p.images
+          .map((img: any) => ({
+            id: typeof img === 'object' ? img.id : undefined,
+            url: typeof img === 'object' ? img.imageUrl : img,
+          }))
+          .filter((img: ProPhotoItem) => Boolean(img.url)),
+      );
+      setRemovedPhotoIds([]);
       const primaryIdx = p.images.findIndex((img: any) => img.isPrimary);
       if (primaryIdx >= 0) setMainPhotoIndex(primaryIdx);
     }
@@ -385,7 +411,7 @@ export default function ProEditPage() {
     setCareerYears(parseInt(ls('proRegister_careerYears', '1')) || 1);
     setSelectedCategories(lsJson('proRegister_selectedCategories', []));
     setSelectedRegions(lsJson('proRegister_selectedRegions', []));
-    setPhotos(lsJson('proRegister_photos', []));
+    setPhotos(lsJson<string[]>('proRegister_photos', []).map((url) => ({ url, isLocal: url?.startsWith('data:image/') })));
     setMainPhotoIndex(parseInt(ls('proRegister_mainPhotoIndex', '0')) || 0);
     setSelectedCompanyLogos(lsJson('proRegister_companyLogos', []));
     setLanguages(lsJson('proRegister_languages', []));
@@ -433,20 +459,79 @@ export default function ProEditPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach(file => {
+    const currentCount = photos.length;
+    const availableSlots = Math.max(0, 10 - currentCount);
+    const selectedFiles = Array.from(files)
+      .filter((file) => file.type.startsWith('image/'))
+      .slice(0, availableSlots);
+
+    if (availableSlots <= 0) {
+      setToast('프로필 사진은 최대 10장까지 등록할 수 있습니다.');
+      setTimeout(() => setToast(''), 2200);
+      e.target.value = '';
+      return;
+    }
+    if (files.length > selectedFiles.length) {
+      setToast(`최대 10장까지 등록됩니다. ${selectedFiles.length}장만 추가했어요.`);
+      setTimeout(() => setToast(''), 2500);
+    }
+
+    selectedFiles.forEach(file => {
       if (!file.type.startsWith('image/')) return;
       const reader = new FileReader();
-      reader.onloadend = () => setPhotos(prev => [...prev, reader.result as string]);
+      reader.onloadend = () => setPhotos(prev => [...prev, { url: reader.result as string, file, isLocal: true }]);
       reader.readAsDataURL(file);
     });
     e.target.value = '';
   };
   const handleRemovePhoto = (index: number) => {
+    const target = photos[index];
+    if (target?.id) {
+      setRemovedPhotoIds((prev) => (prev.includes(target.id!) ? prev : [...prev, target.id!]));
+    }
     setPhotos(prev => prev.filter((_, i) => i !== index));
     if (mainPhotoIndex === index) setMainPhotoIndex(0);
     else if (mainPhotoIndex > index) setMainPhotoIndex(prev => prev - 1);
   };
   const handleSetMain = (index: number) => setMainPhotoIndex(index);
+
+  const syncProfilePhotos = async (items: ProPhotoItem[], selectedMainIndex: number) => {
+    for (const id of removedPhotoIds) {
+      await prosApi.deleteImage(id).catch(() => null);
+    }
+
+    const uploadedByIndex = new Map<number, any>();
+    for (const [index, item] of items.entries()) {
+      if (item.id) continue;
+      const file = item.file || (item.url?.startsWith('data:image/') ? dataUrlToFile(item.url, `profile-${index + 1}`) : null);
+      if (!file) continue;
+      const uploaded = await prosApi.uploadImage(file);
+      uploadedByIndex.set(index, uploaded);
+    }
+
+    const finalItems = items
+      .map((item, index) => item.id ? item : uploadedByIndex.get(index))
+      .filter((item: any) => Boolean(item?.id));
+
+    const orderedIds = finalItems.map((item: any) => item.id);
+    const primaryId = finalItems[Math.max(0, Math.min(selectedMainIndex, finalItems.length - 1))]?.id;
+    const reordered = orderedIds.length > 0
+      ? await prosApi.reorderImages(orderedIds, primaryId)
+      : await prosApi.getImages();
+
+    setRemovedPhotoIds([]);
+    setPhotos((Array.isArray(reordered) ? reordered : finalItems).map((img: any) => ({
+      id: img.id,
+      url: img.imageUrl || img.url,
+    })).filter((img: ProPhotoItem) => Boolean(img.url)));
+
+    const nextPrimaryIndex = Array.isArray(reordered)
+      ? reordered.findIndex((img: any) => img.isPrimary)
+      : finalItems.findIndex((img: any) => img.id === primaryId);
+    setMainPhotoIndex(nextPrimaryIndex >= 0 ? nextPrimaryIndex : 0);
+
+    return { images: reordered, primaryId };
+  };
 
   /* ── FAQ handlers ── */
   const addFaqItem = () => setFaqItems(prev => [...prev, { q: '', a: '' }]);
@@ -466,7 +551,7 @@ export default function ProEditPage() {
     localStorage.setItem('proRegister_careerYears', String(careerYears));
     localStorage.setItem('proRegister_selectedCategories', JSON.stringify(selectedCategories));
     localStorage.setItem('proRegister_selectedRegions', JSON.stringify(selectedRegions));
-    localStorage.setItem('proRegister_photos', JSON.stringify(photos));
+    localStorage.setItem('proRegister_photos', JSON.stringify(photos.map((photo) => photo.url).filter(Boolean)));
     localStorage.setItem('proRegister_mainPhotoIndex', String(mainPhotoIndex));
     localStorage.setItem('proRegister_companyLogos', JSON.stringify(selectedCompanyLogos));
     localStorage.setItem('proRegister_languages', JSON.stringify(languages));
@@ -507,8 +592,6 @@ export default function ProEditPage() {
         awards: awards || undefined,
         detailHtml: detailHtml || undefined,
         youtubeUrl: videos[0] || undefined,
-        photos: photos.length > 0 ? photos : undefined,
-        mainPhotoIndex: mainPhotoIndex,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages,
         category: category || undefined,
@@ -516,15 +599,26 @@ export default function ProEditPage() {
         tags: mergedTags.length > 0 ? mergedTags : undefined,
         services: servicesPayload.length > 0 ? servicesPayload : undefined,
       });
+      let syncedImages: any[] | undefined;
+      try {
+        const synced = await syncProfilePhotos(photos, mainPhotoIndex);
+        syncedImages = Array.isArray(synced.images) ? synced.images : undefined;
+      } catch (photoError) {
+        console.error('프로필 사진 저장 실패:', photoError);
+        setToast('기본 정보는 저장됐지만 사진 저장에 실패했습니다. 사진을 다시 확인해주세요.');
+        setTimeout(() => setToast(''), 3500);
+        return;
+      }
       // 백엔드 응답에 updated user가 포함됨 — 즉시 auth store 갱신
       try {
-        const newImg = editResponse?.user?.profileImageUrl;
+        const newImg = syncedImages?.find((img: any) => img.isPrimary)?.imageUrl || editResponse?.user?.profileImageUrl;
         if (newImg && authUser) {
           useAuthStore.getState().setUser({ ...authUser, profileImageUrl: newImg });
         }
       } catch {}
       // 저장 완료 후 불필요한 상세/목록 재호출을 기다리지 않고 즉시 반영한다.
       const myProId: string | null = editResponse?.id || editResponse?.profile?.id || null;
+      if (syncedImages) editResponse.images = syncedImages;
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
         invalidateProCache(); // 클라 메모리 캐시 전체 삭제
@@ -762,14 +856,14 @@ export default function ProEditPage() {
 
           {/* Photos */}
           {photos.map((photo, index) => (
-            <div key={index} className="aspect-square relative rounded-xl overflow-hidden group">
+            <div key={photo.id || `${photo.url}-${index}`} className="aspect-square relative rounded-xl overflow-hidden group">
               {/* Main badge */}
               {mainPhotoIndex === index && (
                 <div className="absolute top-1.5 left-1.5 bg-[#3180F7] text-white text-[10px] px-2 py-0.5 rounded-full z-10 font-bold flex items-center gap-0.5">
                   <Star size={8} className="fill-white" /> 대표
                 </div>
               )}
-              <img src={photo} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+              <img src={photo.url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
               {/* Overlay */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end justify-center pb-1.5 gap-1.5 opacity-0 group-hover:opacity-100">
                 <button

@@ -63,18 +63,26 @@ export default function WriteReviewPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [canSelfReview, setCanSelfReview] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // 결제 완료 건 확인 — 없으면 리뷰 작성 불가
-  // 반드시 해당 프로와의 거래가 완료되어 있어야 함
+  // 결제 완료 건 또는 본인 프로필 여부 확인
   useEffect(() => {
     if (!authUser) {
       setCheckingAuth(false);
       return;
     }
-    import('@/lib/api/client').then(({ apiClient }) => {
-      apiClient.get('/api/v1/payment', { params: { limit: 100 } })
-        .then((res) => {
+    let alive = true;
+    setCheckingAuth(true);
+    setPaymentId(null);
+    setCanSelfReview(false);
+
+    (async () => {
+      let nextPaymentId: string | null = null;
+      let nextCanSelfReview = false;
+      try {
+        const { apiClient } = await import('@/lib/api/client');
+        const res = await apiClient.get('/api/v1/payment', { params: { limit: 100 } });
           const payments = res.data?.data || [];
           // 이 사회자(id)와의 거래가 완료되고 아직 리뷰를 안 쓴 결제만 유효
           const valid = payments.find((p: any) =>
@@ -82,12 +90,25 @@ export default function WriteReviewPage() {
             !p.reviewId &&
             (p.proProfileId === id || p.proProfile?.id === id || p.quotations?.some((q: any) => q.proProfileId === id))
           );
-          if (valid) setPaymentId(valid.id);
-        })
-        .catch(() => {})
-        .finally(() => setCheckingAuth(false));
-    });
-  }, [authUser, id]);
+        if (valid) nextPaymentId = valid.id;
+      } catch {}
+
+      if (!nextPaymentId && authUser.role === 'pro') {
+        try {
+          const { prosApi } = await import('@/lib/api/pros.api');
+          const profile: any = await prosApi.getMyProfile();
+          nextCanSelfReview = Boolean(profile?.id && (profile.id === id || profile.userId === id));
+        } catch {}
+      }
+
+      if (!alive) return;
+      setPaymentId(nextPaymentId);
+      setCanSelfReview(nextCanSelfReview);
+      setCheckingAuth(false);
+    })();
+
+    return () => { alive = false; };
+  }, [authUser?.id, authUser?.role, id]);
 
   const [overallRating, setOverallRating] = useState(0);
   const [scores, setScores] = useState<Record<string, number>>(
@@ -108,12 +129,16 @@ export default function WriteReviewPage() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    input.multiple = true;
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => setPhotos(prev => [...prev, reader.result as string]);
-      reader.readAsDataURL(file);
+      const files = Array.from((e.target as HTMLInputElement).files || [])
+        .filter((file) => file.type.startsWith('image/'))
+        .slice(0, Math.max(0, 5 - photos.length));
+      files.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = () => setPhotos(prev => prev.length < 5 ? [...prev, reader.result as string] : prev);
+        reader.readAsDataURL(file);
+      });
     };
     input.click();
   };
@@ -124,41 +149,28 @@ export default function WriteReviewPage() {
     if (!isValid) return;
     setSubmitting(true);
 
-    // Save review to localStorage
-    const review = {
-      id: `r_${Date.now()}`,
-      proId: id,
-      name: '나' + '*'.repeat(8),
-      rating: overallRating,
-      date: new Date().toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace('.', ''),
-      scores,
-      content: content.trim(),
-      badge,
-      orderRange,
-      photos,
-      createdAt: Date.now(),
-    };
-
-    const existing = JSON.parse(localStorage.getItem('freetiful-reviews') || '[]');
-    existing.unshift(review);
-    localStorage.setItem('freetiful-reviews', JSON.stringify(existing));
-
     // Save to API if authenticated
     if (authUser) {
       try {
         await reviewApi.create({
           proProfileId: id || '',
-          paymentId: paymentId || '',
+          paymentId: paymentId || undefined,
           ratingSatisfaction: scores['만족도'] || overallRating,
-          ratingComposition: scores['구성력'] || 0,
-          ratingExperience: scores['경력'] || 0,
-          ratingAppearance: scores['이미지'] || 0,
-          ratingVoice: scores['발성'] || 0,
-          ratingWit: scores['위트'] || 0,
+          ratingComposition: scores['구성력'] || overallRating,
+          ratingExperience: scores['경력'] || overallRating,
+          ratingAppearance: scores['이미지'] || overallRating,
+          ratingVoice: scores['발성'] || overallRating,
+          ratingWit: scores['위트'] || overallRating,
           comment: content.trim(),
-          isAnonymous: true,
+          photos,
+          isAnonymous: !canSelfReview,
         });
-      } catch { /* fallback to localStorage only */ }
+      } catch (e: any) {
+        const message = e?.response?.data?.message || '리뷰 등록에 실패했습니다.';
+        toast.error(Array.isArray(message) ? message[0] : message);
+        setSubmitting(false);
+        return;
+      }
     }
 
     await new Promise(r => setTimeout(r, 1000));
@@ -177,7 +189,7 @@ export default function WriteReviewPage() {
   }
 
   // 로그인 필요 또는 결제 완료 건 없으면 접근 차단
-  if (!authUser || !paymentId) {
+  if (!authUser || (!paymentId && !canSelfReview)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-8">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -315,7 +327,8 @@ export default function WriteReviewPage() {
           <div className="flex gap-2 overflow-x-auto scrollbar-hide">
             <button
               onClick={handleAddPhoto}
-              className="w-[72px] h-[72px] shrink-0 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1"
+              disabled={photos.length >= 5}
+              className="w-[72px] h-[72px] shrink-0 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
             >
               <Camera size={18} className="text-gray-400" />
               <span className="text-[10px] text-gray-400">{photos.length}/5</span>
@@ -345,7 +358,7 @@ export default function WriteReviewPage() {
         <button
           onClick={handleSubmit}
           disabled={!isValid || submitting}
-          className="w-full py-4 rounded-2xl font-bold text-[16px] disabled:opacity-70"
+          className="w-full py-4 rounded-2xl bg-[#3180F7] text-white font-bold text-[16px] disabled:bg-gray-200 disabled:text-gray-400 disabled:opacity-100"
         >
           {submitting ? '등록 중...' : '리뷰 등록'}
         </button>

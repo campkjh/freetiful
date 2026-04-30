@@ -26,7 +26,7 @@ export class ReviewController {
     @Request() req: any,
     @Body()
     body: {
-      paymentId: string;
+      paymentId?: string | null;
       proProfileId: string;
       ratingSatisfaction: number;
       ratingComposition: number;

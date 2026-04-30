@@ -87,14 +87,18 @@ export const prosApi = {
     form.append('file', file);
     return apiClient.post(`${BASE}/pro/profile/images`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
     }).then((r) => r.data);
   },
+
+  getImages: () =>
+    apiClient.get(`${BASE}/pro/profile/images`).then((r) => r.data),
 
   deleteImage: (id: string) =>
     apiClient.delete(`${BASE}/pro/profile/images/${id}`),
 
-  reorderImages: (ids: string[]) =>
-    apiClient.put(`${BASE}/pro/profile/images/reorder`, { ids }),
+  reorderImages: (ids: string[], primaryId?: string) =>
+    apiClient.put(`${BASE}/pro/profile/images/reorder`, { ids, primaryId }).then((r) => r.data),
 
   adjustImage: (id: string, options: {
     brightness?: number;
