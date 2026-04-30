@@ -195,6 +195,7 @@ interface ProDetailData {
   title: string;
   categoryName?: string;
   tags?: string[];
+  career?: string;
   isPrime: boolean;
   youtubeId?: string;
   youtubeVideos: { id: string; title: string }[];
@@ -392,6 +393,12 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
   const images = [p.profileImageUrl, ...(p.images || [])].filter(Boolean);
   const proCategory = p.categories?.[0] || '사회자';
   const fallbackDescription = [p.shortIntro, p.mainExperience].filter(Boolean).join('\n\n') || `안녕하세요. ${proCategory} ${p.name}입니다.`;
+  const previewApiTags = Array.isArray(p.tags) ? p.tags.filter(Boolean) : [];
+  const previewFallbackTags = [
+    ...(Array.isArray(p.categories) ? p.categories : []),
+    ...(Array.isArray(p.regions) ? p.regions : []),
+  ].filter(Boolean);
+  const previewTags = (previewApiTags.length > 0 ? previewApiTags : previewFallbackTags).slice(0, 5);
   const plans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
     id: t.planKey,
     label: t.label,
@@ -411,7 +418,8 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     images: images.length > 0 ? images : ['/images/default-profile.svg'],
     title: `${proCategory} ${p.name}`,
     categoryName: proCategory,
-    tags: p.tags || [],
+    tags: previewTags,
+    career: p.mainExperience || '',
     isPrime: p.isFeatured || false,
     youtubeId: extractYoutubeId(p.youtubeUrl),
     youtubeVideos: [],
@@ -489,6 +497,13 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
   ].filter(Boolean).join('');
   const hasDescriptionContent = hasRichTextContent(res.detailHtml);
 
+  const apiTags = Array.isArray(res.tagList) ? res.tagList.filter(Boolean) : (Array.isArray(res.tags) ? res.tags.filter(Boolean) : []);
+  const fallbackTags = [
+    ...(Array.isArray(res.categoryNames) ? res.categoryNames : []),
+    ...(Array.isArray(res.regionNames) ? res.regionNames : []),
+  ].filter(Boolean);
+  const detailTags = (apiTags.length > 0 ? apiTags : fallbackTags).slice(0, 5);
+
   return {
     id: res.id,
     name: userName,
@@ -497,7 +512,8 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     images: images.length > 0 ? images : [profileImg].filter(Boolean),
     title: `${proCategory} ${userName}`,
     categoryName: proCategory,
-    tags: Array.isArray(res.tagList) ? res.tagList : (Array.isArray(res.tags) ? res.tags : []),
+    tags: detailTags,
+    career: res.mainExperience || '',
     isPrime: res.isFeatured || res.showPartnersLogo || false,
     youtubeId: ytId,
     youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
@@ -906,6 +922,9 @@ export default function ProDetailPage() {
   // API에서 전문가 상세 데이터 가져오기
   useEffect(() => {
     if (!id) return;
+    // id 변경 시 이전 페이지의 에러 상태가 남아 새 페이지를 가리는 문제 방지
+    setApiError(false);
+    setApiLoading(true);
 
     // 'my-pro' special case: localStorage에서 등록된 사회자
     if (id === 'my-pro') {
@@ -942,6 +961,12 @@ export default function ProDetailPage() {
         } catch {}
         const fallbackDescription = `안녕하세요. 사회자 ${name}입니다.\n\n${intro}\n\n${career ? `주요 경력:\n• ${career.split('/').map((s: string) => s.trim()).join('\n• ')}` : ''}`;
         const hasDescriptionContent = hasRichTextContent(detailHtml);
+        let registeredRegions: string[] = [];
+        try {
+          const rs = JSON.parse(localStorage.getItem('proRegister_regions') || '[]');
+          if (Array.isArray(rs)) registeredRegions = rs.filter(Boolean);
+        } catch {}
+        const myProTags = ['사회자', ...registeredRegions].slice(0, 5);
 
         setPro({
           id: 'my-pro',
@@ -950,6 +975,9 @@ export default function ProDetailPage() {
           mainImage: allImages[0],
           images: allImages,
           title: `사회자 ${name}`,
+          categoryName: '사회자',
+          tags: myProTags,
+          career,
           isPrime: true,
           youtubeId: ytId,
           youtubeVideos: ytIds.map((id, i) => ({ id, title: `${name} 사회자 진행 영상 ${i + 1}` })),
@@ -1009,11 +1037,13 @@ export default function ProDetailPage() {
     }
 
     let cancelled = false;
+    const hasFallbackData = Boolean(cachedDetail || cachedPreview);
     discoveryApi.getProDetail(id, skipCache)
       .then((res: any) => {
         if (cancelled) return;
         if (!res) {
-          setApiError(true);
+          // 캐시/프리뷰로 이미 표시 중인 데이터가 있으면 화면을 비우지 않는다
+          if (!hasFallbackData) setApiError(true);
           return;
         }
         try {
@@ -1031,12 +1061,12 @@ export default function ProDetailPage() {
           runWhenIdle(loadRecommendations, 1500);
         } catch (mapErr) {
           console.error('ProDetail mapping error:', mapErr);
-          setApiError(true);
+          if (!hasFallbackData) setApiError(true);
         }
       })
       .catch((err) => {
         console.error('ProDetail load error:', err);
-        if (!cachedDetail && !cachedPreview) setApiError(true);
+        if (!hasFallbackData) setApiError(true);
       })
       .finally(() => { if (!cancelled) setApiLoading(false); });
     return () => { cancelled = true; };
@@ -1365,7 +1395,8 @@ export default function ProDetailPage() {
   };
 
   // Error state: 전문가를 찾을 수 없습니다
-  if (apiError) {
+  // 캐시/프리뷰에서라도 pro 가 들어왔다면 에러 화면이 덮지 않도록 보호한다
+  if (apiError && !pro) {
     return (
       <div className="bg-white min-h-screen flex flex-col items-center justify-center" style={{ letterSpacing: '-0.02em' }}>
         <div className="text-center px-6">
@@ -1762,7 +1793,7 @@ export default function ProDetailPage() {
                   <h2 className="mb-6 text-[22px] font-bold text-gray-950">전문가 이력</h2>
                   <div className="rounded-lg border border-gray-200 p-6">
                     {[
-                      ['경력 사항', pro.description || `${pro.categoryName || '사회자'} ${pro.name} 전문가`],
+                      ['경력 사항', (pro.career && pro.career.trim()) || pro.description || `${pro.categoryName || '사회자'} ${pro.name} 전문가`],
                       ['보유 자격증', pro.isPrime ? '프리티풀 인증 전문가' : '프로필 심사 완료'],
                       ['학력 전공', pro.categoryName || '전문 진행'],
                     ].map(([title, body]) => (
@@ -2126,6 +2157,28 @@ export default function ProDetailPage() {
             <span className="text-[14px] text-gray-400">({displayReviewCount})</span>
           </div>
         </Reveal>
+
+        {/* ─── 주요 경력 ─── */}
+        {pro.career && pro.career.trim().length > 0 && (
+          <Reveal delay={150}>
+            <div className="mb-4 rounded-xl border border-gray-100 bg-[#F7FAFF] px-3.5 py-3">
+              <p className="text-[11px] font-bold text-[#3180F7] mb-1.5">주요 경력</p>
+              <ul className="space-y-1 text-[13px] leading-[1.55] text-gray-800">
+                {pro.career
+                  .split(/\n|\//)
+                  .map((line) => line.trim())
+                  .filter(Boolean)
+                  .slice(0, 5)
+                  .map((line, i) => (
+                    <li key={i} className="flex gap-1.5">
+                      <span className="text-[#3180F7]">•</span>
+                      <span className="flex-1">{line}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </Reveal>
+        )}
 
         {/* ─── 기업 로고 캐러셀 ─── */}
         <CompanyLogoCarousel proId={pro.id} />
