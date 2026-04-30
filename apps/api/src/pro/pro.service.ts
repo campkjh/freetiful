@@ -962,18 +962,23 @@ export class ProService implements OnModuleInit {
         });
       } else {
         const mainIdx = Math.max(0, Math.min(data.mainPhotoIndex ?? 0, data.photos.length - 1));
-        const savedImages: { path: string; originalPath: string; index: number }[] = [];
-        const failures: { index: number; error: string }[] = [];
-
-        for (let i = 0; i < data.photos.length; i++) {
-          try {
-            const processed = await this.savePhotoFromDataUrl(data.photos[i]);
-            if (processed) savedImages.push({ ...processed, index: i });
-            else failures.push({ index: i, error: 'invalid data URL' });
-          } catch (e: any) {
-            failures.push({ index: i, error: e?.message || String(e) });
-          }
-        }
+        const processedPhotos = await Promise.all(
+          data.photos.map(async (photo, index) => {
+            try {
+              const processed = await this.savePhotoFromDataUrl(photo);
+              if (!processed) return { index, error: 'invalid data URL' };
+              return { ...processed, index };
+            } catch (e: any) {
+              return { index, error: e?.message || String(e) };
+            }
+          }),
+        );
+        const savedImages = processedPhotos.filter(
+          (photo): photo is { path: string; originalPath: string; index: number } => 'path' in photo,
+        );
+        const failures = processedPhotos.filter(
+          (photo): photo is { index: number; error: string } => 'error' in photo,
+        );
 
         // 모든 사진 실패 시 에러로 터뜨려 프론트가 알림 표시
         if (savedImages.length === 0) {
@@ -983,26 +988,26 @@ export class ProService implements OnModuleInit {
         }
 
         // 성공한 사진만 있을 때 기존 이미지 교체
+        const primarySource = savedImages.find((img) => img.index === mainIdx) || savedImages[0];
         await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
-        for (const img of savedImages) {
+        for (const [displayOrder, img] of savedImages.entries()) {
           await this.prisma.proProfileImage.create({
             data: {
               proProfileId: profile.id,
               imageUrl: img.path,
               originalUrl: img.originalPath,
-              displayOrder: img.index,
-              isPrimary: img.index === mainIdx,
+              displayOrder,
+              isPrimary: img.index === primarySource.index,
               hasFace: true,
             },
           });
         }
 
         // 대표 사진을 User.profileImageUrl 로 동기화 — 프로필 아바타(마이페이지/채팅/견적카드)에 반영됨
-        const primary = savedImages.find((img) => img.index === mainIdx) || savedImages[0];
-        if (primary) {
+        if (primarySource) {
           await this.prisma.user.update({
             where: { id: userId },
-            data: { profileImageUrl: primary.path },
+            data: { profileImageUrl: primarySource.path },
           });
         }
       }

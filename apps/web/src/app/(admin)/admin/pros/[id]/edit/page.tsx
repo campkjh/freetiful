@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star, AlertCircle 
 import toast from 'react-hot-toast';
 import { AdminSwitch } from '../../../_components/AdminSwitch';
 import { adminFetch } from '../../../_components/adminFetch';
+import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
 
 /* ─── Constants (pro-edit와 동일) ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
@@ -194,16 +195,18 @@ export default function AdminProEditPage() {
     setLanguages((prev) => (prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]));
 
   const handleAddPhoto = () => fileInputRef.current?.click();
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotos((prev) => [...prev, reader.result as string]);
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    try {
+      const compressed = await Promise.all(imageFiles.map((file) => readImageAsCompressedDataUrl(file)));
+      if (compressed.length > 0) setPhotos((prev) => [...prev, ...compressed]);
+    } catch {
+      toast.error('사진을 불러오지 못했습니다');
+    } finally {
+      e.target.value = '';
+    }
   };
   const handleRemovePhoto = (index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
