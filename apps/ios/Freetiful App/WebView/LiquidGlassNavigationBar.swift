@@ -71,7 +71,7 @@ protocol LiquidGlassNavigationBarDelegate: AnyObject {
     func liquidGlassNavigationBarDidTapModeToggle(_ navBar: LiquidGlassNavigationBar)
 }
 
-final class LiquidGlassNavigationBar: UIView {
+final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     weak var delegate: LiquidGlassNavigationBarDelegate?
 
     private let usesNativeLiquidGlass = LiquidGlassEffectFactory.supportsNativeLiquidGlass
@@ -79,13 +79,11 @@ final class LiquidGlassNavigationBar: UIView {
     private lazy var activeColor = freetifulBlue
     private lazy var inactiveColor = freetifulBlue.withAlphaComponent(0.58)
 
-    private let navEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
-    private let tabStack = UIStackView()
+    private let tabBar = UITabBar()
     private let toggleButton = UIButton(type: .system)
     private let contentStack = UIStackView()
 
     private var items: [LiquidNavItem] = []
-    private var buttons: [UIButton] = []
     private var iconCache: [String: UIImage] = [:]
     private var selectedPath = "/main"
     private var isProMode = false
@@ -120,7 +118,7 @@ final class LiquidGlassNavigationBar: UIView {
         contentStack.distribution = .fill
         contentStack.spacing = 8
         contentStack.addArrangedSubview(toggleButton)
-        contentStack.addArrangedSubview(navEffectView)
+        contentStack.addArrangedSubview(tabBar)
         addSubview(contentStack)
 
         NSLayoutConstraint.activate([
@@ -132,35 +130,36 @@ final class LiquidGlassNavigationBar: UIView {
             toggleButton.widthAnchor.constraint(equalToConstant: 44),
             toggleButton.heightAnchor.constraint(equalToConstant: 44),
 
-            navEffectView.heightAnchor.constraint(equalTo: heightAnchor)
+            tabBar.heightAnchor.constraint(equalTo: heightAnchor)
         ])
     }
 
     private func setupNavigationSurface() {
-        navEffectView.translatesAutoresizingMaskIntoConstraints = false
-        navEffectView.clipsToBounds = true
-        navEffectView.layer.cornerRadius = 30
-        navEffectView.layer.cornerCurve = .continuous
+        tabBar.translatesAutoresizingMaskIntoConstraints = false
+        tabBar.delegate = self
+        tabBar.isTranslucent = true
+        tabBar.tintColor = activeColor
+        tabBar.unselectedItemTintColor = inactiveColor
+        tabBar.itemPositioning = .fill
+        tabBar.itemSpacing = 0
+        tabBar.backgroundImage = UIImage()
+        tabBar.shadowImage = UIImage()
+        tabBar.clipsToBounds = true
+        tabBar.layer.cornerRadius = 30
+        tabBar.layer.cornerCurve = .continuous
 
-        if !usesNativeLiquidGlass {
-            navEffectView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
-            navEffectView.layer.borderWidth = 1
-            navEffectView.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+        appearance.backgroundColor = UIColor.white.withAlphaComponent(0.03)
+        appearance.shadowColor = .clear
+        configureTabItemAppearance(appearance.stackedLayoutAppearance)
+        configureTabItemAppearance(appearance.inlineLayoutAppearance)
+        configureTabItemAppearance(appearance.compactInlineLayoutAppearance)
+        tabBar.standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            tabBar.scrollEdgeAppearance = appearance
         }
-
-        tabStack.translatesAutoresizingMaskIntoConstraints = false
-        tabStack.axis = .horizontal
-        tabStack.alignment = .center
-        tabStack.distribution = .fillEqually
-        tabStack.spacing = 2
-        navEffectView.contentView.addSubview(tabStack)
-
-        NSLayoutConstraint.activate([
-            tabStack.topAnchor.constraint(equalTo: navEffectView.contentView.topAnchor, constant: 6),
-            tabStack.leadingAnchor.constraint(equalTo: navEffectView.contentView.leadingAnchor, constant: 6),
-            tabStack.trailingAnchor.constraint(equalTo: navEffectView.contentView.trailingAnchor, constant: -6),
-            tabStack.bottomAnchor.constraint(equalTo: navEffectView.contentView.bottomAnchor, constant: -6)
-        ])
     }
 
     private func setupToggleButton() {
@@ -184,7 +183,7 @@ final class LiquidGlassNavigationBar: UIView {
         self.isProMode = isProMode
 
         if changedItems {
-            rebuildButtons()
+            rebuildTabBarItems()
         }
         updateModeToggle()
         updateSelection(animated: false)
@@ -215,31 +214,14 @@ final class LiquidGlassNavigationBar: UIView {
         )
     }
 
-    private func rebuildButtons() {
-        tabStack.arrangedSubviews.forEach { view in
-            tabStack.removeArrangedSubview(view)
-            view.removeFromSuperview()
-        }
-
-        buttons = items.enumerated().map { index, item in
-            let button = UIButton(type: .system)
-            button.translatesAutoresizingMaskIntoConstraints = false
-            button.tag = index
-            button.accessibilityLabel = item.title
-            button.layer.cornerRadius = 24
-            button.layer.cornerCurve = .continuous
-            button.clipsToBounds = true
-            button.addTarget(self, action: #selector(didTapItem(_:)), for: .touchUpInside)
-            button.heightAnchor.constraint(equalToConstant: 48).isActive = true
-            button.configurationUpdateHandler = { [weak self, item] button in
-                self?.applyConfiguration(to: button, item: item)
-            }
-            button.titleLabel?.adjustsFontSizeToFitWidth = true
-            button.titleLabel?.minimumScaleFactor = 0.78
-            button.titleLabel?.lineBreakMode = .byClipping
-
-            tabStack.addArrangedSubview(button)
-            return button
+    private func rebuildTabBarItems() {
+        tabBar.items = items.enumerated().map { index, item in
+            let icon = navIcon(named: item.iconAssetName)
+            let tabItem = UITabBarItem(title: nil, image: icon, selectedImage: icon)
+            tabItem.tag = index
+            tabItem.accessibilityLabel = item.title
+            tabItem.imageInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+            return tabItem
         }
     }
 
@@ -260,12 +242,16 @@ final class LiquidGlassNavigationBar: UIView {
 
     private func updateSelection(animated _: Bool) {
         let selectedIndex = items.firstIndex(where: isSelected)
-        buttons.enumerated().forEach { index, button in
-            guard index < items.count else { return }
-            button.isSelected = index == selectedIndex
-            button.setNeedsUpdateConfiguration()
-            button.backgroundColor = .clear
+        guard
+            let selectedIndex,
+            let tabItems = tabBar.items,
+            selectedIndex >= 0,
+            selectedIndex < tabItems.count
+        else {
+            tabBar.selectedItem = nil
+            return
         }
+        tabBar.selectedItem = tabItems[selectedIndex]
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
@@ -278,36 +264,17 @@ final class LiquidGlassNavigationBar: UIView {
         return selectedPath == item.path || selectedPath.hasPrefix(item.path + "/")
     }
 
-    @objc private func didTapItem(_ sender: UIButton) {
-        guard sender.tag >= 0, sender.tag < items.count else { return }
-        let navItem = items[sender.tag]
+    func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+        guard item.tag >= 0, item.tag < items.count else { return }
+        let navItem = items[item.tag]
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         selectedPath = navItem.path
-        updateSelection(animated: true)
         delegate?.liquidGlassNavigationBar(self, didSelect: navItem)
     }
 
     @objc private func didTapToggle() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         delegate?.liquidGlassNavigationBarDidTapModeToggle(self)
-    }
-
-    private func applyConfiguration(to button: UIButton, item: LiquidNavItem) {
-        let selected = button.isSelected
-        var configuration = makeGlassConfiguration(selected: selected, isToggle: false)
-        configuration.title = item.title
-        configuration.image = navIcon(named: item.iconAssetName)
-        configuration.imagePlacement = .top
-        configuration.imagePadding = 1
-        configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0)
-        configuration.baseForegroundColor = selected ? activeColor : inactiveColor
-        configuration.imageReservation = 19
-        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-            var outgoing = incoming
-            outgoing.font = UIFont.systemFont(ofSize: 9, weight: selected ? .bold : .semibold)
-            return outgoing
-        }
-        button.configuration = configuration
     }
 
     private func makeGlassConfiguration(selected: Bool, isToggle: Bool) -> UIButton.Configuration {
@@ -325,6 +292,21 @@ final class LiquidGlassNavigationBar: UIView {
             tuned.background.backgroundColor = selected ? freetifulBlue.withAlphaComponent(0.10) : UIColor.white.withAlphaComponent(isToggle ? 0.06 : 0.02)
         }
         return tuned
+    }
+
+    private func configureTabItemAppearance(_ itemAppearance: UITabBarItemAppearance) {
+        itemAppearance.normal.iconColor = inactiveColor
+        itemAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.clear,
+            .font: UIFont.systemFont(ofSize: 1, weight: .regular),
+        ]
+        itemAppearance.normal.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 100)
+        itemAppearance.selected.iconColor = activeColor
+        itemAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor.clear,
+            .font: UIFont.systemFont(ofSize: 1, weight: .regular),
+        ]
+        itemAppearance.selected.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 100)
     }
 
     private func navIcon(named assetName: String) -> UIImage? {

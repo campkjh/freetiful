@@ -136,8 +136,8 @@ class ViewController: UIViewController,
             nativeNavBar.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -18),
             compactWidth,
             nativeNavBar.widthAnchor.constraint(lessThanOrEqualToConstant: 430),
-            nativeNavBar.heightAnchor.constraint(equalToConstant: 60),
-            nativeNavBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -10)
+            nativeNavBar.heightAnchor.constraint(equalToConstant: 68),
+            nativeNavBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
         ])
     }
 
@@ -316,7 +316,7 @@ class ViewController: UIViewController,
 
         let hidden = currentNativeHasBlockingOverlay || shouldHideNativeNavigation(path: currentNativePath)
         nativeNavBar.setVisible(!hidden, animated: animated)
-        webView.scrollView.verticalScrollIndicatorInsets.bottom = hidden ? 0 : 86
+        webView.scrollView.verticalScrollIndicatorInsets.bottom = hidden ? 0 : 96
     }
 
     private func shouldHideNativeNavigation(path: String) -> Bool {
