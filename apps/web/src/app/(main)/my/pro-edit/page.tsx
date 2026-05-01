@@ -266,7 +266,10 @@ export default function ProEditPage() {
   };
   const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>([]);
   const [toast, setToast] = useState('');
+  const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const lastSyncedPhotoIdsRef = useRef<string[]>([]);
+  const lastSyncedMainIndexRef = useRef(0);
   const handleAiGenerate = async () => {
     if (aiLoading) return;
     setAiLoading(true);
@@ -360,17 +363,21 @@ export default function ProEditPage() {
     if (p.user?.name) setName(p.user.name);
     if (p.user?.phone) setPhone(p.user.phone);
     if (Array.isArray(p.images) && p.images.length > 0) {
+      const loadedPhotos = p.images
+        .map((img: any) => ({
+          id: typeof img === 'object' ? img.id : undefined,
+          url: typeof img === 'object' ? img.imageUrl : img,
+        }))
+        .filter((img: ProPhotoItem) => Boolean(img.url));
       setPhotos(
-        p.images
-          .map((img: any) => ({
-            id: typeof img === 'object' ? img.id : undefined,
-            url: typeof img === 'object' ? img.imageUrl : img,
-          }))
-          .filter((img: ProPhotoItem) => Boolean(img.url)),
+        loadedPhotos,
       );
       setRemovedPhotoIds([]);
       const primaryIdx = p.images.findIndex((img: any) => img.isPrimary);
+      const nextMainIndex = primaryIdx >= 0 ? primaryIdx : 0;
       if (primaryIdx >= 0) setMainPhotoIndex(primaryIdx);
+      lastSyncedPhotoIdsRef.current = loadedPhotos.map((img: ProPhotoItem) => img.id).filter(Boolean) as string[];
+      lastSyncedMainIndexRef.current = nextMainIndex;
     }
     if (Array.isArray(p.faqs) && p.faqs.length > 0) {
       setFaqItems(p.faqs.map((f: any) => ({ q: f.question, a: f.answer })));
@@ -474,7 +481,14 @@ export default function ProEditPage() {
 
   /* ── Photo handlers ── */
   const handleAddPhoto = () => fileInputRef.current?.click();
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const readPhotoFile = (file: File) => new Promise<ProPhotoItem>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve({ url: reader.result as string, file, isLocal: true });
+    reader.onerror = () => reject(reader.error || new Error('이미지를 읽을 수 없습니다.'));
+    reader.readAsDataURL(file);
+  });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     const currentCount = photos.length;
@@ -494,13 +508,15 @@ export default function ProEditPage() {
       setTimeout(() => setToast(''), 2500);
     }
 
-    selectedFiles.forEach(file => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotos(prev => [...prev, { url: reader.result as string, file, isLocal: true }]);
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
+    try {
+      const nextPhotos = await Promise.all(selectedFiles.map(readPhotoFile));
+      setPhotos((prev) => [...prev, ...nextPhotos]);
+    } catch {
+      setToast('일부 사진을 불러오지 못했습니다. 다시 선택해주세요.');
+      setTimeout(() => setToast(''), 2500);
+    } finally {
+      e.target.value = '';
+    }
   };
   const handleRemovePhoto = (index: number) => {
     const target = photos[index];
@@ -513,19 +529,38 @@ export default function ProEditPage() {
   };
   const handleSetMain = (index: number) => setMainPhotoIndex(index);
 
+  const haveProfilePhotosChanged = (items: ProPhotoItem[], selectedMainIndex: number) => {
+    if (removedPhotoIds.length > 0) return true;
+    if (items.some((item) => !item.id)) return true;
+    const ids = items.map((item) => item.id).filter(Boolean) as string[];
+    const lastIds = lastSyncedPhotoIdsRef.current;
+    if (ids.length !== lastIds.length) return true;
+    if (ids.some((id, index) => id !== lastIds[index])) return true;
+    return selectedMainIndex !== lastSyncedMainIndexRef.current;
+  };
+
   const syncProfilePhotos = async (items: ProPhotoItem[], selectedMainIndex: number) => {
-    for (const id of removedPhotoIds) {
-      await prosApi.deleteImage(id).catch(() => null);
+    if (!haveProfilePhotosChanged(items, selectedMainIndex)) {
+      return {
+        images: items.map((item, index) => ({
+          id: item.id,
+          imageUrl: item.url,
+          isPrimary: index === selectedMainIndex,
+        })),
+        primaryId: items[selectedMainIndex]?.id,
+      };
     }
 
-    const uploadedByIndex = new Map<number, any>();
-    for (const [index, item] of items.entries()) {
-      if (item.id) continue;
+    await Promise.all(removedPhotoIds.map((id) => prosApi.deleteImage(id).catch(() => null)));
+
+    const uploadTasks = items.flatMap((item, index) => {
+      if (item.id) return [];
       const file = item.file || (item.url?.startsWith('data:image/') ? dataUrlToFile(item.url, `profile-${index + 1}`) : null);
-      if (!file) continue;
-      const uploaded = await prosApi.uploadImage(file);
-      uploadedByIndex.set(index, uploaded);
-    }
+      if (!file) return [];
+      return [prosApi.uploadImage(file).then((uploaded) => ({ index, uploaded }))];
+    });
+    const uploadedResults = await Promise.all(uploadTasks);
+    const uploadedByIndex = new Map(uploadedResults.map(({ index, uploaded }) => [index, uploaded]));
 
     const finalItems = items
       .map((item, index) => item.id ? item : uploadedByIndex.get(index))
@@ -547,6 +582,9 @@ export default function ProEditPage() {
       ? reordered.findIndex((img: any) => img.isPrimary)
       : finalItems.findIndex((img: any) => img.id === primaryId);
     setMainPhotoIndex(nextPrimaryIndex >= 0 ? nextPrimaryIndex : 0);
+    const syncedIds = (Array.isArray(reordered) ? reordered : finalItems).map((img: any) => img.id).filter(Boolean);
+    lastSyncedPhotoIdsRef.current = syncedIds;
+    lastSyncedMainIndexRef.current = nextPrimaryIndex >= 0 ? nextPrimaryIndex : 0;
 
     return { images: reordered, primaryId };
   };
@@ -560,6 +598,8 @@ export default function ProEditPage() {
 
   /* ── Save ── */
   const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
     // 1) localStorage 저장 (즉시 UI 반영용)
     localStorage.setItem('proRegister_name', name);
     localStorage.setItem('proRegister_phone', phone);
@@ -587,7 +627,7 @@ export default function ProEditPage() {
       const mergedTags = Array.from(new Set([...selectedCategories, ...tags].filter(Boolean)));
       const servicesPayload = buildWeddingServices(enabledPlans, planPrices, customOptions);
 
-      const editResponse: any = await prosApi.submitRegistration({
+      const profilePayload = {
         // name 은 서버에서 무시됨 (User.name = 가입 시 실계정 이름, 변경 불가)
         phone: phone || undefined,
         gender: gender || undefined,
@@ -603,12 +643,15 @@ export default function ProEditPage() {
         regions: selectedRegions,
         tags: mergedTags.length > 0 ? mergedTags : undefined,
         services: servicesPayload.length > 0 ? servicesPayload : undefined,
-      });
-      let syncedImages: any[] | undefined;
-      try {
-        const synced = await syncProfilePhotos(photos, mainPhotoIndex);
-        syncedImages = Array.isArray(synced.images) ? synced.images : undefined;
-      } catch (photoError) {
+      };
+
+      const [editResponse, photoResult]: [any, any] = await Promise.all([
+        prosApi.submitRegistration(profilePayload),
+        syncProfilePhotos(photos, mainPhotoIndex).catch((error) => ({ error })),
+      ]);
+      const syncedImages = Array.isArray(photoResult?.images) ? photoResult.images : undefined;
+      if (photoResult?.error) {
+        const photoError = photoResult.error;
         console.error('프로필 사진 저장 실패:', photoError);
         setToast('기본 정보는 저장됐지만 사진 저장에 실패했습니다. 사진을 다시 확인해주세요.');
         setTimeout(() => setToast(''), 3500);
@@ -646,6 +689,8 @@ export default function ProEditPage() {
       console.error('프로필 저장 실패:', e);
       setToast('저장에 실패했습니다. 다시 시도해주세요.');
       setTimeout(() => setToast(''), 2500);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -856,7 +901,8 @@ export default function ProEditPage() {
             className="aspect-square bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-[#3180F7] hover:bg-blue-50/30 transition-colors"
           >
             <Plus size={22} className="text-gray-400" />
-            <span className="text-[11px] text-gray-400 font-medium">{photos.length}장</span>
+            <span className="text-[11px] text-gray-400 font-medium">여러 장 추가</span>
+            <span className="text-[10px] text-gray-300">{photos.length}/10</span>
           </button>
 
           {/* Photos */}
@@ -889,7 +935,7 @@ export default function ProEditPage() {
           ))}
         </div>
         {photos.length > 0 && (
-          <p className="text-[11px] text-gray-400 mt-2">사진 위에 마우스를 올려 대표 사진을 설정하세요</p>
+          <p className="text-[11px] text-gray-400 mt-2">사진은 한 번에 여러 장 선택할 수 있고, 사진 위에 마우스를 올려 대표 사진을 설정하세요</p>
         )}
       </Section>
 
@@ -1391,9 +1437,11 @@ export default function ProEditPage() {
       <div className="p-5 pb-10">
         <button
           onClick={handleSave}
-          className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2668d8] text-white font-bold rounded-2xl text-[15px] transition-colors active:scale-[0.98]"
+          disabled={saving}
+          className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2668d8] text-white font-bold rounded-2xl text-[15px] transition-colors active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2"
         >
-          저장하기
+          {saving && <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />}
+          {saving ? '저장 중...' : '저장하기'}
         </button>
       </div>
 
