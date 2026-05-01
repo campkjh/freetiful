@@ -1,5 +1,34 @@
 import UIKit
 
+enum LiquidGlassEffectFactory {
+    static var supportsNativeLiquidGlass: Bool {
+        NSClassFromString("UIGlassEffect") is UIVisualEffect.Type
+    }
+
+    static func navigationEffect() -> UIVisualEffect {
+        nativeGlassEffect(
+            tintColor: UIColor.white.withAlphaComponent(0.08),
+            isInteractive: true
+        ) ?? UIBlurEffect(style: .systemUltraThinMaterial)
+    }
+
+    private static func nativeGlassEffect(tintColor: UIColor, isInteractive: Bool) -> UIVisualEffect? {
+        guard let effectClass = NSClassFromString("UIGlassEffect") as? UIVisualEffect.Type else {
+            return nil
+        }
+
+        let effect = effectClass.init()
+        let object = effect as NSObject
+        if object.responds(to: NSSelectorFromString("setTintColor:")) {
+            object.setValue(tintColor, forKey: "tintColor")
+        }
+        if object.responds(to: NSSelectorFromString("setInteractive:")) {
+            object.setValue(isInteractive, forKey: "interactive")
+        }
+        return effect
+    }
+}
+
 struct LiquidNavItem: Equatable {
     let id: String
     let title: String
@@ -15,10 +44,11 @@ protocol LiquidGlassNavigationBarDelegate: AnyObject {
 final class LiquidGlassNavigationBar: UIView {
     weak var delegate: LiquidGlassNavigationBarDelegate?
 
+    private let usesNativeLiquidGlass = LiquidGlassEffectFactory.supportsNativeLiquidGlass
     private let activeColor = UIColor(red: 0.07, green: 0.09, blue: 0.14, alpha: 1)
     private let inactiveColor = UIColor(red: 0.58, green: 0.62, blue: 0.68, alpha: 1)
 
-    private let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+    private let blurView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
     private let tintView = UIView()
     private let stackView = UIStackView()
     private let toggleButton = UIButton(type: .system)
@@ -44,20 +74,20 @@ final class LiquidGlassNavigationBar: UIView {
         isAccessibilityElement = false
 
         layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.14
-        layer.shadowRadius = 28
-        layer.shadowOffset = CGSize(width: 0, height: 14)
+        layer.shadowOpacity = usesNativeLiquidGlass ? 0.08 : 0.14
+        layer.shadowRadius = usesNativeLiquidGlass ? 18 : 28
+        layer.shadowOffset = CGSize(width: 0, height: usesNativeLiquidGlass ? 8 : 14)
 
         blurView.translatesAutoresizingMaskIntoConstraints = false
         blurView.clipsToBounds = true
         blurView.layer.cornerRadius = 30
         blurView.layer.cornerCurve = .continuous
-        blurView.layer.borderWidth = 1
+        blurView.layer.borderWidth = usesNativeLiquidGlass ? 0 : 1
         blurView.layer.borderColor = UIColor.white.withAlphaComponent(0.58).cgColor
         addSubview(blurView)
 
         tintView.translatesAutoresizingMaskIntoConstraints = false
-        tintView.backgroundColor = UIColor.white.withAlphaComponent(0.34)
+        tintView.backgroundColor = usesNativeLiquidGlass ? .clear : UIColor.white.withAlphaComponent(0.34)
         tintView.isUserInteractionEnabled = false
         blurView.contentView.addSubview(tintView)
 
@@ -69,7 +99,7 @@ final class LiquidGlassNavigationBar: UIView {
 
         toggleButton.translatesAutoresizingMaskIntoConstraints = false
         toggleButton.tintColor = inactiveColor
-        toggleButton.backgroundColor = UIColor.white.withAlphaComponent(0.34)
+        toggleButton.backgroundColor = usesNativeLiquidGlass ? .clear : UIColor.white.withAlphaComponent(0.34)
         toggleButton.layer.cornerRadius = 20
         toggleButton.layer.cornerCurve = .continuous
         toggleButton.addTarget(self, action: #selector(didTapToggle), for: .touchUpInside)
