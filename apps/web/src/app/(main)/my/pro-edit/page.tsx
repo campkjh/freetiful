@@ -1024,22 +1024,15 @@ export default function ProEditPage() {
                     const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === activePlanTab);
                     if (!tpl) return null;
                     const key = tpl.planKey.toLowerCase();
-                    const currentPrice = planPrices[key] ?? tpl.defaultPrice;
                     const opts = customOptions[key] || [];
                     return (
                       <div className="space-y-3">
                         <div>
                           <label className="block text-[11px] font-bold text-gray-400 mb-1.5">가격 (원)</label>
-                          <input
-                            type="number"
-                            value={currentPrice}
-                            onChange={(e) => {
-                              const v = parseInt(e.target.value) || 0;
-                              setPlanPrices((prev) => ({ ...prev, [key]: v }));
-                            }}
-                            placeholder={`기본가 ${tpl.defaultPrice.toLocaleString()}`}
-                            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20"
-                          />
+                          <div className="w-full h-11 border border-gray-100 bg-gray-50 rounded-xl px-4 flex items-center justify-between">
+                            <span className="text-[16px] font-bold text-gray-900">{tpl.defaultPrice.toLocaleString()}원~</span>
+                            <span className="text-[12px] font-semibold text-gray-400">고정 기본가</span>
+                          </div>
                         </div>
 
                         {tpl.includedItems.length > 0 && (

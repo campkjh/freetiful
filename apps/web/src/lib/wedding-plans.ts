@@ -42,13 +42,6 @@ export const WEDDING_OPTION_SUGGESTIONS: WeddingCustomOption[] = [
 ];
 
 const WEDDING_PLAN_KEYS = new Set(WEDDING_PLAN_TEMPLATES.map((plan) => plan.planKey));
-const LEGACY_DEFAULT_PRICES: Record<string, number> = {
-  premium: 450000,
-  superior: 800000,
-  enterprise: 1700000,
-  test: 100,
-};
-
 export function normalizeWeddingPlanKey(value?: string | null) {
   const raw = String(value || '').trim();
   const key = raw.toLowerCase();
@@ -96,23 +89,10 @@ export function migrateWeddingPlanKeys(values: unknown) {
   return unique.length > 0 ? unique : ['wedding_part1'];
 }
 
-export function migrateWeddingPlanPrices(raw: unknown) {
-  const prices: Record<string, number> = Object.fromEntries(
+export function migrateWeddingPlanPrices(_raw?: unknown) {
+  return Object.fromEntries(
     WEDDING_PLAN_TEMPLATES.map((plan) => [plan.planKey, plan.defaultPrice]),
   );
-  if (!raw || typeof raw !== 'object') return prices;
-
-  Object.entries(raw as Record<string, unknown>).forEach(([sourceKey, sourceValue]) => {
-    const normalized = normalizeWeddingPlanKey(sourceKey);
-    if (!WEDDING_PLAN_KEYS.has(normalized)) return;
-    const price = Number(sourceValue);
-    if (!Number.isFinite(price) || price <= 0) return;
-    const legacyDefault = LEGACY_DEFAULT_PRICES[sourceKey.toLowerCase()];
-    if (legacyDefault && price === legacyDefault) return;
-    prices[normalized] = price;
-  });
-
-  return prices;
 }
 
 export function migrateWeddingCustomOptions(raw: unknown) {
@@ -176,7 +156,7 @@ export function parseWeddingOptionsFromDescription(description?: string | null) 
 
 export function buildWeddingServices(
   enabledPlans: Iterable<string>,
-  prices: Record<string, number> = {},
+  _prices: Record<string, number> = {},
   customOptions: Record<string, WeddingCustomOption[]> = {},
 ) {
   return migrateWeddingPlanKeys(Array.from(enabledPlans))
@@ -188,7 +168,7 @@ export function buildWeddingServices(
       return {
         title: template.label,
         description: description || undefined,
-        basePrice: Number(prices[key]) > 0 ? Number(prices[key]) : template.defaultPrice,
+        basePrice: template.defaultPrice,
       };
     })
     .filter(Boolean) as WeddingServicePayload[];
@@ -214,8 +194,5 @@ export function getWeddingPlanDisplayPrice(keyOrLabel: string, sourcePrice?: num
   const key = normalizeWeddingPlanKey(keyOrLabel);
   const template = getWeddingPlanTemplate(key);
   if (!template) return Number(sourcePrice) || 0;
-  const price = Number(sourcePrice) || 0;
-  const legacyDefault = LEGACY_DEFAULT_PRICES[String(keyOrLabel || '').toLowerCase()];
-  if (!price || (legacyDefault && price === legacyDefault)) return template.defaultPrice;
-  return price;
+  return template.defaultPrice;
 }
