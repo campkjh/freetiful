@@ -12,6 +12,13 @@ enum LiquidGlassEffectFactory {
         ) ?? UIBlurEffect(style: .systemThinMaterial)
     }
 
+    static func navigationEffect() -> UIVisualEffect {
+        nativeGlassEffect(
+            tintColor: UIColor.white.withAlphaComponent(0.20),
+            isInteractive: true
+        ) ?? UIBlurEffect(style: .systemUltraThinMaterial)
+    }
+
     private static func nativeGlassEffect(tintColor: UIColor, isInteractive: Bool) -> UIVisualEffect? {
         guard let effectClass = NSClassFromString("UIGlassEffect") as? UIVisualEffect.Type else {
             return nil
@@ -41,20 +48,21 @@ protocol LiquidGlassNavigationBarDelegate: AnyObject {
     func liquidGlassNavigationBarDidTapModeToggle(_ navBar: LiquidGlassNavigationBar)
 }
 
-final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
+final class LiquidGlassNavigationBar: UIView {
     weak var delegate: LiquidGlassNavigationBarDelegate?
 
     private let usesNativeLiquidGlass = LiquidGlassEffectFactory.supportsNativeLiquidGlass
     private let activeColor = UIColor(red: 0.07, green: 0.09, blue: 0.14, alpha: 1)
-    private let inactiveColor = UIColor(red: 0.58, green: 0.62, blue: 0.68, alpha: 1)
+    private let inactiveColor = UIColor(red: 0.29, green: 0.32, blue: 0.38, alpha: 0.72)
 
-    private let tabBar = UITabBar()
+    private let navEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
+    private let tabStack = UIStackView()
     private let toggleEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
     private let toggleButton = UIButton(type: .system)
     private let contentStack = UIStackView()
 
     private var items: [LiquidNavItem] = []
-    private var tabItems: [UITabBarItem] = []
+    private var buttons: [UIButton] = []
     private var selectedPath = "/main"
     private var isProMode = false
     private var showsModeToggle = false
@@ -75,11 +83,11 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         isAccessibilityElement = false
 
         layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = usesNativeLiquidGlass ? 0.08 : 0.14
-        layer.shadowRadius = usesNativeLiquidGlass ? 18 : 28
-        layer.shadowOffset = CGSize(width: 0, height: usesNativeLiquidGlass ? 8 : 14)
+        layer.shadowOpacity = usesNativeLiquidGlass ? 0.10 : 0.14
+        layer.shadowRadius = usesNativeLiquidGlass ? 22 : 28
+        layer.shadowOffset = CGSize(width: 0, height: usesNativeLiquidGlass ? 10 : 14)
 
-        setupTabBar()
+        setupNavigationSurface()
         setupToggleButton()
 
         contentStack.translatesAutoresizingMaskIntoConstraints = false
@@ -88,7 +96,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         contentStack.distribution = .fill
         contentStack.spacing = 8
         contentStack.addArrangedSubview(toggleEffectView)
-        contentStack.addArrangedSubview(tabBar)
+        contentStack.addArrangedSubview(navEffectView)
         addSubview(contentStack)
 
         NSLayoutConstraint.activate([
@@ -100,61 +108,35 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             toggleEffectView.widthAnchor.constraint(equalToConstant: 44),
             toggleEffectView.heightAnchor.constraint(equalToConstant: 44),
 
-            tabBar.heightAnchor.constraint(equalTo: heightAnchor)
+            navEffectView.heightAnchor.constraint(equalTo: heightAnchor)
         ])
     }
 
-    private func setupTabBar() {
-        tabBar.translatesAutoresizingMaskIntoConstraints = false
-        tabBar.delegate = self
-        tabBar.isTranslucent = true
-        tabBar.tintColor = activeColor
-        tabBar.unselectedItemTintColor = inactiveColor
-        tabBar.itemPositioning = .automatic
-        tabBar.backgroundColor = .clear
-        tabBar.barTintColor = .clear
+    private func setupNavigationSurface() {
+        navEffectView.translatesAutoresizingMaskIntoConstraints = false
+        navEffectView.clipsToBounds = true
+        navEffectView.layer.cornerRadius = 30
+        navEffectView.layer.cornerCurve = .continuous
 
         if !usesNativeLiquidGlass {
-            applyFallbackTabBarAppearance()
-            tabBar.clipsToBounds = true
-            tabBar.layer.cornerRadius = 30
-            tabBar.layer.cornerCurve = .continuous
-            tabBar.layer.borderWidth = 1
-            tabBar.layer.borderColor = UIColor.white.withAlphaComponent(0.58).cgColor
+            navEffectView.backgroundColor = UIColor.white.withAlphaComponent(0.32)
+            navEffectView.layer.borderWidth = 1
+            navEffectView.layer.borderColor = UIColor.white.withAlphaComponent(0.58).cgColor
         }
-    }
 
-    private func applyFallbackTabBarAppearance() {
-        if #available(iOS 13.0, *) {
-            let appearance = UITabBarAppearance()
-            appearance.configureWithTransparentBackground()
-            appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
-            appearance.backgroundColor = UIColor.white.withAlphaComponent(0.34)
-            appearance.shadowColor = .clear
+        tabStack.translatesAutoresizingMaskIntoConstraints = false
+        tabStack.axis = .horizontal
+        tabStack.alignment = .center
+        tabStack.distribution = .fillEqually
+        tabStack.spacing = 2
+        navEffectView.contentView.addSubview(tabStack)
 
-            let itemAppearance = UITabBarItemAppearance()
-            itemAppearance.normal.iconColor = inactiveColor
-            itemAppearance.normal.titleTextAttributes = [
-                .foregroundColor: inactiveColor,
-                .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
-            ]
-            itemAppearance.selected.iconColor = activeColor
-            itemAppearance.selected.titleTextAttributes = [
-                .foregroundColor: activeColor,
-                .font: UIFont.systemFont(ofSize: 10, weight: .bold)
-            ]
-
-            appearance.stackedLayoutAppearance = itemAppearance
-            appearance.inlineLayoutAppearance = itemAppearance
-            appearance.compactInlineLayoutAppearance = itemAppearance
-            tabBar.standardAppearance = appearance
-            if #available(iOS 15.0, *) {
-                tabBar.scrollEdgeAppearance = appearance
-            }
-        } else {
-            tabBar.backgroundImage = UIImage()
-            tabBar.shadowImage = UIImage()
-        }
+        NSLayoutConstraint.activate([
+            tabStack.topAnchor.constraint(equalTo: navEffectView.contentView.topAnchor, constant: 6),
+            tabStack.leadingAnchor.constraint(equalTo: navEffectView.contentView.leadingAnchor, constant: 6),
+            tabStack.trailingAnchor.constraint(equalTo: navEffectView.contentView.trailingAnchor, constant: -6),
+            tabStack.bottomAnchor.constraint(equalTo: navEffectView.contentView.bottomAnchor, constant: -6)
+        ])
     }
 
     private func setupToggleButton() {
@@ -188,7 +170,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         self.isProMode = isProMode
 
         if changedItems {
-            rebuildTabItems()
+            rebuildButtons()
         }
         updateModeToggle()
         updateSelection(animated: false)
@@ -219,22 +201,42 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         )
     }
 
-    private func rebuildTabItems() {
-        tabItems = items.enumerated().map { index, item in
-            let image = UIImage(
-                systemName: item.symbolName,
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold)
-            )
-            let selectedImage = UIImage(
-                systemName: item.symbolName,
-                withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .bold)
-            )
-            let tabItem = UITabBarItem(title: item.title, image: image, selectedImage: selectedImage)
-            tabItem.tag = index
-            tabItem.accessibilityLabel = item.title
-            return tabItem
+    private func rebuildButtons() {
+        tabStack.arrangedSubviews.forEach { view in
+            tabStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
         }
-        tabBar.setItems(tabItems, animated: false)
+
+        buttons = items.enumerated().map { index, item in
+            let button = UIButton(type: .system)
+            button.translatesAutoresizingMaskIntoConstraints = false
+            button.tag = index
+            button.accessibilityLabel = item.title
+            button.layer.cornerRadius = 24
+            button.layer.cornerCurve = .continuous
+            button.clipsToBounds = true
+            button.addTarget(self, action: #selector(didTapItem(_:)), for: .touchUpInside)
+            button.heightAnchor.constraint(equalToConstant: 48).isActive = true
+
+            var configuration = UIButton.Configuration.plain()
+            configuration.title = item.title
+            configuration.imagePlacement = .top
+            configuration.imagePadding = 1
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 0, bottom: 3, trailing: 0)
+            configuration.baseForegroundColor = inactiveColor
+            configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                var outgoing = incoming
+                outgoing.font = UIFont.systemFont(ofSize: 10, weight: .semibold)
+                return outgoing
+            }
+            button.configuration = configuration
+            button.titleLabel?.adjustsFontSizeToFitWidth = true
+            button.titleLabel?.minimumScaleFactor = 0.78
+            button.titleLabel?.lineBreakMode = .byClipping
+
+            tabStack.addArrangedSubview(button)
+            return button
+        }
     }
 
     private func updateModeToggle() {
@@ -248,18 +250,40 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     }
 
     private func updateSelection(animated: Bool) {
-        guard let selectedIndex = items.firstIndex(where: isSelected), selectedIndex < tabItems.count else {
-            tabBar.selectedItem = nil
-            return
+        let selectedIndex = items.firstIndex(where: isSelected)
+        let updates = {
+            self.buttons.enumerated().forEach { index, button in
+                guard index < self.items.count else { return }
+                let item = self.items[index]
+                let isSelected = index == selectedIndex
+                var configuration = button.configuration ?? .plain()
+                configuration.image = UIImage(
+                    systemName: item.symbolName,
+                    withConfiguration: UIImage.SymbolConfiguration(
+                        pointSize: isSelected ? 19 : 18,
+                        weight: isSelected ? .bold : .semibold
+                    )
+                )
+                configuration.baseForegroundColor = isSelected ? self.activeColor : self.inactiveColor
+                configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                    var outgoing = incoming
+                    outgoing.font = UIFont.systemFont(ofSize: 10, weight: isSelected ? .bold : .semibold)
+                    return outgoing
+                }
+                button.configuration = configuration
+                button.backgroundColor = isSelected ? UIColor.white.withAlphaComponent(self.usesNativeLiquidGlass ? 0.30 : 0.44) : .clear
+            }
         }
 
-        let selectedItem = tabItems[selectedIndex]
         if animated {
-            UIView.transition(with: tabBar, duration: 0.18, options: [.transitionCrossDissolve, .allowUserInteraction]) {
-                self.tabBar.selectedItem = selectedItem
-            }
+            UIView.transition(
+                with: navEffectView,
+                duration: 0.18,
+                options: [.transitionCrossDissolve, .allowUserInteraction],
+                animations: updates
+            )
         } else {
-            tabBar.selectedItem = selectedItem
+            updates()
         }
     }
 
@@ -273,11 +297,13 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         return selectedPath == item.path || selectedPath.hasPrefix(item.path + "/")
     }
 
-    func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-        guard item.tag >= 0, item.tag < items.count else { return }
-        let navItem = items[item.tag]
+    @objc private func didTapItem(_ sender: UIButton) {
+        guard sender.tag >= 0, sender.tag < items.count else { return }
+        let navItem = items[sender.tag]
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        animateTap(sender)
         selectedPath = navItem.path
+        updateSelection(animated: true)
         delegate?.liquidGlassNavigationBar(self, didSelect: navItem)
     }
 
