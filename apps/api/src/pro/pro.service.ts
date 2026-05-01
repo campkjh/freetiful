@@ -17,6 +17,27 @@ import { NotificationService } from '../notification/notification.service';
 import { PaymentService } from '../payment/payment.service';
 import { PuddingService } from '../pudding/pudding.service';
 
+const LEGACY_HANDOVER_PROFILES = [
+  {
+    virtualId: 'legacy-jungmj',
+    name: '정미정',
+    email: 'jungmj@freetiful.com',
+    profileImageUrl: '/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif',
+    images: [
+      '/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif',
+      '/images/pro-33/0cbe948eaed4fdb569f7e202960cc01a2dc22ff91772100447466.avif',
+    ],
+    shortIntro: '경력 13년차 아나운서',
+    mainExperience: 'MBC충북 아나운서 / SPOTV 스포츠 아나운서',
+    careerYears: 13,
+    gender: 'female',
+    basePrice: 300000,
+    category: '사회자',
+  },
+] as const;
+
+type LegacyHandoverProfile = (typeof LEGACY_HANDOVER_PROFILES)[number];
+
 @Injectable()
 export class ProService implements OnModuleInit {
   private readonly logger = new Logger(ProService.name);
@@ -101,6 +122,172 @@ export class ProService implements OnModuleInit {
     });
   }
 
+  private getLegacyHandoverProfile(id: string) {
+    return LEGACY_HANDOVER_PROFILES.find(
+      (profile) => profile.virtualId === id || profile.email === id,
+    );
+  }
+
+  private legacyHandoverCandidates(search: string | undefined, existingProfiles: any[]) {
+    const keyword = search?.trim().toLowerCase();
+    const existingNames = new Set(existingProfiles.map((profile) => profile.user?.name).filter(Boolean));
+    const existingEmails = new Set(existingProfiles.map((profile) => profile.user?.email).filter(Boolean));
+
+    return LEGACY_HANDOVER_PROFILES
+      .filter((profile) => !existingNames.has(profile.name) && !existingEmails.has(profile.email))
+      .filter((profile) => {
+        if (!keyword) return true;
+        return [
+          profile.name,
+          profile.email,
+          profile.shortIntro,
+          profile.mainExperience,
+          profile.category,
+        ].some((value) => value.toLowerCase().includes(keyword));
+      })
+      .map((profile) => ({
+        id: profile.virtualId,
+        ownerUserId: profile.virtualId,
+        isMine: false,
+        name: profile.name,
+        profileImageUrl: profile.profileImageUrl,
+        shortIntro: profile.shortIntro,
+        mainExperience: profile.mainExperience,
+        careerYears: profile.careerYears,
+        avgRating: 5,
+        reviewCount: 0,
+        basePrice: profile.basePrice,
+        categories: [profile.category],
+      }));
+  }
+
+  private async generateUniqueReferralCode() {
+    for (let i = 0; i < 8; i++) {
+      const code = `LH${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+      const existing = await this.prisma.user.findUnique({
+        where: { referralCode: code },
+        select: { id: true },
+      });
+      if (!existing) return code;
+    }
+    return `LH${Date.now().toString(36).toUpperCase()}`;
+  }
+
+  private async ensureLegacyHandoverProfile(fixture: LegacyHandoverProfile) {
+    const referralCode = await this.generateUniqueReferralCode();
+    return this.prisma.$transaction(async (tx) => {
+      const existingUser = await tx.user.findUnique({
+        where: { email: fixture.email },
+        select: { id: true },
+      });
+
+      const seedUser = existingUser
+        ? await tx.user.update({
+            where: { id: existingUser.id },
+            data: {
+              name: fixture.name,
+              role: 'pro',
+              profileImageUrl: fixture.profileImageUrl,
+              isActive: true,
+              isBanned: false,
+            },
+            select: { id: true },
+          })
+        : await tx.user.create({
+            data: {
+              name: fixture.name,
+              email: fixture.email,
+              role: 'pro',
+              referralCode,
+              profileImageUrl: fixture.profileImageUrl,
+              notificationSettings: { create: {} },
+            },
+            select: { id: true },
+          });
+
+      const existingProfile = await tx.proProfile.findUnique({
+        where: { userId: seedUser.id },
+        select: { id: true },
+      });
+
+      const profile = existingProfile
+        ? await tx.proProfile.update({
+            where: { id: existingProfile.id },
+            data: {
+              status: 'approved',
+              gender: fixture.gender,
+              shortIntro: fixture.shortIntro,
+              mainExperience: fixture.mainExperience,
+              careerYears: fixture.careerYears,
+              isProfileHidden: true,
+              rejectionReason: null,
+              approvedAt: new Date(),
+            },
+          })
+        : await tx.proProfile.create({
+            data: {
+              userId: seedUser.id,
+              status: 'approved',
+              gender: fixture.gender,
+              shortIntro: fixture.shortIntro,
+              mainExperience: fixture.mainExperience,
+              careerYears: fixture.careerYears,
+              avgRating: 5,
+              reviewCount: 0,
+              isProfileHidden: true,
+              approvedAt: new Date(),
+            },
+          });
+
+      const imageCount = await tx.proProfileImage.count({ where: { proProfileId: profile.id } });
+      if (imageCount === 0) {
+        await tx.proProfileImage.createMany({
+          data: fixture.images.map((imageUrl, index) => ({
+            proProfileId: profile.id,
+            imageUrl,
+            displayOrder: index,
+            isPrimary: index === 0,
+            hasFace: true,
+          })),
+        });
+      }
+
+      const serviceCount = await tx.proService.count({ where: { proProfileId: profile.id } });
+      if (serviceCount === 0) {
+        await tx.proService.create({
+          data: {
+            proProfileId: profile.id,
+            title: '결혼식 사회 진행',
+            description: fixture.shortIntro,
+            basePrice: fixture.basePrice,
+            priceUnit: 'per_event',
+            displayOrder: 0,
+            isActive: true,
+          },
+        });
+      }
+
+      const category = await tx.category.findFirst({
+        where: { type: 'pro', name: fixture.category },
+        select: { id: true },
+      });
+      if (category) {
+        await tx.proCategory.createMany({
+          data: [{ proProfileId: profile.id, categoryId: category.id }],
+          skipDuplicates: true,
+        });
+      }
+
+      return profile.id;
+    });
+  }
+
+  private async resolveProfileHandoverTargetId(proProfileId: string) {
+    const legacyProfile = this.getLegacyHandoverProfile(proProfileId);
+    if (!legacyProfile) return proProfileId;
+    return this.ensureLegacyHandoverProfile(legacyProfile);
+  }
+
   async getProfileHandoverCandidates(userId: string, search?: string, limit = 30) {
     const normalizedLimit = Math.min(Math.max(Number(limit) || 30, 1), 50);
     const keyword = search?.trim();
@@ -134,7 +321,7 @@ export class ProService implements OnModuleInit {
           : {}),
       },
       include: {
-        user: { select: { id: true, name: true, profileImageUrl: true } },
+        user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
         images: { orderBy: { displayOrder: 'asc' }, take: 1 },
         categories: { include: { category: { select: { name: true } } } },
         services: { where: { isActive: true }, orderBy: { displayOrder: 'asc' }, take: 1 },
@@ -143,7 +330,7 @@ export class ProService implements OnModuleInit {
       take: normalizedLimit,
     });
 
-    return candidates.map((profile) => ({
+    const rows = candidates.map((profile) => ({
       id: profile.id,
       ownerUserId: profile.userId,
       isMine: profile.userId === userId,
@@ -157,11 +344,17 @@ export class ProService implements OnModuleInit {
       basePrice: profile.services[0]?.basePrice ?? null,
       categories: profile.categories.map((item) => item.category.name),
     }));
+
+    return [
+      ...rows,
+      ...this.legacyHandoverCandidates(search, candidates),
+    ];
   }
 
   async claimProfileHandover(userId: string, proProfileId: string) {
+    const resolvedProProfileId = await this.resolveProfileHandoverTargetId(proProfileId);
     const target = await this.prisma.proProfile.findUnique({
-      where: { id: proProfileId },
+      where: { id: resolvedProProfileId },
       include: {
         user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
         images: { orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }], take: 1 },
