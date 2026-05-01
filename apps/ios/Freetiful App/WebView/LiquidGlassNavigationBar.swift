@@ -1,4 +1,5 @@
 import UIKit
+import ObjectiveC
 
 enum LiquidGlassEffectFactory {
     static var supportsNativeLiquidGlass: Bool {
@@ -7,24 +8,45 @@ enum LiquidGlassEffectFactory {
 
     static func controlEffect() -> UIVisualEffect {
         nativeGlassEffect(
-            tintColor: UIColor.white.withAlphaComponent(0.12),
-            isInteractive: true
+            tintColor: UIColor.white.withAlphaComponent(0.03),
+            isInteractive: true,
+            style: .clear
         ) ?? UIBlurEffect(style: .systemThinMaterial)
     }
 
     static func navigationEffect() -> UIVisualEffect {
         nativeGlassEffect(
-            tintColor: UIColor.white.withAlphaComponent(0.20),
-            isInteractive: true
+            tintColor: UIColor.white.withAlphaComponent(0.03),
+            isInteractive: true,
+            style: .clear
         ) ?? UIBlurEffect(style: .systemUltraThinMaterial)
     }
 
-    private static func nativeGlassEffect(tintColor: UIColor, isInteractive: Bool) -> UIVisualEffect? {
+    private enum NativeGlassStyle: Int {
+        case regular = 0
+        case clear = 1
+    }
+
+    private static func nativeGlassEffect(tintColor: UIColor,
+                                          isInteractive: Bool,
+                                          style: NativeGlassStyle) -> UIVisualEffect? {
         guard let effectClass = NSClassFromString("UIGlassEffect") as? UIVisualEffect.Type else {
             return nil
         }
 
-        let effect = effectClass.init()
+        let effect: UIVisualEffect
+        let styleSelector = NSSelectorFromString("effectWithStyle:")
+        if
+            let method = class_getClassMethod(effectClass, styleSelector)
+        {
+            typealias EffectWithStyle = @convention(c) (AnyClass, Selector, Int) -> UIVisualEffect
+            let implementation = method_getImplementation(method)
+            let makeEffect = unsafeBitCast(implementation, to: EffectWithStyle.self)
+            effect = makeEffect(effectClass, styleSelector, style.rawValue)
+        } else {
+            effect = effectClass.init()
+        }
+
         let object = effect as NSObject
         if object.responds(to: NSSelectorFromString("setTintColor:")) {
             object.setValue(tintColor, forKey: "tintColor")
@@ -52,10 +74,12 @@ final class LiquidGlassNavigationBar: UIView {
     weak var delegate: LiquidGlassNavigationBarDelegate?
 
     private let usesNativeLiquidGlass = LiquidGlassEffectFactory.supportsNativeLiquidGlass
-    private let activeColor = UIColor(red: 0.07, green: 0.09, blue: 0.14, alpha: 1)
-    private let inactiveColor = UIColor(red: 0.29, green: 0.32, blue: 0.38, alpha: 0.72)
+    private let freetifulBlue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+    private lazy var activeColor = freetifulBlue
+    private lazy var inactiveColor = freetifulBlue.withAlphaComponent(0.58)
 
     private let navEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
+    private let selectionBubbleView = UIView()
     private let tabStack = UIStackView()
     private let toggleEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
     private let toggleButton = UIButton(type: .system)
@@ -75,6 +99,11 @@ final class LiquidGlassNavigationBar: UIView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupView()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateSelectionBubble(animated: false)
     }
 
     private func setupView() {
@@ -119,10 +148,20 @@ final class LiquidGlassNavigationBar: UIView {
         navEffectView.layer.cornerCurve = .continuous
 
         if !usesNativeLiquidGlass {
-            navEffectView.backgroundColor = UIColor.white.withAlphaComponent(0.32)
+            navEffectView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
             navEffectView.layer.borderWidth = 1
-            navEffectView.layer.borderColor = UIColor.white.withAlphaComponent(0.58).cgColor
+            navEffectView.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
         }
+
+        selectionBubbleView.backgroundColor = freetifulBlue.withAlphaComponent(0.14)
+        selectionBubbleView.isUserInteractionEnabled = false
+        selectionBubbleView.alpha = 0
+        selectionBubbleView.layer.cornerCurve = .continuous
+        selectionBubbleView.layer.shadowColor = freetifulBlue.cgColor
+        selectionBubbleView.layer.shadowOpacity = 0.14
+        selectionBubbleView.layer.shadowRadius = 10
+        selectionBubbleView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        navEffectView.contentView.addSubview(selectionBubbleView)
 
         tabStack.translatesAutoresizingMaskIntoConstraints = false
         tabStack.axis = .horizontal
@@ -222,11 +261,11 @@ final class LiquidGlassNavigationBar: UIView {
             configuration.title = item.title
             configuration.imagePlacement = .top
             configuration.imagePadding = 1
-            configuration.contentInsets = NSDirectionalEdgeInsets(top: 5, leading: 0, bottom: 3, trailing: 0)
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0)
             configuration.baseForegroundColor = inactiveColor
             configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
                 var outgoing = incoming
-                outgoing.font = UIFont.systemFont(ofSize: 10, weight: .semibold)
+                outgoing.font = UIFont.systemFont(ofSize: 9, weight: .semibold)
                 return outgoing
             }
             button.configuration = configuration
@@ -243,48 +282,70 @@ final class LiquidGlassNavigationBar: UIView {
         toggleEffectView.isHidden = !showsModeToggle
         let symbol = isProMode ? "chevron.left" : "chevron.right"
         toggleButton.setImage(
-            UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .bold)),
+            UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)),
             for: .normal
         )
+        toggleButton.tintColor = activeColor
         toggleButton.accessibilityLabel = isProMode ? "일반회원으로 전환" : "프로회원으로 전환"
     }
 
     private func updateSelection(animated: Bool) {
         let selectedIndex = items.firstIndex(where: isSelected)
-        let updates = {
-            self.buttons.enumerated().forEach { index, button in
-                guard index < self.items.count else { return }
-                let item = self.items[index]
-                let isSelected = index == selectedIndex
-                var configuration = button.configuration ?? .plain()
-                configuration.image = UIImage(
-                    systemName: item.symbolName,
-                    withConfiguration: UIImage.SymbolConfiguration(
-                        pointSize: isSelected ? 19 : 18,
-                        weight: isSelected ? .bold : .semibold
-                    )
+        buttons.enumerated().forEach { index, button in
+            guard index < items.count else { return }
+            let item = items[index]
+            let isSelected = index == selectedIndex
+            var configuration = button.configuration ?? .plain()
+            configuration.image = UIImage(
+                systemName: item.symbolName,
+                withConfiguration: UIImage.SymbolConfiguration(
+                    pointSize: isSelected ? 16 : 15,
+                    weight: isSelected ? .bold : .semibold
                 )
-                configuration.baseForegroundColor = isSelected ? self.activeColor : self.inactiveColor
-                configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-                    var outgoing = incoming
-                    outgoing.font = UIFont.systemFont(ofSize: 10, weight: isSelected ? .bold : .semibold)
-                    return outgoing
-                }
-                button.configuration = configuration
-                button.backgroundColor = isSelected ? UIColor.white.withAlphaComponent(self.usesNativeLiquidGlass ? 0.30 : 0.44) : .clear
+            )
+            configuration.baseForegroundColor = isSelected ? activeColor : inactiveColor
+            configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                var outgoing = incoming
+                outgoing.font = UIFont.systemFont(ofSize: 9, weight: isSelected ? .bold : .semibold)
+                return outgoing
             }
+            button.configuration = configuration
+            button.backgroundColor = .clear
+        }
+        updateSelectionBubble(animated: animated)
+    }
+
+    private func updateSelectionBubble(animated: Bool) {
+        guard
+            let selectedIndex = items.firstIndex(where: isSelected),
+            selectedIndex < buttons.count,
+            buttons[selectedIndex].superview != nil
+        else {
+            selectionBubbleView.alpha = 0
+            return
         }
 
-        if animated {
-            UIView.transition(
-                with: navEffectView,
-                duration: 0.18,
-                options: [.transitionCrossDissolve, .allowUserInteraction],
-                animations: updates
-            )
-        } else {
-            updates()
+        let button = buttons[selectedIndex]
+        let targetFrame = button.convert(button.bounds.insetBy(dx: 1, dy: 1), to: navEffectView.contentView)
+        let changes = {
+            self.selectionBubbleView.frame = targetFrame
+            self.selectionBubbleView.layer.cornerRadius = targetFrame.height / 2
+            self.selectionBubbleView.alpha = 1
         }
+
+        guard animated, selectionBubbleView.alpha > 0 else {
+            changes()
+            return
+        }
+
+        UIView.animate(
+            withDuration: 0.42,
+            delay: 0,
+            usingSpringWithDamping: 0.72,
+            initialSpringVelocity: 0.62,
+            options: [.allowUserInteraction, .beginFromCurrentState],
+            animations: changes
+        )
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
