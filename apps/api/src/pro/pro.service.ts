@@ -367,13 +367,27 @@ export class ProService implements OnModuleInit {
 
   async claimProfileHandover(userId: string, proProfileId: string) {
     const resolvedProProfileId = await this.resolveProfileHandoverTargetId(proProfileId);
-    const target = await this.prisma.proProfile.findUnique({
+    let target = await this.prisma.proProfile.findUnique({
       where: { id: resolvedProProfileId },
       include: {
         user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
         images: { orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }], take: 1 },
       },
     });
+
+    if (!target) {
+      const legacyProfile = this.getLegacyHandoverProfile(proProfileId);
+      if (legacyProfile) {
+        const restoredProfileId = await this.ensureLegacyHandoverProfile(legacyProfile);
+        target = await this.prisma.proProfile.findUnique({
+          where: { id: restoredProfileId },
+          include: {
+            user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
+            images: { orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }], take: 1 },
+          },
+        });
+      }
+    }
 
     if (!target) {
       throw new NotFoundException('인수할 프로필을 찾을 수 없습니다.');

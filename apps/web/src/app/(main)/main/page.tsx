@@ -38,6 +38,8 @@ import {
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
 
 const OFFICIAL_OPEN_MODAL_SESSION_KEY = 'freetiful-official-open-modal-20260506';
+const OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY = 'freetiful-official-open-modal-dismissed-until-20260506';
+const OFFICIAL_OPEN_MODAL_HIDE_MS = 3 * 24 * 60 * 60 * 1000;
 const OFFICIAL_OPEN_MODAL_IMAGE = '/images/freetiful-open-20260506.png';
 
 /* iOS WKWebView 감지 — autoplay 영상 강제 풀스크린 우회용 */
@@ -1013,6 +1015,9 @@ export default function HomePage() {
     const isPhonePreview = new URLSearchParams(window.location.search).has('phonePreview');
     if (isPhonePreview) return;
     try {
+      const dismissedUntil = Number(localStorage.getItem(OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY) || '0');
+      if (dismissedUntil > Date.now()) return;
+      if (dismissedUntil > 0) localStorage.removeItem(OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY);
       if (sessionStorage.getItem(OFFICIAL_OPEN_MODAL_SESSION_KEY) === '1') return;
       sessionStorage.setItem(OFFICIAL_OPEN_MODAL_SESSION_KEY, '1');
       setShowOfficialOpenModal(true);
@@ -1020,6 +1025,17 @@ export default function HomePage() {
       setShowOfficialOpenModal(true);
     }
   }, []);
+
+  const hideOfficialOpenModalFor3Days = () => {
+    try {
+      localStorage.setItem(
+        OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY,
+        String(Date.now() + OFFICIAL_OPEN_MODAL_HIDE_MS),
+      );
+      sessionStorage.setItem(OFFICIAL_OPEN_MODAL_SESSION_KEY, '1');
+    } catch {}
+    setShowOfficialOpenModal(false);
+  };
 
   useEffect(() => {
     if (!showOfficialOpenModal) return;
@@ -1599,6 +1615,22 @@ export default function HomePage() {
               sizes="(min-width: 1024px) 820px, calc(100vw - 32px)"
               className="block h-auto w-full select-none"
             />
+            <div className="flex items-center justify-between gap-2 bg-white px-4 py-3">
+              <button
+                type="button"
+                onClick={hideOfficialOpenModalFor3Days}
+                className="rounded-xl px-2 py-2 text-[13px] font-bold text-gray-500 transition hover:bg-gray-50 active:scale-95"
+              >
+                3일 동안 안보기
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOfficialOpenModal(false)}
+                className="rounded-xl bg-[#3180F7] px-5 py-2.5 text-[13px] font-bold text-white transition active:scale-95"
+              >
+                닫기
+              </button>
+            </div>
           </div>
           <style jsx global>{`
             @keyframes homeOpeningModalFade {

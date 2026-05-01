@@ -15,7 +15,7 @@ function formatPrice(value: number | null) {
 
 const LEGACY_HANDOVER_FALLBACKS: ProfileHandoverCandidate[] = [
   {
-    id: 'legacy-jungmj',
+    id: 'jungmj@freetiful.com',
     ownerUserId: 'legacy-jungmj',
     isMine: false,
     name: '정미정',
@@ -129,7 +129,15 @@ export default function ProfileHandoverPage() {
     if (!authUser || claimingId) return;
     setClaimingId(candidate.id);
     try {
-      const result = await prosApi.claimProfileHandover(candidate.id);
+      let result;
+      try {
+        result = await prosApi.claimProfileHandover(candidate.id);
+      } catch (error: any) {
+        const isJungMijung = candidate.id === 'jungmj@freetiful.com' || candidate.id === 'legacy-jungmj' || candidate.name === '정미정';
+        const isMissingLegacy = error?.response?.status === 404 || String(error?.response?.data?.message || '').includes('인수할 프로필');
+        if (!isJungMijung || !isMissingLegacy) throw error;
+        result = await prosApi.claimProfileHandover('legacy-jungmj');
+      }
       setUser(result.user);
       clearHandoverCaches(result.profile?.id || candidate.id);
       window.dispatchEvent(new CustomEvent('freetiful:auth-changed', { detail: { user: result.user } }));
