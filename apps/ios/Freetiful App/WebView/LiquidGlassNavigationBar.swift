@@ -116,7 +116,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         contentStack.axis = .horizontal
         contentStack.alignment = .center
         contentStack.distribution = .fill
-        contentStack.spacing = 8
+        contentStack.spacing = 10
         contentStack.addArrangedSubview(toggleButton)
         contentStack.addArrangedSubview(tabBar)
         addSubview(contentStack)
@@ -127,8 +127,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor),
             contentStack.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            toggleButton.widthAnchor.constraint(equalToConstant: 44),
-            toggleButton.heightAnchor.constraint(equalToConstant: 44),
+            toggleButton.widthAnchor.constraint(equalToConstant: 66),
+            toggleButton.heightAnchor.constraint(equalToConstant: 66),
 
             tabBar.heightAnchor.constraint(equalTo: heightAnchor)
         ])
@@ -142,16 +142,19 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabBar.unselectedItemTintColor = inactiveColor
         tabBar.itemPositioning = .fill
         tabBar.itemSpacing = 0
+        tabBar.barTintColor = .clear
+        tabBar.backgroundColor = UIColor.white.withAlphaComponent(0.03)
         tabBar.backgroundImage = UIImage()
         tabBar.shadowImage = UIImage()
         tabBar.clipsToBounds = true
-        tabBar.layer.cornerRadius = 30
+        tabBar.layer.cornerRadius = 33
         tabBar.layer.cornerCurve = .continuous
 
         let appearance = UITabBarAppearance()
         appearance.configureWithTransparentBackground()
-        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+        appearance.backgroundEffect = nil
         appearance.backgroundColor = UIColor.white.withAlphaComponent(0.03)
+        appearance.selectionIndicatorTintColor = UIColor.white.withAlphaComponent(0.03)
         appearance.shadowColor = .clear
         configureTabItemAppearance(appearance.stackedLayoutAppearance)
         configureTabItemAppearance(appearance.inlineLayoutAppearance)
@@ -164,8 +167,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     private func setupToggleButton() {
         toggleButton.translatesAutoresizingMaskIntoConstraints = false
-        toggleButton.tintColor = inactiveColor
-        toggleButton.layer.cornerRadius = 22
+        toggleButton.tintColor = .black
+        toggleButton.layer.cornerRadius = 33
         toggleButton.layer.cornerCurve = .continuous
         toggleButton.clipsToBounds = true
         toggleButton.isHidden = true
@@ -217,10 +220,10 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private func rebuildTabBarItems() {
         tabBar.items = items.enumerated().map { index, item in
             let icon = navIcon(named: item.iconAssetName)
-            let tabItem = UITabBarItem(title: nil, image: icon, selectedImage: icon)
+            let tabItem = UITabBarItem(title: item.title, image: icon, selectedImage: icon)
             tabItem.tag = index
             tabItem.accessibilityLabel = item.title
-            tabItem.imageInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+            tabItem.imageInsets = UIEdgeInsets(top: -4, left: 0, bottom: 4, right: 0)
             return tabItem
         }
     }
@@ -233,7 +236,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             systemName: symbol,
             withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)
         )
-        configuration.baseForegroundColor = activeColor
+        configuration.baseForegroundColor = .black
         configuration.imagePadding = 0
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
         toggleButton.configuration = configuration
@@ -297,16 +300,16 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private func configureTabItemAppearance(_ itemAppearance: UITabBarItemAppearance) {
         itemAppearance.normal.iconColor = inactiveColor
         itemAppearance.normal.titleTextAttributes = [
-            .foregroundColor: UIColor.clear,
-            .font: UIFont.systemFont(ofSize: 1, weight: .regular),
+            .foregroundColor: inactiveColor,
+            .font: UIFont.systemFont(ofSize: 9, weight: .semibold),
         ]
-        itemAppearance.normal.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 100)
+        itemAppearance.normal.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 4)
         itemAppearance.selected.iconColor = activeColor
         itemAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor.clear,
-            .font: UIFont.systemFont(ofSize: 1, weight: .regular),
+            .foregroundColor: activeColor,
+            .font: UIFont.systemFont(ofSize: 9, weight: .bold),
         ]
-        itemAppearance.selected.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 100)
+        itemAppearance.selected.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 4)
     }
 
     private func navIcon(named assetName: String) -> UIImage? {
@@ -317,7 +320,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             return nil
         }
 
-        let size = CGSize(width: 18, height: 18)
+        let size = CGSize(width: 16, height: 16)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = UIScreen.main.scale
         let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
