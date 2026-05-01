@@ -13,6 +13,47 @@ function formatPrice(value: number | null) {
   return `${value.toLocaleString()}원`;
 }
 
+const LEGACY_HANDOVER_FALLBACKS: ProfileHandoverCandidate[] = [
+  {
+    id: 'legacy-jungmj',
+    ownerUserId: 'legacy-jungmj',
+    isMine: false,
+    name: '정미정',
+    profileImageUrl: '/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif',
+    shortIntro: '경력 13년차 아나운서',
+    mainExperience: 'MBC충북 아나운서 / SPOTV 스포츠 아나운서',
+    careerYears: 13,
+    avgRating: 5,
+    reviewCount: 0,
+    basePrice: 300000,
+    categories: ['사회자'],
+  },
+];
+
+function matchesHandoverSearch(candidate: ProfileHandoverCandidate, search: string) {
+  const keyword = search.trim().toLowerCase();
+  if (!keyword) return true;
+  const haystack = [
+    candidate.name,
+    candidate.shortIntro,
+    candidate.mainExperience,
+    candidate.categories.join(' '),
+    candidate.id,
+  ].join(' ').toLowerCase();
+  return keyword
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((token) => haystack.includes(token));
+}
+
+function withLegacyFallbacks(items: ProfileHandoverCandidate[], search: string) {
+  const existing = new Set(items.flatMap((item) => [item.id, item.name]));
+  const fallbacks = LEGACY_HANDOVER_FALLBACKS.filter(
+    (item) => !existing.has(item.id) && !existing.has(item.name) && matchesHandoverSearch(item, search),
+  );
+  return [...fallbacks, ...items];
+}
+
 function clearHandoverCaches(profileId?: string) {
   if (typeof window === 'undefined') return;
   [
@@ -65,7 +106,7 @@ export default function ProfileHandoverPage() {
       setLoading(true);
       prosApi.getProfileHandoverCandidates({ search: trimmedSearch || undefined, limit: 40 })
         .then((data) => {
-          if (alive) setItems(data);
+          if (alive) setItems(withLegacyFallbacks(data, trimmedSearch));
         })
         .catch((error) => {
           if (alive) {

@@ -20,6 +20,7 @@ import { PuddingService } from '../pudding/pudding.service';
 const LEGACY_HANDOVER_PROFILES = [
   {
     virtualId: 'legacy-jungmj',
+    aliases: ['정미정', '정미정 사회자', 'jungmj'],
     name: '정미정',
     email: 'jungmj@freetiful.com',
     profileImageUrl: '/images/pro-33/0533d0a3d5f361ad511e32dafb775319b26ce7541772100346528.avif',
@@ -37,6 +38,27 @@ const LEGACY_HANDOVER_PROFILES = [
 ] as const;
 
 type LegacyHandoverProfile = (typeof LEGACY_HANDOVER_PROFILES)[number];
+
+function normalizeHandoverSearch(value?: string) {
+  return (value || '').trim().toLowerCase();
+}
+
+function handoverSearchMatches(profile: LegacyHandoverProfile, search?: string) {
+  const keyword = normalizeHandoverSearch(search);
+  if (!keyword) return true;
+  const haystack = [
+    profile.name,
+    profile.email,
+    profile.shortIntro,
+    profile.mainExperience,
+    profile.category,
+    ...profile.aliases,
+  ].join(' ').toLowerCase();
+  return keyword
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((token) => haystack.includes(token));
+}
 
 @Injectable()
 export class ProService implements OnModuleInit {
@@ -123,28 +145,23 @@ export class ProService implements OnModuleInit {
   }
 
   private getLegacyHandoverProfile(id: string) {
+    const normalized = normalizeHandoverSearch(id);
     return LEGACY_HANDOVER_PROFILES.find(
-      (profile) => profile.virtualId === id || profile.email === id,
+      (profile) =>
+        profile.virtualId === id ||
+        profile.email === id ||
+        normalizeHandoverSearch(profile.name) === normalized ||
+        profile.aliases.some((alias) => normalizeHandoverSearch(alias) === normalized),
     );
   }
 
   private legacyHandoverCandidates(search: string | undefined, existingProfiles: any[]) {
-    const keyword = search?.trim().toLowerCase();
     const existingNames = new Set(existingProfiles.map((profile) => profile.user?.name).filter(Boolean));
     const existingEmails = new Set(existingProfiles.map((profile) => profile.user?.email).filter(Boolean));
 
     return LEGACY_HANDOVER_PROFILES
       .filter((profile) => !existingNames.has(profile.name) && !existingEmails.has(profile.email))
-      .filter((profile) => {
-        if (!keyword) return true;
-        return [
-          profile.name,
-          profile.email,
-          profile.shortIntro,
-          profile.mainExperience,
-          profile.category,
-        ].some((value) => value.toLowerCase().includes(keyword));
-      })
+      .filter((profile) => handoverSearchMatches(profile, search))
       .map((profile) => ({
         id: profile.virtualId,
         ownerUserId: profile.virtualId,
@@ -301,10 +318,7 @@ export class ProService implements OnModuleInit {
     const candidates = await this.prisma.proProfile.findMany({
       where: {
         status: 'approved',
-        OR: [
-          { userId },
-          { user: { isActive: true, ...seedOwnerWhere } },
-        ],
+        user: { isActive: true, ...seedOwnerWhere },
         ...(keyword
           ? {
               AND: [
@@ -421,6 +435,30 @@ export class ProService implements OnModuleInit {
           rejectionReason: null,
           approvedAt: target.approvedAt || new Date(),
         },
+      });
+
+      await tx.matchDelivery.deleteMany({
+        where: { proProfileId: target.id },
+      });
+      const legacyReviews = await tx.review.findMany({
+        where: { proProfileId: target.id },
+        select: { id: true },
+      });
+      const legacyReviewIds = legacyReviews.map((review) => review.id);
+      if (legacyReviewIds.length > 0) {
+        await tx.reviewImage.deleteMany({
+          where: { reviewId: { in: legacyReviewIds } },
+        });
+        await tx.reviewReport.deleteMany({
+          where: { reviewId: { in: legacyReviewIds } },
+        });
+      }
+      await tx.review.deleteMany({
+        where: { proProfileId: target.id },
+      });
+      await tx.proProfile.update({
+        where: { id: target.id },
+        data: { avgRating: 0, reviewCount: 0 },
       });
 
       if (oldUserId !== userId) {
