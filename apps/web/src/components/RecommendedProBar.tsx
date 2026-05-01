@@ -165,6 +165,7 @@ export default function RecommendedProBar() {
 
   return (
     <div
+      data-recommended-pro-bar
       className="lg:hidden fixed left-0 right-0 z-40 px-4 pointer-events-none"
       style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
     >
