@@ -22,6 +22,18 @@ enum LiquidGlassEffectFactory {
         ) ?? UIBlurEffect(style: .systemUltraThinMaterial)
     }
 
+    static func selectionEffect() -> UIVisualEffect {
+        nativeGlassEffect(
+            tintColor: UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 0.10),
+            isInteractive: true,
+            style: .clear
+        ) ?? UIBlurEffect(style: .systemThinMaterial)
+    }
+
+    static func containerEffect() -> UIVisualEffect {
+        nativeGlassContainerEffect(spacing: 14) ?? UIBlurEffect(style: .systemUltraThinMaterial)
+    }
+
     private enum NativeGlassStyle: Int {
         case regular = 0
         case clear = 1
@@ -56,6 +68,19 @@ enum LiquidGlassEffectFactory {
         }
         return effect
     }
+
+    private static func nativeGlassContainerEffect(spacing: CGFloat) -> UIVisualEffect? {
+        guard let effectClass = NSClassFromString("UIGlassContainerEffect") as? UIVisualEffect.Type else {
+            return nil
+        }
+
+        let effect = effectClass.init()
+        let object = effect as NSObject
+        if object.responds(to: NSSelectorFromString("setSpacing:")) {
+            object.setValue(spacing, forKey: "spacing")
+        }
+        return effect
+    }
 }
 
 struct LiquidNavItem: Equatable {
@@ -78,8 +103,9 @@ final class LiquidGlassNavigationBar: UIView {
     private lazy var activeColor = freetifulBlue
     private lazy var inactiveColor = freetifulBlue.withAlphaComponent(0.58)
 
-    private let navEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
-    private let selectionBubbleView = UIView()
+    private let navEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.containerEffect())
+    private let navSurfaceEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
+    private let selectionBubbleEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.selectionEffect())
     private let tabStack = UIStackView()
     private let toggleEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
     private let toggleButton = UIButton(type: .system)
@@ -143,25 +169,30 @@ final class LiquidGlassNavigationBar: UIView {
 
     private func setupNavigationSurface() {
         navEffectView.translatesAutoresizingMaskIntoConstraints = false
-        navEffectView.clipsToBounds = true
-        navEffectView.layer.cornerRadius = 30
-        navEffectView.layer.cornerCurve = .continuous
+        navEffectView.clipsToBounds = false
+
+        navSurfaceEffectView.translatesAutoresizingMaskIntoConstraints = false
+        navSurfaceEffectView.clipsToBounds = true
+        navSurfaceEffectView.layer.cornerRadius = 30
+        navSurfaceEffectView.layer.cornerCurve = .continuous
+        navEffectView.contentView.addSubview(navSurfaceEffectView)
 
         if !usesNativeLiquidGlass {
-            navEffectView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
-            navEffectView.layer.borderWidth = 1
-            navEffectView.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+            navSurfaceEffectView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
+            navSurfaceEffectView.layer.borderWidth = 1
+            navSurfaceEffectView.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
         }
 
-        selectionBubbleView.backgroundColor = freetifulBlue.withAlphaComponent(0.14)
-        selectionBubbleView.isUserInteractionEnabled = false
-        selectionBubbleView.alpha = 0
-        selectionBubbleView.layer.cornerCurve = .continuous
-        selectionBubbleView.layer.shadowColor = freetifulBlue.cgColor
-        selectionBubbleView.layer.shadowOpacity = 0.14
-        selectionBubbleView.layer.shadowRadius = 10
-        selectionBubbleView.layer.shadowOffset = CGSize(width: 0, height: 4)
-        navEffectView.contentView.addSubview(selectionBubbleView)
+        selectionBubbleEffectView.isUserInteractionEnabled = false
+        selectionBubbleEffectView.alpha = 0
+        selectionBubbleEffectView.clipsToBounds = true
+        selectionBubbleEffectView.contentView.backgroundColor = freetifulBlue.withAlphaComponent(0.08)
+        selectionBubbleEffectView.layer.cornerCurve = .continuous
+        selectionBubbleEffectView.layer.shadowColor = freetifulBlue.cgColor
+        selectionBubbleEffectView.layer.shadowOpacity = 0.16
+        selectionBubbleEffectView.layer.shadowRadius = 12
+        selectionBubbleEffectView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        navEffectView.contentView.addSubview(selectionBubbleEffectView)
 
         tabStack.translatesAutoresizingMaskIntoConstraints = false
         tabStack.axis = .horizontal
@@ -171,6 +202,11 @@ final class LiquidGlassNavigationBar: UIView {
         navEffectView.contentView.addSubview(tabStack)
 
         NSLayoutConstraint.activate([
+            navSurfaceEffectView.topAnchor.constraint(equalTo: navEffectView.contentView.topAnchor),
+            navSurfaceEffectView.leadingAnchor.constraint(equalTo: navEffectView.contentView.leadingAnchor),
+            navSurfaceEffectView.trailingAnchor.constraint(equalTo: navEffectView.contentView.trailingAnchor),
+            navSurfaceEffectView.bottomAnchor.constraint(equalTo: navEffectView.contentView.bottomAnchor),
+
             tabStack.topAnchor.constraint(equalTo: navEffectView.contentView.topAnchor, constant: 6),
             tabStack.leadingAnchor.constraint(equalTo: navEffectView.contentView.leadingAnchor, constant: 6),
             tabStack.trailingAnchor.constraint(equalTo: navEffectView.contentView.trailingAnchor, constant: -6),
@@ -321,19 +357,19 @@ final class LiquidGlassNavigationBar: UIView {
             selectedIndex < buttons.count,
             buttons[selectedIndex].superview != nil
         else {
-            selectionBubbleView.alpha = 0
+            selectionBubbleEffectView.alpha = 0
             return
         }
 
         let button = buttons[selectedIndex]
         let targetFrame = button.convert(button.bounds.insetBy(dx: 1, dy: 1), to: navEffectView.contentView)
         let changes = {
-            self.selectionBubbleView.frame = targetFrame
-            self.selectionBubbleView.layer.cornerRadius = targetFrame.height / 2
-            self.selectionBubbleView.alpha = 1
+            self.selectionBubbleEffectView.frame = targetFrame
+            self.selectionBubbleEffectView.layer.cornerRadius = targetFrame.height / 2
+            self.selectionBubbleEffectView.alpha = 1
         }
 
-        guard animated, selectionBubbleView.alpha > 0 else {
+        guard animated, selectionBubbleEffectView.alpha > 0 else {
             changes()
             return
         }

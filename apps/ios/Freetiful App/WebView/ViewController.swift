@@ -24,6 +24,8 @@ private let nativeUserNavItems = [
     LiquidNavItem(id: "my", title: "마이", path: "/my", symbolName: "person.crop.circle.fill")
 ]
 
+private let nativeProUserNavItems = nativeUserNavItems.filter { $0.id != "biz" }
+
 private let nativeProNavItems = [
     LiquidNavItem(id: "home", title: "홈", path: "/pro-dashboard", symbolName: "house.fill"),
     LiquidNavItem(id: "requests", title: "새요청", path: "/pro-dashboard/inquiries", symbolName: "doc.text.fill"),
@@ -296,7 +298,15 @@ class ViewController: UIViewController,
     }
 
     private func renderNativeNavigation(animated: Bool) {
-        let items = currentNativeIsProMode ? nativeProNavItems : nativeUserNavItems
+        let items: [LiquidNavItem]
+        if currentNativeIsProMode {
+            items = nativeProNavItems
+        } else if currentNativeActualIsPro {
+            items = nativeProUserNavItems
+        } else {
+            items = nativeUserNavItems
+        }
+
         nativeNavBar.configure(
             items: items,
             selectedPath: currentNativePath,
