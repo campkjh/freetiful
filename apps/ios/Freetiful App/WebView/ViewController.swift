@@ -16,22 +16,22 @@ private let kWebBase  = "https://freetiful.com"           // 프리티풀 웹앱
 // ──────────────────────────────────────────────────────────────────────────────
 
 private let nativeUserNavItems = [
-    LiquidNavItem(id: "home", title: "홈", path: "/main", symbolName: "house.fill"),
-    LiquidNavItem(id: "schedule", title: "스케줄", path: "/schedule", symbolName: "calendar"),
-    LiquidNavItem(id: "biz", title: "Biz", path: "/biz", symbolName: "briefcase.fill"),
-    LiquidNavItem(id: "chat", title: "채팅", path: "/chat", symbolName: "bubble.left.and.bubble.right.fill"),
-    LiquidNavItem(id: "favorites", title: "찜", path: "/favorites", symbolName: "heart.fill"),
-    LiquidNavItem(id: "my", title: "마이", path: "/my", symbolName: "person.crop.circle.fill")
+    LiquidNavItem(id: "home", title: "홈", path: "/main", iconAssetName: "nav-home"),
+    LiquidNavItem(id: "schedule", title: "스케줄", path: "/schedule", iconAssetName: "nav-schedule"),
+    LiquidNavItem(id: "biz", title: "Biz", path: "/biz", iconAssetName: "nav-biz"),
+    LiquidNavItem(id: "chat", title: "채팅", path: "/chat", iconAssetName: "nav-chat"),
+    LiquidNavItem(id: "favorites", title: "찜", path: "/favorites", iconAssetName: "nav-favorites"),
+    LiquidNavItem(id: "my", title: "마이", path: "/my", iconAssetName: "nav-my")
 ]
 
 private let nativeProUserNavItems = nativeUserNavItems.filter { $0.id != "biz" }
 
 private let nativeProNavItems = [
-    LiquidNavItem(id: "home", title: "홈", path: "/pro-dashboard", symbolName: "house.fill"),
-    LiquidNavItem(id: "requests", title: "새요청", path: "/pro-dashboard/inquiries", symbolName: "doc.text.fill"),
-    LiquidNavItem(id: "schedule", title: "스케줄", path: "/schedule", symbolName: "calendar"),
-    LiquidNavItem(id: "chat", title: "채팅", path: "/chat", symbolName: "bubble.left.and.bubble.right.fill"),
-    LiquidNavItem(id: "my", title: "마이", path: "/my", symbolName: "person.crop.circle.fill")
+    LiquidNavItem(id: "home", title: "홈", path: "/pro-dashboard", iconAssetName: "nav-home"),
+    LiquidNavItem(id: "requests", title: "새요청", path: "/pro-dashboard/inquiries", iconAssetName: "nav-requests"),
+    LiquidNavItem(id: "schedule", title: "스케줄", path: "/schedule", iconAssetName: "nav-schedule"),
+    LiquidNavItem(id: "chat", title: "채팅", path: "/chat", iconAssetName: "nav-chat"),
+    LiquidNavItem(id: "my", title: "마이", path: "/my", iconAssetName: "nav-my")
 ]
 
 class ViewController: UIViewController,

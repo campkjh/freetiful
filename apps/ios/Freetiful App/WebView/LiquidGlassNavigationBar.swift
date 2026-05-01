@@ -22,18 +22,6 @@ enum LiquidGlassEffectFactory {
         ) ?? UIBlurEffect(style: .systemUltraThinMaterial)
     }
 
-    static func selectionEffect() -> UIVisualEffect {
-        nativeGlassEffect(
-            tintColor: UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 0.10),
-            isInteractive: true,
-            style: .clear
-        ) ?? UIBlurEffect(style: .systemThinMaterial)
-    }
-
-    static func containerEffect() -> UIVisualEffect {
-        nativeGlassContainerEffect(spacing: 14) ?? UIBlurEffect(style: .systemUltraThinMaterial)
-    }
-
     private enum NativeGlassStyle: Int {
         case regular = 0
         case clear = 1
@@ -69,25 +57,13 @@ enum LiquidGlassEffectFactory {
         return effect
     }
 
-    private static func nativeGlassContainerEffect(spacing: CGFloat) -> UIVisualEffect? {
-        guard let effectClass = NSClassFromString("UIGlassContainerEffect") as? UIVisualEffect.Type else {
-            return nil
-        }
-
-        let effect = effectClass.init()
-        let object = effect as NSObject
-        if object.responds(to: NSSelectorFromString("setSpacing:")) {
-            object.setValue(spacing, forKey: "spacing")
-        }
-        return effect
-    }
 }
 
 struct LiquidNavItem: Equatable {
     let id: String
     let title: String
     let path: String
-    let symbolName: String
+    let iconAssetName: String
 }
 
 protocol LiquidGlassNavigationBarDelegate: AnyObject {
@@ -103,16 +79,14 @@ final class LiquidGlassNavigationBar: UIView {
     private lazy var activeColor = freetifulBlue
     private lazy var inactiveColor = freetifulBlue.withAlphaComponent(0.58)
 
-    private let navEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.containerEffect())
-    private let navSurfaceEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
-    private let selectionBubbleEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.selectionEffect())
+    private let navEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
     private let tabStack = UIStackView()
-    private let toggleEffectView = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
     private let toggleButton = UIButton(type: .system)
     private let contentStack = UIStackView()
 
     private var items: [LiquidNavItem] = []
     private var buttons: [UIButton] = []
+    private var iconCache: [String: UIImage] = [:]
     private var selectedPath = "/main"
     private var isProMode = false
     private var showsModeToggle = false
@@ -125,11 +99,6 @@ final class LiquidGlassNavigationBar: UIView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupView()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        updateSelectionBubble(animated: false)
     }
 
     private func setupView() {
@@ -150,7 +119,7 @@ final class LiquidGlassNavigationBar: UIView {
         contentStack.alignment = .center
         contentStack.distribution = .fill
         contentStack.spacing = 8
-        contentStack.addArrangedSubview(toggleEffectView)
+        contentStack.addArrangedSubview(toggleButton)
         contentStack.addArrangedSubview(navEffectView)
         addSubview(contentStack)
 
@@ -160,8 +129,8 @@ final class LiquidGlassNavigationBar: UIView {
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor),
             contentStack.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            toggleEffectView.widthAnchor.constraint(equalToConstant: 44),
-            toggleEffectView.heightAnchor.constraint(equalToConstant: 44),
+            toggleButton.widthAnchor.constraint(equalToConstant: 44),
+            toggleButton.heightAnchor.constraint(equalToConstant: 44),
 
             navEffectView.heightAnchor.constraint(equalTo: heightAnchor)
         ])
@@ -169,30 +138,15 @@ final class LiquidGlassNavigationBar: UIView {
 
     private func setupNavigationSurface() {
         navEffectView.translatesAutoresizingMaskIntoConstraints = false
-        navEffectView.clipsToBounds = false
-
-        navSurfaceEffectView.translatesAutoresizingMaskIntoConstraints = false
-        navSurfaceEffectView.clipsToBounds = true
-        navSurfaceEffectView.layer.cornerRadius = 30
-        navSurfaceEffectView.layer.cornerCurve = .continuous
-        navEffectView.contentView.addSubview(navSurfaceEffectView)
+        navEffectView.clipsToBounds = true
+        navEffectView.layer.cornerRadius = 30
+        navEffectView.layer.cornerCurve = .continuous
 
         if !usesNativeLiquidGlass {
-            navSurfaceEffectView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
-            navSurfaceEffectView.layer.borderWidth = 1
-            navSurfaceEffectView.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+            navEffectView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
+            navEffectView.layer.borderWidth = 1
+            navEffectView.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
         }
-
-        selectionBubbleEffectView.isUserInteractionEnabled = false
-        selectionBubbleEffectView.alpha = 0
-        selectionBubbleEffectView.clipsToBounds = true
-        selectionBubbleEffectView.contentView.backgroundColor = freetifulBlue.withAlphaComponent(0.08)
-        selectionBubbleEffectView.layer.cornerCurve = .continuous
-        selectionBubbleEffectView.layer.shadowColor = freetifulBlue.cgColor
-        selectionBubbleEffectView.layer.shadowOpacity = 0.16
-        selectionBubbleEffectView.layer.shadowRadius = 12
-        selectionBubbleEffectView.layer.shadowOffset = CGSize(width: 0, height: 4)
-        navEffectView.contentView.addSubview(selectionBubbleEffectView)
 
         tabStack.translatesAutoresizingMaskIntoConstraints = false
         tabStack.axis = .horizontal
@@ -202,11 +156,6 @@ final class LiquidGlassNavigationBar: UIView {
         navEffectView.contentView.addSubview(tabStack)
 
         NSLayoutConstraint.activate([
-            navSurfaceEffectView.topAnchor.constraint(equalTo: navEffectView.contentView.topAnchor),
-            navSurfaceEffectView.leadingAnchor.constraint(equalTo: navEffectView.contentView.leadingAnchor),
-            navSurfaceEffectView.trailingAnchor.constraint(equalTo: navEffectView.contentView.trailingAnchor),
-            navSurfaceEffectView.bottomAnchor.constraint(equalTo: navEffectView.contentView.bottomAnchor),
-
             tabStack.topAnchor.constraint(equalTo: navEffectView.contentView.topAnchor, constant: 6),
             tabStack.leadingAnchor.constraint(equalTo: navEffectView.contentView.leadingAnchor, constant: 6),
             tabStack.trailingAnchor.constraint(equalTo: navEffectView.contentView.trailingAnchor, constant: -6),
@@ -215,23 +164,13 @@ final class LiquidGlassNavigationBar: UIView {
     }
 
     private func setupToggleButton() {
-        toggleEffectView.translatesAutoresizingMaskIntoConstraints = false
-        toggleEffectView.clipsToBounds = true
-        toggleEffectView.layer.cornerRadius = 22
-        toggleEffectView.layer.cornerCurve = .continuous
-        toggleEffectView.isHidden = true
-
         toggleButton.translatesAutoresizingMaskIntoConstraints = false
         toggleButton.tintColor = inactiveColor
+        toggleButton.layer.cornerRadius = 22
+        toggleButton.layer.cornerCurve = .continuous
+        toggleButton.clipsToBounds = true
+        toggleButton.isHidden = true
         toggleButton.addTarget(self, action: #selector(didTapToggle), for: .touchUpInside)
-        toggleEffectView.contentView.addSubview(toggleButton)
-
-        NSLayoutConstraint.activate([
-            toggleButton.topAnchor.constraint(equalTo: toggleEffectView.contentView.topAnchor),
-            toggleButton.leadingAnchor.constraint(equalTo: toggleEffectView.contentView.leadingAnchor),
-            toggleButton.trailingAnchor.constraint(equalTo: toggleEffectView.contentView.trailingAnchor),
-            toggleButton.bottomAnchor.constraint(equalTo: toggleEffectView.contentView.bottomAnchor)
-        ])
     }
 
     func configure(items: [LiquidNavItem],
@@ -292,19 +231,9 @@ final class LiquidGlassNavigationBar: UIView {
             button.clipsToBounds = true
             button.addTarget(self, action: #selector(didTapItem(_:)), for: .touchUpInside)
             button.heightAnchor.constraint(equalToConstant: 48).isActive = true
-
-            var configuration = UIButton.Configuration.plain()
-            configuration.title = item.title
-            configuration.imagePlacement = .top
-            configuration.imagePadding = 1
-            configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0)
-            configuration.baseForegroundColor = inactiveColor
-            configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-                var outgoing = incoming
-                outgoing.font = UIFont.systemFont(ofSize: 9, weight: .semibold)
-                return outgoing
+            button.configurationUpdateHandler = { [weak self, item] button in
+                self?.applyConfiguration(to: button, item: item)
             }
-            button.configuration = configuration
             button.titleLabel?.adjustsFontSizeToFitWidth = true
             button.titleLabel?.minimumScaleFactor = 0.78
             button.titleLabel?.lineBreakMode = .byClipping
@@ -315,73 +244,28 @@ final class LiquidGlassNavigationBar: UIView {
     }
 
     private func updateModeToggle() {
-        toggleEffectView.isHidden = !showsModeToggle
+        toggleButton.isHidden = !showsModeToggle
         let symbol = isProMode ? "chevron.left" : "chevron.right"
-        toggleButton.setImage(
-            UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)),
-            for: .normal
+        var configuration = makeGlassConfiguration(selected: false, isToggle: true)
+        configuration.image = UIImage(
+            systemName: symbol,
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)
         )
-        toggleButton.tintColor = activeColor
+        configuration.baseForegroundColor = activeColor
+        configuration.imagePadding = 0
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
+        toggleButton.configuration = configuration
         toggleButton.accessibilityLabel = isProMode ? "일반회원으로 전환" : "프로회원으로 전환"
     }
 
-    private func updateSelection(animated: Bool) {
+    private func updateSelection(animated _: Bool) {
         let selectedIndex = items.firstIndex(where: isSelected)
         buttons.enumerated().forEach { index, button in
             guard index < items.count else { return }
-            let item = items[index]
-            let isSelected = index == selectedIndex
-            var configuration = button.configuration ?? .plain()
-            configuration.image = UIImage(
-                systemName: item.symbolName,
-                withConfiguration: UIImage.SymbolConfiguration(
-                    pointSize: isSelected ? 16 : 15,
-                    weight: isSelected ? .bold : .semibold
-                )
-            )
-            configuration.baseForegroundColor = isSelected ? activeColor : inactiveColor
-            configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-                var outgoing = incoming
-                outgoing.font = UIFont.systemFont(ofSize: 9, weight: isSelected ? .bold : .semibold)
-                return outgoing
-            }
-            button.configuration = configuration
+            button.isSelected = index == selectedIndex
+            button.setNeedsUpdateConfiguration()
             button.backgroundColor = .clear
         }
-        updateSelectionBubble(animated: animated)
-    }
-
-    private func updateSelectionBubble(animated: Bool) {
-        guard
-            let selectedIndex = items.firstIndex(where: isSelected),
-            selectedIndex < buttons.count,
-            buttons[selectedIndex].superview != nil
-        else {
-            selectionBubbleEffectView.alpha = 0
-            return
-        }
-
-        let button = buttons[selectedIndex]
-        let targetFrame = button.convert(button.bounds.insetBy(dx: 1, dy: 1), to: navEffectView.contentView)
-        let changes = {
-            self.selectionBubbleEffectView.frame = targetFrame
-            self.selectionBubbleEffectView.layer.cornerRadius = targetFrame.height / 2
-            self.selectionBubbleEffectView.alpha = 1
-        }
-
-        guard animated, selectionBubbleEffectView.alpha > 0 else {
-            changes()
-            return
-        }
-
-        UIView.animate(
-            withDuration: 0.42,
-            delay: 0,
-            usingSpringWithDamping: 0.72,
-            initialSpringVelocity: 0.62,
-            options: [.allowUserInteraction, .beginFromCurrentState],
-            animations: changes
-        )
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
@@ -398,7 +282,6 @@ final class LiquidGlassNavigationBar: UIView {
         guard sender.tag >= 0, sender.tag < items.count else { return }
         let navItem = items[sender.tag]
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        animateTap(sender)
         selectedPath = navItem.path
         updateSelection(animated: true)
         delegate?.liquidGlassNavigationBar(self, didSelect: navItem)
@@ -406,23 +289,59 @@ final class LiquidGlassNavigationBar: UIView {
 
     @objc private func didTapToggle() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        animateTap(toggleButton)
         delegate?.liquidGlassNavigationBarDidTapModeToggle(self)
     }
 
-    private func animateTap(_ view: UIView) {
-        UIView.animate(withDuration: 0.1, delay: 0, options: [.allowUserInteraction, .beginFromCurrentState]) {
-            view.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
-        } completion: { _ in
-            UIView.animate(
-                withDuration: 0.34,
-                delay: 0,
-                usingSpringWithDamping: 0.58,
-                initialSpringVelocity: 0.7,
-                options: [.allowUserInteraction, .beginFromCurrentState]
-            ) {
-                view.transform = .identity
-            }
+    private func applyConfiguration(to button: UIButton, item: LiquidNavItem) {
+        let selected = button.isSelected
+        var configuration = makeGlassConfiguration(selected: selected, isToggle: false)
+        configuration.title = item.title
+        configuration.image = navIcon(named: item.iconAssetName)
+        configuration.imagePlacement = .top
+        configuration.imagePadding = 1
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 0, bottom: 4, trailing: 0)
+        configuration.baseForegroundColor = selected ? activeColor : inactiveColor
+        configuration.imageReservation = 19
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = UIFont.systemFont(ofSize: 9, weight: selected ? .bold : .semibold)
+            return outgoing
         }
+        button.configuration = configuration
+    }
+
+    private func makeGlassConfiguration(selected: Bool, isToggle: Bool) -> UIButton.Configuration {
+        let configuration: UIButton.Configuration
+        if #available(iOS 26.0, *) {
+            configuration = selected ? .prominentClearGlass() : .clearGlass()
+        } else {
+            configuration = .plain()
+        }
+
+        var tuned = configuration
+        tuned.cornerStyle = .capsule
+        tuned.automaticallyUpdateForSelection = true
+        if !usesNativeLiquidGlass {
+            tuned.background.backgroundColor = selected ? freetifulBlue.withAlphaComponent(0.10) : UIColor.white.withAlphaComponent(isToggle ? 0.06 : 0.02)
+        }
+        return tuned
+    }
+
+    private func navIcon(named assetName: String) -> UIImage? {
+        if let cached = iconCache[assetName] {
+            return cached
+        }
+        guard let source = UIImage(named: assetName)?.withRenderingMode(.alwaysTemplate) else {
+            return nil
+        }
+
+        let size = CGSize(width: 18, height: 18)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = UIScreen.main.scale
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            source.draw(in: CGRect(origin: .zero, size: size))
+        }.withRenderingMode(.alwaysTemplate)
+        iconCache[assetName] = image
+        return image
     }
 }
