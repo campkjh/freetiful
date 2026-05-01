@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect, type MouseEvent 
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
+import { Search, Bell, ChevronDown, ChevronRight, MapPin, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -36,6 +36,9 @@ import {
   syncStoredFavoriteId,
 } from '@/lib/api/favorite.api';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
+
+const OFFICIAL_OPEN_MODAL_SESSION_KEY = 'freetiful-official-open-modal-20260506';
+const OFFICIAL_OPEN_MODAL_IMAGE = '/images/freetiful-open-20260506.png';
 
 /* iOS WKWebView 감지 — autoplay 영상 강제 풀스크린 우회용 */
 function isIOSWebView(): boolean {
@@ -1002,8 +1005,35 @@ export default function HomePage() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
   const [phonePreviewSrc, setPhonePreviewSrc] = useState<string | null>(null);
+  const [showOfficialOpenModal, setShowOfficialOpenModal] = useState(false);
   const skipHomeAnim = useHomeAnimationSkip();
   useEffect(() => () => resetHomeAnimationDecision(), []);
+
+  useEffect(() => {
+    const isPhonePreview = new URLSearchParams(window.location.search).has('phonePreview');
+    if (isPhonePreview) return;
+    try {
+      if (sessionStorage.getItem(OFFICIAL_OPEN_MODAL_SESSION_KEY) === '1') return;
+      sessionStorage.setItem(OFFICIAL_OPEN_MODAL_SESSION_KEY, '1');
+      setShowOfficialOpenModal(true);
+    } catch {
+      setShowOfficialOpenModal(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showOfficialOpenModal) return;
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowOfficialOpenModal(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showOfficialOpenModal]);
 
   useEffect(() => {
     const isPhonePreview = new URLSearchParams(window.location.search).has('phonePreview');
@@ -1538,6 +1568,51 @@ export default function HomePage() {
 
   return (
     <div className="home-pc-font-cap bg-white min-h-screen w-full">
+      {showOfficialOpenModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Freetiful 5월 6일 정식 서비스 오픈 안내"
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-[2px]"
+          style={{ animation: 'homeOpeningModalFade 180ms ease-out both' }}
+          onClick={() => setShowOfficialOpenModal(false)}
+        >
+          <div
+            className="relative w-full max-w-[720px] overflow-hidden rounded-[18px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25 lg:max-w-[820px]"
+            style={{ animation: 'homeOpeningModalIn 260ms cubic-bezier(0.16,1,0.3,1) both' }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowOfficialOpenModal(false)}
+              aria-label="오픈 안내 닫기"
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95"
+            >
+              <X size={18} strokeWidth={2.4} />
+            </button>
+            <Image
+              src={OFFICIAL_OPEN_MODAL_IMAGE}
+              alt="5월 6일 Freetiful 정식서비스 오픈 안내"
+              width={1450}
+              height={1088}
+              priority
+              sizes="(min-width: 1024px) 820px, calc(100vw - 32px)"
+              className="block h-auto w-full select-none"
+            />
+          </div>
+          <style jsx global>{`
+            @keyframes homeOpeningModalFade {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes homeOpeningModalIn {
+              from { opacity: 0; transform: translateY(14px) scale(0.98); }
+              to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+          `}</style>
+        </div>
+      )}
+
       {phonePreviewSrc && (
         <div className="home-pc-floating-app-promo pointer-events-none fixed bottom-7 right-4 z-20 hidden flex-col items-end gap-3 lg:flex xl:bottom-8 xl:right-8">
           <div aria-hidden="true" className="home-pc-floating-phone">
