@@ -1,12 +1,15 @@
 'use client';
 
-import type { FormEvent, ReactNode } from 'react';
+import type { CSSProperties, FormEvent, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const PARTNER_ACCESS_KEY = 'freetiful-partner-apply-access';
 const PARTNER_ACCESS_PASSWORD = '프리티풀';
+const secureTextStyle = {
+  WebkitTextSecurity: 'disc',
+} as CSSProperties & { WebkitTextSecurity?: string };
 
 export default function ProRegisterLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -35,7 +38,7 @@ export default function ProRegisterLayout({ children }: { children: ReactNode })
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (password.trim() !== PARTNER_ACCESS_PASSWORD) {
+    if (password.trim().normalize('NFC') !== PARTNER_ACCESS_PASSWORD) {
       setError('비밀번호를 다시 확인해주세요.');
       return;
     }
@@ -86,9 +89,16 @@ export default function ProRegisterLayout({ children }: { children: ReactNode })
               setPassword(event.target.value);
               if (error) setError('');
             }}
-            type="password"
+            type="text"
+            inputMode="text"
+            lang="ko"
+            enterKeyHint="done"
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder="비밀번호"
+            style={secureTextStyle}
             className={`h-14 w-full rounded-2xl border bg-white px-4 text-[16px] font-semibold text-gray-950 outline-none transition placeholder:text-gray-300 focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10 ${
               error ? 'border-red-300 bg-red-50/40' : 'border-gray-100'
             }`}
