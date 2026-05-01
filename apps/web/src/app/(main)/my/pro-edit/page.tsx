@@ -49,6 +49,15 @@ function lsJson<T>(key: string, fallback: T): T {
   } catch { return fallback; }
 }
 
+function safeSetLocalStorage(key: string, value: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`localStorage write skipped: ${key}`, error);
+  }
+}
+
 function getProEditProfileCacheKey(userId?: string | null) {
   return `${PRO_EDIT_PROFILE_CACHE_PREFIX}:${userId || 'anonymous'}`;
 }
@@ -342,7 +351,7 @@ export default function ProEditPage() {
 
   const applyLoadedProfile = (p: any) => {
     if (!p?.id) return;
-    localStorage.setItem('freetiful-my-pro-id', p.id);
+    safeSetLocalStorage('freetiful-my-pro-id', p.id);
     if (p.shortIntro) setIntro(p.shortIntro);
     if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
     if (p.awards) setAwards(p.awards);
@@ -539,6 +548,21 @@ export default function ProEditPage() {
     return selectedMainIndex !== lastSyncedMainIndexRef.current;
   };
 
+  const uploadPhotosWithLimit = async (tasks: Array<() => Promise<{ index: number; uploaded: any }>>, limit = 3) => {
+    const results: { index: number; uploaded: any }[] = [];
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < tasks.length) {
+        const task = tasks[cursor];
+        cursor += 1;
+        results.push(await task());
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+    return results;
+  };
+
+
   const syncProfilePhotos = async (items: ProPhotoItem[], selectedMainIndex: number) => {
     if (!haveProfilePhotosChanged(items, selectedMainIndex)) {
       return {
@@ -557,9 +581,9 @@ export default function ProEditPage() {
       if (item.id) return [];
       const file = item.file || (item.url?.startsWith('data:image/') ? dataUrlToFile(item.url, `profile-${index + 1}`) : null);
       if (!file) return [];
-      return [prosApi.uploadImage(file).then((uploaded) => ({ index, uploaded }))];
+      return [() => prosApi.uploadImage(file).then((uploaded) => ({ index, uploaded }))];
     });
-    const uploadedResults = await Promise.all(uploadTasks);
+    const uploadedResults = await uploadPhotosWithLimit(uploadTasks, 3);
     const uploadedByIndex = new Map(uploadedResults.map(({ index, uploaded }) => [index, uploaded]));
 
     const finalItems = items
@@ -600,28 +624,31 @@ export default function ProEditPage() {
   const handleSave = async () => {
     if (saving) return;
     setSaving(true);
-    // 1) localStorage 저장 (즉시 UI 반영용)
-    localStorage.setItem('proRegister_name', name);
-    localStorage.setItem('proRegister_phone', phone);
-    localStorage.setItem('proRegister_gender', gender);
-    localStorage.setItem('proRegister_category', category);
-    localStorage.setItem('proRegister_intro', intro);
-    localStorage.setItem('proRegister_careerYears', String(careerYears));
-    localStorage.setItem('proRegister_selectedCategories', JSON.stringify(selectedCategories));
-    localStorage.setItem('proRegister_selectedRegions', JSON.stringify(selectedRegions));
-    localStorage.setItem('proRegister_photos', JSON.stringify(photos.map((photo) => photo.url).filter(Boolean)));
-    localStorage.setItem('proRegister_mainPhotoIndex', String(mainPhotoIndex));
-    localStorage.setItem('proRegister_companyLogos', JSON.stringify(selectedCompanyLogos));
-    localStorage.setItem('proRegister_languages', JSON.stringify(languages));
-    localStorage.setItem('proRegister_awards', awards);
-    localStorage.setItem('proRegister_videos', JSON.stringify(videos));
-    localStorage.setItem('proRegister_faq', JSON.stringify(faqItems));
-    localStorage.setItem('proRegister_enabledPlans', JSON.stringify([...enabledPlans]));
-    localStorage.setItem('proRegister_prices', JSON.stringify(planPrices));
-    localStorage.setItem('proRegister_customOptions', JSON.stringify(customOptions));
-
-    // 2) 서버에 업데이트 (pro detail 페이지 반영)
     try {
+      // 1) localStorage 저장 (즉시 UI 반영용). 새로 선택한 base64 사진은 용량이 커서 저장하지 않는다.
+      const persistedPhotoUrls = photos
+        .filter((photo) => photo.id && photo.url && !photo.url.startsWith('data:image/'))
+        .map((photo) => photo.url);
+      safeSetLocalStorage('proRegister_name', name);
+      safeSetLocalStorage('proRegister_phone', phone);
+      safeSetLocalStorage('proRegister_gender', gender);
+      safeSetLocalStorage('proRegister_category', category);
+      safeSetLocalStorage('proRegister_intro', intro);
+      safeSetLocalStorage('proRegister_careerYears', String(careerYears));
+      safeSetLocalStorage('proRegister_selectedCategories', JSON.stringify(selectedCategories));
+      safeSetLocalStorage('proRegister_selectedRegions', JSON.stringify(selectedRegions));
+      safeSetLocalStorage('proRegister_photos', JSON.stringify(persistedPhotoUrls));
+      safeSetLocalStorage('proRegister_mainPhotoIndex', String(mainPhotoIndex));
+      safeSetLocalStorage('proRegister_companyLogos', JSON.stringify(selectedCompanyLogos));
+      safeSetLocalStorage('proRegister_languages', JSON.stringify(languages));
+      safeSetLocalStorage('proRegister_awards', awards);
+      safeSetLocalStorage('proRegister_videos', JSON.stringify(videos));
+      safeSetLocalStorage('proRegister_faq', JSON.stringify(faqItems));
+      safeSetLocalStorage('proRegister_enabledPlans', JSON.stringify([...enabledPlans]));
+      safeSetLocalStorage('proRegister_prices', JSON.stringify(planPrices));
+      safeSetLocalStorage('proRegister_customOptions', JSON.stringify(customOptions));
+
+      // 2) 서버에 업데이트 (pro detail 페이지 반영)
       const awardsArray = awards.split('\n').filter(Boolean);
       // 전문영역 + 일반 태그 병합해서 tags 필드에 저장 (중복 제거)
       const mergedTags = Array.from(new Set([...selectedCategories, ...tags].filter(Boolean)));
@@ -645,10 +672,8 @@ export default function ProEditPage() {
         services: servicesPayload.length > 0 ? servicesPayload : undefined,
       };
 
-      const [editResponse, photoResult]: [any, any] = await Promise.all([
-        prosApi.submitRegistration(profilePayload),
-        syncProfilePhotos(photos, mainPhotoIndex).catch((error) => ({ error })),
-      ]);
+      const editResponse: any = await prosApi.submitRegistration(profilePayload);
+      const photoResult: any = await syncProfilePhotos(photos, mainPhotoIndex).catch((error) => ({ error }));
       const syncedImages = Array.isArray(photoResult?.images) ? photoResult.images : undefined;
       if (photoResult?.error) {
         const photoError = photoResult.error;
@@ -671,9 +696,7 @@ export default function ProEditPage() {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
         invalidateProCache(); // 클라 메모리 캐시 전체 삭제
         try { localStorage.removeItem('freetiful-pros-cache'); } catch {}
-        if (myProId) {
-          localStorage.setItem('freetiful-my-pro-id', myProId);
-        }
+        if (myProId) safeSetLocalStorage('freetiful-my-pro-id', myProId);
         writeProEditProfileCache(authUser?.id || editResponse?.userId || editResponse?.user?.id, editResponse);
       } catch {}
       setToast('저장되었습니다');
