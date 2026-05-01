@@ -71,6 +71,92 @@ protocol LiquidGlassNavigationBarDelegate: AnyObject {
     func liquidGlassNavigationBarDidTapModeToggle(_ navBar: LiquidGlassNavigationBar)
 }
 
+private final class FreetifulNativeTabBar: UITabBar {
+    private let preferredBarHeight: CGFloat = 66
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        var fittedSize = super.sizeThatFits(size)
+        fittedSize.height = preferredBarHeight
+        return fittedSize
+    }
+}
+
+private final class FreetifulTabOverlayButton: UIControl {
+    private let iconView = UIImageView()
+    private let label = UILabel()
+    private var activeColor: UIColor
+    private var inactiveColor: UIColor
+
+    init(title: String, icon: UIImage?, activeColor: UIColor, inactiveColor: UIColor) {
+        self.activeColor = activeColor
+        self.inactiveColor = inactiveColor
+        super.init(frame: .zero)
+        setup(title: title, icon: icon)
+    }
+
+    required init?(coder: NSCoder) {
+        activeColor = .systemBlue
+        inactiveColor = .systemBlue.withAlphaComponent(0.58)
+        super.init(coder: coder)
+        setup(title: "", icon: nil)
+    }
+
+    override var isSelected: Bool {
+        didSet { updateAppearance() }
+    }
+
+    override var isHighlighted: Bool {
+        didSet {
+            UIView.animate(withDuration: 0.14) {
+                self.transform = self.isHighlighted ? CGAffineTransform(scaleX: 0.94, y: 0.94) : .identity
+            }
+        }
+    }
+
+    private func setup(title: String, icon: UIImage?) {
+        backgroundColor = .clear
+        isAccessibilityElement = true
+        accessibilityLabel = title
+
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.image = icon
+        iconView.contentMode = .scaleAspectFit
+        iconView.tintColor = inactiveColor
+
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = title
+        label.textAlignment = .center
+        label.font = UIFont.systemFont(ofSize: 9, weight: .semibold)
+        label.textColor = inactiveColor
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.78
+        label.lineBreakMode = .byClipping
+
+        addSubview(iconView)
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            iconView.topAnchor.constraint(equalTo: topAnchor, constant: 9),
+            iconView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 16),
+            iconView.heightAnchor.constraint(equalToConstant: 16),
+
+            label.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 3),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 1),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -1),
+            label.heightAnchor.constraint(equalToConstant: 13)
+        ])
+        updateAppearance()
+    }
+
+    private func updateAppearance() {
+        let color = isSelected ? activeColor : inactiveColor
+        iconView.tintColor = color
+        label.textColor = color
+        label.font = UIFont.systemFont(ofSize: 9, weight: isSelected ? .bold : .semibold)
+    }
+}
+
 final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     weak var delegate: LiquidGlassNavigationBarDelegate?
 
@@ -79,11 +165,13 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private lazy var activeColor = freetifulBlue
     private lazy var inactiveColor = freetifulBlue.withAlphaComponent(0.58)
 
-    private let tabBar = UITabBar()
+    private let tabBar = FreetifulNativeTabBar()
+    private let tabOverlayStack = UIStackView()
     private let toggleButton = UIButton(type: .system)
     private let contentStack = UIStackView()
 
     private var items: [LiquidNavItem] = []
+    private var tabButtons: [FreetifulTabOverlayButton] = []
     private var iconCache: [String: UIImage] = [:]
     private var selectedPath = "/main"
     private var isProMode = false
@@ -137,6 +225,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private func setupNavigationSurface() {
         tabBar.translatesAutoresizingMaskIntoConstraints = false
         tabBar.delegate = self
+        tabBar.isUserInteractionEnabled = false
         tabBar.isTranslucent = true
         tabBar.tintColor = activeColor
         tabBar.unselectedItemTintColor = inactiveColor
@@ -154,15 +243,30 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         appearance.configureWithTransparentBackground()
         appearance.backgroundEffect = nil
         appearance.backgroundColor = UIColor.white.withAlphaComponent(0.03)
-        appearance.selectionIndicatorTintColor = UIColor.white.withAlphaComponent(0.03)
+        appearance.selectionIndicatorTintColor = .clear
         appearance.shadowColor = .clear
         configureTabItemAppearance(appearance.stackedLayoutAppearance)
         configureTabItemAppearance(appearance.inlineLayoutAppearance)
         configureTabItemAppearance(appearance.compactInlineLayoutAppearance)
         tabBar.standardAppearance = appearance
+        tabBar.selectionIndicatorImage = transparentTabIcon()
         if #available(iOS 15.0, *) {
             tabBar.scrollEdgeAppearance = appearance
         }
+
+        tabOverlayStack.translatesAutoresizingMaskIntoConstraints = false
+        tabOverlayStack.axis = .horizontal
+        tabOverlayStack.alignment = .fill
+        tabOverlayStack.distribution = .fillEqually
+        tabOverlayStack.spacing = 0
+        tabBar.addSubview(tabOverlayStack)
+
+        NSLayoutConstraint.activate([
+            tabOverlayStack.topAnchor.constraint(equalTo: tabBar.topAnchor, constant: 6),
+            tabOverlayStack.leadingAnchor.constraint(equalTo: tabBar.leadingAnchor, constant: 8),
+            tabOverlayStack.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor, constant: -8),
+            tabOverlayStack.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor, constant: -6)
+        ])
     }
 
     private func setupToggleButton() {
@@ -218,13 +322,29 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     }
 
     private func rebuildTabBarItems() {
+        tabOverlayStack.arrangedSubviews.forEach { view in
+            tabOverlayStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
         tabBar.items = items.enumerated().map { index, item in
-            let icon = navIcon(named: item.iconAssetName)
-            let tabItem = UITabBarItem(title: item.title, image: icon, selectedImage: icon)
+            let tabItem = UITabBarItem(title: nil, image: transparentTabIcon(), selectedImage: transparentTabIcon())
             tabItem.tag = index
             tabItem.accessibilityLabel = item.title
-            tabItem.imageInsets = UIEdgeInsets(top: -4, left: 0, bottom: 4, right: 0)
             return tabItem
+        }
+
+        tabButtons = items.enumerated().map { index, item in
+            let button = FreetifulTabOverlayButton(
+                title: item.title,
+                icon: navIcon(named: item.iconAssetName),
+                activeColor: activeColor,
+                inactiveColor: inactiveColor
+            )
+            button.tag = index
+            button.addTarget(self, action: #selector(didTapOverlayItem(_:)), for: .touchUpInside)
+            tabOverlayStack.addArrangedSubview(button)
+            return button
         }
     }
 
@@ -255,6 +375,9 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             return
         }
         tabBar.selectedItem = tabItems[selectedIndex]
+        tabButtons.enumerated().forEach { index, button in
+            button.isSelected = index == selectedIndex
+        }
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
@@ -269,9 +392,19 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
         guard item.tag >= 0, item.tag < items.count else { return }
-        let navItem = items[item.tag]
+        selectItem(at: item.tag)
+    }
+
+    @objc private func didTapOverlayItem(_ sender: UIControl) {
+        selectItem(at: sender.tag)
+    }
+
+    private func selectItem(at index: Int) {
+        guard index >= 0, index < items.count else { return }
+        let navItem = items[index]
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         selectedPath = navItem.path
+        updateSelection(animated: true)
         delegate?.liquidGlassNavigationBar(self, didSelect: navItem)
     }
 
@@ -281,19 +414,11 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     }
 
     private func makeGlassConfiguration(selected: Bool, isToggle: Bool) -> UIButton.Configuration {
-        let configuration: UIButton.Configuration
-        if #available(iOS 26.0, *) {
-            configuration = selected ? .prominentClearGlass() : .clearGlass()
-        } else {
-            configuration = .plain()
-        }
-
+        let configuration = UIButton.Configuration.plain()
         var tuned = configuration
         tuned.cornerStyle = .capsule
         tuned.automaticallyUpdateForSelection = true
-        if !usesNativeLiquidGlass {
-            tuned.background.backgroundColor = selected ? freetifulBlue.withAlphaComponent(0.10) : UIColor.white.withAlphaComponent(isToggle ? 0.06 : 0.02)
-        }
+        tuned.background.backgroundColor = selected ? freetifulBlue.withAlphaComponent(0.08) : UIColor.white.withAlphaComponent(0.03)
         return tuned
     }
 
@@ -303,13 +428,13 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             .foregroundColor: inactiveColor,
             .font: UIFont.systemFont(ofSize: 9, weight: .semibold),
         ]
-        itemAppearance.normal.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 4)
+        itemAppearance.normal.titlePositionAdjustment = .zero
         itemAppearance.selected.iconColor = activeColor
         itemAppearance.selected.titleTextAttributes = [
             .foregroundColor: activeColor,
             .font: UIFont.systemFont(ofSize: 9, weight: .bold),
         ]
-        itemAppearance.selected.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 4)
+        itemAppearance.selected.titlePositionAdjustment = .zero
     }
 
     private func navIcon(named assetName: String) -> UIImage? {
@@ -328,5 +453,14 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         }.withRenderingMode(.alwaysTemplate)
         iconCache[assetName] = image
         return image
+    }
+
+    private func transparentTabIcon() -> UIImage {
+        let size = CGSize(width: 16, height: 16)
+        let image = UIGraphicsImageRenderer(size: size).image { _ in
+            UIColor.clear.setFill()
+            UIBezierPath(rect: CGRect(origin: .zero, size: size)).fill()
+        }
+        return image.withRenderingMode(.alwaysOriginal)
     }
 }
