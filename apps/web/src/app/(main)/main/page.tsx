@@ -1594,7 +1594,7 @@ export default function HomePage() {
           onClick={() => setShowOfficialOpenModal(false)}
         >
           <div
-            className="relative w-full max-w-[720px] overflow-hidden rounded-[18px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25 lg:max-w-[820px]"
+            className="relative w-full max-w-[720px] overflow-hidden rounded-[18px] bg-transparent shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25 lg:max-w-[820px]"
             style={{ animation: 'homeOpeningModalIn 260ms cubic-bezier(0.16,1,0.3,1) both' }}
             onClick={(event) => event.stopPropagation()}
           >
@@ -1615,18 +1615,18 @@ export default function HomePage() {
               sizes="(min-width: 1024px) 820px, calc(100vw - 32px)"
               className="block h-auto w-full select-none"
             />
-            <div className="flex items-center justify-between gap-2 bg-white px-4 py-3">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-2 px-4 pb-4 pt-8 sm:px-5 sm:pb-5">
               <button
                 type="button"
                 onClick={hideOfficialOpenModalFor3Days}
-                className="rounded-xl px-2 py-2 text-[13px] font-bold text-gray-500 transition hover:bg-gray-50 active:scale-95"
+                className="pointer-events-auto rounded-xl px-1 py-2 text-[16px] font-bold text-white drop-shadow-[0_1px_5px_rgba(0,0,0,0.55)] transition hover:bg-white/10 active:scale-95"
               >
                 3일 동안 안보기
               </button>
               <button
                 type="button"
                 onClick={() => setShowOfficialOpenModal(false)}
-                className="rounded-xl bg-[#3180F7] px-5 py-2.5 text-[13px] font-bold text-white transition active:scale-95"
+                className="pointer-events-auto rounded-full border border-white/20 bg-black/25 px-5 py-2.5 text-[14px] font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.22)] backdrop-blur-md transition hover:bg-black/35 active:scale-95"
               >
                 닫기
               </button>
