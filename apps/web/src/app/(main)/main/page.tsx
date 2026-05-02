@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useLayoutEffect, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type MouseEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -310,6 +310,30 @@ function RoundedRectBorderTrain({ color = '#2B313D' }: { color?: string }) {
         opacity="0"
       />
     </svg>
+  );
+}
+
+function MobileQuoteGradientFrame() {
+  const borderStyle = {
+    padding: '1.2px',
+    background: 'linear-gradient(135deg, rgba(49,128,247,0.52), rgba(104,222,255,0.22) 34%, rgba(255,255,255,0.86) 51%, rgba(49,128,247,0.48) 74%, rgba(123,97,255,0.26))',
+    WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+    WebkitMaskComposite: 'xor',
+    maskComposite: 'exclude',
+  } as CSSProperties;
+
+  return (
+    <>
+      <div
+        className="pointer-events-none absolute inset-0 z-20 rounded-2xl opacity-90 transition-opacity duration-300 group-active:opacity-100"
+        style={borderStyle}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 z-[1] rounded-2xl opacity-70 transition-opacity duration-300 group-active:opacity-100"
+        style={{ background: 'radial-gradient(circle at 50% 100%, rgba(49,128,247,0.16), transparent 58%)' }}
+      />
+      <div className="pointer-events-none absolute -inset-10 z-10 -translate-x-[82%] rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] opacity-0 transition-all duration-500 group-active:translate-x-[82%] group-active:opacity-100" />
+    </>
   );
 }
 
@@ -1840,13 +1864,14 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-3 lg:gap-4">
             <Link
               href="/quote"
-              className="block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square transition-transform duration-200 hover:scale-[1.02] active:scale-[0.95] active:brightness-90"
+              className="group block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 hover:scale-[1.02] active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
               <img src="/images/category-icons/wedding-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-[#EEF5FF]" />
               <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/35 to-transparent" />
-              <span className="absolute top-2.5 right-2.5 lg:top-4 lg:right-4 px-2.5 py-1 rounded-full text-[10px] lg:text-[11px] font-bold text-white" style={{ backgroundColor: '#2B313D' }}>빠른무료견적</span>
-              <div className="absolute bottom-3 left-3 right-3 lg:bottom-5 lg:left-5 lg:right-5 flex items-end justify-between">
+              <MobileQuoteGradientFrame />
+              <span className="absolute top-2.5 right-2.5 z-30 lg:top-4 lg:right-4 px-2.5 py-1 rounded-full text-[10px] lg:text-[11px] font-bold text-white" style={{ backgroundColor: '#2B313D' }}>빠른무료견적</span>
+              <div className="absolute bottom-3 left-3 right-3 z-30 lg:bottom-5 lg:left-5 lg:right-5 flex items-end justify-between">
                 <div>
                   <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">전문결혼식</span>
                   <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
@@ -1856,13 +1881,13 @@ export default function HomePage() {
             </Link>
             <Link
               href="/quote?mode=event"
-              className="relative aspect-square rounded-2xl lg:rounded-[22px] overflow-hidden px-3 lg:px-5 flex items-end opacity-0 active:scale-[0.97] transition-transform"
+              className="group relative aspect-square rounded-2xl lg:rounded-[22px] overflow-hidden px-3 lg:px-5 flex items-end opacity-0 shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
-              <RoundedRectBorderTrain color="#2B313D" />
               <img src="/images/category-icons/event-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-white" />
               <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/30 to-transparent" />
-              <div className="leading-none relative z-10 pb-3">
+              <MobileQuoteGradientFrame />
+              <div className="leading-none relative z-30 pb-3">
                 <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문행사</span>
                 <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>사회자 찾기</span>
               </div>
