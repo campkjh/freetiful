@@ -8,9 +8,10 @@ import {
   BusinessInquiryController,
 } from './business-inquiry.controller';
 import { BusinessInquiryService } from './business-inquiry.service';
+import { BizTalkModule } from '../biztalk/biztalk.module';
 
 @Module({
-  imports: [PrismaModule, JwtModule.register({}), ConfigModule],
+  imports: [PrismaModule, JwtModule.register({}), ConfigModule, BizTalkModule],
   controllers: [BusinessInquiryController, AdminBusinessInquiryController],
   providers: [BusinessInquiryService, AdminGuard],
 })

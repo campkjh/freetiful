@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nest
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
+import { BizTalkService } from '../biztalk/biztalk.service';
 import { NotificationType } from '@prisma/client';
 import axios from 'axios';
 
@@ -21,6 +22,7 @@ export class NotificationService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly pushService: PushService,
+    private readonly bizTalkService: BizTalkService,
   ) {}
 
   private getOneSignalConfig() {
@@ -230,6 +232,7 @@ export class NotificationService {
     });
 
     void this.dispatchPush(userId, type, title, body, pushData, notification.id);
+    void this.dispatchBizTalk(userId, type, title, body, pushData, notification.id);
     return notification;
   }
 
@@ -263,6 +266,25 @@ export class NotificationService {
       }
     } catch (e) {
       this.logger.warn(`[dispatchPush] failed notification=${notificationId} ${String(e).slice(0, 200)}`);
+    }
+  }
+
+  private async dispatchBizTalk(
+    userId: string,
+    type: NotificationType,
+    title: string,
+    body: string,
+    data: Record<string, any>,
+    notificationId: string,
+  ) {
+    try {
+      if (!(await this.isPushAllowed(userId, type))) return;
+      const result = await this.bizTalkService.sendForNotification({ userId, type, title, body, data });
+      if (result.sent) {
+        this.logger.log(`[BizTalk] notification=${notificationId} delivered`);
+      }
+    } catch (e) {
+      this.logger.warn(`[dispatchBizTalk] failed notification=${notificationId} ${String(e).slice(0, 200)}`);
     }
   }
 }

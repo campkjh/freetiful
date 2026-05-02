@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BizTalkService } from '../biztalk/biztalk.service';
 
 const VALID_STATUSES = ['new', 'contacted', 'done', 'archived'];
 
@@ -10,7 +11,10 @@ function cleanString(value: unknown, maxLength?: number) {
 
 @Injectable()
 export class BusinessInquiryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private bizTalkService: BizTalkService,
+  ) {}
 
   async create(data: any) {
     const name = cleanString(data.name, 80);
@@ -20,7 +24,7 @@ export class BusinessInquiryService {
       throw new BadRequestException('담당자명, 연락처, 문의 내용은 필수입니다.');
     }
 
-    return this.prisma.businessInquiry.create({
+    const inquiry = await this.prisma.businessInquiry.create({
       data: {
         company: cleanString(data.company, 120) || null,
         name,
@@ -35,6 +39,9 @@ export class BusinessInquiryService {
         metadata: data.metadata && typeof data.metadata === 'object' ? data.metadata : undefined,
       },
     });
+
+    this.bizTalkService.sendBusinessInquiryToAdmins(inquiry).catch(() => {});
+    return inquiry;
   }
 
   async list(params: {
