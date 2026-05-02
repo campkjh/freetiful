@@ -73,8 +73,11 @@ protocol LiquidGlassNavigationBarDelegate: AnyObject {
 
 private final class FreetifulNativeTabBar: UITabBar {
     private let preferredBarHeight: CGFloat = 66
+    private let selectionIndicatorInset: CGFloat = 3
     private let glassSurfaceView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
     private let glassTintView = UIView()
+    private let fullHeightSelectionView = UIView()
+    private var shouldAnimateNextSelectionLayout = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -127,6 +130,16 @@ private final class FreetifulNativeTabBar: UITabBar {
                 subview.isHidden = true
             }
         }
+
+        updateFullHeightSelection(toMatch: tabButtons, animated: shouldAnimateNextSelectionLayout)
+        shouldAnimateNextSelectionLayout = false
+        stretchSelectionIndicator(toMatch: tabButtons)
+    }
+
+    func relayoutSelection(animated: Bool) {
+        shouldAnimateNextSelectionLayout = animated
+        setNeedsLayout()
+        layoutIfNeeded()
     }
 
     private func hideSystemTabButtonChrome(in button: UIView) {
@@ -137,9 +150,111 @@ private final class FreetifulNativeTabBar: UITabBar {
         button.layer.borderWidth = 0
         button.layer.shadowOpacity = 0
         button.subviews.forEach { view in
+            if isSelectionIndicatorView(view) {
+                view.isHidden = false
+                view.alpha = 1
+                return
+            }
             view.isHidden = true
             view.alpha = 0
         }
+    }
+
+    private func stretchSelectionIndicator(toMatch tabButtons: [UIView]) {
+        guard
+            let selectedItem,
+            let selectedIndex = items?.firstIndex(where: { $0 === selectedItem }),
+            selectedIndex >= 0,
+            selectedIndex < tabButtons.count
+        else { return }
+
+        let targetFrame = tabButtons[selectedIndex].frame.insetBy(
+            dx: selectionIndicatorInset,
+            dy: selectionIndicatorInset
+        )
+
+        for indicatorView in selectionIndicatorViews(in: self) {
+            guard indicatorView !== glassSurfaceView else { continue }
+            guard let parent = indicatorView.superview else { continue }
+            let convertedFrame = convert(targetFrame, to: parent)
+            indicatorView.frame = convertedFrame
+            indicatorView.layer.cornerRadius = convertedFrame.height / 2
+            indicatorView.layer.cornerCurve = .continuous
+            indicatorView.clipsToBounds = true
+            indicatorView.isHidden = false
+            indicatorView.alpha = 1
+        }
+    }
+
+    private func selectionIndicatorViews(in root: UIView) -> [UIView] {
+        root.subviews.flatMap { subview -> [UIView] in
+            let nested = selectionIndicatorViews(in: subview)
+            return isSelectionIndicatorView(subview) ? [subview] + nested : nested
+        }
+    }
+
+    private func isSelectionIndicatorView(_ view: UIView) -> Bool {
+        let typeName = String(describing: type(of: view))
+        if typeName.localizedCaseInsensitiveContains("selection") {
+            return true
+        }
+        guard
+            let imageView = view as? UIImageView,
+            let image = imageView.image,
+            let indicatorImage = selectionIndicatorImage
+        else {
+            return false
+        }
+
+        if image === indicatorImage {
+            return true
+        }
+
+        let sizeMatchesIndicator = abs(image.size.width - indicatorImage.size.width) < 1 &&
+            abs(image.size.height - indicatorImage.size.height) < 1
+        let sitsInsideTabButton = sequence(first: imageView.superview, next: { $0?.superview })
+            .contains { parent in
+                String(describing: type(of: parent)).contains("UITabBarButton")
+            }
+
+        return sizeMatchesIndicator && sitsInsideTabButton
+    }
+
+    private func updateFullHeightSelection(toMatch tabButtons: [UIView], animated: Bool) {
+        guard
+            let selectedItem,
+            let selectedIndex = items?.firstIndex(where: { $0 === selectedItem }),
+            selectedIndex >= 0,
+            selectedIndex < tabButtons.count
+        else {
+            fullHeightSelectionView.alpha = 0
+            return
+        }
+
+        let targetFrame = tabButtons[selectedIndex].frame.insetBy(
+            dx: selectionIndicatorInset,
+            dy: selectionIndicatorInset
+        )
+
+        let changes = {
+            self.fullHeightSelectionView.alpha = 1
+            self.fullHeightSelectionView.frame = targetFrame
+            self.fullHeightSelectionView.layer.cornerRadius = targetFrame.height / 2
+        }
+
+        guard animated, fullHeightSelectionView.alpha > 0 else {
+            changes()
+            return
+        }
+
+        UIView.animate(
+            withDuration: 0.32,
+            delay: 0,
+            usingSpringWithDamping: 0.82,
+            initialSpringVelocity: 0.25,
+            options: [.allowUserInteraction, .beginFromCurrentState],
+            animations: changes
+        )
     }
 
     private func setupGlassSurface() {
@@ -160,6 +275,13 @@ private final class FreetifulNativeTabBar: UITabBar {
         glassTintView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
         glassSurfaceView.contentView.addSubview(glassTintView)
         insertSubview(glassSurfaceView, at: 0)
+
+        fullHeightSelectionView.isUserInteractionEnabled = false
+        fullHeightSelectionView.backgroundColor = UIColor(white: 0.88, alpha: 0.68)
+        fullHeightSelectionView.clipsToBounds = true
+        fullHeightSelectionView.layer.cornerCurve = .continuous
+        fullHeightSelectionView.alpha = 0
+        insertSubview(fullHeightSelectionView, aboveSubview: glassSurfaceView)
     }
 }
 
@@ -555,6 +677,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         guard tabBar.selectedItem !== nextItem else { return }
 
         tabBar.selectedItem = nextItem
+        tabBar.relayoutSelection(animated: animated)
     }
 
     private func updateSelectionIndicatorImage() {
