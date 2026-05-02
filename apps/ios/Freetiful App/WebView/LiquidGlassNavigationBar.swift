@@ -360,10 +360,10 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabBar.addSubview(tabOverlayStack)
 
         NSLayoutConstraint.activate([
-            tabOverlayStack.topAnchor.constraint(equalTo: tabBar.topAnchor, constant: 6),
-            tabOverlayStack.leadingAnchor.constraint(equalTo: tabBar.leadingAnchor, constant: 8),
-            tabOverlayStack.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor, constant: -8),
-            tabOverlayStack.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor, constant: -6)
+            tabOverlayStack.topAnchor.constraint(equalTo: tabBar.topAnchor),
+            tabOverlayStack.leadingAnchor.constraint(equalTo: tabBar.leadingAnchor),
+            tabOverlayStack.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor),
+            tabOverlayStack.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor)
         ])
     }
 
