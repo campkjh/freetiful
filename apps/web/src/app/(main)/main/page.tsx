@@ -1844,14 +1844,13 @@ export default function HomePage() {
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
               <img src="/images/category-icons/wedding-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-[#EEF5FF]" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0A1B3F]/70 via-[#0A1B3F]/8 to-transparent" />
               <span className="absolute top-2.5 right-2.5 lg:top-4 lg:right-4 px-2.5 py-1 rounded-full text-[10px] lg:text-[11px] font-bold text-white" style={{ backgroundColor: '#2B313D' }}>빠른무료견적</span>
               <div className="absolute bottom-3 left-3 right-3 lg:bottom-5 lg:left-5 lg:right-5 flex items-end justify-between">
                 <div>
-                  <span className="text-[16px] lg:text-[22px] font-bold text-white block leading-tight">전문결혼식</span>
-                  <span className="text-[16px] lg:text-[22px] font-bold text-white block leading-tight">사회자 찾기</span>
+                  <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">전문결혼식</span>
+                  <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
                 </div>
-                <ChevronRight size={20} className="text-white/80 shrink-0 lg:w-7 lg:h-7" />
+                <ChevronRight size={20} className="text-[#2B313D]/80 shrink-0 lg:w-7 lg:h-7" />
               </div>
             </Link>
             <Link
@@ -2117,14 +2116,13 @@ export default function HomePage() {
                   x5-playsinline="true"
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
                 <span className="absolute right-3 top-3 rounded-full bg-[#2B313D] px-3 py-1 text-[11px] font-bold text-white">빠른무료견적</span>
                 <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
                   <div>
-                    <span className="block text-[18px] font-bold leading-tight text-white">전문결혼식</span>
-                    <span className="block text-[18px] font-bold leading-tight text-white">사회자 찾기</span>
+                    <span className="block text-[18px] font-bold leading-tight text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]">전문결혼식</span>
+                    <span className="block text-[18px] font-bold leading-tight text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]">사회자 찾기</span>
                   </div>
-                  <ChevronRight size={22} className="shrink-0 text-white/80" />
+                  <ChevronRight size={22} className="shrink-0 text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]" />
                 </div>
               </Link>
 
