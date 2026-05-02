@@ -248,6 +248,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private lazy var inactiveColor = freetifulBlue.withAlphaComponent(0.58)
 
     private let tabBar = FreetifulNativeTabBar()
+    private let selectionCapsuleView = UIView()
     private let tabOverlayStack = UIStackView()
     private let toggleContainerView = UIView()
     private let toggleSurfaceView = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
@@ -270,6 +271,11 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupView()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layoutSelectionCapsule(animated: false)
     }
 
     private func setupView() {
@@ -338,6 +344,12 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         if #available(iOS 15.0, *) {
             tabBar.scrollEdgeAppearance = appearance
         }
+
+        selectionCapsuleView.isUserInteractionEnabled = false
+        selectionCapsuleView.backgroundColor = UIColor(white: 0.88, alpha: 0.68)
+        selectionCapsuleView.layer.cornerCurve = .continuous
+        selectionCapsuleView.isHidden = true
+        tabBar.addSubview(selectionCapsuleView)
 
         tabOverlayStack.translatesAutoresizingMaskIntoConstraints = false
         tabOverlayStack.axis = .horizontal
@@ -485,12 +497,54 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         toggleButton.accessibilityLabel = isProMode ? "일반회원으로 전환" : "프로회원으로 전환"
     }
 
-    private func updateSelection(animated _: Bool) {
+    private func updateSelection(animated: Bool) {
         let selectedIndex = items.firstIndex(where: isSelected)
         tabBar.selectedItem = nil
         tabButtons.enumerated().forEach { index, button in
             button.isSelected = index == selectedIndex
         }
+        layoutSelectionCapsule(animated: animated)
+    }
+
+    private func layoutSelectionCapsule(animated: Bool) {
+        guard
+            let selectedIndex = items.firstIndex(where: isSelected),
+            !items.isEmpty,
+            tabBar.bounds.width > 0,
+            tabBar.bounds.height > 0
+        else {
+            selectionCapsuleView.isHidden = true
+            return
+        }
+
+        let itemWidth = tabBar.bounds.width / CGFloat(items.count)
+        let targetFrame = CGRect(
+            x: CGFloat(selectedIndex) * itemWidth,
+            y: 0,
+            width: itemWidth,
+            height: tabBar.bounds.height
+        )
+
+        selectionCapsuleView.isHidden = false
+        selectionCapsuleView.layer.cornerRadius = targetFrame.height / 2
+        tabBar.bringSubviewToFront(selectionCapsuleView)
+        tabBar.bringSubviewToFront(tabOverlayStack)
+
+        guard animated, selectionCapsuleView.frame != .zero else {
+            selectionCapsuleView.frame = targetFrame
+            return
+        }
+
+        UIView.animate(
+            withDuration: 0.34,
+            delay: 0,
+            usingSpringWithDamping: 0.86,
+            initialSpringVelocity: 0.2,
+            options: [.allowUserInteraction, .beginFromCurrentState],
+            animations: {
+                self.selectionCapsuleView.frame = targetFrame
+            }
+        )
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
