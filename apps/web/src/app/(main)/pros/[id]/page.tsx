@@ -1975,7 +1975,7 @@ export default function ProDetailPage() {
                     {plan.price > 0 ? (
                       <>
                         <span className="text-[24px] font-bold text-gray-950">{plan.price.toLocaleString()}원</span>
-                        <span className="pb-1 text-[12px] text-gray-500">(VAT 포함가)</span>
+                        <span className="pb-1 text-[12px] text-gray-500">(VAT 별도)</span>
                       </>
                     ) : (
                       <span className="text-[22px] font-bold text-gray-500">가격 문의</span>
@@ -2043,7 +2043,7 @@ export default function ProDetailPage() {
             </p>
             <p className="text-[12px] leading-tight mt-0.5">
               <span className="font-bold text-gray-900">{((pro.plans[activePlan] || pro.plans[0])?.price || 0).toLocaleString()}원</span>
-              <span className="text-gray-400 ml-1">(VAT 포함)</span>
+              <span className="text-gray-400 ml-1">(VAT 별도)</span>
             </p>
           </div>
         </div>
@@ -2267,14 +2267,14 @@ export default function ProDetailPage() {
                 <span className="text-[28px] font-bold text-gray-900 tabular-nums">
                   {plan.price.toLocaleString()}원
                 </span>
-                <span className="text-[14px] text-gray-400">(VAT 포함)</span>
+                <span className="text-[14px] text-gray-400">(VAT 별도)</span>
               </>
             ) : (
               <span className="text-[22px] font-bold text-gray-400">가격 문의</span>
             )}
           </div>
           {plan.price > 0 && (
-            <p className="text-[12px] text-gray-400 mt-1">결제 시 수수료 10%(VAT포함)가 추가돼요.</p>
+            <p className="text-[12px] text-gray-400 mt-1">결제 시 VAT가 별도로 추가돼요.</p>
           )}
 
           {/* Service title */}
@@ -2939,7 +2939,7 @@ export default function ProDetailPage() {
                 <span className="text-[22px] font-bold text-[#3180F7]">{plan.price.toLocaleString()}원</span>
               </div>
             </div>
-            <p className="text-[12px] text-gray-400 mb-5 text-center">결제 시 수수료 10%(VAT포함)가 추가돼요</p>
+            <p className="text-[12px] text-gray-400 mb-5 text-center">결제 시 VAT가 별도로 추가돼요</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setPurchaseModal(false)}
