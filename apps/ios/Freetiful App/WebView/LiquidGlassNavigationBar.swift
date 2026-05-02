@@ -520,12 +520,14 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         }
 
         let itemWidth = tabBar.bounds.width / CGFloat(items.count)
-        let targetFrame = CGRect(
+        let capsuleInset: CGFloat = 3
+        let itemFrame = CGRect(
             x: CGFloat(selectedIndex) * itemWidth,
             y: 0,
             width: itemWidth,
             height: tabBar.bounds.height
         )
+        let targetFrame = itemFrame.insetBy(dx: capsuleInset, dy: capsuleInset)
 
         selectionCapsuleView.isHidden = false
         selectionCapsuleView.layer.cornerRadius = targetFrame.height / 2
