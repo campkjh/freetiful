@@ -391,6 +391,29 @@ function MobileFastQuoteBadge() {
             pointer-events: none;
           }
 
+          @keyframes mobileWeddingQuoteCardBounce {
+            0%, 72%, 100% {
+              translate: 0 0;
+              scale: 1;
+              box-shadow: 0 8px 22px rgba(49,128,247,0.08);
+            }
+            78% {
+              translate: 0 -2px;
+              scale: 1.012;
+              box-shadow: 0 14px 30px rgba(49,128,247,0.17);
+            }
+            84% {
+              translate: 0 0;
+              scale: 1;
+              box-shadow: 0 8px 22px rgba(49,128,247,0.08);
+            }
+            90% {
+              translate: 0 -1px;
+              scale: 1.006;
+              box-shadow: 0 11px 26px rgba(49,128,247,0.13);
+            }
+          }
+
           @keyframes mobileFastQuoteGlow {
             0%, 100% {
               color: #0b58ff;
@@ -421,10 +444,17 @@ function MobileFastQuoteBadge() {
         }
 
         @media (prefers-reduced-motion: reduce) {
+          .mobile-wedding-quote-card,
           .mobile-fast-quote-badge,
           .mobile-fast-quote-badge__inner,
           .mobile-fast-quote-badge__inner::after {
             animation: none !important;
+          }
+
+          .mobile-wedding-quote-card {
+            opacity: 1 !important;
+            translate: 0 0 !important;
+            scale: 1 !important;
           }
         }
       `}</style>
@@ -1959,8 +1989,10 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-3 lg:gap-4">
             <Link
               href="/quote"
-              className="group block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 hover:scale-[1.02] active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
-              style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
+              className="mobile-wedding-quote-card group block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 hover:scale-[1.02] active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
+              style={skipHomeAnim
+                ? { opacity: 1, animation: 'mobileWeddingQuoteCardBounce 2.6s cubic-bezier(0.22, 1, 0.36, 1) 0.45s infinite' }
+                : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards, mobileWeddingQuoteCardBounce 2.6s cubic-bezier(0.22, 1, 0.36, 1) 1.25s infinite' }}
             >
               <img src="/images/category-icons/wedding-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-[#EEF5FF]" />
               <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/35 to-transparent" />
