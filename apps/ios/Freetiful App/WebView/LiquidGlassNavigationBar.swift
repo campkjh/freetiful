@@ -116,6 +116,7 @@ private final class FreetifulNativeTabBar: UITabBar {
                     width: itemWidth,
                     height: bounds.height
                 )
+                hideSystemTabButtonChrome(in: button)
             }
         }
 
@@ -125,6 +126,19 @@ private final class FreetifulNativeTabBar: UITabBar {
                 subview.frame = bounds
                 subview.isHidden = true
             }
+        }
+    }
+
+    private func hideSystemTabButtonChrome(in button: UIView) {
+        button.backgroundColor = .clear
+        button.isOpaque = false
+        button.tintColor = .clear
+        button.layer.backgroundColor = UIColor.clear.cgColor
+        button.layer.borderWidth = 0
+        button.layer.shadowOpacity = 0
+        button.subviews.forEach { view in
+            view.isHidden = true
+            view.alpha = 0
         }
     }
 
@@ -303,9 +317,10 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabBar.itemPositioning = .fill
         tabBar.itemSpacing = 0
         tabBar.barTintColor = .clear
-        tabBar.backgroundColor = UIColor.white.withAlphaComponent(0.03)
+        tabBar.backgroundColor = .clear
         tabBar.backgroundImage = UIImage()
         tabBar.shadowImage = UIImage()
+        tabBar.selectionIndicatorImage = transparentTabIcon()
         tabBar.clipsToBounds = true
         tabBar.layer.cornerRadius = 33
         tabBar.layer.cornerCurve = .continuous
@@ -313,8 +328,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         let appearance = UITabBarAppearance()
         appearance.configureWithTransparentBackground()
         appearance.backgroundEffect = nil
-        appearance.backgroundColor = UIColor.white.withAlphaComponent(0.03)
-        appearance.selectionIndicatorTintColor = UIColor.white.withAlphaComponent(0.03)
+        appearance.backgroundColor = .clear
+        appearance.selectionIndicatorTintColor = .clear
         appearance.shadowColor = .clear
         configureTabItemAppearance(appearance.stackedLayoutAppearance)
         configureTabItemAppearance(appearance.inlineLayoutAppearance)
@@ -472,16 +487,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     private func updateSelection(animated _: Bool) {
         let selectedIndex = items.firstIndex(where: isSelected)
-        if
-            let selectedIndex,
-            let tabItems = tabBar.items,
-            selectedIndex >= 0,
-            selectedIndex < tabItems.count
-        {
-            tabBar.selectedItem = tabItems[selectedIndex]
-        } else {
-            tabBar.selectedItem = nil
-        }
+        tabBar.selectedItem = nil
         tabButtons.enumerated().forEach { index, button in
             button.isSelected = index == selectedIndex
         }
@@ -499,7 +505,11 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
         guard item.tag >= 0, item.tag < items.count else { return }
+        tabBar.selectedItem = nil
         selectItem(at: item.tag)
+        DispatchQueue.main.async {
+            tabBar.selectedItem = nil
+        }
     }
 
     private func selectItem(at index: Int) {
