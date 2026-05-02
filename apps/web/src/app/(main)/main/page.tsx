@@ -340,7 +340,7 @@ function MobileQuoteGradientFrame() {
 function MobileFastQuoteBadge() {
   return (
     <span className="mobile-fast-quote-badge absolute top-2.5 right-2.5 z-30 rounded-full p-[1.2px] transition-transform duration-200 group-active:scale-[0.97]">
-      <span className="mobile-fast-quote-badge__inner relative z-10 block rounded-full px-2.5 py-1 text-[10px] font-bold leading-none text-[#0B58FF]">
+      <span className="mobile-fast-quote-badge__inner relative z-10 block rounded-full px-2.5 py-[5px] text-[10px] font-bold leading-none text-[#0B58FF]">
         빠른무료견적
       </span>
       <style jsx global>{`
@@ -377,21 +377,6 @@ function MobileFastQuoteBadge() {
               inset 0 0 0 1px rgba(255,255,255,0.78),
               inset 0 -1px 4px rgba(49,128,247,0.1);
             animation: mobileFastQuoteGlow 2.8s ease-in-out infinite;
-          }
-
-          .mobile-fast-quote-badge__inner::before {
-            content: '';
-            position: absolute;
-            inset: 1px 7px auto auto;
-            width: 4px;
-            height: 4px;
-            border-radius: inherit;
-            background: rgba(104,222,255,0.95);
-            box-shadow:
-              0 0 8px rgba(104,222,255,0.9),
-              0 0 14px rgba(49,128,247,0.36);
-            animation: mobileFastQuoteSpark 2.2s ease-in-out infinite;
-            pointer-events: none;
           }
 
           .mobile-fast-quote-badge__inner::after {
@@ -433,23 +418,11 @@ function MobileFastQuoteBadge() {
               transform: translateX(92%) skewX(-14deg);
             }
           }
-
-          @keyframes mobileFastQuoteSpark {
-            0%, 100% {
-              opacity: 0.35;
-              transform: scale(0.7);
-            }
-            48% {
-              opacity: 1;
-              transform: scale(1.35);
-            }
-          }
         }
 
         @media (prefers-reduced-motion: reduce) {
           .mobile-fast-quote-badge,
           .mobile-fast-quote-badge__inner,
-          .mobile-fast-quote-badge__inner::before,
           .mobile-fast-quote-badge__inner::after {
             animation: none !important;
           }
