@@ -200,6 +200,31 @@ private final class FreetifulTabOverlayButton: UIControl {
         CGSize(width: UIView.noIntrinsicMetric, height: preferredHeight)
     }
 
+    func setSelectedState(_ selected: Bool, animated: Bool) {
+        guard isSelected != selected else { return }
+        isSelected = selected
+
+        guard animated, selected else {
+            iconView.transform = .identity
+            label.transform = .identity
+            return
+        }
+
+        iconView.transform = CGAffineTransform(scaleX: 0.84, y: 0.84)
+        label.transform = CGAffineTransform(translationX: 0, y: 2)
+        UIView.animate(
+            withDuration: 0.34,
+            delay: 0,
+            usingSpringWithDamping: 0.68,
+            initialSpringVelocity: 0.35,
+            options: [.allowUserInteraction, .beginFromCurrentState],
+            animations: {
+                self.iconView.transform = .identity
+                self.label.transform = .identity
+            }
+        )
+    }
+
     private func setup(title: String, icon: UIImage?) {
         backgroundColor = .clear
         isAccessibilityElement = true
@@ -266,6 +291,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private var items: [LiquidNavItem] = []
     private var tabButtons: [FreetifulTabOverlayButton] = []
     private var iconCache: [String: UIImage] = [:]
+    private var selectionAnimator: UIViewPropertyAnimator?
     private var selectedPath = "/main"
     private var isProMode = false
     private var showsModeToggle = false
@@ -424,6 +450,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
                    selectedPath: String,
                    showsModeToggle: Bool,
                    isProMode: Bool) {
+        let previousSelectedIndex = self.items.firstIndex(where: isSelected)
+        let previousSelectedPath = self.selectedPath
         let changedItems = self.items != items
         self.items = items
         self.selectedPath = selectedPath
@@ -434,7 +462,17 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             rebuildTabBarItems()
         }
         updateModeToggle()
-        updateSelection(animated: false)
+
+        let nextSelectedIndex = self.items.firstIndex(where: isSelected)
+        let shouldUpdateSelection = changedItems ||
+            previousSelectedIndex != nextSelectedIndex ||
+            previousSelectedPath != selectedPath
+        guard shouldUpdateSelection else { return }
+
+        let shouldAnimateSelection = !changedItems &&
+            previousSelectedIndex != nil &&
+            previousSelectedIndex != nextSelectedIndex
+        updateSelection(animated: shouldAnimateSelection)
     }
 
     func updateSelectedPath(_ path: String, animated: Bool = true) {
@@ -503,7 +541,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         let selectedIndex = items.firstIndex(where: isSelected)
         tabBar.selectedItem = nil
         tabButtons.enumerated().forEach { index, button in
-            button.isSelected = index == selectedIndex
+            button.setSelectedState(index == selectedIndex, animated: animated)
         }
         layoutSelectionCapsule(animated: animated)
     }
@@ -534,21 +572,22 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabBar.bringSubviewToFront(selectionCapsuleView)
         tabBar.bringSubviewToFront(tabOverlayStack)
 
+        selectionAnimator?.stopAnimation(true)
+
         guard animated, selectionCapsuleView.frame != .zero else {
             selectionCapsuleView.frame = targetFrame
             return
         }
 
-        UIView.animate(
-            withDuration: 0.34,
-            delay: 0,
-            usingSpringWithDamping: 0.86,
-            initialSpringVelocity: 0.2,
-            options: [.allowUserInteraction, .beginFromCurrentState],
-            animations: {
-                self.selectionCapsuleView.frame = targetFrame
-            }
-        )
+        let animator = UIViewPropertyAnimator(duration: 0.44, dampingRatio: 0.72) {
+            self.selectionCapsuleView.frame = targetFrame
+        }
+        animator.isInterruptible = true
+        animator.addCompletion { [weak self] _ in
+            self?.selectionAnimator = nil
+        }
+        selectionAnimator = animator
+        animator.startAnimation()
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
