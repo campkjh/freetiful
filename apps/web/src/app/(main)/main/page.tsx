@@ -337,6 +337,141 @@ function MobileQuoteGradientFrame() {
   );
 }
 
+function MobileFastQuoteBadge() {
+  return (
+    <span className="mobile-fast-quote-badge absolute top-2.5 right-2.5 z-30 overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-bold leading-none text-[#0B58FF] transition-transform duration-200 group-active:scale-95">
+      <span className="relative z-10">빠른무료견적</span>
+      <span className="mobile-fast-quote-badge__spark mobile-fast-quote-badge__spark--one" />
+      <span className="mobile-fast-quote-badge__spark mobile-fast-quote-badge__spark--two" />
+      <style jsx global>{`
+        @media (max-width: 1023px) {
+          .mobile-fast-quote-badge {
+            isolation: isolate;
+            background:
+              linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.9)),
+              radial-gradient(circle at 18% 0%, rgba(104,222,255,0.42), transparent 42%);
+            box-shadow:
+              0 8px 18px rgba(49, 128, 247, 0.18),
+              inset 0 0 0 1px rgba(49, 128, 247, 0.2);
+            animation: mobileFastQuoteGlow 2.6s ease-in-out infinite;
+          }
+
+          .mobile-fast-quote-badge::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1.3px;
+            background: conic-gradient(
+              from 0deg,
+              rgba(49,128,247,0.14),
+              rgba(104,222,255,0.95),
+              rgba(49,128,247,1),
+              rgba(255,255,255,0.98),
+              rgba(49,128,247,0.14)
+            );
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            animation: mobileFastQuoteBorder 2.5s linear infinite;
+            pointer-events: none;
+            z-index: 1;
+          }
+
+          .mobile-fast-quote-badge::after {
+            content: '';
+            position: absolute;
+            inset: 1px;
+            border-radius: inherit;
+            background: linear-gradient(105deg, transparent 12%, rgba(255,255,255,0.88) 46%, transparent 72%);
+            transform: translateX(-125%) skewX(-16deg);
+            animation: mobileFastQuoteShine 2.7s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+            pointer-events: none;
+            z-index: 2;
+          }
+
+          .mobile-fast-quote-badge__spark {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            border-radius: 9999px;
+            background: #68deff;
+            box-shadow: 0 0 8px rgba(104, 222, 255, 0.9);
+            pointer-events: none;
+            z-index: 3;
+          }
+
+          .mobile-fast-quote-badge__spark--one {
+            top: 3px;
+            right: 8px;
+            animation: mobileFastQuoteSpark 1.9s ease-in-out infinite;
+          }
+
+          .mobile-fast-quote-badge__spark--two {
+            bottom: 4px;
+            left: 8px;
+            animation: mobileFastQuoteSpark 1.9s ease-in-out 0.58s infinite;
+          }
+
+          @keyframes mobileFastQuoteGlow {
+            0%, 100% {
+              color: #0b58ff;
+              box-shadow:
+                0 8px 18px rgba(49, 128, 247, 0.18),
+                inset 0 0 0 1px rgba(49, 128, 247, 0.2);
+            }
+            50% {
+              color: #3180f7;
+              box-shadow:
+                0 10px 24px rgba(49, 128, 247, 0.28),
+                0 0 16px rgba(104, 222, 255, 0.34),
+                inset 0 0 0 1px rgba(49, 128, 247, 0.34);
+            }
+          }
+
+          @keyframes mobileFastQuoteBorder {
+            to { transform: rotate(360deg); }
+          }
+
+          @keyframes mobileFastQuoteShine {
+            0%, 46% {
+              opacity: 0;
+              transform: translateX(-125%) skewX(-16deg);
+            }
+            58% {
+              opacity: 0.95;
+            }
+            78%, 100% {
+              opacity: 0;
+              transform: translateX(125%) skewX(-16deg);
+            }
+          }
+
+          @keyframes mobileFastQuoteSpark {
+            0%, 100% {
+              opacity: 0;
+              transform: scale(0.6);
+            }
+            45%, 60% {
+              opacity: 1;
+              transform: scale(1.45);
+            }
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mobile-fast-quote-badge,
+          .mobile-fast-quote-badge::before,
+          .mobile-fast-quote-badge::after,
+          .mobile-fast-quote-badge__spark {
+            animation: none !important;
+          }
+        }
+      `}</style>
+    </span>
+  );
+}
+
 function Logo({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 275 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1870,7 +2005,7 @@ export default function HomePage() {
               <img src="/images/category-icons/wedding-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-[#EEF5FF]" />
               <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/35 to-transparent" />
               <MobileQuoteGradientFrame />
-              <span className="absolute top-2.5 right-2.5 z-30 lg:top-4 lg:right-4 px-2.5 py-1 rounded-full text-[10px] lg:text-[11px] font-bold text-white" style={{ backgroundColor: '#2B313D' }}>빠른무료견적</span>
+              <MobileFastQuoteBadge />
               <div className="absolute bottom-3 left-3 right-3 z-30 lg:bottom-5 lg:left-5 lg:right-5 flex items-end justify-between">
                 <div>
                   <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">전문결혼식</span>
