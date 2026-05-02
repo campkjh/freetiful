@@ -131,9 +131,8 @@ private final class FreetifulNativeTabBar: UITabBar {
             }
         }
 
-        updateFullHeightSelection(toMatch: tabButtons, animated: shouldAnimateNextSelectionLayout)
+        updateFullHeightSelection(animated: shouldAnimateNextSelectionLayout)
         shouldAnimateNextSelectionLayout = false
-        stretchSelectionIndicator(toMatch: tabButtons)
     }
 
     func relayoutSelection(animated: Bool) {
@@ -150,88 +149,32 @@ private final class FreetifulNativeTabBar: UITabBar {
         button.layer.borderWidth = 0
         button.layer.shadowOpacity = 0
         button.subviews.forEach { view in
-            if isSelectionIndicatorView(view) {
-                view.isHidden = false
-                view.alpha = 1
-                return
-            }
             view.isHidden = true
             view.alpha = 0
         }
     }
 
-    private func stretchSelectionIndicator(toMatch tabButtons: [UIView]) {
+    private func updateFullHeightSelection(animated: Bool) {
         guard
+            let tabItems = items,
             let selectedItem,
-            let selectedIndex = items?.firstIndex(where: { $0 === selectedItem }),
+            let selectedIndex = tabItems.firstIndex(where: { $0 === selectedItem }),
             selectedIndex >= 0,
-            selectedIndex < tabButtons.count
-        else { return }
-
-        let targetFrame = tabButtons[selectedIndex].frame.insetBy(
-            dx: selectionIndicatorInset,
-            dy: selectionIndicatorInset
-        )
-
-        for indicatorView in selectionIndicatorViews(in: self) {
-            guard indicatorView !== glassSurfaceView else { continue }
-            guard let parent = indicatorView.superview else { continue }
-            let convertedFrame = convert(targetFrame, to: parent)
-            indicatorView.frame = convertedFrame
-            indicatorView.layer.cornerRadius = convertedFrame.height / 2
-            indicatorView.layer.cornerCurve = .continuous
-            indicatorView.clipsToBounds = true
-            indicatorView.isHidden = false
-            indicatorView.alpha = 1
-        }
-    }
-
-    private func selectionIndicatorViews(in root: UIView) -> [UIView] {
-        root.subviews.flatMap { subview -> [UIView] in
-            let nested = selectionIndicatorViews(in: subview)
-            return isSelectionIndicatorView(subview) ? [subview] + nested : nested
-        }
-    }
-
-    private func isSelectionIndicatorView(_ view: UIView) -> Bool {
-        let typeName = String(describing: type(of: view))
-        if typeName.localizedCaseInsensitiveContains("selection") {
-            return true
-        }
-        guard
-            let imageView = view as? UIImageView,
-            let image = imageView.image,
-            let indicatorImage = selectionIndicatorImage
-        else {
-            return false
-        }
-
-        if image === indicatorImage {
-            return true
-        }
-
-        let sizeMatchesIndicator = abs(image.size.width - indicatorImage.size.width) < 1 &&
-            abs(image.size.height - indicatorImage.size.height) < 1
-        let sitsInsideTabButton = sequence(first: imageView.superview, next: { $0?.superview })
-            .contains { parent in
-                String(describing: type(of: parent)).contains("UITabBarButton")
-            }
-
-        return sizeMatchesIndicator && sitsInsideTabButton
-    }
-
-    private func updateFullHeightSelection(toMatch tabButtons: [UIView], animated: Bool) {
-        guard
-            let selectedItem,
-            let selectedIndex = items?.firstIndex(where: { $0 === selectedItem }),
-            selectedIndex >= 0,
-            selectedIndex < tabButtons.count
+            selectedIndex < tabItems.count,
+            bounds.width > 0
         else {
             fullHeightSelectionView.alpha = 0
             return
         }
 
-        let targetFrame = tabButtons[selectedIndex].frame.insetBy(
+        let itemWidth = bounds.width / CGFloat(tabItems.count)
+        let visualHeight = preferredBarHeight
+        let targetFrame = CGRect(
+            x: CGFloat(selectedIndex) * itemWidth,
+            y: (bounds.height - visualHeight) / 2,
+            width: itemWidth,
+            height: visualHeight
+        ).insetBy(
             dx: selectionIndicatorInset,
             dy: selectionIndicatorInset
         )
@@ -260,7 +203,7 @@ private final class FreetifulNativeTabBar: UITabBar {
     private func setupGlassSurface() {
         backgroundColor = .clear
         isTranslucent = true
-        clipsToBounds = true
+        clipsToBounds = false
         layer.cornerRadius = preferredBarHeight / 2
         layer.cornerCurve = .continuous
 
@@ -480,7 +423,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabBar.backgroundColor = .clear
         tabBar.backgroundImage = UIImage()
         tabBar.shadowImage = UIImage()
-        tabBar.clipsToBounds = true
+        tabBar.clipsToBounds = false
         tabBar.layer.cornerRadius = 33
         tabBar.layer.cornerCurve = .continuous
 
@@ -674,33 +617,14 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             button.setSelectedState(index == selectedIndex, animated: animated)
         }
 
-        guard tabBar.selectedItem !== nextItem else { return }
-
-        tabBar.selectedItem = nextItem
+        if tabBar.selectedItem !== nextItem {
+            tabBar.selectedItem = nextItem
+        }
         tabBar.relayoutSelection(animated: animated)
     }
 
     private func updateSelectionIndicatorImage() {
-        guard !items.isEmpty, tabBar.bounds.width > 0, tabBar.bounds.height > 0 else {
-            tabBar.selectionIndicatorImage = nil
-            return
-        }
-
-        let itemWidth = tabBar.bounds.width / CGFloat(items.count)
-        let itemHeight = tabBar.bounds.height
-        let capsuleInset: CGFloat = 3
-        let size = CGSize(width: itemWidth, height: itemHeight)
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = UIScreen.main.scale
-        let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            let rect = CGRect(origin: .zero, size: size).insetBy(dx: capsuleInset, dy: capsuleInset)
-            UIColor(white: 0.88, alpha: 0.68).setFill()
-            UIBezierPath(
-                roundedRect: rect,
-                cornerRadius: rect.height / 2
-            ).fill()
-        }
-        tabBar.selectionIndicatorImage = image.withRenderingMode(.alwaysOriginal)
+        tabBar.selectionIndicatorImage = nil
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
