@@ -127,15 +127,15 @@ class ViewController: UIViewController,
         nativeNavBar.transform = CGAffineTransform(translationX: 0, y: 22).scaledBy(x: 0.94, y: 0.94)
         view.addSubview(nativeNavBar)
 
-        let compactWidth = nativeNavBar.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -36)
+        let compactWidth = nativeNavBar.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -24)
         compactWidth.priority = .defaultHigh
 
         NSLayoutConstraint.activate([
             nativeNavBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            nativeNavBar.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 18),
-            nativeNavBar.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -18),
+            nativeNavBar.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
+            nativeNavBar.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
             compactWidth,
-            nativeNavBar.widthAnchor.constraint(lessThanOrEqualToConstant: 430),
+            nativeNavBar.widthAnchor.constraint(lessThanOrEqualToConstant: 480),
             nativeNavBar.heightAnchor.constraint(equalToConstant: 66),
             nativeNavBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
         ])

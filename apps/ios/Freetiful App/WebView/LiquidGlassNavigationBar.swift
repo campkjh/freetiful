@@ -73,6 +73,18 @@ protocol LiquidGlassNavigationBarDelegate: AnyObject {
 
 private final class FreetifulNativeTabBar: UITabBar {
     private let preferredBarHeight: CGFloat = 66
+    private let glassSurfaceView = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
+    private let glassTintView = UIView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupGlassSurface()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupGlassSurface()
+    }
 
     override func sizeThatFits(_ size: CGSize) -> CGSize {
         var fittedSize = super.sizeThatFits(size)
@@ -82,6 +94,58 @@ private final class FreetifulNativeTabBar: UITabBar {
 
     override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.noIntrinsicMetric, height: preferredBarHeight)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        glassSurfaceView.frame = bounds
+        glassTintView.frame = glassSurfaceView.bounds
+        sendSubviewToBack(glassSurfaceView)
+
+        let tabButtons = subviews
+            .filter { String(describing: type(of: $0)).contains("UITabBarButton") }
+            .sorted { $0.frame.minX < $1.frame.minX }
+
+        if !tabButtons.isEmpty {
+            let itemWidth = bounds.width / CGFloat(tabButtons.count)
+            tabButtons.enumerated().forEach { index, button in
+                button.frame = CGRect(
+                    x: CGFloat(index) * itemWidth,
+                    y: 0,
+                    width: itemWidth,
+                    height: bounds.height
+                )
+            }
+        }
+
+        subviews.forEach { subview in
+            let typeName = String(describing: type(of: subview))
+            if typeName.contains("UIBarBackground") {
+                subview.frame = bounds
+                subview.isHidden = true
+            }
+        }
+    }
+
+    private func setupGlassSurface() {
+        backgroundColor = .clear
+        isTranslucent = true
+        clipsToBounds = true
+        layer.cornerRadius = preferredBarHeight / 2
+        layer.cornerCurve = .continuous
+
+        glassSurfaceView.isUserInteractionEnabled = false
+        glassSurfaceView.clipsToBounds = true
+        glassSurfaceView.layer.cornerRadius = preferredBarHeight / 2
+        glassSurfaceView.layer.cornerCurve = .continuous
+        glassSurfaceView.layer.borderWidth = 0.5
+        glassSurfaceView.layer.borderColor = UIColor.white.withAlphaComponent(0.24).cgColor
+
+        glassTintView.isUserInteractionEnabled = false
+        glassTintView.backgroundColor = UIColor.white.withAlphaComponent(0.10)
+        glassSurfaceView.contentView.addSubview(glassTintView)
+        insertSubview(glassSurfaceView, at: 0)
     }
 }
 
@@ -171,6 +235,9 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     private let tabBar = FreetifulNativeTabBar()
     private let tabOverlayStack = UIStackView()
+    private let toggleContainerView = UIView()
+    private let toggleSurfaceView = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    private let toggleTintView = UIView()
     private let toggleButton = UIButton(type: .system)
     private let contentStack = UIStackView()
 
@@ -209,7 +276,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         contentStack.alignment = .fill
         contentStack.distribution = .fill
         contentStack.spacing = 10
-        contentStack.addArrangedSubview(toggleButton)
+        contentStack.addArrangedSubview(toggleContainerView)
         contentStack.addArrangedSubview(tabBar)
         addSubview(contentStack)
 
@@ -219,8 +286,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor),
             contentStack.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            toggleButton.widthAnchor.constraint(equalToConstant: 66),
-            toggleButton.heightAnchor.constraint(equalToConstant: 66),
+            toggleContainerView.widthAnchor.constraint(equalToConstant: 66),
+            toggleContainerView.heightAnchor.constraint(equalToConstant: 66),
 
             tabBar.heightAnchor.constraint(equalTo: heightAnchor)
         ])
@@ -274,13 +341,49 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     }
 
     private func setupToggleButton() {
+        toggleContainerView.translatesAutoresizingMaskIntoConstraints = false
+        toggleContainerView.layer.cornerRadius = 33
+        toggleContainerView.layer.cornerCurve = .continuous
+        toggleContainerView.clipsToBounds = true
+        toggleContainerView.isHidden = true
+
+        toggleSurfaceView.translatesAutoresizingMaskIntoConstraints = false
+        toggleSurfaceView.isUserInteractionEnabled = false
+        toggleSurfaceView.clipsToBounds = true
+        toggleSurfaceView.layer.cornerRadius = 33
+        toggleSurfaceView.layer.cornerCurve = .continuous
+        toggleSurfaceView.layer.borderWidth = 0.5
+        toggleSurfaceView.layer.borderColor = UIColor.white.withAlphaComponent(0.24).cgColor
+
+        toggleTintView.translatesAutoresizingMaskIntoConstraints = false
+        toggleTintView.isUserInteractionEnabled = false
+        toggleTintView.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+        toggleSurfaceView.contentView.addSubview(toggleTintView)
+        toggleContainerView.addSubview(toggleSurfaceView)
+
         toggleButton.translatesAutoresizingMaskIntoConstraints = false
         toggleButton.tintColor = .black
-        toggleButton.layer.cornerRadius = 33
-        toggleButton.layer.cornerCurve = .continuous
-        toggleButton.clipsToBounds = true
-        toggleButton.isHidden = true
+        toggleButton.backgroundColor = .clear
+        toggleButton.clipsToBounds = false
         toggleButton.addTarget(self, action: #selector(didTapToggle), for: .touchUpInside)
+        toggleContainerView.addSubview(toggleButton)
+
+        NSLayoutConstraint.activate([
+            toggleSurfaceView.topAnchor.constraint(equalTo: toggleContainerView.topAnchor),
+            toggleSurfaceView.leadingAnchor.constraint(equalTo: toggleContainerView.leadingAnchor),
+            toggleSurfaceView.trailingAnchor.constraint(equalTo: toggleContainerView.trailingAnchor),
+            toggleSurfaceView.bottomAnchor.constraint(equalTo: toggleContainerView.bottomAnchor),
+
+            toggleTintView.topAnchor.constraint(equalTo: toggleSurfaceView.contentView.topAnchor),
+            toggleTintView.leadingAnchor.constraint(equalTo: toggleSurfaceView.contentView.leadingAnchor),
+            toggleTintView.trailingAnchor.constraint(equalTo: toggleSurfaceView.contentView.trailingAnchor),
+            toggleTintView.bottomAnchor.constraint(equalTo: toggleSurfaceView.contentView.bottomAnchor),
+
+            toggleButton.topAnchor.constraint(equalTo: toggleContainerView.topAnchor),
+            toggleButton.leadingAnchor.constraint(equalTo: toggleContainerView.leadingAnchor),
+            toggleButton.trailingAnchor.constraint(equalTo: toggleContainerView.trailingAnchor),
+            toggleButton.bottomAnchor.constraint(equalTo: toggleContainerView.bottomAnchor)
+        ])
     }
 
     func configure(items: [LiquidNavItem],
@@ -353,7 +456,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     }
 
     private func updateModeToggle() {
-        toggleButton.isHidden = !showsModeToggle
+        toggleContainerView.isHidden = !showsModeToggle
         let symbol = isProMode ? "chevron.left" : "chevron.right"
         var configuration = makeGlassConfiguration(selected: false, isToggle: true)
         configuration.image = UIImage(
@@ -418,7 +521,9 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         var tuned = configuration
         tuned.cornerStyle = .capsule
         tuned.automaticallyUpdateForSelection = true
-        tuned.background.backgroundColor = selected ? freetifulBlue.withAlphaComponent(0.08) : UIColor.white.withAlphaComponent(0.03)
+        tuned.baseBackgroundColor = UIColor.clear
+        tuned.background.backgroundColor = selected ? freetifulBlue.withAlphaComponent(0.10) : UIColor.clear
+        tuned.background.strokeWidth = isToggle ? 0 : 0.5
         return tuned
     }
 
