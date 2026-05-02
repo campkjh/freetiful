@@ -105,6 +105,7 @@ private final class FreetifulNativeTabBar: UITabBar {
         glassSurfaceView.frame = bounds
         glassTintView.frame = glassSurfaceView.bounds
         sendSubviewToBack(glassSurfaceView)
+        var systemBackgrounds: [UIView] = []
 
         let tabButtons = subviews
             .filter { String(describing: type(of: $0)).contains("UITabBarButton") }
@@ -126,13 +127,17 @@ private final class FreetifulNativeTabBar: UITabBar {
         subviews.forEach { subview in
             let typeName = String(describing: type(of: subview))
             if typeName.contains("UIBarBackground") {
-                subview.frame = bounds
-                subview.isHidden = true
+                configureNativeBackground(subview)
+                systemBackgrounds.append(subview)
             }
         }
 
+        systemBackgrounds.forEach { background in
+            insertSubview(background, aboveSubview: glassSurfaceView)
+        }
         updateFullHeightSelection(animated: shouldAnimateNextSelectionLayout)
         shouldAnimateNextSelectionLayout = false
+        bringSubviewToFront(fullHeightSelectionView)
     }
 
     func relayoutSelection(animated: Bool) {
@@ -152,6 +157,17 @@ private final class FreetifulNativeTabBar: UITabBar {
             view.isHidden = true
             view.alpha = 0
         }
+    }
+
+    private func configureNativeBackground(_ background: UIView) {
+        background.frame = bounds
+        background.isHidden = false
+        background.alpha = 1
+        background.clipsToBounds = true
+        background.layer.cornerRadius = preferredBarHeight / 2
+        background.layer.cornerCurve = .continuous
+        background.layer.borderWidth = 0.5
+        background.layer.borderColor = UIColor.white.withAlphaComponent(0.24).cgColor
     }
 
     private func updateFullHeightSelection(animated: Bool) {
@@ -203,7 +219,7 @@ private final class FreetifulNativeTabBar: UITabBar {
     private func setupGlassSurface() {
         backgroundColor = .clear
         isTranslucent = true
-        clipsToBounds = false
+        clipsToBounds = true
         layer.cornerRadius = preferredBarHeight / 2
         layer.cornerCurve = .continuous
 
@@ -421,16 +437,15 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabBar.itemSpacing = 0
         tabBar.barTintColor = .clear
         tabBar.backgroundColor = .clear
-        tabBar.backgroundImage = UIImage()
-        tabBar.shadowImage = UIImage()
-        tabBar.clipsToBounds = false
+        tabBar.backgroundImage = nil
+        tabBar.shadowImage = nil
+        tabBar.clipsToBounds = true
         tabBar.layer.cornerRadius = 33
         tabBar.layer.cornerCurve = .continuous
 
         let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.backgroundEffect = nil
-        appearance.backgroundColor = .clear
+        appearance.configureWithDefaultBackground()
+        appearance.backgroundColor = UIColor.white.withAlphaComponent(0.03)
         appearance.shadowColor = .clear
         configureTabItemAppearance(appearance.stackedLayoutAppearance)
         configureTabItemAppearance(appearance.inlineLayoutAppearance)
