@@ -376,7 +376,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
       {/* ─── Mobile Bottom Nav Gradient Blur ───────────────────── */}
       {!hideNav && (
-        <div className="lg:hidden fixed left-0 right-0 bottom-0 h-20 z-40 pointer-events-none"
+        <div
+          data-ios-mobile-bottom-nav-blur
+          className="lg:hidden fixed left-0 right-0 bottom-0 h-20 z-40 pointer-events-none"
           style={{
             background: 'linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 100%)',
           }}
@@ -386,6 +388,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* ─── Mobile Bottom Navigation (Glass Pill) ───────────────────── */}
       {!hideNav && (
         <nav
+          data-ios-mobile-bottom-nav
           className="lg:hidden fixed left-0 right-0 z-50 px-4 pb-safe"
           style={{
             bottom: navMounted && navVisible ? 0 : -80,
@@ -404,7 +407,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               className="glass-strong shadow-nav"
               style={{
                 width: bizCollapsing ? 60 : '100%',
-                height: 60,
+                height: 66,
                 borderRadius: 9999,
                 overflow: 'hidden',
                 transition: bizCollapsing
@@ -413,7 +416,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
               }}
             >
-              <div className="flex items-center h-full overflow-hidden px-1">
+              <div className="flex items-center h-full overflow-hidden p-[3px]">
                 {/* 프로↔일반유저 뷰 토글 chevron (실제 계정 role이 pro일 때만 노출) */}
                 {actualIsPro && (
                   <button

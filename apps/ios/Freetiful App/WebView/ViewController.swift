@@ -149,6 +149,8 @@ class ViewController: UIViewController,
         style.id = 'freetiful-ios-native-nav-style';
         style.textContent = [
           'html.freetiful-ios-native-nav [data-nav-pill]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-ios-mobile-bottom-nav]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-ios-mobile-bottom-nav-blur]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav nav:has([data-nav-pill]){display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-recommended-pro-bar]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-ios-native-nav-hidden]{display:none!important;pointer-events:none!important;}'
@@ -178,21 +180,59 @@ class ViewController: UIViewController,
         });
       }
 
+      function hideNode(node) {
+        if (!node || !node.style) return;
+        node.setAttribute('data-ios-native-nav-hidden', 'true');
+        node.style.setProperty('display', 'none', 'important');
+        node.style.setProperty('pointer-events', 'none', 'important');
+      }
+
+      function hideBottomNavCandidates() {
+        var labels = ['홈', '새요청', '스케줄', '채팅', '마이', 'Biz', '찜'];
+        var nodes = Array.prototype.slice.call(document.querySelectorAll('nav, footer, div'));
+        nodes.forEach(function(node) {
+          if (node.hasAttribute('data-ios-native-nav-hidden')) return;
+          if (node.closest('[role="dialog"], [aria-modal="true"]')) return;
+          var rect = node.getBoundingClientRect && node.getBoundingClientRect();
+          if (!rect || rect.width <= 0 || rect.height <= 0) return;
+          if (rect.height > 150 || rect.width < window.innerWidth * 0.45) return;
+
+          var style = window.getComputedStyle ? window.getComputedStyle(node) : null;
+          var position = style ? style.position : '';
+          var bottom = style ? parseFloat(style.bottom || '999') : 999;
+          var isFixedBottom = position === 'fixed' && (bottom <= 24 || rect.bottom >= window.innerHeight - 2);
+          if (!isFixedBottom) return;
+
+          var text = node.textContent || '';
+          var labelMatches = labels.filter(function(label) { return text.indexOf(label) !== -1; }).length;
+          var hasKnownPill = !!node.querySelector('[data-nav-pill]');
+          var className = String(node.className || '');
+          var looksLikeBottomNav = hasKnownPill ||
+            labelMatches >= 3 ||
+            (className.indexOf('pb-safe') !== -1 && className.indexOf('z-50') !== -1);
+
+          if (looksLikeBottomNav) {
+            hideNode(node);
+          }
+        });
+      }
+
       function hideWebBottomNav() {
         document.documentElement.classList.add('freetiful-ios-native-nav');
         ensureStyle();
         hideRecommendedProBar();
+        Array.prototype.slice.call(document.querySelectorAll('[data-ios-mobile-bottom-nav], [data-ios-mobile-bottom-nav-blur]')).forEach(function(node) {
+          hideNode(node);
+        });
+        hideBottomNavCandidates();
         var pill = document.querySelector('[data-nav-pill]');
         if (!pill) return;
         var nav = pill.closest('nav');
         if (nav) {
-          nav.setAttribute('data-ios-native-nav-hidden', 'true');
-          nav.style.setProperty('display', 'none', 'important');
-          nav.style.setProperty('pointer-events', 'none', 'important');
+          hideNode(nav);
           var prev = nav.previousElementSibling;
           if (prev && prev.className && String(prev.className).indexOf('bottom-0') !== -1) {
-            prev.setAttribute('data-ios-native-nav-hidden', 'true');
-            prev.style.setProperty('display', 'none', 'important');
+            hideNode(prev);
           }
         }
       }
@@ -316,6 +356,7 @@ class ViewController: UIViewController,
 
         let hidden = currentNativeHasBlockingOverlay || shouldHideNativeNavigation(path: currentNativePath)
         nativeNavBar.setVisible(!hidden, animated: animated)
+        webView.scrollView.contentInset.bottom = hidden ? 0 : 94
         webView.scrollView.verticalScrollIndicatorInsets.bottom = hidden ? 0 : 94
     }
 
