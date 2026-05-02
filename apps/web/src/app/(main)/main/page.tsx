@@ -787,7 +787,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
             Partners
           </span>
         )}
-        <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[15px] lg:font-bold">{formatCareerLabel(pro.experience)} {pro.name}</h4>
+        <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[15px] lg:font-bold">사회자 {pro.name}</h4>
         <div className="flex items-center gap-2 mt-0.5 mb-1">
           <div className="flex items-center gap-0.5">
             <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
