@@ -339,131 +339,118 @@ function MobileQuoteGradientFrame() {
 
 function MobileFastQuoteBadge() {
   return (
-    <span className="mobile-fast-quote-badge absolute top-2.5 right-2.5 z-30 overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-bold leading-none text-[#0B58FF] transition-transform duration-200 group-active:scale-95">
-      <span className="relative z-10">빠른무료견적</span>
-      <span className="mobile-fast-quote-badge__spark mobile-fast-quote-badge__spark--one" />
-      <span className="mobile-fast-quote-badge__spark mobile-fast-quote-badge__spark--two" />
+    <span className="mobile-fast-quote-badge absolute top-2.5 right-2.5 z-30 rounded-full p-[1.2px] transition-transform duration-200 group-active:scale-[0.97]">
+      <span className="mobile-fast-quote-badge__inner relative z-10 block rounded-full px-2.5 py-1 text-[10px] font-bold leading-none text-[#0B58FF]">
+        빠른무료견적
+      </span>
       <style jsx global>{`
+        @property --mobile-fast-quote-angle {
+          syntax: '<angle>';
+          inherits: false;
+          initial-value: 0deg;
+        }
+
         @media (max-width: 1023px) {
           .mobile-fast-quote-badge {
+            --mobile-fast-quote-angle: 0deg;
             isolation: isolate;
-            background:
-              linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.9)),
-              radial-gradient(circle at 18% 0%, rgba(104,222,255,0.42), transparent 42%);
+            background: conic-gradient(
+              from var(--mobile-fast-quote-angle),
+              rgba(49,128,247,0.12) 0deg,
+              rgba(49,128,247,0.18) 48deg,
+              rgba(104,222,255,0.96) 76deg,
+              rgba(49,128,247,0.92) 108deg,
+              rgba(49,128,247,0.16) 146deg,
+              rgba(49,128,247,0.12) 360deg
+            );
             box-shadow:
-              0 8px 18px rgba(49, 128, 247, 0.18),
-              inset 0 0 0 1px rgba(49, 128, 247, 0.2);
-            animation: mobileFastQuoteGlow 2.6s ease-in-out infinite;
+              0 8px 18px rgba(49, 128, 247, 0.16),
+              0 0 0 1px rgba(49, 128, 247, 0.08);
+            animation: mobileFastQuoteBorder 3.1s linear infinite;
           }
 
-          .mobile-fast-quote-badge::before {
+          .mobile-fast-quote-badge__inner {
+            background:
+              radial-gradient(circle at 18% 8%, rgba(104,222,255,0.22), transparent 36%),
+              linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,246,255,0.92));
+            box-shadow:
+              inset 0 0 0 1px rgba(255,255,255,0.78),
+              inset 0 -1px 4px rgba(49,128,247,0.1);
+            animation: mobileFastQuoteGlow 2.8s ease-in-out infinite;
+          }
+
+          .mobile-fast-quote-badge__inner::before {
             content: '';
             position: absolute;
-            inset: 0;
+            inset: 1px 7px auto auto;
+            width: 4px;
+            height: 4px;
             border-radius: inherit;
-            padding: 1.3px;
-            background: conic-gradient(
-              from 0deg,
-              rgba(49,128,247,0.14),
-              rgba(104,222,255,0.95),
-              rgba(49,128,247,1),
-              rgba(255,255,255,0.98),
-              rgba(49,128,247,0.14)
-            );
-            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            animation: mobileFastQuoteBorder 2.5s linear infinite;
+            background: rgba(104,222,255,0.95);
+            box-shadow:
+              0 0 8px rgba(104,222,255,0.9),
+              0 0 14px rgba(49,128,247,0.36);
+            animation: mobileFastQuoteSpark 2.2s ease-in-out infinite;
             pointer-events: none;
-            z-index: 1;
           }
 
-          .mobile-fast-quote-badge::after {
+          .mobile-fast-quote-badge__inner::after {
             content: '';
             position: absolute;
             inset: 1px;
             border-radius: inherit;
-            background: linear-gradient(105deg, transparent 12%, rgba(255,255,255,0.88) 46%, transparent 72%);
-            transform: translateX(-125%) skewX(-16deg);
-            animation: mobileFastQuoteShine 2.7s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+            background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.84) 45%, transparent 68%);
+            opacity: 0;
+            transform: translateX(-90%) skewX(-14deg);
+            animation: mobileFastQuoteShine 3.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
             pointer-events: none;
-            z-index: 2;
-          }
-
-          .mobile-fast-quote-badge__spark {
-            position: absolute;
-            width: 3px;
-            height: 3px;
-            border-radius: 9999px;
-            background: #68deff;
-            box-shadow: 0 0 8px rgba(104, 222, 255, 0.9);
-            pointer-events: none;
-            z-index: 3;
-          }
-
-          .mobile-fast-quote-badge__spark--one {
-            top: 3px;
-            right: 8px;
-            animation: mobileFastQuoteSpark 1.9s ease-in-out infinite;
-          }
-
-          .mobile-fast-quote-badge__spark--two {
-            bottom: 4px;
-            left: 8px;
-            animation: mobileFastQuoteSpark 1.9s ease-in-out 0.58s infinite;
           }
 
           @keyframes mobileFastQuoteGlow {
             0%, 100% {
               color: #0b58ff;
-              box-shadow:
-                0 8px 18px rgba(49, 128, 247, 0.18),
-                inset 0 0 0 1px rgba(49, 128, 247, 0.2);
             }
             50% {
               color: #3180f7;
-              box-shadow:
-                0 10px 24px rgba(49, 128, 247, 0.28),
-                0 0 16px rgba(104, 222, 255, 0.34),
-                inset 0 0 0 1px rgba(49, 128, 247, 0.34);
+              text-shadow: 0 0 8px rgba(49,128,247,0.22);
             }
           }
 
           @keyframes mobileFastQuoteBorder {
-            to { transform: rotate(360deg); }
+            to { --mobile-fast-quote-angle: 360deg; }
           }
 
           @keyframes mobileFastQuoteShine {
-            0%, 46% {
+            0%, 58% {
               opacity: 0;
-              transform: translateX(-125%) skewX(-16deg);
+              transform: translateX(-90%) skewX(-14deg);
             }
-            58% {
-              opacity: 0.95;
+            68% {
+              opacity: 0.72;
             }
-            78%, 100% {
+            88%, 100% {
               opacity: 0;
-              transform: translateX(125%) skewX(-16deg);
+              transform: translateX(92%) skewX(-14deg);
             }
           }
 
           @keyframes mobileFastQuoteSpark {
             0%, 100% {
-              opacity: 0;
-              transform: scale(0.6);
+              opacity: 0.35;
+              transform: scale(0.7);
             }
-            45%, 60% {
+            48% {
               opacity: 1;
-              transform: scale(1.45);
+              transform: scale(1.35);
             }
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
           .mobile-fast-quote-badge,
-          .mobile-fast-quote-badge::before,
-          .mobile-fast-quote-badge::after,
-          .mobile-fast-quote-badge__spark {
+          .mobile-fast-quote-badge__inner,
+          .mobile-fast-quote-badge__inner::before,
+          .mobile-fast-quote-badge__inner::after {
             animation: none !important;
           }
         }
