@@ -246,7 +246,7 @@ export default function ProfilePage() {
           imageDataUrls,
         });
         if (hero.url && editorRef.current) {
-          const imgTag = `<img src="${hero.url}" alt="${userName || '전문가'} 프로필" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:12px;" />`;
+          const imgTag = `<img src="${hero.url}" alt="${userName || '사회자'} 프로필" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:12px;" />`;
           const currentHtml = editorRef.current.innerHTML;
           editorRef.current.innerHTML = imgTag + currentHtml;
           setDescription(imgTag + currentHtml);
@@ -374,7 +374,7 @@ export default function ProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          전문가 프로필 <span className="text-[11px] text-gray-400">7/7</span>
+          사회자 프로필 <span className="text-[11px] text-gray-400">7/7</span>
         </motion.h1>
       </div>
 
@@ -385,9 +385,9 @@ export default function ProfilePage() {
           initial="initial"
           animate="animate"
         >
-          {/* [필수]전문가 소개 */}
+          {/* [필수]사회자 소개 */}
           <motion.div className="py-4" variants={staggerItem}>
-            <p className="text-sm text-gray-500 mb-2">[필수]전문가 소개</p>
+            <p className="text-sm text-gray-500 mb-2">[필수]사회자 소개</p>
             {intro && <label className="text-xs text-[#3180F7] mb-1 block">한줄평소개</label>}
             <input
               type="text"
@@ -803,9 +803,9 @@ export default function ProfilePage() {
             </div>
           </motion.div>
 
-          {/* [선택]전문가소개영상 */}
+          {/* [선택]사회자소개영상 */}
           <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <p className="text-sm font-bold text-gray-900 mb-3">[선택]전문가소개영상</p>
+            <p className="text-sm font-bold text-gray-900 mb-3">[선택]사회자소개영상</p>
 
             {/* 링크 추가 입력 */}
             {showVideoInput ? (
@@ -909,9 +909,9 @@ export default function ProfilePage() {
             )}
           </motion.div>
 
-          {/* [필수]전문가 FAQ */}
+          {/* [필수]사회자 FAQ */}
           <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <p className="text-sm font-bold text-gray-900 mb-3">[필수]전문가 FAQ</p>
+            <p className="text-sm font-bold text-gray-900 mb-3">[필수]사회자 FAQ</p>
 
             {/* 탭 목록 */}
             <LayoutGroup>
@@ -1286,7 +1286,7 @@ export default function ProfilePage() {
                       if (newImg && cur) {
                         useAuthStore.getState().setUser({ ...cur, profileImageUrl: newImg });
                       }
-                      // 홈/전문가 리스트에 최신 프로필 이미지 반영
+                      // 홈/사회자 리스트에 최신 프로필 이미지 반영
                       const { invalidateProCache } = await import('@/lib/api/discovery.api');
                       invalidateProCache();
                       try { localStorage.removeItem('freetiful-pros-cache'); } catch {}

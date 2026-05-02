@@ -219,7 +219,7 @@ function ProListCard({
             {pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}
           </p>
           <p className="text-[13px] text-gray-500 mt-2 line-clamp-2 leading-snug">
-            &ldquo;{pro.intro || '프리티풀 인증 전문가입니다'}&rdquo;
+            &ldquo;{pro.intro || '프리티풀 인증 사회자입니다'}&rdquo;
           </p>
           <div className="mt-auto pt-2 flex flex-wrap gap-1">
             {pro.experience > 0 && (
@@ -688,7 +688,7 @@ function ProsListContent() {
 
                   {/* MC Type */}
                   <div>
-                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">전문가 유형</p>
+                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">사회자 유형</p>
                     <div className="flex flex-wrap gap-2">
                       {MC_TYPES.map(t => (
                         <FilterPill
@@ -742,7 +742,7 @@ function ProsListContent() {
       {/* Result count + sort dropdown */}
       <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white">
         <p className="text-[13px] text-gray-500">
-          전문가{' '}
+          사회자{' '}
           <motion.span
             key={filtered.length}
             initial={{ opacity: 0, y: 4 }}
@@ -816,7 +816,7 @@ function ProsListContent() {
 
             {!hasMore && filtered.length > PAGE_SIZE && (
               <p className="text-center text-[13px] text-gray-400 py-6">
-                모든 전문가를 확인했습니다
+                모든 사회자를 확인했습니다
               </p>
             )}
 
@@ -829,7 +829,7 @@ function ProsListContent() {
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-gray-100">
               <Search size={28} className="text-gray-300" />
             </div>
-            <p className="text-gray-400 text-[14px] mb-1">해당 조건의 전문가가 없습니다</p>
+            <p className="text-gray-400 text-[14px] mb-1">해당 조건의 사회자가 없습니다</p>
             <button
               onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); setSelectedLang('전체'); setSelectedType('전체'); }}
               className="text-primary-500 text-[13px] font-semibold mt-2"

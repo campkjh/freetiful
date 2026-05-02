@@ -565,7 +565,7 @@ export default function AdminProEditPage() {
             </div>
           </div>
           <div>
-            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">전문가분류</label>
+            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">사회자분류</label>
             <button
               onClick={() => setShowCategorySheet(true)}
               className="w-full h-11 border border-gray-200 rounded-xl px-4 flex items-center justify-between text-[15px] active:bg-gray-50"
@@ -867,12 +867,12 @@ export default function AdminProEditPage() {
         </button>
       </div>
 
-      {/* ─── 전문가분류 바텀시트 ─── */}
+      {/* ─── 사회자분류 바텀시트 ─── */}
       {showCategorySheet && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setShowCategorySheet(false)}>
           <div className="bg-white rounded-t-3xl w-full max-w-lg mx-auto p-6" onClick={(e) => e.stopPropagation()}>
             <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-            <h2 className="text-xl font-bold mb-2">전문가분류를 선택해주세요</h2>
+            <h2 className="text-xl font-bold mb-2">사회자분류를 선택해주세요</h2>
             {['사회자', '쇼호스트', '축가/연주'].map((item) => (
               <button
                 key={item}

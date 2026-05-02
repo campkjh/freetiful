@@ -625,7 +625,7 @@ export default function ChatListPage() {
               <circle cx="8.5" cy="12" r="1.2" fill="white"/><circle cx="11.5" cy="12" r="1.2" fill="white"/><circle cx="14.5" cy="12" r="1.2" fill="white"/>
             </svg>
             <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
-            {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">전문가 찾아보기</Link>}
+            {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">사회자 찾아보기</Link>}
           </div>
         ) : renderChatList(false)}
       </div>

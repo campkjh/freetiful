@@ -131,7 +131,7 @@ export default function BookingPage() {
     category: (pro?.categoryNames && pro.categoryNames[0]) || '사회자',
   };
 
-  // 전문가가 등록한 결혼식 서비스 우선, 없으면 결혼식 기본 플랜으로 폴백
+  // 사회자가 등록한 결혼식 서비스 우선, 없으면 결혼식 기본 플랜으로 폴백
   const plans = useMemo(() => {
     if (pro?.services && Array.isArray(pro.services) && pro.services.length > 0) {
       const seen = new Set<string>();
@@ -180,14 +180,14 @@ export default function BookingPage() {
   const [quantity, setQuantity] = useState(1);
   const [showDetail, setShowDetail] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
-  // 전문가 스케줄에서 예약 불가 슬롯 계산 — bookedDates 에 해당일이 있으면 전체 슬롯 비활성
+  // 사회자 스케줄에서 예약 불가 슬롯 계산 — bookedDates 에 해당일이 있으면 전체 슬롯 비활성
   const disabledSlots = useMemo(() => {
     if (!selectedDay) return [] as string[];
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
     const isBooked = bookedDates.some((d) => d === dateStr || d.startsWith(dateStr));
     return isBooked ? TIME_SLOTS : [] as string[];
   }, [bookedDates, selectedDay, currentMonth, currentYear]);
-  // 전문가가 등록한 추가 옵션 (priceUnit !== 'per_event') 동적 로드
+  // 사회자가 등록한 추가 옵션 (priceUnit !== 'per_event') 동적 로드
   const extraOptions = useMemo(() => {
     if (!pro?.services) return [];
     return (pro.services as any[])
@@ -413,7 +413,7 @@ export default function BookingPage() {
         </div>
       </div>
 
-      {/* ─── 옵션항목 (전문가가 등록한 추가 옵션이 있을 때만 표시) ─── */}
+      {/* ─── 옵션항목 (사회자가 등록한 추가 옵션이 있을 때만 표시) ─── */}
       {extraOptions.length > 0 && (
         <div className="px-4 pt-6">
           <h2 className="text-[17px] font-bold text-gray-900 mb-4">옵션항목</h2>

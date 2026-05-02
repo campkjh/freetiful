@@ -201,7 +201,7 @@ export default function MatchRequestPage() {
           budgetLabel: getBudgetLabel(),
         },
       });
-      toast.success('견적 요청이 전문가들에게 전달되었습니다.');
+      toast.success('견적 요청이 사회자들에게 전달되었습니다.');
       router.replace('/main');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '견적 요청 생성에 실패했습니다.');
@@ -245,7 +245,7 @@ export default function MatchRequestPage() {
         {/* Step 0: Category */}
         {step === 0 && (
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">어떤 전문가를 찾으시나요?</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">어떤 사회자를 찾으시나요?</h2>
             <p className="text-sm text-gray-500 mb-6">카테고리를 선택해주세요</p>
             <div className="space-y-3">
               {optionsLoading && (
@@ -268,7 +268,7 @@ export default function MatchRequestPage() {
                   <span className="text-3xl">{(cat as any).icon || '🎤'}</span>
                   <div className="text-left">
                     <p className="font-bold text-gray-900">{cat.name}</p>
-                    <p className="text-xs text-gray-500">{(cat as any).description || cat.nameEn || '전문가 매칭'}</p>
+                    <p className="text-xs text-gray-500">{(cat as any).description || cat.nameEn || '사회자 매칭'}</p>
                   </div>
                   {selectedCategory === cat.id && (
                     <Check size={20} className="text-primary-500 ml-auto" />
@@ -415,7 +415,7 @@ export default function MatchRequestPage() {
                 <textarea
                   value={additionalNote}
                   onChange={(e) => setAdditionalNote(e.target.value)}
-                  placeholder="전문가에게 전달하고 싶은 내용을 입력해주세요"
+                  placeholder="사회자에게 전달하고 싶은 내용을 입력해주세요"
                   className="input min-h-[100px] resize-none"
                   maxLength={500}
                 />
@@ -429,7 +429,7 @@ export default function MatchRequestPage() {
         {step === 3 && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">요청 내용을 확인해주세요</h2>
-            <p className="text-sm text-gray-500 mb-6">AI가 요청서를 작성하여 전문가에게 전달합니다</p>
+            <p className="text-sm text-gray-500 mb-6">AI가 요청서를 작성하여 사회자에게 전달합니다</p>
 
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
@@ -457,8 +457,8 @@ export default function MatchRequestPage() {
                 <div>
                   <p className="text-sm font-bold text-primary-700">AI 요청서 자동 작성</p>
                   <p className="text-xs text-primary-600 mt-1">
-                    입력하신 정보를 바탕으로 AI가 전문가에게 보낼 요청서를 자동으로 작성합니다.
-                    매칭된 전문가에게 동시에 발송됩니다.
+                    입력하신 정보를 바탕으로 AI가 사회자에게 보낼 요청서를 자동으로 작성합니다.
+                    매칭된 사회자에게 동시에 발송됩니다.
                   </p>
                 </div>
               </div>

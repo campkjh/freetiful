@@ -313,7 +313,7 @@ export default function ProRegisterPage() {
         {/* ═══ Step 0: Category ═══════════════════════════════════════════ */}
         {step === 0 && (
           <div className="animate-fade-in" style={{ animationFillMode: 'forwards' }}>
-            <h2 className="text-[22px] font-black text-gray-900 tracking-tight mb-2">어떤 분야의 전문가이신가요?</h2>
+            <h2 className="text-[22px] font-black text-gray-900 tracking-tight mb-2">어떤 분야의 사회자이신가요?</h2>
             <p className="text-[14px] text-gray-500 mb-8">하나를 선택해주세요</p>
             <div className="space-y-3">
               {CATEGORIES.map((cat) => (

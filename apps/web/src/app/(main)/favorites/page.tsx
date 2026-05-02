@@ -309,7 +309,7 @@ export default function FavoritesPage() {
   }, [activeTab, filteredPros.length, visibleProCount]);
 
   const tabs: { key: Tab; label: string; badge?: string }[] = [
-    { key: 'service', label: '전문가' },
+    { key: 'service', label: '사회자' },
     { key: 'portfolio', label: '웨딩파트너' },
     { key: 'recent', label: '최근 본', badge: recentPros.length > 0 ? 'NEW' : undefined },
   ];
@@ -445,7 +445,7 @@ export default function FavoritesPage() {
         </div>
       </div>
 
-      {/* 전문가 탭 */}
+      {/* 사회자 탭 */}
       {activeTab === 'service' && (
         <div className="bg-white">
           {favLoading && filteredPros.length === 0 ? (
@@ -461,7 +461,7 @@ export default function FavoritesPage() {
               ))}
             </div>
           ) : (
-            <EmptyState message={isLoggedIn ? "찜한 전문가가 없습니다" : "로그인 후 찜한 전문가를 확인하세요"} linkText={isLoggedIn ? "전문가 찾아보기" : "로그인하기"} linkHref={isLoggedIn ? "/pros" : "/"} />
+            <EmptyState message={isLoggedIn ? "찜한 사회자가 없습니다" : "로그인 후 찜한 사회자를 확인하세요"} linkText={isLoggedIn ? "사회자 찾아보기" : "로그인하기"} linkHref={isLoggedIn ? "/pros" : "/"} />
           )}
         </div>
       )}
@@ -537,7 +537,7 @@ export default function FavoritesPage() {
               ))}
             </div>
           ) : (
-            <EmptyState message="최근 본 전문가가 없습니다" linkText="전문가 찾아보기" linkHref="/pros" />
+            <EmptyState message="최근 본 사회자가 없습니다" linkText="사회자 찾아보기" linkHref="/pros" />
           )}
         </div>
       )}

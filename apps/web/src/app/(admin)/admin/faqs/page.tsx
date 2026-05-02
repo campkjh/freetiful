@@ -171,7 +171,7 @@ export default function AdminFaqsPage() {
                   type="text"
                   value={draft.customCategory}
                   onChange={(e) => setDraft({ ...draft, customCategory: e.target.value })}
-                  placeholder="예: 전문가 문의"
+                  placeholder="예: 사회자 문의"
                   className="w-full bg-[#F9FAFB] rounded-xl px-4 py-3 text-[14px] text-[#191F28] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#3182F6]"
                 />
               </div>

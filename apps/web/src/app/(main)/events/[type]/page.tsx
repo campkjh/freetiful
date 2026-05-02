@@ -62,7 +62,7 @@ const EVENTS: Record<string, EventData> = {
     tagline: '인생의 가장 빛나는 순간',
     heroImage: '/images/biz-about-hosts.png',
     intro:
-      '하객 100명부터 500명까지, 품격 있는 결혼식을 만드는 전문 사회자가 필요합니다.\n프리티풀의 검증된 전문가가 두 분의 특별한 순간을 완성합니다.',
+      '하객 100명부터 500명까지, 품격 있는 결혼식을 만드는 전문 사회자가 필요합니다.\n프리티풀의 검증된 사회자가 두 분의 특별한 순간을 완성합니다.',
     highlights: ['검증된 전문 사회자', '사전 미팅 포함', '대본 작성 지원', '현장 리허설 참여'],
     plans: [
       { label: 'Premium', price: 450000, duration: '1시간', desc: ['결혼식 진행', '사전 미팅 1회', '기본 대본 준비'] },
@@ -70,7 +70,7 @@ const EVENTS: Record<string, EventData> = {
       { label: 'Enterprise', price: 1700000, duration: '6시간', desc: ['전 과정 풀타임', '사전 미팅 무제한', '맞춤 대본 + 수정', '리허설 참여', '축사·건배사 코디', '하객 응대 안내', '전담 코디네이터'] },
     ],
     faqs: [
-      { q: '결혼식 몇일 전에 예약해야 하나요?', a: '최소 2~3개월 전 예약을 권장합니다. 인기 전문가는 6개월 전 마감되기도 합니다.' },
+      { q: '결혼식 몇일 전에 예약해야 하나요?', a: '최소 2~3개월 전 예약을 권장합니다. 인기 사회자는 6개월 전 마감되기도 합니다.' },
       { q: '사전 미팅은 어떻게 진행되나요?', a: '화상 미팅 또는 대면 미팅 중 선택 가능합니다. 요청사항을 반영하여 맞춤 대본을 준비합니다.' },
       { q: '당일 시간이 지연되면 추가 비용이 있나요?', a: '선택한 플랜 시간을 초과하는 경우 30분당 추가 비용이 발생합니다. 사전 협의 시 할인 가능합니다.' },
     ],
@@ -452,7 +452,7 @@ export default function EventDetailPage() {
         <div className="px-5 pt-6">
           <div className="flex items-end justify-between mb-4">
             <div>
-              <h2 className="text-[20px] font-bold text-gray-900">추천 전문가</h2>
+              <h2 className="text-[20px] font-bold text-gray-900">추천 사회자</h2>
               <p className="text-[13px] text-gray-400 mt-1">{event.title}에 적합한 사회자</p>
             </div>
             <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5">
@@ -490,7 +490,7 @@ export default function EventDetailPage() {
             href="/pros"
             className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full flex items-center justify-center text-[14px] font-semibold text-gray-700 active:bg-gray-50"
           >
-            전문가 보기
+            사회자 보기
           </Link>
           <Link
             href={`/quote?mode=event&type=${event.type}`}

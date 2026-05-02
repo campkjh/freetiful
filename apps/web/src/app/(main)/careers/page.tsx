@@ -76,7 +76,7 @@ export default function CareersPage() {
       roles: [
         { title: t({ ko: '프론트엔드 개발자', en: 'Frontend Engineer', ja: 'フロントエンド開発者', zh: '前端工程师' }),   type: FULLTIME, location: SEOUL,     desc: t({ ko: 'React/Next.js 기반 프리티풀 웹·앱 개발', en: 'Build Freetiful web/app on React & Next.js', ja: 'React/Next.js で Freetiful Web・アプリ開発', zh: '基于 React/Next.js 开发 Freetiful Web/App' }) },
         { title: t({ ko: '백엔드 개발자',     en: 'Backend Engineer',  ja: 'バックエンド開発者',   zh: '后端工程师' }),   type: FULLTIME, location: SEOUL,     desc: t({ ko: 'Node.js/NestJS 기반 API 및 매칭 시스템 개발', en: 'Build API & matching system on Node.js & NestJS', ja: 'Node.js/NestJS ベースの API とマッチングシステム開発', zh: '基于 Node.js/NestJS 开发 API 与匹配系统' }) },
-        { title: t({ ko: 'AI/ML 엔지니어',    en: 'AI/ML Engineer',    ja: 'AI/ML エンジニア',     zh: 'AI/ML 工程师' }), type: FULLTIME, location: SEOUL_REM, desc: t({ ko: 'AI 기반 전문가 매칭 알고리즘 고도화',     en: 'Advance AI-based expert matching algorithms',       ja: 'AI ベース専門家マッチングアルゴリズム高度化', zh: '升级 AI 驱动的专家匹配算法' }) },
+        { title: t({ ko: 'AI/ML 엔지니어',    en: 'AI/ML Engineer',    ja: 'AI/ML エンジニア',     zh: 'AI/ML 工程师' }), type: FULLTIME, location: SEOUL_REM, desc: t({ ko: 'AI 기반 사회자 매칭 알고리즘 고도화',     en: 'Advance AI-based expert matching algorithms',       ja: 'AI ベース専門家マッチングアルゴリズム高度化', zh: '升级 AI 驱动的专家匹配算法' }) },
       ],
     },
     {
@@ -101,7 +101,7 @@ export default function CareersPage() {
       icon: <Headphones className="h-5 w-5" />,
       color: 'bg-emerald-50 text-emerald-500',
       roles: [
-        { title: t({ ko: '전문가 매니저',     en: 'Pro Manager',              ja: '専門家マネージャー',   zh: '专家经理' }),   type: FULLTIME, location: SEOUL, desc: t({ ko: '진행자 온보딩, 품질 관리, 파트너십 운영', en: 'Host onboarding, quality control, partnerships', ja: '司会者オンボーディング、品質管理、パートナーシップ運営', zh: '主持人入职、质量管理、合作伙伴运营' }) },
+        { title: t({ ko: '사회자 매니저',     en: 'Pro Manager',              ja: '専門家マネージャー',   zh: '专家经理' }),   type: FULLTIME, location: SEOUL, desc: t({ ko: '진행자 온보딩, 품질 관리, 파트너십 운영', en: 'Host onboarding, quality control, partnerships', ja: '司会者オンボーディング、品質管理、パートナーシップ運営', zh: '主持人入职、质量管理、合作伙伴运营' }) },
         { title: t({ ko: '고객 경험 매니저',  en: 'Customer Experience Mgr.', ja: 'カスタマーエクスペリエンスマネージャー', zh: '客户体验经理' }), type: FULLTIME, location: SEOUL, desc: t({ ko: '고객 문의 대응 및 서비스 품질 개선',     en: 'Handle customer inquiries & improve service quality',      ja: 'お客様対応及びサービス品質改善', zh: '客户咨询处理与服务品质提升' }) },
       ],
     },

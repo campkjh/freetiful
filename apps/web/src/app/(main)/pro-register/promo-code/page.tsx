@@ -230,7 +230,7 @@ export default function PromoCodePage() {
                 transition={{ delay: 0.4 }}
                 className="text-[13px] text-gray-500 text-center mt-2 leading-relaxed"
               >
-                푸딩은 프리티풀에서 전문가 프로필을<br/>최상단으로 올려주는 재화입니다.
+                푸딩은 프리티풀에서 사회자 프로필을<br/>최상단으로 올려주는 재화입니다.
               </motion.p>
               <motion.div
                 initial={{ opacity: 0 }}

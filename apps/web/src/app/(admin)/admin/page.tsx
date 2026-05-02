@@ -757,11 +757,11 @@ export default function AdminDashboardPage() {
   const profileViews = toNumber(stats?.profiles?.totalViews ?? stats?.funnel?.profileViews);
 
   const navItems = [
-    { href: '/admin/pros', icon: UserCheck, label: '전문가 관리', desc: '승인 · 반려 · 프로필', count: stats?.pendingPros ? `대기 ${formatNumber(stats.pendingPros)}` : undefined, countTone: 'warn' as const },
+    { href: '/admin/pros', icon: UserCheck, label: '사회자 관리', desc: '승인 · 반려 · 프로필', count: stats?.pendingPros ? `대기 ${formatNumber(stats.pendingPros)}` : undefined, countTone: 'warn' as const },
     { href: '/admin/users', icon: Users, label: '유저 관리', desc: '회원 목록 · 권한', count: stats ? `${formatNumber(allUsers)}명` : undefined },
     { href: '/admin/bookings', icon: Calendar, label: '의뢰 · 예약', desc: '예약 현황', count: stats?.matchRequests?.total != null ? `${formatNumber(stats.matchRequests.total)}건` : undefined },
     { href: '/admin/payments', icon: CreditCard, label: '결제 관리', desc: '결제 내역 · 매출', count: stats?.revenue?.thisMonth != null ? formatMoney(stats.revenue.thisMonth) : undefined },
-    { href: '/admin/settlements', icon: Wallet, label: '정산 관리', desc: '전문가 정산 처리', count: stats?.settlements?.pending != null ? `대기 ${formatNumber(stats.settlements.pending)}` : undefined },
+    { href: '/admin/settlements', icon: Wallet, label: '정산 관리', desc: '사회자 정산 처리', count: stats?.settlements?.pending != null ? `대기 ${formatNumber(stats.settlements.pending)}` : undefined },
     { href: '/admin/reviews', icon: Star, label: '리뷰 관리', desc: '리뷰 목록 · 삭제', count: stats?.totalReviews != null ? `${formatNumber(stats.totalReviews)}건` : undefined },
     { href: '/admin/businesses', icon: Building2, label: 'Biz 고객사', desc: '비즈니스 계정', count: stats?.profiles?.businessTotal != null ? `${formatNumber(stats.profiles.businessTotal)}개` : undefined },
   ];
@@ -1240,7 +1240,7 @@ export default function AdminDashboardPage() {
               <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="전문가 상태">전문가 상태</AdminTerm></h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="사회자 상태">사회자 상태</AdminTerm></h3>
                 </div>
                 <BreakdownList items={proStatusItems} />
               </div>

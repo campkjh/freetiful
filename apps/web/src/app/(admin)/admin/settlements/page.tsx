@@ -97,7 +97,7 @@ export default function AdminSettlementsPage() {
   useEffect(() => { fetchList(1, filter, dateRange); setPage(1); }, [filter]);
 
   async function handleSettle(id: string) {
-    if (!confirm('정산 완료로 처리하시겠습니까? 전문가에게 알림이 발송됩니다.')) return;
+    if (!confirm('정산 완료로 처리하시겠습니까? 사회자에게 알림이 발송됩니다.')) return;
     setProcessingId(id);
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/settle`, {});

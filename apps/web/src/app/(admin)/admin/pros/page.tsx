@@ -153,9 +153,9 @@ export default function AdminProsPage() {
         },
       });
 
-      exportRowsToXls('admin-pros', '전문가 관리', rows, [
+      exportRowsToXls('admin-pros', '사회자 관리', rows, [
         { header: '순번', value: (_, index) => index + 1 },
-        { header: '전문가ID', value: (row) => row.id },
+        { header: '사회자ID', value: (row) => row.id },
         { header: '이름', value: (row) => row.name },
         { header: '이메일', value: (row) => row.email },
         { header: '상태', value: (row) => statusLabel[row.status]?.text || row.status },
@@ -181,8 +181,8 @@ export default function AdminProsPage() {
     <div className="space-y-5">
       <div className="flex items-center gap-3 mb-6">
         <div>
-          <p className="text-[12px] font-bold text-[#3182F6]">전문가 운영</p>
-          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">전문가 관리</h1>
+          <p className="text-[12px] font-bold text-[#3182F6]">사회자 운영</p>
+          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">사회자 관리</h1>
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
@@ -232,7 +232,7 @@ export default function AdminProsPage() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); }}
               onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus, dateRange); } }}
-              placeholder="전문가 이름 검색 (Enter)"
+              placeholder="사회자 이름 검색 (Enter)"
               className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
             />
           </div>
@@ -245,7 +245,7 @@ export default function AdminProsPage() {
                   filterStatus === st ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
                 }`}
               >
-                {st === '전체' ? '전체' : st === 'draft' ? '임시저장' : st === 'pending' ? '승인대기' : st === 'approved' ? '전문가' : st === 'rejected' ? '반려' : '중지'}
+                {st === '전체' ? '전체' : st === 'draft' ? '임시저장' : st === 'pending' ? '승인대기' : st === 'approved' ? '사회자' : st === 'rejected' ? '반려' : '중지'}
               </button>
             ))}
           </div>
@@ -267,7 +267,7 @@ export default function AdminProsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">전문가</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">사회자</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이메일</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로필상태">상태</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">평점</th>

@@ -210,7 +210,7 @@ export function AdminIssuePanel() {
             id: `payment-${row.id}`,
             type: 'payment',
             title: `${formatMoney(row.amount)} 결제 완료`,
-            description: `${row.userName || '고객'} → ${row.proName || '전문가'}`,
+            description: `${row.userName || '고객'} → ${row.proName || '사회자'}`,
             meta: relativeTime(row.createdAt),
             href: '/admin/payments',
             createdAt: row.createdAt,
@@ -265,7 +265,7 @@ export function AdminIssuePanel() {
             id: `settlement-${row.id}`,
             type: 'settlement',
             title: `${formatMoney(row.netAmount)} 정산 대기`,
-            description: row.proProfile?.user?.name || '전문가 정산 처리 필요',
+            description: row.proProfile?.user?.name || '사회자 정산 처리 필요',
             meta: relativeTime(row.createdAt),
             href: '/admin/settlements',
             createdAt: row.createdAt,
@@ -282,8 +282,8 @@ export function AdminIssuePanel() {
           nextIssues.push({
             id: `pro-${row.id}`,
             type: 'pro',
-            title: `${row.name || '전문가'} 승인 대기`,
-            description: row.email || '전문가 신청 검토 필요',
+            title: `${row.name || '사회자'} 승인 대기`,
+            description: row.email || '사회자 신청 검토 필요',
             meta: relativeTime(row.createdAt),
             href: '/admin/pros',
             createdAt: row.createdAt,
@@ -474,7 +474,7 @@ export function AdminIssuePanel() {
                                 : issue.type === 'settlement'
                                   ? '정산'
                                   : issue.type === 'pro'
-                                    ? '전문가'
+                                    ? '사회자'
                                     : '결제 확인'}
                           </span>
                           <span className="truncate text-[11px] font-medium text-[#B0B8C1]">{issue.meta}</span>

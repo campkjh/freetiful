@@ -177,7 +177,7 @@ export default function AdminReviewsPage() {
         { header: '순번', value: (_, index) => index + 1 },
         { header: '리뷰ID', value: (row) => row.id },
         { header: '작성자', value: (row) => row.isAnonymous ? '익명' : row.reviewerName || '' },
-        { header: '전문가', value: (row) => row.proName || '' },
+        { header: '사회자', value: (row) => row.proName || '' },
         { header: '평점', value: (row) => Number(row.avgRating).toFixed(1) },
         { header: '내용', value: (row) => row.comment || '' },
         { header: '행사명', value: (row) => row.eventTitle || '' },
@@ -389,7 +389,7 @@ export default function AdminReviewsPage() {
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">작성자</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">전문가</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">사회자</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">평점</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">내용</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">행사</th>

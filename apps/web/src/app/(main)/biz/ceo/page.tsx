@@ -456,7 +456,7 @@ export default function CeoPage() {
                   badge: 'CPO',
                   name: t({ ko: '김수연', en: 'Suyeon Kim', ja: '金秀妍', zh: '金秀妍' }),
                   role: t({ ko: '최고인재책임자', en: 'CPO', ja: '最高人事責任者', zh: '首席人才官' }),
-                  teams: [t({ ko: '인재개발팀', en: 'Talent Dev', ja: '人材開発チーム', zh: '人才发展' }), t({ ko: '전문가지원팀', en: 'Host Support', ja: '専門家支援チーム', zh: '专家支援' })],
+                  teams: [t({ ko: '인재개발팀', en: 'Talent Dev', ja: '人材開発チーム', zh: '人才发展' }), t({ ko: '사회자지원팀', en: 'Host Support', ja: '専門家支援チーム', zh: '专家支援' })],
                 },
                 {
                   badge: 'HB',
@@ -523,7 +523,7 @@ export default function CeoPage() {
               {
                 num: '01',
                 title: t({ ko: '신뢰 중심 경영', en: 'Trust-First Management', ja: '信頼中心の経営', zh: '信任为本' }),
-                desc: t({ ko: '검증된 전문가만을 연결합니다. 시스템으로 신뢰를 설계하고, 데이터로 품질을 보장합니다.', en: 'We connect only verified professionals. Trust is designed through systems, quality assured through data.', ja: '検証された専門家のみを繋ぎます。システムで信頼を設計し、データで品質を保証します。', zh: '仅连接经过认证的专业人士。以系统构建信任,以数据保障质量。' }),
+                desc: t({ ko: '검증된 사회자만을 연결합니다. 시스템으로 신뢰를 설계하고, 데이터로 품질을 보장합니다.', en: 'We connect only verified professionals. Trust is designed through systems, quality assured through data.', ja: '検証された専門家のみを繋ぎます。システムで信頼を設計し、データで品質を保証します。', zh: '仅连接经过认证的专业人士。以系统构建信任,以数据保障质量。' }),
               },
               {
                 num: '02',
@@ -533,7 +533,7 @@ export default function CeoPage() {
               {
                 num: '03',
                 title: t({ ko: '상생의 생태계', en: 'Win-Win Ecosystem', ja: '共生のエコシステム', zh: '共生生态' }),
-                desc: t({ ko: '프리랜서 진행자가 안정적으로 활동하고 성장할 수 있는 환경을 만듭니다. 플랫폼과 전문가가 함께 성장합니다.', en: 'We build an environment where freelance hosts can work and grow stably. Platform and professionals grow together.', ja: 'フリーランス司会者が安定して活動し成長できる環境を作ります。プラットフォームと専門家が共に成長します。', zh: '为自由主持人打造稳定的工作与成长环境。平台与专业人士共同成长。' }),
+                desc: t({ ko: '프리랜서 진행자가 안정적으로 활동하고 성장할 수 있는 환경을 만듭니다. 플랫폼과 사회자가 함께 성장합니다.', en: 'We build an environment where freelance hosts can work and grow stably. Platform and professionals grow together.', ja: 'フリーランス司会者が安定して活動し成長できる環境を作ります。プラットフォームと専門家が共に成長します。', zh: '为自由主持人打造稳定的工作与成长环境。平台与专业人士共同成长。' }),
               },
               {
                 num: '04',

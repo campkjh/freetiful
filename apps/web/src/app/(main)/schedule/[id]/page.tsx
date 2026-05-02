@@ -125,9 +125,9 @@ export default function BookingDetailPage() {
 
   const CANCEL_REASONS = [
     '일정이 변경되었어요',
-    '다른 전문가를 찾았어요',
+    '다른 사회자를 찾았어요',
     '행사가 취소되었어요',
-    '전문가와 협의가 안 되었어요',
+    '사회자와 협의가 안 되었어요',
     '단순 변심이에요',
     '기타',
   ];
@@ -168,8 +168,8 @@ export default function BookingDetailPage() {
             {status.label}
           </span>
           <span className="text-[13px] text-gray-400">
-            {booking.status === 'confirmed' && '전문가가 예약을 확정했어요'}
-            {booking.status === 'pending' && '전문가 확인을 기다리고 있어요'}
+            {booking.status === 'confirmed' && '사회자가 예약을 확정했어요'}
+            {booking.status === 'pending' && '사회자 확인을 기다리고 있어요'}
             {booking.status === 'completed' && '이용이 완료된 예약이에요'}
             {booking.status === 'cancelled' && '예약이 취소되었어요'}
           </span>
@@ -178,9 +178,9 @@ export default function BookingDetailPage() {
 
       <div className="h-2 bg-gray-50" />
 
-      {/* 전문가 정보 */}
+      {/* 사회자 정보 */}
       <div className="bg-white px-5 py-4">
-        <p className="text-[12px] text-gray-400 mb-3">전문가</p>
+        <p className="text-[12px] text-gray-400 mb-3">사회자</p>
         <div className="flex items-center gap-3">
           <img src={booking.proImage} alt={booking.proName} className="w-[56px] h-[72px] rounded-xl object-cover shrink-0" />
           <div className="flex-1">
@@ -389,7 +389,7 @@ export default function BookingDetailPage() {
             {!refundPolicy.canCancel ? (
               <div className="p-4 bg-red-50 mb-4 text-center" style={{ borderRadius: 12 }}>
                 <p className="text-[14px] font-bold text-red-600">행사 당일에는 취소가 불가합니다</p>
-                <p className="text-[12px] text-red-400 mt-1">전문가에게 직접 연락해 주세요</p>
+                <p className="text-[12px] text-red-400 mt-1">사회자에게 직접 연락해 주세요</p>
               </div>
             ) : (
               <>

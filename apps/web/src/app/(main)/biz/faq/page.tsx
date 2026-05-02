@@ -92,7 +92,7 @@ export default function FaqPage() {
     { id: 'service',  label: t({ ko: '서비스 이용', en: 'Service',     ja: 'サービス利用', zh: '服务使用' }) },
     { id: 'matching', label: t({ ko: '매칭/예약',   en: 'Matching',    ja: 'マッチング',   zh: '匹配/预约' }) },
     { id: 'payment',  label: t({ ko: '결제/환불',   en: 'Payment',     ja: '決済/返金',    zh: '支付/退款' }) },
-    { id: 'expert',   label: t({ ko: '전문가 관련', en: 'Professionals', ja: '専門家',     zh: '专业人士' }) },
+    { id: 'expert',   label: t({ ko: '사회자 관련', en: 'Professionals', ja: '専門家',     zh: '专业人士' }) },
   ];
 
   const FAQS = [
@@ -107,7 +107,7 @@ export default function FaqPage() {
     {
       category: 'service',
       question: t({ ko: '어떤 종류의 행사에 이용할 수 있나요?', en: 'What types of events can I use it for?', ja: 'どのような種類のイベントで利用できますか?', zh: '可以用于哪些活动?' }),
-      answer: t({ ko: '결혼식 사회, 기업 행사, 컨퍼런스, 세미나, 시상식, 축제, 송년회, 제품 런칭 이벤트, 쇼호스트 등 전문 진행자가 필요한 모든 행사에 이용하실 수 있습니다. 이벤트 유형에 맞는 전문가를 매칭해드립니다.',
+      answer: t({ ko: '결혼식 사회, 기업 행사, 컨퍼런스, 세미나, 시상식, 축제, 송년회, 제품 런칭 이벤트, 쇼호스트 등 전문 진행자가 필요한 모든 행사에 이용하실 수 있습니다. 이벤트 유형에 맞는 사회자를 매칭해드립니다.',
         en: 'Weddings, corporate events, conferences, seminars, award ceremonies, festivals, year-end parties, product launches, shopping broadcasts — anywhere you need a professional host. We match the right expert to your event type.',
         ja: '結婚式司会、企業イベント、カンファレンス、セミナー、授賞式、フェスティバル、忘年会、製品発表会、ショーホストなど、プロ司会者が必要なすべてのイベントに利用可能です。イベントに合った専門家をマッチングします。',
         zh: '婚礼、企业活动、会议、研讨会、颁奖典礼、节庆、年会、产品发布、直播带货等,凡需要专业主持人的场合都可以使用。我们根据活动类型匹配合适的专家。' }),
@@ -171,7 +171,7 @@ export default function FaqPage() {
     {
       category: 'expert',
       question: t({ ko: '진행자들은 어떻게 검증되나요?', en: 'How are hosts verified?', ja: '司会者はどのように検証されますか?', zh: '主持人如何认证?' }),
-      answer: t({ ko: '모든 진행자는 KBS, SBS, MBC 등 방송사 출신 경력 확인, 자격증/교육 이수 증명, 실제 행사 영상 리뷰, 인터뷰 평가 등 4단계 검증 절차를 거칩니다. 검증을 통과한 전문가만 프리티풀에 등록됩니다.',
+      answer: t({ ko: '모든 진행자는 KBS, SBS, MBC 등 방송사 출신 경력 확인, 자격증/교육 이수 증명, 실제 행사 영상 리뷰, 인터뷰 평가 등 4단계 검증 절차를 거칩니다. 검증을 통과한 사회자만 프리티풀에 등록됩니다.',
         en: 'Every host goes through a 4-step verification: broadcaster career verification (KBS, SBS, MBC), certifications/training proofs, real event video review, and interview evaluation. Only verified professionals join Freetiful.',
         ja: 'すべての司会者は KBS、SBS、MBC 等の放送局出身経歴確認、資格証/教育修了証明、実イベント映像レビュー、インタビュー評価など 4 段階の検証手続きを経ます。検証を通過した専門家のみが Freetiful に登録されます。',
         zh: '所有主持人均经过 4 阶段认证:KBS、SBS、MBC 等广播公司经历验证、资格证/培训证明、实际活动视频审查、面试评估。仅通过认证的专业人士才能加入 Freetiful。' }),
@@ -179,7 +179,7 @@ export default function FaqPage() {
     {
       category: 'expert',
       question: t({ ko: '진행자로 활동하고 싶어요.', en: 'I want to work as a host.', ja: '司会者として活動したいです。', zh: '我想成为主持人。' }),
-      answer: t({ ko: '프리티풀 앱 또는 웹사이트에서 전문가 등록을 신청하실 수 있습니다. 경력 사항과 포트폴리오를 제출하시면 검증 절차 진행 후 승인 결과를 안내드립니다. 자세한 사항은 freetiful2025@gmail.com으로 문의해주세요.',
+      answer: t({ ko: '프리티풀 앱 또는 웹사이트에서 사회자 등록을 신청하실 수 있습니다. 경력 사항과 포트폴리오를 제출하시면 검증 절차 진행 후 승인 결과를 안내드립니다. 자세한 사항은 freetiful2025@gmail.com으로 문의해주세요.',
         en: 'Apply for expert registration through the Freetiful app or website. Submit your career and portfolio, and we will inform you of the result after verification. Contact freetiful2025@gmail.com for details.',
         ja: 'Freetiful アプリまたはウェブサイトで専門家登録を申請できます。経歴とポートフォリオを提出いただき、検証手続き後に承認結果をご案内いたします。詳細は freetiful2025@gmail.com までお問合せください。',
         zh: '可通过 Freetiful 应用或官网申请专家注册。提交经历与作品集后,经过认证流程将告知审核结果。详情请联系 freetiful2025@gmail.com。' }),

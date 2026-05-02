@@ -371,7 +371,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* ─── Footer ────────────────────────────────────────────────── */}
       {!hideNav && !isPro && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && <Footer />}
 
-      {/* ─── 추천 전문가 플로팅 (모바일 네비 위, 일반유저만) ──────── */}
+      {/* ─── 추천 사회자 플로팅 (모바일 네비 위, 일반유저만) ──────── */}
       {!hideNav && !isPro && <RecommendedProBar />}
 
       {/* ─── Mobile Bottom Nav Gradient Blur ───────────────────── */}
@@ -518,7 +518,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           >
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
             <Image src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" width={137} height={40} priority className="mx-auto mb-1.5 animate-[loginItemUp_0.4s_ease_0.05s_both]" style={{ height: 40, width: 'auto' }} />
-            <p className="text-[13px] text-gray-500 text-center mb-7 animate-[loginItemUp_0.4s_ease_0.1s_both]">나의 특별한 행사를 완성하는 전문가</p>
+            <p className="text-[13px] text-gray-500 text-center mb-7 animate-[loginItemUp_0.4s_ease_0.1s_both]">나의 특별한 행사를 완성하는 사회자</p>
             <div className="space-y-2.5">
               {[
                 { provider: 'kakao', label: '카카오로 시작하기', cls: 'bg-[#FEE500] text-[#191919]', icon: <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path fillRule="evenodd" clipRule="evenodd" d="M9 0C4.03 0 0 3.19 0 7.13c0 2.52 1.67 4.74 4.19 6.01L3.1 17.2a.3.3 0 0 0 .46.32L8.4 14a10.7 10.7 0 0 0 .6.02C13.97 14.02 18 10.83 18 6.89 18 2.94 13.97 0 9 0z" fill="#191919"/></svg>, delay: '0.15s' },

@@ -90,7 +90,7 @@ export default function AdminPaymentsPage() {
         { header: '순번', value: (_, index) => index + 1 },
         { header: '결제ID', value: (row) => row.id },
         { header: '유저', value: (row) => row.userName || '' },
-        { header: '전문가', value: (row) => row.proName || '' },
+        { header: '사회자', value: (row) => row.proName || '' },
         { header: '금액', value: (row) => row.amount },
         { header: '상태', value: (row) => statusLabels[row.status] || row.status },
         { header: '결제일', value: (row) => formatExportDate(row.createdAt, true) },
@@ -161,7 +161,7 @@ export default function AdminPaymentsPage() {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="결제ID">ID</AdminTerm></th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">전문가</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">사회자</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">금액</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="상태">상태</AdminTerm></th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">날짜</th>

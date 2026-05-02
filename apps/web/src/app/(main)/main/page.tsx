@@ -1927,7 +1927,7 @@ export default function HomePage() {
             }}
           >
             <Search size={16} className="text-gray-400 shrink-0" />
-            <span className="text-gray-400 text-[16px] font-medium truncate">어떤 전문가를 찾으시나요?</span>
+            <span className="text-gray-400 text-[16px] font-medium truncate">어떤 사회자를 찾으시나요?</span>
           </Link>
           {/* Bell icon */}
           <Link
@@ -2018,7 +2018,7 @@ export default function HomePage() {
         <CategorySwiper />
 
 
-        {/* 5. Slide Banner — 아이콘 그리드 아래, 관심있는 전문가 위 */}
+        {/* 5. Slide Banner — 아이콘 그리드 아래, 관심있는 사회자 위 */}
         <div className="px-[10px] pt-2 pb-1 lg:px-0 lg:pt-3 lg:pb-2">
           <div
             className="relative w-full overflow-hidden rounded-2xl lg:rounded-[22px] select-none"
@@ -2103,7 +2103,7 @@ export default function HomePage() {
             >
               <Search size={20} className="shrink-0 text-gray-400" />
               <span className="flex min-w-0 items-center gap-1.5 text-[15px]">
-                <span className="shrink-0 text-gray-400">어떤 전문가를 찾으시나요?</span>
+                <span className="shrink-0 text-gray-400">어떤 사회자를 찾으시나요?</span>
                 <span className="home-search-slot" aria-hidden="true">
                   <span className="home-search-slot-track">
                     {[...homeSearchSlotKeywords, homeSearchSlotKeywords[0]].map((keyword, index) => (
@@ -2306,7 +2306,7 @@ export default function HomePage() {
 
         <LazySection height={2000}>
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 0. 관심있는 전문가 (최근 본 전문가)                            */}
+        {/* 0. 관심있는 사회자 (최근 본 사회자)                            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         {viewedPros.length > 0 && (() => {
           const viewedProData = viewedPros
@@ -2321,8 +2321,8 @@ export default function HomePage() {
             <section className="mb-4">
               <div className="flex items-center justify-between mb-1">
                 <div>
-                  <h3 className="section-title">관심있는 전문가</h3>
-                  <p className="section-subtitle mt-1">최근 본 전문가를 다시 확인하세요</p>
+                  <h3 className="section-title">관심있는 사회자</h3>
+                  <p className="section-subtitle mt-1">최근 본 사회자를 다시 확인해보세요.</p>
                 </div>
                 <Link href="/favorites" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
                   전체보기 <ChevronRight size={16} />
@@ -2353,7 +2353,7 @@ export default function HomePage() {
         })()}
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 2. 이달의 TOP 전문가                                        */}
+        {/* 2. 이달의 TOP 사회자                                        */}
         {/* ══════════════════════════════════════════════��════════════ */}
         <section>
           <div className="flex items-end justify-between mb-1 lg:mb-4">
@@ -2451,7 +2451,7 @@ export default function HomePage() {
         <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 지금 접속중인 전문가 (100px 원형 + hover 부채꼴)            */}
+        {/* 지금 접속중인 사회자 (100px 원형 + hover 부채꼴)            */}
         {/* ═══════════════════════════════════════════════════════════ */}
         {prosData.length > 0 && (
           <section>
@@ -2459,13 +2459,13 @@ export default function HomePage() {
               <div className="flex items-center justify-between mb-1">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="section-title">지금 접속중인 전문가</h3>
+                    <h3 className="section-title">지금 접속중인 사회자</h3>
                     <span className="relative flex h-2.5 w-2.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
                     </span>
                   </div>
-                  <p className="section-subtitle mt-1">지금 바로 상담 가능한 전문가예요</p>
+                  <p className="section-subtitle mt-1">지금 바로 상담 가능한 사회자예요</p>
                 </div>
               </div>
             </Reveal>
@@ -2533,8 +2533,8 @@ export default function HomePage() {
                     <h3 className="section-title">지역별 사회자</h3>
                     <p className="section-subtitle mt-1">
                       {selectedRegion !== '전국'
-                        ? `${selectedRegion} 지역에서 활동 가능한 전문가`
-                        : '원하는 지역의 전문가를 찾아보세요'}
+                        ? `${selectedRegion} 지역에서 활동 가능한 사회자`
+                        : '원하는 지역의 사회자를 찾아보세요'}
                     </p>
                   </div>
                   {selectedRegion !== '전국' && (
@@ -2596,7 +2596,7 @@ export default function HomePage() {
                 </div>
               ) : regionFiltered.length === 0 ? (
                 <div className="py-10 text-center text-[13px] text-gray-400">
-                  {selectedRegion} 지역에서 활동 가능한 전문가가 아직 없습니다
+                  {selectedRegion} 지역에서 활동 가능한 사회자가 아직 없습니다
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
@@ -2613,14 +2613,14 @@ export default function HomePage() {
         {prosData.length > 0 && <div className="my-6 border-t border-gray-100" />}
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 3. 인기 전문가 — PC 5×2, Mobile 2×3                        */}
+        {/* 3. 인기 사회자 — PC 5×2, Mobile 2×3                        */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section>
           <Reveal>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="section-title">인기 전문가</h3>
-                <p className="section-subtitle mt-1">고객 만족도가 높은 전문가를 만나보세요</p>
+                <h3 className="section-title">인기 사회자</h3>
+                <p className="section-subtitle mt-1">고객 만족도가 높은 사회자를 만나보세요</p>
               </div>
               <Link
                 href="/pros"

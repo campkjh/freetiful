@@ -218,7 +218,7 @@ export default function RecommendedProBar() {
               사회자 {recommended.name}
             </p>
             <p className="text-[14px] font-bold text-white leading-tight">
-              오늘의 추천 전문가
+              오늘의 추천 사회자
             </p>
           </div>
 

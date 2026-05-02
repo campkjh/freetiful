@@ -6,14 +6,14 @@ import UpdateNotifier from '@/components/UpdateNotifier';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Freetiful — 나의 특별한 행사를 완성하는 전문가',
+  title: 'Freetiful — 나의 특별한 행사를 완성하는 사회자',
   description: '웨딩, 생일, 돌잔치 등 모든 행사의 MC, 가수, 쇼호스트를 한 번에',
-  keywords: ['MC', '웨딩MC', '행사진행', '결혼식MC', '이벤트전문가'],
+  keywords: ['MC', '웨딩MC', '행사진행', '결혼식MC', '이벤트사회자'],
   manifest: '/manifest.json',
   themeColor: '#3180F7',
   openGraph: {
     title: 'Freetiful',
-    description: '나의 특별한 행사를 완성하는 전문가',
+    description: '나의 특별한 행사를 완성하는 사회자',
     locale: 'ko_KR',
     type: 'website',
   },

@@ -491,7 +491,7 @@ export default function ProDashboardPage() {
       .finally(() => setScheduleRequestsLoading(false));
   }, [authUser]);
 
-  // 사회자/전문가 매치 요청 (홈 > 전문결혼식사회자 찾기 에서 고객이 보낸 요청들)
+  // 사회자/사회자 매치 요청 (홈 > 전문결혼식사회자 찾기 에서 고객이 보낸 요청들)
   useEffect(() => {
     if (!authUser) { setMatchRequestsLoading(false); return; }
     let cancelled = false;

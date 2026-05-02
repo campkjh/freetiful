@@ -462,7 +462,7 @@ export default function CheckoutPage() {
           </button>
           {showPrivacyDetail && (
             <p className="text-[11px] text-gray-500 leading-relaxed mt-3 bg-gray-50 rounded-lg p-3">
-              프리티풀은 고객 편의를 위해 예약·결제 기능을 제공하며, 이 기능에 대해 전문가로부터 대가를 받지 않습니다. 거래의 당사자는 고객과 사회자이며, 프리티풀은 이를 중개하지 않습니다. 수집 항목: 이름·연락처·결제정보. 보유 기간: 관련 법령에 따른 보관 기간. 위 내용을 확인하였으며, 결제에 동의합니다.
+              프리티풀은 고객 편의를 위해 예약·결제 기능을 제공하며, 이 기능에 대해 사회자로부터 대가를 받지 않습니다. 거래의 당사자는 고객과 사회자이며, 프리티풀은 이를 중개하지 않습니다. 수집 항목: 이름·연락처·결제정보. 보유 기간: 관련 법령에 따른 보관 기간. 위 내용을 확인하였으며, 결제에 동의합니다.
             </p>
           )}
           <label className="flex items-center gap-3 mt-4 cursor-pointer" onClick={() => setAgreedPrivacy(!agreedPrivacy)}>

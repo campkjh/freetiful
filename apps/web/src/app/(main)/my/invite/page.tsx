@@ -25,8 +25,8 @@ export default function InvitePage() {
   const handleShare = async () => {
     if (navigator.share) {
       await navigator.share({
-        title: '프리티풀 - 전문가 매칭',
-        text: `프리티풀에서 전문가를 찾아보세요! 추천코드 ${REFERRAL.code} 입력 시 ${REFERRAL.pointsPerInvite}P 적립!`,
+        title: '프리티풀 - 사회자 매칭',
+        text: `프리티풀에서 사회자를 찾아보세요! 추천코드 ${REFERRAL.code} 입력 시 ${REFERRAL.pointsPerInvite}P 적립!`,
         url: window.location.origin,
       });
     } else {

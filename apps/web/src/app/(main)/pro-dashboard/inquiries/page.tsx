@@ -165,7 +165,7 @@ export default function InquiriesPage() {
     try {
       // 매칭 요청 수락 처리 (중복 허용 — 이미 replied면 실패해도 무시)
       matchApi.respond(m.id, 'accept').catch(() => {});
-      // 먼저 채팅방 생성 (전문가→고객)
+      // 먼저 채팅방 생성 (사회자→고객)
       const res = await chatApi.createRoomAsPro(m.customerId, m.matchRequestId);
       const roomId = (res as any)?.data?.id || (res as any)?.id;
       if (roomId) {

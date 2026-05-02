@@ -161,9 +161,9 @@ export default function PersonalInfoPage() {
           </motion.button>
         </motion.div>
 
-        {/* 전문가분류 */}
+        {/* 사회자분류 */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-10">
-          {category && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">전문가분류</label>}
+          {category && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">사회자분류</label>}
           <motion.button
             onClick={() => setShowCategorySheet(true)}
             whileTap={{ scale: 0.99 }}
@@ -172,7 +172,7 @@ export default function PersonalInfoPage() {
             }`}
           >
             <span className={`text-[16px] font-semibold ${category ? 'text-gray-900' : 'text-gray-400'}`}>
-              {displayCategory() || '전문가분류를 선택해주세요'}
+              {displayCategory() || '사회자분류를 선택해주세요'}
             </span>
             <ChevronDown size={20} className="text-gray-400" />
           </motion.button>
@@ -265,7 +265,7 @@ export default function PersonalInfoPage() {
         )}
       </AnimatePresence>
 
-      {/* 전문가분류 선택 바텀시트 */}
+      {/* 사회자분류 선택 바텀시트 */}
       <AnimatePresence>
         {showCategorySheet && (
           <motion.div
@@ -284,8 +284,8 @@ export default function PersonalInfoPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-              <h2 className="text-xl font-bold mb-2">전문가분류를 선택해주세요.</h2>
-              <p className="text-sm text-gray-500 mb-6">선택한 전문가분류로 활동이 가능합니다.</p>
+              <h2 className="text-xl font-bold mb-2">사회자분류를 선택해주세요.</h2>
+              <p className="text-sm text-gray-500 mb-6">선택한 사회자분류로 활동이 가능합니다.</p>
               {['사회자', '쇼호스트', '축가/연주'].map((item) => (
                 <motion.button
                   key={item}

@@ -707,7 +707,7 @@ export default function BizPage() {
 
       {/* ═══ Hero (Netflix-style tilted grid) ═══════════════════ */}
       <section className="relative flex min-h-screen items-center justify-center pt-[60px] overflow-hidden">
-        {/* 기울어진 전문가 그리드 배경 */}
+        {/* 기울어진 사회자 그리드 배경 */}
         <div
           className="absolute inset-0 flex flex-col gap-4 justify-center"
           style={{
@@ -930,13 +930,13 @@ export default function BizPage() {
           </Reveal>
 
 
-          {/* 프리티풀 전문가들과 함께한 기업 */}
+          {/* 프리티풀 사회자들과 함께한 기업 */}
           <Reveal delay={100}>
             <div className="mt-20">
               <p className="text-[11px] font-medium tracking-normal text-blue-500">OUR PARTNERS</p>
               <h3 className="mt-3 text-[28px] font-bold tracking-tight">
                 {t({
-                  ko: <>프리티풀 전문가들과<br />함께한 기업</>,
+                  ko: <>프리티풀 사회자들과<br />함께한 기업</>,
                   en: <>Companies that trust<br />our professionals</>,
                   ja: <>Freetiful 専門家と<br />共にした企業</>,
                   zh: <>与 Freetiful 专家<br />合作的企业</>,
@@ -982,7 +982,7 @@ export default function BizPage() {
               { icon: <Heart className="h-6 w-6" />, title: '결혼식 사회자', desc: 'KBS·SBS·MBC 방송사 출신 아나운서, 결혼식 사회 13,000회 이상 경력의 전문 사회자가 함께합니다.', color: 'bg-rose-50 text-rose-500' },
               { icon: <Building2 className="h-6 w-6" />, title: '공식행사 / 기업행사', desc: '정부기관, 관공서, 대기업 행사 등 공적인 자리에서 격에 맞는 진행으로 행사의 품격을 높여드립니다.', color: 'bg-blue-50 text-blue-500' },
               { icon: <Star className="h-6 w-6" />, title: '방송 / 온라인 콘텐츠', desc: '아나운서, 쇼호스트, 인플루언서가 TV방송, 유튜브 콘텐츠, 라이브커머스에서 활약합니다.', color: 'bg-violet-50 text-violet-500' },
-              { icon: <Globe className="h-6 w-6" />, title: '통번역', desc: '국제포럼, 국제스포츠행사 등 글로벌 행사를 위한 통번역 전문가, 언어 전문가가 함께합니다.', color: 'bg-emerald-50 text-emerald-500' },
+              { icon: <Globe className="h-6 w-6" />, title: '통번역', desc: '국제포럼, 국제스포츠행사 등 글로벌 행사를 위한 통번역 사회자, 언어 사회자가 함께합니다.', color: 'bg-emerald-50 text-emerald-500' },
               { icon: <Users className="h-6 w-6" />, title: '팀빌딩 / 레크리에이션', desc: '전국 상위 1%의 MC들이 모두가 하나 되는 순간, 즐길 수 있는 시간을 만들어 드립니다.', color: 'bg-amber-50 text-amber-500' },
               { icon: <Zap className="h-6 w-6" />, title: '체육대회', desc: '기업·학교 체육대회에서 함께 뛰고 응원하며 즐기는 역동적인 시간을 베테랑 MC가 이끕니다.', color: 'bg-orange-50 text-orange-500' },
               { icon: <Award className="h-6 w-6" />, title: '대학축제 / 지역축제', desc: '수도권 20곳 이상 대학 및 지역축제 진행자가 전국 각지 대규모 축제를 진행합니다.', color: 'bg-pink-50 text-pink-500' },
@@ -1030,7 +1030,7 @@ export default function BizPage() {
                     { label: '진행자 등록', general: '누구나 자유롭게 가능', freetiful: '직접 심사·검증을 통한 입점' },
                     { label: '경력 인증', general: '미비 또는 자율 기재', freetiful: '포트폴리오 및 실제 경력 검증 필수' },
                     { label: '품질 보증', general: '무관여 (후기 중심)', freetiful: '진행자 관리 및 사후 피드백 시스템' },
-                    { label: '전문성', general: '아마추어/초보자 존재', freetiful: '방송·행사 경력 보유 전문가만 선발' },
+                    { label: '전문성', general: '아마추어/초보자 존재', freetiful: '방송·행사 경력 보유 사회자만 선발' },
                     { label: '위험요소', general: '후기 조작, 무경험자 섭외 가능', freetiful: '검증되지 않은 진행자는 등록 불가' },
                   ].map((row, i) => (
                     <div key={i} className={`grid grid-cols-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
@@ -1243,9 +1243,9 @@ export default function BizPage() {
           </Reveal>
           <div className="mt-8 space-y-8">
             {[
-              { phase: '01', title: t({ ko: '전문가 매칭 플랫폼 고도화', en: 'Matching Platform Upgrade', ja: 'マッチングプラットフォーム高度化', zh: '专家匹配平台升级' }), desc: t({ ko: 'AI 매칭 정확도 향상, 전문가 카테고리 확장', en: 'Improve AI matching accuracy and expand expert categories', ja: 'AIマッチング精度向上、専門家カテゴリー拡大', zh: '提高AI匹配准确度,扩展专家类别' }) },
+              { phase: '01', title: t({ ko: '사회자 매칭 플랫폼 고도화', en: 'Matching Platform Upgrade', ja: 'マッチングプラットフォーム高度化', zh: '专家匹配平台升级' }), desc: t({ ko: 'AI 매칭 정확도 향상, 사회자 카테고리 확장', en: 'Improve AI matching accuracy and expand expert categories', ja: 'AIマッチング精度向上、専門家カテゴリー拡大', zh: '提高AI匹配准确度,扩展专家类别' }) },
               { phase: '02', title: t({ ko: '전국 서비스 확대', en: 'Nationwide Service Expansion', ja: '全国サービス拡大', zh: '全国服务扩展' }), desc: t({ ko: '수도권 중심에서 전국 서비스 커버리지 확장', en: 'Expand coverage from capital region to nationwide', ja: '首都圏中心から全国サービスへ拡大', zh: '从首都圈扩展至全国服务覆盖' }) },
-              { phase: '03', title: t({ ko: '종합 행사 솔루션', en: 'Total Event Solution', ja: '総合イベントソリューション', zh: '综合活动解决方案' }), desc: t({ ko: '기획·공간·전문가·장비까지 원스톱 행사 플랫폼으로 진화', en: 'Evolve into a one-stop event platform covering planning, venues, experts, and equipment', ja: '企画・会場・専門家・機材まで、ワンストップイベントプラットフォームへ進化', zh: '发展为涵盖策划、场地、专家、设备的一站式活动平台' }) },
+              { phase: '03', title: t({ ko: '종합 행사 솔루션', en: 'Total Event Solution', ja: '総合イベントソリューション', zh: '综合活动解决方案' }), desc: t({ ko: '기획·공간·사회자·장비까지 원스톱 행사 플랫폼으로 진화', en: 'Evolve into a one-stop event platform covering planning, venues, experts, and equipment', ja: '企画・会場・専門家・機材まで、ワンストップイベントプラットフォームへ進化', zh: '发展为涵盖策划、场地、专家、设备的一站式活动平台' }) },
             ].map((p, i) => (
               <Reveal key={i} delay={i * 80}>
                 <div className="group flex items-start gap-6 pb-6 border-b border-gray-100 last:border-b-0 transition-all">
@@ -1369,7 +1369,7 @@ export default function BizPage() {
                 </h2>
                 <p className="mt-4 text-[14px] leading-[1.5] text-gray-400">
                   {t({
-                    ko: <>아나운서·MC 섭외부터 행사기획까지<br />검증된 전문가가 함께합니다.</>,
+                    ko: <>아나운서·MC 섭외부터 행사기획까지<br />검증된 사회자가 함께합니다.</>,
                     en: <>From booking announcers and MCs to full event planning,<br />verified professionals are with you.</>,
                     ja: <>アナウンサー・MC のブッキングからイベント企画まで、<br />認証済みの専門家がサポートします。</>,
                     zh: <>从主播、MC 预约到活动策划,<br />认证专业人士全程陪同。</>,

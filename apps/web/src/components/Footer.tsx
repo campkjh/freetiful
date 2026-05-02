@@ -14,7 +14,7 @@ const FOOTER_LINKS = {
   ],
   문의: [
     { label: '사업 제휴', href: '/biz' },
-    { label: '전문가 입점 문의', href: '/pro-register' },
+    { label: '사회자 입점 문의', href: '/pro-register' },
   ],
   '고객센터': [
     { label: '전화: 02-765-8882', href: 'tel:02-765-8882' },

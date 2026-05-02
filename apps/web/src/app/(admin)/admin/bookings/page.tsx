@@ -219,7 +219,7 @@ export default function AdminBookingsPage() {
         { header: '의뢰인', value: (row) => row.userName || '' },
         { header: '이메일', value: (row) => row.userEmail || '' },
         { header: '연락처', value: (row) => row.userPhone || '' },
-        { header: '전문가/전달', value: (row) => row.proName || row.deliveredPros.map((pro) => pro.name).filter(Boolean).join(', ') || '' },
+        { header: '사회자/전달', value: (row) => row.proName || row.deliveredPros.map((pro) => pro.name).filter(Boolean).join(', ') || '' },
         { header: '카테고리', value: (row) => row.eventCategoryName || row.categoryName || '' },
         { header: '행사일', value: (row) => formatExportDate(row.eventDate) },
         { header: '행사시간', value: (row) => timeText(row.eventTime) },
@@ -299,7 +299,7 @@ export default function AdminBookingsPage() {
             <tr>
               <th className="px-4 py-3 text-left font-semibold">유형</th>
               <th className="px-4 py-3 text-left font-semibold">의뢰인</th>
-              <th className="px-4 py-3 text-left font-semibold"><AdminTerm term="전문가/전달">전문가/전달</AdminTerm></th>
+              <th className="px-4 py-3 text-left font-semibold"><AdminTerm term="사회자/전달">사회자/전달</AdminTerm></th>
               <th className="px-4 py-3 text-left font-semibold">행사</th>
               <th className="px-4 py-3 text-right font-semibold">금액</th>
               <th className="px-4 py-3 text-center font-semibold"><AdminTerm term="상태">상태</AdminTerm></th>

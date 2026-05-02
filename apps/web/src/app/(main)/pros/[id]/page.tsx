@@ -47,7 +47,7 @@ const PC_DETAIL_CATEGORY_MENUS = [
     href: '/pros',
     highlight: true,
     items: [
-      { label: '전체 전문가', href: '/pros' },
+      { label: '전체 사회자', href: '/pros' },
       { label: '결혼식 사회자', href: proSearchHref('사회자', '결혼식') },
       { label: '행사 MC', href: proSearchHref('사회자', '행사') },
       { label: '외국어 사회자', href: proSearchHref('외국어사회자') },
@@ -59,7 +59,7 @@ const PC_DETAIL_CATEGORY_MENUS = [
     label: '전체',
     href: '/pros',
     items: [
-      { label: '전체 전문가 보기', href: '/pros' },
+      { label: '전체 사회자 보기', href: '/pros' },
       { label: '인기 사회자 보기', href: proSearchHref('사회자') },
       { label: '외국어 진행 가능', href: proSearchHref('외국어사회자') },
     ],
@@ -477,7 +477,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
 }
 
 function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPros: ProDetailData['recommendedPros'] = []): ProDetailData {
-  const userName = res.user?.name || '전문가';
+  const userName = res.user?.name || '사회자';
   const images = res.images?.map((img: any) => img.imageUrl) || [];
   const profileImg = images[0] || res.user?.profileImageUrl || '';
   const ytId = extractYoutubeId(res.youtubeUrl);
@@ -950,7 +950,7 @@ export default function ProDetailPage() {
   const [apiError, setApiError] = useState(false);
   const [apiLoading, setApiLoading] = useState(true);
 
-  // API에서 전문가 상세 데이터 가져오기
+  // API에서 사회자 상세 데이터 가져오기
   useEffect(() => {
     if (!id) return;
     // id 변경 시 이전 페이지의 에러 상태가 남아 새 페이지를 가리는 문제 방지
@@ -960,10 +960,10 @@ export default function ProDetailPage() {
     // 'my-pro' special case: localStorage에서 등록된 사회자
     if (id === 'my-pro') {
       try {
-        const name = localStorage.getItem('proRegister_name') || '전문가';
+        const name = localStorage.getItem('proRegister_name') || '사회자';
         const photos = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
         const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
-        const intro = localStorage.getItem('proRegister_intro') || '프리티풀 인증 전문가';
+        const intro = localStorage.getItem('proRegister_intro') || '프리티풀 인증 사회자';
         // career: proRegister_awards 의 첫 줄을 하이라이트로 사용 (career 전용 키는 없음)
         const awards = localStorage.getItem('proRegister_awards') || '';
         const career = awards.split('\n').filter(Boolean)[0] || '';
@@ -1432,7 +1432,7 @@ export default function ProDetailPage() {
     }
   };
 
-  // Error state: 전문가를 찾을 수 없습니다
+  // Error state: 사회자를 찾을 수 없습니다
   // 캐시/프리뷰에서라도 pro 가 들어왔다면 에러 화면이 덮지 않도록 보호한다
   if (apiError && !pro) {
     return (
@@ -1441,8 +1441,8 @@ export default function ProDetailPage() {
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
             <ChevronLeft size={28} className="text-gray-400" />
           </div>
-          <h2 className="text-[20px] font-bold text-gray-900 mb-2">전문가를 찾을 수 없습니다</h2>
-          <p className="text-[14px] text-gray-500 mb-6">요청하신 전문가 정보를 불러올 수 없습니다.<br />다시 시도해 주세요.</p>
+          <h2 className="text-[20px] font-bold text-gray-900 mb-2">사회자를 찾을 수 없습니다</h2>
+          <p className="text-[14px] text-gray-500 mb-6">요청하신 사회자 정보를 불러올 수 없습니다.<br />다시 시도해 주세요.</p>
           <button
             onClick={() => router.back()}
             className="px-6 py-3 bg-[#3180F7] text-white font-semibold rounded-xl active:scale-95 transition-transform"
@@ -1485,7 +1485,7 @@ export default function ProDetailPage() {
   const hasDescriptionContent = Boolean(pro.hasDescriptionContent && pro.descriptionHtml?.trim());
   const detailSectionTabs: Array<{ id: 'desc' | 'info' | 'reviews'; label: string }> = [
     ...(hasDescriptionContent ? [{ id: 'desc' as const, label: '서비스 설명' }] : []),
-    { id: 'info', label: '전문가 정보' },
+    { id: 'info', label: '사회자 정보' },
     { id: 'reviews', label: `리뷰 (${displayReviewCount})` },
   ];
   const activeSectionIndex = Math.max(0, detailSectionTabs.findIndex((tab) => tab.id === activeSection));
@@ -1505,7 +1505,7 @@ export default function ProDetailPage() {
   const displayFaqs = pro.faqs.length > 0 ? pro.faqs : [
     {
       question: `${pro.categoryName || '사회자'} 섭외는 어떻게 진행되나요?`,
-      answer: '문의하기로 일정과 장소, 행사 성격을 알려주시면 전문가가 가능 여부와 견적을 확인해 답변드립니다. 이후 결제와 사전 미팅을 통해 진행 방향을 조율합니다.',
+      answer: '문의하기로 일정과 장소, 행사 성격을 알려주시면 사회자가 가능 여부와 견적을 확인해 답변드립니다. 이후 결제와 사전 미팅을 통해 진행 방향을 조율합니다.',
     },
     {
       question: '행사 전 준비 자료는 언제 전달하면 되나요?',
@@ -1535,7 +1535,7 @@ export default function ProDetailPage() {
               <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-7 w-auto" />
             </Link>
             <div className="flex h-11 flex-1 max-w-[520px] items-center rounded-full border border-gray-300 px-5 shadow-sm">
-              <span className="flex-1 text-[14px] text-gray-400">어떤 전문가가 필요하세요?</span>
+              <span className="flex-1 text-[14px] text-gray-400">어떤 사회자가 필요하세요?</span>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.3" strokeLinecap="round">
                 <circle cx="11" cy="11" r="7" />
                 <path d="M20 20l-3.5-3.5" />
@@ -1543,12 +1543,12 @@ export default function ProDetailPage() {
             </div>
             <nav className="ml-auto flex items-center gap-6 text-[14px] font-semibold text-gray-900">
               <Link href="/biz">엔터프라이즈</Link>
-              <Link href="/pro-register/terms">전문가 등록</Link>
+              <Link href="/pro-register/terms">사회자 등록</Link>
               <button type="button" onClick={() => setLoginModal(true)}>로그인</button>
             </nav>
           </div>
           <div className="border-t border-gray-100">
-            <nav className="mx-auto flex h-[50px] max-w-[1180px] items-center gap-1.5 px-8 text-[14px] font-semibold text-gray-900" aria-label="전문가 카테고리">
+            <nav className="mx-auto flex h-[50px] max-w-[1180px] items-center gap-1.5 px-8 text-[14px] font-semibold text-gray-900" aria-label="사회자 카테고리">
               {PC_DETAIL_CATEGORY_MENUS.map((menu) => (
                 <div key={menu.label} className="home-desktop-category-menu group relative">
                   <Link
@@ -1581,7 +1581,7 @@ export default function ProDetailPage() {
           <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10">
             <div>
               <div className="mb-5 flex items-center justify-between">
-                <p className="text-[13px] text-gray-500">전문가 찾기 &gt; {pro.categoryName || '사회자'} &gt; {pro.name}</p>
+                <p className="text-[13px] text-gray-500">사회자 찾기 &gt; {pro.categoryName || '사회자'} &gt; {pro.name}</p>
                 <div className="flex items-center gap-5 text-[14px] font-bold text-gray-900">
                   <button onClick={handleToggleFavorite} className="flex items-center gap-1.5">
                     <Heart size={18} className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-900'} />
@@ -1684,7 +1684,7 @@ export default function ProDetailPage() {
                 {hasDescriptionContent && (
                   <section id="desktop-desc" className="mb-9 rounded-lg border border-gray-200 p-6">
                     <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
-                      <h3 className="text-[19px] font-bold text-gray-950">전문가 소개</h3>
+                      <h3 className="text-[19px] font-bold text-gray-950">사회자 소개</h3>
                       <div className="pro-detail-html text-[14px] leading-[1.8] text-gray-800" dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
                     </div>
                   </section>
@@ -1735,7 +1735,7 @@ export default function ProDetailPage() {
                 </section>
 
                 <section id="desktop-info" className="mb-9">
-                  <h2 className="mb-6 text-[22px] font-bold text-gray-950">전문가 정보</h2>
+                  <h2 className="mb-6 text-[22px] font-bold text-gray-950">사회자 정보</h2>
                   <div className="grid grid-cols-3 gap-5">
                     {[
                       {
@@ -1793,7 +1793,7 @@ export default function ProDetailPage() {
                         <img src={pro.profileImage} alt="" className="h-14 w-14 rounded-full object-cover" />
                         <div>
                           <p className="text-[16px] font-bold text-gray-950">{pro.name}</p>
-                          <p className="mt-1 text-[13px] text-gray-500">{pro.categoryName || '사회자'} 전문가</p>
+                          <p className="mt-1 text-[13px] text-gray-500">{pro.categoryName || '사회자'} 사회자</p>
                         </div>
                       </div>
                       <div className="mt-5 space-y-3 text-[13px] text-gray-700">
@@ -1809,7 +1809,7 @@ export default function ProDetailPage() {
                   <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
                     <h3 className="text-[19px] font-bold text-gray-950">대상자</h3>
                     <ul className="space-y-3 text-[14px] text-gray-800">
-                      {['전문 결혼식 사회자를 찾는 예비부부', '기업행사와 컨퍼런스 진행이 필요한 담당자', '현장 분위기에 맞춘 안정적인 진행을 원하는 고객', '검증된 전문가와 직접 소통하고 싶은 고객'].map((item) => (
+                      {['전문 결혼식 사회자를 찾는 예비부부', '기업행사와 컨퍼런스 진행이 필요한 담당자', '현장 분위기에 맞춘 안정적인 진행을 원하는 고객', '검증된 사회자와 직접 소통하고 싶은 고객'].map((item) => (
                         <li key={item} className="flex items-start gap-3"><Check size={18} className="mt-0.5 text-gray-500" />{item}</li>
                       ))}
                     </ul>
@@ -1828,11 +1828,11 @@ export default function ProDetailPage() {
                 </section>
 
                 <section className="mb-9">
-                  <h2 className="mb-6 text-[22px] font-bold text-gray-950">전문가 이력</h2>
+                  <h2 className="mb-6 text-[22px] font-bold text-gray-950">사회자 이력</h2>
                   <div className="rounded-lg border border-gray-200 p-6">
                     {[
-                      ['경력 사항', (pro.career && pro.career.trim()) || pro.description || `${pro.categoryName || '사회자'} ${pro.name} 전문가`],
-                      ['보유 자격증', pro.isPrime ? '프리티풀 인증 전문가' : '프로필 심사 완료'],
+                      ['경력 사항', (pro.career && pro.career.trim()) || pro.description || `${pro.categoryName || '사회자'} ${pro.name} 사회자`],
+                      ['보유 자격증', pro.isPrime ? '프리티풀 인증 사회자' : '프로필 심사 완료'],
                       ['학력 전공', pro.categoryName || '전문 진행'],
                     ].map(([title, body]) => (
                       <div key={title} className="mb-6 last:mb-0">
@@ -1915,7 +1915,7 @@ export default function ProDetailPage() {
                 {pro.recommendedPros.length > 0 && (
                   <section className="mb-9">
                     <div className="mb-5 flex items-end justify-between">
-                      <h2 className="text-[22px] font-bold leading-tight text-gray-950">사회자 인기전문가 어때요?</h2>
+                      <h2 className="text-[22px] font-bold leading-tight text-gray-950">인기 사회자 어때요?</h2>
                       <Link href="/pros" className="text-[13px] font-bold text-gray-600">더보기</Link>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
@@ -1993,7 +1993,7 @@ export default function ProDetailPage() {
                     <div className="flex items-center justify-between"><span>자료 제공</span><Check size={18} className="text-gray-900" /></div>
                   </div>
                   <button onClick={handleInquiry} className="mt-6 h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 hover:bg-gray-50">
-                    전문가에게 문의하기
+                    사회자에게 문의하기
                   </button>
                   <button onClick={handlePurchase} className="mt-3 h-[52px] w-full rounded-lg bg-gray-950 text-[15px] font-bold text-white hover:bg-black">
                     구매하기
@@ -2184,7 +2184,7 @@ export default function ProDetailPage() {
             {pro.isPrime && (
               <span className="flex items-center gap-1 bg-[#3180F7]/10 text-[#3180F7] text-[11px] font-bold px-2.5 py-1 rounded-full">
                 <img src="/images/verified-pro.svg" alt="" width={14} height={14} className="shrink-0" />
-                인증 전문가
+                인증 사회자
               </span>
             )}
           </div>
@@ -2339,7 +2339,7 @@ export default function ProDetailPage() {
                 Partners
               </span>
               <p className="text-[15px] font-bold text-gray-900 mb-3">
-                이 서비스는 프리티풀 엄선 <span className="text-[#3180F7]">상위 2% 전문가</span>가 제공해요
+                이 서비스는 프리티풀 엄선 <span className="text-[#3180F7]">상위 2% 사회자</span>가 제공해요
               </p>
               <ul className="space-y-1.5">
                 {['포트폴리오와 고객 후기로 검증된 퀄리티', '경력·이력 인증 심사를 통과한 서비스', '다양한 고객의 요청에 맞춘 전문성'].map((item, i) => (
@@ -2426,10 +2426,10 @@ export default function ProDetailPage() {
         </div>
       )}
 
-      {/* ─── 프리티풀의 다른 검증된 전문가 ─── */}
+      {/* ─── 프리티풀의 다른 검증된 사회자 ─── */}
       <div className="px-4 pt-10">
         <Reveal>
-          <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4"><span className="text-[#3180F7]">프리티풀</span>의 다른<br />검증된 전문가를 살펴보세요</h3>
+          <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4"><span className="text-[#3180F7]">프리티풀</span>의 다른<br />검증된 사회자를 살펴보세요</h3>
         </Reveal>
         <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x pr-4">
           {pro.alsoViewed.map((item) => (
@@ -2467,9 +2467,9 @@ export default function ProDetailPage() {
       {/* ─── Divider ─── */}
       <div className="h-2 bg-gray-50 mt-8" />
 
-      {/* ─── 전문가 정보 Section ─── */}
+      {/* ─── 사회자 정보 Section ─── */}
       <div ref={infoRef} className="px-2.5 pt-8">
-        <h2 className="text-[20px] font-bold text-gray-900 mb-5">전문가 정보</h2>
+        <h2 className="text-[20px] font-bold text-gray-900 mb-5">사회자 정보</h2>
 
         <div className="flex items-center gap-4 mb-5">
           <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-xl object-cover" />
@@ -2684,7 +2684,7 @@ export default function ProDetailPage() {
 
       {/* ─── 추천 사회자 ─── */}
       <div className="px-2.5 pt-8 pb-10">
-        <h2 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">사회자<br />인기 전문가 어때요?</h2>
+        <h2 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">사회자<br />인기 사회자 어때요?</h2>
         <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-2.5 px-2.5">
           {pro.recommendedPros.map((item) => (
             <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[130px] group">

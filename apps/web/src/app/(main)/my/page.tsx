@@ -631,8 +631,8 @@ export default function MyPage() {
   const isApprovedPro = isPro && proProfileStatus === 'approved' && !viewAsUser;
   const partnerSwitchTitle = isPro && viewAsUser ? '프로회원뷰로 전환하기 🎉' : '파트너스로 전환하기 🎉';
   const partnerSwitchDescription = isPro && viewAsUser
-    ? '프로 승인 계정입니다. 전문가 마이페이지로 돌아가세요'
-    : '파트너 승인 완료! 지금 바로 전문가 모드로 시작하세요';
+    ? '프로 승인 계정입니다. 사회자 마이페이지로 돌아가세요'
+    : '파트너 승인 완료! 지금 바로 사회자 모드로 시작하세요';
   if (isApprovedPro) {
     const isTopRank = (proStats.rank != null && proStats.rank <= 10) || proStats.pudding >= 100;
     return (
@@ -838,7 +838,7 @@ export default function MyPage() {
                 <circle cx="18" cy="18" r="5" fill="#3B82F6"/>
                 <path d="M15.5 18l1.5 1.5 3-3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <p className="text-[14px] font-bold text-blue-700">전문가 양식 제출완료!</p>
+              <p className="text-[14px] font-bold text-blue-700">사회자 양식 제출완료!</p>
             </div>
             <p className="text-[12px] text-blue-500 mt-1 ml-[26px]">심사를 기다려주세요. 7일 이내에 결과를 알려드립니다.</p>
           </div>

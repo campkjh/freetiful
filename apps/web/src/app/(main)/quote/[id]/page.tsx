@@ -81,11 +81,11 @@ export default function QuoteDetailPage() {
       <div className="h-2 bg-gray-50" />
 
       <div className="bg-white px-5 py-4">
-        <p className="text-[12px] text-gray-400 mb-3">전문가</p>
+        <p className="text-[12px] text-gray-400 mb-3">사회자</p>
         <div className="flex items-center gap-3">
           <img src={proImage} alt={proUser?.name} className="w-[56px] h-[72px] rounded-xl object-cover shrink-0" />
           <div className="flex-1">
-            <p className="text-[18px] font-bold text-gray-900">{proUser?.name || '전문가'}</p>
+            <p className="text-[18px] font-bold text-gray-900">{proUser?.name || '사회자'}</p>
             <p className="text-[13px] text-gray-400 mt-0.5">
               {quote.proProfile?.categories?.[0]?.category?.name || '사회자'}
             </p>

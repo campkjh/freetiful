@@ -318,7 +318,7 @@ export default function ProEditPage() {
         });
         console.log('[AI Hero] response:', hero);
         if (hero.url) {
-          const imgTag = `<img src="${hero.url}" alt="${name || '전문가'} 프로필" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:12px;display:block;" />`;
+          const imgTag = `<img src="${hero.url}" alt="${name || '사회자'} 프로필" style="max-width:100%;height:auto;border-radius:12px;margin-bottom:12px;display:block;" />`;
           if (detailEditorRef.current) {
             const before = detailEditorRef.current.innerHTML;
             detailEditorRef.current.innerHTML = imgTag + before;
@@ -797,9 +797,9 @@ export default function ProEditPage() {
             </div>
           </div>
 
-          {/* 전문가분류 */}
+          {/* 사회자분류 */}
           <div>
-            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">전문가분류</label>
+            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">사회자분류</label>
             <button
               onClick={() => setShowCategorySheet(true)}
               className="w-full h-11 border border-gray-200 rounded-xl px-4 flex items-center justify-between text-[15px] text-gray-900 active:bg-gray-50 transition-colors"
@@ -1468,7 +1468,7 @@ export default function ProEditPage() {
         </button>
       </div>
 
-      {/* ─── 전문가분류 바텀시트 ─── */}
+      {/* ─── 사회자분류 바텀시트 ─── */}
       <>
         {showCategorySheet && (
           <div
@@ -1480,8 +1480,8 @@ export default function ProEditPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-              <h2 className="text-xl font-bold mb-2">전문가분류를 선택해주세요</h2>
-              <p className="text-[13px] text-gray-500 mb-6">선택한 전문가분류로 활동이 가능합니다</p>
+              <h2 className="text-xl font-bold mb-2">사회자분류를 선택해주세요</h2>
+              <p className="text-[13px] text-gray-500 mb-6">선택한 사회자분류로 활동이 가능합니다</p>
               {['사회자', '쇼호스트', '축가/연주'].map(item => (
                 <button
                   key={item}
