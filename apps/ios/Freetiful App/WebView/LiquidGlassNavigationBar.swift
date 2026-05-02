@@ -280,7 +280,6 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private lazy var inactiveColor = freetifulBlue.withAlphaComponent(0.58)
 
     private let tabBar = FreetifulNativeTabBar()
-    private let selectionCapsuleView = UIView()
     private let tabOverlayStack = UIStackView()
     private let toggleContainerView = UIView()
     private let toggleSurfaceView = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
@@ -291,7 +290,6 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private var items: [LiquidNavItem] = []
     private var tabButtons: [FreetifulTabOverlayButton] = []
     private var iconCache: [String: UIImage] = [:]
-    private var selectionAnimator: UIViewPropertyAnimator?
     private var selectedPath = "/main"
     private var isProMode = false
     private var showsModeToggle = false
@@ -308,7 +306,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layoutSelectionCapsule(animated: false)
+        updateSelectionIndicatorImage()
+        tabBar.bringSubviewToFront(tabOverlayStack)
     }
 
     private func setupView() {
@@ -359,7 +358,6 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabBar.backgroundColor = .clear
         tabBar.backgroundImage = UIImage()
         tabBar.shadowImage = UIImage()
-        tabBar.selectionIndicatorImage = transparentTabIcon()
         tabBar.clipsToBounds = true
         tabBar.layer.cornerRadius = 33
         tabBar.layer.cornerCurve = .continuous
@@ -368,7 +366,6 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         appearance.configureWithTransparentBackground()
         appearance.backgroundEffect = nil
         appearance.backgroundColor = .clear
-        appearance.selectionIndicatorTintColor = .clear
         appearance.shadowColor = .clear
         configureTabItemAppearance(appearance.stackedLayoutAppearance)
         configureTabItemAppearance(appearance.inlineLayoutAppearance)
@@ -378,18 +375,12 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             tabBar.scrollEdgeAppearance = appearance
         }
 
-        selectionCapsuleView.isUserInteractionEnabled = false
-        selectionCapsuleView.backgroundColor = UIColor(white: 0.88, alpha: 0.68)
-        selectionCapsuleView.layer.cornerCurve = .continuous
-        selectionCapsuleView.isHidden = true
-        tabBar.addSubview(selectionCapsuleView)
-
         tabOverlayStack.translatesAutoresizingMaskIntoConstraints = false
         tabOverlayStack.axis = .horizontal
         tabOverlayStack.alignment = .fill
         tabOverlayStack.distribution = .fillEqually
         tabOverlayStack.spacing = 0
-        tabOverlayStack.isUserInteractionEnabled = true
+        tabOverlayStack.isUserInteractionEnabled = false
         tabBar.addSubview(tabOverlayStack)
 
         NSLayoutConstraint.activate([
@@ -506,7 +497,12 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             view.removeFromSuperview()
         }
 
-        tabBar.items = nil
+        tabBar.items = items.enumerated().map { index, item in
+            let tabItem = UITabBarItem(title: nil, image: transparentTabIcon(), selectedImage: transparentTabIcon())
+            tabItem.tag = index
+            tabItem.accessibilityLabel = item.title
+            return tabItem
+        }
 
         tabButtons = items.enumerated().map { index, item in
             let button = FreetifulTabOverlayButton(
@@ -516,10 +512,12 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
                 inactiveColor: inactiveColor
             )
             button.tag = index
-            button.addTarget(self, action: #selector(didTapOverlayItem(_:)), for: .touchUpInside)
+            button.isUserInteractionEnabled = false
             tabOverlayStack.addArrangedSubview(button)
             return button
         }
+        updateSelectionIndicatorImage()
+        tabBar.bringSubviewToFront(tabOverlayStack)
     }
 
     private func updateModeToggle() {
@@ -539,55 +537,47 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     private func updateSelection(animated: Bool) {
         let selectedIndex = items.firstIndex(where: isSelected)
-        tabBar.selectedItem = nil
+        guard
+            let selectedIndex,
+            let tabItems = tabBar.items,
+            selectedIndex >= 0,
+            selectedIndex < tabItems.count
+        else {
+            tabBar.selectedItem = nil
+            return
+        }
+
+        let nextItem = tabItems[selectedIndex]
         tabButtons.enumerated().forEach { index, button in
             button.setSelectedState(index == selectedIndex, animated: animated)
         }
-        layoutSelectionCapsule(animated: animated)
+
+        guard tabBar.selectedItem !== nextItem else { return }
+
+        tabBar.selectedItem = nextItem
     }
 
-    private func layoutSelectionCapsule(animated: Bool) {
-        guard
-            let selectedIndex = items.firstIndex(where: isSelected),
-            !items.isEmpty,
-            tabBar.bounds.width > 0,
-            tabBar.bounds.height > 0
-        else {
-            selectionCapsuleView.isHidden = true
+    private func updateSelectionIndicatorImage() {
+        guard !items.isEmpty, tabBar.bounds.width > 0, tabBar.bounds.height > 0 else {
+            tabBar.selectionIndicatorImage = nil
             return
         }
 
         let itemWidth = tabBar.bounds.width / CGFloat(items.count)
+        let itemHeight = tabBar.bounds.height
         let capsuleInset: CGFloat = 3
-        let itemFrame = CGRect(
-            x: CGFloat(selectedIndex) * itemWidth,
-            y: 0,
-            width: itemWidth,
-            height: tabBar.bounds.height
-        )
-        let targetFrame = itemFrame.insetBy(dx: capsuleInset, dy: capsuleInset)
-
-        selectionCapsuleView.isHidden = false
-        selectionCapsuleView.layer.cornerRadius = targetFrame.height / 2
-        tabBar.bringSubviewToFront(selectionCapsuleView)
-        tabBar.bringSubviewToFront(tabOverlayStack)
-
-        selectionAnimator?.stopAnimation(true)
-
-        guard animated, selectionCapsuleView.frame != .zero else {
-            selectionCapsuleView.frame = targetFrame
-            return
+        let size = CGSize(width: itemWidth, height: itemHeight)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = UIScreen.main.scale
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            let rect = CGRect(origin: .zero, size: size).insetBy(dx: capsuleInset, dy: capsuleInset)
+            UIColor(white: 0.88, alpha: 0.68).setFill()
+            UIBezierPath(
+                roundedRect: rect,
+                cornerRadius: rect.height / 2
+            ).fill()
         }
-
-        let animator = UIViewPropertyAnimator(duration: 0.44, dampingRatio: 0.72) {
-            self.selectionCapsuleView.frame = targetFrame
-        }
-        animator.isInterruptible = true
-        animator.addCompletion { [weak self] _ in
-            self?.selectionAnimator = nil
-        }
-        selectionAnimator = animator
-        animator.startAnimation()
+        tabBar.selectionIndicatorImage = image.withRenderingMode(.alwaysOriginal)
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
@@ -602,15 +592,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
         guard item.tag >= 0, item.tag < items.count else { return }
-        tabBar.selectedItem = nil
         selectItem(at: item.tag)
-        DispatchQueue.main.async {
-            tabBar.selectedItem = nil
-        }
-    }
-
-    @objc private func didTapOverlayItem(_ sender: UIControl) {
-        selectItem(at: sender.tag)
     }
 
     private func selectItem(at index: Int) {
