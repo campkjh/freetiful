@@ -122,17 +122,41 @@ private final class FreetifulNativeTabBar: UITabBar {
 
         subviews.forEach { subview in
             if String(describing: type(of: subview)).contains("UIBarBackground") {
-                subview.frame = bounds
-                subview.isHidden = false
-                subview.alpha = 1
-                subview.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                subview.clipsToBounds = true
-                subview.layer.cornerRadius = preferredBarHeight / 2
-                subview.layer.cornerCurve = .continuous
-                subview.layer.borderWidth = 0.5
-                subview.layer.borderColor = UIColor.white.withAlphaComponent(0.24).cgColor
+                stretchBackgroundSurface(subview)
                 sendSubviewToBack(subview)
             }
+        }
+    }
+
+    private func stretchBackgroundSurface(_ view: UIView) {
+        view.frame = bounds
+        view.isHidden = false
+        view.alpha = 1
+        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.clipsToBounds = true
+        view.layer.cornerRadius = preferredBarHeight / 2
+        view.layer.cornerCurve = .continuous
+        view.layer.borderWidth = 0.5
+        view.layer.borderColor = UIColor.white.withAlphaComponent(0.24).cgColor
+
+        view.subviews.forEach { subview in
+            subview.frame = view.bounds
+            subview.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            subview.clipsToBounds = true
+            subview.layer.cornerRadius = preferredBarHeight / 2
+            subview.layer.cornerCurve = .continuous
+            fillDescendants(of: subview)
+        }
+    }
+
+    private func fillDescendants(of view: UIView) {
+        view.subviews.forEach { subview in
+            subview.frame = view.bounds
+            subview.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            subview.clipsToBounds = true
+            subview.layer.cornerRadius = preferredBarHeight / 2
+            subview.layer.cornerCurve = .continuous
+            fillDescendants(of: subview)
         }
     }
 
