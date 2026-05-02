@@ -157,13 +157,14 @@ private final class FreetifulNativeTabBar: UITabBar {
         glassSurfaceView.layer.borderColor = UIColor.white.withAlphaComponent(0.24).cgColor
 
         glassTintView.isUserInteractionEnabled = false
-        glassTintView.backgroundColor = UIColor.white.withAlphaComponent(0.10)
+        glassTintView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
         glassSurfaceView.contentView.addSubview(glassTintView)
         insertSubview(glassSurfaceView, at: 0)
     }
 }
 
 private final class FreetifulTabOverlayButton: UIControl {
+    private let preferredHeight: CGFloat = 66
     private let iconView = UIImageView()
     private let label = UILabel()
     private var activeColor: UIColor
@@ -195,6 +196,10 @@ private final class FreetifulTabOverlayButton: UIControl {
         }
     }
 
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: preferredHeight)
+    }
+
     private func setup(title: String, icon: UIImage?) {
         backgroundColor = .clear
         isAccessibilityElement = true
@@ -218,15 +223,17 @@ private final class FreetifulTabOverlayButton: UIControl {
         addSubview(label)
 
         NSLayoutConstraint.activate([
-            iconView.topAnchor.constraint(equalTo: topAnchor, constant: 9),
-            iconView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 16),
-            iconView.heightAnchor.constraint(equalToConstant: 16),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: preferredHeight),
 
-            label.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 3),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -10),
+            iconView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 18),
+            iconView.heightAnchor.constraint(equalToConstant: 18),
+
+            label.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 4),
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 1),
             label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -1),
-            label.heightAnchor.constraint(equalToConstant: 13)
+            label.heightAnchor.constraint(equalToConstant: 15)
         ])
         updateAppearance()
     }
@@ -356,7 +363,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabOverlayStack.alignment = .fill
         tabOverlayStack.distribution = .fillEqually
         tabOverlayStack.spacing = 0
-        tabOverlayStack.isUserInteractionEnabled = false
+        tabOverlayStack.isUserInteractionEnabled = true
         tabBar.addSubview(tabOverlayStack)
 
         NSLayoutConstraint.activate([
@@ -384,7 +391,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
         toggleTintView.translatesAutoresizingMaskIntoConstraints = false
         toggleTintView.isUserInteractionEnabled = false
-        toggleTintView.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+        toggleTintView.backgroundColor = UIColor.white.withAlphaComponent(0.03)
         toggleSurfaceView.contentView.addSubview(toggleTintView)
         toggleContainerView.addSubview(toggleSurfaceView)
 
@@ -461,12 +468,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             view.removeFromSuperview()
         }
 
-        tabBar.items = items.enumerated().map { index, item in
-            let tabItem = UITabBarItem(title: nil, image: transparentTabIcon(), selectedImage: transparentTabIcon())
-            tabItem.tag = index
-            tabItem.accessibilityLabel = item.title
-            return tabItem
-        }
+        tabBar.items = nil
 
         tabButtons = items.enumerated().map { index, item in
             let button = FreetifulTabOverlayButton(
@@ -476,7 +478,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
                 inactiveColor: inactiveColor
             )
             button.tag = index
-            button.isUserInteractionEnabled = false
+            button.addTarget(self, action: #selector(didTapOverlayItem(_:)), for: .touchUpInside)
             tabOverlayStack.addArrangedSubview(button)
             return button
         }
@@ -564,6 +566,10 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         DispatchQueue.main.async {
             tabBar.selectedItem = nil
         }
+    }
+
+    @objc private func didTapOverlayItem(_ sender: UIControl) {
+        selectItem(at: sender.tag)
     }
 
     private func selectItem(at index: Int) {
