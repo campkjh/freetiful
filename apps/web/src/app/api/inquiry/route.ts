@@ -31,6 +31,7 @@ function getApiBaseUrl(req: NextRequest) {
 async function saveInquiryToApi(req: NextRequest, payload: {
   company: string; name: string; phone: string; email: string;
   type: string; message: string; fileName: string; fileSize?: number; fileType?: string;
+  metadata?: Record<string, unknown>;
 }) {
   const baseUrl = getApiBaseUrl(req);
   const res = await fetch(`${baseUrl}/api/v1/business-inquiries`, {
@@ -50,6 +51,7 @@ async function saveInquiryToApi(req: NextRequest, payload: {
       metadata: {
         origin: req.headers.get('origin') || '',
         referer: req.headers.get('referer') || '',
+        ...(payload.metadata || {}),
       },
     }),
   });
@@ -106,17 +108,26 @@ export async function POST(req: NextRequest) {
     `;
 
     const attachments: any[] = [];
+    let attachmentMetadata: Record<string, unknown> | undefined;
     if (file && file.size > 0) {
       const buffer = Buffer.from(await file.arrayBuffer());
       attachments.push({
         filename: file.name,
         content: buffer,
       });
+      attachmentMetadata = {
+        attachment: {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type || 'application/octet-stream',
+          dataUrl: `data:${file.type || 'application/octet-stream'};base64,${buffer.toString('base64')}`,
+        },
+      };
     }
 
     let savedInquiry: unknown;
     try {
-      savedInquiry = await saveInquiryToApi(req, inquiryPayload);
+      savedInquiry = await saveInquiryToApi(req, { ...inquiryPayload, metadata: attachmentMetadata });
     } catch (error) {
       console.error('Inquiry DB error:', error);
       return NextResponse.json({ error: '문의 저장에 실패했습니다' }, { status: 502 });

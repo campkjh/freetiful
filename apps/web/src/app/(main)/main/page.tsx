@@ -351,6 +351,26 @@ interface ProData {
   isPartner?: boolean;
 }
 
+function extractYoutubeId(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') return parsed.pathname.split('/').filter(Boolean)[0];
+    if (host.includes('youtube.com')) {
+      const watchId = parsed.searchParams.get('v');
+      if (watchId) return watchId;
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (['embed', 'shorts', 'live'].includes(parts[0])) return parts[1];
+    }
+  } catch {}
+  return url.match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/|live\/)([a-zA-Z0-9_-]{11})/)?.[1];
+}
+
+function formatCareerLabel(years?: number) {
+  return years && years > 0 ? `경력 ${years}년` : '경력 확인중';
+}
+
 function mapDiscoveryProToHomePro(p: any): ProData {
   return {
     id: p.id,
@@ -370,7 +390,7 @@ function mapDiscoveryProToHomePro(p: any): ProData {
       ? p.tags
       : (p.isFeatured ? ['인기'] : (p.isNationwide ? ['전국가능'] : [])),
     available: true,
-    youtubeId: p.youtubeUrl?.match(/v=([^&]+)/)?.[1],
+    youtubeId: extractYoutubeId(p.youtubeUrl),
     isPartner: p.showPartnersLogo || p.isFeatured || false,
   };
 }
@@ -743,7 +763,7 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
             Partners
           </span>
         )}
-        <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[15px] lg:font-bold">{pro.categories[0]|| '사회자'} {pro.name}</h4>
+        <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[15px] lg:font-bold">{formatCareerLabel(pro.experience)} {pro.name}</h4>
         <div className="flex items-center gap-2 mt-0.5 mb-1">
           <div className="flex items-center gap-0.5">
             <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
@@ -754,9 +774,12 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
           {pro.experience > 0 && (
             <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
           )}
-          {pro.tags.map((tag) => (
+          {pro.tags.slice(0, 3).map((tag) => (
             <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
           ))}
+          {pro.tags.length > 3 && (
+            <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-gray-100 text-gray-500 flex items-center" style={{ height: 22 }}>+{pro.tags.length - 3}</span>
+          )}
         </div>
       </div>
     </Link>
@@ -874,16 +897,26 @@ type HomeCategoryItem = { name: string; img: string; href: string };
 const HOME_CATEGORY_ICON_DIR = '/images/category-icons';
 
 function getHomeCategoryItems(): HomeCategoryItem[] {
-  const weddingPartnerCats = WEDDING_PARTNER_CATEGORIES.map((name) => ({
-    name,
-    img: `${HOME_CATEGORY_ICON_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS[name]}`,
-    href: `/businesses?category=${encodeURIComponent(name)}`,
-  }));
+  const weddingPartnerCats = WEDDING_PARTNER_CATEGORIES
+    .filter((name) => name !== '가전')
+    .map((name) => ({
+      name,
+      img: `${HOME_CATEGORY_ICON_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS[name]}`,
+      href: `/businesses?category=${encodeURIComponent(name)}`,
+    }));
+  const applianceCat = WEDDING_PARTNER_CATEGORIES.includes('가전')
+    ? [{
+        name: '가전',
+        img: `${HOME_CATEGORY_ICON_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS['가전']}`,
+        href: `/businesses?category=${encodeURIComponent('가전')}`,
+      }]
+    : [];
   return [
+    { name: '결혼식사회자', img: `${HOME_CATEGORY_ICON_DIR}/wedding-mc.png`, href: '/pros?category=결혼식사회자' },
+    { name: '행사사회자', img: `${HOME_CATEGORY_ICON_DIR}/event-mc.png`, href: '/pros?category=전문행사사회자' },
     { name: '외국어사회자', img: `${HOME_CATEGORY_ICON_DIR}/foreign-mc.png`, href: '/pros?category=외국어사회자' },
-    ...weddingPartnerCats.slice(0, 8),
-    { name: '축가연주', img: `${HOME_CATEGORY_ICON_DIR}/singer.png`, href: '/pros?category=축가·연주' },
-    ...weddingPartnerCats.slice(8),
+    ...weddingPartnerCats,
+    ...applianceCat,
   ];
 }
 
@@ -1807,22 +1840,11 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-3 lg:gap-4">
             <Link
               href="/quote"
-              className="block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-[5.5/2.8] lg:aspect-[2.35/1] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.95] active:brightness-90"
+              className="block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square transition-transform duration-200 hover:scale-[1.02] active:scale-[0.95] active:brightness-90"
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
-              <video
-                ref={registerHeroVideo}
-                src="/images/reference-video-1775801211148.mp4#t=0.001"
-                muted
-                playsInline
-                preload="metadata"
-                controls={false}
-                disablePictureInPicture
-                webkit-playsinline="true"
-                x5-playsinline="true"
-                className="w-full h-full object-cover bg-gray-800"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+              <img src="/images/category-icons/wedding-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-[#EEF5FF]" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A1B3F]/70 via-[#0A1B3F]/8 to-transparent" />
               <span className="absolute top-2.5 right-2.5 lg:top-4 lg:right-4 px-2.5 py-1 rounded-full text-[10px] lg:text-[11px] font-bold text-white" style={{ backgroundColor: '#2B313D' }}>빠른무료견적</span>
               <div className="absolute bottom-3 left-3 right-3 lg:bottom-5 lg:left-5 lg:right-5 flex items-end justify-between">
                 <div>
@@ -1834,35 +1856,14 @@ export default function HomePage() {
             </Link>
             <Link
               href="/quote?mode=event"
-              className="relative rounded-2xl lg:rounded-[22px] px-3 lg:px-5 flex items-center -space-x-3 lg:-space-x-4 opacity-0 active:scale-[0.97] transition-transform"
+              className="relative aspect-square rounded-2xl lg:rounded-[22px] overflow-hidden px-3 lg:px-5 flex items-end opacity-0 active:scale-[0.97] transition-transform"
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
               <RoundedRectBorderTrain color="#2B313D" />
-              <video
-                ref={registerHeroVideo}
-                src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.001"
-                muted
-                playsInline
-                preload="metadata"
-                controls={false}
-                disablePictureInPicture
-                webkit-playsinline="true"
-                x5-playsinline="true"
-                className="w-20 h-20 lg:w-[112px] lg:h-[112px] object-cover shrink-0 rounded-xl lg:rounded-2xl bg-gray-100"
-                style={{ transition: 'opacity 0.2s ease' }}
-                onTimeUpdate={(e) => {
-                  const v = e.currentTarget;
-                  if (v.duration - v.currentTime <= 0.2) {
-                    v.style.opacity = `${(v.duration - v.currentTime) / 0.2}`;
-                  } else if (v.currentTime <= 0.2) {
-                    v.style.opacity = `${v.currentTime / 0.2}`;
-                  } else {
-                    v.style.opacity = '1';
-                  }
-                }}
-              />
-              <div className="leading-none relative z-10">
-                <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문 행사</span>
+              <img src="/images/category-icons/event-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-white" />
+              <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/30 to-transparent" />
+              <div className="leading-none relative z-10 pb-3">
+                <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문행사</span>
                 <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>사회자 찾기</span>
               </div>
             </Link>
@@ -2223,7 +2224,7 @@ export default function HomePage() {
                       )}
                     </div>
                     <p className="text-[16px] font-bold text-gray-900 mt-1.5 text-center">{pro.name}</p>
-                    <p className="text-[14px] text-gray-400">{pro.categories[0] || '사회자'}</p>
+                    <p className="text-[14px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
                   </Link>
                 ))}
               </div>
@@ -2266,7 +2267,7 @@ export default function HomePage() {
                   <img src={trophy} alt="" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
                 </div>
                 <p className="text-[14px] font-bold text-gray-900 mt-4">{pro.name}</p>
-                <p className="text-[12px] text-gray-400">{pro.categories[0] || '사회자'}</p>
+                <p className="text-[12px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
               </Link>
             )) : (
               [
@@ -2320,7 +2321,7 @@ export default function HomePage() {
                 <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
                   <div>
                     <p className="text-[15px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
-                    <p className="text-[12px] text-gray-400 mt-0.5 truncate">{pro.categories[0] || '사회자'}</p>
+                    <p className="text-[12px] text-gray-400 mt-0.5 truncate">{formatCareerLabel(pro.experience)}</p>
                   </div>
                 </div>
               </Link>
@@ -2378,7 +2379,7 @@ export default function HomePage() {
                       <span className={`absolute bottom-1 right-1 z-[4] w-4 h-4 rounded-full border-[1.4px] border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[12px] font-medium text-gray-400">{pro.categories[0] || '사회자'}</span>
+                      <span className="text-[12px] font-medium text-gray-400">{formatCareerLabel(pro.experience)}</span>
                       <p className="text-[16px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
                       <p className="text-[12px] mt-1">
                         {isNow ? (

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
+  Download,
   Mail,
   MessageSquareText,
   Paperclip,
@@ -37,6 +38,14 @@ interface BusinessInquiryItem {
   status: string;
   adminNote: string | null;
   source: string;
+  metadata?: {
+    attachment?: {
+      fileName?: string;
+      fileSize?: number;
+      fileType?: string;
+      dataUrl?: string;
+    };
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,6 +88,11 @@ function formatFileSize(value?: number | null) {
   if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)}MB`;
   if (value >= 1024) return `${Math.round(value / 1024)}KB`;
   return `${value}B`;
+}
+
+function getAttachmentDataUrl(item: BusinessInquiryItem) {
+  const dataUrl = item.metadata?.attachment?.dataUrl;
+  return typeof dataUrl === 'string' && dataUrl.startsWith('data:') ? dataUrl : '';
 }
 
 export default function AdminInquiriesPage() {
@@ -321,11 +335,27 @@ export default function AdminInquiriesPage() {
                       {typeLabel[item.type || ''] || item.type || '미선택'}
                     </span>
                     {item.fileName && (
-                      <p className="mt-2 flex max-w-[180px] items-center gap-1 text-[11px] font-semibold text-[#8B95A1]">
-                        <Paperclip size={12} />
-                        <span className="truncate">{item.fileName}</span>
-                        <span>{formatFileSize(item.fileSize)}</span>
-                      </p>
+                      getAttachmentDataUrl(item) ? (
+                        <a
+                          href={getAttachmentDataUrl(item)}
+                          download={item.fileName}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 flex max-w-[210px] items-center gap-1 rounded-lg bg-[#F3F8FF] px-2 py-1 text-[11px] font-bold text-[#3180F7] hover:bg-[#E1EFFF]"
+                          title={item.fileName}
+                        >
+                          <Download size={12} />
+                          <span className="truncate">{item.fileName}</span>
+                          <span className="shrink-0 text-[#6B7684]">{formatFileSize(item.fileSize)}</span>
+                        </a>
+                      ) : (
+                        <p className="mt-2 flex max-w-[210px] items-center gap-1 text-[11px] font-semibold text-[#8B95A1]" title="기존 접수 건은 파일 본문이 저장되어 있지 않을 수 있습니다.">
+                          <Paperclip size={12} />
+                          <span className="truncate">{item.fileName}</span>
+                          <span className="shrink-0">{formatFileSize(item.fileSize)}</span>
+                          <span className="shrink-0 text-[#B0B8C1]">열기불가</span>
+                        </p>
+                      )
                     )}
                   </td>
                   <td className="px-4 py-3">

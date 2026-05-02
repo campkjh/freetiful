@@ -490,6 +490,10 @@ function ProsListContent() {
   const hasMore = paginatedPros.length < filtered.length;
   const hasActiveFilters = selectedRegion !== '전체' || selectedPrice !== 0 || selectedLang !== '전체' || selectedType !== '전체';
   const activeFilterCount = (selectedRegion !== '전체' ? 1 : 0) + (selectedPrice !== 0 ? 1 : 0) + (selectedLang !== '전체' ? 1 : 0) + (selectedType !== '전체' ? 1 : 0);
+  const showDualQuoteButtons =
+    isForeignFilter
+    || selectedType === '외국어사회자'
+    || ['전문행사사회자', '행사사회자', '행사MC'].includes(normalizedCategoryParam);
 
   useEffect(() => {
     if (!hasMore) return;
@@ -736,7 +740,7 @@ function ProsListContent() {
       </div>
 
       {/* Result count + sort dropdown */}
-      <div className="px-4 py-3 flex items-center justify-between bg-white">
+      <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white">
         <p className="text-[13px] text-gray-500">
           전문가{' '}
           <motion.span
@@ -750,15 +754,31 @@ function ProsListContent() {
           </motion.span>
           명
         </p>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="text-[12px] text-gray-500 bg-transparent outline-none cursor-pointer"
-        >
-          {SORT_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          {showDualQuoteButtons ? (
+            <>
+              <Link href="/quote" className="rounded-full bg-[#F3F8FF] px-3 py-1.5 text-[12px] font-bold text-[#3180F7] active:scale-95 transition-transform">
+                결혼식 다수견적
+              </Link>
+              <Link href="/quote?mode=event" className="rounded-full bg-[#3180F7] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_6px_14px_rgba(49,128,247,0.18)] active:scale-95 transition-transform">
+                행사 다수견적
+              </Link>
+            </>
+          ) : (
+            <Link href="/quote" className="rounded-full bg-[#3180F7] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_6px_14px_rgba(49,128,247,0.18)] active:scale-95 transition-transform">
+              다수견적
+            </Link>
+          )}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="text-[12px] text-gray-500 bg-transparent outline-none cursor-pointer"
+          >
+            {SORT_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Pro List — 찜목록 스타일 (가로형 카드) */}

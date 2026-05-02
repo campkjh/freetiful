@@ -172,8 +172,18 @@ function CountUp({ value, suffix = '' }: { value: number; suffix?: string }) {
 // ─── Helper: extract YouTube ID from URL ────────────────────
 function extractYoutubeId(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-  return match?.[1] || undefined;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') return parsed.pathname.split('/').filter(Boolean)[0];
+    if (host.includes('youtube.com')) {
+      const watchId = parsed.searchParams.get('v');
+      if (watchId) return watchId;
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (['embed', 'shorts', 'live'].includes(parts[0])) return parts[1];
+    }
+  } catch {}
+  return url.match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/|live\/)([a-zA-Z0-9_-]{11})/)?.[1];
 }
 
 function runWhenIdle(cb: () => void, timeout = 1200) {
@@ -1692,7 +1702,7 @@ export default function ProDetailPage() {
                                 {playingVideos.has(video.id) ? (
                                   <iframe
                                     className="h-full w-full"
-                                    src={`https://www.youtube.com/embed/${video.id}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
+                                    src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&modestbranding=1&rel=0&playsinline=1`}
                                     title={video.title}
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                     allowFullScreen
@@ -2381,7 +2391,7 @@ export default function ProDetailPage() {
                     {playingVideos.has(video.id) ? (
                       <iframe
                         className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${video.id}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
+                        src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&modestbranding=1&rel=0&playsinline=1`}
                         title={video.title}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen

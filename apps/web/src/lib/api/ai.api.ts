@@ -27,10 +27,23 @@ export interface AiHeroImageInput {
   imageDataUrls?: string[];
 }
 
+export interface AiCorrectTextInput {
+  text: string;
+  context?: string;
+}
+
+export interface AiCorrectTextOutput {
+  text: string;
+  corrected: boolean;
+  reason?: string;
+}
+
 export const aiApi = {
   status: () => apiClient.get<{ enabled: boolean }>(`${BASE}/status`).then((r) => r.data),
   generateProfile: (input: AiProfileInput) =>
     apiClient.post<AiProfileOutput>(`${BASE}/generate-profile`, input, { timeout: 60000 }).then((r) => r.data),
+  correctText: (input: AiCorrectTextInput) =>
+    apiClient.post<AiCorrectTextOutput>(`${BASE}/correct-text`, input, { timeout: 30000 }).then((r) => r.data),
   generateHeroImage: (input: AiHeroImageInput) =>
     apiClient
       .post<{ url: string | null; debug: string[] }>(`${BASE}/generate-hero-image`, input, { timeout: 90000 })

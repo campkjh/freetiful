@@ -73,6 +73,8 @@ protocol LiquidGlassNavigationBarDelegate: AnyObject {
 
 private final class FreetifulNativeTabBar: UITabBar {
     private let preferredBarHeight: CGFloat = 66
+    private let selectionIndicatorInset: CGFloat = 3
+    private var selectionIndicatorRenderSize: CGSize = .zero
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -118,6 +120,7 @@ private final class FreetifulNativeTabBar: UITabBar {
                 button.isOpaque = false
                 button.clipsToBounds = false
             }
+            updateSelectionIndicatorImage(itemWidth: itemWidth)
         }
 
         subviews.forEach { subview in
@@ -126,6 +129,29 @@ private final class FreetifulNativeTabBar: UITabBar {
                 sendSubviewToBack(subview)
             }
         }
+    }
+
+    private func updateSelectionIndicatorImage(itemWidth: CGFloat) {
+        let imageSize = CGSize(width: itemWidth, height: preferredBarHeight)
+        guard imageSize.width > 0, imageSize.height > 0 else { return }
+        guard selectionIndicatorRenderSize != imageSize else { return }
+
+        selectionIndicatorRenderSize = imageSize
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = UIScreen.main.scale
+        let image = UIGraphicsImageRenderer(size: imageSize, format: format).image { _ in
+            let capsuleRect = CGRect(origin: .zero, size: imageSize).insetBy(
+                dx: selectionIndicatorInset,
+                dy: selectionIndicatorInset
+            )
+            UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 0.12).setFill()
+            UIBezierPath(
+                roundedRect: capsuleRect,
+                cornerRadius: capsuleRect.height / 2
+            ).fill()
+        }
+
+        selectionIndicatorImage = image
     }
 
     private func stretchBackgroundSurface(_ view: UIView) {

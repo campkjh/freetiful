@@ -21,6 +21,17 @@ export interface GenerateProfileOutput {
   warnings?: string[];
 }
 
+export interface CorrectTextInput {
+  text?: string;
+  context?: string;
+}
+
+export interface CorrectTextOutput {
+  text: string;
+  corrected: boolean;
+  reason?: string;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -44,6 +55,83 @@ export class AiService {
 
   isEnabled() {
     return this.client !== null;
+  }
+
+  private basicKoreanTextCleanup(text: string) {
+    return text
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([,.!?])/g, '$1')
+      .replace(/([,.!?])(?=\S)/g, '$1 ')
+      .trim();
+  }
+
+  async correctText(input: CorrectTextInput): Promise<CorrectTextOutput> {
+    const raw = String(input.text || '').trim();
+    if (!raw) {
+      throw new BadRequestException('교정할 문장을 입력해주세요.');
+    }
+
+    const fallback = this.basicKoreanTextCleanup(raw);
+    if (!this.client) {
+      return {
+        text: fallback,
+        corrected: false,
+        reason: 'AI API 키가 설정되지 않아 기본 띄어쓰기 정리만 적용했습니다.',
+      };
+    }
+
+    const modelNames = [
+      process.env.GEMINI_MODEL,
+      'gemini-2.5-flash',
+      'gemini-flash-latest',
+      'gemini-2.5-flash-lite',
+      'gemini-flash-lite-latest',
+    ].filter(Boolean) as string[];
+    const prompt = `아래 한국어 문장의 맞춤법, 띄어쓰기, 문장부호만 자연스럽게 교정해주세요.
+의미, 금액, 날짜, 장소, 사람 이름, 요청 조건은 바꾸지 마세요.
+과하게 광고 문구로 바꾸지 말고 고객이 작성한 요청사항 톤을 유지해주세요.
+
+[문맥]
+${input.context || '전문 사회자 견적 요청 추가 요청사항'}
+
+[원문]
+${raw}
+
+반드시 JSON만 반환하세요.
+{
+  "text": "교정된 문장"
+}`;
+
+    let lastError: any = null;
+    for (const modelName of modelNames) {
+      try {
+        const model = this.client.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: 'application/json',
+            thinkingConfig: { thinkingBudget: 0 },
+          } as any,
+        });
+        const result = await model.generateContent(prompt);
+        const parsed = JSON.parse(result.response.text());
+        const corrected = this.basicKoreanTextCleanup(String(parsed.text || ''));
+        if (corrected) {
+          return { text: corrected, corrected: corrected !== raw };
+        }
+      } catch (e: any) {
+        lastError = e;
+        const msg = String(e?.message || e);
+        this.logger.warn(`Text correction failed with ${modelName}: ${msg.slice(0, 120)}`);
+        if (!/503|429|504|UNAVAILABLE|overloaded|high demand|retry/i.test(msg)) break;
+      }
+    }
+
+    return {
+      text: fallback,
+      corrected: false,
+      reason: `AI 맞춤법 교정에 실패해 기본 정리만 적용했습니다: ${lastError?.message || 'unknown error'}`,
+    };
   }
 
   async generateProfile(input: GenerateProfileInput): Promise<GenerateProfileOutput> {

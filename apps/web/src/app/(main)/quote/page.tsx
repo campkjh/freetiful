@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { apiClient } from '@/lib/api/client';
 import { matchApi } from '@/lib/api/match.api';
+import { aiApi } from '@/lib/api/ai.api';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { WEDDING_PLAN_TEMPLATES } from '@/lib/wedding-plans';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
@@ -93,6 +94,7 @@ type ProItem = {
   reviews: number;
   experience: number;
   intro: string;
+  price: number;
   youtubeId?: string;
   recentReviews: string[];
   categories?: string[];
@@ -119,6 +121,40 @@ const isUuid = (value?: string) => !!value && UUID_RE.test(value);
 
 // API 실패 시에도 견적 요청이 끊기지 않도록 사회자 기본값으로 폴백
 const MOCK_PROS: ProItem[] = [];
+
+function extractYoutubeId(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') return parsed.pathname.split('/').filter(Boolean)[0];
+    if (host.includes('youtube.com')) {
+      const watchId = parsed.searchParams.get('v');
+      if (watchId) return watchId;
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (['embed', 'shorts', 'live'].includes(parts[0])) return parts[1];
+    }
+  } catch {}
+  return url.match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/|live\/)([a-zA-Z0-9_-]{11})/)?.[1];
+}
+
+function RequiredMark({ children }: { children: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="font-bold text-red-500">[*필수]</span>
+      <span>{children}</span>
+    </span>
+  );
+}
+
+function OptionalMark({ children }: { children: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="font-semibold text-gray-300">[선택]</span>
+      <span>{children}</span>
+    </span>
+  );
+}
 
 /* ─── Rotating Review Hook ─── */
 function useRotatingReview(reviews: string[], interval = 4000) {
@@ -230,12 +266,14 @@ function QuotePage() {
   const [nearbyVenues, setNearbyVenues] = useState<{ name: string; address: string; phone: string; distance: number; url: string }[]>([]);
   const [venuesLoading, setVenuesLoading] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
+  const [postcodeRetryTick, setPostcodeRetryTick] = useState(0);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSurveyPrompt, setShowSurveyPrompt] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyStep, setSurveyStep] = useState(0);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const detailAddressOpenedRef = useRef(false);
 
   const toggleMood = (m: string) => setMoods((prev) => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n; });
 
@@ -288,30 +326,46 @@ function QuotePage() {
     }));
   };
 
-  // AI로 추가 요청사항 자동 작성 (로컬 템플릿 기반 — 입력된 조건으로 자연스러운 문장 생성)
-  const handleAIWrite = () => {
+  useEffect(() => {
+    if (step !== 'detail' || detailAddressOpenedRef.current) return;
+    detailAddressOpenedRef.current = true;
+    window.setTimeout(() => setShowAddressModal(true), 250);
+  }, [step]);
+
+  const buildRequestDraft = () => {
+    const parts: string[] = [];
+    if (eventType) parts.push(`${eventType} 행사를 준비하고 있습니다.`);
+    if (location) parts.push(`장소는 ${location.split(' ').slice(0, 2).join(' ')}입니다.`);
+    if (date) {
+      const d = new Date(date);
+      parts.push(`행사일은 ${d.getMonth() + 1}월 ${d.getDate()}일입니다.`);
+    }
+    if (timeStart && timeEnd) parts.push(`진행 시간은 ${timeStart}부터 ${timeEnd}까지입니다.`);
+    const moodList = Array.from(moods);
+    if (moodList.length > 0) parts.push(`${moodList.join(', ')} 분위기를 선호합니다.`);
+    const planLabel = PLANS.find((p) => p.id === plan)?.label;
+    if (planLabel) parts.push(`${planLabel} 플랜으로 부탁드립니다.`);
+    parts.push('사전 미팅 가능 여부와 대본 작성, 리허설 참석 가능 여부를 알려주세요.');
+    parts.push('가능한 일정과 견적 확인 부탁드립니다. 감사합니다.');
+    return parts.join(' ');
+  };
+
+  const handleAICorrect = async () => {
     if (aiWriting) return;
     setAiWriting(true);
-    setTimeout(() => {
-      const parts: string[] = [];
-      if (eventType) parts.push(`${eventType} 행사를 준비하고 있습니다.`);
-      if (location) parts.push(`장소는 ${location.split(' ').slice(0, 2).join(' ')} 입니다.`);
-      if (date) {
-        const d = new Date(date);
-        parts.push(`행사일은 ${d.getMonth() + 1}월 ${d.getDate()}일 입니다.`);
-      }
-      if (timeStart && timeEnd) parts.push(`진행 시간은 ${timeStart}부터 ${timeEnd}까지입니다.`);
-      const moodList = Array.from(moods);
-      if (moodList.length > 0) {
-        parts.push(`${moodList.join(', ')} 분위기를 선호합니다.`);
-      }
-      const planLabel = PLANS.find((p) => p.id === plan)?.label;
-      if (planLabel) parts.push(`${planLabel} 플랜으로 부탁드립니다.`);
-      parts.push('사전 미팅 가능한지, 대본 작성 및 리허설 참석 가능한지 알려주세요.');
-      parts.push('가능한 일정과 견적 확인 부탁드립니다. 감사합니다.');
-      setNote(parts.join(' '));
+    try {
+      const source = note.trim() || buildRequestDraft();
+      const result = await aiApi.correctText({
+        text: source,
+        context: `${eventType || '결혼식'} 사회자 견적 요청 추가 요청사항`,
+      });
+      setNote(result.text);
+      toast.success(result.corrected ? 'AI가 맞춤법을 교정했습니다.' : '문장을 정리했습니다.');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'AI 맞춤법 교정에 실패했습니다.');
+    } finally {
       setAiWriting(false);
-    }, 700);
+    }
   };
 
   // 사회자 전체 조회 + 조건 기반 정렬 (필터링으로 제외 안 함)
@@ -332,7 +386,8 @@ function QuotePage() {
           reviews: p.reviewCount || 0,
           experience: p.careerYears || 0,
           intro: p.shortIntro || '',
-          youtubeId: p.youtubeUrl?.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/)?.[1],
+          price: Number(p.basePrice || 0),
+          youtubeId: extractYoutubeId(p.youtubeUrl),
           recentReviews: [] as string[],
           categories: p.categories || [],
         }));
@@ -377,17 +432,29 @@ function QuotePage() {
 
   // Embed Daum Postcode when modal opens
   useEffect(() => {
-    if (!showAddressModal || !addressEmbedRef.current || !window.daum) return;
+    if (!showAddressModal || !addressEmbedRef.current) return;
+    if (!window.daum) {
+      const timer = window.setTimeout(() => setPostcodeRetryTick((tick) => tick + 1), 120);
+      return () => window.clearTimeout(timer);
+    }
     addressEmbedRef.current.innerHTML = '';
     new window.daum.Postcode({
       oncomplete: (data) => {
         setLocation(data.address);
         setShowAddressModal(false);
+        window.setTimeout(() => {
+          try {
+            dateInputRef.current?.showPicker?.();
+          } catch {
+            dateInputRef.current?.focus();
+          }
+          toast.success('행사 날짜를 선택해주세요.');
+        }, 350);
       },
       width: '100%',
       height: '100%',
     }).embed(addressEmbedRef.current);
-  }, [showAddressModal]);
+  }, [showAddressModal, postcodeRetryTick]);
 
   // Fetch nearby wedding venues when location changes
   useEffect(() => {
@@ -409,6 +476,7 @@ function QuotePage() {
     if (!timeStart || (timeStart && timeEnd)) {
       setTimeStart(slot);
       setTimeEnd('');
+      toast('종료시간을 선택해주세요.');
     } else {
       if (slot < timeStart) {
         setTimeEnd(timeStart);
@@ -472,9 +540,9 @@ function QuotePage() {
       const eventLabel = eventType || '결혼식';
       const msgContent = `📋 견적 요청\n\n행사 유형: ${eventLabel}\n플랜: ${planLabel}\n일정: ${date} ${timeStart}${timeEnd ? ` ~ ${timeEnd}` : ''}\n장소: ${location || '미정'}${moods.size > 0 ? `\n분위기: ${[...moods].join(', ')}` : ''}${note ? `\n\n${note}` : ''}`;
 
-      if (selectedPros.size > 0 && authUser) {
+      if (authUser) {
         const selectedProProfileIds = [...selectedPros].filter((id) => /^[0-9a-f-]{30,}$/i.test(id));
-        if (selectedProProfileIds.length === 0) {
+        if (selectedPros.size > 0 && selectedProProfileIds.length === 0) {
           toast.error('선택한 사회자 정보를 확인할 수 없습니다. 다시 선택해주세요.');
           setSending(false);
           return;
@@ -494,9 +562,10 @@ function QuotePage() {
         }
 
         const moodList = [...moods];
+        const representativeProId = selectedProProfileIds[0] || filteredPros.find((p) => /^[0-9a-f-]{30,}$/i.test(p.id))?.id;
         const directCategoryId = isUuid(category.id)
           ? category.id
-          : await getCategoryIdFromSelectedPro(selectedProProfileIds[0]);
+          : await getCategoryIdFromSelectedPro(representativeProId);
         if (!directCategoryId) {
           toast.error('사회자 카테고리 정보를 확인할 수 없습니다. 다시 시도해주세요.');
           setSending(false);
@@ -513,9 +582,9 @@ function QuotePage() {
           eventLocation: location || undefined,
           budgetMin: planObj?.price ? Math.floor(planObj.price * 0.8) : undefined,
           budgetMax: planObj?.price ? Math.ceil(planObj.price * 1.2) : undefined,
-          type: selectedProProfileIds.length > 1 ? 'multi' : 'single',
+          type: selectedProProfileIds.length === 1 ? 'single' : 'multi',
           styleOptionIds: canSendOptionIds ? styleOptionIds : styleOptionIds.filter(isUuid),
-          selectedProProfileIds,
+          selectedProProfileIds: selectedProProfileIds.length > 0 ? selectedProProfileIds : undefined,
           rawUserInput: {
             source: 'quote_flow',
             categoryName: category.name,
@@ -530,11 +599,12 @@ function QuotePage() {
             timeEnd,
             moods: moodList,
             note,
+            targetScope: selectedProProfileIds.length > 0 ? 'selected' : 'all',
             selectedProProfileIds,
             message: msgContent,
           },
         });
-      } else if (selectedPros.size > 0 && !authUser) {
+      } else {
         toast.error('로그인 후 견적 요청이 가능합니다.');
         setSending(false);
         return;
@@ -549,7 +619,7 @@ function QuotePage() {
     setSending(false);
     localStorage.setItem('freetiful-quote-submitted', 'true');
     addPoints('quote_request', 200, '견적 요청 적립');
-    toast.success(isEvent ? '행사 견적 요청이 접수되었습니다.' : `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.`);
+    toast.success(isEvent ? '행사 견적 요청이 접수되었습니다.' : selectedPros.size > 0 ? `${selectedPros.size}명의 사회자에게 견적을 보냈습니다.` : '전체 사회자에게 견적 요청을 보냈습니다.');
     router.replace('/main');
   };
 
@@ -572,7 +642,7 @@ function QuotePage() {
       case 'type': return !!eventType;
       case 'plan': return !!plan;
       case 'detail': return !!location && !!date && !!timeStart && !!timeEnd;
-      case 'pros': return isEvent || selectedPros.size > 0;
+      case 'pros': return true;
       default: return true;
     }
   };
@@ -738,7 +808,7 @@ function QuotePage() {
             <div className="space-y-5">
               {/* 장소 */}
               <div>
-                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><LocationIcon />행사 장소</label>
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><LocationIcon /><RequiredMark>행사 장소</RequiredMark></label>
                 <button
                   onClick={() => setShowAddressModal(true)}
                   className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-left flex items-center gap-2 active:bg-gray-100 transition-colors"
@@ -756,7 +826,7 @@ function QuotePage() {
 
                 {/* Nearby Wedding Venues */}
                 <>
-                  {location && (venuesLoading || nearbyVenues.length > 0) && (
+                  {location && (
                     <div className="mt-3">
                       <div className="flex items-center gap-1.5 mb-2">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 21V7l9-4 9 4v14" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/><path d="M9 21V13h6v8" stroke="#3180F7" strokeWidth="2" strokeLinejoin="round"/></svg>
@@ -797,6 +867,9 @@ function QuotePage() {
                       {!venuesLoading && nearbyVenues.length === 0 && location && (
                         <p className="text-[11px] text-gray-400">근처에 웨딩홀이 없습니다</p>
                       )}
+                      <p className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-[11px] font-medium leading-relaxed text-[#3180F7]">
+                        결혼식장이 목록에 없거나 아직 확정 전이라면 선택하지 않아도 괜찮아요.
+                      </p>
                     </div>
                   )}
                 </>
@@ -804,7 +877,7 @@ function QuotePage() {
 
               {/* 날짜 */}
               <div>
-                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><CalendarIcon />행사 날짜</label>
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><CalendarIcon /><RequiredMark>행사 날짜</RequiredMark></label>
                 <div className="relative">
                   <input
                     ref={dateInputRef}
@@ -812,8 +885,8 @@ function QuotePage() {
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[15px] text-gray-900 outline-none focus:border-[#3180F7] transition-colors appearance-none"
-                    style={{ colorScheme: 'light' }}
+                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[15px] outline-none focus:border-[#3180F7] transition-colors appearance-none"
+                    style={{ colorScheme: 'light', color: date ? '#111827' : 'transparent' }}
                   />
                   {!date && (
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-gray-400 pointer-events-none">날짜를 선택해주세요</span>
@@ -823,7 +896,7 @@ function QuotePage() {
 
               {/* 시간 */}
               <div>
-                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><ClockIcon />행사 시간</label>
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-700 mb-1.5"><ClockIcon /><RequiredMark>행사 시간</RequiredMark></label>
                 <>
                   {timeDisplay && (
                     <p className="text-[13px] text-[#3180F7] font-bold mb-2">{timeDisplay}</p>
@@ -855,9 +928,15 @@ function QuotePage() {
                 </div>
               </div>
 
+              <div className="flex items-center gap-3 py-1">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-[11px] font-semibold text-gray-300">선택 입력</span>
+                <div className="h-px flex-1 bg-gray-200" />
+              </div>
+
               {/* 선호 분위기 태그 */}
               <div>
-                <label className="block text-[13px] font-semibold text-gray-700 mb-2">선호 분위기 (다중 선택)</label>
+                <label className="block text-[13px] font-semibold text-gray-700 mb-2"><OptionalMark>선호 분위기(복수선택가능)</OptionalMark></label>
                 <div className="flex flex-wrap gap-2">
                   {MOOD_TAGS.map((m) => {
                     const active = moods.has(m);
@@ -881,27 +960,27 @@ function QuotePage() {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[13px] font-semibold text-gray-700">추가 요청사항 (선택)</label>
+                  <label className="text-[13px] font-semibold text-gray-700"><OptionalMark>추가 요청사항</OptionalMark></label>
                   <button
                     type="button"
-                    onClick={handleAIWrite}
+                    onClick={handleAICorrect}
                     disabled={aiWriting}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#3180F7] to-[#7B61FF] text-white text-[11px] font-bold shadow-[0_2px_6px_rgba(49,128,247,0.3)] active:scale-95 transition-transform disabled:opacity-60"
                   >
                     {aiWriting ? (
                       <>
                         <div className="w-3 h-3 border-[1.5px] border-white border-t-transparent rounded-full animate-spin" />
-                        작성 중
+                        교정 중
                       </>
                     ) : (
                       <>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M9.5 3L11 7.5L15.5 9L11 10.5L9.5 15L8 10.5L3.5 9L8 7.5L9.5 3Z" fill="white"/><path d="M18 13l.8 2.3L21 16l-2.2.8L18 19l-.8-2.2L15 16l2.2-.7L18 13z" fill="white" opacity="0.7"/></svg>
-                        AI로 작성
+                        AI 맞춤법 교정
                       </>
                     )}
                   </button>
                 </div>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="특별히 요청하실 사항이 있으시면 적어주세요 (또는 AI로 작성 클릭)" className="w-full h-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#3180F7] resize-none transition-colors" />
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="특별히 요청하실 사항이 있으면 적어주세요. 비어 있으면 현재 입력값으로 문장을 만들어 교정합니다." className="w-full h-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#3180F7] resize-none transition-colors" />
               </div>
             </div>
           </div>
@@ -981,6 +1060,14 @@ function QuotePage() {
                   </div>
                 </div>
               )}
+              {!isEvent && selectedPros.size === 0 && (
+                <div className="pt-3 border-t border-gray-200">
+                  <p className="text-[13px] text-gray-500 mb-1">요청 대상</p>
+                  <p className="rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-semibold leading-relaxed text-[#3180F7]">
+                    선택한 사회자가 없어서 조건에 맞는 전체 사회자에게 견적 요청이 전달됩니다.
+                  </p>
+                </div>
+              )}
               {note && (
                 <div className="pt-3 border-t border-gray-200">
                   <p className="text-[13px] text-gray-500">추가 요청사항</p>
@@ -1034,7 +1121,7 @@ function QuotePage() {
               </div>
               <h3 className="text-[18px] font-bold text-gray-900 text-center">정말로 요청하시겠습니까?</h3>
               <p className="text-[13px] text-gray-500 text-center mt-2 leading-relaxed">
-                {isEvent ? '행사 견적 요청을 전송합니다.' : `${selectedPros.size}명의 사회자에게 견적 요청을 보냅니다.`}
+                {isEvent ? '행사 견적 요청을 전송합니다.' : selectedPros.size > 0 ? `${selectedPros.size}명의 사회자에게 견적 요청을 보냅니다.` : '선택하지 않았으므로 전체 사회자에게 견적 요청을 보냅니다.'}
               </p>
               <div className="flex gap-2.5 mt-6">
                 <button
@@ -1202,7 +1289,7 @@ function QuotePage() {
             className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2568d9] text-white font-semibold rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-[15px]"
           >
             <Send size={16} />
-            {sending ? '전송 중...' : isEvent ? '견적 요청 보내기' : `${selectedPros.size}명에게 견적 보내기`}
+            {sending ? '전송 중...' : isEvent ? '견적 요청 보내기' : selectedPros.size > 0 ? `${selectedPros.size}명에게 견적 보내기` : '전체 사회자에게 견적 보내기'}
           </button>
         ) : (
           <button
@@ -1274,7 +1361,10 @@ function ProSelectCard({ pro, selected, onToggle }: {
       </div>
       <div className="p-3">
         <p className="text-[13px] text-gray-700 font-medium line-clamp-1 leading-snug">{pro.intro}</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">경력 {pro.experience}년</p>
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          <p className="text-[11px] text-gray-400">경력 {pro.experience}년</p>
+          <p className="text-[11px] font-bold text-gray-900">{pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}</p>
+        </div>
         {/* 기본 제공 서비스 체크리스트 */}
         <div className="mt-2 space-y-1">
           {['사회 진행', '사전 미팅', '대본 작성'].map((svc) => (
