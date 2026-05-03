@@ -1243,20 +1243,57 @@ export default function HomePage() {
   }, [authUser]);
 
   /* hero 자동재생 영상 — iOS WebView는 autoPlay가 fullscreen 강제 트리거하므로
-     서버 HTML엔 autoPlay 없이 렌더 + iOS 아닌 경우만 JS로 play() 호출 */
+     PC/일반 브라우저에서만 안전하게 재생을 재시도한다. */
   const heroVideoRefs = useRef<HTMLVideoElement[]>([]);
+  const heroVideoCleanupRefs = useRef<WeakMap<HTMLVideoElement, () => void>>(new WeakMap());
+  const startHeroVideo = (video: HTMLVideoElement) => {
+    if (isIOSWebView() || typeof document === 'undefined') return;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.loop = true;
+    video.autoplay = true;
+    video.preload = 'auto';
+    video.playsInline = true;
+    video.setAttribute('muted', '');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', 'true');
+    video.play().catch(() => undefined);
+  };
+  const wireHeroVideoRetry = (video: HTMLVideoElement) => {
+    if (heroVideoCleanupRefs.current.has(video)) return;
+    const retry = () => startHeroVideo(video);
+    video.addEventListener('loadeddata', retry);
+    video.addEventListener('canplay', retry);
+    video.addEventListener('stalled', retry);
+    heroVideoCleanupRefs.current.set(video, () => {
+      video.removeEventListener('loadeddata', retry);
+      video.removeEventListener('canplay', retry);
+      video.removeEventListener('stalled', retry);
+    });
+  };
   const registerHeroVideo = (node: HTMLVideoElement | null) => {
-    if (node && !heroVideoRefs.current.includes(node)) heroVideoRefs.current.push(node);
+    if (!node || heroVideoRefs.current.includes(node)) return;
+    heroVideoRefs.current.push(node);
+    wireHeroVideoRetry(node);
+    startHeroVideo(node);
   };
   useEffect(() => {
     if (isIOSWebView()) return;
-    heroVideoRefs.current.forEach((v) => {
-      if (!v) return;
-      v.loop = true;
-      v.muted = true;
-      (v as any).playsInline = true;
-      v.play().catch(() => undefined);
-    });
+    const videos = heroVideoRefs.current.filter(Boolean);
+    videos.forEach(startHeroVideo);
+
+    const retryVisibleVideos = () => {
+      if (document.hidden) return;
+      heroVideoRefs.current.forEach(startHeroVideo);
+    };
+
+    document.addEventListener('visibilitychange', retryVisibleVideos);
+    window.addEventListener('focus', retryVisibleVideos);
+    return () => {
+      document.removeEventListener('visibilitychange', retryVisibleVideos);
+      window.removeEventListener('focus', retryVisibleVideos);
+      heroVideoRefs.current.forEach((video) => heroVideoCleanupRefs.current.get(video)?.());
+    };
   }, []);
 
   // 프로 유저는 /pro-dashboard 로 자동 리다이렉트 (앱 재진입 시)
@@ -2228,9 +2265,10 @@ export default function HomePage() {
                 <video
                   ref={registerHeroVideo}
                   src="/images/reference-video-1775801211148.mp4#t=0.001"
+                  loop
                   muted
                   playsInline
-                  preload="metadata"
+                  preload="auto"
                   controls={false}
                   disablePictureInPicture
                   webkit-playsinline="true"
@@ -2258,9 +2296,10 @@ export default function HomePage() {
                 <video
                   ref={registerHeroVideo}
                   src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.001"
+                  loop
                   muted
                   playsInline
-                  preload="metadata"
+                  preload="auto"
                   controls={false}
                   disablePictureInPicture
                   webkit-playsinline="true"
