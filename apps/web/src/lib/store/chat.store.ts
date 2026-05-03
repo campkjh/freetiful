@@ -74,6 +74,18 @@ function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
   return {};
 }
 
+function ensureClientMessageId(data: SendMessagePayload): SendMessagePayload {
+  const metadata =
+    data.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata)
+      ? data.metadata
+      : {};
+  if (typeof metadata.clientMessageId === 'string' && metadata.clientMessageId) {
+    return data;
+  }
+  const clientMessageId = `cm-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return { ...data, metadata: { ...metadata, clientMessageId } };
+}
+
 interface ChatState {
   // Connection
   socket: Socket | null;
@@ -369,6 +381,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!currentRoomId) return null;
 
     const roomId = currentRoomId;
+    const payload = ensureClientMessageId(data);
     const applyPersistedMessage = (message: MessageItem) => {
       const { messageCache } = get();
       const cachedForRoom = messageCache.get(message.roomId) || [];
@@ -398,7 +411,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
 
     const sendViaRest = async () => {
-      const res = await chatApi.sendMessage(roomId, data);
+      const res = await chatApi.sendMessage(roomId, payload);
       applyPersistedMessage(res.data);
       return res.data;
     };
@@ -415,7 +428,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         resolve(null);
       }, 4500);
 
-      socket.emit('sendMessage', { roomId, ...data }, (ack?: SendMessageAck) => {
+      socket.emit('sendMessage', { roomId, ...payload }, (ack?: SendMessageAck) => {
         if (settled) return;
         settled = true;
         window.clearTimeout(timer);
@@ -427,6 +440,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       applyPersistedMessage(ackMessage);
       return ackMessage;
     }
+
+    const myId = currentUserId();
+    const clientMessageId = (payload.metadata as Record<string, unknown> | undefined)?.clientMessageId;
+    const alreadyBroadcast = [...(get().messageCache.get(roomId) || []), ...get().messages]
+      .find((m) => (
+        m.roomId === roomId &&
+        m.senderId === myId &&
+        typeof clientMessageId === 'string' &&
+        (m.metadata as Record<string, unknown> | null)?.clientMessageId === clientMessageId
+      ));
+    if (alreadyBroadcast) return alreadyBroadcast;
 
     return sendViaRest();
   },

@@ -154,6 +154,7 @@ export default function ChatRoomPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const lastSendRef = useRef<{ text: string; at: number } | null>(null);
 
   // ─── Data fetching ───
   useEffect(() => {
@@ -383,6 +384,9 @@ export default function ChatRoomPage() {
   const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text) return;
+    const now = Date.now();
+    if (lastSendRef.current?.text === text && now - lastSendRef.current.at < 1200) return;
+    lastSendRef.current = { text, at: now };
 
     if (authUser) {
       // 낙관적 업데이트: 즉시 화면에 표시

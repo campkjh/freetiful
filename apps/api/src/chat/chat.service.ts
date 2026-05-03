@@ -684,6 +684,40 @@ export class ChatService {
   async sendMessage(roomId: string, userId: string, dto: SendMessageDto) {
     await this.verifyMembership(roomId, userId);
 
+    const metadata =
+      dto.metadata && typeof dto.metadata === 'object' && !Array.isArray(dto.metadata)
+        ? dto.metadata
+        : undefined;
+    const clientMessageId =
+      typeof metadata?.clientMessageId === 'string' ? metadata.clientMessageId : undefined;
+
+    if (clientMessageId) {
+      const existing = await this.prisma.message.findFirst({
+        where: {
+          roomId,
+          senderId: userId,
+          isDeleted: false,
+          metadata: {
+            path: ['clientMessageId'],
+            equals: clientMessageId,
+          } as any,
+        },
+        include: {
+          sender: { select: { id: true, name: true, profileImageUrl: true } },
+          replyTo: { select: { id: true, content: true, senderId: true, type: true } },
+          reactions: true,
+          reads: { select: { userId: true, readAt: true } },
+        },
+      });
+      if (existing) {
+        return {
+          ...existing,
+          reactions: this.groupReactions(existing.reactions),
+          isRead: existing.reads.some((r) => r.userId !== existing.senderId),
+        };
+      }
+    }
+
     // image 타입이고 content 가 base64 data URL 이면 서버에 저장 후 공개 URL 로 대체
     let finalContent = dto.content;
     if (dto.type === 'image' && dto.content && dto.content.startsWith('data:image/')) {
@@ -733,6 +767,7 @@ export class ChatService {
       include: {
         sender: { select: { id: true, name: true, profileImageUrl: true } },
         replyTo: { select: { id: true, content: true, senderId: true, type: true } },
+        reads: { select: { userId: true, readAt: true } },
       },
     });
 
@@ -792,7 +827,7 @@ export class ChatService {
       }
     } catch {}
 
-    return { ...message, reactions: [], isRead: false };
+    return { ...message, reactions: [], isRead: message.reads.some((r) => r.userId !== message.senderId) };
   }
 
   async getRoomMemberIds(roomId: string) {
