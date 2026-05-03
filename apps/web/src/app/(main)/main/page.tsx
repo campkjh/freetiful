@@ -503,7 +503,7 @@ function mapDiscoveryProToHomePro(p: any): ProData {
     image: p.images?.[0] || p.profileImageUrl || '',
     images: p.images || [],
     intro: p.shortIntro || '',
-    price: typeof p.basePrice === 'number' && p.basePrice > 0 ? p.basePrice : 0,
+    price: 0,
     experience: p.careerYears || 0,
     tags: (Array.isArray(p.tags) && p.tags.length > 0)
       ? p.tags
@@ -693,7 +693,7 @@ const BIZ_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
 const WEDDING_PARTNER_SECTION_ORDER = BIZ_CATEGORIES.filter((category) => category !== '전체');
 
 // 실제 파트너십 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
-const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
+const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v5';
 const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v7';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_REQUEST_VERSION = '20260429-category-quality';

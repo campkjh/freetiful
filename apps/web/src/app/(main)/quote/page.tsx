@@ -404,7 +404,7 @@ function QuotePage() {
           reviews: p.reviewCount || 0,
           experience: p.careerYears || 0,
           intro: p.shortIntro || '',
-          price: Number(p.basePrice || 0),
+          price: 0,
           youtubeId: extractYoutubeId(p.youtubeUrl),
           recentReviews: [] as string[],
           categories: p.categories || [],

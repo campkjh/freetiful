@@ -500,7 +500,7 @@ function mapApiPros(items: ProListItem[]): ProItem[] {
       puddingRank: idx + 1,
       image: p.profileImageUrl || p.images?.[0] || '',
       intro: p.shortIntro || '',
-      price: (typeof p.basePrice === 'number' && p.basePrice > 0) ? p.basePrice : 0,
+      price: 0,
       experience: p.careerYears || 1,
     }));
 }

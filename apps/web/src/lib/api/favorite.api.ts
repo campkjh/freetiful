@@ -8,7 +8,7 @@ let listCache: any | null = null;
 let listInFlight: Promise<any> | null = null;
 const FAVORITES_STORAGE_KEY = 'freetiful-favorites-list-cache-v1';
 const FAVORITE_IDS_STORAGE_KEY = 'freetiful-favorites';
-const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v4';
+const HOME_PROS_CACHE_KEY = 'freetiful-pros-cache-v5';
 const FAVORITE_CHANGED_EVENT = 'freetiful:favorite-changed';
 const FAVORITES_STORAGE_TTL = 10 * 60_000;
 

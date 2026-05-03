@@ -165,7 +165,7 @@ export default function SearchPage() {
     reviews: p.reviewCount,
     image: p.profileImageUrl || p.images?.[0] || '/images/default-profile.svg',
     intro: p.shortIntro,
-    price: p.basePrice,
+    price: 0,
   }));
   const showEmptyState = q.length > 0 && results.length === 0 && !isApiSearching;
 

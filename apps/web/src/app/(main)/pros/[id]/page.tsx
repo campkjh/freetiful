@@ -424,7 +424,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
   const plans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
     id: t.planKey,
     label: t.label,
-    price: typeof p.basePrice === 'number' ? p.basePrice : 0,
+    price: 0,
     duration: t.description || '',
     title: t.description || `${t.label} 패키지`,
     desc: t.includedItems?.length ? t.includedItems : ['사회 진행'],
@@ -452,7 +452,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     plans: plans.length > 0 ? plans : [{
       id: 'base',
       label: '기본',
-      price: typeof p.basePrice === 'number' ? p.basePrice : 0,
+      price: 0,
       duration: '',
       title: '기본 진행 패키지',
       desc: ['사회 진행'],

@@ -61,7 +61,7 @@ function mapFavoriteToPro(f: any): FavProItem | null {
     rating: Number(profile?.avgRating || 0),
     reviews: profile?.reviewCount || 0,
     image: profile?.images?.[0]?.imageUrl || profile?.user?.profileImageUrl || '',
-    price: profile?.services?.[0]?.basePrice || 0,
+    price: 0,
     subName: `${cat} ${name}`,
   };
 }
@@ -77,7 +77,7 @@ function mapPreviewToPro(p: ProListItem): FavProItem {
     rating: p.avgRating || 0,
     reviews: p.reviewCount || 0,
     image: p.profileImageUrl || p.images?.[0] || '',
-    price: p.basePrice || 0,
+    price: 0,
     subName: `${cat} ${p.name}`,
   };
 }
@@ -99,7 +99,7 @@ function getHomeCachedPro(id: string): FavProItem | null {
       rating: p.rating || 0,
       reviews: p.reviews || 0,
       image: p.image || p.images?.[0] || '',
-      price: p.price || 0,
+      price: 0,
       subName: `${cat} ${p.name || ''}`,
     };
   } catch {

@@ -45,12 +45,46 @@ const previewCache = new Map<string, { data: ProListItem; ts: number }>();
 const TTL = 5 * 60_000;
 const STORAGE_PREFIX = 'freetiful-discovery-cache:v2:';
 
+function normalizePublicProPrices<T>(payload: T): T {
+  if (Array.isArray(payload)) {
+    return payload.map((item) => normalizePublicProPrices(item)) as T;
+  }
+
+  if (!payload || typeof payload !== 'object') return payload;
+
+  const source = payload as Record<string, any>;
+  let next: Record<string, any> = source;
+
+  if ('basePrice' in source) {
+    next = { ...next, basePrice: 0 };
+  }
+
+  if (Array.isArray(source.services)) {
+    next = {
+      ...next,
+      services: source.services.map((service) => ({
+        ...service,
+        basePrice: 0,
+      })),
+    };
+  }
+
+  if (Array.isArray(source.data)) {
+    next = {
+      ...next,
+      data: normalizePublicProPrices(source.data),
+    };
+  }
+
+  return next as T;
+}
+
 function getRowsFromListPayload(payload: any): ProListItem[] {
   return Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
 }
 
 function indexProPreviews(payload: any, ts = Date.now()) {
-  const rows = getRowsFromListPayload(payload);
+  const rows = getRowsFromListPayload(normalizePublicProPrices(payload));
   if (rows.length === 0) return;
   rows.forEach((item) => {
     if (item?.id) previewCache.set(item.id, { data: item, ts });
@@ -67,7 +101,7 @@ function storageGet<T>(key: string): T | null {
       localStorage.removeItem(STORAGE_PREFIX + key);
       return null;
     }
-    return parsed.data as T;
+    return normalizePublicProPrices(parsed.data as T);
   } catch {
     return null;
   }
@@ -76,13 +110,13 @@ function storageGet<T>(key: string): T | null {
 function storageSet(key: string, data: any) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify({ data, ts: Date.now() }));
+    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify({ data: normalizePublicProPrices(data), ts: Date.now() }));
   } catch {}
 }
 
 function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.ts < TTL) return Promise.resolve(hit.data as T);
+  if (hit && Date.now() - hit.ts < TTL) return Promise.resolve(normalizePublicProPrices(hit.data as T));
   const stored = storageGet<T>(key);
   if (stored) {
     const ts = Date.now();
@@ -93,11 +127,12 @@ function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const existing = inflight.get(key);
   if (existing) return existing as Promise<T>;
   const p = fetcher().then((data) => {
-    cache.set(key, { data, ts: Date.now() });
-    if (key.startsWith('list:')) indexProPreviews(data);
-    storageSet(key, data);
+    const normalized = normalizePublicProPrices(data);
+    cache.set(key, { data: normalized, ts: Date.now() });
+    if (key.startsWith('list:')) indexProPreviews(normalized);
+    storageSet(key, normalized);
     inflight.delete(key);
-    return data;
+    return normalized;
   }).catch((e) => { inflight.delete(key); throw e; });
   inflight.set(key, p);
   return p;
@@ -105,14 +140,14 @@ function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
 
 export function getCachedProDetail(id: string): any | null {
   const hit = cache.get(`detail:${id}`);
-  if (hit && Date.now() - hit.ts < TTL) return hit.data;
+  if (hit && Date.now() - hit.ts < TTL) return normalizePublicProPrices(hit.data);
   return storageGet(`detail:${id}`);
 }
 
 export function getCachedProList(params?: ProListParams): { data: ProListItem[]; total: number; hasMore: boolean } | null {
   const key = `list:${JSON.stringify(params || {})}`;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.ts < TTL) return hit.data;
+  if (hit && Date.now() - hit.ts < TTL) return normalizePublicProPrices(hit.data);
   const stored = storageGet<{ data: ProListItem[]; total: number; hasMore: boolean }>(key);
   if (stored) {
     const ts = Date.now();
@@ -126,7 +161,7 @@ export function getCachedProSearchPool(): ProListItem[] {
   const seen = new Set<string>();
   const rows: ProListItem[] = [];
   const addRows = (payload: any) => {
-    getRowsFromListPayload(payload).forEach((item) => {
+    getRowsFromListPayload(normalizePublicProPrices(payload)).forEach((item) => {
       if (!item?.id || seen.has(item.id)) return;
       seen.add(item.id);
       rows.push(item);
@@ -184,7 +219,7 @@ export function getCachedProPreview(id: string): ProListItem | null {
 
 export function primeProPreview(item: ProListItem) {
   if (!item?.id) return;
-  previewCache.set(item.id, { data: item, ts: Date.now() });
+  previewCache.set(item.id, { data: normalizePublicProPrices(item), ts: Date.now() });
 }
 
 type FavoriteCountChange = {
@@ -319,8 +354,9 @@ export const discoveryApi = {
       return apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, {
         params: realtimeParams,
       }).then((r) => {
-        indexProPreviews(r.data);
-        return r.data;
+        const normalized = normalizePublicProPrices(r.data);
+        indexProPreviews(normalized);
+        return normalized;
       });
     }
     const key = `list:${JSON.stringify(requestParams || {})}`;
@@ -333,9 +369,10 @@ export const discoveryApi = {
       cache.delete(key);
       if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_PREFIX + key);
       return apiClient.get(`${BASE}/pros/${id}`, { params: { nocache: '1' } }).then((r) => {
-        cache.set(key, { data: r.data, ts: Date.now() });
-        storageSet(key, r.data);
-        return r.data;
+        const normalized = normalizePublicProPrices(r.data);
+        cache.set(key, { data: normalized, ts: Date.now() });
+        storageSet(key, normalized);
+        return normalized;
       });
     }
     return cached(key, () => apiClient.get(`${BASE}/pros/${id}`).then((r) => r.data));

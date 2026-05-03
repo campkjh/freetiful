@@ -155,7 +155,10 @@ export class FavoriteService {
       },
     });
 
-    const profileMap = new Map(proProfiles.map((p) => [p.id, p]));
+    const profileMap = new Map(proProfiles.map((p) => [
+      p.id,
+      { ...p, services: p.services.map((service) => ({ ...service, basePrice: 0 })) },
+    ]));
 
     const items = favorites.map((fav) => ({
       id: fav.id,
