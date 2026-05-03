@@ -87,6 +87,17 @@ img:not([src]) {
   100% { transform: translateX(200%) skewX(-15deg); }
 }
 
+@keyframes quoteNextReady {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 10px 24px rgba(49, 128, 247, 0.28);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.012);
+    box-shadow: 0 14px 30px rgba(49, 128, 247, 0.36);
+  }
+}
+
 @keyframes homeHeroMarqueeLeft {
   0% { transform: translateX(0); }
   100% { transform: translateX(-33.333%); }

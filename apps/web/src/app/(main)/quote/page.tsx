@@ -251,7 +251,7 @@ function QuotePage() {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const addressEmbedRef = useRef<HTMLDivElement>(null);
   const [eventType, setEventType] = useState('');
-  const [plan, setPlan] = useState('');
+  const [plan, setPlan] = useState(isEvent ? '' : 'wedding_part1');
   const [location, setLocation] = useState('');
   const [date, setDate] = useState('');
   const [timeStart, setTimeStart] = useState('');
@@ -274,6 +274,24 @@ function QuotePage() {
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
   const dateInputRef = useRef<HTMLInputElement>(null);
   const detailAddressOpenedRef = useRef(false);
+
+  const defaultWeddingPlanId = !isEvent
+    ? (PLANS.find((p) => p.id === 'wedding_part1')?.id || PLANS[0]?.id || '')
+    : '';
+
+  useEffect(() => {
+    if (isEvent || plan || !defaultWeddingPlanId) return;
+    setPlan(defaultWeddingPlanId);
+  }, [defaultWeddingPlanId, isEvent, plan]);
+
+  const getQuotePlanLabel = (planId = plan) => {
+    const found = PLANS.find((p) => p.id === planId);
+    if (!isEvent) {
+      if (planId === 'wedding_part12') return '1부+2부';
+      if (planId === 'wedding_part1') return '1부';
+    }
+    return found?.label || planId;
+  };
 
   const toggleMood = (m: string) => setMoods((prev) => { const n = new Set(prev); n.has(m) ? n.delete(m) : n.add(m); return n; });
 
@@ -314,7 +332,7 @@ function QuotePage() {
       source: 'quote_flow',
       eventType: eventType || '결혼식',
       plan,
-      planLabel: planObj?.label || plan,
+      planLabel: getQuotePlanLabel(),
       planPrice: planObj?.price,
       location,
       date,
@@ -343,7 +361,7 @@ function QuotePage() {
     if (timeStart && timeEnd) parts.push(`진행 시간은 ${timeStart}부터 ${timeEnd}까지입니다.`);
     const moodList = Array.from(moods);
     if (moodList.length > 0) parts.push(`${moodList.join(', ')} 분위기를 선호합니다.`);
-    const planLabel = PLANS.find((p) => p.id === plan)?.label;
+    const planLabel = getQuotePlanLabel();
     if (planLabel) parts.push(`${planLabel} 플랜으로 부탁드립니다.`);
     parts.push('사전 미팅 가능 여부와 대본 작성, 리허설 참석 가능 여부를 알려주세요.');
     parts.push('가능한 일정과 견적 확인 부탁드립니다. 감사합니다.');
@@ -536,7 +554,7 @@ function QuotePage() {
     setSending(true);
     try {
       const planObj = PLANS.find((p) => p.id === plan);
-      const planLabel = planObj?.label || plan;
+      const planLabel = getQuotePlanLabel();
       const eventLabel = eventType || '결혼식';
       const msgContent = `📋 견적 요청\n\n행사 유형: ${eventLabel}\n플랜: ${planLabel}\n일정: ${date} ${timeStart}${timeEnd ? ` ~ ${timeEnd}` : ''}\n장소: ${location || '미정'}${moods.size > 0 ? `\n분위기: ${[...moods].join(', ')}` : ''}${note ? `\n\n${note}` : ''}`;
 
@@ -682,6 +700,7 @@ function QuotePage() {
     const days = ['일', '월', '화', '수', '목', '금', '토'];
     return `${dt.getFullYear()}.${(dt.getMonth()+1).toString().padStart(2,'0')}.${dt.getDate().toString().padStart(2,'0')} (${days[dt.getDay()]})`;
   };
+  const nextEnabled = canNext();
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh', fontWeight: 400 }}>
@@ -750,7 +769,7 @@ function QuotePage() {
                       className="flex-1 py-4 flex flex-col items-center gap-1.5 relative"
                     >
                       <div>{p.icon}</div>
-                      <p className={`text-[14px] font-bold transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{p.label}</p>
+                      <p className={`text-[14px] font-bold transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{getQuotePlanLabel(p.id)}</p>
                       <p className={`text-[12px] transition-colors ${active ? 'text-gray-500' : 'text-gray-300'}`}>{p.desc}</p>
                       <p className={`text-[15px] font-bold mt-0.5 transition-colors ${active ? 'text-[#3180F7]' : 'text-gray-300'}`}>{(p.price / 10000).toFixed(0)}만원~</p>
                       {active && (
@@ -762,7 +781,8 @@ function QuotePage() {
               </div>
             </>
 
-            {/* Service comparison table — clickable */}
+            {/* 행사 사회자 플랜은 기존 포함 내역 비교표를 유지하고, 결혼식 사회자는 1부/1부+2부 선택만 노출 */}
+            {isEvent && (
             <div className="mt-6">
               <p className="text-[13px] font-bold text-gray-900 mb-3">서비스 포함 내역</p>
               <div className="overflow-hidden rounded-xl border border-gray-100">
@@ -770,7 +790,7 @@ function QuotePage() {
                   <div className="py-2.5 px-3 text-[11px] font-bold text-gray-400">서비스</div>
                   {PLANS.map((p) => (
                     <button key={p.id} onClick={() => setPlan(p.id)} className={`py-2.5 text-center text-[11px] font-bold transition-colors ${plan === p.id ? 'text-[#3180F7]' : 'text-gray-400'}`}>
-                      {p.label}
+                      {getQuotePlanLabel(p.id)}
                     </button>
                   ))}
                 </div>
@@ -797,6 +817,7 @@ function QuotePage() {
               </div>
               <p className="text-[11px] text-gray-400 mt-2">* 가격은 사회자에 따라 달라질 수 있습니다</p>
             </div>
+            )}
           </div>
         )}
 
@@ -997,7 +1018,7 @@ function QuotePage() {
             </p>
             {(moods.size > 0 || plan) && (
               <div className="flex flex-wrap gap-1.5 mb-4">
-                {plan && <span className="px-2 py-0.5 rounded-full bg-blue-50 text-[11px] font-bold text-[#3180F7]">{PLANS.find((p) => p.id === plan)?.label}</span>}
+                {plan && <span className="px-2 py-0.5 rounded-full bg-blue-50 text-[11px] font-bold text-[#3180F7]">{getQuotePlanLabel()}</span>}
                 {Array.from(moods).map((m) => (
                   <span key={m} className="px-2 py-0.5 rounded-full bg-purple-50 text-[11px] font-bold text-purple-600">{m}</span>
                 ))}
@@ -1034,7 +1055,7 @@ function QuotePage() {
               {isEvent && eventType && (
                 <div className="flex justify-between"><span className="text-[13px] text-gray-500">행사 유형</span><span className="text-[13px] font-semibold text-gray-900">{eventType}</span></div>
               )}
-              <div className="flex justify-between"><span className="text-[13px] text-gray-500">플랜</span><span className="text-[13px] font-semibold text-gray-900">{PLANS.find((p) => p.id === plan)?.label}</span></div>
+              <div className="flex justify-between"><span className="text-[13px] text-gray-500">플랜</span><span className="text-[13px] font-semibold text-gray-900">{getQuotePlanLabel()}</span></div>
               <div className="flex justify-between"><span className="text-[13px] text-gray-500">장소</span><span className="text-[13px] font-semibold text-gray-900 text-right max-w-[60%]">{location}</span></div>
               {selectedVenue && (
                 <div className="flex justify-between"><span className="text-[13px] text-gray-500">웨딩홀</span><span className="text-[13px] font-semibold text-[#3180F7] text-right max-w-[60%]">{selectedVenue}</span></div>
@@ -1294,8 +1315,12 @@ function QuotePage() {
         ) : (
           <button
             onClick={nextStep}
-            disabled={!canNext()}
-            className="w-full h-[52px] font-semibold rounded-2xl text-[15px]"
+            disabled={!nextEnabled}
+            className={`w-full h-[52px] rounded-2xl text-[15px] font-semibold transition-all duration-300 ${
+              nextEnabled
+                ? 'bg-[#3180F7] text-white shadow-[0_10px_24px_rgba(49,128,247,0.28)] hover:bg-[#2568d9] active:scale-[0.98] animate-[quoteNextReady_2.4s_ease-in-out_infinite]'
+                : 'cursor-not-allowed bg-gray-100 text-gray-300 shadow-none'
+            }`}
           >
             다음
           </button>
