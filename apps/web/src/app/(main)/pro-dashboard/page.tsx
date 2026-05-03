@@ -625,7 +625,7 @@ export default function ProDashboardPage() {
         return next;
       });
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-      toast.success('새 요청을 거절했습니다');
+      toast.success('고객에게 추천 안내를 보냈습니다');
     } catch (e: any) {
       toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
     }
@@ -1466,13 +1466,13 @@ export default function ProDashboardPage() {
               <p className="text-[13px] text-gray-500 mb-2">{rejectSched.userName}님의 행사 예약을 거절합니다.</p>
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
                 <p className="text-[12px] text-amber-700 font-medium">
-                  거절 즉시 고객에게 <b>전액 환불</b>됩니다. 사유는 고객에게 그대로 전달됩니다.
+                  거절 즉시 고객에게 <b>전액 환불</b>됩니다. 입력한 사유는 운영 참고용으로만 보관됩니다.
                 </p>
               </div>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="거절 사유 (예: 해당 날짜에 이미 다른 예약이 있어 수락이 어렵습니다)"
+                placeholder="운영 참고용 메모 (예: 해당 날짜에 이미 다른 예약이 있어 수락이 어렵습니다)"
                 className="w-full h-28 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[16px] outline-none focus:border-[#3180F7] resize-none"
               />
               <div className="flex gap-2 mt-4">
@@ -1487,7 +1487,7 @@ export default function ProDashboardPage() {
                   disabled={!rejectReason.trim()}
                   className={`flex-1 h-12 rounded-xl bg-red-500 text-white text-[15px] font-bold shadow-[0_6px_14px_rgba(239,68,68,0.18)] hover:bg-red-600 disabled:opacity-40 ${TOSS_BUTTON_MOTION}`}
                 >
-                  거절 · 환불
+                  안내 보내기 · 환불
                 </button>
               </div>
             </div>

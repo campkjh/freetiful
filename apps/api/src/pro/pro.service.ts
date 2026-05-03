@@ -1484,6 +1484,14 @@ export class ProService implements OnModuleInit {
 
   async rejectScheduleRequest(userId: string, scheduleId: string, reason?: string) {
     const profile = await this.getProfileByUserId(userId);
+    const proUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+    const proName = proUser?.name || '사회자';
+    const proDisplayName =
+      proName === '사회자' ? '해당 사회자' : proName.includes('사회자') ? proName : `${proName} 사회자`;
+    const internalReason = reason?.trim();
     const schedule = await this.prisma.proSchedule.findUnique({
       where: { id: scheduleId },
       include: { payment: true },
@@ -1494,14 +1502,14 @@ export class ProService implements OnModuleInit {
     if (schedule.status !== 'pending') {
       throw new BadRequestException('이미 처리된 요청입니다.');
     }
-    if (!reason || !reason.trim()) {
-      throw new BadRequestException('거절 사유를 입력해주세요. 사유는 고객에게 그대로 전달됩니다.');
+    if (!internalReason) {
+      throw new BadRequestException('거절 사유를 입력해주세요.');
     }
     const updated = await this.prisma.proSchedule.update({
       where: { id: scheduleId },
       data: {
         status: 'unavailable',
-        note: reason,
+        note: internalReason,
       },
     });
 
@@ -1511,7 +1519,7 @@ export class ProService implements OnModuleInit {
       try {
         const refunded = await this.paymentService.refundAsSystem(
           schedule.payment.id,
-          `사회자 거절: ${reason}`,
+          `사회자 일정/조건 불일치: ${internalReason}`,
         );
         refundedAmount = Number((refunded as any)?.refundAmount || schedule.payment.amount || 0);
       } catch (e) {
@@ -1519,7 +1527,10 @@ export class ProService implements OnModuleInit {
       }
     }
 
-    // 채팅방에 거절 시스템 메시지 + 알림
+    const customerNoticeTitle = '다른 전문가를 추천드릴게요';
+    const customerNoticeBody = `${proDisplayName}의 일정 또는 조건이 맞지 않아요. 프리티풀에서 다른 전문가를 바로 확인해보세요.`;
+
+    // 채팅방에 고객 안내 시스템 메시지 + 알림
     if (schedule.payment) {
       const room = await this.prisma.chatRoom.findFirst({
         where: {
@@ -1534,7 +1545,7 @@ export class ProService implements OnModuleInit {
             roomId: room.id,
             senderId: userId,
             type: 'system',
-            content: `❌ 행사 예약이 거절되었습니다.\n사유: ${reason}${refundedAmount > 0 ? `\n\n${refundedAmount.toLocaleString()}원 전액 환불 처리됐습니다.` : ''}`,
+            content: `${customerNoticeTitle}\n${customerNoticeBody}${refundedAmount > 0 ? `\n\n결제하신 ${refundedAmount.toLocaleString()}원은 전액 환불 처리됐습니다.` : ''}`,
           },
         });
         await this.prisma.chatRoom.update({
@@ -1546,8 +1557,8 @@ export class ProService implements OnModuleInit {
       this.notification.createNotification(
         schedule.payment.userId,
         'booking' as any,
-        '행사 예약이 거절되었습니다',
-        `${reason}${refundedAmount > 0 ? `\n${refundedAmount.toLocaleString()}원 환불 처리 완료` : ''}`,
+        customerNoticeTitle,
+        `${customerNoticeBody}${refundedAmount > 0 ? `\n${refundedAmount.toLocaleString()}원 환불 처리 완료` : ''}`,
         { scheduleId, paymentId: schedule.paymentId },
       ).catch(() => {});
     }

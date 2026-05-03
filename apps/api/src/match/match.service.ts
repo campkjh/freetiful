@@ -467,6 +467,8 @@ export class MatchService {
     }
 
     const proName = delivery.proProfile?.user?.name || '사회자';
+    const proDisplayName =
+      proName === '사회자' ? '해당 사회자' : proName.includes('사회자') ? proName : `${proName} 사회자`;
     const customerId = delivery.matchRequest?.user?.id;
 
     if (action === 'accept') {
@@ -510,8 +512,8 @@ export class MatchService {
         this.notificationService.createNotification(
           customerId,
           'system' as any,
-          '매칭 요청이 거절되었습니다',
-          `${proName} 사회자가 매칭 요청을 거절했습니다. 다른 전문가를 찾아보세요.`,
+          '다른 전문가를 추천드릴게요',
+          `${proDisplayName}의 일정 또는 조건이 맞지 않아요. 프리티풀에서 다른 전문가를 바로 확인해보세요.`,
           { matchDeliveryId, proProfileId },
         ).catch(() => {});
       }
