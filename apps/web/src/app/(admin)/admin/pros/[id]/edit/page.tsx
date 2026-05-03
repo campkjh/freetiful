@@ -276,12 +276,12 @@ export default function AdminProEditPage() {
       const normalizedServices = services.filter((s) => s.title).map((s) => ({
         title: s.title,
         description: s.description || undefined,
-        basePrice: s.basePrice || undefined,
+        basePrice: Number.isFinite(Number(s.basePrice)) ? Math.max(0, Number(s.basePrice)) : undefined,
       }));
       if (Number.isFinite(basePrice)) {
-        const normalizedBasePrice = basePrice > 0 ? basePrice : undefined;
+        const normalizedBasePrice = Math.max(0, Number(basePrice));
         if (normalizedServices.length > 0) normalizedServices[0] = { ...normalizedServices[0], basePrice: normalizedBasePrice };
-        else if (basePrice > 0) normalizedServices.push({ title: '기본 플랜', description: undefined, basePrice });
+        else normalizedServices.push({ title: '기본 플랜', description: undefined, basePrice: normalizedBasePrice });
       }
       const photosChanged =
         !sameStringArray(photos, initialPhotosRef.current) ||
@@ -310,7 +310,7 @@ export default function AdminProEditPage() {
         isFeatured,
         showPartnersLogo,
         isProfileHidden,
-        basePrice: basePrice || undefined,
+        basePrice: Number.isFinite(basePrice) ? Math.max(0, Number(basePrice)) : undefined,
       };
       if (!payload.name) {
         toast.error('이름은 필수입니다');

@@ -158,9 +158,9 @@ export default function BookingPage() {
     return WEDDING_PLAN_TEMPLATES.filter((t) => t.isActive).map((t) => ({
       id: `tpl-${t.planKey}`,
       name: `${t.label} 패키지`,
-      originalPrice: t.defaultPrice,
+      originalPrice: 0,
       discountPercent: 0,
-      finalPrice: t.defaultPrice,
+      finalPrice: 0,
     }));
   }, [pro]);
 
@@ -294,6 +294,10 @@ export default function BookingPage() {
       return;
     }
     if (!selectedOption) { toast.error('플랜을 선택해주세요'); return; }
+    if (selectedOption.finalPrice <= 0) {
+      toast.error('문의시 제공 플랜은 채팅 문의로 견적을 받아주세요.');
+      return;
+    }
     const params = new URLSearchParams({
       plan: selectedOption.name,
       price: String(selectedOption.finalPrice * quantity + extraTotal),
@@ -345,7 +349,7 @@ export default function BookingPage() {
                 }`}
               >
                 <span className={`text-[14px] font-medium ${selectedOption?.id === plan.id ? 'text-[#3180F7] font-bold' : 'text-gray-700'}`}>{plan.name}</span>
-                <span className={`text-[14px] font-bold ${selectedOption?.id === plan.id ? 'text-[#3180F7]' : 'text-gray-900'}`}>{plan.finalPrice.toLocaleString()}원</span>
+                <span className={`text-[14px] font-bold ${selectedOption?.id === plan.id ? 'text-[#3180F7]' : 'text-gray-900'}`}>{plan.finalPrice > 0 ? `${plan.finalPrice.toLocaleString()}원` : '문의시 제공'}</span>
               </button>
             ))}
           </div>
@@ -371,7 +375,7 @@ export default function BookingPage() {
                 <p className="text-[15px] font-bold text-gray-900">{proInfo.category} {proInfo.name}</p>
                 <p className="text-[12px] text-gray-500 mt-0.5">{selectedOption?.name ?? ''}</p>
                 <p className="text-[17px] font-bold text-gray-900 mt-1">
-                  {(selectedOption?.finalPrice ?? 0).toLocaleString()}원
+                  {(selectedOption?.finalPrice ?? 0) > 0 ? `${(selectedOption?.finalPrice ?? 0).toLocaleString()}원` : '문의시 제공'}
                   <span className="text-[12px] font-normal text-gray-400 ml-1.5">1개</span>
                 </p>
               </div>

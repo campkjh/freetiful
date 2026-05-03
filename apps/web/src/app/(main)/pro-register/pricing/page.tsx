@@ -83,6 +83,11 @@ export default function PricingPage() {
     });
   };
 
+  const updatePlanPrice = (id: string, value: string) => {
+    const price = Math.max(0, Math.floor(Number(value) || 0));
+    setPrices((prev) => ({ ...prev, [id]: price }));
+  };
+
   const addCustomOption = () => {
     if (!newOption.trim()) return;
     const price = parseInt(newOptionPrice) || 0;
@@ -217,15 +222,19 @@ export default function PricingPage() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                {/* Price — fixed */}
+                {/* Price */}
                 <div className="mb-5">
                   <label className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2 block">가격</label>
-                  <div className="h-12 bg-gray-50 border border-gray-100 rounded-xl px-4 flex items-center justify-between">
-                    <span className="text-[18px] font-bold text-gray-900">
-                      {(prices[activeTab] ?? PLANS.find(p => p.id === activeTab)?.defaultPrice ?? 0).toLocaleString()}원~
-                    </span>
-                    <span className="text-[12px] text-gray-400">고정 가격</span>
-                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    step={10000}
+                    value={prices[activeTab] ?? 0}
+                    onChange={(e) => updatePlanPrice(activeTab, e.target.value)}
+                    placeholder="0"
+                    className="h-12 w-full bg-gray-50 border border-gray-100 rounded-xl px-4 text-[18px] font-bold text-gray-900 outline-none focus:border-[#3180F7] transition-colors"
+                  />
+                  <p className="mt-1.5 text-[11px] font-medium text-gray-400">0원으로 저장하면 고객 화면에 문의시 제공으로 표시됩니다.</p>
                 </div>
 
                 {/* Common options (read-only) */}

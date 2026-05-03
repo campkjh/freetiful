@@ -562,7 +562,7 @@ function ProCard({ pro, onRemove, priority = false }: { pro: { id: string; name:
               <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
               <span className="text-[13px] text-gray-400">({pro.reviews})</span>
             </div>
-            <p className="text-[15px] font-bold text-gray-900 mt-1">{pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}</p>
+            <p className="text-[15px] font-bold text-gray-900 mt-1">{pro.price > 0 ? `${pro.price.toLocaleString()}원~` : '문의시 제공'}</p>
             <p className="text-[13px] text-gray-500 mt-2 line-clamp-2 leading-snug">&ldquo;{pro.intro}&rdquo;</p>
           </Link>
           {onRemove && (

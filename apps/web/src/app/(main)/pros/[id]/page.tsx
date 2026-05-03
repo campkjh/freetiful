@@ -424,7 +424,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
   const plans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
     id: t.planKey,
     label: t.label,
-    price: t.defaultPrice || p.basePrice || 0,
+    price: typeof p.basePrice === 'number' ? p.basePrice : 0,
     duration: t.description || '',
     title: t.description || `${t.label} 패키지`,
     desc: t.includedItems?.length ? t.includedItems : ['사회 진행'],
@@ -452,7 +452,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     plans: plans.length > 0 ? plans : [{
       id: 'base',
       label: '기본',
-      price: p.basePrice || 0,
+      price: typeof p.basePrice === 'number' ? p.basePrice : 0,
       duration: '',
       title: '기본 진행 패키지',
       desc: ['사회 진행'],
@@ -486,7 +486,7 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
   const fallbackPlans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
     id: t.planKey,
     label: t.label,
-    price: t.defaultPrice,
+    price: 0,
     duration: t.description || '',
     title: t.description || `${t.label} 패키지`,
     desc: t.includedItems?.length ? t.includedItems : ['사회 진행'],
@@ -1007,7 +1007,7 @@ export default function ProDetailPage() {
           return {
             id: tpl?.planKey || `wedding-local-${idx}`,
             label: tpl?.label || service.title,
-            price: service.basePrice || tpl?.defaultPrice || 0,
+            price: typeof service.basePrice === 'number' ? service.basePrice : (tpl?.defaultPrice || 0),
             duration: tpl?.description || '',
             title: tpl?.description || service.title,
             desc,
@@ -1217,7 +1217,7 @@ export default function ProDetailPage() {
   const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
-  const plan = pro?.plans?.[activePlan] ?? { id: 'wedding_part1', label: '1부 예식', price: 0, duration: '-', title: '가격 문의', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
+  const plan = pro?.plans?.[activePlan] ?? { id: 'wedding_part1', label: '1부 예식', price: 0, duration: '-', title: '문의시 제공', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
 
   useEffect(() => {
     if (!pro?.plans?.length) return;
@@ -1978,7 +1978,7 @@ export default function ProDetailPage() {
                         <span className="pb-1 text-[12px] text-gray-500">(VAT 별도)</span>
                       </>
                     ) : (
-                      <span className="text-[22px] font-bold text-gray-500">가격 문의</span>
+                      <span className="text-[22px] font-bold text-gray-500">문의시 제공</span>
                     )}
                   </div>
                   <p className="mt-3 text-[15px] font-bold text-gray-950">{plan.title}</p>
@@ -1995,8 +1995,8 @@ export default function ProDetailPage() {
                   <button onClick={handleInquiry} className="mt-6 h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 hover:bg-gray-50">
                     사회자에게 문의하기
                   </button>
-                  <button onClick={handlePurchase} className="mt-3 h-[52px] w-full rounded-lg bg-gray-950 text-[15px] font-bold text-white hover:bg-black">
-                    구매하기
+                  <button onClick={plan.price > 0 ? handlePurchase : handleInquiry} className="mt-3 h-[52px] w-full rounded-lg bg-gray-950 text-[15px] font-bold text-white hover:bg-black">
+                    {plan.price > 0 ? '구매하기' : '문의하기'}
                   </button>
                 </div>
               </div>
@@ -2270,7 +2270,7 @@ export default function ProDetailPage() {
                 <span className="text-[14px] text-gray-400">(VAT 별도)</span>
               </>
             ) : (
-              <span className="text-[22px] font-bold text-gray-400">가격 문의</span>
+              <span className="text-[22px] font-bold text-gray-400">문의시 제공</span>
             )}
           </div>
           {plan.price > 0 && (
@@ -2457,7 +2457,7 @@ export default function ProDetailPage() {
                     <span className="text-[10px] text-gray-400">({item.reviewCount})</span>
                   </div>
                 )}
-                <p className="text-[13px] font-bold text-gray-900 mt-0.5">{item.price.toLocaleString()}원~</p>
+                <p className="text-[13px] font-bold text-gray-900 mt-0.5">{item.price > 0 ? `${item.price.toLocaleString()}원~` : '문의시 제공'}</p>
               </div>
             </Link>
           ))}
@@ -2815,10 +2815,10 @@ export default function ProDetailPage() {
                 )}
               </button>
               <button
-                onClick={handlePurchase}
+                onClick={plan.price > 0 ? handlePurchase : handleInquiry}
                 className="flex-1 bg-[#3180F7] rounded-r-full text-[14px] font-bold text-white active:scale-[0.98] transition-transform"
               >
-                구매하기
+                {plan.price > 0 ? '구매하기' : '문의하기'}
               </button>
             </div>
           </div>
@@ -2936,7 +2936,7 @@ export default function ProDetailPage() {
               <p className="text-[15px] font-bold text-gray-900 mb-2">{plan.title}</p>
               <div className="flex items-end justify-between pt-3 border-t border-gray-200">
                 <span className="text-[13px] text-gray-500">결제 금액</span>
-                <span className="text-[22px] font-bold text-[#3180F7]">{plan.price.toLocaleString()}원</span>
+                <span className="text-[22px] font-bold text-[#3180F7]">{plan.price > 0 ? `${plan.price.toLocaleString()}원` : '문의시 제공'}</span>
               </div>
             </div>
             <p className="text-[12px] text-gray-400 mb-5 text-center">결제 시 VAT가 별도로 추가돼요</p>

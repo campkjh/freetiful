@@ -25,7 +25,7 @@ const LEGACY_HANDOVER_FALLBACKS: ProfileHandoverCandidate[] = [
     careerYears: 13,
     avgRating: 5,
     reviewCount: 0,
-    basePrice: 300000,
+    basePrice: 0,
     categories: ['사회자'],
   },
 ];

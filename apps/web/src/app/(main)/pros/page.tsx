@@ -236,7 +236,7 @@ function ProListCard({
             </div>
           </div>
           <p className="text-[15px] font-bold text-gray-900 mt-1">
-            {pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}
+            {pro.price > 0 ? `${pro.price.toLocaleString()}원~` : '문의시 제공'}
           </p>
           <p className="text-[13px] text-gray-500 mt-2 line-clamp-2 leading-snug">
             &ldquo;{pro.intro || '프리티풀 인증 사회자입니다'}&rdquo;
@@ -463,7 +463,7 @@ function DesktopProMarketCard({
           <span className="font-medium text-gray-400">({pro.reviews.toLocaleString()})</span>
         </div>
         <p className="mt-2 text-[20px] font-extrabold tracking-[-0.03em] text-gray-950">
-          {pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}
+          {pro.price > 0 ? `${pro.price.toLocaleString()}원~` : '문의시 제공'}
         </p>
         <p className="mt-3 text-[15px] font-semibold text-[#6B7280]">{displayCategory} {pro.name}</p>
         <div className="mt-3 flex flex-wrap gap-1.5">

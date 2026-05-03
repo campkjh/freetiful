@@ -1388,7 +1388,7 @@ function ProSelectCard({ pro, selected, onToggle }: {
         <p className="text-[13px] text-gray-700 font-medium line-clamp-1 leading-snug">{pro.intro}</p>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="text-[11px] text-gray-400">경력 {pro.experience}년</p>
-          <p className="text-[11px] font-bold text-gray-900">{pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}</p>
+          <p className="text-[11px] font-bold text-gray-900">{pro.price > 0 ? `${pro.price.toLocaleString()}원~` : '문의시 제공'}</p>
         </div>
         {/* 기본 제공 서비스 체크리스트 */}
         <div className="mt-2 space-y-1">

@@ -32,7 +32,7 @@ const LEGACY_HANDOVER_PROFILES = [
     mainExperience: 'MBC충북 아나운서 / SPOTV 스포츠 아나운서',
     careerYears: 13,
     gender: 'female',
-    basePrice: 300000,
+    basePrice: 0,
     category: '사회자',
   },
 ] as const;

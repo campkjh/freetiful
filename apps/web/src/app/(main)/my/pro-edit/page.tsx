@@ -287,6 +287,10 @@ export default function ProEditPage() {
     if (enabledPlans.has(activePlanTab)) return;
     setActivePlanTab([...enabledPlans][0] || 'wedding_part1');
   }, [activePlanTab, enabledPlans]);
+  const updatePlanPrice = (key: string, value: string) => {
+    const price = Math.max(0, Math.floor(Number(value) || 0));
+    setPlanPrices((prev) => ({ ...prev, [key]: price }));
+  };
   const detailEditorRef = useRef<HTMLDivElement>(null);
   const detailImageInputRef = useRef<HTMLInputElement>(null);
   const detailColorInputRef = useRef<HTMLInputElement>(null);
@@ -488,7 +492,7 @@ export default function ProEditPage() {
         const key = normalizeWeddingPlanKey(s.title || s.id);
         if (!key) continue;
         enabled.add(key);
-        if (typeof s.basePrice === 'number' && s.basePrice > 0) prices[key] = s.basePrice;
+        if (typeof s.basePrice === 'number' && s.basePrice >= 0) prices[key] = s.basePrice;
         const parsedOptions = parseWeddingOptionsFromDescription(s.description);
         if (parsedOptions.length > 0) {
           options[key] = parsedOptions;
@@ -1166,7 +1170,7 @@ export default function ProEditPage() {
                         <div className="text-left">
                           <p className={`text-[14px] font-bold ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>{t.label}</p>
                           <p className={`text-[12px] ${enabled ? 'text-gray-500' : 'text-gray-300'}`}>
-                            {t.description} · 기본가 {t.defaultPrice.toLocaleString()}원
+                            {t.description} · 설정가 {(planPrices[key] ?? 0) > 0 ? `${(planPrices[key] ?? 0).toLocaleString()}원` : '문의시 제공'}
                           </p>
                         </div>
                         <div
@@ -1211,10 +1215,16 @@ export default function ProEditPage() {
                       <div className="space-y-3">
                         <div>
                           <label className="block text-[11px] font-bold text-gray-400 mb-1.5">가격 (원)</label>
-                          <div className="w-full h-11 border border-gray-100 bg-gray-50 rounded-xl px-4 flex items-center justify-between">
-                            <span className="text-[16px] font-bold text-gray-900">{tpl.defaultPrice.toLocaleString()}원~</span>
-                            <span className="text-[12px] font-semibold text-gray-400">고정 기본가</span>
-                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            step={10000}
+                            value={planPrices[key] ?? 0}
+                            onChange={(e) => updatePlanPrice(key, e.target.value)}
+                            placeholder="0"
+                            className="w-full h-11 border border-gray-100 bg-gray-50 rounded-xl px-4 text-[16px] font-bold text-gray-900 outline-none focus:border-[#3180F7] transition-colors"
+                          />
+                          <p className="mt-1.5 text-[11px] font-medium text-gray-400">0원으로 저장하면 고객 화면에 문의시 제공으로 표시됩니다.</p>
                         </div>
 
                         {tpl.includedItems.length > 0 && (
