@@ -190,7 +190,7 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 const DASHBOARD_CACHE_KEY = 'freetiful-pro-dashboard-cache-v2';
 const DASHBOARD_CACHE_TTL = 5 * 60_000;
-const PUBLIC_PRO_CACHE_KEYS = ['freetiful-pros-cache-v4', 'freetiful-pros-cache'];
+const PUBLIC_PRO_CACHE_KEYS = ['freetiful-pros-cache-v6', 'freetiful-pros-cache-v5', 'freetiful-pros-cache-v4', 'freetiful-pros-cache'];
 
 type DashboardCache = {
   ts: number;

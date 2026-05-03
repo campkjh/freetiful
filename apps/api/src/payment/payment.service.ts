@@ -414,8 +414,8 @@ export class PaymentService {
       if (diffDays < 1) {
         throw new BadRequestException('행사 당일에는 취소할 수 없습니다. 전문가에게 직접 연락해 주세요.');
       }
-      if (diffDays >= 7) { refundRate = 100; refundAmount = amount; }
-      else if (diffDays >= 3) { refundRate = 90; refundAmount = Math.round(amount * 0.9); }
+      if (diffDays >= 14) { refundRate = 100; refundAmount = amount; }
+      else if (diffDays >= 7) { refundRate = 90; refundAmount = Math.round(amount * 0.9); }
       else { refundRate = 50; refundAmount = Math.round(amount * 0.5); }
     }
 

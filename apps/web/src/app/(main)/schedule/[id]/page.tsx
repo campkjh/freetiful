@@ -33,9 +33,9 @@ function getRefundPolicy(eventDate: string, price: number) {
   const diffMs = event.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays >= 7) return { rate: 100, refundAmount: price, penalty: 0, label: '행사 7일 전 이상', description: '전액 환불', canCancel: true };
-  if (diffDays >= 3) return { rate: 90, refundAmount: Math.round(price * 0.9), penalty: Math.round(price * 0.1), label: '행사 3~6일 전', description: '수수료 제외 환불 (10% 수수료)', canCancel: true };
-  if (diffDays >= 1) return { rate: 50, refundAmount: Math.round(price * 0.5), penalty: Math.round(price * 0.5), label: '행사 1~2일 전', description: '50% 환불', canCancel: true };
+  if (diffDays >= 14) return { rate: 100, refundAmount: price, penalty: 0, label: '행사 14일 전 이상', description: '전액 환불', canCancel: true };
+  if (diffDays >= 7) return { rate: 90, refundAmount: Math.round(price * 0.9), penalty: Math.round(price * 0.1), label: '행사 7~13일 전', description: '수수료 제외 환불 (10% 수수료)', canCancel: true };
+  if (diffDays >= 1) return { rate: 50, refundAmount: Math.round(price * 0.5), penalty: Math.round(price * 0.5), label: '행사 1~6일 전', description: '50% 환불', canCancel: true };
   return { rate: 0, refundAmount: 0, penalty: price, label: '행사 당일', description: '환불 불가', canCancel: false };
 }
 
@@ -288,9 +288,9 @@ export default function BookingDetailPage() {
           </thead>
           <tbody>
             {[
-              ['행사 7일 전', '100% 환불'],
-              ['행사 3~6일 전', '수수료 제외 환불'],
-              ['행사 1~2일 전', '50% 환불'],
+              ['행사 14일 전', '100% 환불'],
+              ['행사 7~13일 전', '수수료 제외 환불'],
+              ['행사 1~6일 전', '50% 환불'],
               ['행사 당일', '환불 불가'],
             ].map(([time, refund], i) => (
               <tr key={i} className="border-b border-gray-100 last:border-0">

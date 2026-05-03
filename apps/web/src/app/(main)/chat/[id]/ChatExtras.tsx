@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import { quotationApi } from '@/lib/api/quotation.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { useChatStore } from '@/lib/store/chat.store';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
 
@@ -632,7 +633,14 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                     const proId = chatPartner?.proProfileId || chatPartner?.id;
                     const amount = sys.amount || 0;
                     const plan = sys.plan || 'premium';
-                    const qs = `price=${amount}&plan=${plan}&quotationId=${sys.quotationId}`;
+                    const params = new URLSearchParams({
+                      price: String(amount),
+                      plan,
+                      quotationId: sys.quotationId,
+                    });
+                    if (sys.eventDate) params.set('eventDate', sys.eventDate);
+                    if (sys.eventTime) params.set('slots', sys.eventTime);
+                    const qs = params.toString();
                     const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
                     window.location.href = url;
                   }}
@@ -1070,6 +1078,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const [quoteEventDate, setQuoteEventDate] = useState('');
   const [quoteEventTime, setQuoteEventTime] = useState('');
   const [quoteMemo, setQuoteMemo] = useState('');
+  const [quoteCustomAmount, setQuoteCustomAmount] = useState('');
   // 추가 옵션 (프로가 견적 보낼 때 옵션을 추가해 총액을 올릴 수 있음)
   const [quoteOptions, setQuoteOptions] = useState<{ name: string; price: number }[]>([]);
   const [quoteSending, setQuoteSending] = useState(false);
@@ -1086,6 +1095,13 @@ export default function ChatExtras(props: ChatExtrasProps) {
   useEffect(() => {
     if (PLAN_KEYS.length > 0 && !PLAN_KEYS.includes(quotePlan)) setQuotePlan(PLAN_KEYS[0]);
   }, [planTemplates]);
+
+  const selectedPlan = PLAN_DATA[quotePlan];
+  const quoteOptionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
+  const quoteBaseAmount = quoteCustomAmount.trim()
+    ? Math.max(0, parseInt(quoteCustomAmount.replace(/[^\d]/g, ''), 10) || 0)
+    : (selectedPlan?.price || 0);
+  const quoteTotalAmount = quoteBaseAmount + quoteOptionsTotal;
 
   // ─── Handlers ───
 
@@ -1258,8 +1274,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
         r.readAsDataURL(file);
       });
       // 서버에 전송 → 서버가 디스크 저장 후 공개 URL 로 content 대체
-      const res = await chatApi.sendMessage(roomId, { type: 'image', content: dataUrl });
-      const saved = res.data as any;
+      const saved = (
+        await useChatStore.getState().sendMessage({ type: 'image', content: dataUrl }).catch(() => null)
+      ) || ((await chatApi.sendMessage(roomId, { type: 'image', content: dataUrl })).data as any);
       // 임시 메시지를 서버 응답으로 교체 (senderId, content 는 서버 값)
       setMessages((prev) => prev.map((m) => m.id === tempId ? {
         ...m,
@@ -1274,34 +1291,52 @@ export default function ChatExtras(props: ChatExtrasProps) {
     }
   };
 
-  const handleFileSend = (file: File) => {
-    setMessages((prev) => [...prev, {
-      id: Date.now().toString(),
-      senderId: MY_ID,
-      content: file.name,
-      type: 'file',
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      fileName: file.name,
-      isNew: true,
-    }]);
+  const handleFileSend = async (file: File) => {
     setShowAttach(false);
-    toast.success(`${file.name} 전송 완료`);
+    const saved = await useChatStore.getState().sendMessage({
+      type: 'file',
+      content: file.name,
+      metadata: { fileName: file.name, fileSize: file.size, mimeType: file.type },
+    }).catch(() => null);
+    if (saved) {
+      setMessages((prev) => prev.some((m) => m.id === saved.id) ? prev : [...prev, {
+        id: saved.id,
+        senderId: saved.senderId,
+        content: saved.content || file.name,
+        type: 'file',
+        createdAt: saved.createdAt,
+        isRead: saved.isRead,
+        fileName: file.name,
+        isNew: true,
+      }]);
+      toast.success(`${file.name} 전송 완료`);
+    } else {
+      toast.error('파일 전송 실패');
+    }
   };
 
-  const sendLocationMessage = (lat: number, lng: number) => {
-    setMessages((prev) => [...prev, {
-      id: Date.now().toString(),
-      senderId: MY_ID,
-      content: '내 위치를 공유했습니다',
+  const sendLocationMessage = async (lat: number, lng: number) => {
+    const saved = await useChatStore.getState().sendMessage({
       type: 'location',
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isNew: true,
-      latitude: lat,
-      longitude: lng,
-    }]);
-    toast.success('위치 전송 완료');
+      content: '내 위치를 공유했습니다',
+      metadata: { latitude: lat, longitude: lng },
+    }).catch(() => null);
+    if (saved) {
+      setMessages((prev) => prev.some((m) => m.id === saved.id) ? prev : [...prev, {
+        id: saved.id,
+        senderId: saved.senderId,
+        content: saved.content || '내 위치를 공유했습니다',
+        type: 'location',
+        createdAt: saved.createdAt,
+        isRead: saved.isRead,
+        isNew: true,
+        latitude: lat,
+        longitude: lng,
+      }]);
+      toast.success('위치 전송 완료');
+    } else {
+      toast.error('위치 전송 실패');
+    }
   };
 
   const handleLocationSend = () => {
@@ -1408,8 +1443,12 @@ export default function ChatExtras(props: ChatExtrasProps) {
     setQuoteSending(true);
     // 옵션 총액 + 전체 합계
     const optionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
-    const totalAmount = plan.price + optionsTotal;
+    const baseAmount = quoteCustomAmount.trim()
+      ? Math.max(0, parseInt(quoteCustomAmount.replace(/[^\d]/g, ''), 10) || 0)
+      : plan.price;
+    const totalAmount = baseAmount + optionsTotal;
     try {
+      const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       // 1) 백엔드에 실제 Quotation 생성
       const created = await quotationApi.create({
         userId: chatPartner.id,
@@ -1423,14 +1462,15 @@ export default function ChatExtras(props: ChatExtrasProps) {
         ].filter(Boolean).join(''),
         eventDate: quoteEventDate || undefined,
         eventTime: quoteEventTime || undefined,
+        chatRoomId: roomId && !roomId.startsWith('pending-') ? roomId : undefined,
       } as any);
       const quotationId = (created as any)?.id;
 
       // 2) 채팅방에 견적 카드 메시지 전송 (상대가 결제 버튼 누를 수 있게 metadata 포함)
       const myProImage = useAuthStore.getState().user?.profileImageUrl || null;
-      const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+      let savedQuoteMessage: any = null;
       if (roomId && !roomId.startsWith('pending-')) {
-        await chatApi.sendMessage(roomId, {
+        const quoteMessagePayload = {
           type: 'system' as any,
           content: `💰 견적서 발송: ${totalAmount.toLocaleString()}원`,
           metadata: {
@@ -1439,7 +1479,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
               plan: quotePlan,
               eventName: quoteEventName || '행사 진행',
               amount: totalAmount,
-              basePrice: plan.price,
+              basePrice: baseAmount,
               options: quoteOptions,
               eventDate: quoteEventDate,
               eventTime: quoteEventTime,
@@ -1448,23 +1488,28 @@ export default function ChatExtras(props: ChatExtrasProps) {
               proImage: myProImage,
             },
           },
-        } as any).catch(() => {});
+        };
+        savedQuoteMessage = await useChatStore.getState().sendMessage(quoteMessagePayload).catch(() => null);
+        if (!savedQuoteMessage) {
+          const sent = await chatApi.sendMessage(roomId, quoteMessagePayload as any).catch(() => null);
+          savedQuoteMessage = sent?.data ?? null;
+        }
       }
 
       // 3) 로컬 UI에도 즉시 반영
       const quoteMsg: Message = {
-        id: `s-quote-${Date.now()}`,
+        id: savedQuoteMessage?.id || `s-quote-${Date.now()}`,
         senderId: MY_ID,
         content: '견적서 발송',
         type: 'system',
-        createdAt: new Date().toISOString(),
+        createdAt: savedQuoteMessage?.createdAt || new Date().toISOString(),
         isRead: false,
         system: {
           kind: 'quote',
           plan: quotePlan,
           eventName: quoteEventName || '행사 진행',
           amount: totalAmount,
-          basePrice: plan.price,
+          basePrice: baseAmount,
           options: quoteOptions,
           eventDate: quoteEventDate,
           eventTime: quoteEventTime,
@@ -1479,6 +1524,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       setQuoteEventDate('');
       setQuoteEventTime('');
       setQuoteMemo('');
+      setQuoteCustomAmount('');
       setQuoteOptions([]);
       setNewOptName('');
       setNewOptPrice('');
@@ -1493,7 +1539,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
   const ATTACH_ITEMS = [
     // 견적서 발송을 최상단으로 (프로에게 가장 중요한 액션)
-    { icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } },
+    ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
     { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => cameraInputRef.current?.click() },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
     { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
@@ -1527,9 +1573,21 @@ export default function ChatExtras(props: ChatExtrasProps) {
               {muted ? <Bell size={16} className="text-gray-500" /> : <BellOff size={16} className="text-gray-500" />}
               {muted ? '알림 켜기' : '알림 끄기'}
             </button>
-            <Link href={`/pros/${chatPartner?.id || ''}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
-              <Smile size={16} className="text-gray-500" /> 프로필 보기
-            </Link>
+            {isPro ? (
+              <button
+                onClick={() => {
+                  setShowHeaderMenu(false);
+                  toast(`${chatPartner?.name || '고객'} 정보는 대화 상단 카드에서 확인할 수 있습니다`);
+                }}
+                className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
+              >
+                <Smile size={16} className="text-gray-500" /> 고객 정보 보기
+              </button>
+            ) : (
+              <Link href={`/pros/${chatPartner?.proProfileId || chatPartner?.id || ''}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
+                <Smile size={16} className="text-gray-500" /> 프로필 보기
+              </Link>
+            )}
             <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-red-500 hover:bg-red-50 w-full border-t border-gray-100">
               <Trash2 size={16} /> 대화 삭제
             </button>
@@ -1709,7 +1767,17 @@ export default function ChatExtras(props: ChatExtrasProps) {
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <h2 className="text-[18px] font-bold text-gray-900 mb-4">견적서 작성</h2>
 
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">플랜 선택</p>
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">견적 금액</p>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={quoteCustomAmount}
+              onChange={(e) => setQuoteCustomAmount(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="직접 입력하지 않으면 선택 플랜 금액이 적용됩니다"
+              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-4"
+            />
+
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">서비스 템플릿</p>
             <div className="flex gap-2 mb-4 overflow-x-auto">
               {PLAN_KEYS.map(p => (
                 <button
@@ -1842,13 +1910,16 @@ export default function ChatExtras(props: ChatExtrasProps) {
             {/* 총액 표시 */}
             <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-4">
               <div>
-                <p className="text-[11px] text-gray-400">기본 {PLAN_DATA[quotePlan]?.label || ''} {(PLAN_DATA[quotePlan]?.price || 0).toLocaleString()}원</p>
+                <p className="text-[11px] text-gray-400">
+                  기본 견적 {quoteBaseAmount.toLocaleString()}원
+                  {quoteCustomAmount.trim() ? ' · 직접 입력' : ` · ${PLAN_DATA[quotePlan]?.label || ''}`}
+                </p>
                 {quoteOptions.length > 0 && (
-                  <p className="text-[11px] text-amber-600">+ 옵션 {quoteOptions.length}개 {quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0).toLocaleString()}원</p>
+                  <p className="text-[11px] text-amber-600">+ 옵션 {quoteOptions.length}개 {quoteOptionsTotal.toLocaleString()}원</p>
                 )}
               </div>
               <p className="text-[18px] font-bold text-[#3180F7]">
-                {((PLAN_DATA[quotePlan]?.price || 0) + quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0)).toLocaleString()}원
+                {quoteTotalAmount.toLocaleString()}원
               </p>
             </div>
 

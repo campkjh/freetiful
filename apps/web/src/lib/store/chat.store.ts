@@ -62,6 +62,18 @@ function writeRoomsCache(rooms: ChatRoomItem[], userId = currentUserId()) {
   } catch {}
 }
 
+function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
+  const system = (message.metadata as any)?.system;
+  if (system?.kind === 'quote') return { hasQuoteInquiry: true };
+  if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
+    return { hasQuoteInquiry: true, hasConfirmedBooking: true };
+  }
+  const content = message.content || '';
+  if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
+  if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
+  return {};
+}
+
 interface ChatState {
   // Connection
   socket: Socket | null;
@@ -164,6 +176,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           r.id === message.roomId
             ? {
                 ...r,
+                ...getRoomFlagsFromMessage(message),
                 lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
                 lastMessageAt: message.createdAt,
                 unreadCount: message.roomId === currentRoomId ? r.unreadCount : r.unreadCount + 1,
@@ -370,6 +383,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           r.id === message.roomId
             ? {
                 ...r,
+                ...getRoomFlagsFromMessage(message),
                 lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
                 lastMessageAt: message.createdAt,
               }

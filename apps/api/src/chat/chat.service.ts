@@ -130,6 +130,7 @@ export class ChatService {
         },
         user: { select: { id: true, name: true, profileImageUrl: true } },
         members: { where: { userId } },
+        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
       },
     });
     if (existingWithJoins) {
@@ -169,6 +170,10 @@ export class ChatService {
         unreadCount: member?.unreadCount ?? 0,
         proProfileId: existingWithJoins.proProfileId,
         iAmPro: isProUser,
+        matchRequestId: existingWithJoins.matchRequestId,
+        latestQuotationStatus: existingWithJoins.quotations[0]?.status ?? null,
+        hasQuoteInquiry: Boolean(existingWithJoins.matchRequestId || existingWithJoins.quotations.length > 0),
+        hasConfirmedBooking: ['accepted', 'paid'].includes(existingWithJoins.quotations[0]?.status ?? ''),
       };
     }
 
@@ -246,6 +251,10 @@ export class ChatService {
       unreadCount: 0,
       proProfileId: room.proProfileId,
       iAmPro: false, // createRoom 호출자는 항상 고객 측 (proProfile.userId === userId 면 위에서 차단됨)
+      matchRequestId: room.matchRequestId,
+      latestQuotationStatus: null,
+      hasQuoteInquiry: Boolean(room.matchRequestId),
+      hasConfirmedBooking: false,
     };
   }
 
@@ -283,6 +292,7 @@ export class ChatService {
       include: {
         user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
         members: { where: { userId: proUserId } },
+        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
       },
     });
     if (existing) {
@@ -316,6 +326,10 @@ export class ChatService {
         unreadCount: member?.unreadCount ?? 0,
         proProfileId: existing.proProfileId,
         iAmPro: true,
+        matchRequestId: existing.matchRequestId,
+        latestQuotationStatus: existing.quotations[0]?.status ?? null,
+        hasQuoteInquiry: Boolean(existing.matchRequestId || existing.quotations.length > 0),
+        hasConfirmedBooking: ['accepted', 'paid'].includes(existing.quotations[0]?.status ?? ''),
       };
     }
 
@@ -378,6 +392,10 @@ export class ChatService {
       unreadCount: 0,
       proProfileId: room.proProfileId,
       iAmPro: true,
+      matchRequestId: room.matchRequestId,
+      latestQuotationStatus: null,
+      hasQuoteInquiry: Boolean(room.matchRequestId),
+      hasConfirmedBooking: false,
     };
   }
 
@@ -434,6 +452,7 @@ export class ChatService {
           id: true,
           userId: true,
           proProfileId: true,
+          matchRequestId: true,
           lastMessageAt: true,
           proProfile: {
             select: {
@@ -450,6 +469,11 @@ export class ChatService {
             take: 1,
             select: { id: true, type: true, content: true, createdAt: true },
           },
+          quotations: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { status: true },
+          },
         },
         orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
         skip: (page - 1) * take,
@@ -463,6 +487,18 @@ export class ChatService {
       const lastMsg = room.messages[0];
       const isProUser = room.proProfile.userId === userId;
       const proCategory = room.proProfile.categories?.[0]?.category?.name;
+      const latestQuotationStatus = room.quotations[0]?.status ?? null;
+      const lastContent = lastMsg?.content ?? '';
+      const hasQuoteInquiry = Boolean(
+        room.matchRequestId ||
+        latestQuotationStatus ||
+        /견적|문의/.test(lastContent),
+      );
+      const hasConfirmedBooking = Boolean(
+        latestQuotationStatus === 'accepted' ||
+        latestQuotationStatus === 'paid' ||
+        /예약확정|확정|결제 완료|진행/.test(lastContent),
+      );
       const otherUser = isProUser
         ? { id: room.user.id, name: room.user.name, profileImageUrl: room.user.profileImageUrl, category: null as string | null }
         : {
@@ -483,6 +519,10 @@ export class ChatService {
         isFavorited: member?.isFavorited ?? false,
         proProfileId: room.proProfileId,
         iAmPro: isProUser,
+        matchRequestId: room.matchRequestId,
+        latestQuotationStatus,
+        hasQuoteInquiry,
+        hasConfirmedBooking,
       };
     });
 
@@ -507,6 +547,19 @@ export class ChatService {
         },
         user: { select: { id: true, name: true, profileImageUrl: true } },
         members: { where: { userId } },
+        matchRequest: {
+          select: {
+            id: true,
+            type: true,
+            eventDate: true,
+            eventTime: true,
+            eventLocation: true,
+            budgetMin: true,
+            budgetMax: true,
+            status: true,
+          },
+        },
+        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, amount: true, title: true, status: true, eventDate: true, eventTime: true, createdAt: true } },
       },
     });
 
@@ -530,6 +583,9 @@ export class ChatService {
       unreadCount: member?.unreadCount ?? 0,
       iAmPro: isProUser, // 이 채팅방에서 내가 프로(사회자) 측인지
       proProfileId: room.proProfileId,
+      matchRequestId: room.matchRequestId,
+      matchRequest: room.matchRequest,
+      latestQuotation: room.quotations[0] ?? null,
     };
   }
 

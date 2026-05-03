@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -20,6 +21,10 @@ interface ChatRoom {
   isPinned: boolean;
   isArchived: boolean;
   isHidden?: boolean;
+  matchRequestId?: string | null;
+  latestQuotationStatus?: string | null;
+  hasQuoteInquiry?: boolean;
+  hasConfirmedBooking?: boolean;
 }
 
 type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
@@ -52,6 +57,10 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
     isPinned: false,
     isArchived: false,
     isHidden: false,
+    matchRequestId: r.matchRequestId ?? null,
+    latestQuotationStatus: r.latestQuotationStatus ?? null,
+    hasQuoteInquiry: !!r.hasQuoteInquiry,
+    hasConfirmedBooking: !!r.hasConfirmedBooking,
   };
 }
 
@@ -63,6 +72,7 @@ function getInitialRoomsForCurrentUser() {
 }
 
 export default function ChatListPage() {
+  const router = useRouter();
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
   const initialRoomsRef = useRef<ChatRoom[] | null>(null);
   if (initialRoomsRef.current === null) initialRoomsRef.current = getInitialRoomsForCurrentUser();
@@ -162,8 +172,8 @@ export default function ChatListPage() {
       switch (proActiveTab) {
         case '읽음': return r.unreadCount === 0;
         case '안 읽음': return r.unreadCount > 0;
-        case '견적문의': return r.lastMessage.includes('견적') || r.lastMessage.includes('문의');
-        case '예약확정': return r.lastMessage.includes('확정') || r.lastMessage.includes('진행');
+        case '견적문의': return !!r.hasQuoteInquiry;
+        case '예약확정': return !!r.hasConfirmedBooking;
         case '숨김': return true;
         default: return true;
       }
@@ -274,13 +284,8 @@ export default function ChatListPage() {
     if (room) preWarmExistingRoom(room);
   };
 
-  const [pcSelectedRoom, setPcSelectedRoom] = useState<string | null>(null);
-  const [pcInput, setPcInput] = useState('');
-
   const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관', '숨김'];
   const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '견적문의', '예약확정', '숨김'];
-
-  const pcSelectedData = pcSelectedRoom ? rooms.find((r) => r.id === pcSelectedRoom) : null;
 
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
@@ -298,14 +303,16 @@ export default function ChatListPage() {
                   className={`relative flex items-center gap-3 px-5 py-4 cursor-pointer transition-colors overflow-hidden ${
                     hasUnread ? 'bg-blue-50/40' : ''
                   } ${
-                    isPC && pcSelectedRoom === room.id ? 'bg-gray-50' : !hasUnread ? 'hover:bg-gray-50' : 'hover:bg-blue-100/40'
+                    !hasUnread ? 'hover:bg-gray-50' : 'hover:bg-blue-100/40'
                   }`}
                   style={{
                     WebkitTouchCallout: 'none',
                     WebkitUserSelect: 'none',
                     userSelect: 'none',
                   }}
-                  onClick={() => isPC && setPcSelectedRoom(room.id)}
+                  onClick={() => {
+                    if (isPC) router.push(`/chat/${room.id}`);
+                  }}
                   onMouseEnter={() => handlePrewarmRoom(room.id)}
                   onFocus={() => handlePrewarmRoom(room.id)}
                   onPointerDown={(e) => {
@@ -479,72 +486,15 @@ export default function ChatListPage() {
 
         {/* 우측: 대화 영역 */}
         <div className="flex-1 flex flex-col bg-white">
-          {pcSelectedData ? (
-            <>
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
-                {pcSelectedData.otherUser.profileImageUrl
-                  ? <img src={pcSelectedData.otherUser.profileImageUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  : <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#9CA3AF" /><path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" /></svg></div>
-                }
-                <div>
-                  <p className="text-[15px] font-bold text-gray-900">{pcSelectedData.otherUser.role} {pcSelectedData.otherUser.name}님</p>
-                  <p className="text-[12px] text-gray-400">마지막 메시지: {pcSelectedData.lastMessageAt}</p>
-                </div>
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100">
+                <span className="text-4xl">💬</span>
               </div>
-
-              <div className="flex-1 overflow-y-auto px-6 py-6 bg-gray-50">
-                <div className="max-w-[700px] mx-auto space-y-4">
-                  <div className="flex justify-center">
-                    <span className="bg-gray-200 text-gray-500 text-[11px] px-3 py-1 rounded-full">견적 요청으로 대화가 시작되었습니다</span>
-                  </div>
-                  <div className="flex justify-end">
-                    <div className="bg-gray-900 text-white px-4 py-2.5 rounded-2xl rounded-br-md max-w-[400px]">
-                      <p className="text-[14px]">안녕하세요! 문의 드립니다.</p>
-                      <p className="text-[10px] text-gray-400 mt-1 text-right">읽음</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2.5">
-                    {pcSelectedData.otherUser.profileImageUrl
-                      ? <img src={pcSelectedData.otherUser.profileImageUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" />
-                      : <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0 mt-0.5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#9CA3AF" /><path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" /></svg></div>
-                    }
-                    <div>
-                      <p className="text-[12px] text-gray-500 mb-1">{pcSelectedData.otherUser.name}</p>
-                      <div className="bg-white border border-gray-200 px-4 py-2.5 rounded-2xl rounded-bl-md max-w-[400px] shadow-sm">
-                        <p className="text-[14px] text-gray-900">{pcSelectedData.lastMessage}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-6 py-4 border-t border-gray-200 bg-white">
-                <div className="flex items-center gap-3 max-w-[700px] mx-auto">
-                  <input
-                    type="text"
-                    value={pcInput}
-                    onChange={(e) => setPcInput(e.target.value)}
-                    placeholder="메시지를 입력하세요..."
-                    className="flex-1 bg-gray-100 rounded-xl px-4 py-3 text-[14px] focus:outline-none focus:ring-2 focus:ring-gray-300"
-                    onKeyDown={(e) => { if (e.key === 'Enter' && pcInput.trim()) setPcInput(''); }}
-                  />
-                  <button className="bg-gray-900 text-white px-5 py-3 rounded-xl text-[14px] font-medium hover:bg-gray-800 transition-colors shrink-0">
-                    전송
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-4xl">💬</span>
-                </div>
-                <p className="text-gray-400 text-[15px] font-medium">대화를 선택하세요</p>
-                <p className="text-gray-300 text-[13px] mt-1">좌측 목록에서 채팅방을 클릭하면 대화가 표시됩니다</p>
-              </div>
+              <p className="text-gray-500 text-[15px] font-semibold">대화방을 선택하세요</p>
+              <p className="text-gray-400 text-[13px] mt-1">목록을 누르면 저장되는 실제 채팅방으로 이동합니다</p>
             </div>
-          )}
+          </div>
         </div>
       </div>
 

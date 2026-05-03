@@ -1995,8 +1995,8 @@ export default function ProDetailPage() {
                   <button onClick={handleInquiry} className="mt-6 h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 hover:bg-gray-50">
                     사회자에게 문의하기
                   </button>
-                  <button onClick={plan.price > 0 ? handlePurchase : handleInquiry} className="mt-3 h-[52px] w-full rounded-lg bg-gray-950 text-[15px] font-bold text-white hover:bg-black">
-                    {plan.price > 0 ? '구매하기' : '문의하기'}
+                  <button onClick={handlePurchase} className="mt-3 h-[52px] w-full rounded-lg bg-gray-950 text-[15px] font-bold text-white hover:bg-black">
+                    구매하기
                   </button>
                 </div>
               </div>
@@ -2815,10 +2815,10 @@ export default function ProDetailPage() {
                 )}
               </button>
               <button
-                onClick={plan.price > 0 ? handlePurchase : handleInquiry}
+                onClick={handlePurchase}
                 className="flex-1 bg-[#3180F7] rounded-r-full text-[14px] font-bold text-white active:scale-[0.98] transition-transform"
               >
-                {plan.price > 0 ? '구매하기' : '문의하기'}
+                구매하기
               </button>
             </div>
           </div>

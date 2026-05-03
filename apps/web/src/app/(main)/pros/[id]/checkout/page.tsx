@@ -76,9 +76,21 @@ export default function CheckoutPage() {
 
   const planName = searchParams.get('plan') || 'Premium 패키지';
   const price = Number(searchParams.get('price') || '450000');
-  const slots = searchParams.get('slots')?.split(',') || ['11:30'];
-  const day = searchParams.get('day') || '14';
-  const month = searchParams.get('month') || '4';
+  const slots = (searchParams.get('slots') || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const dateFromQuery = searchParams.get('eventDate') || searchParams.get('date') || '';
+  const year = searchParams.get('year') || (dateFromQuery ? dateFromQuery.slice(0, 4) : String(new Date().getFullYear()));
+  const day = searchParams.get('day') || (dateFromQuery ? String(Number(dateFromQuery.slice(8, 10))) : '');
+  const month = searchParams.get('month') || (dateFromQuery ? String(Number(dateFromQuery.slice(5, 7))) : '');
+  const eventDate = dateFromQuery || (year && month && day ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '');
+  const formatScheduleLine = (rank: number, time?: string) => {
+    if (!eventDate) return '선택된 희망 예약 일정이 없습니다';
+    const date = new Date(`${eventDate}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return '선택된 희망 예약 일정이 없습니다';
+    const weekday = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+    const period = time && Number(time.split(':')[0]) < 12 ? '오전' : '오후';
+    const timeText = time ? ` ${period} ${time}` : '';
+    return `${rank}순위: ${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()} (${weekday})${timeText}`;
+  };
 
   const authUser = useAuthStore((s) => s.user);
   const [bookerInfo, setBookerInfo] = useState('');
@@ -96,6 +108,7 @@ export default function CheckoutPage() {
   const [checkNoConsult, setCheckNoConsult] = useState(false);
   const [checkPrevious, setCheckPrevious] = useState(false);
   const [showScheduleDetail, setShowScheduleDetail] = useState(false);
+  const [showCancelPolicyDetail, setShowCancelPolicyDetail] = useState(false);
   const [showPrivacyDetail, setShowPrivacyDetail] = useState(false);
   const [usePoints, setUsePoints] = useState(true);
   const [consented, setConsented] = useState(false);
@@ -177,14 +190,13 @@ export default function CheckoutPage() {
       // 1. 주문 생성 — 서버가 orderId 발급 (DB 에 pending Payment 레코드 남김)
       let orderId: string;
       try {
-        const eventDate = day && month ? `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : undefined;
         // 견적서 결제인 경우 quotationId 를 함께 보내 Payment ↔ Quotation 연결
         const quotationId = searchParams.get('quotationId') || undefined;
         const { data: order } = await apiClient.post<{ orderId: string }>('/api/v1/payment/order', {
           amount: finalPrice,
           orderName,
           proProfileId: id,
-          eventDate,
+          eventDate: eventDate || undefined,
           quotationId,
         });
         orderId = order.orderId;
@@ -274,7 +286,7 @@ export default function CheckoutPage() {
               <div>
                 <p className="text-[12px] text-gray-400 mb-0.5">희망 예약 일정</p>
                 <p className="text-[14px] font-medium text-gray-900">
-                  1순위: 2026. {month}. {day} (화) 오전 {slots[0]}
+                  {formatScheduleLine(1, slots[0])}
                 </p>
               </div>
               <button
@@ -288,7 +300,7 @@ export default function CheckoutPage() {
             {showScheduleDetail && slots.length > 1 && (
               <div className="mt-2 space-y-1">
                 {slots.slice(1).map((s, i) => (
-                  <p key={i} className="text-[13px] text-gray-600 pl-0.5">{i + 2}순위: 2026. {month}. {day} (화) 오전 {s}</p>
+                  <p key={i} className="text-[13px] text-gray-600 pl-0.5">{formatScheduleLine(i + 2, s)}</p>
                 ))}
               </div>
             )}
@@ -430,9 +442,20 @@ export default function CheckoutPage() {
         </div>
         <div className="border border-gray-200 rounded-2xl p-4">
           <p className="text-[13px] text-gray-700 leading-relaxed">
-            <span className="font-bold text-[#3180F7]">행사 3일 전까지</span> 앱에서 취소하면 100% 환불돼요. 당일 취소는 사회자에 직접 연락해 주세요.
+            <span className="font-bold text-[#3180F7]">행사 14일 전까지</span> 앱에서 취소하면 100% 환불돼요. 당일 취소는 사회자에 직접 연락해 주세요.
           </p>
-          <p className="text-[12px] text-gray-400 underline mt-2">결제 취소 정책 전문</p>
+          <button
+            type="button"
+            onClick={() => setShowCancelPolicyDetail((v) => !v)}
+            className="mt-2 text-left text-[12px] text-gray-400 underline"
+          >
+            결제 취소 정책 전문
+          </button>
+          {showCancelPolicyDetail && (
+            <div className="mt-3 rounded-xl bg-gray-50 p-3 text-[12px] leading-relaxed text-gray-600">
+              행사 14일 전까지 앱에서 취소하면 전액 환불됩니다. 행사 13일 전부터는 사회자 일정 확보 및 준비가 시작되어 취소 수수료가 발생할 수 있으며, 당일 취소와 노쇼는 환불이 제한됩니다. 천재지변 등 불가피한 사유는 고객센터 확인 후 별도 처리됩니다.
+            </div>
+          )}
           <label className="flex items-center gap-3 mt-4 cursor-pointer" onClick={() => setAgreedCancel(!agreedCancel)}>
             <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreedCancel ? 'bg-[#2B313D] border-[#2B313D]' : 'border-gray-300'}`}>
               {agreedCancel && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}

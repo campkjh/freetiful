@@ -302,6 +302,8 @@ export default function BookingPage() {
       plan: selectedOption.name,
       price: String(selectedOption.finalPrice * quantity + extraTotal),
       slots: selectedSlots.join(','),
+      eventDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`,
+      year: String(currentYear),
       day: String(selectedDay),
       month: String(currentMonth),
       ...(venueAddress ? { venue: venueAddress, venueDetail } : {}),
@@ -704,7 +706,7 @@ export default function BookingPage() {
               <p className="text-[13px] font-bold text-gray-700 mb-2">예약 시 안내사항</p>
               <ul className="space-y-1 text-[12px] text-gray-500 leading-relaxed">
                 <li>· 일정 변경이 필요하면 앱에서 변경/취소해주세요.</li>
-                <li>· 예약 변경/취소는 행사 3일 전까지 가능해요.</li>
+                <li>· 예약 변경/취소는 행사 14일 전까지 가능해요.</li>
                 <li>· 행사 규모에 따라 리허설 시간이 추가될 수 있어요.</li>
               </ul>
             </div>

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText,
+  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -34,6 +34,13 @@ function mapApiMessage(m: MessageItem): Message {
     address: meta?.address as string | undefined,
     system: meta?.system as SystemPayload | undefined,
   };
+}
+
+function mapCachedMessage(m: MessageItem | Message): Message {
+  if ('metadata' in m || 'roomId' in m || 'sender' in m) {
+    return mapApiMessage(m as MessageItem);
+  }
+  return m as Message;
 }
 
 function formatDateDivider(dateStr: string) {
@@ -113,6 +120,7 @@ export default function ChatRoomPage() {
   const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
   const [input, setInput] = useState('');
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
+  const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(null);
   const isPro = iAmProInRoom === true;
   const partnerRoleKnown = iAmProInRoom !== null;
   const partnerIsPro = iAmProInRoom === false;
@@ -215,6 +223,10 @@ export default function ChatRoomPage() {
         });
         // 현재 유저의 전역 role 이 아니라, 이 채팅방 안에서의 역할만 신뢰한다.
         setIAmProInRoom(Boolean(room.iAmPro));
+        setRoomMeta({
+          matchRequest: room.matchRequest ?? null,
+          latestQuotation: room.latestQuotation ?? null,
+        });
       } catch (err) {
         console.error('Failed to load room info', err);
       }
@@ -260,7 +272,7 @@ export default function ChatRoomPage() {
       }
       const cachedMsgs = useChatStore.getState().messageCache.get(roomId);
       if (cachedMsgs && cachedMsgs.length > 0) {
-        setMessages(cachedMsgs as any);
+        setMessages(cachedMsgs.map(mapCachedMessage));
         setMessagesLoading(false);
         chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
           if (!cancelled) setMessages((res.data.data || []).map(mapApiMessage));
@@ -284,17 +296,6 @@ export default function ChatRoomPage() {
     loadRoom();
     loadMessages();
     return () => { cancelled = true; };
-  }, [roomId]);
-
-  // 언마운트 시 메시지 캐시 저장
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
-  useEffect(() => {
-    return () => {
-      if (messagesRef.current.length > 0) {
-        useChatStore.getState().messageCache.set(roomId, messagesRef.current as any);
-      }
-    };
   }, [roomId]);
 
   // ─── WebSocket (즉시 연결 — 지연 시 실시간성 저하) ───
@@ -647,6 +648,31 @@ export default function ChatRoomPage() {
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="max-w-[680px] mx-auto">
+          {isPro && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (
+            <div className="mb-4 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(49,128,247,0.08)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-[#3180F7]">고객 견적 정보</p>
+                  <p className="mt-1 text-[14px] font-semibold text-gray-900 truncate">
+                    {roomMeta.matchRequest?.eventLocation || roomMeta.latestQuotation?.title || '행사 정보 확인 필요'}
+                  </p>
+                  <p className="mt-1 text-[12px] text-gray-500">
+                    {roomMeta.matchRequest?.eventDate
+                      ? `${new Date(roomMeta.matchRequest.eventDate).toLocaleDateString('ko-KR')} ${roomMeta.matchRequest.eventTime || ''}`.trim()
+                      : roomMeta.latestQuotation?.eventDate
+                        ? `${new Date(roomMeta.latestQuotation.eventDate).toLocaleDateString('ko-KR')} ${roomMeta.latestQuotation.eventTime || ''}`.trim()
+                        : '행사 일정 미입력'}
+                  </p>
+                </div>
+                {roomMeta.latestQuotation?.amount != null && (
+                  <div className="shrink-0 rounded-xl bg-blue-50 px-3 py-2 text-right">
+                    <p className="text-[11px] text-blue-500">최근 견적</p>
+                    <p className="text-[14px] font-bold text-[#3180F7]">{Number(roomMeta.latestQuotation.amount).toLocaleString('ko-KR')}원</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {messagesLoading && messages.length === 0 && (
             <div className="space-y-4 pt-4">
               {[1,2,3,4,5].map((i) => (
@@ -908,6 +934,16 @@ export default function ChatRoomPage() {
           ) : (
             // Normal input UI
             <>
+              {isPro && (
+                <button
+                  onClick={() => setShowQuoteModal(true)}
+                  className="h-12 px-4 rounded-full bg-[#3180F7] text-white shadow-[0_4px_24px_rgba(49,128,247,0.25)] border border-blue-400/30 flex items-center justify-center gap-1.5 shrink-0 active:scale-[0.92] transition-all hover:bg-[#1f6fe5]"
+                  title="견적서 보내기"
+                >
+                  <FileSignature size={18} />
+                  <span className="hidden sm:inline text-[13px] font-bold">견적</span>
+                </button>
+              )}
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
                 className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"

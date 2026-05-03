@@ -26,6 +26,33 @@ export interface ChatRoomItem {
   proProfileId?: string;
   /** 내가 프로(사회자) 측인지 */
   iAmPro?: boolean;
+  /** 전문사회자 찾기/견적에서 생성된 요청 ID */
+  matchRequestId?: string | null;
+  /** 가장 최근 견적 상태 */
+  latestQuotationStatus?: string | null;
+  /** 견적문의 탭에 노출할 방인지 */
+  hasQuoteInquiry?: boolean;
+  /** 예약확정 탭에 노출할 방인지 */
+  hasConfirmedBooking?: boolean;
+  matchRequest?: {
+    id: string;
+    type?: string | null;
+    eventDate?: string | null;
+    eventTime?: string | null;
+    eventLocation?: string | null;
+    budgetMin?: number | null;
+    budgetMax?: number | null;
+    status?: string | null;
+  } | null;
+  latestQuotation?: {
+    id: string;
+    amount: number;
+    title?: string | null;
+    status: string;
+    eventDate?: string | null;
+    eventTime?: string | null;
+    createdAt?: string;
+  } | null;
 }
 
 export interface MessageItem {
