@@ -385,8 +385,7 @@ function DesktopProsSidebar({
 
   return (
     <aside className="sticky top-8 self-start">
-      <h2 className="text-[34px] font-extrabold tracking-[-0.04em] text-gray-950">사회자 마켓</h2>
-      <div className="mt-9 space-y-9">
+      <div className="space-y-9">
         {PC_SIDEBAR_GROUPS.map((group) => (
           <div key={group.title}>
             <p className="mb-4 text-[17px] font-extrabold text-gray-950">{group.title}</p>
