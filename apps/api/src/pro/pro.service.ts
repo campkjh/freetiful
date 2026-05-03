@@ -63,6 +63,8 @@ function handoverSearchMatches(profile: LegacyHandoverProfile, search?: string) 
 @Injectable()
 export class ProService implements OnModuleInit {
   private readonly logger = new Logger(ProService.name);
+  private readonly priceResetAuditAction = 'maintenance:reset_pro_service_prices_to_inquiry_20260503';
+
   constructor(
     private prisma: PrismaService,
     private imageService: ImageService,
@@ -76,6 +78,8 @@ export class ProService implements OnModuleInit {
   // 서버 시작 시 기존 프로 유저들의 User.profileImageUrl 이 비어있으면
   // 대표 ProProfileImage 의 URL 로 채워줌 (일회성 마이그레이션).
   async onModuleInit() {
+    await this.resetExistingProServicePricesToInquiryOnce();
+
     try {
       const usersNeedingSync = await this.prisma.user.findMany({
         where: {
@@ -109,6 +113,42 @@ export class ProService implements OnModuleInit {
       if (synced > 0) this.logger.log(`Synced ${synced} User.profileImageUrl from primary ProProfileImage`);
     } catch (e: any) {
       this.logger.warn(`profile image sync skipped: ${e?.message || e}`);
+    }
+  }
+
+  private async resetExistingProServicePricesToInquiryOnce() {
+    try {
+      const alreadyApplied = await this.prisma.adminAuditLog.findFirst({
+        where: { action: this.priceResetAuditAction },
+        select: { id: true },
+      });
+      if (alreadyApplied) return;
+
+      const result = await this.prisma.proService.updateMany({
+        where: {
+          isActive: true,
+          OR: [
+            { basePrice: { not: 0 } },
+            { basePrice: null },
+          ],
+        },
+        data: { basePrice: 0 },
+      });
+
+      await this.prisma.adminAuditLog.create({
+        data: {
+          adminId: 'system',
+          action: this.priceResetAuditAction,
+          targetType: 'pro_services',
+          afterState: { updatedCount: result.count },
+        },
+      });
+
+      if (result.count > 0) {
+        this.logger.log(`Reset ${result.count} pro service prices to inquiry-only`);
+      }
+    } catch (e: any) {
+      this.logger.warn(`pro service price reset skipped: ${e?.message || e}`);
     }
   }
 
