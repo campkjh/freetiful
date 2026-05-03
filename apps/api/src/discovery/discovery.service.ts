@@ -4,9 +4,12 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class DiscoveryService implements OnModuleInit {
   private readonly logger = new Logger(DiscoveryService.name);
+  private readonly priceResetAuditAction = 'maintenance:force_reset_all_pro_service_prices_to_zero_20260503_v2';
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit() {
+    await this.resetExistingProServicePricesToZeroOnce();
+
     // 서버 시작 시 캐시 워밍업
     try {
       await Promise.all([
@@ -21,6 +24,34 @@ export class DiscoveryService implements OnModuleInit {
 
   private cache = new Map<string, { data: any; expires: number }>();
   private CACHE_TTL = 5 * 60_000; // 공개 탐색 데이터는 짧은 실시간성보다 빠른 재진입이 중요
+
+  private async resetExistingProServicePricesToZeroOnce() {
+    try {
+      const alreadyApplied = await this.prisma.adminAuditLog.findFirst({
+        where: { action: this.priceResetAuditAction },
+        select: { id: true },
+      });
+      if (alreadyApplied) return;
+
+      const result = await this.prisma.proService.updateMany({
+        data: { basePrice: 0 },
+      });
+
+      await this.prisma.adminAuditLog.create({
+        data: {
+          adminId: 'system',
+          action: this.priceResetAuditAction,
+          targetType: 'pro_services',
+          afterState: { updatedCount: result.count },
+        },
+      });
+
+      this.invalidateCache();
+      this.logger.log(`Reset ${result.count} pro service prices to zero before discovery warmup`);
+    } catch (e: any) {
+      this.logger.warn(`discovery price reset skipped: ${e?.message || e}`);
+    }
+  }
 
   private getCached<T>(key: string): T | null {
     const entry = this.cache.get(key);

@@ -63,7 +63,7 @@ function handoverSearchMatches(profile: LegacyHandoverProfile, search?: string) 
 @Injectable()
 export class ProService implements OnModuleInit {
   private readonly logger = new Logger(ProService.name);
-  private readonly priceResetAuditAction = 'maintenance:force_reset_all_pro_service_prices_to_zero_20260503';
+  private readonly priceResetAuditAction = 'maintenance:force_reset_all_pro_service_prices_to_zero_20260503_v2';
 
   constructor(
     private prisma: PrismaService,

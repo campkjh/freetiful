@@ -43,7 +43,7 @@ const cache = new Map<string, { data: any; ts: number }>();
 const inflight = new Map<string, Promise<any>>();
 const previewCache = new Map<string, { data: ProListItem; ts: number }>();
 const TTL = 5 * 60_000;
-const STORAGE_PREFIX = 'freetiful-discovery-cache:';
+const STORAGE_PREFIX = 'freetiful-discovery-cache:v2:';
 
 function getRowsFromListPayload(payload: any): ProListItem[] {
   return Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];

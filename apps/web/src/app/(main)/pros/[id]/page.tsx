@@ -1007,7 +1007,7 @@ export default function ProDetailPage() {
           return {
             id: tpl?.planKey || `wedding-local-${idx}`,
             label: tpl?.label || service.title,
-            price: typeof service.basePrice === 'number' ? service.basePrice : (tpl?.defaultPrice || 0),
+            price: typeof service.basePrice === 'number' ? service.basePrice : 0,
             duration: tpl?.description || '',
             title: tpl?.description || service.title,
             desc,
