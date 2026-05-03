@@ -380,14 +380,15 @@ export default function ChatRoomPage() {
 
   // ─── Send handler ───
   const handleSend = useCallback(() => {
-    if (!input.trim()) return;
+    const text = input.trim();
+    if (!text) return;
 
     if (authUser) {
       // 낙관적 업데이트: 즉시 화면에 표시
       const optimistic: Message = {
         id: `opt-${Date.now()}`,
         senderId: authUser.id,
-        content: input.trim(),
+        content: text,
         type: 'text',
         createdAt: new Date().toISOString(),
         isRead: false,
@@ -395,10 +396,22 @@ export default function ChatRoomPage() {
         isNew: true,
       };
       setMessages((prev) => [...prev, optimistic]);
-      wsSendMessage({
+      void wsSendMessage({
         type: 'text',
-        content: input.trim(),
+        content: text,
         replyToId: replyTo?.id,
+      }).then((saved) => {
+        if (!saved) return;
+        const persisted = { ...mapApiMessage(saved), isNew: false };
+        setMessages((prev) => {
+          const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
+          if (withoutOptimistic.some((m) => m.id === persisted.id)) return withoutOptimistic;
+          return [...withoutOptimistic, persisted];
+        });
+      }).catch(() => {
+        setMessages((prev) => prev.map((m) => (
+          m.id === optimistic.id ? { ...m, isNew: false } : m
+        )));
       });
       setInput('');
       setReplyTo(null);
@@ -414,7 +427,7 @@ export default function ChatRoomPage() {
     const newMsg: Message = {
       id: Date.now().toString(),
       senderId: MY_ID,
-      content: input.trim(),
+      content: text,
       type: 'text',
       createdAt: new Date().toISOString(),
       isRead: false,

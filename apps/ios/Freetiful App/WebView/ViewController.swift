@@ -70,8 +70,9 @@ class ViewController: UIViewController,
         setupWebView()
         setupNativeNavigationBar()
         setupLoading()
-        loadHome()
         observeGoHomeNotification()
+        observePushDeepLinkNotification()
+        loadInitialPage()
     }
 
     // MARK: - WebView Setup
@@ -520,8 +521,63 @@ class ViewController: UIViewController,
         ])
     }
 
+    private func loadInitialPage() {
+        if let deepLink = OneSignalManager.shared.consumePendingDeepLink(),
+           let path = normalizedInternalPath(from: deepLink) {
+            loadInternalPath(path)
+            return
+        }
+        loadHome()
+    }
+
     private func loadHome() {
         webView.load(URLRequest(url: URL(string: "\(kWebBase)/")!))
+    }
+
+    private func loadInternalPath(_ path: String) {
+        guard let url = URL(string: "\(kWebBase)\(path)") else { return }
+        currentNativePath = path
+        webView.load(URLRequest(url: url))
+    }
+
+    private func normalizedInternalPath(from rawValue: String?) -> String? {
+        guard let raw = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
+
+        if raw.hasPrefix("/") {
+            return raw
+        }
+
+        if let url = URL(string: raw), let scheme = url.scheme?.lowercased() {
+            if scheme == "http" || scheme == "https" {
+                guard let host = url.host?.lowercased(), host == "freetiful.com" || host == "www.freetiful.com" else {
+                    return nil
+                }
+                var path = url.path.isEmpty ? "/" : url.path
+                if let query = url.query, !query.isEmpty {
+                    path += "?\(query)"
+                }
+                return path
+            }
+
+            if scheme == "freetiful" {
+                var path = ""
+                if let host = url.host, !host.isEmpty {
+                    path += "/\(host)"
+                }
+                path += url.path
+                if path.isEmpty {
+                    path = "/notifications"
+                }
+                if let query = url.query, !query.isEmpty {
+                    path += "?\(query)"
+                }
+                return path
+            }
+        }
+
+        return "/\(raw)"
     }
 
     // MARK: - WKNavigationDelegate
@@ -643,6 +699,35 @@ class ViewController: UIViewController,
                 }
             } else {
                 inject()
+            }
+        }
+    }
+
+    private func observePushDeepLinkNotification() {
+        NotificationCenter.default.addObserver(
+            forName: .pushDeepLinkRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard
+                let self = self,
+                let path = self.normalizedInternalPath(from: note.object as? String)
+            else { return }
+
+            let navigate = {
+                if self.webView.url == nil {
+                    self.loadInternalPath(path)
+                } else {
+                    self.navigateNativeWeb(to: path)
+                }
+            }
+
+            if let presented = self.presentedViewController {
+                presented.dismiss(animated: true) {
+                    navigate()
+                }
+            } else {
+                navigate()
             }
         }
     }

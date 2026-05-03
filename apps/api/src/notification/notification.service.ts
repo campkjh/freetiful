@@ -85,7 +85,6 @@ export class NotificationService {
       headings: { en: title, ko: title },
       contents: { en: body, ko: body },
       data: data || {},
-      ...(data?.url ? { url: data.url } : {}),
     };
 
     // 1차: external_id 경로
@@ -247,17 +246,18 @@ export class NotificationService {
     try {
       if (!(await this.isPushAllowed(userId, type))) return;
       const settingKey = this.settingKeyForType(type);
-      const [oneSignalSent, webResult] = await Promise.all([
-        this.sendOneSignalPush(userId, title, body, data),
-        this.pushService.sendWebPush({
+      const pushData = { ...data, notificationId };
+      const oneSignalSent = await this.sendOneSignalPush(userId, title, body, pushData);
+      const webResult = oneSignalSent
+        ? { sent: 0, targets: 0 }
+        : await this.pushService.sendWebPush({
           userIds: [userId],
           title,
           body,
           settingKey: settingKey as any,
           event: String(type),
-          data,
-        }).catch(() => ({ sent: 0, targets: 0 })),
-      ]);
+          data: pushData,
+        }).catch(() => ({ sent: 0, targets: 0 }));
       if (oneSignalSent || webResult.sent > 0) {
         await this.prisma.notification.update({
           where: { id: notificationId },

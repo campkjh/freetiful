@@ -18,10 +18,10 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: '/favicon.ico',
     badge: '/favicon.ico',
-    tag: data.event || 'default',
+    tag: payload.notificationId || `${data.event || 'default'}:${url}`,
     data: { url },
     vibrate: [200, 100, 200],
-    renotify: true,
+    renotify: false,
   };
 
   event.waitUntil(self.registration.showNotification(data.title, options));
@@ -34,8 +34,14 @@ self.addEventListener('notificationclick', (event) => {
     const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
     const absoluteUrl = new URL(targetUrl, self.location.origin).href;
     for (const client of allClients) {
+      const clientUrl = new URL(client.url);
+      if (clientUrl.origin !== self.location.origin) continue;
+      if ('navigate' in client) {
+        await client.navigate(absoluteUrl);
+        return client.focus();
+      }
       if ('focus' in client && client.url === absoluteUrl) return client.focus();
     }
-    return clients.openWindow(targetUrl);
+    return clients.openWindow(absoluteUrl);
   })());
 });

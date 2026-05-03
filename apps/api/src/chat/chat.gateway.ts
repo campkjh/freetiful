@@ -7,6 +7,7 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
+import { Ack } from '@nestjs/websockets/decorators/ack.decorator';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
@@ -103,21 +104,32 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleSendMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { roomId: string } & SendMessageDto,
+    @Ack() ack?: (response: { ok: boolean; message?: unknown; error?: string }) => void,
   ) {
-    if (!client.userId) return;
+    if (!client.userId) {
+      ack?.({ ok: false, error: '인증이 필요합니다' });
+      return;
+    }
 
-    const { roomId, ...dto } = data;
-    const message = await this.chatService.sendMessage(roomId, client.userId, dto);
+    try {
+      const { roomId, ...dto } = data;
+      const message = await this.chatService.sendMessage(roomId, client.userId, dto);
 
-    // Broadcast to all users in the room
-    this.server.to(`room:${roomId}`).emit('newMessage', message);
+      // Broadcast to all users in the room
+      this.server.to(`room:${roomId}`).emit('newMessage', message);
+      ack?.({ ok: true, message });
 
-    // Notify connected room-list screens that are not currently joined to the room.
-    const memberIds = await this.chatService.getRoomMemberIds(roomId);
-    for (const memberId of memberIds) {
-      if (memberId === client.userId) continue;
-      this.emitToUser(memberId, 'roomUpdated', { roomId });
-      this.emitToUser(memberId, 'unreadUpdate', { roomId });
+      // Notify connected room-list screens that are not currently joined to the room.
+      const memberIds = await this.chatService.getRoomMemberIds(roomId);
+      for (const memberId of memberIds) {
+        if (memberId === client.userId) continue;
+        this.emitToUser(memberId, 'roomUpdated', { roomId });
+        this.emitToUser(memberId, 'unreadUpdate', { roomId });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '메시지 전송에 실패했습니다';
+      ack?.({ ok: false, error: message });
+      client.emit('messageError', { roomId: data.roomId, error: message });
     }
   }
 

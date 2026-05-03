@@ -18,6 +18,19 @@ type FetchRoomsParams = {
   force?: boolean;
 };
 
+type SendMessagePayload = {
+  type: string;
+  content?: string;
+  metadata?: Record<string, unknown>;
+  replyToId?: string;
+};
+
+type SendMessageAck = {
+  ok: boolean;
+  message?: MessageItem;
+  error?: string;
+};
+
 function currentUserId() {
   return useAuthStore.getState().user?.id || null;
 }
@@ -80,7 +93,7 @@ interface ChatState {
   joinRoom: (roomId: string) => void;
   leaveRoom: () => void;
   fetchMessages: (roomId: string, loadMore?: boolean) => Promise<void>;
-  sendMessage: (data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string }) => void;
+  sendMessage: (data: SendMessagePayload) => Promise<MessageItem | null>;
   editMessage: (messageId: string, content: string) => void;
   deleteMessage: (messageId: string) => void;
   addReaction: (messageId: string, emoji: string) => void;
@@ -139,7 +152,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       if (message.roomId === currentRoomId) {
-        set((s) => ({ messages: [...s.messages, message] }));
+        set((s) => ({
+          messages: s.messages.some((m) => m.id === message.id)
+            ? s.messages
+            : [...s.messages, message],
+        }));
       }
       // Update room list
       set((s) => ({
@@ -334,10 +351,70 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendMessage: (data) => {
+  sendMessage: async (data) => {
     const { socket, currentRoomId } = get();
-    if (!socket || !currentRoomId) return;
-    socket.emit('sendMessage', { roomId: currentRoomId, ...data });
+    if (!currentRoomId) return null;
+
+    const roomId = currentRoomId;
+    const applyPersistedMessage = (message: MessageItem) => {
+      const { messageCache } = get();
+      const cachedForRoom = messageCache.get(message.roomId) || [];
+      if (!cachedForRoom.some((m) => m.id === message.id)) {
+        messageCache.set(message.roomId, [...cachedForRoom, message].slice(-80));
+      }
+      set((s) => ({
+        messages: s.currentRoomId === message.roomId && !s.messages.some((m) => m.id === message.id)
+          ? [...s.messages, message]
+          : s.messages,
+        rooms: s.rooms.map((r) =>
+          r.id === message.roomId
+            ? {
+                ...r,
+                lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
+                lastMessageAt: message.createdAt,
+              }
+            : r,
+        ).sort((a, b) => {
+          const da = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return db - da;
+        }),
+      }));
+      writeRoomsCache(get().rooms);
+    };
+
+    const sendViaRest = async () => {
+      const res = await chatApi.sendMessage(roomId, data);
+      applyPersistedMessage(res.data);
+      return res.data;
+    };
+
+    if (!socket || !socket.connected) {
+      return sendViaRest();
+    }
+
+    const ackMessage = await new Promise<MessageItem | null>((resolve) => {
+      let settled = false;
+      const timer = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        resolve(null);
+      }, 4500);
+
+      socket.emit('sendMessage', { roomId, ...data }, (ack?: SendMessageAck) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(ack?.ok && ack.message ? ack.message : null);
+      });
+    });
+
+    if (ackMessage) {
+      applyPersistedMessage(ackMessage);
+      return ackMessage;
+    }
+
+    return sendViaRest();
   },
 
   editMessage: (messageId, content) => {
