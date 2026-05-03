@@ -112,10 +112,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Broadcast to all users in the room
     this.server.to(`room:${roomId}`).emit('newMessage', message);
 
-    // Notify users not in the room (for unread badge updates)
-    this.emitToUser(message.senderId === client.userId ? '' : client.userId, 'unreadUpdate', {
-      roomId,
-    });
+    // Notify connected room-list screens that are not currently joined to the room.
+    const memberIds = await this.chatService.getRoomMemberIds(roomId);
+    for (const memberId of memberIds) {
+      if (memberId === client.userId) continue;
+      this.emitToUser(memberId, 'roomUpdated', { roomId });
+      this.emitToUser(memberId, 'unreadUpdate', { roomId });
+    }
   }
 
   @SubscribeMessage('editMessage')

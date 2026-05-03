@@ -57,6 +57,51 @@ export class ChatService {
     }
   }
 
+  private async reviveRoomsWithNewerMessagesForUser(userId: string) {
+    const candidates = await this.prisma.chatRoom.findMany({
+      where: {
+        members: { some: { userId } },
+        OR: [
+          { userId, userDeletedAt: { not: null } },
+          { proProfile: { userId }, proDeletedAt: { not: null } },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        userDeletedAt: true,
+        proDeletedAt: true,
+        lastMessageAt: true,
+        proProfile: { select: { userId: true } },
+      },
+      take: 100,
+    });
+
+    const updates = candidates
+      .map((room) => {
+        const lastMessageAt = room.lastMessageAt?.getTime();
+        if (!lastMessageAt) return null;
+        if (room.userId === userId && room.userDeletedAt && lastMessageAt > room.userDeletedAt.getTime()) {
+          return this.prisma.chatRoom.update({
+            where: { id: room.id },
+            data: { userDeletedAt: null },
+          });
+        }
+        if (room.proProfile.userId === userId && room.proDeletedAt && lastMessageAt > room.proDeletedAt.getTime()) {
+          return this.prisma.chatRoom.update({
+            where: { id: room.id },
+            data: { proDeletedAt: null },
+          });
+        }
+        return null;
+      })
+      .filter(Boolean) as Promise<unknown>[];
+
+    if (updates.length === 0) return;
+    await Promise.all(updates);
+    this.invalidateRoomsCache(userId);
+  }
+
   // ─── Chat Rooms ──────────────────────────────────────────────────────────
 
   async createRoom(userId: string, dto: CreateChatRoomDto) {
@@ -70,12 +115,11 @@ export class ChatService {
       throw new NotFoundException('본인과는 채팅을 시작할 수 없습니다');
     }
 
-    // 기존 룸 체크 + 필요한 joins을 한 번에 가져옴 (2번 쿼리 → 1번)
+    // 기존 룸 체크 + 필요한 joins을 한 번에 가져옴 (삭제 표시된 방도 재문의 시 복구)
     const existingWithJoins = await this.prisma.chatRoom.findFirst({
       where: {
         userId,
         proProfileId: dto.proProfileId,
-        userDeletedAt: null,
       },
       include: {
         proProfile: {
@@ -89,6 +133,23 @@ export class ChatService {
       },
     });
     if (existingWithJoins) {
+      await this.prisma.chatRoom.update({
+        where: { id: existingWithJoins.id },
+        data: {
+          userDeletedAt: null,
+          proDeletedAt: null,
+        },
+      });
+      await this.prisma.chatRoomMember.createMany({
+        data: [
+          { roomId: existingWithJoins.id, userId },
+          { roomId: existingWithJoins.id, userId: existingWithJoins.proProfile.userId },
+        ],
+        skipDuplicates: true,
+      });
+      this.invalidateRoomsCache(userId);
+      this.invalidateRoomsCache(existingWithJoins.proProfile.userId);
+
       const member = existingWithJoins.members[0];
       const isProUser = existingWithJoins.proProfile.userId === userId;
       const otherUser = isProUser
@@ -140,14 +201,20 @@ export class ChatService {
             ],
           },
         },
-        messages: {
-          create: {
-            senderId: userId,
-            type: 'system',
-            content: '견적 요청으로 대화가 시작되었습니다.',
-          },
-        },
       },
+    });
+    const systemMessage = await this.prisma.message.create({
+      data: {
+        roomId: room.id,
+        senderId: userId,
+        type: 'system',
+        content: '견적 요청으로 대화가 시작되었습니다.',
+      },
+      select: { id: true, createdAt: true },
+    });
+    await this.prisma.chatRoom.update({
+      where: { id: room.id },
+      data: { lastMessageId: systemMessage.id, lastMessageAt: systemMessage.createdAt },
     });
 
     // 룸 목록 캐시 무효화 (고객 + 전문가 양쪽)
@@ -212,7 +279,6 @@ export class ChatService {
       where: {
         userId: dto.customerUserId,
         proProfileId: proProfile.id,
-        userDeletedAt: null,
       },
       include: {
         user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
@@ -220,6 +286,23 @@ export class ChatService {
       },
     });
     if (existing) {
+      await this.prisma.chatRoom.update({
+        where: { id: existing.id },
+        data: {
+          userDeletedAt: null,
+          proDeletedAt: null,
+        },
+      });
+      await this.prisma.chatRoomMember.createMany({
+        data: [
+          { roomId: existing.id, userId: dto.customerUserId },
+          { roomId: existing.id, userId: proUserId },
+        ],
+        skipDuplicates: true,
+      });
+      this.invalidateRoomsCache(dto.customerUserId);
+      this.invalidateRoomsCache(proUserId);
+
       const member = existing.members[0];
       return {
         id: existing.id,
@@ -255,14 +338,20 @@ export class ChatService {
             ],
           },
         },
-        messages: {
-          create: {
-            senderId: proUserId,
-            type: 'system',
-            content: `${proProfile.user.name || '사회자'}님이 매칭 요청을 보고 먼저 연락드렸습니다.`,
-          },
-        },
       },
+    });
+    const systemMessage = await this.prisma.message.create({
+      data: {
+        roomId: room.id,
+        senderId: proUserId,
+        type: 'system',
+        content: `${proProfile.user.name || '사회자'}님이 매칭 요청을 보고 먼저 연락드렸습니다.`,
+      },
+      select: { id: true, createdAt: true },
+    });
+    await this.prisma.chatRoom.update({
+      where: { id: room.id },
+      data: { lastMessageId: systemMessage.id, lastMessageAt: systemMessage.createdAt },
     });
 
     this.invalidateRoomsCache(dto.customerUserId);
@@ -297,6 +386,8 @@ export class ChatService {
     const take = Math.min(Number(limit) || 20, 50);
     const withTotal = query.withTotal !== false;
 
+    await this.reviveRoomsWithNewerMessagesForUser(userId);
+
     const cacheKey = JSON.stringify({
       scope: 'rooms',
       userId,
@@ -310,15 +401,11 @@ export class ChatService {
     const cached = this.getRoomCached(cacheKey);
     if (cached) return cached;
 
-    const myProProfile = await this.prisma.proProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
     const where: any = {
-      OR: [
-        { userId, userDeletedAt: null },
-        ...(myProProfile ? [{ proProfileId: myProProfile.id, proDeletedAt: null }] : []),
+      members: { some: { userId } },
+      NOT: [
+        { userId, userDeletedAt: { not: null } },
+        { proProfile: { userId }, proDeletedAt: { not: null } },
       ],
     };
 
@@ -449,6 +536,9 @@ export class ChatService {
   async deleteRoom(roomId: string, userId: string) {
     const room = await this.prisma.chatRoom.findFirst({
       where: { id: roomId, members: { some: { userId } } },
+      include: {
+        proProfile: { select: { userId: true } },
+      },
     });
     if (!room) throw new NotFoundException('채팅방을 찾을 수 없습니다');
 
@@ -464,6 +554,8 @@ export class ChatService {
         data: { proDeletedAt: new Date() },
       });
     }
+    this.invalidateRoomsCache(room.userId);
+    this.invalidateRoomsCache(room.proProfile.userId);
   }
 
   async toggleFavorite(roomId: string, userId: string) {
@@ -588,10 +680,15 @@ export class ChatService {
       },
     });
 
-    // Update room last message
+    // Update room last message and revive the room for both sides when a new message arrives.
     await this.prisma.chatRoom.update({
       where: { id: roomId },
-      data: { lastMessageId: message.id, lastMessageAt: message.createdAt },
+      data: {
+        lastMessageId: message.id,
+        lastMessageAt: message.createdAt,
+        userDeletedAt: null,
+        proDeletedAt: null,
+      },
     });
 
     // Increment unread for other members
@@ -640,6 +737,14 @@ export class ChatService {
     } catch {}
 
     return { ...message, reactions: [], isRead: false };
+  }
+
+  async getRoomMemberIds(roomId: string) {
+    const members = await this.prisma.chatRoomMember.findMany({
+      where: { roomId },
+      select: { userId: true },
+    });
+    return members.map((member) => member.userId);
   }
 
   async editMessage(messageId: string, userId: string, dto: EditMessageDto) {

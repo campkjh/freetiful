@@ -88,10 +88,26 @@ export default function ChatListPage() {
     }
 
     if (apiRooms.length > 0) setRoomsLoading(false);
-    fetchRooms({ limit: 30, withTotal: false }).catch(() => {}).finally(() => setRoomsLoading(false));
+    fetchRooms({ limit: 50, withTotal: false, force: true }).catch(() => {}).finally(() => setRoomsLoading(false));
     const timer = window.setTimeout(() => connect(), 250);
     return () => { window.clearTimeout(timer); };
   }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
+
+  useEffect(() => {
+    if (!authHydrated || !authUser) return;
+    const refreshRooms = () => {
+      fetchRooms({ limit: 50, withTotal: false, force: true }).catch(() => {});
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshRooms();
+    };
+    window.addEventListener('focus', refreshRooms);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', refreshRooms);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [authHydrated, authUser?.id, fetchRooms]);
 
   // Store의 apiRooms가 업데이트되면 local rooms state도 동기화
   // 중요: role은 room별 iAmPro에 따라 결정 (글로벌 isPro 가 아님)
