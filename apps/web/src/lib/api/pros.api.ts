@@ -86,7 +86,6 @@ export const prosApi = {
     const form = new FormData();
     form.append('file', file);
     return apiClient.post(`${BASE}/pro/profile/images`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 60000,
     }).then((r) => r.data);
   },

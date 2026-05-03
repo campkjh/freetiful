@@ -1131,7 +1131,7 @@ export class ProService implements OnModuleInit {
     const match = dataUrl.match(/^data:(image\/(jpeg|jpg|png|webp|heic|heif));base64,(.+)$/i);
     if (!match) {
       // 이미 URL이면 그대로 보존
-      if (/^https?:\/\//.test(dataUrl) || dataUrl.startsWith('/uploads/')) {
+      if (/^https?:\/\//.test(dataUrl) || dataUrl.startsWith('/')) {
         return { path: dataUrl, originalPath: dataUrl };
       }
       return null;

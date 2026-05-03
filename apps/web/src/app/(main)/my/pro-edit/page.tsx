@@ -28,6 +28,8 @@ const LANGUAGES = ['영어', '일본어', '중국어', '스페인어', '프랑�
 const CAREER_YEARS = Array.from({ length: 30 }, (_, i) => i + 1);
 const PRO_EDIT_PROFILE_CACHE_PREFIX = 'freetiful-pro-edit-profile-cache-v1';
 const PRO_EDIT_PROFILE_CACHE_TTL = 60 * 60_000;
+const PROFILE_PHOTO_MAX_DIMENSION = 1600;
+const PROFILE_PHOTO_TARGET_BYTES = 3.5 * 1024 * 1024;
 
 type ProPhotoItem = {
   id?: string;
@@ -120,6 +122,83 @@ function dataUrlToFile(dataUrl: string, filename: string) {
   for (let i = 0; i < bytes.length; i += 1) buffer[i] = bytes.charCodeAt(i);
   const ext = match[1].split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
   return new File([buffer], `${filename}.${ext}`, { type: match[1] });
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error || new Error('이미지를 읽을 수 없습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElement(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('이미지 미리보기를 생성할 수 없습니다.'));
+    img.src = src;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('이미지를 압축할 수 없습니다.'));
+    }, type, quality);
+  });
+}
+
+function isSelectableImageFile(file: File) {
+  return file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+}
+
+async function normalizeProfilePhoto(file: File): Promise<ProPhotoItem> {
+  const originalUrl = await fileToDataUrl(file);
+  const isHeicLike = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+
+  if (isHeicLike) {
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error('HEIC 사진은 10MB 이하만 등록할 수 있습니다. 사진 앱에서 JPG로 저장한 뒤 다시 올려주세요.');
+    }
+    return { url: originalUrl, file, isLocal: true };
+  }
+
+  try {
+    const img = await loadImageElement(originalUrl);
+    const longestSide = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
+    const scale = Math.min(1, PROFILE_PHOTO_MAX_DIMENSION / Math.max(1, longestSide));
+    const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+    const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('이미지 캔버스를 만들 수 없습니다.');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+
+    let quality = 0.84;
+    let blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+    while (blob.size > PROFILE_PHOTO_TARGET_BYTES && quality > 0.58) {
+      quality -= 0.08;
+      blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+    }
+
+    const normalizedName = file.name.replace(/\.[^.]+$/, '') || 'profile-photo';
+    const normalizedFile = new File([blob], `${normalizedName}.jpg`, {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
+    const normalizedUrl = await fileToDataUrl(normalizedFile);
+    return { url: normalizedUrl, file: normalizedFile, isLocal: true };
+  } catch (error) {
+    if (file.size > 10 * 1024 * 1024) throw error;
+    return { url: originalUrl, file, isLocal: true };
+  }
 }
 
 /* ─── Section wrapper ─── */
@@ -490,12 +569,6 @@ export default function ProEditPage() {
 
   /* ── Photo handlers ── */
   const handleAddPhoto = () => fileInputRef.current?.click();
-  const readPhotoFile = (file: File) => new Promise<ProPhotoItem>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve({ url: reader.result as string, file, isLocal: true });
-    reader.onerror = () => reject(reader.error || new Error('이미지를 읽을 수 없습니다.'));
-    reader.readAsDataURL(file);
-  });
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -503,7 +576,7 @@ export default function ProEditPage() {
     const currentCount = photos.length;
     const availableSlots = Math.max(0, 10 - currentCount);
     const selectedFiles = Array.from(files)
-      .filter((file) => file.type.startsWith('image/'))
+      .filter(isSelectableImageFile)
       .slice(0, availableSlots);
 
     if (availableSlots <= 0) {
@@ -518,10 +591,12 @@ export default function ProEditPage() {
     }
 
     try {
-      const nextPhotos = await Promise.all(selectedFiles.map(readPhotoFile));
+      setToast('사진을 최적화하고 있습니다...');
+      const nextPhotos = await Promise.all(selectedFiles.map(normalizeProfilePhoto));
       setPhotos((prev) => [...prev, ...nextPhotos]);
+      setToast('');
     } catch {
-      setToast('일부 사진을 불러오지 못했습니다. 다시 선택해주세요.');
+      setToast('일부 사진을 불러오지 못했습니다. 10MB 이하 JPG/PNG 사진으로 다시 선택해주세요.');
       setTimeout(() => setToast(''), 2500);
     } finally {
       e.target.value = '';
@@ -562,6 +637,52 @@ export default function ProEditPage() {
     return results;
   };
 
+  const applySyncedPhotos = (images: any[], selectedMainIndex = 0, primaryId?: string) => {
+    const normalizedImages = Array.isArray(images) ? images : [];
+    const nextPhotos = normalizedImages
+      .map((img: any) => ({
+        id: img.id,
+        url: img.imageUrl || img.url,
+      }))
+      .filter((img: ProPhotoItem) => Boolean(img.url));
+    setRemovedPhotoIds([]);
+    setPhotos(nextPhotos);
+
+    const primaryIndex = normalizedImages.findIndex((img: any) => (
+      img.isPrimary || (primaryId && img.id === primaryId)
+    ));
+    const nextPrimaryIndex = primaryIndex >= 0
+      ? primaryIndex
+      : Math.max(0, Math.min(selectedMainIndex, Math.max(0, nextPhotos.length - 1)));
+    setMainPhotoIndex(nextPrimaryIndex);
+    lastSyncedPhotoIdsRef.current = nextPhotos.map((img) => img.id).filter(Boolean) as string[];
+    lastSyncedMainIndexRef.current = nextPrimaryIndex;
+
+    return {
+      images: normalizedImages,
+      primaryId: normalizedImages[nextPrimaryIndex]?.id,
+    };
+  };
+
+  const syncProfilePhotosViaPayload = async (items: ProPhotoItem[], selectedMainIndex: number) => {
+    const photoUrls: string[] = [];
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      if (item.url && !item.url.startsWith('blob:')) {
+        photoUrls.push(item.url);
+        continue;
+      }
+      if (item.file) {
+        photoUrls.push(await fileToDataUrl(item.file));
+      }
+    }
+    await prosApi.submitRegistration({
+      photos: photoUrls,
+      mainPhotoIndex: Math.max(0, Math.min(selectedMainIndex, Math.max(0, photoUrls.length - 1))),
+    });
+    const refreshed = await prosApi.getImages();
+    return applySyncedPhotos(Array.isArray(refreshed) ? refreshed : [], selectedMainIndex);
+  };
 
   const syncProfilePhotos = async (items: ProPhotoItem[], selectedMainIndex: number) => {
     if (!haveProfilePhotosChanged(items, selectedMainIndex)) {
@@ -575,42 +696,33 @@ export default function ProEditPage() {
       };
     }
 
-    await Promise.all(removedPhotoIds.map((id) => prosApi.deleteImage(id).catch(() => null)));
+    try {
+      await Promise.all(removedPhotoIds.map((id) => prosApi.deleteImage(id).catch(() => null)));
 
-    const uploadTasks = items.flatMap((item, index) => {
-      if (item.id) return [];
-      const file = item.file || (item.url?.startsWith('data:image/') ? dataUrlToFile(item.url, `profile-${index + 1}`) : null);
-      if (!file) return [];
-      return [() => prosApi.uploadImage(file).then((uploaded) => ({ index, uploaded }))];
-    });
-    const uploadedResults = await uploadPhotosWithLimit(uploadTasks, 3);
-    const uploadedByIndex = new Map(uploadedResults.map(({ index, uploaded }) => [index, uploaded]));
+      const uploadTasks = items.flatMap((item, index) => {
+        if (item.id) return [];
+        const file = item.file || (item.url?.startsWith('data:image/') ? dataUrlToFile(item.url, `profile-${index + 1}`) : null);
+        if (!file) return [];
+        return [() => prosApi.uploadImage(file).then((uploaded) => ({ index, uploaded }))];
+      });
+      const uploadedResults = await uploadPhotosWithLimit(uploadTasks, 2);
+      const uploadedByIndex = new Map(uploadedResults.map(({ index, uploaded }) => [index, uploaded]));
 
-    const finalItems = items
-      .map((item, index) => item.id ? item : uploadedByIndex.get(index))
-      .filter((item: any) => Boolean(item?.id));
+      const finalItems = items
+        .map((item, index) => item.id ? item : uploadedByIndex.get(index))
+        .filter((item: any) => Boolean(item?.id));
 
-    const orderedIds = finalItems.map((item: any) => item.id);
-    const primaryId = finalItems[Math.max(0, Math.min(selectedMainIndex, finalItems.length - 1))]?.id;
-    const reordered = orderedIds.length > 0
-      ? await prosApi.reorderImages(orderedIds, primaryId)
-      : await prosApi.getImages();
+      const orderedIds = finalItems.map((item: any) => item.id);
+      const primaryId = finalItems[Math.max(0, Math.min(selectedMainIndex, Math.max(0, finalItems.length - 1)))]?.id;
+      const reordered = orderedIds.length > 0
+        ? await prosApi.reorderImages(orderedIds, primaryId)
+        : await prosApi.getImages();
 
-    setRemovedPhotoIds([]);
-    setPhotos((Array.isArray(reordered) ? reordered : finalItems).map((img: any) => ({
-      id: img.id,
-      url: img.imageUrl || img.url,
-    })).filter((img: ProPhotoItem) => Boolean(img.url)));
-
-    const nextPrimaryIndex = Array.isArray(reordered)
-      ? reordered.findIndex((img: any) => img.isPrimary)
-      : finalItems.findIndex((img: any) => img.id === primaryId);
-    setMainPhotoIndex(nextPrimaryIndex >= 0 ? nextPrimaryIndex : 0);
-    const syncedIds = (Array.isArray(reordered) ? reordered : finalItems).map((img: any) => img.id).filter(Boolean);
-    lastSyncedPhotoIdsRef.current = syncedIds;
-    lastSyncedMainIndexRef.current = nextPrimaryIndex >= 0 ? nextPrimaryIndex : 0;
-
-    return { images: reordered, primaryId };
+      return applySyncedPhotos(Array.isArray(reordered) ? reordered : finalItems, selectedMainIndex, primaryId);
+    } catch (error) {
+      console.warn('프로필 사진 multipart 저장 실패, payload 저장으로 재시도:', error);
+      return syncProfilePhotosViaPayload(items, selectedMainIndex);
+    }
   };
 
   /* ── FAQ handlers ── */
@@ -656,30 +768,34 @@ export default function ProEditPage() {
 
       const profilePayload = {
         // name 은 서버에서 무시됨 (User.name = 가입 시 실계정 이름, 변경 불가)
-        phone: phone || undefined,
-        gender: gender || undefined,
-        shortIntro: intro || undefined,
-        mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : undefined,
+        phone,
+        gender,
+        shortIntro: intro,
+        mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : '',
         careerYears: careerYears || undefined,
-        awards: awards || undefined,
-        detailHtml: detailHtml || undefined,
-        youtubeUrl: videos[0] || undefined,
+        awards,
+        detailHtml,
+        youtubeUrl: videos[0] || '',
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages,
         category: category || undefined,
         regions: selectedRegions,
-        tags: mergedTags.length > 0 ? mergedTags : undefined,
-        services: servicesPayload.length > 0 ? servicesPayload : undefined,
+        tags: mergedTags,
+        services: servicesPayload,
       };
 
       const editResponse: any = await prosApi.submitRegistration(profilePayload);
+      if (haveProfilePhotosChanged(photos, mainPhotoIndex)) {
+        setToast('프로필 사진 저장 중...');
+      }
       const photoResult: any = await syncProfilePhotos(photos, mainPhotoIndex).catch((error) => ({ error }));
       const syncedImages = Array.isArray(photoResult?.images) ? photoResult.images : undefined;
       if (photoResult?.error) {
         const photoError = photoResult.error;
         console.error('프로필 사진 저장 실패:', photoError);
-        setToast('기본 정보는 저장됐지만 사진 저장에 실패했습니다. 사진을 다시 확인해주세요.');
-        setTimeout(() => setToast(''), 3500);
+        const message = photoError?.response?.data?.message || photoError?.message || '사진 저장에 실패했습니다. 10MB 이하 JPG/PNG 사진으로 다시 시도해주세요.';
+        setToast(`기본 정보는 저장됐지만 ${String(message).slice(0, 80)}`);
+        setTimeout(() => setToast(''), 5000);
         return;
       }
       // 백엔드 응답에 updated user가 포함됨 — 즉시 auth store 갱신
@@ -707,7 +823,7 @@ export default function ProEditPage() {
         } else {
           setToast('');
         }
-      }, 180);
+      }, 650);
     } catch (e) {
       console.error('프로필 저장 실패:', e);
       setToast('저장에 실패했습니다. 다시 시도해주세요.');
