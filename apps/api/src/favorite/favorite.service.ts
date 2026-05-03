@@ -86,14 +86,15 @@ export class FavoriteService {
   }
 
   async getFavorites(userId: string, page: number, limit: number, withTotal = true) {
-    const skip = (page - 1) * limit;
+    const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
+    const skip = (page - 1) * take;
 
     // 첫 화면에서는 total count를 생략할 수 있게 해서 찜목록 응답을 가볍게 유지.
     const favoritesPromise = this.prisma.favorite.findMany({
       where: { userId, targetType: 'pro' },
       orderBy: { createdAt: 'desc' },
       skip,
-      take: limit,
+      take,
       select: {
         id: true,
         targetId: true,
@@ -111,8 +112,8 @@ export class FavoriteService {
         items: [],
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       };
     }
 
@@ -166,8 +167,8 @@ export class FavoriteService {
       items,
       total,
       page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      limit: take,
+      totalPages: Math.ceil(total / take),
     };
   }
 

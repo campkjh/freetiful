@@ -294,16 +294,31 @@ export class ChatService {
 
   async getRooms(userId: string, query: ChatRoomQueryDto) {
     const { search, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const take = Math.min(Number(limit) || 20, 50);
+    const withTotal = query.withTotal !== false;
 
-    const cacheKey = `rooms:${userId}:${page}:${search || ''}`;
+    const cacheKey = JSON.stringify({
+      scope: 'rooms',
+      userId,
+      page,
+      limit: take,
+      search: search || '',
+      dateFrom: dateFrom || '',
+      dateTo: dateTo || '',
+      withTotal,
+    });
     const cached = this.getRoomCached(cacheKey);
     if (cached) return cached;
 
+    const myProProfile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
     const where: any = {
-      members: { some: { userId } },
       OR: [
         { userId, userDeletedAt: null },
-        { proProfile: { userId }, proDeletedAt: null },
+        ...(myProProfile ? [{ proProfileId: myProProfile.id, proDeletedAt: null }] : []),
       ],
     };
 
@@ -317,6 +332,7 @@ export class ChatService {
       where.AND = [
         {
           OR: [
+            { user: { name: { contains: search, mode: 'insensitive' } } },
             { proProfile: { user: { name: { contains: search, mode: 'insensitive' } } } },
             { messages: { some: { content: { contains: search, mode: 'insensitive' } } } },
           ],
@@ -324,29 +340,35 @@ export class ChatService {
       ];
     }
 
-    const [rooms, total] = await Promise.all([
+    const [rooms, totalCount] = await Promise.all([
       this.prisma.chatRoom.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          userId: true,
+          proProfileId: true,
+          lastMessageAt: true,
           proProfile: {
-            include: {
+            select: {
+              userId: true,
               user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
-              images: { where: { isPrimary: true }, take: 1 },
-              categories: { include: { category: { select: { name: true } } } },
+              images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
+              categories: { take: 1, select: { category: { select: { name: true } } } },
             },
           },
           user: { select: { id: true, name: true, profileImageUrl: true } },
-          members: { where: { userId } },
+          members: { where: { userId }, select: { isFavorited: true, unreadCount: true } },
           messages: {
             orderBy: { createdAt: 'desc' },
             take: 1,
+            select: { id: true, type: true, content: true, createdAt: true },
           },
         },
         orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: (page - 1) * take,
+        take,
       }),
-      this.prisma.chatRoom.count({ where }),
+      withTotal ? this.prisma.chatRoom.count({ where }) : Promise.resolve(0),
     ]);
 
     const data = rooms.map((room) => {
@@ -377,7 +399,8 @@ export class ChatService {
       };
     });
 
-    const result = { data, total, page, limit, hasMore: page * limit < total };
+    const total = withTotal ? totalCount : data.length;
+    const result = { data, total, page, limit: take, hasMore: withTotal ? page * take < total : data.length === take };
     this.setRoomCached(cacheKey, result);
     return result;
   }

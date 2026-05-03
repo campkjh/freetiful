@@ -635,7 +635,7 @@ export default function ProDashboardPage() {
   useEffect(() => {
     if (!authUser) { setInquiryRoomsLoading(false); return; }
     if (!cachedSectionsRef.current.inquiryRooms) setInquiryRoomsLoading(true);
-    apiClient.get('/api/v1/chat/rooms', { params: { page: 1 } })
+    apiClient.get('/api/v1/chat/rooms', { params: { page: 1, limit: 20, withTotal: false } })
       .then((res: any) => {
         const rooms = (res?.data?.data || []) as any[];
         const mapped = rooms

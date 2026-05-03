@@ -6,12 +6,24 @@ import {
   IsInt,
   IsArray,
   IsUUID,
+  IsBoolean,
   Min,
   Max,
   MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
+function toBoolean(value: unknown) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n', 'off', ''].includes(normalized)) return false;
+  }
+  return value;
+}
 
 export enum MessageTypeEnum {
   text = 'text',
@@ -166,6 +178,12 @@ export class ChatRoomQueryDto {
   @Min(1)
   @Max(50)
   limit?: number = 20;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @Transform(({ value }) => toBoolean(value))
+  @IsBoolean()
+  withTotal?: boolean = true;
 }
 
 export class MessageQueryDto {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
@@ -55,40 +55,60 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
   };
 }
 
+function getInitialRoomsForCurrentUser() {
+  const auth = useAuthStore.getState();
+  const chat = useChatStore.getState();
+  if (!auth.hasHydrated || !auth.user || chat.roomsUserId !== auth.user.id) return [];
+  return chat.rooms.map(mapApiRoomToChatRoom);
+}
+
 export default function ChatListPage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isPro, setIsPro] = useState(false);
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
-  const [roomsLoading, setRoomsLoading] = useState(() => useChatStore.getState().rooms.length === 0);
+  const initialRoomsRef = useRef<ChatRoom[] | null>(null);
+  if (initialRoomsRef.current === null) initialRoomsRef.current = getInitialRoomsForCurrentUser();
+  const [roomsLoading, setRoomsLoading] = useState(() => initialRoomsRef.current?.length === 0);
   const authUser = useAuthStore((s) => s.user);
-  const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
-  const [rooms, setRooms] = useState<ChatRoom[]>(() => useChatStore.getState().rooms.map(mapApiRoomToChatRoom));
+  const authHydrated = useAuthStore((s) => s.hasHydrated);
+  const connect = useChatStore((s) => s.connect);
+  const disconnect = useChatStore((s) => s.disconnect);
+  const fetchRooms = useChatStore((s) => s.fetchRooms);
+  const apiRooms = useChatStore((s) => s.rooms);
+  const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
+  const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
+  const isLoggedIn = authHydrated && authUser !== null;
+  const isPro = authUser?.role === 'pro';
 
   useEffect(() => {
-    const loggedIn = authUser !== null;
-    setIsLoggedIn(loggedIn);
-    setIsPro(authUser?.role === 'pro');
-
-    if (!loggedIn || !authUser) {
+    if (!authHydrated) return;
+    if (!authUser) {
       disconnect();
+      setRooms([]);
       setRoomsLoading(false);
       return;
     }
 
-    if (authUser) {
-      if (apiRooms.length > 0) setRoomsLoading(false);
-      fetchRooms().catch(() => {}).finally(() => setRoomsLoading(false));
-      const timer = window.setTimeout(() => connect(), 250);
-      return () => { window.clearTimeout(timer); };
-    }
-  }, [authUser, apiRooms.length, connect, disconnect, fetchRooms]);
+    if (apiRooms.length > 0) setRoomsLoading(false);
+    fetchRooms({ limit: 30, withTotal: false }).catch(() => {}).finally(() => setRoomsLoading(false));
+    const timer = window.setTimeout(() => connect(), 250);
+    return () => { window.clearTimeout(timer); };
+  }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
 
   // Store의 apiRooms가 업데이트되면 local rooms state도 동기화
   // 중요: role은 room별 iAmPro에 따라 결정 (글로벌 isPro 가 아님)
   // 같은 유저가 한 룸에서는 고객, 다른 룸에서는 사회자일 수 있음
   useEffect(() => {
     if (!authUser) return;
-    setRooms(apiRooms.map(mapApiRoomToChatRoom));
+    setRooms((prev) => {
+      const localState = new Map(prev.map((room) => [room.id, {
+        isPinned: room.isPinned,
+        isArchived: room.isArchived,
+        isHidden: room.isHidden,
+      }]));
+      return apiRooms.map((apiRoom) => {
+        const mapped = mapApiRoomToChatRoom(apiRoom);
+        return { ...mapped, ...(localState.get(mapped.id) || {}) };
+      });
+    });
     if (apiRooms.length > 0) setRoomsLoading(false);
   }, [apiRooms, authUser]);
 
@@ -107,7 +127,11 @@ export default function ChatListPage() {
 
   const currentTab = isPro ? proActiveTab : activeTab;
 
-  const filtered = rooms.filter((r) => {
+  useEffect(() => {
+    setRoomsLoading(storeRoomsLoading && rooms.length === 0);
+  }, [storeRoomsLoading, rooms.length]);
+
+  const filtered = useMemo(() => rooms.filter((r) => {
     // 숨김 탭에서는 숨겨진 채팅만, 다른 탭에서는 숨겨진 채팅 제외
     if (currentTab === '숨김') {
       if (!r.isHidden) return false;
@@ -135,13 +159,13 @@ export default function ChatListPage() {
       case '숨김': return true;
       default: return !r.isArchived;
     }
-  });
+  }), [rooms, currentTab, search, isPro, proActiveTab, activeTab]);
 
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
     return 0;
-  });
+  }), [filtered]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -584,10 +608,10 @@ export default function ChatListPage() {
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <p
-            key={activeTab}
+            key={currentTab}
             className="text-[13px] text-gray-400"
           >
-            {activeTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span>
+            {currentTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span>
           </p>
           <button onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-gray-500 active:scale-90 transition-transform">{editMode ? '완료' : '편집'}</button>
         </div>

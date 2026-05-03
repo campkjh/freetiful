@@ -47,7 +47,7 @@ export interface MessageItem {
 
 export const chatApi = {
   // Rooms
-  getRooms: (params?: { search?: string; dateFrom?: string; dateTo?: string; page?: number }) =>
+  getRooms: (params?: { search?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number; withTotal?: boolean }) =>
     apiClient.get<{ data: ChatRoomItem[]; total: number; hasMore: boolean }>(`${BASE}/rooms`, { params }),
 
   createRoom: (proProfileId: string, matchRequestId?: string) =>

@@ -108,7 +108,7 @@ function getHomeCachedPro(id: string): FavProItem | null {
 }
 
 function getInitialFavoritePros() {
-  const cached = typeof window !== 'undefined' ? getCachedFavoritesList() : null;
+  const cached = typeof window !== 'undefined' ? getCachedFavoritesList({ allowStale: true }) : null;
   const cachedItems = Array.isArray(cached?.items) ? cached.items : [];
   const cachedPros = cachedItems
     .map(mapFavoriteToPro)
@@ -188,7 +188,7 @@ export default function FavoritesPage() {
     setFavLoading(!hadInitialProsRef.current);
 
     // 캐시/프리뷰를 먼저 보여주고, 서버 데이터는 조용히 맞춰서 최신화.
-    favoriteApi.getList({ limit: FAVORITES_PAGE_LIMIT, withTotal: false })
+    favoriteApi.getList({ limit: FAVORITES_PAGE_LIMIT, withTotal: false }, { allowStale: true })
       .then((res: any) => {
         if (cancelled || !res?.items) return;
         setFavPros(dedupePros(res.items.map(mapFavoriteToPro).filter((p: FavProItem | null): p is FavProItem => p !== null)));

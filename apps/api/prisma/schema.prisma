@@ -606,6 +606,9 @@ model ChatRoom {
   quotations        Quotation[]
   scheduledMessages ScheduledMessage[]
 
+  @@index([userId, userDeletedAt, lastMessageAt])
+  @@index([proProfileId, proDeletedAt, lastMessageAt])
+  @@index([lastMessageAt])
   @@map("chat_rooms")
 }
 
@@ -620,6 +623,7 @@ model ChatRoomMember {
   user User     @relation(fields: [userId], references: [id])
 
   @@id([roomId, userId])
+  @@index([userId])
   @@map("chat_room_members")
 }
 
@@ -974,6 +978,7 @@ model Favorite {
 
   @@unique([userId, targetType, targetId])
   @@index([userId, targetType, createdAt])
+  @@index([targetType, targetId])
   @@map("favorites")
 }
 

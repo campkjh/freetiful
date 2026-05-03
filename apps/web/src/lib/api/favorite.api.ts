@@ -13,7 +13,7 @@ const FAVORITE_CHANGED_EVENT = 'freetiful:favorite-changed';
 const FAVORITES_STORAGE_TTL = 10 * 60_000;
 
 type FavoriteListParams = { page?: number; limit?: number; withTotal?: boolean };
-type FavoriteListOptions = { force?: boolean };
+type FavoriteListOptions = { force?: boolean; allowStale?: boolean };
 export type FavoriteChangeDetail = {
   proProfileId: string;
   isFavorited: boolean;
@@ -133,13 +133,13 @@ function isFavoritesPayloadConsistentWithLocalIds(data: any) {
   return localIds.every((id) => payloadIds.has(id));
 }
 
-export function getCachedFavoritesList() {
+export function getCachedFavoritesList(options?: { allowStale?: boolean }) {
   if (listCache) {
-    if (isFavoritesPayloadConsistentWithLocalIds(listCache)) return listCache;
+    if (options?.allowStale || isFavoritesPayloadConsistentWithLocalIds(listCache)) return listCache;
     invalidateFavoritesCache();
   }
   const stored = readStoredFavorites();
-  if (stored && isFavoritesPayloadConsistentWithLocalIds(stored)) {
+  if (stored && (options?.allowStale || isFavoritesPayloadConsistentWithLocalIds(stored))) {
     listCache = stored;
     return stored;
   }
@@ -169,6 +169,9 @@ function fetchFavoritesList(params?: FavoriteListParams) {
     listCache = r.data;
     listInFlight = null;
     writeStoredFavorites(r.data);
+    if (!params?.page || params.page === 1) {
+      writeStoredFavoriteIds(getFavoriteIdsFromPayload(r.data));
+    }
     return r.data;
   }).catch((e) => { listInFlight = null; throw e; });
   return listInFlight;
@@ -209,12 +212,12 @@ export const favoriteApi = {
     if (options?.force) return fetchFavoritesList(params);
 
     // 캐시 있으면 바로 반환 + 백그라운드 refresh
-    if (listCache && isFavoritesPayloadConsistentWithLocalIds(listCache)) {
+    if (listCache && (options?.allowStale || isFavoritesPayloadConsistentWithLocalIds(listCache))) {
       fetchFavoritesList(params).catch(() => {});
       return Promise.resolve(listCache);
     }
     const stored = readStoredFavorites();
-    if (stored && isFavoritesPayloadConsistentWithLocalIds(stored)) {
+    if (stored && (options?.allowStale || isFavoritesPayloadConsistentWithLocalIds(stored))) {
       listCache = stored;
       fetchFavoritesList(params).catch(() => {});
       return Promise.resolve(stored);
