@@ -159,13 +159,6 @@ async function normalizeProfilePhoto(file: File): Promise<ProPhotoItem> {
   const originalUrl = await fileToDataUrl(file);
   const isHeicLike = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
 
-  if (isHeicLike) {
-    if (file.size > 10 * 1024 * 1024) {
-      throw new Error('HEIC 사진은 10MB 이하만 등록할 수 있습니다. 사진 앱에서 JPG로 저장한 뒤 다시 올려주세요.');
-    }
-    return { url: originalUrl, file, isLocal: true };
-  }
-
   try {
     const img = await loadImageElement(originalUrl);
     const longestSide = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
@@ -196,6 +189,9 @@ async function normalizeProfilePhoto(file: File): Promise<ProPhotoItem> {
     const normalizedUrl = await fileToDataUrl(normalizedFile);
     return { url: normalizedUrl, file: normalizedFile, isLocal: true };
   } catch (error) {
+    if (isHeicLike && file.size > 10 * 1024 * 1024) {
+      throw new Error('HEIC 사진은 10MB 이하만 등록할 수 있습니다. 사진 앱에서 JPG로 저장한 뒤 다시 올려주세요.');
+    }
     if (file.size > 10 * 1024 * 1024) throw error;
     return { url: originalUrl, file, isLocal: true };
   }
@@ -736,6 +732,7 @@ export default function ProEditPage() {
   const handleSave = async () => {
     if (saving) return;
     setSaving(true);
+    setToast('프로필 저장 중...');
     try {
       // 1) localStorage 저장 (즉시 UI 반영용). 새로 선택한 base64 사진은 용량이 커서 저장하지 않는다.
       const persistedPhotoUrls = photos
@@ -823,7 +820,7 @@ export default function ProEditPage() {
         } else {
           setToast('');
         }
-      }, 650);
+      }, 1000);
     } catch (e) {
       console.error('프로필 저장 실패:', e);
       setToast('저장에 실패했습니다. 다시 시도해주세요.');

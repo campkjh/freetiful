@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { useAuthStore } from '../store/auth.store';
 import type { ProProfile, User } from '@prettyful/types';
 
 const BASE = '/api/v1';
@@ -85,9 +86,22 @@ export const prosApi = {
   uploadImage: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return apiClient.post(`${BASE}/pro/profile/images`, form, {
-      timeout: 60000,
-    }).then((r) => r.data);
+    const token = useAuthStore.getState().accessToken;
+    return fetch(`${BASE}/pro/profile/images`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'x-platform': 'web',
+      },
+      body: form,
+    }).then(async (response) => {
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = data?.message || data?.error || '프로필 이미지를 업로드하지 못했습니다.';
+        throw new Error(Array.isArray(message) ? message.join(', ') : message);
+      }
+      return data;
+    });
   },
 
   getImages: () =>
