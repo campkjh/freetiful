@@ -6,19 +6,19 @@ const PLANS = [
   {
     title: 'Premium',
     description: '결혼식·돌잔치 등 1시간 이내 행사 진행\n사전 미팅 1회 포함\n행사 당일 30분 전 현장 도착',
-    basePrice: 450000,
+    basePrice: 0,
     displayOrder: 0,
   },
   {
     title: 'Superior',
     description: '기업행사·컨퍼런스 등 2시간 이내 행사 진행\n사전 미팅 2회 포함\n대본 작성 및 리허설 참석\n포토타임 진행\n영상 큐시트 관리',
-    basePrice: 800000,
+    basePrice: 0,
     displayOrder: 1,
   },
   {
     title: 'Enterprise',
     description: '대규모 행사 6시간 풀타임 진행\n사전 미팅 무제한\n대본 작성 및 리허설 참석\n축사·건배사 코디네이션\n포토타임 진행\n하객 응대 안내\n2차 진행 포함\n영상 큐시트 관리\n전담 코디네이터 배정',
-    basePrice: 1700000,
+    basePrice: 0,
     displayOrder: 2,
   },
 ];

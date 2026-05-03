@@ -63,7 +63,7 @@ function handoverSearchMatches(profile: LegacyHandoverProfile, search?: string) 
 @Injectable()
 export class ProService implements OnModuleInit {
   private readonly logger = new Logger(ProService.name);
-  private readonly priceResetAuditAction = 'maintenance:reset_pro_service_prices_to_inquiry_20260503';
+  private readonly priceResetAuditAction = 'maintenance:force_reset_all_pro_service_prices_to_zero_20260503';
 
   constructor(
     private prisma: PrismaService,
@@ -125,13 +125,6 @@ export class ProService implements OnModuleInit {
       if (alreadyApplied) return;
 
       const result = await this.prisma.proService.updateMany({
-        where: {
-          isActive: true,
-          OR: [
-            { basePrice: { not: 0 } },
-            { basePrice: null },
-          ],
-        },
         data: { basePrice: 0 },
       });
 
