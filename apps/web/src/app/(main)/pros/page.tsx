@@ -3,7 +3,19 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, Star, ChevronDown, Search, SlidersHorizontal, X, ChevronUp, Heart } from 'lucide-react';
+import {
+  BriefcaseBusiness,
+  ChevronLeft,
+  Star,
+  ChevronDown,
+  Search,
+  SlidersHorizontal,
+  X,
+  ChevronUp,
+  Heart,
+  Grid2X2,
+  Zap,
+} from 'lucide-react';
 import { Suspense } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { discoveryApi, getCachedProList, type ProListItem } from '@/lib/api/discovery.api';
@@ -53,6 +65,14 @@ const PRICE_RANGES = [
 
 const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
 const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외국어사회자'];
+const PC_NAV_ITEMS = ['결혼식 사회자', '행사 사회자', '외국어 사회자', '쇼호스트', '다수견적'];
+const PC_SIDEBAR_GROUPS = [
+  { title: '사회자', items: ['전체', '사회자', '외국어사회자'] },
+  { title: '행사 진행', items: ['쇼호스트', '축가/연주'] },
+  { title: '지역', items: REGIONS },
+  { title: '외국어', items: LANGUAGES },
+];
+const PC_QUOTE_CATEGORY_LABELS = ['결혼식 사회자', '행사 사회자', '외국어 사회자'];
 
 const PAGE_SIZE = 10;
 const INITIAL_PRO_LIST_PARAMS = { limit: 24, sort: 'pudding' as const, withTotal: false };
@@ -250,6 +270,215 @@ function ProListCard({
   );
 }
 
+function DesktopProsHeader({
+  searchQuery,
+  setSearchQuery,
+  selectedType,
+  setSelectedType,
+}: {
+  searchQuery: string;
+  setSearchQuery: (value: string) => void;
+  selectedType: string;
+  setSelectedType: (value: string) => void;
+}) {
+  const applyNav = (label: string) => {
+    if (label === '다수견적') return;
+    if (label === '외국어 사회자') {
+      setSelectedType('외국어사회자');
+      return;
+    }
+    if (label === '쇼호스트') {
+      setSelectedType('쇼호스트');
+      return;
+    }
+    setSelectedType('사회자');
+  };
+
+  const isActive = (label: string) => {
+    if (label === '외국어 사회자') return selectedType === '외국어사회자';
+    if (label === '쇼호스트') return selectedType === '쇼호스트';
+    if (label === '결혼식 사회자' || label === '행사 사회자') return selectedType === '사회자';
+    return false;
+  };
+
+  return (
+    <header className="border-b border-[#EEF1F5] bg-white">
+      <div className="mx-auto flex h-[86px] max-w-[1540px] items-center gap-8 px-8">
+        <Link href="/main" className="shrink-0" aria-label="Freetiful 홈">
+          <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-[34px] w-auto" />
+        </Link>
+        <div className="relative h-[60px] w-full max-w-[640px]">
+          <Search className="absolute right-7 top-1/2 h-7 w-7 -translate-y-1/2 text-gray-900" strokeWidth={2.4} />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="어떤 사회자가 필요하세요?"
+            className="h-full w-full rounded-full border border-[#D9DEE7] bg-white pl-8 pr-20 text-[22px] font-semibold text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.07)] outline-none transition focus:border-[#3180F7] focus:shadow-[0_10px_30px_rgba(49,128,247,0.12)] placeholder:text-[#A4AAB5]"
+          />
+        </div>
+        <nav className="ml-auto flex items-center gap-8 text-[16px] font-bold text-gray-900">
+          <Link href="/biz" className="whitespace-nowrap transition hover:text-[#3180F7]">비즈문의</Link>
+          <Link href="/pro-register" className="whitespace-nowrap transition hover:text-[#3180F7]">사회자 등록</Link>
+          <Link href="/my" className="whitespace-nowrap transition hover:text-[#3180F7]">마이페이지</Link>
+          <Link href="/quote" className="rounded-[14px] bg-[#111318] px-6 py-4 text-white shadow-[0_12px_24px_rgba(17,19,24,0.14)] transition hover:bg-[#3180F7]">
+            다수견적
+          </Link>
+        </nav>
+      </div>
+      <div className="border-t border-[#F2F4F7]">
+        <div className="mx-auto flex h-[72px] max-w-[1540px] items-center gap-9 px-8 text-[18px] font-bold text-gray-900">
+          <button type="button" className="flex items-center gap-3 text-[#3180F7]">
+            <BriefcaseBusiness className="h-6 w-6" />
+            업종별
+          </button>
+          <span className="h-7 w-px bg-[#E5E8EF]" />
+          <button type="button" onClick={() => setSelectedType('전체')} className="flex items-center gap-3 transition hover:text-[#3180F7]">
+            <Grid2X2 className="h-5 w-5" />
+            전체
+            <ChevronDown className="h-5 w-5 text-gray-500" />
+          </button>
+          {PC_NAV_ITEMS.map((item) => item === '다수견적' ? (
+            <Link key={item} href="/quote" className="ml-auto rounded-full bg-[#EAF3FF] px-5 py-2.5 text-[15px] font-extrabold text-[#3180F7] transition hover:bg-[#3180F7] hover:text-white">
+              {item}
+            </Link>
+          ) : (
+            <button
+              key={item}
+              type="button"
+              onClick={() => applyNav(item)}
+              className={`whitespace-nowrap transition ${isActive(item) ? 'text-[#3180F7]' : 'hover:text-[#3180F7]'}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function DesktopProsSidebar({
+  selectedRegion,
+  selectedLang,
+  selectedType,
+  setSelectedRegion,
+  setSelectedLang,
+  setSelectedType,
+}: {
+  selectedRegion: string;
+  selectedLang: string;
+  selectedType: string;
+  setSelectedRegion: (value: string) => void;
+  setSelectedLang: (value: string) => void;
+  setSelectedType: (value: string) => void;
+}) {
+  const handleClick = (groupTitle: string, item: string) => {
+    if (groupTitle === '지역') setSelectedRegion(item);
+    else if (groupTitle === '외국어') setSelectedLang(item);
+    else setSelectedType(item);
+  };
+  const isActive = (groupTitle: string, item: string) => {
+    if (groupTitle === '지역') return selectedRegion === item;
+    if (groupTitle === '외국어') return selectedLang === item;
+    return selectedType === item;
+  };
+
+  return (
+    <aside className="sticky top-8 self-start">
+      <h2 className="text-[34px] font-extrabold tracking-[-0.04em] text-gray-950">사회자 마켓</h2>
+      <div className="mt-9 space-y-9">
+        {PC_SIDEBAR_GROUPS.map((group) => (
+          <div key={group.title}>
+            <p className="mb-4 text-[17px] font-extrabold text-gray-950">{group.title}</p>
+            <div className="space-y-3">
+              {group.items.map((item) => (
+                <button
+                  key={`${group.title}-${item}`}
+                  type="button"
+                  onClick={() => handleClick(group.title, item)}
+                  className={`block text-left text-[16px] font-semibold leading-6 transition ${
+                    isActive(group.title, item) ? 'text-[#3180F7]' : 'text-[#5B6270] hover:text-[#3180F7]'
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function DesktopProMarketCard({
+  pro,
+  index,
+  isFavorited,
+  onToggleFavorite,
+}: {
+  pro: ProItem;
+  index: number;
+  isFavorited: boolean;
+  onToggleFavorite: (event: MouseEvent, proId: string) => void;
+}) {
+  const displayCategory = pro.categories[0] || '사회자';
+  const tagItems = [
+    pro.experience > 0 ? `경력 ${pro.experience}년` : '',
+    ...(pro.isNationwide ? ['전국가능'] : pro.regions.slice(0, 2)),
+  ].filter(Boolean);
+
+  return (
+    <article className="group min-w-0">
+      <div className="relative aspect-[16/12] overflow-hidden rounded-[10px] bg-[#F2F4F7]">
+        <Link href={`/pros/${pro.id}`} onMouseEnter={() => discoveryApi.getProDetail(pro.id).catch(() => {})} className="block h-full w-full">
+          <img
+            src={pro.image || '/images/default-profile.svg'}
+            alt={pro.name}
+            loading={index < 8 ? 'eager' : 'lazy'}
+            decoding="async"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+          />
+        </Link>
+        <button
+          type="button"
+          onClick={(event) => onToggleFavorite(event, pro.id)}
+          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-[0_8px_18px_rgba(15,23,42,0.12)] transition active:scale-90"
+          aria-label={isFavorited ? '찜 해제' : '찜하기'}
+        >
+          <Heart size={21} className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'} />
+        </button>
+        {pro.puddingRank > 0 && pro.puddingRank <= 12 && (
+          <span className="absolute left-3 top-3 rounded-[4px] bg-[#111318] px-2.5 py-1 text-[13px] font-extrabold italic text-white">
+            BEST
+          </span>
+        )}
+      </div>
+      <Link href={`/pros/${pro.id}`} className="mt-4 block">
+        <p className="line-clamp-2 min-h-[54px] text-[19px] font-extrabold leading-[1.42] tracking-[-0.035em] text-gray-950 transition group-hover:text-[#3180F7]">
+          {displayCategory} {pro.name}의 프리미엄 진행 서비스
+        </p>
+        <div className="mt-3 flex items-center gap-1.5 text-[16px]">
+          <Star size={16} className="fill-[#5AD36A] text-[#5AD36A]" />
+          <span className="font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
+          <span className="font-medium text-gray-400">({pro.reviews.toLocaleString()})</span>
+        </div>
+        <p className="mt-2 text-[20px] font-extrabold tracking-[-0.03em] text-gray-950">
+          {pro.price ? `${pro.price.toLocaleString()}원~` : '가격 협의'}
+        </p>
+        <p className="mt-3 text-[15px] font-semibold text-[#6B7280]">{displayCategory} {pro.name}</p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {tagItems.slice(0, 3).map((tag) => (
+            <span key={tag} className="rounded-[6px] bg-[#F2F4F7] px-2 py-1 text-[13px] font-semibold text-[#5B6270]">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </Link>
+    </article>
+  );
+}
+
 function mapApiPros(items: ProListItem[]): ProItem[] {
   const seen = new Set<string>();
   return items
@@ -415,6 +644,7 @@ function ProsListContent() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const desktopLoadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setPage(1); }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType]);
 
@@ -509,6 +739,20 @@ function ProsListContent() {
     return () => observer.disconnect();
   }, [hasMore, paginatedPros.length]);
 
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = desktopLoadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setPage((p) => p + 1);
+      },
+      { rootMargin: '640px 0px', threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, paginatedPros.length]);
+
   if (!apiLoaded && ALL_PROS.length === 0) {
     return (
       <div className="min-h-screen bg-white px-4 pt-14" style={{ letterSpacing: '-0.02em' }}>
@@ -543,7 +787,140 @@ function ProsListContent() {
 
   return (
     <LayoutGroup id="pros-list-tabs">
-    <div className="min-h-screen bg-white" style={{ letterSpacing: '-0.02em' }}>
+    <>
+    <div className="relative left-1/2 hidden min-h-screen w-screen -translate-x-1/2 bg-white lg:block" style={{ letterSpacing: '-0.02em' }}>
+      <DesktopProsHeader
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedType={selectedType}
+        setSelectedType={setSelectedType}
+      />
+
+      <div className="mx-auto grid max-w-[1540px] grid-cols-[230px_minmax(0,1fr)] gap-16 px-8 py-14">
+        <DesktopProsSidebar
+          selectedRegion={selectedRegion}
+          selectedLang={selectedLang}
+          selectedType={selectedType}
+          setSelectedRegion={setSelectedRegion}
+          setSelectedLang={setSelectedLang}
+          setSelectedType={setSelectedType}
+        />
+
+        <section className="min-w-0">
+          <div className="mb-10 flex flex-wrap items-center justify-between gap-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={selectedType}
+                onChange={(event) => setSelectedType(event.target.value)}
+                className="h-[46px] rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 outline-none transition focus:border-[#3180F7]"
+              >
+                {MC_TYPES.map((type) => (
+                  <option key={type} value={type}>{type === '전체' ? '카테고리 선택' : type}</option>
+                ))}
+              </select>
+              <select
+                value={selectedPrice}
+                onChange={(event) => setSelectedPrice(Number(event.target.value))}
+                className="h-[46px] rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 outline-none transition focus:border-[#3180F7]"
+              >
+                {PRICE_RANGES.map((range, index) => (
+                  <option key={range.label} value={index}>{range.label === '전체' ? '예산' : range.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="inline-flex h-[46px] items-center gap-2 rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-extrabold italic text-[#6B7280] transition hover:border-[#3180F7] hover:text-[#3180F7]"
+              >
+                verified
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-[46px] items-center gap-2 rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 transition hover:border-[#3180F7] hover:text-[#3180F7]"
+              >
+                <Zap className="h-4 w-4 fill-[#3180F7] text-[#3180F7]" />
+                빠른 응답
+              </button>
+              <div className="ml-1 flex items-center gap-2">
+                {PC_QUOTE_CATEGORY_LABELS.map((label, index) => (
+                  <Link
+                    key={label}
+                    href={index === 1 ? '/quote?mode=event' : '/quote'}
+                    className={`h-[46px] rounded-[12px] px-5 text-[15px] font-extrabold leading-[46px] transition ${
+                      index === 0
+                        ? 'bg-[#3180F7] text-white shadow-[0_12px_24px_rgba(49,128,247,0.22)] hover:bg-[#176CE6]'
+                        : 'bg-[#EAF3FF] text-[#3180F7] hover:bg-[#DDEEFF]'
+                    }`}
+                  >
+                    {label} 다수견적
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-5">
+              <p className="text-[16px] font-semibold text-[#4B5563]">
+                <span className="font-extrabold text-gray-950">{filtered.length.toLocaleString()}</span>개의 서비스
+              </p>
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                className="h-[42px] rounded-[9px] border-none bg-white text-[16px] font-bold text-gray-900 outline-none"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <motion.div
+            animate={{
+              opacity: listSettled ? 1 : 0.72,
+              y: listSettled ? 0 : 8,
+              filter: listSettled ? 'blur(0px)' : 'blur(1.5px)',
+            }}
+            transition={{ duration: 0.22, ease: PANEL_EASE }}
+          >
+            {filtered.length > 0 ? (
+              <>
+                <motion.div layout className="grid grid-cols-4 gap-x-8 gap-y-12">
+                  {paginatedPros.map((pro, index) => (
+                    <DesktopProMarketCard
+                      key={pro.id}
+                      pro={pro}
+                      index={index}
+                      isFavorited={favorites.has(pro.id)}
+                      onToggleFavorite={toggleFavorite}
+                    />
+                  ))}
+                </motion.div>
+                {hasMore && (
+                  <div ref={desktopLoadMoreRef} className="py-12 text-center">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-[#F2F6FF] px-4 py-2 text-[14px] font-bold text-[#3180F7]">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#3180F7]" />
+                      {paginatedPros.length}/{filtered.length} 불러오는 중
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[18px] bg-[#F8FAFC] text-center">
+                <Search size={38} className="text-gray-300" />
+                <p className="mt-5 text-[18px] font-bold text-gray-500">해당 조건의 사회자가 없습니다</p>
+                <button
+                  onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); setSelectedLang('전체'); setSelectedType('전체'); }}
+                  className="mt-5 rounded-full bg-[#3180F7] px-5 py-3 text-[15px] font-bold text-white"
+                >
+                  필터 초기화
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </section>
+      </div>
+    </div>
+
+    <div className="min-h-screen bg-white lg:hidden" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white">
         <div className="h-[52px] flex items-center px-4 gap-3">
@@ -852,6 +1229,7 @@ function ProsListContent() {
         )}
       </>
     </div>
+    </>
     </LayoutGroup>
   );
 }

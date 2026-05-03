@@ -3,7 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent, type WheelEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronDown, ChevronUp, SlidersHorizontal, Heart, X, MapPin, ArrowUp } from 'lucide-react';
+import {
+  ArrowUp,
+  BriefcaseBusiness,
+  ChevronLeft,
+  ChevronDown,
+  ChevronUp,
+  Grid2X2,
+  Heart,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+  X,
+  Zap,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
@@ -56,6 +69,12 @@ interface ListBanner {
 const REGIONS = ['전국', '경기', '서울', '부산', '인천', '대구', '충남/세종'];
 
 const SUB_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
+const PC_BUSINESS_NAV_ITEMS = ['웨딩홀', '드레스', '스튜디오', '헤어·메이크업', '스냅', '혼수', '신혼여행'];
+const PC_BUSINESS_SIDEBAR_GROUPS = [
+  { title: '웨딩', items: ['전체', '웨딩홀', '드레스', '스튜디오', '스냅', '한복'] },
+  { title: '뷰티·의료', items: ['헤어', '메이크업', '피부과', '성형외과'] },
+  { title: '혼수', items: ['가전', '가구', '보석', '답례품', '자동차', '신혼여행'] },
+];
 
 // ─── Advanced Filter Groups ───────────────────────────────
 const FILTER_GROUPS = [
@@ -513,6 +532,202 @@ function WeddingPartnerListBanner({ banners }: { banners: ListBanner[] }) {
   );
 }
 
+function DesktopBusinessHeader({
+  searchQuery,
+  setSearchQuery,
+  selectedCategory,
+  selectCategory,
+}: {
+  searchQuery: string;
+  setSearchQuery: (value: string) => void;
+  selectedCategory: string;
+  selectCategory: (value: string) => void;
+}) {
+  const applyNav = (label: string) => {
+    if (label === '헤어·메이크업') {
+      selectCategory('헤어');
+      return;
+    }
+    if (label === '혼수') {
+      selectCategory('가전');
+      return;
+    }
+    selectCategory(label);
+  };
+
+  const isActive = (label: string) => {
+    if (label === '헤어·메이크업') return selectedCategory === '헤어' || selectedCategory === '메이크업';
+    if (label === '혼수') return ['가전', '가구', '보석', '답례품', '자동차'].includes(selectedCategory);
+    return selectedCategory === label;
+  };
+
+  return (
+    <header className="border-b border-[#EEF1F5] bg-white">
+      <div className="mx-auto flex h-[86px] max-w-[1540px] items-center gap-8 px-8">
+        <Link href="/main" className="shrink-0" aria-label="Freetiful 홈">
+          <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-[34px] w-auto" />
+        </Link>
+        <div className="relative h-[60px] w-full max-w-[640px]">
+          <Search className="absolute right-7 top-1/2 h-7 w-7 -translate-y-1/2 text-gray-900" strokeWidth={2.4} />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="어떤 웨딩파트너가 필요하세요?"
+            className="h-full w-full rounded-full border border-[#D9DEE7] bg-white pl-8 pr-20 text-[22px] font-semibold text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.07)] outline-none transition focus:border-[#3180F7] focus:shadow-[0_10px_30px_rgba(49,128,247,0.12)] placeholder:text-[#A4AAB5]"
+          />
+        </div>
+        <nav className="ml-auto flex items-center gap-8 text-[16px] font-bold text-gray-900">
+          <Link href="/biz" className="whitespace-nowrap transition hover:text-[#3180F7]">비즈문의</Link>
+          <Link href="/pro-register" className="whitespace-nowrap transition hover:text-[#3180F7]">파트너 등록</Link>
+          <Link href="/my" className="whitespace-nowrap transition hover:text-[#3180F7]">마이페이지</Link>
+          <Link href="/biz" className="rounded-[14px] bg-[#111318] px-6 py-4 text-white shadow-[0_12px_24px_rgba(17,19,24,0.14)] transition hover:bg-[#3180F7]">
+            입점문의
+          </Link>
+        </nav>
+      </div>
+      <div className="border-t border-[#F2F4F7]">
+        <div className="mx-auto flex h-[72px] max-w-[1540px] items-center gap-9 px-8 text-[18px] font-bold text-gray-900">
+          <button type="button" className="flex items-center gap-3 text-[#3180F7]">
+            <BriefcaseBusiness className="h-6 w-6" />
+            업종별
+          </button>
+          <span className="h-7 w-px bg-[#E5E8EF]" />
+          <button type="button" onClick={() => selectCategory('전체')} className="flex items-center gap-3 transition hover:text-[#3180F7]">
+            <Grid2X2 className="h-5 w-5" />
+            전체
+            <ChevronDown className="h-5 w-5 text-gray-500" />
+          </button>
+          {PC_BUSINESS_NAV_ITEMS.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => applyNav(item)}
+              className={`whitespace-nowrap transition ${isActive(item) ? 'text-[#3180F7]' : 'hover:text-[#3180F7]'}`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function DesktopBusinessSidebar({
+  selectedCategory,
+  selectCategory,
+}: {
+  selectedCategory: string;
+  selectCategory: (value: string) => void;
+}) {
+  return (
+    <aside className="sticky top-8 self-start">
+      <h2 className="text-[34px] font-extrabold tracking-[-0.04em] text-gray-950">웨딩파트너</h2>
+      <div className="mt-9 space-y-9">
+        {PC_BUSINESS_SIDEBAR_GROUPS.map((group) => (
+          <div key={group.title}>
+            <p className="mb-4 text-[17px] font-extrabold text-gray-950">{group.title}</p>
+            <div className="space-y-3">
+              {group.items.map((item) => (
+                <button
+                  key={`${group.title}-${item}`}
+                  type="button"
+                  onClick={() => selectCategory(item)}
+                  className={`block text-left text-[16px] font-semibold leading-6 transition ${
+                    selectedCategory === item ? 'text-[#3180F7]' : 'text-[#5B6270] hover:text-[#3180F7]'
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function DesktopBusinessMarketCard({
+  item,
+  index,
+  isFavorited,
+  onToggleFav,
+}: {
+  item: RankItem;
+  index: number;
+  isFavorited: boolean;
+  onToggleFav: (id: string) => void;
+}) {
+  return (
+    <article className="group min-w-0">
+      <div className="relative aspect-[16/12] overflow-hidden rounded-[10px] bg-[#F2F4F7]">
+        <Link href={`/businesses/${item.id}`} className="block h-full w-full">
+          <img
+            src={item.image}
+            alt={item.title}
+            loading={index < 8 ? 'eager' : 'lazy'}
+            decoding="async"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+            onError={(event) => {
+              const image = event.currentTarget;
+              if (image.dataset.fallbackUsed === 'true') {
+                image.src = '/images/default-profile.svg';
+                return;
+              }
+              image.dataset.fallbackUsed = 'true';
+              image.src = item.imageFallback || '/images/default-profile.svg';
+            }}
+          />
+        </Link>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleFav(item.id);
+          }}
+          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-[0_8px_18px_rgba(15,23,42,0.12)] transition active:scale-90"
+          aria-label={isFavorited ? '찜 해제' : '찜하기'}
+        >
+          <Heart size={21} className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'} />
+        </button>
+        {item.isPopular && (
+          <span className="absolute left-3 top-3 rounded-[4px] bg-[#111318] px-2.5 py-1 text-[13px] font-extrabold italic text-white">
+            PICK
+          </span>
+        )}
+      </div>
+      <Link href={`/businesses/${item.id}`} className="mt-4 block">
+        <p className="line-clamp-2 min-h-[54px] text-[19px] font-extrabold leading-[1.42] tracking-[-0.035em] text-gray-950 transition group-hover:text-[#3180F7]">
+          {item.title}
+        </p>
+        <p className="mt-3 text-[15px] font-semibold text-[#6B7280]">{item.region} · {item.clinic}</p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {[item.category, ...item.tags].filter(Boolean).slice(0, 4).map((tag) => (
+            <span key={tag} className="rounded-[6px] bg-[#F2F4F7] px-2 py-1 text-[13px] font-semibold text-[#5B6270]">
+              {tag}
+            </span>
+          ))}
+        </div>
+        {(item.hasAppPay || item.hasAppBooking || item.verifiedBadge) && (
+          <div className="mt-4 flex flex-wrap items-center gap-1.5">
+            {item.verifiedBadge && (
+              <span className="rounded-[6px] bg-[#EAF3FF] px-2.5 py-1 text-[12px] font-extrabold text-[#3180F7]">{item.verifiedBadge}</span>
+            )}
+            {item.hasAppPay && (
+              <span className="rounded-[6px] bg-[#EAF3FF] px-2.5 py-1 text-[12px] font-extrabold text-[#3180F7]">앱결제</span>
+            )}
+            {item.hasAppBooking && (
+              <span className="rounded-[6px] bg-[#F0F7FF] px-2.5 py-1 text-[12px] font-extrabold text-[#3180F7]">앱예약</span>
+            )}
+          </div>
+        )}
+      </Link>
+    </article>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────
 export default function BusinessListPage() {
   const router = useRouter();
@@ -529,6 +744,7 @@ export default function BusinessListPage() {
   const activeTabRef = useRef<HTMLButtonElement | null>(null);
   const listViewportRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const desktopLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const swipeOffsetRef = useRef(0);
   const lastWheelSwipeAtRef = useRef(0);
@@ -543,6 +759,8 @@ export default function BusinessListPage() {
     return cache?.data.length ? { [initialBusinessSnapshot.category]: cache.data.slice(0, BUSINESS_PREVIEW_LIMIT) } : {};
   });
   const [listBanners, setListBanners] = useState<ListBanner[]>(() => readBusinessBannerCache());
+  const [businessSearch, setBusinessSearch] = useState('');
+  const [businessSort, setBusinessSort] = useState<'popular' | 'name' | 'recent'>('popular');
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [listViewportWidth, setListViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 360));
   const [filterOpen, setFilterOpen] = useState(false);
@@ -758,15 +976,30 @@ export default function BusinessListPage() {
     () => Object.values(filters).flatMap((set) => Array.from(set)),
     [filters],
   );
-  const visibleRankItems = useMemo(() => rankItems.filter((item) => {
-    const categoryMatched = selectedCategory === '전체' || item.category === selectedCategory || item.clinic.includes(selectedCategory);
-    const regionMatched = selectedRegion === '전국' || selectedRegion === '내 위치' || item.region.includes(selectedRegion);
-    const detailMatched = activeFilterValues.length === 0 || activeFilterValues.some((value) => {
-      const target = `${item.title} ${item.region} ${item.clinic} ${item.category} ${item.tags.join(' ')}`;
-      return target.includes(value);
+  const visibleRankItems = useMemo(() => {
+    const query = businessSearch.trim().toLowerCase();
+    const filteredItems = rankItems.filter((item) => {
+      const categoryMatched = selectedCategory === '전체' || item.category === selectedCategory || item.clinic.includes(selectedCategory);
+      const regionMatched = selectedRegion === '전국' || selectedRegion === '내 위치' || item.region.includes(selectedRegion);
+      const detailMatched = activeFilterValues.length === 0 || activeFilterValues.some((value) => {
+        const target = `${item.title} ${item.region} ${item.clinic} ${item.category} ${item.tags.join(' ')}`;
+        return target.includes(value);
+      });
+      const searchMatched = !query || `${item.title} ${item.region} ${item.clinic} ${item.category} ${item.tags.join(' ')}`.toLowerCase().includes(query);
+      return categoryMatched && regionMatched && detailMatched && searchMatched;
     });
-    return categoryMatched && regionMatched && detailMatched;
-  }), [activeFilterValues, rankItems, selectedCategory, selectedRegion]);
+
+    if (businessSort === 'name') {
+      return [...filteredItems].sort((a, b) => a.title.localeCompare(b.title, 'ko'));
+    }
+    if (businessSort === 'recent') {
+      return [...filteredItems].sort((a, b) => b.rank - a.rank);
+    }
+    return [...filteredItems].sort((a, b) => {
+      if (a.isPopular !== b.isPopular) return a.isPopular ? -1 : 1;
+      return a.rank - b.rank;
+    });
+  }, [activeFilterValues, businessSearch, businessSort, rankItems, selectedCategory, selectedRegion]);
 
   const hasMoreBusinesses = businessTotal > rankItems.length;
 
@@ -809,6 +1042,20 @@ export default function BusinessListPage() {
         if (entry?.isIntersecting) void loadMoreBusinesses();
       },
       { rootMargin: '560px 0px' },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasMoreBusinesses, loadMoreBusinesses, loading, loadingMore, visibleRankItems.length]);
+
+  useEffect(() => {
+    const element = desktopLoadMoreRef.current;
+    if (!element || !hasMoreBusinesses || loading || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) void loadMoreBusinesses();
+      },
+      { rootMargin: '720px 0px' },
     );
     observer.observe(element);
     return () => observer.disconnect();
@@ -887,7 +1134,185 @@ export default function BusinessListPage() {
   const showListSkeleton = loading && rankItems.length === 0;
 
   return (
-    <div className="bg-white min-h-screen pb-20" style={{ letterSpacing: '-0.02em' }}>
+    <>
+    <div className="relative left-1/2 hidden min-h-screen w-screen -translate-x-1/2 bg-white lg:block" style={{ letterSpacing: '-0.02em' }}>
+      <DesktopBusinessHeader
+        searchQuery={businessSearch}
+        setSearchQuery={setBusinessSearch}
+        selectedCategory={selectedCategory}
+        selectCategory={selectCategory}
+      />
+
+      <div className="mx-auto grid max-w-[1540px] grid-cols-[230px_minmax(0,1fr)] gap-16 px-8 py-14">
+        <DesktopBusinessSidebar selectedCategory={selectedCategory} selectCategory={selectCategory} />
+
+        <section className="min-w-0">
+          <div className="mb-10 flex flex-wrap items-center justify-between gap-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={selectedCategory}
+                onChange={(event) => selectCategory(event.target.value)}
+                className="h-[46px] rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 outline-none transition focus:border-[#3180F7]"
+              >
+                {SUB_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>{category === '전체' ? '카테고리 선택' : category}</option>
+                ))}
+              </select>
+              <select
+                value={selectedRegion}
+                onChange={(event) => setSelectedRegion(event.target.value)}
+                className="h-[46px] rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 outline-none transition focus:border-[#3180F7]"
+              >
+                {REGIONS.map((region) => (
+                  <option key={region} value={region}>{region === '전국' ? '지역' : region}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setFilterOpen(true)}
+                className={`inline-flex h-[46px] items-center gap-2 rounded-[10px] border px-5 text-[16px] font-bold transition ${
+                  totalActiveFilters > 0
+                    ? 'border-[#3180F7] bg-[#EAF3FF] text-[#3180F7]'
+                    : 'border-[#DDE2EA] bg-white text-gray-900 hover:border-[#3180F7] hover:text-[#3180F7]'
+                }`}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                상세 필터
+                {totalActiveFilters > 0 && <span className="text-[#3180F7]">{totalActiveFilters}</span>}
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-[46px] items-center gap-2 rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 transition hover:border-[#3180F7] hover:text-[#3180F7]"
+              >
+                <Zap className="h-4 w-4 fill-[#3180F7] text-[#3180F7]" />
+                빠른 응답
+              </button>
+            </div>
+
+            <div className="flex items-center gap-5">
+              <p className="text-[16px] font-semibold text-[#4B5563]">
+                <span className="font-extrabold text-gray-950">{visibleRankItems.length.toLocaleString()}</span>개의 파트너
+              </p>
+              <select
+                value={businessSort}
+                onChange={(event) => setBusinessSort(event.target.value as typeof businessSort)}
+                className="h-[42px] rounded-[9px] border-none bg-white text-[16px] font-bold text-gray-900 outline-none"
+              >
+                <option value="popular">추천순</option>
+                <option value="name">이름순</option>
+                <option value="recent">최근 등록순</option>
+              </select>
+            </div>
+          </div>
+
+          {filterOpen && (
+            <div className="mb-8 rounded-[18px] border border-[#E8ECF3] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+              <div className="mb-5 flex items-center justify-between">
+                <p className="text-[18px] font-extrabold text-gray-950">상세 필터</p>
+                <button type="button" onClick={() => setFilterOpen(false)} className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-5">
+                {FILTER_GROUPS.map((group) => (
+                  <div key={group.key} className="grid grid-cols-[120px_minmax(0,1fr)] gap-5">
+                    <p className="pt-1 text-[14px] font-extrabold text-gray-900">{group.label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {group.options.map((option) => {
+                        const active = filters[group.key]?.has(option);
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => toggleFilterOption(group.key, option)}
+                            className={`h-[34px] rounded-full border px-3.5 text-[13px] font-bold transition ${
+                              active
+                                ? 'border-[#3180F7] bg-[#3180F7] text-white'
+                                : 'border-[#E1E6EF] bg-white text-gray-500 hover:border-[#3180F7] hover:text-[#3180F7]'
+                            }`}
+                          >
+                            {option}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <button type="button" onClick={clearAllFilters} className="h-[40px] rounded-[10px] border border-[#DDE2EA] px-4 text-[14px] font-bold text-gray-700">
+                  초기화
+                </button>
+                <button type="button" onClick={() => setFilterOpen(false)} className="h-[40px] rounded-[10px] bg-[#3180F7] px-5 text-[14px] font-bold text-white">
+                  적용
+                </button>
+              </div>
+            </div>
+          )}
+
+          <WeddingPartnerListBanner banners={listBanners} />
+
+          {showListSkeleton ? (
+            <div className="grid grid-cols-4 gap-x-8 gap-y-12">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index}>
+                  <div className="skeleton aspect-[16/12] rounded-[10px]" />
+                  <div className="mt-4 space-y-2">
+                    <div className="skeleton h-5 w-full rounded" />
+                    <div className="skeleton h-5 w-3/4 rounded" />
+                    <div className="skeleton h-4 w-1/2 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : visibleRankItems.length > 0 ? (
+            <>
+              <div className="grid grid-cols-4 gap-x-8 gap-y-12">
+                {visibleRankItems.map((item, index) => (
+                  <DesktopBusinessMarketCard
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    isFavorited={favorites.has(item.id)}
+                    onToggleFav={toggleFav}
+                  />
+                ))}
+              </div>
+              {hasMoreBusinesses && (
+                <div ref={desktopLoadMoreRef} className="py-12 text-center">
+                  {loadingMore ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-[#F2F6FF] px-4 py-2 text-[14px] font-bold text-[#3180F7]">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#3180F7]" />
+                      파트너를 더 불러오는 중
+                    </span>
+                  ) : (
+                    <span className="inline-block h-8" />
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[18px] bg-[#F8FAFC] text-center">
+              <Search size={38} className="text-gray-300" />
+              <p className="mt-5 text-[18px] font-bold text-gray-500">조건에 맞는 업체가 없습니다</p>
+              <button
+                onClick={() => {
+                  selectCategory('전체');
+                  setSelectedRegion('전국');
+                  clearAllFilters();
+                  setBusinessSearch('');
+                }}
+                className="mt-5 rounded-full bg-[#3180F7] px-5 py-3 text-[15px] font-bold text-white"
+              >
+                필터 초기화
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+
+    <div className="bg-white min-h-screen pb-20 lg:hidden" style={{ letterSpacing: '-0.02em' }}>
       {/* ─── Header ─── */}
       <div className="sticky top-0 z-30 bg-white">
         <div className="flex items-center px-3 h-[52px]">
@@ -1196,5 +1621,6 @@ export default function BusinessListPage() {
         <ArrowUp size={18} className="text-gray-700" />
       </button>
     </div>
+    </>
   );
 }
