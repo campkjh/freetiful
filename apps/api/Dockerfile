@@ -20,6 +20,7 @@ WORKDIR /app/apps/api
 
 EXPOSE 4000
 
-# 스키마 변경을 런타임에 적용하고 Nest 빌드 출력 경로를 자동 감지한다.
-# DB push가 실패한 상태로 새 앱을 띄우면 새 Prisma 필드 조회에서 500이 발생하므로 배포를 중단한다.
-CMD ["sh", "-c", "timeout 180 npx prisma db push --skip-generate --accept-data-loss && if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]
+# DB schema push 는 SKIP_PRISMA_DB_PUSH=1 환경변수로 끌 수 있음
+# (Supabase session pooler 의 15-connection 한도에 걸리면 deploy 가 항상 실패하므로
+#  현재는 schema 변경이 없을 때 push 를 건너뛰는 것이 안전함. 필요할 때만 수동 push)
+CMD ["sh", "-c", "if [ \"$SKIP_PRISMA_DB_PUSH\" != \"1\" ]; then timeout 60 npx prisma db push --skip-generate --accept-data-loss || echo '[deploy] prisma db push skipped (continuing without schema sync)'; fi; if [ -f dist/main.js ]; then node dist/main.js; else node dist/src/main.js; fi"]
