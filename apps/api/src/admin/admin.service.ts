@@ -1903,9 +1903,32 @@ export class AdminService {
           where: { senderId: fromId },
           data: { senderId: toId },
         });
-        // Payment / Quotation
+        // 기타 user 참조 모두 이관
         await this.prisma.payment.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
         await this.prisma.quotation.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+        await this.prisma.favorite.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+        await this.prisma.review.updateMany({ where: { reviewerId: fromId }, data: { reviewerId: toId } }).catch(() => {});
+        await this.prisma.notification.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+        await this.prisma.matchRequest.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+        await this.prisma.pointTransaction.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+        await this.prisma.userCoupon.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+        await this.prisma.authProviderRecord.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+        await this.prisma.session.deleteMany({ where: { userId: fromId } }).catch(() => {});
+
+        // 레거시 유저 archive (이메일 무효화 + 비활성화) — 완전 삭제 대신 안전하게 보관
+        try {
+          const legacy = await this.prisma.user.findUnique({ where: { id: fromId }, select: { email: true } });
+          if (legacy?.email) {
+            await this.prisma.user.update({
+              where: { id: fromId },
+              data: {
+                email: `merged-${Date.now()}-${legacy.email}`.slice(0, 200),
+                isActive: false,
+                name: `[merged] ${legacy.email.slice(0, 50)}`,
+              },
+            });
+          }
+        } catch {}
 
         merged.push({ from: fromId, to: toId, movedRooms: roomCount.count, movedMessages: msgCount.count });
       } catch (e: any) {

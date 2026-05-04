@@ -65,6 +65,7 @@ export class AuthService {
    * 새 유저로 분리된 경우, 채팅방/멤버/결제 내역 등이 끊기지 않도록 병합.
    */
   private async mergeLegacyUserData(fromUserId: string, toUserId: string) {
+    if (fromUserId === toUserId) return;
     // ChatRoom.userId 재매핑 (고객 측)
     await this.prisma.chatRoom.updateMany({
       where: { userId: fromUserId },
@@ -99,16 +100,42 @@ export class AuthService {
       where: { senderId: fromUserId },
       data: { senderId: toUserId },
     });
-    // Payment.userId 재매핑 (있으면)
-    await this.prisma.payment.updateMany({
-      where: { userId: fromUserId },
-      data: { userId: toUserId },
-    }).catch(() => {});
-    // Quotation.userId 재매핑 (있으면)
-    await this.prisma.quotation.updateMany({
-      where: { userId: fromUserId },
-      data: { userId: toUserId },
-    }).catch(() => {});
+    // Payment.userId / Quotation.userId / Favorite.userId / Review.reviewerId / Notification.userId
+    // / MatchRequest.userId / PointTransaction.userId / UserCoupon.userId / AuthProviderRecord.userId
+    // / Session.userId 등 가능한 모든 user 참조를 to 로 옮김 (스키마에 없는 모델은 catch 로 무시)
+    await this.prisma.payment.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
+    await this.prisma.quotation.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
+    await this.prisma.favorite.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
+    await this.prisma.review.updateMany({ where: { reviewerId: fromUserId }, data: { reviewerId: toUserId } }).catch(() => {});
+    await this.prisma.notification.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
+    await this.prisma.matchRequest.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
+    await this.prisma.pointTransaction.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
+    await this.prisma.userCoupon.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
+    await this.prisma.authProviderRecord.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
+    // 세션은 삭제 (재발급)
+    await this.prisma.session.deleteMany({ where: { userId: fromUserId } }).catch(() => {});
+
+    // 데이터 이관 완료 → 레거시 유저 레코드 archive (이메일 무효화 + 비활성화)
+    // 완전 삭제 대신 archive: 추후 추적 가능 + 다른 FK 가 남아있을 때 안전
+    try {
+      const legacy = await this.prisma.user.findUnique({
+        where: { id: fromUserId },
+        select: { email: true },
+      });
+      if (legacy) {
+        const archivedEmail = legacy.email
+          ? `merged-${Date.now()}-${legacy.email}`.slice(0, 200)
+          : null;
+        await this.prisma.user.update({
+          where: { id: fromUserId },
+          data: {
+            email: archivedEmail,
+            isActive: false,
+            name: legacy.email ? `[merged] ${legacy.email.slice(0, 50)}` : '[merged]',
+          },
+        });
+      }
+    } catch {}
   }
 
   private kakaoLegacyIdentifiers(providerUserId: string) {
