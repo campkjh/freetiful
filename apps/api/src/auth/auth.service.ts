@@ -111,6 +111,17 @@ export class AuthService {
     }).catch(() => {});
   }
 
+  private kakaoLegacyIdentifiers(providerUserId: string) {
+    const raw = providerUserId.trim();
+    const local = raw.startsWith('kakao_') ? raw : `kakao_${raw}`;
+    return Array.from(new Set([
+      raw,
+      `${raw}@kakao.freetiful.com`,
+      local,
+      `${local}@kakao.freetiful.com`,
+    ])).filter(Boolean);
+  }
+
   private async issueTokens(userId: string, deviceInfo?: LoginDeviceInfo | null) {
     const accessToken = this.jwt.sign(
       { sub: userId },
@@ -229,21 +240,40 @@ export class AuthService {
       // 구 /auth/kakao/mobile 쉼 이후 native 로그인으로 별도 유저가 만들어진 케이스 →
       // 레거시 유저(synthetic email)에 남아있는 채팅방/멤버 레코드를 현재 유저로 이관
       if (provider === AuthProvider.kakao) {
-        const legacyEmail = `kakao_${info.providerUserId}@kakao.freetiful.com`;
-        const legacyUser = await this.prisma.user.findUnique({ where: { email: legacyEmail } });
-        if (legacyUser && legacyUser.id !== user.id) {
+        const identifiers = this.kakaoLegacyIdentifiers(info.providerUserId);
+        const legacyUsers = await this.prisma.user.findMany({
+          where: {
+            id: { not: user.id },
+            OR: [
+              { id: { in: identifiers } },
+              { email: { in: identifiers } },
+              { name: { in: identifiers } },
+            ],
+          },
+          select: { id: true },
+          take: 20,
+        });
+        for (const legacyUser of legacyUsers) {
           await this.mergeLegacyUserData(legacyUser.id, user.id).catch(() => {});
         }
       }
     } else {
       // 구 /auth/kakao/mobile 쉼(shim)이 만든 합성 이메일 유저를 먼저 찾아 실제 이메일로 마이그레이션
       // (kakao_{providerUserId}@kakao.freetiful.com 형식)
-      const legacyEmail =
+      const legacyIdentifiers =
         provider === AuthProvider.kakao
-          ? `kakao_${info.providerUserId}@kakao.freetiful.com`
-          : undefined;
-      const legacyUser = legacyEmail
-        ? await this.prisma.user.findUnique({ where: { email: legacyEmail } })
+          ? this.kakaoLegacyIdentifiers(info.providerUserId)
+          : [];
+      const legacyUser = legacyIdentifiers.length > 0
+        ? await this.prisma.user.findFirst({
+            where: {
+              OR: [
+                { id: { in: legacyIdentifiers } },
+                { email: { in: legacyIdentifiers } },
+                { name: { in: legacyIdentifiers } },
+              ],
+            },
+          })
         : null;
 
       if (legacyUser) {

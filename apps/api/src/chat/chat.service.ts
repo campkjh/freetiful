@@ -62,6 +62,7 @@ export class ChatService {
       where: { id: userId },
       select: {
         id: true,
+        name: true,
         email: true,
         authProviders: {
           select: { provider: true, providerUserId: true, providerEmail: true },
@@ -77,13 +78,24 @@ export class ChatService {
       if (!providerUserId) continue;
       identifiers.add(`kakao_${providerUserId}`);
       identifiers.add(`kakao_${providerUserId}@kakao.freetiful.com`);
+      identifiers.add(`${providerUserId}@kakao.freetiful.com`);
       if (providerUserId.startsWith('kakao_')) {
         identifiers.add(providerUserId);
         identifiers.add(`${providerUserId}@kakao.freetiful.com`);
       }
     }
+    for (const value of [user.id, user.email, user.name]) {
+      const raw = value?.trim();
+      if (!raw) continue;
+      const local = raw.split('@')[0];
+      if (!local.startsWith('kakao_')) continue;
+      identifiers.add(local);
+      identifiers.add(`${local}@kakao.freetiful.com`);
+      identifiers.add(local.replace(/^kakao_/, ''));
+      identifiers.add(`${local.replace(/^kakao_/, '')}@kakao.freetiful.com`);
+    }
 
-    const candidates = Array.from(identifiers).filter((value) => value && value !== user.email);
+    const candidates = Array.from(identifiers).filter((value) => value && value !== user.email && value !== user.id);
     if (candidates.length === 0) return [];
 
     const legacyUsers = await this.prisma.user.findMany({
@@ -92,6 +104,7 @@ export class ChatService {
         OR: [
           { id: { in: candidates } },
           { email: { in: candidates } },
+          { name: { in: candidates } },
         ],
       },
       select: { id: true },
@@ -225,10 +238,10 @@ export class ChatService {
         updateData.lastMessageId = latest.id;
         updateData.lastMessageAt = latest.createdAt;
       }
-      if (room.userId === userId && room.userDeletedAt && latest.createdAt.getTime() > room.userDeletedAt.getTime()) {
+      if (room.userId === userId && room.userDeletedAt) {
         updateData.userDeletedAt = null;
       }
-      if (room.proProfile.userId === userId && room.proDeletedAt && latest.createdAt.getTime() > room.proDeletedAt.getTime()) {
+      if (room.proProfile.userId === userId && room.proDeletedAt) {
         updateData.proDeletedAt = null;
       }
       if (Object.keys(updateData).length > 0) {
