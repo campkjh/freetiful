@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import { chatApi, type ChatRoomItem, type MessageItem } from '../api/chat.api';
 import { useAuthStore } from './auth.store';
 
-const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v1';
+const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
 const ROOM_CACHE_TTL = 5 * 60_000;
 
 type FetchRoomsParams = {
