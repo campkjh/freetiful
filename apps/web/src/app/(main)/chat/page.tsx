@@ -98,7 +98,7 @@ export default function ChatListPage() {
     }
 
     if (apiRooms.length > 0) setRoomsLoading(false);
-    fetchRooms({ limit: 50, withTotal: false, force: true }).catch(() => {}).finally(() => setRoomsLoading(false));
+    fetchRooms({ limit: 50, force: true }).catch(() => {}).finally(() => setRoomsLoading(false));
     const timer = window.setTimeout(() => connect(), 250);
     return () => { window.clearTimeout(timer); };
   }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
@@ -106,7 +106,7 @@ export default function ChatListPage() {
   useEffect(() => {
     if (!authHydrated || !authUser) return;
     const refreshRooms = () => {
-      fetchRooms({ limit: 50, withTotal: false, force: true }).catch(() => {});
+      fetchRooms({ limit: 50, force: true }).catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshRooms();

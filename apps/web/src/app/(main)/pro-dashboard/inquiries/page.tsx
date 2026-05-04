@@ -97,7 +97,7 @@ export default function InquiriesPage() {
   useEffect(() => {
     if (!authUser) { setLoading(false); return; }
     setLoading(true);
-    chatApi.getRooms({ page: 1, limit: 20, withTotal: false })
+    chatApi.getRooms({ page: 1, limit: 20 })
       .then((res) => {
         const rooms = (res.data.data || []) as ChatRoomItem[];
         setInquiries(rooms.map((r) => ({

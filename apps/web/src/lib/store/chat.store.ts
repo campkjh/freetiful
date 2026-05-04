@@ -223,12 +223,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }),
       }));
       if (!hasRoomInList) {
-        get().fetchRooms({ limit: 50, withTotal: false, force: true }).catch(() => {});
+        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
       }
     });
 
     const refreshRooms = () => {
-      get().fetchRooms({ limit: 50, withTotal: false, force: true }).catch(() => {});
+      get().fetchRooms({ limit: 50, force: true }).catch(() => {});
     };
     socket.on('roomUpdated', refreshRooms);
     socket.on('unreadUpdate', refreshRooms);
@@ -314,7 +314,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const hasFilters = !!(apiParams.search || apiParams.dateFrom || apiParams.dateTo);
-    const requestParams = { limit: 30, withTotal: false, ...apiParams };
+    const requestParams = { limit: 30, ...apiParams };
     if (!force && !hasFilters && roomsLoading) return;
     if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < 30_000) {
       set({ roomsLoading: false });
@@ -435,7 +435,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }));
       writeRoomsCache(get().rooms);
       if (!hasRoomInList) {
-        get().fetchRooms({ limit: 50, withTotal: false, force: true }).catch(() => {});
+        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
       }
     };
 
