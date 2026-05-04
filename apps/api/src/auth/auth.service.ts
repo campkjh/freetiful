@@ -251,38 +251,47 @@ export class AuthService {
 
     if (authRecord) {
       user = authRecord.user;
-      // 레거시 합성 이메일이 아직 남아있으면 실제 이메일로 정정
-      const isLegacyEmail =
-        provider === AuthProvider.kakao &&
-        user.email === `kakao_${info.providerUserId}@kakao.freetiful.com`;
-      if (isLegacyEmail && normalizedEmail) {
-        const conflict = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
-        if (!conflict || conflict.id === user.id) {
-          user = await this.prisma.user.update({
-            where: { id: user.id },
-            data: { email: normalizedEmail },
+      // 모든 후처리(이메일 정정 + 레거시 머지) 는 try-catch 로 감싸 로그인 자체가 절대 실패하지 않게.
+      // 데이터 정합성 문제로 머지가 부분 실패해도 로그인은 성공해야 함.
+      try {
+        // 레거시 합성 이메일이 아직 남아있으면 실제 이메일로 정정
+        const isLegacyEmail =
+          provider === AuthProvider.kakao &&
+          user.email === `kakao_${info.providerUserId}@kakao.freetiful.com`;
+        if (isLegacyEmail && normalizedEmail) {
+          const conflict = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+          if (!conflict || conflict.id === user.id) {
+            user = await this.prisma.user.update({
+              where: { id: user.id },
+              data: { email: normalizedEmail },
+            });
+          }
+        }
+        // 구 /auth/kakao/mobile 쉼 이후 native 로그인으로 별도 유저가 만들어진 케이스 →
+        // 레거시 유저(synthetic email)에 남아있는 채팅방/멤버 레코드를 현재 유저로 이관
+        if (provider === AuthProvider.kakao) {
+          const identifiers = this.kakaoLegacyIdentifiers(info.providerUserId);
+          // 이미 archive 된 유저 (`merged-...` prefix 또는 isActive=false) 는 제외해 무한 매칭 방지
+          const legacyUsers = await this.prisma.user.findMany({
+            where: {
+              id: { not: user.id },
+              isActive: true,
+              email: { not: { startsWith: 'merged-' } },
+              OR: [
+                { id: { in: identifiers } },
+                { email: { in: identifiers } },
+                { name: { in: identifiers } },
+              ],
+            },
+            select: { id: true },
+            take: 20,
           });
+          for (const legacyUser of legacyUsers) {
+            await this.mergeLegacyUserData(legacyUser.id, user.id).catch(() => {});
+          }
         }
-      }
-      // 구 /auth/kakao/mobile 쉼 이후 native 로그인으로 별도 유저가 만들어진 케이스 →
-      // 레거시 유저(synthetic email)에 남아있는 채팅방/멤버 레코드를 현재 유저로 이관
-      if (provider === AuthProvider.kakao) {
-        const identifiers = this.kakaoLegacyIdentifiers(info.providerUserId);
-        const legacyUsers = await this.prisma.user.findMany({
-          where: {
-            id: { not: user.id },
-            OR: [
-              { id: { in: identifiers } },
-              { email: { in: identifiers } },
-              { name: { in: identifiers } },
-            ],
-          },
-          select: { id: true },
-          take: 20,
-        });
-        for (const legacyUser of legacyUsers) {
-          await this.mergeLegacyUserData(legacyUser.id, user.id).catch(() => {});
-        }
+      } catch (e) {
+        // 후처리 실패는 로그인 자체를 막지 않음 — 오류는 무시하고 계속
       }
     } else {
       // 구 /auth/kakao/mobile 쉼(shim)이 만든 합성 이메일 유저를 먼저 찾아 실제 이메일로 마이그레이션
