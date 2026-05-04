@@ -167,12 +167,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const token = useAuthStore.getState().accessToken;
     if (!token || get().socket) return;
 
+    // Vercel 의 NEXT_PUBLIC_API_URL/SOCKET_URL 미설정 시 그대로 freetiful.com 으로 붙으면
+    // Vercel rewrites 가 socket.io 를 프록시 안 해서 연결 자체가 실패함.
+    // → 운영 도메인(freetiful.com) 에서는 Railway 직접 URL 폴백.
+    const isProdHost =
+      typeof window !== 'undefined' &&
+      /freetiful\.com$/i.test(window.location.hostname);
     const fallbackUrl =
       typeof window !== 'undefined' && window.location.hostname === 'localhost'
         ? 'http://localhost:4000'
-        : typeof window !== 'undefined'
-          ? window.location.origin
-          : '';
+        : isProdHost
+          ? 'https://affectionate-smile-production-6535.up.railway.app'
+          : typeof window !== 'undefined'
+            ? window.location.origin
+            : '';
     const baseUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
