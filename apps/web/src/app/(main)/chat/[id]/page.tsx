@@ -558,7 +558,7 @@ export default function ChatRoomPage() {
 
   if (showSkeleton) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-[#F2F2F7]" style={{ height: '100dvh' }}>
+      <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]" style={{ height: '100dvh' }}>
         {/* Top shimmer bar */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-50 overflow-hidden bg-gray-100">
           <div className="h-full bg-[#3180F7]/40 animate-[shimmerBar_1.4s_ease-in-out_infinite]" style={{ width: '60%' }} />
@@ -690,7 +690,8 @@ export default function ChatRoomPage() {
       {/* ─── Messages ─── */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-3 pt-[80px] pb-[88px]"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-[80px] pb-[88px]"
+        style={{ overscrollBehaviorX: 'contain' }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="max-w-[680px] mx-auto">
@@ -1003,7 +1004,14 @@ export default function ChatRoomPage() {
                   type="text"
                   value={input}
                   onChange={handleInputChange}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  onKeyDown={(e) => {
+                    // Korean IME: composition 중 Enter 는 마지막 자모 결합 trigger 라 send 하면 글자 중복 발생
+                    // (예: "테스트" + Enter → composition 의 "트" 가 한 번 더 인풋에 남아 다음 send 에 포함됨)
+                    if (e.key !== 'Enter' || e.shiftKey) return;
+                    if (e.nativeEvent.isComposing || (e as any).keyCode === 229) return;
+                    e.preventDefault();
+                    handleSend();
+                  }}
                   placeholder="메시지 (@ 으로 멘션)"
                   className="flex-1 min-w-0 bg-transparent text-[16px] focus:outline-none placeholder:text-gray-400 leading-[1.3]"
                 />

@@ -558,11 +558,15 @@ export default function ProDashboardPage() {
         return next;
       });
       if (goToChat && req?.clientId) {
-        // 해당 유저와의 채팅방을 찾아 이동
-        const room = await (await import('@/lib/api/chat.api')).chatApi.createRoom(req.clientId).catch(() => null);
-        const roomId = (room as any)?.data?.id;
+        // 사회자→고객 측 룸 생성/조회 (createRoom 은 고객 측 API 라 proProfileId 를 요구하므로 잘못 — pro 가 먼저 거는 createRoomAsPro 사용)
+        const { chatApi } = await import('@/lib/api/chat.api');
+        const room = await chatApi.createRoomAsPro(req.clientId).catch((e: any) => {
+          // 매칭 검증이 필요한 케이스(matchRequestId 누락 등)에 대한 폴백: 일반 createRoom 시도
+          return null;
+        });
+        const roomId = (room as any)?.data?.id || (room as any)?.id;
         if (roomId) router.push(`/chat/${roomId}`);
-        else refreshScheduleRequests();
+        else { toast.error('채팅방 연결 실패 — 채팅 탭에서 직접 진입해주세요'); refreshScheduleRequests(); }
       } else {
         refreshScheduleRequests();
       }
