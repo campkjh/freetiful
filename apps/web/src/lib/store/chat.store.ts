@@ -86,6 +86,28 @@ function ensureClientMessageId(data: SendMessagePayload): SendMessagePayload {
   return { ...data, metadata: { ...metadata, clientMessageId } };
 }
 
+function messageTime(message: Pick<MessageItem, 'createdAt'>) {
+  const time = new Date(message.createdAt).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sameClientMessageId(a: MessageItem, b: MessageItem) {
+  const aId = (a.metadata as Record<string, unknown> | null)?.clientMessageId;
+  const bId = (b.metadata as Record<string, unknown> | null)?.clientMessageId;
+  return typeof aId === 'string' && aId.length > 0 && aId === bId;
+}
+
+function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[], requestedAt: number) {
+  const fetchedIds = new Set(fetched.map((message) => message.id));
+  const preserved = current.filter((message) => {
+    if (fetchedIds.has(message.id)) return false;
+    if (fetched.some((item) => sameClientMessageId(message, item))) return false;
+    return messageTime(message) >= requestedAt - 2_000;
+  });
+
+  return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
+}
+
 interface ChatState {
   // Connection
   socket: Socket | null;
@@ -362,12 +384,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messagesLoading: true });
     try {
       const cursor = loadMore ? get().messageCursor : undefined;
+      const requestedAt = Date.now();
       const res = await chatApi.getMessages(roomId, { cursor: cursor ?? undefined, limit: 50 });
       const newMsgs = res.data.data;
-      const nextMessages = loadMore ? [...newMsgs, ...get().messages] : newMsgs;
+      const nextMessages = loadMore
+        ? [...newMsgs, ...get().messages]
+        : mergeFetchedMessageItems(get().messages, newMsgs, requestedAt);
       get().messageCache.set(roomId, nextMessages);
       set((s) => ({
-        messages: loadMore ? [...newMsgs, ...s.messages] : newMsgs,
+        messages: loadMore ? [...newMsgs, ...s.messages] : mergeFetchedMessageItems(s.messages, newMsgs, requestedAt),
         hasMoreMessages: res.data.hasMore,
         messageCursor: res.data.cursor,
       }));
@@ -388,6 +413,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!cachedForRoom.some((m) => m.id === message.id)) {
         messageCache.set(message.roomId, [...cachedForRoom, message].slice(-80));
       }
+      const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       set((s) => ({
         messages: s.currentRoomId === message.roomId && !s.messages.some((m) => m.id === message.id)
           ? [...s.messages, message]
@@ -408,6 +434,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }),
       }));
       writeRoomsCache(get().rooms);
+      if (!hasRoomInList) {
+        get().fetchRooms({ limit: 50, withTotal: false, force: true }).catch(() => {});
+      }
     };
 
     const sendViaRest = async () => {

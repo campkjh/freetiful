@@ -51,9 +51,199 @@ export class ChatService {
   /** 특정 유저의 룸 목록 캐시 무효화 (새 룸 생성/메시지 전송 시 호출) */
   private invalidateRoomsCache(userId: string) {
     for (const key of this.roomCache.keys()) {
-      if (key.startsWith(`rooms:${userId}:`)) {
+      if (key.startsWith(`rooms:${userId}:`) || key.includes(`"userId":"${userId}"`)) {
         this.roomCache.delete(key);
       }
+    }
+  }
+
+  private async findLegacyChatUserIds(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        authProviders: {
+          select: { provider: true, providerUserId: true, providerEmail: true },
+        },
+      },
+    });
+    if (!user) return [];
+
+    const identifiers = new Set<string>();
+    for (const provider of user.authProviders) {
+      if (provider.provider !== 'kakao') continue;
+      const providerUserId = provider.providerUserId?.trim();
+      if (!providerUserId) continue;
+      identifiers.add(`kakao_${providerUserId}`);
+      identifiers.add(`kakao_${providerUserId}@kakao.freetiful.com`);
+      if (providerUserId.startsWith('kakao_')) {
+        identifiers.add(providerUserId);
+        identifiers.add(`${providerUserId}@kakao.freetiful.com`);
+      }
+    }
+
+    const candidates = Array.from(identifiers).filter((value) => value && value !== user.email);
+    if (candidates.length === 0) return [];
+
+    const legacyUsers = await this.prisma.user.findMany({
+      where: {
+        id: { not: userId },
+        OR: [
+          { id: { in: candidates } },
+          { email: { in: candidates } },
+        ],
+      },
+      select: { id: true },
+      take: 20,
+    });
+    return legacyUsers.map((legacyUser) => legacyUser.id);
+  }
+
+  private async mergeLegacyChatData(fromUserId: string, toUserId: string) {
+    if (fromUserId === toUserId) return false;
+
+    let changed = false;
+    const rooms = await this.prisma.chatRoom.findMany({
+      where: {
+        OR: [
+          { userId: fromUserId },
+          { members: { some: { userId: fromUserId } } },
+          { messages: { some: { senderId: fromUserId } } },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        proProfile: { select: { userId: true } },
+      },
+      take: 500,
+    });
+    if (rooms.length === 0) return false;
+
+    const roomIds = rooms.map((room) => room.id);
+    const existingToMembers = await this.prisma.chatRoomMember.findMany({
+      where: { userId: toUserId, roomId: { in: roomIds } },
+      select: { roomId: true },
+    });
+    const alreadyIn = new Set(existingToMembers.map((member) => member.roomId));
+
+    await this.prisma.$transaction(async (tx) => {
+      if (alreadyIn.size > 0) {
+        const deleted = await tx.chatRoomMember.deleteMany({
+          where: { userId: fromUserId, roomId: { in: Array.from(alreadyIn) } },
+        });
+        changed ||= deleted.count > 0;
+      }
+
+      const memberUpdate = await tx.chatRoomMember.updateMany({
+        where: { userId: fromUserId, roomId: { in: roomIds } },
+        data: { userId: toUserId },
+      });
+      changed ||= memberUpdate.count > 0;
+
+      const roomUpdate = await tx.chatRoom.updateMany({
+        where: { userId: fromUserId },
+        data: { userId: toUserId, userDeletedAt: null },
+      });
+      changed ||= roomUpdate.count > 0;
+
+      const messageUpdate = await tx.message.updateMany({
+        where: { senderId: fromUserId, roomId: { in: roomIds } },
+        data: { senderId: toUserId },
+      });
+      changed ||= messageUpdate.count > 0;
+
+      await tx.chatRoomMember.createMany({
+        data: rooms.flatMap((room) => {
+          const memberIds = Array.from(new Set([toUserId, room.proProfile.userId].filter(Boolean)));
+          return memberIds.map((memberId) => ({ roomId: room.id, userId: memberId }));
+        }),
+        skipDuplicates: true,
+      });
+    });
+
+    for (const room of rooms) {
+      this.invalidateRoomsCache(room.userId);
+      this.invalidateRoomsCache(room.proProfile.userId);
+    }
+    this.invalidateRoomsCache(fromUserId);
+    this.invalidateRoomsCache(toUserId);
+    return changed;
+  }
+
+  private async repairRoomsForUser(userId: string) {
+    const legacyUserIds = await this.findLegacyChatUserIds(userId);
+    for (const legacyUserId of legacyUserIds) {
+      await this.mergeLegacyChatData(legacyUserId, userId).catch(() => false);
+    }
+
+    const rooms = await this.prisma.chatRoom.findMany({
+      where: {
+        OR: [
+          { userId },
+          { proProfile: { userId } },
+          { members: { some: { userId } } },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        proProfileId: true,
+        lastMessageId: true,
+        lastMessageAt: true,
+        userDeletedAt: true,
+        proDeletedAt: true,
+        proProfile: { select: { userId: true } },
+        members: { select: { userId: true } },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { id: true, createdAt: true },
+        },
+      },
+      take: 500,
+    });
+
+    const writes: Promise<unknown>[] = [];
+    for (const room of rooms) {
+      const expectedMembers = Array.from(new Set([room.userId, room.proProfile.userId].filter(Boolean)));
+      const existingMembers = new Set(room.members.map((member) => member.userId));
+      const missingMembers = expectedMembers.filter((memberId) => !existingMembers.has(memberId));
+      if (missingMembers.length > 0) {
+        writes.push(this.prisma.chatRoomMember.createMany({
+          data: missingMembers.map((memberId) => ({ roomId: room.id, userId: memberId })),
+          skipDuplicates: true,
+        }));
+      }
+
+      const latest = room.messages[0];
+      if (!latest) continue;
+
+      const updateData: any = {};
+      if (!room.lastMessageAt || latest.createdAt.getTime() > room.lastMessageAt.getTime()) {
+        updateData.lastMessageId = latest.id;
+        updateData.lastMessageAt = latest.createdAt;
+      }
+      if (room.userId === userId && room.userDeletedAt && latest.createdAt.getTime() > room.userDeletedAt.getTime()) {
+        updateData.userDeletedAt = null;
+      }
+      if (room.proProfile.userId === userId && room.proDeletedAt && latest.createdAt.getTime() > room.proDeletedAt.getTime()) {
+        updateData.proDeletedAt = null;
+      }
+      if (Object.keys(updateData).length > 0) {
+        writes.push(this.prisma.chatRoom.update({
+          where: { id: room.id },
+          data: updateData,
+        }));
+      }
+    }
+
+    if (writes.length === 0) return;
+    await Promise.all(writes);
+    for (const room of rooms) {
+      this.invalidateRoomsCache(room.userId);
+      this.invalidateRoomsCache(room.proProfile.userId);
     }
   }
 
@@ -404,23 +594,26 @@ export class ChatService {
     const take = Math.min(Number(limit) || 20, 50);
     const withTotal = query.withTotal !== false;
 
+    await this.repairRoomsForUser(userId);
     await this.reviveRoomsWithNewerMessagesForUser(userId);
 
-    const cacheKey = JSON.stringify({
-      scope: 'rooms',
-      userId,
+    const cacheKey = `rooms:${userId}:${JSON.stringify({
       page,
       limit: take,
       search: search || '',
       dateFrom: dateFrom || '',
       dateTo: dateTo || '',
       withTotal,
-    });
+    })}`;
     const cached = this.getRoomCached(cacheKey);
     if (cached) return cached;
 
     const where: any = {
-      members: { some: { userId } },
+      OR: [
+        { members: { some: { userId } } },
+        { userId },
+        { proProfile: { userId } },
+      ],
       NOT: [
         { userId, userDeletedAt: { not: null } },
         { proProfile: { userId }, proDeletedAt: { not: null } },

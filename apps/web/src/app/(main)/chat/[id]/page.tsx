@@ -62,6 +62,34 @@ function shouldShowDateDivider(messages: Message[], index: number) {
   return curr.getTime() - prev.getTime() > 30 * 60 * 1000;
 }
 
+function messageTime(message: Pick<Message, 'createdAt'>) {
+  const time = new Date(message.createdAt).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function hasFetchedEquivalent(message: Message, fetched: Message[]) {
+  if (!message.id.startsWith('opt-')) return false;
+  const sentAt = messageTime(message);
+  return fetched.some((item) => (
+    item.senderId === message.senderId &&
+    item.content === message.content &&
+    messageTime(item) >= sentAt - 2_000 &&
+    Math.abs(messageTime(item) - sentAt) < 60_000
+  ));
+}
+
+function mergeFetchedMessages(current: Message[], fetched: Message[], requestedAt: number) {
+  const fetchedIds = new Set(fetched.map((message) => message.id));
+  const preserved = current.filter((message) => {
+    if (fetchedIds.has(message.id)) return false;
+    if (hasFetchedEquivalent(message, fetched)) return false;
+    if (message.id.startsWith('opt-')) return true;
+    return messageTime(message) >= requestedAt - 2_000;
+  });
+
+  return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
+}
+
 // Simple inline text with @mention highlighting
 function renderTextWithMentions(text: string) {
   const parts = text.split(/(@[\w가-힣]+)/g);
@@ -238,11 +266,13 @@ export default function ChatRoomPage() {
       // pre-warm된 메시지를 이미 initial state로 넣어뒀다면 background refresh만
       if (initialMessages.length > 0) {
         setMessagesLoading(false);
+        const requestedAt = Date.now();
         chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
+            const mapped = apiMessages.map(mapApiMessage);
             useChatStore.getState().messageCache.set(roomId, apiMessages);
-            setMessages(apiMessages.map(mapApiMessage));
+            setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
         return;
@@ -251,22 +281,26 @@ export default function ChatRoomPage() {
       if (prewarmed?.messages?.length) {
         setMessages(prewarmed.messages.map(mapApiMessage));
         setMessagesLoading(false);
+        const requestedAt = Date.now();
         chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
+            const mapped = apiMessages.map(mapApiMessage);
             useChatStore.getState().messageCache.set(roomId, apiMessages);
-            setMessages(apiMessages.map(mapApiMessage));
+            setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
         return;
       }
       if (prewarmed?.messagesPromise) {
         setMessagesLoading(messages.length === 0);
+        const requestedAt = Date.now();
         const warmMessages = await prewarmed.messagesPromise;
         if (cancelled) return;
         if (warmMessages?.length) {
           useChatStore.getState().messageCache.set(roomId, warmMessages);
-          setMessages(warmMessages.map(mapApiMessage));
+          const mapped = warmMessages.map(mapApiMessage);
+          setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           setMessagesLoading(false);
           return;
         }
@@ -275,18 +309,26 @@ export default function ChatRoomPage() {
       if (cachedMsgs && cachedMsgs.length > 0) {
         setMessages(cachedMsgs.map(mapCachedMessage));
         setMessagesLoading(false);
+        const requestedAt = Date.now();
         chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
-          if (!cancelled) setMessages((res.data.data || []).map(mapApiMessage));
+          if (!cancelled) {
+            const apiMessages = res.data.data || [];
+            const mapped = apiMessages.map(mapApiMessage);
+            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
+          }
         }).catch(() => {});
         return;
       }
       setMessagesLoading(true);
       try {
+        const requestedAt = Date.now();
         const res = await chatApi.getMessages(roomId, { limit: 50 });
         if (cancelled) return;
         const apiMessages = res.data.data || [];
+        const mapped = apiMessages.map(mapApiMessage);
         useChatStore.getState().messageCache.set(roomId, apiMessages);
-        setMessages(apiMessages.map(mapApiMessage));
+        setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
       } catch (err) {
         console.error('Failed to load messages', err);
       } finally {
