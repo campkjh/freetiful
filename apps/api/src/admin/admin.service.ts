@@ -1803,6 +1803,124 @@ export class AdminService {
     };
   }
 
+  /** 합성 이메일 유저(kakao_{id}@kakao.freetiful.com) 목록 + 매칭되는 native 계정 */
+  async listLegacyKakaoPairs() {
+    const legacyUsers = await this.prisma.user.findMany({
+      where: { email: { startsWith: 'kakao_', endsWith: '@kakao.freetiful.com' } },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        _count: { select: { sentMessages: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const pairs: Array<{
+      legacy: { id: string; email: string; name: string | null; createdAt: Date; messageCount: number };
+      native: { id: string; email: string | null; name: string | null } | null;
+      providerUserId: string;
+    }> = [];
+
+    for (const legacy of legacyUsers) {
+      const match = legacy.email?.match(/^kakao_(.+)@kakao\.freetiful\.com$/);
+      const providerUserId = match?.[1] || '';
+      let native: { id: string; email: string | null; name: string | null } | null = null;
+      if (providerUserId) {
+        const record = await this.prisma.authProviderRecord.findFirst({
+          where: { provider: 'kakao' as any, providerUserId },
+          select: { user: { select: { id: true, email: true, name: true } } },
+        });
+        if (record?.user && record.user.id !== legacy.id) {
+          native = record.user;
+        }
+      }
+      pairs.push({
+        legacy: {
+          id: legacy.id,
+          email: legacy.email!,
+          name: legacy.name,
+          createdAt: legacy.createdAt,
+          messageCount: legacy._count.sentMessages,
+        },
+        native,
+        providerUserId,
+      });
+    }
+
+    return {
+      totalLegacy: pairs.length,
+      withNativeMatch: pairs.filter((p) => p.native).length,
+      orphan: pairs.filter((p) => !p.native).length,
+      pairs,
+    };
+  }
+
+  /** 합성 이메일 유저들을 매칭되는 native 계정으로 일괄 합병 */
+  async mergeAllLegacyKakaoPairs() {
+    const list = await this.listLegacyKakaoPairs();
+    const merged: Array<{ from: string; to: string; movedRooms: number; movedMessages: number }> = [];
+    const skipped: Array<{ legacyId: string; reason: string }> = [];
+
+    for (const pair of list.pairs) {
+      if (!pair.native) {
+        skipped.push({ legacyId: pair.legacy.id, reason: 'no native account' });
+        continue;
+      }
+      const fromId = pair.legacy.id;
+      const toId = pair.native.id;
+      try {
+        // ChatRoom.userId 재매핑
+        const roomCount = await this.prisma.chatRoom.updateMany({
+          where: { userId: fromId },
+          data: { userId: toId },
+        });
+        // ChatRoomMember 재매핑
+        const dupMembers = await this.prisma.chatRoomMember.findMany({
+          where: { userId: fromId },
+          select: { roomId: true },
+        });
+        if (dupMembers.length > 0) {
+          const roomIds = dupMembers.map((m) => m.roomId);
+          const existingTo = await this.prisma.chatRoomMember.findMany({
+            where: { userId: toId, roomId: { in: roomIds } },
+            select: { roomId: true },
+          });
+          const alreadyIn = new Set(existingTo.map((m) => m.roomId));
+          if (alreadyIn.size > 0) {
+            await this.prisma.chatRoomMember.deleteMany({
+              where: { userId: fromId, roomId: { in: Array.from(alreadyIn) } },
+            });
+          }
+          await this.prisma.chatRoomMember.updateMany({
+            where: { userId: fromId },
+            data: { userId: toId },
+          });
+        }
+        // ChatMessage.senderId 재매핑
+        const msgCount = await this.prisma.message.updateMany({
+          where: { senderId: fromId },
+          data: { senderId: toId },
+        });
+        // Payment / Quotation
+        await this.prisma.payment.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+        await this.prisma.quotation.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
+
+        merged.push({ from: fromId, to: toId, movedRooms: roomCount.count, movedMessages: msgCount.count });
+      } catch (e: any) {
+        skipped.push({ legacyId: fromId, reason: e?.message || 'error' });
+      }
+    }
+
+    return {
+      mergedCount: merged.length,
+      skippedCount: skipped.length,
+      merged,
+      skipped,
+    };
+  }
+
   // 지정 유저를 소프트 삭제 (email → archived-{ts}-{email}, role→archived)
   // 연관 데이터 (ChatRoom, Payment, Message 등)는 유지 → 참조 무결성 보장
   async archiveUser(userId: string) {

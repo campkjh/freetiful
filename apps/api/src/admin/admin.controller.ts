@@ -255,6 +255,18 @@ export class AdminController {
     return this.adminService.cleanupEmptyProProfiles();
   }
 
+  /** 구 /auth/kakao/mobile 쉼이 만든 합성 이메일 유저(kakao_{id}@kakao.freetiful.com) 목록 + 매칭되는 native 계정 정보 */
+  @Get('legacy-kakao-pairs')
+  async listLegacyKakaoPairs() {
+    return this.adminService.listLegacyKakaoPairs();
+  }
+
+  /** 모든 레거시 카카오 합성 계정 → 매칭되는 native 계정으로 일괄 합병 (채팅/결제/견적 이관) */
+  @Post('legacy-kakao-pairs/merge-all')
+  async mergeAllLegacyKakaoPairs() {
+    return this.adminService.mergeAllLegacyKakaoPairs();
+  }
+
   @Get('bookings')
   async getBookings(
     @Query('page') page?: string,
