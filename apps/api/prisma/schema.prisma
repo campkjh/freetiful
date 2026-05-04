@@ -140,6 +140,8 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
+  // 다른 유저로 머지된 경우 — 본 계정 id. 토큰 검증 시 자동으로 follow.
+  mergedToUserId  String?
 
   referredBy      User?     @relation("Referrals", fields: [referredByUserId], references: [id])
   referrals       User[]    @relation("Referrals")

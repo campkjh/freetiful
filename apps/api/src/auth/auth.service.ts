@@ -115,8 +115,8 @@ export class AuthService {
     // 세션은 삭제 (재발급)
     await this.prisma.session.deleteMany({ where: { userId: fromUserId } }).catch(() => {});
 
-    // 데이터 이관 완료 → 레거시 유저 레코드 archive (이메일 무효화 + 비활성화)
-    // 완전 삭제 대신 archive: 추후 추적 가능 + 다른 FK 가 남아있을 때 안전
+    // 데이터 이관 완료 → 레거시 유저 레코드 archive (이메일 무효화 + 비활성화 + mergedToUserId 설정)
+    // mergedToUserId 가 있으면 해당 유저의 토큰으로 API 호출 시 본 계정으로 자동 redirect
     try {
       const legacy = await this.prisma.user.findUnique({
         where: { id: fromUserId },
@@ -131,6 +131,7 @@ export class AuthService {
           data: {
             email: archivedEmail,
             isActive: false,
+            mergedToUserId: toUserId,
             name: legacy.email ? `[merged] ${legacy.email.slice(0, 50)}` : '[merged]',
           },
         });
@@ -495,6 +496,21 @@ export class AuthService {
   }
 
   async validateUser(userId: string) {
-    return this.prisma.user.findUnique({ where: { id: userId, isActive: true, isBanned: false } });
+    // 1차: 정상 활성 유저
+    const direct = await this.prisma.user.findUnique({
+      where: { id: userId, isActive: true, isBanned: false },
+    });
+    if (direct) return direct;
+    // 2차: 머지된(별칭) 유저 — mergedToUserId 따라 본 계정으로 redirect
+    const archived = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { mergedToUserId: true },
+    }).catch(() => null);
+    if (archived?.mergedToUserId) {
+      return this.prisma.user.findUnique({
+        where: { id: archived.mergedToUserId, isActive: true, isBanned: false },
+      });
+    }
+    return null;
   }
 }
