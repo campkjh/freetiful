@@ -113,6 +113,11 @@ export class ChatService {
     return legacyUsers.map((legacyUser) => legacyUser.id);
   }
 
+  private async getChatParticipantUserIds(userId: string) {
+    const legacyUserIds = await this.findLegacyChatUserIds(userId);
+    return Array.from(new Set([userId, ...legacyUserIds].filter(Boolean)));
+  }
+
   private async mergeLegacyChatData(fromUserId: string, toUserId: string) {
     if (fromUserId === toUserId) return false;
 
@@ -186,17 +191,18 @@ export class ChatService {
   }
 
   private async repairRoomsForUser(userId: string) {
-    const legacyUserIds = await this.findLegacyChatUserIds(userId);
-    for (const legacyUserId of legacyUserIds) {
+    const participantUserIds = await this.getChatParticipantUserIds(userId);
+    for (const legacyUserId of participantUserIds.filter((id) => id !== userId)) {
       await this.mergeLegacyChatData(legacyUserId, userId).catch(() => false);
     }
 
     const rooms = await this.prisma.chatRoom.findMany({
       where: {
         OR: [
-          { userId },
-          { proProfile: { userId } },
-          { members: { some: { userId } } },
+          { userId: { in: participantUserIds } },
+          { proProfile: { userId: { in: participantUserIds } } },
+          { members: { some: { userId: { in: participantUserIds } } } },
+          { messages: { some: { senderId: { in: participantUserIds } } } },
         ],
       },
       select: {
@@ -212,15 +218,33 @@ export class ChatService {
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          select: { id: true, createdAt: true },
+          select: { id: true, senderId: true, createdAt: true },
         },
       },
       take: 500,
     });
 
+    const roomsWithParticipantMessages = rooms.length > 0
+      ? new Set((await this.prisma.message.findMany({
+          where: {
+            roomId: { in: rooms.map((room) => room.id) },
+            senderId: { in: participantUserIds },
+          },
+          select: { roomId: true },
+          distinct: ['roomId'],
+        })).map((message) => message.roomId))
+      : new Set<string>();
+
     const writes: Promise<unknown>[] = [];
     for (const room of rooms) {
-      const expectedMembers = Array.from(new Set([room.userId, room.proProfile.userId].filter(Boolean)));
+      const hasParticipantMessage = roomsWithParticipantMessages.has(room.id);
+      const userSideBelongsToCurrent = participantUserIds.includes(room.userId);
+      const proSideBelongsToCurrent = participantUserIds.includes(room.proProfile.userId);
+      const shouldMoveCustomerSideToCurrent =
+        userSideBelongsToCurrent || (hasParticipantMessage && !proSideBelongsToCurrent);
+      const effectiveCustomerUserId = shouldMoveCustomerSideToCurrent ? userId : room.userId;
+      const effectiveProUserId = proSideBelongsToCurrent ? userId : room.proProfile.userId;
+      const expectedMembers = Array.from(new Set([effectiveCustomerUserId, effectiveProUserId].filter(Boolean)));
       const existingMembers = new Set(room.members.map((member) => member.userId));
       const missingMembers = expectedMembers.filter((memberId) => !existingMembers.has(memberId));
       if (missingMembers.length > 0) {
@@ -234,14 +258,17 @@ export class ChatService {
       if (!latest) continue;
 
       const updateData: any = {};
+      if (shouldMoveCustomerSideToCurrent && room.userId !== userId) {
+        updateData.userId = userId;
+      }
       if (!room.lastMessageAt || latest.createdAt.getTime() > room.lastMessageAt.getTime()) {
         updateData.lastMessageId = latest.id;
         updateData.lastMessageAt = latest.createdAt;
       }
-      if (room.userId === userId && room.userDeletedAt) {
+      if (shouldMoveCustomerSideToCurrent && room.userDeletedAt) {
         updateData.userDeletedAt = null;
       }
-      if (room.proProfile.userId === userId && room.proDeletedAt) {
+      if (proSideBelongsToCurrent && room.proDeletedAt) {
         updateData.proDeletedAt = null;
       }
       if (Object.keys(updateData).length > 0) {
@@ -609,6 +636,7 @@ export class ChatService {
 
     await this.repairRoomsForUser(userId);
     await this.reviveRoomsWithNewerMessagesForUser(userId);
+    const participantUserIds = await this.getChatParticipantUserIds(userId);
 
     const cacheKey = `rooms:${userId}:${JSON.stringify({
       page,
@@ -623,13 +651,10 @@ export class ChatService {
 
     const where: any = {
       OR: [
-        { members: { some: { userId } } },
-        { userId },
-        { proProfile: { userId } },
-      ],
-      NOT: [
-        { userId, userDeletedAt: { not: null } },
-        { proProfile: { userId }, proDeletedAt: { not: null } },
+        { members: { some: { userId: { in: participantUserIds } } } },
+        { userId: { in: participantUserIds } },
+        { proProfile: { userId: { in: participantUserIds } } },
+        { messages: { some: { senderId: { in: participantUserIds } } } },
       ],
     };
 
@@ -669,7 +694,7 @@ export class ChatService {
             },
           },
           user: { select: { id: true, name: true, profileImageUrl: true } },
-          members: { where: { userId }, select: { isFavorited: true, unreadCount: true } },
+          members: { where: { userId: { in: participantUserIds } }, select: { userId: true, isFavorited: true, unreadCount: true } },
           messages: {
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -689,9 +714,9 @@ export class ChatService {
     ]);
 
     const data = rooms.map((room) => {
-      const member = room.members[0];
+      const member = room.members.find((m) => m.userId === userId) ?? room.members[0];
       const lastMsg = room.messages[0];
-      const isProUser = room.proProfile.userId === userId;
+      const isProUser = participantUserIds.includes(room.proProfile.userId);
       const proCategory = room.proProfile.categories?.[0]?.category?.name;
       const latestQuotationStatus = room.quotations[0]?.status ?? null;
       const lastContent = lastMsg?.content ?? '';
