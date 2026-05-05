@@ -331,16 +331,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
 
+    // 빈 응답이 와도 기존 캐시/상태를 절대 비우지 않는다.
+    // 백엔드 캐시(60s)가 일시적으로 빈 결과를 반환하거나, 토큰 갱신 중 인증 실패가
+    // 일어나면 [] 가 와서 사용자가 채팅 리스트가 통째로 사라지는 현상을 보던 문제.
+    // 빈 응답이라면 기존 데이터 유지하고 다음 fetch 때 재시도.
+    const applyServerRooms = (nextRooms: ChatRoomItem[]) => {
+      const current = get().rooms;
+      if (nextRooms.length === 0 && current.length > 0) {
+        // 빈 응답인데 우리 손엔 데이터가 있다 — 무시. 기존 캐시도 유지.
+        return;
+      }
+      set({ rooms: nextRooms, roomsUserId: userId, lastRoomsFetchAt: Date.now() });
+      if (!hasFilters && nextRooms.length > 0) writeRoomsCache(nextRooms, userId);
+    };
+
     if (!force && !hasFilters && rooms.length === 0) {
       const cached = readRoomsCache(userId);
       if (cached) {
         set({ rooms: cached.rooms, roomsUserId: userId, lastRoomsFetchAt: cached.ts, roomsLoading: false });
         chatApi.getRooms(requestParams)
-          .then((res) => {
-            const nextRooms = res.data.data;
-            set({ rooms: nextRooms, roomsUserId: userId, lastRoomsFetchAt: Date.now() });
-            writeRoomsCache(nextRooms, userId);
-          })
+          .then((res) => applyServerRooms(res.data.data))
           .catch(() => {});
         return;
       }
@@ -349,19 +359,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (rooms.length > 0) {
       set({ roomsLoading: false });
       chatApi.getRooms(requestParams)
-        .then((res) => {
-          const nextRooms = res.data.data;
-          set({ rooms: nextRooms, roomsUserId: userId, lastRoomsFetchAt: Date.now() });
-          if (!hasFilters) writeRoomsCache(nextRooms, userId);
-        })
+        .then((res) => applyServerRooms(res.data.data))
         .catch(() => {});
       return;
     }
     set({ roomsLoading: true });
     try {
       const res = await chatApi.getRooms(requestParams);
-      set({ rooms: res.data.data, roomsUserId: userId, lastRoomsFetchAt: Date.now() });
-      if (!hasFilters) writeRoomsCache(res.data.data, userId);
+      applyServerRooms(res.data.data);
     } finally {
       set({ roomsLoading: false });
     }

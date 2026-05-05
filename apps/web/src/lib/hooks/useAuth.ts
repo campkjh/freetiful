@@ -79,17 +79,10 @@ export function useAuth() {
 
     naverLogin: (code: string, state: string, redirectUri?: string) =>
       withLogin(async () => {
-        if (redirectUri) {
-          let exchanged = false;
-          try {
-            const token = await authApi.exchangeNaverCode(code, state);
-            exchanged = true;
-            return await authApi.naverNativeLogin(token.accessToken);
-          } catch (e) {
-            if (exchanged) throw e;
-            console.warn('[auth] naver token exchange fallback failed; using API code login', e);
-          }
-        }
+        // 백엔드 code login 만 사용. 이전엔 Next.js 의 /api/oauth/naver/token 으로
+        // 먼저 token 교환을 시도했는데, 잘못된 client_id 가 하드코딩돼 있어 실패하면서
+        // naver 가 code 를 소비해버려 두 번째 시도(backend) 도 실패하던 케이스가 있었다.
+        // 한 번에 backend 로 보내는 게 가장 안정적.
         try {
           return await authApi.naverLogin(code, state, redirectUri);
         } catch (e) {

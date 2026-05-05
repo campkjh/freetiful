@@ -237,13 +237,35 @@ export default function ChatRoomPage() {
   } : null;
   const initialMessages: Message[] = initialPreWarmed?.messages ? initialPreWarmed.messages.map(mapApiMessage) : [];
 
+  // 헤더 아래 스케줄 배너가 즉시 뜨도록, prewarm 또는 store rooms 에 들어있는
+  // matchRequest / latestQuotation 을 초기값으로 사용. (이전엔 chatApi.getRoom 응답을
+  // 기다려야 해서 채팅방 진입 후 한참 뒤에야 배너가 떴음)
+  const initialRoomMeta = (() => {
+    if (typeof window === 'undefined') return null;
+    const fromPrewarm: any = initialPreWarmed?.room;
+    if (fromPrewarm?.latestQuotation || fromPrewarm?.matchRequest) {
+      return {
+        matchRequest: fromPrewarm.matchRequest ?? null,
+        latestQuotation: fromPrewarm.latestQuotation ?? null,
+      };
+    }
+    const fromStore: any = useChatStore.getState().rooms.find((r) => r.id === roomId);
+    if (fromStore?.latestQuotation || fromStore?.matchRequest) {
+      return {
+        matchRequest: fromStore.matchRequest ?? null,
+        latestQuotation: fromStore.latestQuotation ?? null,
+      };
+    }
+    return null;
+  })();
+
   // ─── Core state (needed for instant render) ───
   const [chatPartner, setChatPartner] = useState<ChatPartner | null>(initialPartner);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
   const [input, setInput] = useState('');
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
-  const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(null);
+  const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(initialRoomMeta);
   const isPro = iAmProInRoom === true;
   const partnerRoleKnown = iAmProInRoom !== null;
   const partnerIsPro = iAmProInRoom === false;

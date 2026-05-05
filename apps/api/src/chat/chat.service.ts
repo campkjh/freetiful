@@ -43,6 +43,10 @@ export class ChatService {
   }
 
   private setRoomCached(key: string, data: any) {
+    // 빈 결과는 캐시하지 않는다 — 일시적 빈 응답이 60초 동안 굳혀져
+    // 채팅 리스트가 통째로 안 보이는 현상을 막기 위함.
+    const dataArr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : null;
+    if (dataArr && dataArr.length === 0) return;
     this.roomCache.set(key, { data, ts: Date.now() });
     if (this.roomCache.size > 100) {
       const oldest = this.roomCache.keys().next().value;
@@ -741,8 +745,10 @@ export class ChatService {
           quotations: {
             orderBy: { createdAt: 'desc' },
             take: 1,
-            select: { status: true },
+            select: { id: true, amount: true, title: true, status: true, eventDate: true, eventTime: true, eventLocation: true, createdAt: true },
           },
+          // 채팅 헤더 아래 스케줄 배너가 즉시 렌더되도록 핵심 필드만 미리 포함.
+          matchRequest: { select: { id: true, eventDate: true, eventTime: true, eventLocation: true } },
         },
         orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
         skip: (page - 1) * take,
@@ -792,6 +798,9 @@ export class ChatService {
         latestQuotationStatus,
         hasQuoteInquiry,
         hasConfirmedBooking,
+        // 채팅 디테일 페이지의 스케줄 배너가 prewarm 만으로 즉시 렌더되게 하기 위함.
+        matchRequest: (room as any).matchRequest ?? null,
+        latestQuotation: room.quotations[0] ?? null,
       };
     });
 
