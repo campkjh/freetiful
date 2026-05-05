@@ -112,32 +112,53 @@ function SystemMessageFallback({ msg }: { msg: Message }) {
   );
 }
 
-// 채팅 헤더 바로 아래에 sticky 로 고정되는 스케줄 공지 — 견적 결제가 완료되면 노출.
-// 톤앤매너: 흰 배경 + 블루 액센트 (앱 메인 컬러 #3180F7) + 부드러운 그림자.
+// eventTime 은 DB 에서 `1970-01-01T${HH:MM}` 형태 Date 로 저장돼 ISO 문자열로 직렬화되므로
+// 그대로 표시하면 "1970-01-01T..." 가 노출된다. 항상 HH:MM 만 추출해서 보여준다.
+function formatEventTimeShort(t: string | Date | null | undefined): string {
+  if (!t) return '';
+  if (typeof t === 'string' && /^\d{1,2}:\d{2}/.test(t)) {
+    const [hh, mm] = t.split(':');
+    return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+  }
+  try {
+    const d = typeof t === 'string' ? new Date(t) : t;
+    if (Number.isNaN(d.getTime())) return '';
+    const h = d.getHours().toString().padStart(2, '0');
+    const m = d.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
+  } catch {
+    return '';
+  }
+}
+
+// 채팅 헤더 바로 아래 fixed 위치에 도킹되는 스케줄 공지 — 결제 완료 시 노출.
+// 톤앤매너: 흰 배경 + 블루(#3180F7) 액센트, 백드롭 블러로 헤더와 같은 결.
 function ScheduleBanner({
   roomMeta,
   isPro,
   chatPartner,
+  collapsed,
+  onToggle,
 }: {
   roomMeta: Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null;
   isPro: boolean;
   chatPartner: ChatPartner | null;
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
-  const [collapsed, setCollapsed] = useState(true);
   const q = roomMeta?.latestQuotation;
   if (!q || q.status !== 'paid') return null;
 
   const dateStr = q.eventDate
     ? new Date(q.eventDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
     : '일정 미정';
-  const timeStr = q.eventTime ? ` · ${q.eventTime}` : '';
+  const timeShort = formatEventTimeShort(q.eventTime);
+  const timeSuffix = timeShort ? ` · ${timeShort}` : '';
 
   return (
     <div
-      className="sticky rounded-2xl overflow-hidden mb-3"
+      className="rounded-2xl overflow-hidden"
       style={{
-        top: 80,
-        zIndex: 25,
         background: 'rgba(255,255,255,0.96)',
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
@@ -147,7 +168,7 @@ function ScheduleBanner({
     >
       <button
         type="button"
-        onClick={() => setCollapsed((v) => !v)}
+        onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-2.5 active:bg-[#3180F7]/[0.04] transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -157,7 +178,7 @@ function ScheduleBanner({
             <path d="M8 3v4M16 3v4" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
           <p className="text-[12.5px] font-bold text-gray-900 truncate">
-            확정된 일정 · {dateStr}{timeStr}
+            확정된 일정 · {dateStr}{timeSuffix}
           </p>
         </div>
         <svg
@@ -247,6 +268,7 @@ export default function ChatRoomPage() {
   const [pinnedMessage, setPinnedMessage] = useState<{ id: string; name: string; content: string } | null>(null);
   const [partialCopyMsg, setPartialCopyMsg] = useState<Message | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [scheduleBannerCollapsed, setScheduleBannerCollapsed] = useState(true);
 
   // ─── Refs ───
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -761,15 +783,37 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
+      {/* ─── 스케줄 공지 배너 (헤더 바로 아래 fixed) ─── */}
+      {roomMeta?.latestQuotation?.status === 'paid' && (
+        <div
+          className="absolute left-3 right-3 pointer-events-auto"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)', zIndex: 25 }}
+        >
+          <div className="max-w-[680px] mx-auto">
+            <ScheduleBanner
+              roomMeta={roomMeta}
+              isPro={isPro}
+              chatPartner={chatPartner}
+              collapsed={scheduleBannerCollapsed}
+              onToggle={() => setScheduleBannerCollapsed((v) => !v)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ─── Messages ─── */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-[80px] pb-[88px]"
-        style={{ overscrollBehaviorX: 'contain' }}
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[88px]"
+        style={{
+          overscrollBehaviorX: 'contain',
+          paddingTop: roomMeta?.latestQuotation?.status === 'paid'
+            ? (scheduleBannerCollapsed ? 134 : 220)
+            : 80,
+        }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="max-w-[680px] mx-auto">
-          <ScheduleBanner roomMeta={roomMeta} isPro={isPro} chatPartner={chatPartner} />
           {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (
             <div className="mb-4 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(49,128,247,0.08)]">
               <div className="flex items-start justify-between gap-3">
