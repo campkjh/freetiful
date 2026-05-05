@@ -358,32 +358,8 @@ export async function loginFromNativeCallback(
     }
 
     if (!data) {
-      options?.onStatus?.('카카오 로그인 창 여는 중...');
-      if (typeof window !== 'undefined') {
-        const w = window as any;
-        const ios = w.webkit?.messageHandlers as any;
-        const and = w.Android as any;
-        // (1) 네이티브 브릿지 — sheet 띄우고 /main 으로 이동 (sheet 가 성공 시 localStorage 주입 후 페이지 갱신함)
-        if (ios?.kakaoLogin?.postMessage) {
-          ios.kakaoLogin.postMessage({});
-          window.location.replace('/main');
-          return;
-        }
-        if (typeof and?.kakaoLogin === 'function') {
-          try { and.kakaoLogin(); } catch {}
-          window.location.replace('/main');
-          return;
-        }
-        // (2) 웹 — 카카오 OAuth code 플로우로 fallback
-        const KAKAO_REST_KEY = 'dca1b472188890116c81a55eff590885';
-        const redirectUri = `${window.location.origin}/auth/kakao/callback`;
-        window.location.replace(
-          `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_KEY}` +
-          `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-          `&response_type=code`,
-        );
-        return;
-      }
+      // 구 deriveCredentials 폴백은 새 synthetic-email 계정을 매번 생성해 데이터 분리를 일으킴 → 제거.
+      // iOS/Android 네이티브 SDK 는 반드시 accessToken 을 전달해야 함.
       throw new Error('카카오 로그인 정보가 없습니다 (accessToken 필요).');
     }
   }
@@ -408,23 +384,6 @@ export async function loginFromNativeCallback(
     }
 
     if (!data) {
-      options?.onStatus?.('네이버 로그인 창 여는 중...');
-      if (typeof window !== 'undefined') {
-        const w = window as any;
-        const ios = w.webkit?.messageHandlers as any;
-        const and = w.Android as any;
-        if (ios?.naverLogin?.postMessage) { ios.naverLogin.postMessage({}); window.location.replace('/main'); return; }
-        if (typeof and?.naverLogin === 'function') { try { and.naverLogin(); } catch {} window.location.replace('/main'); return; }
-        const NAVER_KEY = 'R4WM7ZyC8hHuE_O7qLdy';
-        const state = Math.random().toString(36).substring(7);
-        try { sessionStorage.setItem('naver_state', state); } catch {}
-        const redirectUri = `${window.location.origin}/auth/naver/callback`;
-        window.location.replace(
-          `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_KEY}` +
-          `&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`,
-        );
-        return;
-      }
       throw new Error('네이버 로그인 정보가 없습니다 (accessToken 또는 code+state 필요).');
     }
   }
@@ -434,14 +393,6 @@ export async function loginFromNativeCallback(
     if (idToken) {
       data = await authApi.googleLogin(idToken);
     } else {
-      options?.onStatus?.('구글 로그인 창 여는 중...');
-      if (typeof window !== 'undefined') {
-        const w = window as any;
-        const ios = w.webkit?.messageHandlers as any;
-        const and = w.Android as any;
-        if (ios?.googleLogin?.postMessage) { ios.googleLogin.postMessage({}); window.location.replace('/main'); return; }
-        if (typeof and?.googleLogin === 'function') { try { and.googleLogin(); } catch {} window.location.replace('/main'); return; }
-      }
       throw new Error('구글 로그인 정보가 없습니다 (idToken 필요).');
     }
   }
@@ -454,14 +405,6 @@ export async function loginFromNativeCallback(
         firstParam(params, ['fullName', 'name']) || undefined,
       );
     } else {
-      options?.onStatus?.('Apple 로그인 창 여는 중...');
-      if (typeof window !== 'undefined') {
-        const w = window as any;
-        const ios = w.webkit?.messageHandlers as any;
-        const and = w.Android as any;
-        if (ios?.appleLogin?.postMessage) { ios.appleLogin.postMessage({}); window.location.replace('/main'); return; }
-        if (typeof and?.appleLogin === 'function') { try { and.appleLogin(); } catch {} window.location.replace('/main'); return; }
-      }
       throw new Error('Apple 로그인 정보가 없습니다 (identityToken 필요).');
     }
   }

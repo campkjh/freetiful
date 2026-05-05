@@ -257,9 +257,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     } catch {}
     setViewAsUser(nextViewAsUser);
     setIsPro(actualIsPro && !nextViewAsUser);
-    window.dispatchEvent(new CustomEvent('freetiful:view-mode-changed', {
-      detail: { viewAsUser: nextViewAsUser, source: 'bottom-nav', ts: Date.now() },
-    }));
+    window.dispatchEvent(new CustomEvent('freetiful:view-mode-changed', { detail: { viewAsUser: nextViewAsUser } }));
   };
 
   const handleViewModeToggle = () => {
@@ -270,24 +268,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       duration: 1800,
     });
 
-    if (pathname === '/my') {
-      router.refresh();
-      return;
-    }
+    if (pathname === '/my') return;
     router.push(nextViewAsUser ? '/main' : '/pro-dashboard');
   };
 
   useEffect(() => {
-    const syncFromStorage = (event?: Event) => {
+    const syncFromStorage = () => {
       if (!actualIsPro) {
         setViewAsUser(false);
         setIsPro(false);
         return;
       }
-      const eventValue = (event as CustomEvent<{ viewAsUser?: boolean }> | undefined)?.detail?.viewAsUser;
-      const viewing = typeof eventValue === 'boolean'
-        ? eventValue
-        : localStorage.getItem('viewAsUser') === 'true';
+      const viewing = localStorage.getItem('viewAsUser') === 'true';
       setViewAsUser(viewing);
       setIsPro(!viewing);
     };
