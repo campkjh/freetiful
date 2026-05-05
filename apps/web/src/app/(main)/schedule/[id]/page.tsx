@@ -5,20 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Clock, MapPin, Phone, MessageCircle, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const MOCK_BOOKINGS: Record<string, {
-  proName: string; proImage: string; category: string;
-  date: string; eventDate: string; time: string; location: string;
-  plan: string; price: number; status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
-}> = {
-  '1': { proName: '박인애', proImage: '/images/pro-15/IMG_0196.avif', category: 'MC', date: '2026. 4. 10 (금)', eventDate: '2026-04-10', time: '14:00 - 16:00', location: '그랜드 웨딩홀', plan: 'Premium 패키지', price: 450000, status: 'confirmed' },
-  '2': { proName: '성연채', proImage: '/images/pro-23/IMG_46511771924269213.avif', category: '축가', date: '2026. 4. 10 (금)', eventDate: '2026-04-10', time: '14:30 - 15:00', location: '그랜드 웨딩홀', plan: 'Superior 패키지', price: 800000, status: 'confirmed' },
-  '3': { proName: '조하늘', proImage: '/images/pro-31/IMG_73341772850094485.avif', category: '스튜디오', date: '2026. 4. 15 (수)', eventDate: '2026-04-15', time: '10:00 - 13:00', location: '강남 스튜디오', plan: 'Premium 패키지', price: 550000, status: 'pending' },
-  '4': { proName: '김진아', proImage: '/images/pro-15/IMG_0196.avif', category: '드레스', date: '2026. 4. 18 (토)', eventDate: '2026-04-18', time: '15:00 - 17:00', location: '청담 쇼룸', plan: 'Enterprise 패키지', price: 1700000, status: 'pending' },
-  '5': { proName: '유하영', proImage: '/images/pro-02/10000365351773046135169.avif', category: '헤메샵', date: '2026. 4. 22 (수)', eventDate: '2026-04-22', time: '11:00 - 13:00', location: '압구정 살롱', plan: 'Premium 패키지', price: 450000, status: 'pending' },
-  '6': { proName: '함현지', proImage: '/images/pro-15/IMG_0196.avif', category: '웨딩홀', date: '2026. 4. 5 (토)', eventDate: '2026-04-05', time: '14:00 - 15:30', location: '청담동', plan: 'Superior 패키지', price: 800000, status: 'completed' },
-  '7': { proName: '문정은', proImage: '/images/pro-15/IMG_0196.avif', category: 'MC', date: '2026. 4. 3 (목)', eventDate: '2026-04-03', time: '16:00 - 17:00', location: '카페', plan: 'Premium 패키지', price: 450000, status: 'completed' },
-};
-
 const STATUS_MAP = {
   confirmed: { label: '예약 확정', color: '#3B82F6', bg: '#EFF6FF' },
   pending: { label: '확인 대기', color: '#D97706', bg: '#FFFBEB' },
@@ -42,22 +28,23 @@ function getRefundPolicy(eventDate: string, price: number) {
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [hasDemoData, setHasDemoData] = useState(false);
   const [apiBooking, setApiBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setHasDemoData(localStorage.getItem('freetiful-has-demo-data') === 'true');
-    // id 는 UUID 단독이거나 "paymentUuid__quotationUuid" 형태일 수 있음
-    // UUID 자체에 하이픈이 있어서 split('-')[0] 은 절대 안전하지 않음.
+    // id 는 UUID 단독이거나 "paymentUuid__quotationUuid" 형태일 수 있음.
+    // UUID 자체에 하이픈을 포함하므로 split('-')[0] 같은 단순 split 은 안전하지 않다.
     const rawId = String(id);
-    const paymentId = rawId.includes('__') ? rawId.split('__')[0] : rawId;
+    const composite = rawId.includes('__') ? rawId.split('__') : [rawId];
+    const paymentId = composite[0];
+    const targetQuotationId = composite[1] || null;
     import('@/lib/api/client').then(({ apiClient }) => {
       apiClient.get(`/api/v1/payment/${paymentId}`)
         .then((res: any) => {
           const p = res.data;
           const qs = Array.isArray(p?.quotations) ? p.quotations : (p?.quotation ? [p.quotation] : []);
-          const q = qs[0] || {};
+          // composite id 의 quotationId 로 정확한 견적을 찾고, 없으면 가장 최신 견적을 사용.
+          const q = (targetQuotationId && qs.find((x: any) => x.id === targetQuotationId)) || qs[0] || {};
           const proUser = q.proProfile?.user || {};
           const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
           const eventDate = q.eventDate || p.createdAt;
@@ -84,12 +71,12 @@ export default function BookingDetailPage() {
             status,
           });
         })
-        .catch(() => { /* fallback to mock */ })
+        .catch(() => { /* 실데이터 없음 → 아래에서 안내 화면으로 떨어뜨림 */ })
         .finally(() => setLoading(false));
     });
   }, [id]);
 
-  const bookingData = apiBooking || (hasDemoData ? MOCK_BOOKINGS[id] : undefined);
+  const bookingData = apiBooking;
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');

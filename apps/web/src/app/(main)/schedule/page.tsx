@@ -65,23 +65,12 @@ function mapPaymentsToSchedules(data: any[]): ScheduleItem[] {
   const mapped: ScheduleItem[] = [];
   data.forEach((p: any) => {
     if (p.status === 'refunded') return;
+    // 결제가 미완료 (pending/failed) 인 항목은 스케줄로 노출하지 않는다 —
+    // 과거에 결제실패한 빈 row 들이 "MC 대기" 처럼 떠보이는 문제 방지.
+    if (p.status !== 'completed') return;
     const qs = Array.isArray(p.quotations) ? p.quotations : (p.quotation ? [p.quotation] : []);
-
-    if (qs.length === 0) {
-      const dateStr = new Date(p.createdAt).toISOString().slice(0, 10);
-      mapped.push({
-        id: p.id,
-        date: dateStr,
-        title: p.description || '결제 완료',
-        category: 'MC',
-        proName: '',
-        proImage: '',
-        time: '',
-        location: '',
-        status: p.status === 'completed' ? 'confirmed' : 'pending',
-      });
-      return;
-    }
+    // 견적과 매칭되지 않은 결제는 표시하지 않음 — 어떤 행사인지 알 수 없으므로.
+    if (qs.length === 0) return;
 
     qs.forEach((q: any) => {
       const proUser = q.proProfile?.user || {};
