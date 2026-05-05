@@ -1777,22 +1777,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
               className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-4"
             />
 
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">서비스 템플릿</p>
-            <div className="flex gap-2 mb-4 overflow-x-auto">
-              {PLAN_KEYS.map(p => (
-                <button
-                  key={p}
-                  onClick={() => setQuotePlan(p)}
-                  className={`flex-1 shrink-0 py-3 rounded-xl text-[16px] font-bold transition-colors ${
-                    quotePlan === p ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {PLAN_DATA[p]?.label}
-                  <span className="block text-[13px] font-medium mt-0.5 opacity-70">{((PLAN_DATA[p]?.price || 0) / 10000).toFixed(0)}만원</span>
-                </button>
-              ))}
-            </div>
-
             {/* ─── 행사 정보 (행사일이 스케줄링에 사용됨) ─── */}
             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">행사 정보</p>
             <div className="space-y-2 mb-4">
@@ -1825,88 +1809,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
               )}
             </div>
 
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">포함 서비스</p>
-            <div className="bg-gray-50 rounded-xl p-3 mb-4 space-y-1">
-              {(PLAN_DATA[quotePlan]?.items || []).map((item, i) => (
-                <div key={i} className="flex items-center gap-2 text-[13px] text-gray-600">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#3180F7]" />
-                  {item}
-                </div>
-              ))}
-            </div>
-
-            {/* ─── 추가 옵션 ─── */}
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">추가 옵션 (선택)</p>
-            <div className="space-y-2 mb-3">
-              {quoteOptions.map((opt, i) => (
-                <div key={i} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                  <span className="flex-1 text-[14px] text-gray-800 truncate">+ {opt.name}</span>
-                  <span className="text-[13px] font-bold text-amber-700 shrink-0">+{opt.price.toLocaleString()}원</span>
-                  <button
-                    onClick={() => setQuoteOptions((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center shrink-0"
-                  >
-                    <X size={12} className="text-gray-600" />
-                  </button>
-                </div>
-              ))}
-              {/* 옵션 입력 — 2줄 배치로 width 초과 방지 */}
-              <div className="space-y-2">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={newOptName}
-                    onChange={(e) => setNewOptName(e.target.value)}
-                    placeholder="옵션명 (예: 사회, 리허설, 대본 …)"
-                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
-                  />
-                  {/* AI 자동 추천 태그 */}
-                  {newOptName.trim() && (() => {
-                    const suggestions = suggestOptionNames(newOptName.trim());
-                    if (suggestions.length === 0) return null;
-                    return (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {suggestions.map((s) => (
-                          <button
-                            key={s.name}
-                            type="button"
-                            onClick={() => { setNewOptName(s.name); setNewOptPrice(String(s.price)); }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#3180F7]/8 border border-[#3180F7]/30 text-[14px] text-[#3180F7] font-medium hover:bg-[#3180F7]/15 transition-colors"
-                          >
-                            <span>✨</span>
-                            <span>{s.name}</span>
-                            <span className="text-gray-400">· {(s.price / 10000).toFixed(0)}만원</span>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={newOptPrice}
-                    onChange={(e) => setNewOptPrice(e.target.value)}
-                    placeholder="가격 (원)"
-                    className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
-                  />
-                  <button
-                    onClick={() => {
-                      const price = parseInt(newOptPrice) || 0;
-                      if (!newOptName.trim()) return;
-                      setQuoteOptions((prev) => [...prev, { name: newOptName.trim(), price }]);
-                      setNewOptName('');
-                      setNewOptPrice('');
-                    }}
-                    disabled={!newOptName.trim()}
-                    className="h-12 px-5 rounded-xl bg-[#3180F7] text-white text-[16px] font-bold disabled:opacity-40 shrink-0"
-                  >
-                    추가
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* 총액 표시 */}
             <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-4">
               <div>
@@ -1914,9 +1816,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   기본 견적 {quoteBaseAmount.toLocaleString()}원
                   {quoteCustomAmount.trim() ? ' · 직접 입력' : ` · ${PLAN_DATA[quotePlan]?.label || ''}`}
                 </p>
-                {quoteOptions.length > 0 && (
-                  <p className="text-[11px] text-amber-600">+ 옵션 {quoteOptions.length}개 {quoteOptionsTotal.toLocaleString()}원</p>
-                )}
               </div>
               <p className="text-[18px] font-bold text-[#3180F7]">
                 {quoteTotalAmount.toLocaleString()}원
