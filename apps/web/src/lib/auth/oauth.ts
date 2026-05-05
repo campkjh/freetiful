@@ -90,14 +90,27 @@ export function startOAuth(provider: Provider) {
   if (provider === 'naver') {
     if (ios?.naverLogin) { ios.naverLogin.postMessage({}); return; }
     if (and?.naverLogin) { and.naverLogin(); return; }
-    const key = 'cnaly_pSLgjMyP3Itds_';
+    const key = 'R4WM7ZyC8hHuE_O7qLdy'; // 백엔드 NAVER_CLIENT_ID 와 동일
     const state = Math.random().toString(36).substring(7);
     sessionStorage.setItem('naver_state', state);
     window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${key}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('naver'))}&response_type=code&state=${state}`;
     return;
   }
 
-  if (ios?.googleLogin) { ios.googleLogin.postMessage({}); return; }
-  if (and?.googleLogin) { and.googleLogin(); return; }
-  toast.error('Google 웹 로그인은 현재 앱 로그인으로 연결됩니다. 카카오 또는 네이버로 로그인해주세요.');
+  if (provider === 'google') {
+    if (ios?.googleLogin) { ios.googleLogin.postMessage({}); return; }
+    if (and?.googleLogin) { and.googleLogin(); return; }
+    toast.error('Google 로그인은 앱에서만 가능합니다. 앱에서 시도하거나 카카오/네이버를 이용해 주세요.');
+    return;
+  }
+
+  if (provider === 'apple') {
+    if (ios?.appleLogin) { ios.appleLogin.postMessage({}); return; }
+    if (and?.appleLogin) { and.appleLogin(); return; }
+    toast.error('Apple 로그인은 iOS 앱에서만 가능합니다.');
+    return;
+  }
+
+  // Unknown provider
+  toast.error('지원하지 않는 로그인 방식입니다.');
 }
