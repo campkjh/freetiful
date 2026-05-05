@@ -837,6 +837,7 @@ export class ProService implements OnModuleInit {
         amount: payment?.amount ? Number(payment.amount) : null,
         paymentStatus: payment?.status ?? null,
         paymentId: payment?.id ?? null,
+        paidAt: payment?.createdAt ?? null,
       };
     });
   }

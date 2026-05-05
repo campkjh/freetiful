@@ -165,6 +165,7 @@ interface ProBooking {
   paymentStatus: '결제완료' | '대기';
   amount: string;
   status: 'confirmed' | 'pending' | 'completed';
+  paidAt: string | null;
 }
 
 
@@ -188,11 +189,16 @@ function ProScheduleView() {
   const authUser = useAuthStore((s) => s.user);
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const [apiBookings, setApiBookings] = useState<ProBooking[]>(() => readScheduleCache<ProBooking[]>(`pro:${month}`) || []);
+  const cachedInit = readScheduleCache<ProBooking[]>(`pro:${month}`);
+  const [apiBookings, setApiBookings] = useState<ProBooking[]>(cachedInit || []);
+  // 캐시가 없을 때만 로딩 — 캐시 있으면 즉시 카드를 보여주고 백그라운드 갱신.
+  const [loading, setLoading] = useState<boolean>(cachedInit == null);
   useEffect(() => {
-    if (!authUser) return;
+    if (!authUser) { setLoading(false); return; }
+    let cancelled = false;
     scheduleApi.getMySchedule(month)
       .then((data) => {
+        if (cancelled) return;
         if (!Array.isArray(data)) return;
         // booked/completed/pending 등 실제 상태의 스케줄만
         const rows = data.filter((b: any) => ['booked', 'pending', 'completed'].includes(b.status));
@@ -214,14 +220,27 @@ function ProScheduleView() {
             paymentStatus: b.paymentStatus === 'completed' ? '결제완료' : '대기',
             amount: b.amount ? Number(b.amount).toLocaleString() : '0',
             status: uiStatus,
+            paidAt: b.paidAt || null,
           };
         });
         setApiBookings(mapped);
         writeScheduleCache(`pro:${month}`, mapped);
       })
-      .catch(() => setApiBookings([]));
+      .catch(() => { if (!cancelled && cachedInit == null) setApiBookings([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [authUser, month]);
   const bookings = apiBookings;
+
+  const formatPaidAt = (iso: string | null) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    } catch { return ''; }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -251,16 +270,35 @@ function ProScheduleView() {
       </div>
 
       {/* Section Title */}
-      <div className="px-4 pb-2">
-        <div className="flex items-center gap-2">
-          <ProIconCalendar />
-          <h2 className="text-[16px] font-bold text-gray-900">예약된 행사</h2>
-        </div>
+      <div className="px-4 pb-3">
+        <h2 className="text-[18px] font-semibold" style={{ color: '#2B313D' }}>예약된 행사</h2>
+        <p className="text-[14px] font-medium" style={{ color: '#8A909C', marginTop: 2 }}>이번 달 일정 한눈에 보기</p>
       </div>
 
       {/* Booking Cards */}
       <div className="px-4 space-y-3 pb-24">
-        {bookings.length === 0 && (
+        {loading ? (
+          // 데이터가 뜨기 전까지 카드와 동일 형태의 스켈레톤
+          [0, 1].map((i) => (
+            <div
+              key={`sk-${i}`}
+              className="bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+              style={{ borderRadius: 24 }}
+            >
+              <div className="skeleton h-4 w-2/3 rounded mb-2" />
+              <div className="skeleton h-3 w-1/2 rounded mb-1" />
+              <div className="skeleton h-3 w-1/3 rounded mb-3" />
+              <div className="flex items-end justify-between mt-2">
+                <div className="skeleton h-5 w-24 rounded" />
+                <div className="skeleton h-3 w-20 rounded" />
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <div className="skeleton h-11" style={{ borderRadius: 12 }} />
+                <div className="skeleton h-11" style={{ borderRadius: 12 }} />
+              </div>
+            </div>
+          ))
+        ) : bookings.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-gray-400">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mb-3">
               <rect x="3" y="4" width="18" height="18" rx="3" fill="#E5E7EB"/>
@@ -270,61 +308,62 @@ function ProScheduleView() {
             </svg>
             <p className="text-[14px]">예약된 행사가 없습니다</p>
           </div>
-        )}
-        {bookings.map(booking => {
-          const status = PRO_STATUS_MAP[booking.status];
-          const dateObj = new Date(booking.date);
-          const dateLabel = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 (${DAYS_KR[dateObj.getDay()]})`;
-          return (
-            <div key={booking.id} className="bg-white rounded-2xl border border-[#3180F7]/30 p-4 shadow-sm space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="8" r="4" fill="#93C5FD"/>
-                    <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" fill="#60A5FA"/>
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">예약된 행사</span>
-                    <p className="text-sm font-bold text-gray-900 truncate">{booking.clientName || '고객'}</p>
-                    <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${status.bgColor} ${status.textColor}`}>
-                      {status.label}
-                    </span>
-                  </div>
-                  <p className="text-[13px] text-gray-700 font-medium">{booking.eventType || '행사'}</p>
-                  <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
-                    <span>📅 {dateLabel}</span>
-                    {booking.time && <span>🕒 {booking.time}</span>}
-                    {booking.venue && <span>📍 {booking.venue}</span>}
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    {booking.plan && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                        {booking.plan}
-                      </span>
-                    )}
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${booking.paymentStatus === '결제완료' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                      {booking.paymentStatus}
-                    </span>
-                  </div>
-                  <p className="text-[12px] font-bold text-[#3180F7] mt-2">
+        ) : (
+          bookings.map(booking => {
+            const dateObj = new Date(booking.date);
+            const dateLabel = `${dateObj.getFullYear()}. ${dateObj.getMonth() + 1}. ${dateObj.getDate()} (${DAYS_KR[dateObj.getDay()]})`;
+            return (
+              <div
+                key={booking.id}
+                className="bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+                style={{ borderRadius: 24 }}
+              >
+                {/* 품목 */}
+                <p className="text-[15px] font-semibold truncate" style={{ color: '#2B313D' }}>
+                  {booking.eventType || booking.plan || '행사'}
+                </p>
+                {/* 행사 주소 */}
+                {booking.venue && (
+                  <p className="mt-1 text-[13px]" style={{ color: '#51535C' }}>📍 {booking.venue}</p>
+                )}
+                {/* 행사 일시 */}
+                <p className="mt-0.5 text-[13px]" style={{ color: '#51535C' }}>
+                  📅 {dateLabel}{booking.time ? ` ${booking.time}` : ''}
+                </p>
+
+                {/* 가격 + 결제일시 */}
+                <div className="flex items-end justify-between mt-2.5">
+                  <p className="text-[18px] font-semibold tabular-nums" style={{ color: '#2B313D' }}>
                     {booking.amount}원
                   </p>
+                  {booking.paidAt && (
+                    <p className="text-[12px]" style={{ color: '#8A909C' }}>
+                      결제 {formatPaidAt(booking.paidAt)}
+                    </p>
+                  )}
+                </div>
+
+                {/* 액션 버튼 (좌: 상세보기 파란 / 우: 회색 일정/채팅 등) */}
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <Link
+                    href={booking.paymentId ? `/schedule/${booking.paymentId}` : `/schedule/${booking.id}`}
+                    className="h-11 leading-[44px] text-center text-[14px] active:scale-[0.98] transition-transform"
+                    style={{ borderRadius: 12, backgroundColor: '#3787FF', color: '#FFFFFF', fontWeight: 600 }}
+                  >
+                    상세보기
+                  </Link>
+                  <Link
+                    href="/chat"
+                    className="h-11 leading-[44px] text-center text-[14px] active:scale-[0.98] transition-transform"
+                    style={{ borderRadius: 12, backgroundColor: '#F2F3F5', color: '#51535C', fontWeight: 600 }}
+                  >
+                    채팅하기
+                  </Link>
                 </div>
               </div>
-
-              <div className="pt-2 border-t border-gray-50">
-                <Link
-                  href={`/schedule/${booking.paymentId || booking.id}`}
-                  className="block h-10 leading-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold text-center active:scale-95 transition-transform"
-                >
-                  예약 상세보기
-                </Link>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </div>
   );
