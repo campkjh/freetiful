@@ -155,12 +155,6 @@ function getMobileRedirectUri(provider: Extract<NativeProvider, 'kakao' | 'naver
   return `${getOAuthOrigin()}/auth/${provider}/mobile`;
 }
 
-function deriveCredentials(provider: NativeProvider, providerId: string) {
-  return {
-    email: `${provider}_${providerId}@${provider}.freetiful.com`,
-    password: `${provider}_${providerId}_freetiful_oauth_v1`,
-  };
-}
 
 function parseBridgePayload(payload: NativeLoginPayload | string): NativeLoginPayload | null {
   if (!payload) return null;
@@ -301,33 +295,6 @@ export function restoreNativeAuthFromStorage() {
   }
 }
 
-async function loginWithDerivedAccount(
-  provider: NativeProvider,
-  providerId: string,
-  name: string,
-  profileImageUrl?: string,
-) {
-  const { email, password } = deriveCredentials(provider, providerId);
-  let data: LoginResponse;
-
-  try {
-    data = await authApi.emailLogin(email, password);
-  } catch {
-    data = await authApi.emailRegister({ email, password, name });
-  }
-
-  if (!profileImageUrl) return data;
-
-  useAuthStore.getState().setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
-  try {
-    const updated = await usersApi.updateProfile({ profileImageUrl });
-    return { ...data, user: updated };
-  } catch (error) {
-    console.warn(`[${provider}-mobile] image update failed`, error);
-    return data;
-  }
-}
-
 export function installNativeAuthBridge() {
   if (typeof window === 'undefined') return;
   restoreNativeAuthFromStorage();
@@ -391,15 +358,9 @@ export async function loginFromNativeCallback(
     }
 
     if (!data) {
-      const kakaoId = firstParam(params, ['kakaoId', 'id', 'userId']);
-      if (!kakaoId) throw new Error('카카오 로그인 정보가 없습니다.');
-      options?.onStatus?.('계정 연결 중...');
-      data = await loginWithDerivedAccount(
-        provider,
-        kakaoId,
-        firstParam(params, ['name', 'nickname']) || '카카오 사용자',
-        firstParam(params, ['profileImageUrl', 'profile_image_url']),
-      );
+      // 구 deriveCredentials 폴백은 새 synthetic-email 계정을 매번 생성해 데이터 분리를 일으킴 → 제거.
+      // iOS/Android 네이티브 SDK 는 반드시 accessToken 을 전달해야 함.
+      throw new Error('카카오 로그인 정보가 없습니다 (accessToken 필요).');
     }
   }
 
@@ -423,15 +384,7 @@ export async function loginFromNativeCallback(
     }
 
     if (!data) {
-      const naverId = firstParam(params, ['naverId', 'id', 'userId']);
-      if (!naverId) throw new Error('네이버 로그인 정보가 없습니다.');
-      options?.onStatus?.('계정 연결 중...');
-      data = await loginWithDerivedAccount(
-        provider,
-        naverId,
-        firstParam(params, ['name', 'nickname']) || '네이버 사용자',
-        firstParam(params, ['profileImageUrl', 'profile_image_url']),
-      );
+      throw new Error('네이버 로그인 정보가 없습니다 (accessToken 또는 code+state 필요).');
     }
   }
 
@@ -440,15 +393,7 @@ export async function loginFromNativeCallback(
     if (idToken) {
       data = await authApi.googleLogin(idToken);
     } else {
-      const googleId = firstParam(params, ['googleId', 'id', 'userId']);
-      if (!googleId) throw new Error('구글 로그인 정보가 없습니다.');
-      options?.onStatus?.('계정 연결 중...');
-      data = await loginWithDerivedAccount(
-        provider,
-        googleId,
-        firstParam(params, ['name', 'displayName']) || '구글 사용자',
-        firstParam(params, ['profileImageUrl', 'photoUrl', 'picture']),
-      );
+      throw new Error('구글 로그인 정보가 없습니다 (idToken 필요).');
     }
   }
 
@@ -460,14 +405,7 @@ export async function loginFromNativeCallback(
         firstParam(params, ['fullName', 'name']) || undefined,
       );
     } else {
-      const appleUserId = firstParam(params, ['appleUserId', 'id', 'userId']);
-      if (!appleUserId) throw new Error('Apple 로그인 정보가 없습니다.');
-      options?.onStatus?.('계정 연결 중...');
-      data = await loginWithDerivedAccount(
-        provider,
-        appleUserId,
-        firstParam(params, ['fullName', 'name']) || 'Apple 사용자',
-      );
+      throw new Error('Apple 로그인 정보가 없습니다 (identityToken 필요).');
     }
   }
 
