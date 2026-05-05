@@ -581,14 +581,12 @@ function QuotePage() {
 
         const moodList = [...moods];
         const representativeProId = selectedProProfileIds[0] || filteredPros.find((p) => /^[0-9a-f-]{30,}$/i.test(p.id))?.id;
-        const directCategoryId = isUuid(category.id)
-          ? category.id
-          : await getCategoryIdFromSelectedPro(representativeProId);
-        if (!directCategoryId) {
-          toast.error('사회자 카테고리 정보를 확인할 수 없습니다. 다시 시도해주세요.');
-          setSending(false);
-          return;
-        }
+        // 백엔드 resolveCategory 가 UUID 미지정/매칭 실패 시 자동 fallback 처리하므로
+        // 프론트는 가능한 정보 그대로 전송 — 무조건 차단하지 않음
+        const directCategoryId =
+          (isUuid(category.id) ? category.id : null)
+          || await getCategoryIdFromSelectedPro(representativeProId)
+          || category.id; // 마지막 폴백: 원래 값 그대로 (이름이라도 백엔드가 매칭 시도)
         const eventCategoryId = getEventCategoryId(category, eventLabel);
         const styleOptionIds = getStyleOptionIds(category, moodList);
         const canSendOptionIds = isUuid(category.id);

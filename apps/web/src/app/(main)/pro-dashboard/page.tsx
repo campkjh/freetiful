@@ -601,7 +601,12 @@ export default function ProDashboardPage() {
     }
     setInitiatingMatchChat(delivery.id);
     try {
-      await matchApi.respond(delivery.id, 'accept').catch(() => {});
+      // 응답 실패 (이미 응답한 경우 등) 는 무시 가능 — 채팅 룸 생성이 본질
+      try { await matchApi.respond(delivery.id, 'accept'); } catch (e: any) {
+        const msg = e?.response?.data?.message;
+        // 이미 응답된 케이스가 아니면 사용자에게 알림 (조용히 진행)
+        if (msg && !/이미 응답/.test(msg)) console.warn('match respond:', msg);
+      }
       const res = await chatApi.createRoomAsPro(customerId, delivery.matchRequestId);
       const roomId = (res as any)?.data?.id || (res as any)?.id;
       setMatchRequests((prev) => {

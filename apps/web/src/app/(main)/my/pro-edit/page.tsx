@@ -155,6 +155,15 @@ function isSelectableImageFile(file: File) {
   return file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
 }
 
+async function canvasSupportsWebp(): Promise<boolean> {
+  try {
+    const c = document.createElement('canvas');
+    c.width = 1; c.height = 1;
+    const blob: Blob | null = await new Promise((resolve) => c.toBlob(resolve, 'image/webp', 0.8));
+    return !!blob && blob.type === 'image/webp';
+  } catch { return false; }
+}
+
 async function normalizeProfilePhoto(file: File): Promise<ProPhotoItem> {
   const originalUrl = await fileToDataUrl(file);
   const isHeicLike = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
@@ -162,7 +171,8 @@ async function normalizeProfilePhoto(file: File): Promise<ProPhotoItem> {
   try {
     const img = await loadImageElement(originalUrl);
     const longestSide = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
-    const scale = Math.min(1, PROFILE_PHOTO_MAX_DIMENSION / Math.max(1, longestSide));
+    // 1280px 이상은 다운사이징 — 모바일 디스플레이에선 더 클 필요 없음
+    const scale = Math.min(1, 1280 / Math.max(1, longestSide));
     const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
     const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
     const canvas = document.createElement('canvas');
@@ -174,16 +184,37 @@ async function normalizeProfilePhoto(file: File): Promise<ProPhotoItem> {
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(img, 0, 0, width, height);
 
-    let quality = 0.84;
-    let blob = await canvasToBlob(canvas, 'image/jpeg', quality);
-    while (blob.size > PROFILE_PHOTO_TARGET_BYTES && quality > 0.58) {
-      quality -= 0.08;
-      blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+    // 우선 WebP 시도 — 동일 화질에서 JPEG 대비 30~50% 작음
+    const webpSupported = await canvasSupportsWebp();
+    let mime: string = 'image/jpeg';
+    let ext = 'jpg';
+    let quality = 0.82;
+    let blob: Blob | null = null;
+    const target = 1.2 * 1024 * 1024; // 1.2MB target — 모바일 업로드 안정성↑
+
+    if (webpSupported) {
+      mime = 'image/webp';
+      ext = 'webp';
+      blob = await canvasToBlob(canvas, mime, quality);
+      while (blob && blob.size > target && quality > 0.55) {
+        quality -= 0.08;
+        blob = await canvasToBlob(canvas, mime, quality);
+      }
+    }
+    if (!blob || blob.size > target * 2.5) {
+      mime = 'image/jpeg';
+      ext = 'jpg';
+      quality = 0.82;
+      blob = await canvasToBlob(canvas, mime, quality);
+      while (blob.size > target && quality > 0.55) {
+        quality -= 0.08;
+        blob = await canvasToBlob(canvas, mime, quality);
+      }
     }
 
-    const normalizedName = file.name.replace(/\.[^.]+$/, '') || 'profile-photo';
-    const normalizedFile = new File([blob], `${normalizedName}.jpg`, {
-      type: 'image/jpeg',
+    const normalizedName = (file.name.replace(/\.[^.]+$/, '') || 'profile-photo').slice(0, 60);
+    const normalizedFile = new File([blob!], `${normalizedName}.${ext}`, {
+      type: mime,
       lastModified: Date.now(),
     });
     const normalizedUrl = await fileToDataUrl(normalizedFile);
@@ -699,13 +730,27 @@ export default function ProEditPage() {
     try {
       await Promise.all(removedPhotoIds.map((id) => prosApi.deleteImage(id).catch(() => null)));
 
+      const uploadWithRetry = async (file: File, attempts = 3): Promise<any> => {
+        let lastErr: any;
+        for (let i = 0; i < attempts; i++) {
+          try {
+            return await prosApi.uploadImage(file);
+          } catch (e) {
+            lastErr = e;
+            // 네트워크 일시 오류일 가능성 — 짧게 backoff 후 재시도
+            await new Promise((r) => setTimeout(r, 600 * (i + 1)));
+          }
+        }
+        throw lastErr;
+      };
       const uploadTasks = items.flatMap((item, index) => {
         if (item.id) return [];
         const file = item.file || (item.url?.startsWith('data:image/') ? dataUrlToFile(item.url, `profile-${index + 1}`) : null);
         if (!file) return [];
-        return [() => prosApi.uploadImage(file).then((uploaded) => ({ index, uploaded }))];
+        return [() => uploadWithRetry(file).then((uploaded) => ({ index, uploaded }))];
       });
-      const uploadedResults = await uploadPhotosWithLimit(uploadTasks, 2);
+      // 모바일/저속 네트워크 안정성을 위해 1장씩 순차 업로드
+      const uploadedResults = await uploadPhotosWithLimit(uploadTasks, 1);
       const uploadedByIndex = new Map(uploadedResults.map(({ index, uploaded }) => [index, uploaded]));
 
       const finalItems = items
