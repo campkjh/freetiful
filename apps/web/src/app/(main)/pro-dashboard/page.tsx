@@ -20,6 +20,7 @@ import {
   ProReviewListSkeleton,
   ProRevenueSkeleton,
   ProStatGridSkeleton,
+  ProScheduleCardSkeleton,
 } from './_components/ProSkeletons';
 
 /* ─── Detailed SVG Icons (multi-layered, flat-color, premium) ─── */
@@ -1019,32 +1020,18 @@ export default function ProDashboardPage() {
         </div>
       </div>
 
-      {/* ── Quick Stats — 3×2 grid, 컴팩트 ── */}
+      {/* ── Quick Stats — 4-up row, 컴팩트 ── */}
       {quickStatsLoading ? (
         <ProStatGridSkeleton />
       ) : (
         <div
-          className="px-4 mt-5 grid grid-cols-3 gap-2"
+          className="px-4 mt-5 grid grid-cols-4 gap-2"
         >
           {[
-            { icon: <img src="/images/new-quote.svg" alt="" width={18} height={18} />, label: '새 요청', value: (() => {
-              // 마지막으로 inquiries 페이지를 본 시각 이후 새로 들어온 항목만 카운트.
-              // 페이지를 한번 들어가서 확인하면 viewedAt 이 갱신돼 0 으로 떨어진다.
-              const after = (dateLike: any) => {
-                if (!dateLike) return inquiriesViewedAt === 0;
-                const t = new Date(dateLike).getTime();
-                if (Number.isNaN(t)) return false;
-                return t > inquiriesViewedAt;
-              };
-              const newMatch = matchRequests.filter((m: any) => after(m.deliveredAt)).length;
-              const newSchedule = scheduleRequests.filter((s: any) => after(s.createdAt || s.date)).length;
-              const newInquiry = inquiryRooms.filter((r: any) => r.unread > 0).length; // 미읽음만 집계 — 읽으면 자동 0
-              return `${pendingQuotes.length + newInquiry + newSchedule + newMatch}`;
-            })(), bg: 'bg-blue-50', href: '/pro-dashboard/inquiries' },
             { icon: <img src="/images/monthly-revenue.svg" alt="" width={18} height={18} />, label: '이번달 매출', value: `₩${monthlyRevenue.toLocaleString()}`, bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
             { icon: <img src="/images/profile-views.svg" alt="" width={18} height={18} />, label: '프로필 조회', value: `${profileViews}`, bg: 'bg-purple-50', href: '/pro-dashboard/views' },
             { icon: <img src="/images/avg-rating.svg" alt="" width={18} height={18} />, label: '평균 평점', value: avgRating, bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },
-            { icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#F59E0B" /><circle cx="12" cy="12" r="7" fill="#FBBF24" /><text x="12" y="16" textAnchor="middle" fill="#92400E" fontSize="11" fontWeight="bold">P</text></svg>, label: '보유 푸딩', value: `${puddingCount.toLocaleString()}`, bg: 'bg-amber-50', href: '/my/pudding-history' },
+            { icon: <img src="/images/pro-mypage-icons/pudding-history.svg" alt="" width={18} height={18} />, label: '보유 푸딩', value: `${puddingCount.toLocaleString()}`, bg: 'bg-amber-50', href: '/my/pudding-history' },
           ].map((stat, i) => (
             <div key={i}>
               <Link href={stat.href}>
@@ -1064,96 +1051,94 @@ export default function ProDashboardPage() {
         </div>
       )}
 
-      {/* ── 새로운 행사 예약 (고객 결제 후 대기중) ── */}
-      <div
-        className="px-4 mt-6"
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <h2 className="text-[15px] font-bold text-gray-900">새 예약</h2>
-          {scheduleRequests.length > 0 && (
-            <span className="bg-[#3180F7] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              {scheduleRequests.length}
-            </span>
-          )}
+      {/* ── 새 예약 (고객 결제 후 대기중) ── */}
+      <div className="px-4 mt-6">
+        <div className="mb-3">
+          <h2 className="text-[18px] font-semibold text-[#2B313D]">새 예약</h2>
+          <p className="text-[14px] font-medium text-[#8A909C]" style={{ marginTop: 2 }}>
+            결제된 행사 · 수락 시 확정, 거절 시 환불
+          </p>
         </div>
-        <p className="text-[11px] text-gray-500 mb-3">
-          결제된 행사 · 수락 시 확정, 거절 시 환불
-        </p>
 
         {scheduleRequestsLoading ? (
-          <ProCardListSkeleton count={2} actions className="space-y-3" />
+          <ProScheduleCardSkeleton count={2} />
+        ) : scheduleRequests.length === 0 ? (
+          <div className="py-10 text-center">
+            <p className="text-sm text-gray-400">대기 중인 행사 예약이 없습니다</p>
+          </div>
         ) : (
-        <div className="space-y-3">
-          {/* 결제 기반 스케줄 요청 (고객이 결제하여 대기중) */}
-          {scheduleRequests.map((req, i) => {
-            const d = new Date(req.date);
-            const dateLabel = `${d.getMonth() + 1}월 ${d.getDate()}일`;
-            return (
-              <div
-                key={`sched-${req.id}`}
-                className={`toss-fade-up rounded-2xl border border-[#3180F7]/30 bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
-                style={tossDelay(i, 140)}
-              >
-                <div className="flex items-start gap-3">
-                  <img src={req.clientImage || '/images/default-profile.svg'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">스케줄 요청</span>
-                      <p className="text-sm font-bold text-gray-900 truncate">{req.clientName}</p>
-                    </div>
-                    <p className="text-[13px] text-gray-700 font-medium">{req.title}</p>
-                    <div className="flex items-center gap-3 mt-1 text-[12px] text-gray-500">
-                      <span>📅 {dateLabel}</span>
-                      {req.eventLocation && <span>📍 {req.eventLocation}</span>}
-                    </div>
-                    <p className="text-[15px] font-bold text-[#3180F7] mt-2">{(req.amount || 0).toLocaleString()}원</p>
+          <div className="space-y-3">
+            {scheduleRequests.map((req, i) => {
+              const d = new Date(req.date);
+              const dateLabel = `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}`;
+              const timeLabel = req.eventTime
+                ? (() => { try { const t = new Date(req.eventTime); return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`; } catch { return ''; } })()
+                : '';
+              const paidLabel = req.paidAt
+                ? (() => { const p = new Date(req.paidAt); return `${String(p.getMonth() + 1).padStart(2, '0')}.${String(p.getDate()).padStart(2, '0')} ${String(p.getHours()).padStart(2, '0')}:${String(p.getMinutes()).padStart(2, '0')}`; })()
+                : '';
+              return (
+                <div
+                  key={`sched-${req.id}`}
+                  className={`toss-fade-up bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
+                  style={{ ...tossDelay(i, 140), borderRadius: 24 }}
+                >
+                  {/* 품목 (행사 제목) */}
+                  <p className="text-[15px] font-semibold text-[#2B313D] truncate">{req.title || '행사'}</p>
+                  {/* 행사 주소 */}
+                  {req.eventLocation && (
+                    <p className="mt-1 text-[13px] text-[#51535C]">📍 {req.eventLocation}</p>
+                  )}
+                  {/* 행사 일시 */}
+                  <p className="mt-0.5 text-[13px] text-[#51535C]">📅 {dateLabel}{timeLabel ? ` ${timeLabel}` : ''}</p>
+
+                  {/* 가격 + 결제일시 */}
+                  <div className="flex items-end justify-between mt-2.5">
+                    <p className="text-[18px] font-semibold text-[#2B313D] tabular-nums">
+                      {(req.amount || 0).toLocaleString()}원
+                    </p>
+                    {paidLabel && (
+                      <p className="text-[12px] text-[#8A909C]">결제 {paidLabel}</p>
+                    )}
+                  </div>
+
+                  {/* 액션 버튼 (좌: 상세보기 파란색 / 우: 수락 회색) */}
+                  <div className="flex gap-2 mt-3">
+                    <Link
+                      href={req.paymentId ? `/schedule/${req.paymentId}` : '#'}
+                      className={`flex-1 h-11 leading-[44px] text-center text-[14px] font-semibold ${TOSS_BUTTON_MOTION}`}
+                      style={{ borderRadius: 12, backgroundColor: '#3787FF', color: '#FFFFFF', fontWeight: 600 }}
+                    >
+                      상세보기
+                    </Link>
+                    <button
+                      onClick={() => handleAcceptSchedule(req.id, true)}
+                      className={`flex-1 h-11 text-[14px] ${TOSS_BUTTON_MOTION}`}
+                      style={{ borderRadius: 12, backgroundColor: '#F2F3F5', color: '#51535C', fontWeight: 600 }}
+                    >
+                      수락
+                    </button>
                   </div>
                 </div>
-                <div className="flex gap-2 pt-2 border-t border-gray-50">
-                  <button
-                    onClick={() => setRejectSched({ id: req.id, userName: req.clientName })}
-                    className={`flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold hover:bg-gray-200 ${TOSS_BUTTON_MOTION}`}
-                  >
-                    거절
-                  </button>
-                  <button
-                    onClick={() => handleAcceptSchedule(req.id, true)}
-                    className={`flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
-                  >
-                    수락 + 채팅 열기
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-
-          {scheduleRequests.length === 0 && (
-            <div className="py-10 text-center">
-              <p className="text-sm text-gray-400">대기 중인 행사 예약이 없습니다</p>
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
       {/* ── 새 요청 (전문결혼식사회자찾기에서 전달된 매칭 요청) ── */}
       <div className="px-4 mt-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[15px] font-bold text-gray-900">새 요청</h2>
-            {matchRequests.length > 0 && (
-              <span className="bg-[#3180F7] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {matchRequests.length}
-              </span>
-            )}
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <h2 className="text-[18px] font-semibold text-[#2B313D]">새 요청</h2>
+            <p className="text-[14px] font-medium text-[#8A909C]" style={{ marginTop: 2 }}>
+              고객이 선택해서 보낸 견적 요청 · 수락 시 채팅으로 연결
+            </p>
           </div>
-          <Link href="/pro-dashboard/inquiries" className="flex items-center gap-0.5 text-[11px] font-medium text-[#3180F7]">
+          <Link href="/pro-dashboard/inquiries" className="flex items-center gap-0.5 text-[12px] font-medium text-[#3787FF]">
             전체 <ChevronRightIcon />
           </Link>
         </div>
-        <p className="text-[11px] text-gray-500 mb-3">
-          고객이 선택해서 보낸 견적 요청 · 수락 시 채팅으로 연결
-        </p>
 
         {matchRequestsLoading ? (
           <ProCardListSkeleton count={2} actions className="space-y-3" />
@@ -1265,58 +1250,76 @@ export default function ProDashboardPage() {
       </>
 
       {/* ── 다가오는 일정 ── */}
-      <div
-        className="px-4 mt-6"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-[15px] font-bold text-gray-900">다가오는 일정</h2>
-          <Link href="/schedule" className="flex items-center gap-0.5 text-[11px] font-medium text-[#3180F7]">
+      <div className="px-4 mt-6">
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <h2 className="text-[18px] font-semibold text-[#2B313D]">다가오는 일정</h2>
+            <p className="text-[14px] font-medium text-[#8A909C]" style={{ marginTop: 2 }}>
+              확정된 다음 행사들
+            </p>
+          </div>
+          <Link href="/schedule" className="flex items-center gap-0.5 text-[12px] font-medium text-[#3787FF]">
             전체 <ChevronRightIcon />
           </Link>
         </div>
 
         {upcomingLoading ? (
-          <ProMiniCardGridSkeleton />
+          <ProScheduleCardSkeleton count={2} />
         ) : upcomingEvents.length === 0 ? (
-          <p className="text-[12px] text-gray-400 text-center py-5">예정된 일정이 없습니다</p>
+          <p className="text-[13px] text-[#8A909C] text-center py-8">예정된 일정이 없습니다</p>
         ) : (
           <div className="space-y-3">
-            {upcomingEvents.map((ev, i) => (
+            {upcomingEvents.map((ev, i) => {
+              const ua: any = ev as any;
+              return (
               <div
                 key={i}
-                className={`toss-fade-up rounded-2xl border border-[#3180F7]/30 bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
-                style={tossDelay(i, 170)}
+                className={`toss-fade-up bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
+                style={{ ...tossDelay(i, 170), borderRadius: 24 }}
               >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                    <img src="/images/new-quote.svg" alt="" width={20} height={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">예약된 행사</span>
-                      <p className="text-sm font-bold text-gray-900 truncate">{ev.eventType || '일정'}</p>
-                      <span className={`ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        ev.status === '확정' ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'
-                      }`}>
-                        {ev.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
-                      <span>📅 {ev.date} ({ev.day})</span>
-                      {ev.venue && <span>📍 {ev.venue}</span>}
-                    </div>
-                  </div>
+                {/* 품목 */}
+                <p className="text-[15px] font-semibold text-[#2B313D] truncate">{ev.eventType || '일정'}</p>
+                {/* 행사 주소 */}
+                {ev.venue && (
+                  <p className="mt-1 text-[13px] text-[#51535C]">📍 {ev.venue}</p>
+                )}
+                {/* 행사 일시 */}
+                <p className="mt-0.5 text-[13px] text-[#51535C]">📅 {ev.date}{ev.day ? ` (${ev.day})` : ''}{ua.time ? ` ${ua.time}` : ''}</p>
+
+                {/* 가격 + 결제일시 */}
+                <div className="flex items-end justify-between mt-2.5">
+                  {ua.amount != null ? (
+                    <p className="text-[18px] font-semibold text-[#2B313D] tabular-nums">
+                      {Number(ua.amount).toLocaleString()}원
+                    </p>
+                  ) : <span />}
+                  {ua.paidAt && (
+                    <p className="text-[12px] text-[#8A909C]">
+                      {(() => { const p = new Date(ua.paidAt); return `결제 ${String(p.getMonth() + 1).padStart(2, '0')}.${String(p.getDate()).padStart(2, '0')}`; })()}
+                    </p>
+                  )}
                 </div>
-                <div className="pt-2 border-t border-gray-50">
+
+                {/* 액션 버튼 */}
+                <div className="flex gap-2 mt-3">
+                  <Link
+                    href={ua.paymentId ? `/schedule/${ua.paymentId}` : '/schedule'}
+                    className={`flex-1 h-11 leading-[44px] text-center text-[14px] ${TOSS_BUTTON_MOTION}`}
+                    style={{ borderRadius: 12, backgroundColor: '#3787FF', color: '#FFFFFF', fontWeight: 600 }}
+                  >
+                    상세보기
+                  </Link>
                   <Link
                     href="/schedule"
-                    className={`block h-10 leading-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold text-center shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
+                    className={`flex-1 h-11 leading-[44px] text-center text-[14px] ${TOSS_BUTTON_MOTION}`}
+                    style={{ borderRadius: 12, backgroundColor: '#F2F3F5', color: '#51535C', fontWeight: 600 }}
                   >
                     일정 보기
                   </Link>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1325,9 +1328,14 @@ export default function ProDashboardPage() {
       <div
         className="px-4 mt-6"
       >
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-[15px] font-bold text-gray-900">최근 리뷰</h2>
-          <Link href="/pro-dashboard/reviews" className="flex items-center gap-0.5 text-[11px] font-medium text-[#3180F7]">
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <h2 className="text-[18px] font-semibold text-[#2B313D]">최근 리뷰</h2>
+            <p className="text-[14px] font-medium text-[#8A909C]" style={{ marginTop: 2 }}>
+              고객의 솔직한 후기
+            </p>
+          </div>
+          <Link href="/pro-dashboard/reviews" className="flex items-center gap-0.5 text-[12px] font-medium text-[#3787FF]">
             전체 <ChevronRightIcon />
           </Link>
         </div>
@@ -1417,56 +1425,8 @@ export default function ProDashboardPage() {
         </div>
       </div>
 
-      {/* ── 수익 현황 ── */}
-      <div
-        className="px-4 mt-8 mb-8"
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <BarChartIcon />
-          <h2 className="text-base font-bold text-gray-900">수익 현황</h2>
-        </div>
-        {revenueLoading ? (
-          <ProRevenueSkeleton />
-        ) : (
-        <div
-          className={`toss-fade-up rounded-2xl bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
-          style={tossDelay(0, 210)}
-        >
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-medium text-gray-500">이번 달</span>
-              <span className="text-sm font-bold text-gray-900">₩{thisMonth.toLocaleString()}</span>
-            </div>
-            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#3180F7] rounded-full transition-all duration-700"
-                style={{ width: maxRevenue > 0 ? `${(thisMonth / maxRevenue) * 100}%` : '0%' }}
-              />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-medium text-gray-500">지난 달</span>
-              <span className="text-sm font-bold text-gray-400">₩{lastMonth.toLocaleString()}</span>
-            </div>
-            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gray-300 rounded-full transition-all duration-700"
-                style={{ width: maxRevenue > 0 ? `${(lastMonth / maxRevenue) * 100}%` : '0%' }}
-              />
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-            <span className="text-[11px] text-gray-400">전월 대비</span>
-            <span className={`text-xs font-bold ${thisMonth >= lastMonth ? 'text-green-500' : 'text-red-400'}`}>
-              {lastMonth > 0
-                ? `${thisMonth >= lastMonth ? '+' : ''}${Math.round(((thisMonth - lastMonth) / lastMonth) * 100)}% ${thisMonth >= lastMonth ? '증가' : '감소'}`
-                : thisMonth > 0 ? '첫 달 매출' : '매출 없음'}
-            </span>
-          </div>
-        </div>
-        )}
-      </div>
+      {/* ── 수익 현황 섹션 제거됨 (메뉴 → 수익관리 페이지로 이동) ── */}
+      <div className="h-6" />
 
       {/* ── Accept Confirmation Modal ── */}
       <>

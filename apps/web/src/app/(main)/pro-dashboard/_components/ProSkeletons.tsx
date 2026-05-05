@@ -75,6 +75,29 @@ export function ProCardListSkeleton({
   );
 }
 
+// 새 예약 / 다가오는 일정 카드용 — 실제 카드 레이아웃과 정확히 매칭
+export function ProScheduleCardSkeleton({ count = 2 }: { count?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]" style={{ borderRadius: 24 }}>
+          <SkeletonBlock className="h-4 w-2/3 rounded mb-2" />
+          <SkeletonBlock className="h-3 w-1/2 rounded mb-1" />
+          <SkeletonBlock className="h-3 w-1/3 rounded mb-3" />
+          <div className="flex items-end justify-between mt-2">
+            <SkeletonBlock className="h-5 w-24 rounded" />
+            <SkeletonBlock className="h-3 w-20 rounded" />
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <SkeletonBlock className="h-11" style={{ borderRadius: 12 }} />
+            <SkeletonBlock className="h-11" style={{ borderRadius: 12 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ProMiniCardGridSkeleton({ count = 2 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 gap-2">

@@ -6,7 +6,9 @@ import { chatApi, type ChatRoomItem, type MessageItem } from '../api/chat.api';
 import { useAuthStore } from './auth.store';
 
 const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
-const ROOM_CACHE_TTL = 5 * 60_000;
+// 30분 — 채팅 리스트가 단기간 캐시 만료로 사라지는 문제 방지.
+// (예: 다른 페이지에 5분 머무르고 돌아오면 빈 화면이 깜빡 → 다시 채워지던 현상)
+const ROOM_CACHE_TTL = 30 * 60_000;
 
 type FetchRoomsParams = {
   search?: string;

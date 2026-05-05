@@ -1426,6 +1426,7 @@ export class ProService implements OnModuleInit {
         title: quotation?.title || '스케줄 요청',
         eventLocation: quotation?.eventLocation || null,
         eventTime: quotation?.eventTime || null,
+        paidAt: r.payment?.createdAt || null,
       };
     });
   }
