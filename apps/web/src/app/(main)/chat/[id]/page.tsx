@@ -112,6 +112,69 @@ function SystemMessageFallback({ msg }: { msg: Message }) {
   );
 }
 
+// 채팅 헤더 아래 스케줄 공지 — 견적 결제가 완료되면 노출되는 접이식 배너.
+// 양쪽(고객/사회자) 모두에게 같은 정보를 보여주고, 기본은 펼친 상태에서 접을 수 있다.
+function ScheduleBanner({
+  roomMeta,
+  isPro,
+  chatPartner,
+}: {
+  roomMeta: Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null;
+  isPro: boolean;
+  chatPartner: ChatPartner | null;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const q = roomMeta?.latestQuotation;
+  if (!q || q.status !== 'paid') return null;
+
+  const dateStr = q.eventDate
+    ? new Date(q.eventDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+    : '일정 미정';
+  const timeStr = q.eventTime ? ` · ${q.eventTime}` : '';
+  const counterpart = isPro ? `${chatPartner?.name || '고객'}님과` : `${chatPartner?.name || '사회자'}님과`;
+
+  return (
+    <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 active:bg-emerald-100/40 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-[10px] font-bold shrink-0">✓</span>
+          <p className="text-[13px] font-bold text-emerald-700 truncate">
+            {counterpart} 일정이 확정되었습니다
+          </p>
+        </div>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          className="shrink-0 text-emerald-600 transition-transform"
+          style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
+        >
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {!collapsed && (
+        <div className="px-4 pb-3 -mt-1 space-y-1.5">
+          <p className="text-[14px] font-semibold text-gray-900">{q.title || '행사 진행'}</p>
+          <p className="text-[12px] text-gray-700">📅 {dateStr}{timeStr}</p>
+          {q.amount != null && (
+            <p className="text-[12px] text-gray-700 tabular-nums">💰 {Number(q.amount).toLocaleString('ko-KR')}원 · 결제 완료</p>
+          )}
+          {isPro ? (
+            <p className="text-[11px] text-emerald-600 mt-1">고객과 세부 진행 사항을 채팅으로 논의해주세요</p>
+          ) : (
+            <p className="text-[11px] text-emerald-600 mt-1">사회자와 세부 진행 사항을 채팅으로 논의해주세요</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ChatRoomPage() {
   const { id: roomId } = useParams<{ id: string }>();
   const router = useRouter();
@@ -695,7 +758,8 @@ export default function ChatRoomPage() {
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="max-w-[680px] mx-auto">
-          {isPro && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (
+          <ScheduleBanner roomMeta={roomMeta} isPro={isPro} chatPartner={chatPartner} />
+          {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (
             <div className="mb-4 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(49,128,247,0.08)]">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -757,7 +821,7 @@ export default function ChatRoomPage() {
                   )}
                   {msg.system ? (
                     <Suspense fallback={<SystemMessageFallback msg={msg} />}>
-                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} myProfileImage={authUser?.profileImageUrl || null} isLatestQuote={msg.id === latestQuoteId} />
+                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} myProfileImage={authUser?.profileImageUrl || null} isLatestQuote={msg.id === latestQuoteId} refreshTick={messages.length} />
                     </Suspense>
                   ) : (
                     <SystemMessageFallback msg={msg} />

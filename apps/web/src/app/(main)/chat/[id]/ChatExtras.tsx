@@ -429,15 +429,36 @@ function useNearestQuoteCard<T extends HTMLElement>() {
 }
 
 // ─── SystemMessageCard ───
-export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null, isLatestQuote = false }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null; isLatestQuote?: boolean }) {
+export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null, isLatestQuote = false, refreshTick = 0 }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null; isLatestQuote?: boolean; refreshTick?: number }) {
   const [isPaid, setIsPaid] = useState<boolean>(false);
+  const [showQuoteDetail, setShowQuoteDetail] = useState(false);
+  const [quoteDetail, setQuoteDetail] = useState<any>(null);
+  // 결제 상태 실시간 추적: 카드 마운트 시 + 새 메시지가 들어올 때(refreshTick) +
+  // 화면 포커스 시 + 미결제 동안 15초 주기로 quotation 상태를 폴링한다.
   useEffect(() => {
     const sys = msg.system;
     if (sys?.kind !== 'quote' || !sys.quotationId) return;
-    quotationApi.getDetail(sys.quotationId)
-      .then((q: any) => { if (q?.status === 'paid') setIsPaid(true); })
-      .catch(() => {});
-  }, [msg.system]);
+    let cancelled = false;
+    const fetchStatus = () => {
+      quotationApi.getDetail(sys.quotationId!)
+        .then((q: any) => {
+          if (cancelled) return;
+          setQuoteDetail(q);
+          if (q?.status === 'paid') setIsPaid(true);
+        })
+        .catch(() => {});
+    };
+    fetchStatus();
+    if (isPaid) return () => { cancelled = true; };
+    const interval = window.setInterval(fetchStatus, 15000);
+    const onFocus = () => fetchStatus();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [msg.system, isPaid, refreshTick]);
   const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
   useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
   const quoteRef = useNearestQuoteCard<HTMLDivElement>();
@@ -465,11 +486,13 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
     const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' || planKey === 'wedding_part12' ? '#8B5CF6' : '#3180F7';
 
     return (
+      <>
       <div
         ref={quoteRef}
         data-quote-card="true"
         data-near-center="false"
-        className="quote-card-root my-2 ml-2 mr-auto max-w-[320px]"
+        onClick={() => setShowQuoteDetail(true)}
+        className="quote-card-root my-2 ml-2 mr-auto max-w-[320px] cursor-pointer"
         style={{
           perspective: '650px',
           perspectiveOrigin: '50% 45%',
@@ -661,6 +684,29 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                 </button>
               )
             )}
+            {/* 사회자 측 결제 상태 — 실시간 (15s 폴링 + focus 갱신) */}
+            {isPro && sys.quotationId && (
+              isPaid ? (
+                <div
+                  className="mt-2 self-start px-3.5 py-2 bg-emerald-50 text-emerald-600 text-[12px] font-bold inline-flex items-center gap-1.5"
+                  style={{ borderRadius: 12 }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/>
+                    <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  고객 결제완료
+                </div>
+              ) : (
+                <div
+                  className="mt-2 self-start px-3.5 py-2 bg-amber-50 text-amber-600 text-[12px] font-bold inline-flex items-center gap-1.5"
+                  style={{ borderRadius: 12 }}
+                >
+                  <Clock size={13} />
+                  결제 대기 중
+                </div>
+              )
+            )}
           </div>
         </div>
         <style>{`
@@ -775,6 +821,136 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
           }
         `}</style>
       </div>
+      {showQuoteDetail && (
+        <div
+          className="fixed inset-0 z-[120] flex items-end bg-black/40"
+          onClick={() => setShowQuoteDetail(false)}
+        >
+          <div
+            className="bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'sheetUp 0.3s ease' }}
+          >
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[18px] font-bold text-gray-900">
+                {isPro ? '내가 보낸 견적' : isPaid ? '결제 내역' : '받은 견적'}
+              </h2>
+              <button
+                onClick={() => setShowQuoteDetail(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+              >
+                <X size={16} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* 결제 상태 배지 */}
+            <div className="mb-4">
+              {isPaid ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 text-[12px] font-bold rounded-full">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/>
+                    <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  결제완료
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 text-[12px] font-bold rounded-full">
+                  <Clock size={12} />
+                  결제 대기 중
+                </div>
+              )}
+            </div>
+
+            {/* 행사 정보 */}
+            <div className="space-y-3 mb-5">
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">행사명</p>
+                <p className="text-[16px] font-semibold text-gray-900">{sys.eventName || quoteDetail?.title || '행사 진행'}</p>
+              </div>
+              {(sys.eventDate || quoteDetail?.eventDate) && (
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">행사 일정</p>
+                  <p className="text-[15px] text-gray-800">
+                    {(() => {
+                      const d = sys.eventDate || quoteDetail?.eventDate;
+                      if (!d) return '미정';
+                      try {
+                        return new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+                      } catch { return String(d); }
+                    })()}
+                    {(sys.eventTime || quoteDetail?.eventTime) ? ` · ${sys.eventTime || quoteDetail?.eventTime}` : ''}
+                  </p>
+                </div>
+              )}
+              {quoteDetail?.eventLocation && (
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">장소</p>
+                  <p className="text-[15px] text-gray-800">{quoteDetail.eventLocation}</p>
+                </div>
+              )}
+              {quoteDetail?.description && (
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">메모</p>
+                  <p className="text-[14px] text-gray-700 whitespace-pre-wrap">{quoteDetail.description}</p>
+                </div>
+              )}
+              {Array.isArray(sys.options) && sys.options.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">추가 옵션</p>
+                  <div className="space-y-1">
+                    {sys.options.map((o: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between text-[13px] text-gray-700">
+                        <span>+ {o.name}</span>
+                        <span className="font-semibold">+{Number(o.price || 0).toLocaleString()}원</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 금액 요약 */}
+            <div className="bg-gray-50 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+              <span className="text-[13px] text-gray-500">총 견적 금액</span>
+              <span className="text-[20px] font-bold text-[#3180F7] tabular-nums">
+                {Number(sys.amount || 0).toLocaleString()}원
+              </span>
+            </div>
+
+            {/* 액션: 미결제 + 최신 + 고객 측이면 결제하기 노출 */}
+            {!isPro && sys.quotationId && !isPaid && isLatestQuote && (
+              <button
+                type="button"
+                onClick={() => {
+                  const proId = chatPartner?.proProfileId || chatPartner?.id;
+                  const amount = sys.amount || 0;
+                  const plan = sys.plan || 'premium';
+                  const params = new URLSearchParams({
+                    price: String(amount),
+                    plan,
+                    quotationId: sys.quotationId!,
+                  });
+                  if (sys.eventDate) params.set('eventDate', sys.eventDate);
+                  if (sys.eventTime) params.set('slots', sys.eventTime);
+                  const qs = params.toString();
+                  const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
+                  window.location.href = url;
+                }}
+                className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors"
+              >
+                결제하기
+              </button>
+            )}
+            {isPro && (
+              <p className="text-center text-[12px] text-gray-400">
+                고객의 결제 상태는 자동으로 갱신됩니다
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -1496,9 +1672,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
         }
       }
 
-      // 3) 로컬 UI에도 즉시 반영
+      // 3) 로컬 UI에도 즉시 반영 — 단, store.sendMessage 경로가 이미 wsMessages 에
+      //    추가했을 수 있으므로 같은 id 가 있으면 스킵해 중복 카드 방지.
+      const targetId = savedQuoteMessage?.id || `opt-quote-${Date.now()}`;
       const quoteMsg: Message = {
-        id: savedQuoteMessage?.id || `s-quote-${Date.now()}`,
+        id: targetId,
         senderId: MY_ID,
         content: '견적서 발송',
         type: 'system',
@@ -1518,7 +1696,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
           proImage: myProImage,
         } as any,
       };
-      setMessages(prev => [...prev, quoteMsg]);
+      setMessages(prev => prev.some((m) => m.id === targetId) ? prev : [...prev, quoteMsg]);
       setShowQuoteModal(false);
       setQuoteEventName('');
       setQuoteEventDate('');
