@@ -419,8 +419,10 @@ export class MatchService {
 
   /** 전문가에게 전달된 매칭 요청 목록 */
   async getMatchRequestsForPro(proProfileId: string) {
+    // 새 요청 섹션은 pending/viewed 만 사용한다 — 거절/응답 이력은 DB 단계에서 제외해
+    // 전체 매칭 히스토리를 끌어오는 비용을 없앤다.
     const deliveries = await this.prisma.matchDelivery.findMany({
-      where: { proProfileId },
+      where: { proProfileId, status: { in: ['pending', 'viewed'] } },
       include: {
         matchRequest: {
           include: {
@@ -435,6 +437,7 @@ export class MatchService {
         },
       },
       orderBy: { deliveredAt: 'desc' },
+      take: 50,
     });
 
     return deliveries;
