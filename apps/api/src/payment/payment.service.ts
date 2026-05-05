@@ -79,6 +79,22 @@ export class PaymentService {
       }
     }
 
+    // 같은 견적에 대한 pending Payment 가 이미 있으면 재사용 — 결제하기 버튼을
+    // 여러 번 누르거나 checkout 페이지를 reload 해도 row 가 누적되지 않게 한다.
+    const existingPending = await this.prisma.payment.findFirst({
+      where: { userId, quotationId, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingPending && existingPending.amount === data.amount && existingPending.pgTransactionId) {
+      return {
+        orderId: existingPending.pgTransactionId,
+        amount: existingPending.amount,
+        orderName: data.orderName,
+        paymentId: existingPending.id,
+      };
+    }
+
     const orderId = `ORDER-${Date.now()}-${randomUUID().slice(0, 8)}`;
 
     const payment = await this.prisma.payment.create({
@@ -365,7 +381,17 @@ export class PaymentService {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
-        quotations: true,
+        quotations: {
+          include: {
+            proProfile: {
+              include: {
+                user: { select: { id: true, name: true, profileImageUrl: true, phone: true } },
+                images: { where: { isPrimary: true }, take: 1 },
+                categories: { include: { category: true } },
+              },
+            },
+          },
+        },
         review: true,
       },
     });
@@ -374,7 +400,16 @@ export class PaymentService {
       throw new NotFoundException('결제 정보를 찾을 수 없습니다.');
     }
 
-    if (payment.userId !== userId) {
+    // 결제 당사자는 고객(payment.userId) + 사회자(proProfile.userId) 양쪽 모두 가능.
+    let isAllowed = payment.userId === userId;
+    if (!isAllowed) {
+      const pro = await this.prisma.proProfile.findUnique({
+        where: { id: payment.proProfileId },
+        select: { userId: true },
+      });
+      isAllowed = pro?.userId === userId;
+    }
+    if (!isAllowed) {
       throw new ForbiddenException('본인의 결제만 조회할 수 있습니다.');
     }
 

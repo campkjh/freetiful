@@ -1,16 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Clock, Users, User, MessageCircle, ChevronRight, MapPin, Calendar, DollarSign } from 'lucide-react';
+import { Clock, MessageCircle, ChevronRight, MapPin, Calendar, DollarSign } from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { chatApi, type ChatRoomItem } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { ProCardListSkeleton } from '../_components/ProSkeletons';
 
 type Filter = 'all' | 'pending' | 'replied' | 'match';
+
+const INQUIRIES_CACHE_KEY = 'freetiful-pro-inquiries-cache-v1';
+const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-match-deliveries-cache-v1';
+const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
+
+function readCache<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch { return null; }
+}
+function writeCache(key: string, data: unknown) {
+  if (typeof window === 'undefined') return;
+  try { sessionStorage.setItem(key, JSON.stringify(data)); } catch {}
+}
 
 interface InquiryView {
   id: string;
@@ -87,20 +104,28 @@ function formatBudget(min: number | null, max: number | null): string {
 export default function InquiriesPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
-  const [inquiries, setInquiries] = useState<InquiryView[]>([]);
-  const [matchDeliveries, setMatchDeliveries] = useState<MatchDeliveryView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMatch, setLoadingMatch] = useState(true);
+  // sessionStorage 캐시 즉시 적용 — 한 번 본 데이터를 다시 깜빡이지 않게.
+  const cachedInquiries = useMemo(() => readCache<InquiryView[]>(INQUIRIES_CACHE_KEY), []);
+  const cachedMatchDeliveries = useMemo(() => readCache<MatchDeliveryView[]>(MATCH_DELIVERIES_CACHE_KEY), []);
+  const [inquiries, setInquiries] = useState<InquiryView[]>(cachedInquiries ?? []);
+  const [matchDeliveries, setMatchDeliveries] = useState<MatchDeliveryView[]>(cachedMatchDeliveries ?? []);
+  const [loading, setLoading] = useState(cachedInquiries === null);
+  const [loadingMatch, setLoadingMatch] = useState(cachedMatchDeliveries === null);
   const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
   const authUser = useAuthStore((s) => s.user);
 
+  // 페이지 진입 시점 기록 — 홈 대시보드의 "새 요청" 카운트가 이 시점 이후 도착건만 세도록.
+  useEffect(() => {
+    try { localStorage.setItem(VIEWED_AT_KEY, String(Date.now())); } catch {}
+    window.dispatchEvent(new Event('freetiful:inquiries-viewed'));
+  }, []);
+
   useEffect(() => {
     if (!authUser) { setLoading(false); return; }
-    setLoading(true);
     chatApi.getRooms({ page: 1, limit: 20 })
       .then((res) => {
         const rooms = (res.data.data || []) as ChatRoomItem[];
-        setInquiries(rooms.map((r) => ({
+        const next: InquiryView[] = rooms.map((r) => ({
           id: r.id,
           userName: r.otherUser.name,
           image: r.otherUser.profileImageUrl || '/images/default-profile.svg',
@@ -113,7 +138,9 @@ export default function InquiriesPage() {
             r.latestQuotationStatus ||
             /견적|문의/.test(r.lastMessage?.content || ''),
           ),
-        })));
+        }));
+        setInquiries(next);
+        writeCache(INQUIRIES_CACHE_KEY, next);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -121,7 +148,6 @@ export default function InquiriesPage() {
 
   useEffect(() => {
     if (!authUser) { setLoadingMatch(false); return; }
-    setLoadingMatch(true);
     matchApi.getProRequests()
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
@@ -159,6 +185,7 @@ export default function InquiriesPage() {
             };
           });
         setMatchDeliveries(mapped);
+        writeCache(MATCH_DELIVERIES_CACHE_KEY, mapped);
       })
       .catch(() => {})
       .finally(() => setLoadingMatch(false));
@@ -204,48 +231,65 @@ export default function InquiriesPage() {
   const pendingCount = inquiries.filter((i) => i.unread > 0).length;
   const matchCount = matchDeliveries.length;
 
+  const TABS: { key: Filter; label: string; badge?: number }[] = [
+    { key: 'all', label: '전체' },
+    { key: 'pending', label: '미답변', badge: pendingCount },
+    { key: 'replied', label: '답변완료' },
+    { key: 'match', label: '예약요청', badge: matchCount },
+  ];
+
   return (
-    <div className="bg-gray-50 min-h-screen pb-24">
-      <div className="bg-white px-4 pt-12 pb-3 sticky top-0 z-10 border-b border-gray-100">
-        <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
-          <h1 className="text-lg font-bold">새 요청</h1>
-          {(pendingCount + matchCount) > 0 && (
-            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendingCount + matchCount}</span>
-          )}
+    <div className="bg-white min-h-screen pb-24">
+      <div className="bg-white px-4 pt-3 pb-2 sticky top-0 z-10">
+        <div className="flex items-center justify-between h-[52px]">
+          <h1 className="text-[18px] font-bold text-gray-900">새 요청</h1>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto">
-          {([
-            { key: 'all' as Filter, label: '전체', icon: null, badge: 0 },
-            { key: 'pending' as Filter, label: '미답변', icon: User, badge: pendingCount },
-            { key: 'replied' as Filter, label: '답변완료', icon: Users, badge: 0 },
-            { key: 'match' as Filter, label: '예약요청', icon: Calendar, badge: matchCount },
-          ]).map(({ key, label, icon: Icon, badge }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border shrink-0 transition-colors ${
-                filter === key
-                  ? 'bg-primary-500 text-white border-primary-500'
-                  : 'bg-white text-gray-600 border-gray-200'
-              }`}
-            >
-              {Icon && <Icon size={12} />}
-              {label}
-              {badge > 0 && (
-                <span className={`text-[9px] font-bold px-1.5 rounded-full ${filter === key ? 'bg-white text-primary-500' : 'bg-red-500 text-white'}`}>
-                  {badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        <LayoutGroup id="pro-inquiries-tabs">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+            {TABS.map(({ key, label, badge }) => {
+              const active = filter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
+                  style={{ transition: 'color 0.25s ease, transform 0.15s ease' }}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="pro-inquiries-tab-pill"
+                      className="absolute inset-0 bg-gray-900 rounded-full"
+                      style={{ zIndex: -1 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative inline-flex items-center gap-1.5">
+                    {label}
+                    {badge != null && badge > 0 && (
+                      <span className={`text-[10px] font-bold px-1.5 rounded-full ${active ? 'bg-white text-gray-900' : 'bg-red-500 text-white'}`}>
+                        {badge}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </LayoutGroup>
       </div>
 
+      <AnimatePresence mode="wait">
+      <motion.div
+        key={filter}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -4 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+      >
       {/* 예약요청/전체 탭 — 매칭 딜리버리 카드들 */}
       {(filter === 'match' || filter === 'all') && (
-        <div className="px-4 py-4 space-y-3">
+        <div className="px-4 pt-3 pb-4 space-y-3">
           {loadingMatch ? (
             <ProCardListSkeleton count={2} actions className="space-y-3" />
           ) : matchDeliveries.length === 0 && filter === 'match' ? (
@@ -331,7 +375,7 @@ export default function InquiriesPage() {
 
       {/* 채팅 탭 (전체/미답변/답변완료) */}
       {filter !== 'match' && (
-        <div className="px-4 py-4 space-y-3">
+        <div className="px-4 pt-3 pb-4 space-y-3">
           {loading ? (
             <ProCardListSkeleton count={4} className="space-y-3" />
           ) : filtered.length === 0 && !(filter === 'all' && matchDeliveries.length > 0) ? (
@@ -365,6 +409,8 @@ export default function InquiriesPage() {
           )}
         </div>
       )}
+      </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

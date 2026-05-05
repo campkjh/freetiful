@@ -381,6 +381,24 @@ export default function ProDashboardPage() {
   const [rejectSched, setRejectSched] = useState<{ id: string; userName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [initiatingMatchChat, setInitiatingMatchChat] = useState<string | null>(null);
+  // 새 요청 페이지 마지막 방문 시각 — 홈 대시보드 카운트 배지를 0 으로 만들기 위함.
+  const [inquiriesViewedAt, setInquiriesViewedAt] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    const v = localStorage.getItem('freetiful-pro-inquiries-viewed-at');
+    return v ? Number(v) || 0 : 0;
+  });
+  useEffect(() => {
+    const onViewed = () => {
+      const v = localStorage.getItem('freetiful-pro-inquiries-viewed-at');
+      setInquiriesViewedAt(v ? Number(v) || 0 : 0);
+    };
+    window.addEventListener('freetiful:inquiries-viewed', onViewed);
+    window.addEventListener('focus', onViewed);
+    return () => {
+      window.removeEventListener('freetiful:inquiries-viewed', onViewed);
+      window.removeEventListener('focus', onViewed);
+    };
+  }, []);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cachedSectionsRef = useRef({
     scheduleRequests: hasCachedScheduleRequests,
@@ -1009,7 +1027,20 @@ export default function ProDashboardPage() {
           className="px-4 mt-5 grid grid-cols-3 gap-2"
         >
           {[
-            { icon: <img src="/images/new-quote.svg" alt="" width={18} height={18} />, label: '새 요청', value: `${pendingQuotes.length + inquiryRooms.length + scheduleRequests.length + matchRequests.length}`, bg: 'bg-blue-50', href: '/pro-dashboard/inquiries' },
+            { icon: <img src="/images/new-quote.svg" alt="" width={18} height={18} />, label: '새 요청', value: (() => {
+              // 마지막으로 inquiries 페이지를 본 시각 이후 새로 들어온 항목만 카운트.
+              // 페이지를 한번 들어가서 확인하면 viewedAt 이 갱신돼 0 으로 떨어진다.
+              const after = (dateLike: any) => {
+                if (!dateLike) return inquiriesViewedAt === 0;
+                const t = new Date(dateLike).getTime();
+                if (Number.isNaN(t)) return false;
+                return t > inquiriesViewedAt;
+              };
+              const newMatch = matchRequests.filter((m: any) => after(m.deliveredAt)).length;
+              const newSchedule = scheduleRequests.filter((s: any) => after(s.createdAt || s.date)).length;
+              const newInquiry = inquiryRooms.filter((r: any) => r.unread > 0).length; // 미읽음만 집계 — 읽으면 자동 0
+              return `${pendingQuotes.length + newInquiry + newSchedule + newMatch}`;
+            })(), bg: 'bg-blue-50', href: '/pro-dashboard/inquiries' },
             { icon: <img src="/images/monthly-revenue.svg" alt="" width={18} height={18} />, label: '이번달 매출', value: `₩${monthlyRevenue.toLocaleString()}`, bg: 'bg-green-50', href: '/pro-dashboard/revenue' },
             { icon: <img src="/images/profile-views.svg" alt="" width={18} height={18} />, label: '프로필 조회', value: `${profileViews}`, bg: 'bg-purple-50', href: '/pro-dashboard/views' },
             { icon: <img src="/images/avg-rating.svg" alt="" width={18} height={18} />, label: '평균 평점', value: avgRating, bg: 'bg-yellow-50', href: '/pro-dashboard/reviews' },

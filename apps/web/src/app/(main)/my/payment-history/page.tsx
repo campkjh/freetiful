@@ -74,7 +74,25 @@ export default function PaymentHistoryPage() {
       apiClient.get('/api/v1/payment', { params: { limit: 50 } })
         .then((res) => {
           const data = res.data?.data || [];
-          const mapped: PaymentItem[] = data.map((p: any) => {
+          // 같은 quotation 에 대해 결제하기를 여러 번 눌러 pending 이 누적된 경우,
+          // 하나의 row 로 통합한다 — 상태 우선순위: completed > refunded > escrowed > pending.
+          const rankStatus = (s: string) =>
+            s === 'completed' ? 4 : s === 'refunded' ? 3 : s === 'escrowed' ? 2 : 1;
+          const byQuotation = new Map<string, any>();
+          const noQuotation: any[] = [];
+          for (const p of data) {
+            const qid =
+              p.quotationId ||
+              (Array.isArray(p.quotations) ? p.quotations[0]?.id : p.quotation?.id);
+            if (!qid) { noQuotation.push(p); continue; }
+            const existing = byQuotation.get(qid);
+            if (!existing || rankStatus(p.status) > rankStatus(existing.status)) {
+              byQuotation.set(qid, p);
+            }
+          }
+          const merged = [...byQuotation.values(), ...noQuotation]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          const mapped: PaymentItem[] = merged.map((p: any) => {
             const q = Array.isArray(p.quotations) ? p.quotations[0] : p.quotation;
             return {
               id: p.id,
