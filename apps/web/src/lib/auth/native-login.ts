@@ -515,7 +515,8 @@ export async function loginFromNativeCallback(
       } else {
         options?.onStatus?.('로그인 화면으로 돌아갑니다...');
         if (typeof window !== 'undefined') window.location.replace('/main');
-      return;
+        return;
+      }
     }
   }
 
