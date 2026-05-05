@@ -155,6 +155,30 @@ function getMobileRedirectUri(provider: Extract<NativeProvider, 'kakao' | 'naver
   return `${getOAuthOrigin()}/auth/${provider}/mobile`;
 }
 
+function deriveCredentials(provider: NativeProvider, providerId: string) {
+  return {
+    email: `${provider}_${providerId}@${provider}.freetiful.com`,
+    password: `${provider}_${providerId}_freetiful_oauth_v1`,
+  };
+}
+
+/**
+ * 네이티브 SDK 가 accessToken 없이 providerId 만 전달하는 케이스용 폴백.
+ * 백엔드 emailLogin/emailRegister 가 'kakao_{id}@kakao.freetiful.com' 패턴을 감지해
+ * 기존 카카오 native 계정으로 라우팅 (새 synthetic 계정 생성 안 함).
+ */
+async function loginWithDerivedAccount(
+  provider: NativeProvider,
+  providerId: string,
+  name: string,
+): Promise<LoginResponse> {
+  const { email, password } = deriveCredentials(provider, providerId);
+  try {
+    return await authApi.emailLogin(email, password);
+  } catch {
+    return await authApi.emailRegister({ email, password, name });
+  }
+}
 
 function parseBridgePayload(payload: NativeLoginPayload | string): NativeLoginPayload | null {
   if (!payload) return null;
@@ -371,10 +395,28 @@ export async function loginFromNativeCallback(
     }
 
     if (!data) {
-      // accessToken/code 없이 도착한 케이스 (KakaoTalk 빈 deeplink 등) — 에러로 막지 않고 home 으로 안내
-      options?.onStatus?.('로그인 화면으로 돌아갑니다...');
-      if (typeof window !== 'undefined') window.location.replace('/main');
-      return;
+      // 폴백: kakaoId 만 받은 경우 derive credentials 로 emailLogin 시도
+      // 백엔드가 합성 이메일 패턴 감지 시 기존 native 카카오 유저로 라우팅 (새 계정 생성 X)
+      const kakaoId = firstParam(params, ['kakaoId', 'id', 'userId']);
+      if (kakaoId) {
+        options?.onStatus?.('계정 연결 중...');
+        try {
+          data = await loginWithDerivedAccount(
+            'kakao',
+            kakaoId,
+            firstParam(params, ['name', 'nickname']) || '카카오 사용자',
+          );
+        } catch (e) {
+          // 최후 폴백: home 으로
+          options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+          if (typeof window !== 'undefined') window.location.replace('/main');
+          return;
+        }
+      } else {
+        options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+        if (typeof window !== 'undefined') window.location.replace('/main');
+        return;
+      }
     }
   }
 
