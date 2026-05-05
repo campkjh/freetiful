@@ -364,17 +364,21 @@ export class MatchService {
     const customerName = matchRequest.user?.name || '고객';
     const categoryName = matchRequest.category?.name || '서비스';
 
-    for (const pc of deliveryTargets) {
-      const proUserId = pc.proProfile?.user?.id;
-      if (!proUserId) continue;
-      try {
-        await this.prisma.matchDelivery.create({
-          data: { matchRequestId, proProfileId: pc.proProfileId },
-        });
-      } catch {
-        // 중복 (같은 요청에 같은 pro 두 번) — 무시
-        continue;
-      }
+    // 1) MatchDelivery 일괄 생성 — N개의 RTT 를 1번으로 압축
+    const validTargets = deliveryTargets.filter((pc) => !!pc.proProfile?.user?.id);
+    if (validTargets.length === 0) return;
+
+    await this.prisma.matchDelivery.createMany({
+      data: validTargets.map((pc) => ({
+        matchRequestId,
+        proProfileId: pc.proProfileId,
+      })),
+      skipDuplicates: true,
+    });
+
+    // 2) 알림은 fire-and-forget — 응답을 막지 않는다
+    for (const pc of validTargets) {
+      const proUserId = pc.proProfile!.user!.id!;
       this.notificationService
         .createNotification(
           proUserId,

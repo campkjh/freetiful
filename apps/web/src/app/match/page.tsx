@@ -128,31 +128,6 @@ export default function MatchRequestPage() {
     }
   };
 
-  const resolveCategoryIdForSubmit = async () => {
-    if (isUuid(selectedCategory)) return selectedCategory;
-    if (categories.some((category) => category.id === selectedCategory)) return selectedCategory;
-
-    const categoryName = getCategoryName() || selectedCategory;
-    try {
-      const listRes = await apiClient.get('/api/v1/discovery/pros', {
-        params: { category: categoryName, limit: 1, withTotal: false },
-      });
-      const firstPro = Array.isArray(listRes.data?.data)
-        ? listRes.data.data[0]
-        : Array.isArray(listRes.data)
-          ? listRes.data[0]
-          : null;
-      if (!firstPro?.id) return null;
-
-      const detailRes = await apiClient.get(`/api/v1/discovery/pros/${firstPro.id}`);
-      const categories = Array.isArray(detailRes.data?.categories) ? detailRes.data.categories : [];
-      const categoryId = categories.find((item: any) => isUuid(item?.categoryId))?.categoryId;
-      return categoryId || null;
-    } catch {
-      return null;
-    }
-  };
-
   const handleSubmit = async () => {
     if (!authUser) {
       window.dispatchEvent(new Event('freetiful:show-login'));
@@ -163,13 +138,6 @@ export default function MatchRequestPage() {
     setLoading(true);
     try {
       const budget = selectedBudget >= 0 ? BUDGET_RANGES[selectedBudget] : undefined;
-      const resolvedCategoryId = await resolveCategoryIdForSubmit();
-      if (!resolvedCategoryId) {
-        toast.error('사회자 카테고리 정보를 확인할 수 없습니다. 다시 시도해주세요.');
-        setLoading(false);
-        return;
-      }
-      const categoryWasResolvedFromPublicPro = isUuid(resolvedCategoryId) && !isUuid(selectedCategory);
       const styleOptionIds = currentCategory?.styleOptions
         ?.filter((s) => selectedStyles.includes(s.name))
         .map((s) => s.id);
@@ -180,7 +148,7 @@ export default function MatchRequestPage() {
         : selectedPersonalities;
 
       await matchApi.createRequest({
-        categoryId: resolvedCategoryId,
+        categoryId: selectedCategory,
         eventCategoryId: isUuid(selectedEvent) ? selectedEvent : undefined,
         eventDate: eventDate || undefined,
         eventTime: eventTime || undefined,
@@ -188,10 +156,8 @@ export default function MatchRequestPage() {
         budgetMin: budget?.min || undefined,
         budgetMax: budget?.max || undefined,
         type: 'multi',
-        styleOptionIds: categoryWasResolvedFromPublicPro ? styleOptionIds?.filter(isUuid) : styleOptionIds,
-        personalityOptionIds: categoryWasResolvedFromPublicPro
-          ? personalityOptionIds?.filter(isUuid)
-          : personalityOptionIds,
+        styleOptionIds: styleOptionIds?.filter(isUuid),
+        personalityOptionIds: personalityOptionIds?.filter(isUuid),
         rawUserInput: {
           categoryName: getCategoryName(),
           styles: selectedStyles,
