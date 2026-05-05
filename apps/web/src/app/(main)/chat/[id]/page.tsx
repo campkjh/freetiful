@@ -112,8 +112,8 @@ function SystemMessageFallback({ msg }: { msg: Message }) {
   );
 }
 
-// 채팅 헤더 아래 스케줄 공지 — 견적 결제가 완료되면 노출되는 접이식 배너.
-// 양쪽(고객/사회자) 모두에게 같은 정보를 보여주고, 기본은 펼친 상태에서 접을 수 있다.
+// 채팅 헤더 바로 아래에 sticky 로 고정되는 스케줄 공지 — 견적 결제가 완료되면 노출.
+// 톤앤매너: 흰 배경 + 블루 액센트 (앱 메인 컬러 #3180F7) + 부드러운 그림자.
 function ScheduleBanner({
   roomMeta,
   isPro,
@@ -123,7 +123,7 @@ function ScheduleBanner({
   isPro: boolean;
   chatPartner: ChatPartner | null;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const q = roomMeta?.latestQuotation;
   if (!q || q.status !== 'paid') return null;
 
@@ -131,44 +131,55 @@ function ScheduleBanner({
     ? new Date(q.eventDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
     : '일정 미정';
   const timeStr = q.eventTime ? ` · ${q.eventTime}` : '';
-  const counterpart = isPro ? `${chatPartner?.name || '고객'}님과` : `${chatPartner?.name || '사회자'}님과`;
 
   return (
-    <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 overflow-hidden">
+    <div
+      className="sticky rounded-2xl overflow-hidden mb-3"
+      style={{
+        top: 80,
+        zIndex: 25,
+        background: 'rgba(255,255,255,0.96)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+        border: '1px solid rgba(49,128,247,0.18)',
+        boxShadow: '0 8px 24px rgba(49,128,247,0.10), 0 1px 0 rgba(0,0,0,0.02)',
+      }}
+    >
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 active:bg-emerald-100/40 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2.5 active:bg-[#3180F7]/[0.04] transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 text-white text-[10px] font-bold shrink-0">✓</span>
-          <p className="text-[13px] font-bold text-emerald-700 truncate">
-            {counterpart} 일정이 확정되었습니다
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
+            <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="#3180F7" strokeWidth="1.8" />
+            <path d="M3 10h18" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
+            <path d="M8 3v4M16 3v4" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+          <p className="text-[12.5px] font-bold text-gray-900 truncate">
+            확정된 일정 · {dateStr}{timeStr}
           </p>
         </div>
         <svg
-          width="18"
-          height="18"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
-          className="shrink-0 text-emerald-600 transition-transform"
+          className="shrink-0 transition-transform"
           style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
         >
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6 9l6 6 6-6" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
       {!collapsed && (
-        <div className="px-4 pb-3 -mt-1 space-y-1.5">
-          <p className="text-[14px] font-semibold text-gray-900">{q.title || '행사 진행'}</p>
-          <p className="text-[12px] text-gray-700">📅 {dateStr}{timeStr}</p>
+        <div className="px-4 pb-3 pt-2 border-t border-gray-100 space-y-1">
+          <p className="text-[13.5px] font-semibold text-gray-900">{q.title || '행사 진행'}</p>
           {q.amount != null && (
-            <p className="text-[12px] text-gray-700 tabular-nums">💰 {Number(q.amount).toLocaleString('ko-KR')}원 · 결제 완료</p>
+            <p className="text-[12px] text-gray-600 tabular-nums">결제 완료 · {Number(q.amount).toLocaleString('ko-KR')}원</p>
           )}
-          {isPro ? (
-            <p className="text-[11px] text-emerald-600 mt-1">고객과 세부 진행 사항을 채팅으로 논의해주세요</p>
-          ) : (
-            <p className="text-[11px] text-emerald-600 mt-1">사회자와 세부 진행 사항을 채팅으로 논의해주세요</p>
-          )}
+          <p className="text-[11px] text-gray-400 mt-1">
+            {isPro ? '고객과 세부 진행 사항을 채팅으로 논의해주세요' : '사회자와 세부 진행 사항을 채팅으로 논의해주세요'}
+          </p>
         </div>
       )}
     </div>
