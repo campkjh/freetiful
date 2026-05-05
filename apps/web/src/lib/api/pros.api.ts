@@ -87,6 +87,9 @@ export const prosApi = {
     const form = new FormData();
     form.append('file', file);
     const token = useAuthStore.getState().accessToken;
+    // 60초 timeout — 모바일 저속 네트워크에서 fetch 가 영원히 hang 되는 경우 방지
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 60_000);
     return fetch(`${BASE}/pro/profile/images`, {
       method: 'POST',
       headers: {
@@ -94,13 +97,19 @@ export const prosApi = {
         'x-platform': 'web',
       },
       body: form,
+      signal: ac.signal,
     }).then(async (response) => {
+      clearTimeout(timer);
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         const message = data?.message || data?.error || '프로필 이미지를 업로드하지 못했습니다.';
         throw new Error(Array.isArray(message) ? message.join(', ') : message);
       }
       return data;
+    }).catch((e) => {
+      clearTimeout(timer);
+      if (e?.name === 'AbortError') throw new Error('업로드 시간 초과 (60s)');
+      throw e;
     });
   },
 

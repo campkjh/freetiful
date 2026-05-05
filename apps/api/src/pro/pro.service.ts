@@ -269,7 +269,8 @@ export class ProService implements OnModuleInit {
               shortIntro: fixture.shortIntro,
               mainExperience: fixture.mainExperience,
               careerYears: fixture.careerYears,
-              isProfileHidden: true,
+              // 시드 fixture 도 fanout 에 노출되도록 false (false 로 둬도 transfer 시 다시 false)
+              isProfileHidden: false,
               rejectionReason: null,
               approvedAt: new Date(),
             },
@@ -284,7 +285,8 @@ export class ProService implements OnModuleInit {
               careerYears: fixture.careerYears,
               avgRating: 5,
               reviewCount: 0,
-              isProfileHidden: true,
+              // 시드 fixture 도 fanout 에 노출되도록 false (false 로 둬도 transfer 시 다시 false)
+              isProfileHidden: false,
               approvedAt: new Date(),
             },
           });
