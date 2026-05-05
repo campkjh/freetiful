@@ -828,9 +828,12 @@ export class ChatService {
             budgetMin: true,
             budgetMax: true,
             status: true,
+            rawUserInput: true,
+            category: { select: { id: true, name: true } },
+            eventCategory: { select: { id: true, name: true } },
           },
         },
-        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, amount: true, title: true, status: true, eventDate: true, eventTime: true, createdAt: true } },
+        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, amount: true, title: true, status: true, eventDate: true, eventTime: true, eventLocation: true, createdAt: true } },
       },
     });
 

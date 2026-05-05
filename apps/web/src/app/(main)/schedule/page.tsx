@@ -35,7 +35,8 @@ interface ScheduleItem {
   status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
 }
 
-const SCHEDULE_CACHE_PREFIX = 'freetiful-schedule-cache-v1:';
+// v2: 결제 status 필터링 로직이 바뀌었으니 v1 캐시(과거 'MC 대기' row 가 들어있던) 버림.
+const SCHEDULE_CACHE_PREFIX = 'freetiful-schedule-cache-v2:';
 const SCHEDULE_CACHE_TTL = 2 * 60_000;
 
 function readScheduleCache<T>(key: string): T | null {
@@ -63,26 +64,29 @@ function writeScheduleCache(key: string, data: any) {
 
 function mapPaymentsToSchedules(data: any[]): ScheduleItem[] {
   const mapped: ScheduleItem[] = [];
-  data.forEach((p: any) => {
-    if (p.status === 'refunded') return;
-    // 결제가 미완료 (pending/failed) 인 항목은 스케줄로 노출하지 않는다 —
-    // 과거에 결제실패한 빈 row 들이 "MC 대기" 처럼 떠보이는 문제 방지.
-    if (p.status !== 'completed') return;
+  // 결제완료/에스크로/정산완료 만 캘린더에 노출. pending/failed/refunded 는 제외.
+  const ALLOWED = new Set(['completed', 'escrowed', 'settled']);
+  // 같은 quotationId 에 대해 여러 Payment row 가 있을 수 있음 (재결제 등) — 가장 최근 것만.
+  const seenQuotationIds = new Set<string>();
+  const sorted = [...data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  sorted.forEach((p: any) => {
+    if (!ALLOWED.has(p.status)) return;
     const qs = Array.isArray(p.quotations) ? p.quotations : (p.quotation ? [p.quotation] : []);
-    // 견적과 매칭되지 않은 결제는 표시하지 않음 — 어떤 행사인지 알 수 없으므로.
     if (qs.length === 0) return;
 
     qs.forEach((q: any) => {
+      if (seenQuotationIds.has(q.id)) return;
+      seenQuotationIds.add(q.id);
       const proUser = q.proProfile?.user || {};
       const proImg = q.proProfile?.images?.[0]?.imageUrl || proUser.profileImageUrl || '';
       const eventDate = q.eventDate || p.createdAt;
       const dateStr = new Date(eventDate).toISOString().slice(0, 10);
       const eventDateObj = new Date(eventDate);
       const now = new Date();
+      // ALLOWED 만 들어왔으니 모두 결제 OK 상태 — 행사일 지나면 completed, 아니면 confirmed.
       const status: ScheduleItem['status'] =
-        p.status === 'completed' && eventDateObj < now ? 'completed'
-        : p.status === 'completed' ? 'confirmed'
-        : 'pending';
+        eventDateObj < now ? 'completed' : 'confirmed';
       mapped.push({
         id: `${p.id}__${q.id}`,
         date: dateStr,

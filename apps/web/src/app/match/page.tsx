@@ -65,6 +65,8 @@ export default function MatchRequestPage() {
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
   const [eventLocation, setEventLocation] = useState('');
+  // 결혼식 진행 플랜 — 사회자가 견적을 보낼 때 1부 only 인지 1부+2부 인지 알 수 있게.
+  const [selectedWeddingPlan, setSelectedWeddingPlan] = useState<'wedding_part1' | 'wedding_part12' | ''>('');
   const [selectedBudget, setSelectedBudget] = useState(-1);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [selectedPersonalities, setSelectedPersonalities] = useState<string[]>([]);
@@ -165,6 +167,11 @@ export default function MatchRequestPage() {
           note: additionalNote,
           eventName: getEventName(),
           budgetLabel: getBudgetLabel(),
+          location: eventLocation || undefined,
+          date: eventDate || undefined,
+          timeStart: eventTime || undefined,
+          planKey: selectedWeddingPlan || undefined,
+          planLabel: selectedWeddingPlan === 'wedding_part12' ? '1부 + 2부' : selectedWeddingPlan === 'wedding_part1' ? '1부' : undefined,
         },
       });
       toast.success('견적 요청이 사회자들에게 전달되었습니다.');
@@ -305,6 +312,32 @@ export default function MatchRequestPage() {
                   placeholder="예: 서울 강남구 역삼동"
                   className="input"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  진행 플랜
+                </label>
+                <div className="flex gap-2">
+                  {([
+                    { key: 'wedding_part1', label: '1부 (예식)', sub: '예식만 진행' },
+                    { key: 'wedding_part12', label: '1부 + 2부', sub: '예식 + 피로연' },
+                  ] as const).map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setSelectedWeddingPlan(p.key === selectedWeddingPlan ? '' : p.key)}
+                      className={`flex-1 px-3 py-2.5 rounded-xl border text-left transition-colors ${
+                        selectedWeddingPlan === p.key
+                          ? 'bg-primary-500 text-white border-primary-500'
+                          : 'bg-white text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      <p className="text-[14px] font-bold">{p.label}</p>
+                      <p className={`text-[11px] mt-0.5 ${selectedWeddingPlan === p.key ? 'text-white/80' : 'text-gray-400'}`}>{p.sub}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>

@@ -814,21 +814,41 @@ export default function ChatRoomPage() {
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="max-w-[680px] mx-auto">
-          {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (
+          {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
+            const mr = roomMeta?.matchRequest;
+            const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+            const fmtTime = (v: any) => {
+              if (!v) return '';
+              if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5);
+              try {
+                const d = new Date(v);
+                return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+              } catch { return ''; }
+            };
+            const eventDate = mr?.eventDate || roomMeta.latestQuotation?.eventDate || raw.date;
+            const eventTime = fmtTime(mr?.eventTime || roomMeta.latestQuotation?.eventTime || raw.timeStart);
+            const eventLocation = mr?.eventLocation || (roomMeta.latestQuotation as any)?.eventLocation || raw.location;
+            const eventName = roomMeta.latestQuotation?.title || raw.eventName || mr?.eventCategory?.name || '행사 정보 확인 필요';
+            const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
+            return (
             <div className="mb-4 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(49,128,247,0.08)]">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-[12px] font-bold text-[#3180F7]">고객 견적 정보</p>
                   <p className="mt-1 text-[14px] font-semibold text-gray-900 truncate">
-                    {roomMeta.matchRequest?.eventLocation || roomMeta.latestQuotation?.title || '행사 정보 확인 필요'}
+                    {eventName}
                   </p>
                   <p className="mt-1 text-[12px] text-gray-500">
-                    {roomMeta.matchRequest?.eventDate
-                      ? `${new Date(roomMeta.matchRequest.eventDate).toLocaleDateString('ko-KR')} ${roomMeta.matchRequest.eventTime || ''}`.trim()
-                      : roomMeta.latestQuotation?.eventDate
-                        ? `${new Date(roomMeta.latestQuotation.eventDate).toLocaleDateString('ko-KR')} ${roomMeta.latestQuotation.eventTime || ''}`.trim()
-                        : '행사 일정 미입력'}
+                    📅 {eventDate ? `${new Date(eventDate).toLocaleDateString('ko-KR')} ${eventTime}`.trim() : '일정 미입력'}
                   </p>
+                  {eventLocation && (
+                    <p className="mt-0.5 text-[12px] text-gray-500 truncate">📍 {eventLocation}</p>
+                  )}
+                  {planLabel && (
+                    <span className="mt-1 inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7]/10 text-[#3180F7]">
+                      {planLabel}
+                    </span>
+                  )}
                 </div>
                 {roomMeta.latestQuotation?.amount != null && (
                   <div className="shrink-0 rounded-xl bg-blue-50 px-3 py-2 text-right">
@@ -838,7 +858,8 @@ export default function ChatRoomPage() {
                 )}
               </div>
             </div>
-          )}
+            );
+          })()}
           {messagesLoading && messages.length === 0 && (
             <div className="space-y-4 pt-4">
               {[1,2,3,4,5].map((i) => (
@@ -1197,6 +1218,7 @@ export default function ChatRoomPage() {
           inputRef={inputRef}
           fileInputRef={fileInputRef}
           cameraInputRef={cameraInputRef}
+          roomMeta={roomMeta}
         />
       </Suspense>
 

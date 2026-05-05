@@ -1218,6 +1218,25 @@ export interface ChatExtrasProps {
   inputRef: React.RefObject<HTMLInputElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   cameraInputRef: React.RefObject<HTMLInputElement | null>;
+  // 고객의 매칭 요청 + 최신 견적 (사회자가 견적 작성 시 자동 채움용)
+  roomMeta?: {
+    matchRequest?: {
+      id: string;
+      eventDate?: string | null;
+      eventTime?: string | null;
+      eventLocation?: string | null;
+      rawUserInput?: any;
+      category?: { id: string; name: string } | null;
+      eventCategory?: { id: string; name: string } | null;
+    } | null;
+    latestQuotation?: {
+      id: string;
+      title?: string | null;
+      eventDate?: string | null;
+      eventTime?: string | null;
+      eventLocation?: string | null;
+    } | null;
+  } | null;
 }
 
 export default function ChatExtras(props: ChatExtrasProps) {
@@ -1239,6 +1258,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     voicePlayProgress, setVoicePlayProgress,
     mentionQuery, setMentionQuery,
     inputRef, fileInputRef, cameraInputRef,
+    roomMeta,
   } = props;
 
   // ─── Internal refs for recording/voice ───
@@ -1253,8 +1273,45 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const [quoteEventName, setQuoteEventName] = useState('');
   const [quoteEventDate, setQuoteEventDate] = useState('');
   const [quoteEventTime, setQuoteEventTime] = useState('');
+  const [quoteEventLocation, setQuoteEventLocation] = useState('');
   const [quoteMemo, setQuoteMemo] = useState('');
   const [quoteCustomAmount, setQuoteCustomAmount] = useState('');
+
+  // 견적 작성 모달이 열릴 때, 고객 매칭 요청/최신 견적 정보를 자동 채움.
+  // 프로가 직접 다시 입력하지 않아도 행사일/시간/장소/이름이 들어가 있게.
+  useEffect(() => {
+    if (!showQuoteModal) return;
+    const mr = roomMeta?.matchRequest;
+    const lq = roomMeta?.latestQuotation;
+    const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+    // ISO 또는 'YYYY-MM-DD' 둘 다 허용 — input[type=date] 는 YYYY-MM-DD 만 받는다.
+    const toDateInput = (v: any): string => {
+      if (!v) return '';
+      try {
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return typeof v === 'string' ? v.slice(0, 10) : '';
+        return d.toISOString().slice(0, 10);
+      } catch { return ''; }
+    };
+    const toTimeInput = (v: any): string => {
+      if (!v) return '';
+      if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5);
+      try {
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return '';
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      } catch { return ''; }
+    };
+    setQuoteEventDate((cur) => cur || toDateInput(mr?.eventDate || lq?.eventDate || raw.date));
+    setQuoteEventTime((cur) => cur || toTimeInput(mr?.eventTime || lq?.eventTime || raw.timeStart));
+    setQuoteEventLocation((cur) => cur || mr?.eventLocation || lq?.eventLocation || raw.location || '');
+    setQuoteEventName((cur) => cur || lq?.title || raw.eventName || mr?.eventCategory?.name || '');
+    // 플랜 자동 선택 — rawUserInput 의 planKey 또는 wedding_part1 / wedding_part12 같은 라벨 힌트
+    const planHint = raw.planKey || raw.plan;
+    if (planHint && typeof planHint === 'string') {
+      setQuotePlan((cur) => (PLAN_KEYS.includes(planHint) ? planHint : cur));
+    }
+  }, [showQuoteModal, roomMeta]);
   // 추가 옵션 (프로가 견적 보낼 때 옵션을 추가해 총액을 올릴 수 있음)
   const [quoteOptions, setQuoteOptions] = useState<{ name: string; price: number }[]>([]);
   const [quoteSending, setQuoteSending] = useState(false);
@@ -1638,6 +1695,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
         ].filter(Boolean).join(''),
         eventDate: quoteEventDate || undefined,
         eventTime: quoteEventTime || undefined,
+        eventLocation: quoteEventLocation || undefined,
         chatRoomId: roomId && !roomId.startsWith('pending-') ? roomId : undefined,
       } as any);
       const quotationId = (created as any)?.id;
@@ -1701,6 +1759,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       setQuoteEventName('');
       setQuoteEventDate('');
       setQuoteEventTime('');
+      setQuoteEventLocation('');
       setQuoteMemo('');
       setQuoteCustomAmount('');
       setQuoteOptions([]);
@@ -1980,6 +2039,13 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   className="w-[130px] h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
                 />
               </div>
+              <input
+                type="text"
+                value={quoteEventLocation}
+                onChange={(e) => setQuoteEventLocation(e.target.value)}
+                placeholder="행사 장소 (예: 그랜드 워커힐 서울)"
+                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
+              />
               {!quoteEventDate && (
                 <p className="text-[11px] text-amber-600 flex items-center gap-1">
                   ⚠️ 행사일을 설정해야 스케줄에 자동 등록됩니다

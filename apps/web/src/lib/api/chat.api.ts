@@ -43,6 +43,9 @@ export interface ChatRoomItem {
     budgetMin?: number | null;
     budgetMax?: number | null;
     status?: string | null;
+    rawUserInput?: any;
+    category?: { id: string; name: string } | null;
+    eventCategory?: { id: string; name: string } | null;
   } | null;
   latestQuotation?: {
     id: string;
@@ -51,6 +54,7 @@ export interface ChatRoomItem {
     status: string;
     eventDate?: string | null;
     eventTime?: string | null;
+    eventLocation?: string | null;
     createdAt?: string;
   } | null;
 }
