@@ -149,6 +149,20 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     } else {
       setShowLoginModal(false);
     }
+    // 로그인 상태면 서버에서 최신 프로필 한 번 fetch — 머지된 레거시 토큰의 캐시된 user 정보를 본 계정으로 갱신
+    if (isLoggedIn && authUser) {
+      import('@/lib/api/users.api').then(({ usersApi }) => {
+        usersApi.getProfile()
+          .then((res: any) => {
+            const fresh = res?.data || res;
+            if (!fresh?.id) return;
+            // id 가 바뀌었거나 (alias follow), email 이 다르면 store 갱신
+            const changed = fresh.id !== authUser.id || fresh.email !== authUser.email;
+            if (changed) useAuthStore.getState().setUser(fresh);
+          })
+          .catch(() => { /* 401 등은 다른 곳에서 처리 */ });
+      });
+    }
     if (isLoggedIn) {
       const realPro = authUser?.role === 'pro';
       const viewing = localStorage.getItem('viewAsUser') === 'true';
