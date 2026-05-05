@@ -396,7 +396,23 @@ export default function MyPage() {
   const animOrNone = (base: React.CSSProperties) => skipAnim ? undefined : base;
 
   useEffect(() => {
-    const syncViewAsUser = () => setViewAsUser(readViewAsUserFlag());
+    const syncViewAsUser = (event?: Event) => {
+      const eventValue = (event as CustomEvent<{ viewAsUser?: boolean }> | undefined)?.detail?.viewAsUser;
+      const nextViewAsUser = typeof eventValue === 'boolean' ? eventValue : readViewAsUserFlag();
+      setViewAsUser(nextViewAsUser);
+
+      // 하단 네비의 < > 전환은 서버 role을 바꾸지 않고 view mode만 바꾼다.
+      // /my는 같은 라우트 안에서 일반/프로 화면을 분기하므로, 이벤트를 받은 즉시
+      // role/pro 상태를 낙관적으로 맞춰주어 본문도 네비와 동시에 바뀌게 한다.
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser?.role === 'pro') {
+        setIsPro(true);
+        if (!nextViewAsUser) {
+          setProProfileStatus((prev) => prev ?? 'approved');
+          setProRegistrationPending(false);
+        }
+      }
+    };
     syncViewAsUser();
     window.addEventListener('storage', syncViewAsUser);
     window.addEventListener('freetiful:view-mode-changed', syncViewAsUser);
