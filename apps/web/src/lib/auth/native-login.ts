@@ -339,6 +339,19 @@ export async function loginFromNativeCallback(
     return;
   }
 
+  // KakaoTalk 앱이 빈 params 로 deeplink 복귀하는 케이스 — 이미 인증된 토큰이 localStorage 에 있으면 그걸로 /main 이동
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = useAuthStore.getState();
+      if (stored.accessToken && stored.user) {
+        options?.onStatus?.('로그인 완료 중...');
+        const target = normalizeAuthReturnTo(returnTo || consumeAuthReturnTo('/main'), '/main');
+        window.location.replace(target);
+        return;
+      }
+    } catch {}
+  }
+
   if (provider === 'kakao') {
     const accessToken = firstParam(params, [
       'accessToken',
@@ -358,9 +371,10 @@ export async function loginFromNativeCallback(
     }
 
     if (!data) {
-      // 구 deriveCredentials 폴백은 새 synthetic-email 계정을 매번 생성해 데이터 분리를 일으킴 → 제거.
-      // iOS/Android 네이티브 SDK 는 반드시 accessToken 을 전달해야 함.
-      throw new Error('카카오 로그인 정보가 없습니다 (accessToken 필요).');
+      // accessToken/code 없이 도착한 케이스 (KakaoTalk 빈 deeplink 등) — 에러로 막지 않고 home 으로 안내
+      options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+      if (typeof window !== 'undefined') window.location.replace('/main');
+      return;
     }
   }
 
@@ -384,7 +398,9 @@ export async function loginFromNativeCallback(
     }
 
     if (!data) {
-      throw new Error('네이버 로그인 정보가 없습니다 (accessToken 또는 code+state 필요).');
+      options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+      if (typeof window !== 'undefined') window.location.replace('/main');
+      return;
     }
   }
 
@@ -393,7 +409,9 @@ export async function loginFromNativeCallback(
     if (idToken) {
       data = await authApi.googleLogin(idToken);
     } else {
-      throw new Error('구글 로그인 정보가 없습니다 (idToken 필요).');
+      options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+      if (typeof window !== 'undefined') window.location.replace('/main');
+      return;
     }
   }
 
@@ -405,7 +423,9 @@ export async function loginFromNativeCallback(
         firstParam(params, ['fullName', 'name']) || undefined,
       );
     } else {
-      throw new Error('Apple 로그인 정보가 없습니다 (identityToken 필요).');
+      options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+      if (typeof window !== 'undefined') window.location.replace('/main');
+      return;
     }
   }
 
