@@ -643,7 +643,15 @@ export default function ProDashboardPage() {
       .then((res: any) => {
         const rooms = (res?.data?.data || []) as any[];
         const mapped = rooms
-          .filter((r) => r.lastMessage?.content?.includes('📋 견적 요청'))
+          .filter((r) => (
+            r.iAmPro &&
+            (
+              r.hasQuoteInquiry ||
+              r.matchRequestId ||
+              r.latestQuotationStatus ||
+              /견적|문의/.test(r.lastMessage?.content || '')
+            )
+          ))
           .map((r) => {
             const d = r.lastMessageAt ? new Date(r.lastMessageAt) : null;
             const diff = d ? Date.now() - d.getTime() : 0;
@@ -924,7 +932,8 @@ export default function ProDashboardPage() {
   const thisMonth = monthlyRevenue;
   const lastMonth = lastMonthRevenue;
   const maxRevenue = Math.max(thisMonth, lastMonth);
-  const quickStatsLoading = scheduleRequestsLoading || matchRequestsLoading || inquiryRoomsLoading || quotesLoading || reviewsLoading || puddingLoading || revenueLoading;
+  // 각 섹션을 병렬로 갱신하되, 상단 지표 전체를 마지막 API 하나 때문에 막지 않는다.
+  const quickStatsLoading = false;
 
   return (
     <div className="bg-gray-50 min-h-screen pb-28">

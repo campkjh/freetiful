@@ -86,7 +86,7 @@ function formatBudget(min: number | null, max: number | null): string {
 
 export default function InquiriesPage() {
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>('match');
+  const [filter, setFilter] = useState<Filter>('all');
   const [inquiries, setInquiries] = useState<InquiryView[]>([]);
   const [matchDeliveries, setMatchDeliveries] = useState<MatchDeliveryView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +107,12 @@ export default function InquiriesPage() {
           message: r.lastMessage?.content?.split('\n')[0] || '(대화를 시작해보세요)',
           receivedAt: timeAgo(r.lastMessageAt),
           unread: r.unreadCount,
-          hasQuote: (r.lastMessage?.content || '').includes('📋 견적 요청'),
+          hasQuote: Boolean(
+            r.hasQuoteInquiry ||
+            r.matchRequestId ||
+            r.latestQuotationStatus ||
+            /견적|문의/.test(r.lastMessage?.content || ''),
+          ),
         })));
       })
       .catch(() => {})
@@ -238,17 +243,17 @@ export default function InquiriesPage() {
         </div>
       </div>
 
-      {/* 예약요청 탭 — 매칭 딜리버리 카드들 */}
-      {filter === 'match' && (
+      {/* 예약요청/전체 탭 — 매칭 딜리버리 카드들 */}
+      {(filter === 'match' || filter === 'all') && (
         <div className="px-4 py-4 space-y-3">
           {loadingMatch ? (
             <ProCardListSkeleton count={2} actions className="space-y-3" />
-          ) : matchDeliveries.length === 0 ? (
+          ) : matchDeliveries.length === 0 && filter === 'match' ? (
             <div className="text-center py-20">
               <p className="text-gray-400 text-sm">새 예약 요청이 없습니다</p>
               <p className="text-gray-300 text-[11px] mt-1">고객이 매칭 요청을 보내면 여기에 표시됩니다</p>
             </div>
-          ) : (
+          ) : matchDeliveries.length > 0 ? (
             matchDeliveries.map((m) => (
               <div key={m.id} className="bg-white rounded-2xl border border-[#3180F7]/30 p-4 shadow-sm space-y-3">
                 <div className="flex items-start gap-3">
@@ -314,7 +319,13 @@ export default function InquiriesPage() {
                 </div>
               </div>
             ))
-          )}
+          ) : null}
+        </div>
+      )}
+
+      {filter === 'all' && !loadingMatch && matchDeliveries.length > 0 && !loading && filtered.length > 0 && (
+        <div className="px-4">
+          <div className="h-px bg-gray-100" />
         </div>
       )}
 
@@ -323,7 +334,7 @@ export default function InquiriesPage() {
         <div className="px-4 py-4 space-y-3">
           {loading ? (
             <ProCardListSkeleton count={4} className="space-y-3" />
-          ) : filtered.length === 0 ? (
+          ) : filtered.length === 0 && !(filter === 'all' && matchDeliveries.length > 0) ? (
             <div className="text-center py-20">
               <p className="text-gray-400 text-sm">문의가 없습니다</p>
             </div>
