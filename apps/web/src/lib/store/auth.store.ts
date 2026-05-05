@@ -128,6 +128,28 @@ export const useAuthStore = create<AuthState>()(
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
+        // Hydration 직후, 토큰이 있으면 서버에서 최신 user 정보 한 번 fetch.
+        // 머지된 레거시 계정의 cached user 객체를 본 계정으로 자동 갱신 (synthetic email → real).
+        if (typeof window === 'undefined') return;
+        const accessToken = state?.accessToken;
+        const cachedUser = state?.user;
+        if (!accessToken || !cachedUser) return;
+        // 합성 이메일이면 우선순위 높여 즉시 fetch
+        const isLegacyEmail = !!cachedUser.email?.match(/^kakao_\d+@kakao\.freetiful\.com$/);
+        const fire = () => {
+          import('../api/users.api').then(({ usersApi }) => {
+            usersApi.getProfile()
+              .then((fresh: any) => {
+                if (!fresh?.id) return;
+                if (fresh.id !== cachedUser.id || fresh.email !== cachedUser.email) {
+                  useAuthStore.getState().setUser(fresh);
+                }
+              })
+              .catch(() => {});
+          });
+        };
+        if (isLegacyEmail) fire();
+        else setTimeout(fire, 100); // 일반 케이스는 메인 렌더 후 살짝 늦게
       },
     },
   ),
