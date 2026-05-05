@@ -440,9 +440,26 @@ export async function loginFromNativeCallback(
     }
 
     if (!data) {
-      options?.onStatus?.('로그인 화면으로 돌아갑니다...');
-      if (typeof window !== 'undefined') window.location.replace('/main');
-      return;
+      // 폴백: naverId 만 받은 경우 derive credentials 로 emailLogin 시도
+      const naverId = firstParam(params, ['naverId', 'id', 'userId']);
+      if (naverId) {
+        options?.onStatus?.('계정 연결 중...');
+        try {
+          data = await loginWithDerivedAccount(
+            'naver',
+            naverId,
+            firstParam(params, ['name', 'nickname']) || '네이버 사용자',
+          );
+        } catch (e) {
+          options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+          if (typeof window !== 'undefined') window.location.replace('/main');
+          return;
+        }
+      } else {
+        options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+        if (typeof window !== 'undefined') window.location.replace('/main');
+        return;
+      }
     }
   }
 
@@ -451,9 +468,25 @@ export async function loginFromNativeCallback(
     if (idToken) {
       data = await authApi.googleLogin(idToken);
     } else {
-      options?.onStatus?.('로그인 화면으로 돌아갑니다...');
-      if (typeof window !== 'undefined') window.location.replace('/main');
-      return;
+      const googleId = firstParam(params, ['googleId', 'id', 'userId']);
+      if (googleId) {
+        options?.onStatus?.('계정 연결 중...');
+        try {
+          data = await loginWithDerivedAccount(
+            'google',
+            googleId,
+            firstParam(params, ['name', 'displayName']) || '구글 사용자',
+          );
+        } catch (e) {
+          options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+          if (typeof window !== 'undefined') window.location.replace('/main');
+          return;
+        }
+      } else {
+        options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+        if (typeof window !== 'undefined') window.location.replace('/main');
+        return;
+      }
     }
   }
 
@@ -465,8 +498,23 @@ export async function loginFromNativeCallback(
         firstParam(params, ['fullName', 'name']) || undefined,
       );
     } else {
-      options?.onStatus?.('로그인 화면으로 돌아갑니다...');
-      if (typeof window !== 'undefined') window.location.replace('/main');
+      const appleId = firstParam(params, ['appleUserId', 'appleId', 'id', 'userId']);
+      if (appleId) {
+        options?.onStatus?.('계정 연결 중...');
+        try {
+          data = await loginWithDerivedAccount(
+            'apple',
+            appleId,
+            firstParam(params, ['fullName', 'name']) || 'Apple 사용자',
+          );
+        } catch (e) {
+          options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+          if (typeof window !== 'undefined') window.location.replace('/main');
+          return;
+        }
+      } else {
+        options?.onStatus?.('로그인 화면으로 돌아갑니다...');
+        if (typeof window !== 'undefined') window.location.replace('/main');
       return;
     }
   }

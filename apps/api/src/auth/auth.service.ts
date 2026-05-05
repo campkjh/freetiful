@@ -41,6 +41,27 @@ export class AuthService {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
   }
 
+  /**
+   * deriveCredentials 합성 이메일 패턴 감지 후 매칭되는 native 카카오/네이버/구글/애플 유저 반환.
+   * 'kakao_X@kakao.freetiful.com' / 'naver_X@naver.freetiful.com' / 'google_X@google.freetiful.com' / 'apple_X@apple.freetiful.com'
+   */
+  private async findNativeUserBySyntheticEmail(email: string): Promise<User | null> {
+    const m = email.match(/^(kakao|naver|google|apple)_(.+)@\1\.freetiful\.com$/);
+    if (!m) return null;
+    const providerKey = m[1] as keyof typeof AuthProvider;
+    const providerUserId = m[2];
+    const provider = AuthProvider[providerKey];
+    if (!provider) return null;
+    const authRecord = await this.prisma.authProviderRecord.findUnique({
+      where: { provider_providerUserId: { provider, providerUserId } },
+      include: { user: true },
+    });
+    if (authRecord?.user && authRecord.user.isActive && !authRecord.user.isBanned) {
+      return authRecord.user;
+    }
+    return null;
+  }
+
   private normalizeDevicePlatform(value?: string, userAgent?: string) {
     const raw = `${value || ''} ${userAgent || ''}`.toLowerCase();
     if (/iphone|ipad|ipod|\bios\b/.test(raw)) return 'ios';
@@ -456,22 +477,15 @@ export class AuthService {
   }
 
   async emailRegister(dto: { email: string; password: string; name: string; phone?: string }, deviceInfo?: LoginDeviceInfo) {
-    // 카카오 deriveCredentials 합성 이메일 패턴 — 기존 native 카카오 유저가 있으면 그 유저로 로그인
+    // deriveCredentials 합성 이메일 패턴 (kakao/naver/google/apple) — 기존 native 유저가 있으면 그 유저로 로그인
     // (새 synthetic 계정 생성을 막아 데이터 분리 방지)
-    const syntheticMatch = dto.email.match(/^kakao_(.+)@kakao\.freetiful\.com$/);
-    if (syntheticMatch) {
-      const providerUserId = syntheticMatch[1];
-      const authRecord = await this.prisma.authProviderRecord.findUnique({
-        where: { provider_providerUserId: { provider: AuthProvider.kakao, providerUserId } },
-        include: { user: true },
-      });
-      if (authRecord?.user && authRecord.user.isActive) {
-        return this.buildLoginResponse(
-          authRecord.user,
-          await this.issueTokens(authRecord.user.id, deviceInfo),
-          false,
-        );
-      }
+    const matchedNative = await this.findNativeUserBySyntheticEmail(dto.email);
+    if (matchedNative) {
+      return this.buildLoginResponse(
+        matchedNative,
+        await this.issueTokens(matchedNative.id, deviceInfo),
+        false,
+      );
     }
 
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
@@ -492,21 +506,14 @@ export class AuthService {
   }
 
   async emailLogin(email: string, password: string, deviceInfo?: LoginDeviceInfo) {
-    // 카카오 deriveCredentials 합성 이메일 — 기존 native 유저로 라우팅 (이메일 auth 없이도 로그인 가능)
-    const syntheticMatch = email.match(/^kakao_(.+)@kakao\.freetiful\.com$/);
-    if (syntheticMatch) {
-      const providerUserId = syntheticMatch[1];
-      const authRecord = await this.prisma.authProviderRecord.findUnique({
-        where: { provider_providerUserId: { provider: AuthProvider.kakao, providerUserId } },
-        include: { user: true },
-      });
-      if (authRecord?.user && authRecord.user.isActive) {
-        return this.buildLoginResponse(
-          authRecord.user,
-          await this.issueTokens(authRecord.user.id, deviceInfo),
-          false,
-        );
-      }
+    // deriveCredentials 합성 이메일 — 모든 provider 의 기존 native 유저로 라우팅
+    const matchedNative = await this.findNativeUserBySyntheticEmail(email);
+    if (matchedNative) {
+      return this.buildLoginResponse(
+        matchedNative,
+        await this.issueTokens(matchedNative.id, deviceInfo),
+        false,
+      );
     }
 
     const user = await this.prisma.user.findUnique({
