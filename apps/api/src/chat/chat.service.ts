@@ -34,6 +34,8 @@ export class ChatService {
 
   private roomCache = new Map<string, { data: any; ts: number }>();
   private CACHE_TTL = 60_000; // 1분 (채팅은 짧게)
+  private repairCache = new Map<string, number>(); // userId → last repair ts
+  private REPAIR_THROTTLE = 30 * 60_000; // 30분 (한 번 repair 후 30분 동안은 skip)
 
   private getRoomCached(key: string) {
     const hit = this.roomCache.get(key);
@@ -46,6 +48,19 @@ export class ChatService {
       const oldest = this.roomCache.keys().next().value;
       if (oldest) this.roomCache.delete(oldest);
     }
+  }
+
+  /** 백그라운드에서 repair 실행 — 응답을 막지 않고 다음 요청 때 캐시 invalidate 되도록 */
+  private maybeBackgroundRepair(userId: string) {
+    const last = this.repairCache.get(userId) || 0;
+    if (Date.now() - last <= this.REPAIR_THROTTLE) return;
+    this.repairCache.set(userId, Date.now());
+    Promise.resolve().then(async () => {
+      try {
+        await this.repairRoomsForUser(userId);
+        await this.reviveRoomsWithNewerMessagesForUser(userId);
+      } catch {}
+    });
   }
 
   /** 특정 유저의 룸 목록 캐시 무효화 (새 룸 생성/메시지 전송 시 호출) */
@@ -634,10 +649,6 @@ export class ChatService {
     const take = Math.min(Number(limit) || 20, 50);
     const withTotal = query.withTotal !== false;
 
-    await this.repairRoomsForUser(userId);
-    await this.reviveRoomsWithNewerMessagesForUser(userId);
-    const participantUserIds = await this.getChatParticipantUserIds(userId);
-
     const cacheKey = `rooms:${userId}:${JSON.stringify({
       page,
       limit: take,
@@ -646,8 +657,22 @@ export class ChatService {
       dateTo: dateTo || '',
       withTotal,
     })}`;
+    // 1) cache fastpath — repair 보다 먼저 확인 (cache hit 시 repair 스킵)
     const cached = this.getRoomCached(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      // repair 는 백그라운드로 throttle 후 실행 (응답 막지 않음)
+      this.maybeBackgroundRepair(userId);
+      return cached;
+    }
+
+    // 2) repair 는 throttle (유저당 30분에 1회). cache miss 시에만 동기 실행 — 보장된 정확성 필요할 때만
+    const lastRepair = this.repairCache.get(userId) || 0;
+    if (Date.now() - lastRepair > this.REPAIR_THROTTLE) {
+      await this.repairRoomsForUser(userId);
+      await this.reviveRoomsWithNewerMessagesForUser(userId);
+      this.repairCache.set(userId, Date.now());
+    }
+    const participantUserIds = await this.getChatParticipantUserIds(userId);
 
     const where: any = {
       OR: [
