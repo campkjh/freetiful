@@ -419,10 +419,10 @@ export class MatchService {
 
   /** 전문가에게 전달된 매칭 요청 목록 */
   async getMatchRequestsForPro(proProfileId: string) {
-    // 새 요청 섹션은 pending/viewed 만 사용한다 — 거절/응답 이력은 DB 단계에서 제외해
-    // 전체 매칭 히스토리를 끌어오는 비용을 없앤다.
+    // 새 요청 섹션은 pending/viewed, 보관 탭은 archived 만 사용한다.
+    // 거절/응답 이력은 DB 단계에서 제외해 전체 매칭 히스토리를 끌어오는 비용을 없앤다.
     const deliveries = await this.prisma.matchDelivery.findMany({
-      where: { proProfileId, status: { in: ['pending', 'viewed'] } },
+      where: { proProfileId, status: { in: ['pending', 'viewed', 'archived'] } },
       include: {
         matchRequest: {
           include: {
@@ -447,7 +447,7 @@ export class MatchService {
   async respondToMatch(
     proProfileId: string,
     matchDeliveryId: string,
-    action: 'accept' | 'reject',
+    action: 'accept' | 'reject' | 'archive',
   ) {
     const delivery = await this.prisma.matchDelivery.findUnique({
       where: { id: matchDeliveryId },
@@ -477,6 +477,16 @@ export class MatchService {
     const proDisplayName =
       proName === '사회자' ? '해당 사회자' : proName.includes('사회자') ? proName : `${proName} 사회자`;
     const customerId = delivery.matchRequest?.user?.id;
+
+    if (action === 'archive') {
+      return this.prisma.matchDelivery.update({
+        where: { id: matchDeliveryId },
+        data: { status: 'archived' },
+        include: {
+          matchRequest: { include: { category: true, eventCategory: true } },
+        },
+      });
+    }
 
     if (action === 'accept') {
       const result = await this.prisma.matchDelivery.update({

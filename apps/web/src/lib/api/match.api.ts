@@ -24,6 +24,6 @@ export const matchApi = {
   getProRequests: () =>
     apiClient.get(`${BASE}/pro/requests`).then((r) => r.data),
 
-  respond: (deliveryId: string, action: 'accept' | 'reject') =>
+  respond: (deliveryId: string, action: 'accept' | 'reject' | 'archive') =>
     apiClient.post(`${BASE}/delivery/${deliveryId}/respond`, { action }).then((r) => r.data),
 };

@@ -53,6 +53,28 @@ const PRO_NAMES: Record<string, { name: string; image: string }> = {
   '41': { name: '홍현미', image: '/images/pro-41/IMG_12201772513865121.avif' },
 };
 
+function normalizeDateParam(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
+function normalizeTimeParam(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) {
+    const [hh, mm] = value.split(':');
+    return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+  }
+  if (typeof value === 'string') {
+    const isoTime = value.match(/T(\d{2}:\d{2})/);
+    if (isoTime) return isoTime[1];
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export default function CheckoutPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -74,14 +96,30 @@ export default function CheckoutPage() {
     category: (pro?.categoryNames && pro.categoryNames[0]) || '사회자',
   };
 
-  const planName = searchParams.get('plan') || 'Premium 패키지';
-  const price = Number(searchParams.get('price') || '450000');
-  const slots = (searchParams.get('slots') || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const quotationId = searchParams.get('quotationId') || '';
+  const [quoteDetail, setQuoteDetail] = useState<any>(null);
+  useEffect(() => {
+    if (!quotationId) return;
+    let alive = true;
+    apiClient.get(`/api/v1/quotation/${quotationId}`)
+      .then((res) => { if (alive) setQuoteDetail(res.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [quotationId]);
+
+  const planName = quoteDetail?.title || searchParams.get('plan') || 'Premium 패키지';
+  const price = Number(quoteDetail?.amount ?? searchParams.get('price') ?? '450000');
+  const slotsFromQuery = (searchParams.get('slots') || '').split(',').map((s) => normalizeTimeParam(s.trim())).filter(Boolean);
+  const quoteTime = normalizeTimeParam(quoteDetail?.eventTime);
+  const slots = slotsFromQuery.length > 0 ? slotsFromQuery : (quoteTime ? [quoteTime] : []);
   const dateFromQuery = searchParams.get('eventDate') || searchParams.get('date') || '';
+  const quoteEventDate = normalizeDateParam(quoteDetail?.eventDate);
   const year = searchParams.get('year') || (dateFromQuery ? dateFromQuery.slice(0, 4) : String(new Date().getFullYear()));
   const day = searchParams.get('day') || (dateFromQuery ? String(Number(dateFromQuery.slice(8, 10))) : '');
   const month = searchParams.get('month') || (dateFromQuery ? String(Number(dateFromQuery.slice(5, 7))) : '');
-  const eventDate = dateFromQuery || (year && month && day ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '');
+  const queryBuiltDate = dateFromQuery || (year && month && day ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '');
+  const eventDate = normalizeDateParam(queryBuiltDate) || quoteEventDate;
+  const eventLocation = searchParams.get('eventLocation') || quoteDetail?.eventLocation || '';
   const formatScheduleLine = (rank: number, time?: string) => {
     if (!eventDate) return '선택된 희망 예약 일정이 없습니다';
     const date = new Date(`${eventDate}T00:00:00`);
@@ -102,7 +140,7 @@ export default function CheckoutPage() {
     } catch { /* ignore */ }
   }, [authUser]);
 
-  const [maxDiscount, setMaxDiscount] = useState(true);
+  const [maxDiscount, setMaxDiscount] = useState(false);
   const [agreedCancel, setAgreedCancel] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [checkNoConsult, setCheckNoConsult] = useState(false);
@@ -110,7 +148,7 @@ export default function CheckoutPage() {
   const [showScheduleDetail, setShowScheduleDetail] = useState(false);
   const [showCancelPolicyDetail, setShowCancelPolicyDetail] = useState(false);
   const [showPrivacyDetail, setShowPrivacyDetail] = useState(false);
-  const [usePoints, setUsePoints] = useState(true);
+  const [usePoints, setUsePoints] = useState(false);
   const [consented, setConsented] = useState(false);
 
   // 실제 포인트 잔액 조회
@@ -122,9 +160,10 @@ export default function CheckoutPage() {
       .catch(() => {});
   }, [authUser]);
 
-  const pointAmount = usePoints ? Math.min(pointBalance, price) : 0;
+  const availablePointAmount = Math.min(pointBalance, price);
+  const pointAmount = usePoints ? availablePointAmount : 0;
   const couponAmount = 0;
-  const discountAmount = maxDiscount ? pointAmount : 0;
+  const discountAmount = usePoints ? pointAmount : 0;
   // Toss 최소 결제 금액 100원 보장 — 할인으로 음수가 되지 않도록 clamp
   const finalPrice = Math.max(100, price - discountAmount - couponAmount);
 
@@ -191,13 +230,14 @@ export default function CheckoutPage() {
       let orderId: string;
       try {
         // 견적서 결제인 경우 quotationId 를 함께 보내 Payment ↔ Quotation 연결
-        const quotationId = searchParams.get('quotationId') || undefined;
         const { data: order } = await apiClient.post<{ orderId: string }>('/api/v1/payment/order', {
           amount: finalPrice,
           orderName,
           proProfileId: id,
           eventDate: eventDate || undefined,
-          quotationId,
+          eventTime: slots[0] || undefined,
+          eventLocation: eventLocation || undefined,
+          quotationId: quotationId || undefined,
         });
         orderId = order.orderId;
       } catch (e: any) {
@@ -315,7 +355,11 @@ export default function CheckoutPage() {
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-gray-500">최대 할인 적용</span>
             <button
-              onClick={() => setMaxDiscount(!maxDiscount)}
+              onClick={() => {
+                const next = !maxDiscount;
+                setMaxDiscount(next);
+                setUsePoints(next && pointBalance > 0);
+              }}
               className={`w-[44px] h-[24px] rounded-full transition-colors ${maxDiscount ? 'bg-[#3180F7]' : 'bg-gray-200'}`}
             >
               <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${maxDiscount ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
@@ -329,7 +373,7 @@ export default function CheckoutPage() {
               <span className="text-[13px] text-gray-600">최대 할인 가능 금액</span>
               <HelpCircle size={13} className="text-gray-300" />
             </div>
-            <span className="text-[14px] font-bold text-gray-900">- {pointAmount.toLocaleString()}원</span>
+            <span className="text-[14px] font-bold text-gray-900">- {availablePointAmount.toLocaleString()}원</span>
           </div>
 
           <div className="px-4 py-3 border-t border-gray-100">
@@ -349,12 +393,12 @@ export default function CheckoutPage() {
               <span className="text-[13px] text-gray-700">사용</span>
               {pointBalance > 0 ? (
                 usePoints ? (
-                  <button onClick={() => setUsePoints(false)} className="flex items-center gap-1 text-[14px] font-bold text-[#3180F7]">
+                  <button onClick={() => { setUsePoints(false); setMaxDiscount(false); }} className="flex items-center gap-1 text-[14px] font-bold text-[#3180F7]">
                     -{pointAmount.toLocaleString()} P
                     <X size={14} className="text-gray-400" />
                   </button>
                 ) : (
-                  <button onClick={() => setUsePoints(true)} className="text-[13px] text-gray-400">적용하기</button>
+                  <button onClick={() => { setUsePoints(true); setMaxDiscount(true); }} className="text-[13px] text-gray-400">적용하기</button>
                 )
               ) : (
                 <span className="text-[13px] text-gray-300">사용 가능한 포인트가 없어요</span>
@@ -391,7 +435,7 @@ export default function CheckoutPage() {
               <span className="text-[14px] font-medium text-gray-900">{couponAmount.toLocaleString()} 원</span>
             </div>
           )}
-          {usePoints && (
+          {usePoints && pointAmount > 0 && (
             <div className="flex items-center justify-between py-1.5">
               <span className="text-[13px] text-gray-600">포인트 사용 금액</span>
               <span className="text-[14px] font-medium text-[#3180F7]">- {pointAmount.toLocaleString()} 원</span>

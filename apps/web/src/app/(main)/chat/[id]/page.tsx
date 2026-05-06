@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import {
   ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature,
 } from 'lucide-react';
@@ -120,6 +119,10 @@ function formatEventTimeShort(t: string | Date | null | undefined): string {
     const [hh, mm] = t.split(':');
     return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
   }
+  if (typeof t === 'string') {
+    const isoTime = t.match(/T(\d{2}:\d{2})/);
+    if (isoTime) return isoTime[1];
+  }
   try {
     const d = typeof t === 'string' ? new Date(t) : t;
     if (Number.isNaN(d.getTime())) return '';
@@ -149,10 +152,17 @@ function ScheduleBanner({
   const q = roomMeta?.latestQuotation;
   if (!q || q.status !== 'paid') return null;
 
-  const dateStr = q.eventDate
-    ? new Date(q.eventDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+  const mr = roomMeta?.matchRequest as any;
+  const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+  const dateSource = mr?.eventDate || raw.date || q.eventDate;
+  const timeSource = mr?.eventTime || raw.timeStart || q.eventTime;
+  const location = mr?.eventLocation || raw.location || (q as any).eventLocation;
+  const eventTitle = raw.eventName || q.title || mr?.eventCategory?.name || '행사 진행';
+
+  const dateStr = dateSource
+    ? new Date(dateSource).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
     : '일정 미정';
-  const timeShort = formatEventTimeShort(q.eventTime);
+  const timeShort = formatEventTimeShort(timeSource);
   const timeSuffix = timeShort ? ` · ${timeShort}` : '';
 
   return (
@@ -194,7 +204,8 @@ function ScheduleBanner({
       </button>
       {!collapsed && (
         <div className="px-4 pb-3 pt-2 border-t border-gray-100 space-y-1">
-          <p className="text-[13.5px] font-semibold text-gray-900">{q.title || '행사 진행'}</p>
+          <p className="text-[13.5px] font-semibold text-gray-900">{eventTitle}</p>
+          {location && <p className="text-[12px] text-gray-500 truncate">장소 · {location}</p>}
           {q.amount != null && (
             <p className="text-[12px] text-gray-600 tabular-nums">결제 완료 · {Number(q.amount).toLocaleString('ko-KR')}원</p>
           )}
@@ -266,13 +277,18 @@ export default function ChatRoomPage() {
   const [input, setInput] = useState('');
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
   const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(initialRoomMeta);
+  const [showCustomerInfo, setShowCustomerInfo] = useState(false);
   const isPro = iAmProInRoom === true;
   const partnerRoleKnown = iAmProInRoom !== null;
   const partnerIsPro = iAmProInRoom === false;
   const partnerProfileId = chatPartner?.proProfileId || chatPartner?.id;
-  const partnerProfileHref = partnerIsPro && partnerProfileId
-    ? `/pros/${partnerProfileId}`
-    : '#';
+  const openPartnerProfile = useCallback(() => {
+    if (partnerIsPro && partnerProfileId) {
+      router.push(`/pros/${partnerProfileId}`);
+      return;
+    }
+    if (isPro) setShowCustomerInfo(true);
+  }, [isPro, partnerIsPro, partnerProfileId, router]);
 
   // ─── Extra state (passed to ChatExtras) ───
   const [showAttach, setShowAttach] = useState(false);
@@ -763,9 +779,9 @@ export default function ChatRoomPage() {
           </button>
 
           {/* 중앙 프로필 알약 (상대가 사회자일 때만 프로필 이동) */}
-          <Link
-            href={partnerProfileHref}
-            onClick={(e) => { if (!partnerIsPro || !partnerProfileId) e.preventDefault(); }}
+          <button
+            type="button"
+            onClick={openPartnerProfile}
             className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
           >
             <div className="relative shrink-0">
@@ -791,7 +807,7 @@ export default function ChatRoomPage() {
                 {chatPartner?.isActive ? '온라인' : chatPartner?.lastSeen ? `${chatPartner.lastSeen} 활동` : '오프라인'}
               </p>
             </div>
-          </Link>
+          </button>
 
           {/* 메뉴 버튼 */}
           <div className="relative shrink-0">
@@ -1243,6 +1259,83 @@ export default function ChatRoomPage() {
           roomMeta={roomMeta}
         />
       </Suspense>
+
+      {showCustomerInfo && (() => {
+        const mr = roomMeta?.matchRequest as any;
+        const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+        const eventDate = mr?.eventDate || raw.date || roomMeta?.latestQuotation?.eventDate;
+        const eventTime = formatEventTimeShort(mr?.eventTime || raw.timeStart || roomMeta?.latestQuotation?.eventTime);
+        const eventTimeEnd = formatEventTimeShort(raw.timeEnd);
+        const eventLocation = mr?.eventLocation || raw.location || (roomMeta?.latestQuotation as any)?.eventLocation;
+        const eventName = raw.eventName || roomMeta?.latestQuotation?.title || mr?.eventCategory?.name || '의뢰 정보';
+        const moods = Array.isArray(raw.moods) ? raw.moods.filter(Boolean) : [];
+        const note = raw.note || raw.request || raw.requirements || '';
+        const budget = mr?.budgetMin || mr?.budgetMax
+          ? `${mr?.budgetMin ? Number(mr.budgetMin).toLocaleString('ko-KR') : '0'}원 ~ ${mr?.budgetMax ? Number(mr.budgetMax).toLocaleString('ko-KR') : '협의'}`
+          : '';
+        return (
+          <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/35 px-0 sm:items-center sm:px-4" onClick={() => setShowCustomerInfo(false)}>
+            <div
+              className="w-full max-w-[520px] rounded-t-3xl bg-white px-5 pb-8 pt-5 shadow-2xl sm:rounded-3xl"
+              onClick={(e) => e.stopPropagation()}
+              style={{ animation: 'sheetUp 0.24s cubic-bezier(0.16,1,0.3,1)' }}
+            >
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" />
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="h-12 w-12 rounded-full object-cover" />
+                  <div className="min-w-0">
+                    <p className="truncate text-[17px] font-bold text-gray-900">{chatPartner?.name || '고객'}</p>
+                    <p className="text-[12px] font-semibold text-[#3180F7]">고객 의뢰 정보</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setShowCustomerInfo(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                  <X size={16} className="text-gray-500" />
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <div className="rounded-2xl bg-blue-50 px-4 py-3">
+                  <p className="text-[12px] font-bold text-[#3180F7]">행사</p>
+                  <p className="mt-1 text-[15px] font-bold text-gray-900">{eventName}</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-gray-50 px-4 py-3">
+                    <p className="text-[11px] font-bold text-gray-400">일정</p>
+                    <p className="mt-1 text-[14px] font-semibold text-gray-900">
+                      {eventDate ? new Date(eventDate).toLocaleDateString('ko-KR') : '미정'}
+                      {eventTime ? ` ${eventTime}${eventTimeEnd ? ` ~ ${eventTimeEnd}` : ''}` : ''}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-gray-50 px-4 py-3">
+                    <p className="text-[11px] font-bold text-gray-400">예산</p>
+                    <p className="mt-1 text-[14px] font-semibold text-gray-900">{budget || '협의'}</p>
+                  </div>
+                </div>
+                {eventLocation && (
+                  <div className="rounded-2xl bg-gray-50 px-4 py-3">
+                    <p className="text-[11px] font-bold text-gray-400">장소</p>
+                    <p className="mt-1 text-[14px] font-semibold text-gray-900">{eventLocation}</p>
+                  </div>
+                )}
+                {moods.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {moods.map((mood: string) => (
+                      <span key={mood} className="rounded-[10px] bg-gray-100 px-2.5 py-1 text-[12px] font-semibold text-gray-700">{mood}</span>
+                    ))}
+                  </div>
+                )}
+                {note && (
+                  <div className="rounded-2xl bg-gray-50 px-4 py-3">
+                    <p className="text-[11px] font-bold text-gray-400">요청사항</p>
+                    <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-gray-700">{note}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Animation keyframes */}
       <style dangerouslySetInnerHTML={{ __html: `

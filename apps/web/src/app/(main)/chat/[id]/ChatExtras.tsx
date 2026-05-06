@@ -66,6 +66,42 @@ const formatDate = (iso: string) => {
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 };
+const normalizeDateParam = (value: any): string => {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+};
+const normalizeTimeParam = (value: any): string => {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) {
+    const [hh, mm] = value.split(':');
+    return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+  }
+  if (typeof value === 'string') {
+    const isoTime = value.match(/T(\d{2}:\d{2})/);
+    if (isoTime) return isoTime[1];
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+const buildQuoteCheckoutUrl = (chatPartner: ChatPartner | null, sys: SystemPayload, quoteDetail?: any) => {
+  const proId = chatPartner?.proProfileId || chatPartner?.id;
+  const params = new URLSearchParams({
+    price: String(sys.amount || quoteDetail?.amount || 0),
+    plan: sys.plan || 'premium',
+    quotationId: sys.quotationId || quoteDetail?.id || '',
+  });
+  const eventDate = normalizeDateParam(sys.eventDate || quoteDetail?.eventDate);
+  const eventTime = normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime);
+  const eventLocation = sys.eventLocation || quoteDetail?.eventLocation || '';
+  if (eventDate) params.set('eventDate', eventDate);
+  if (eventTime) params.set('slots', eventTime);
+  if (eventLocation) params.set('eventLocation', eventLocation);
+  const qs = params.toString();
+  return proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
+};
 
 declare global {
   interface Window {
@@ -653,19 +689,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    const proId = chatPartner?.proProfileId || chatPartner?.id;
-                    const amount = sys.amount || 0;
-                    const plan = sys.plan || 'premium';
-                    const params = new URLSearchParams({
-                      price: String(amount),
-                      plan,
-                      quotationId: sys.quotationId,
-                    });
-                    if (sys.eventDate) params.set('eventDate', sys.eventDate);
-                    if (sys.eventTime) params.set('slots', sys.eventTime);
-                    const qs = params.toString();
-                    const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
-                    window.location.href = url;
+                    window.location.href = buildQuoteCheckoutUrl(chatPartner, sys, quoteDetail);
                   }}
                   className="mt-2 self-start px-4 py-2.5 bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform shadow-[0_4px_12px_rgba(49,128,247,0.28)]"
                   style={{ borderRadius: 12, animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.84s both' }}
@@ -879,7 +903,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                         return new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
                       } catch { return String(d); }
                     })()}
-                    {(sys.eventTime || quoteDetail?.eventTime) ? ` · ${sys.eventTime || quoteDetail?.eventTime}` : ''}
+                    {normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime) ? ` · ${normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime)}` : ''}
                   </p>
                 </div>
               )}
@@ -923,19 +947,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               <button
                 type="button"
                 onClick={() => {
-                  const proId = chatPartner?.proProfileId || chatPartner?.id;
-                  const amount = sys.amount || 0;
-                  const plan = sys.plan || 'premium';
-                  const params = new URLSearchParams({
-                    price: String(amount),
-                    plan,
-                    quotationId: sys.quotationId!,
-                  });
-                  if (sys.eventDate) params.set('eventDate', sys.eventDate);
-                  if (sys.eventTime) params.set('slots', sys.eventTime);
-                  const qs = params.toString();
-                  const url = proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
-                  window.location.href = url;
+                  window.location.href = buildQuoteCheckoutUrl(chatPartner, sys, quoteDetail);
                 }}
                 className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors"
               >
@@ -1717,6 +1729,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
               options: quoteOptions,
               eventDate: quoteEventDate,
               eventTime: quoteEventTime,
+              eventLocation: quoteEventLocation,
               items: plan.items,
               quotationId,
               proImage: myProImage,
@@ -1749,6 +1762,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
           options: quoteOptions,
           eventDate: quoteEventDate,
           eventTime: quoteEventTime,
+          eventLocation: quoteEventLocation,
           items: plan.items,
           quotationId,
           proImage: myProImage,

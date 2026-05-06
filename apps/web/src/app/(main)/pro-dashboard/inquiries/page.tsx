@@ -11,10 +11,11 @@ import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { ProCardListSkeleton } from '../_components/ProSkeletons';
 
-type Filter = 'all' | 'pending' | 'replied' | 'match';
+type Filter = 'all' | 'pending' | 'replied' | 'match' | 'archived';
 
 const INQUIRIES_CACHE_KEY = 'freetiful-pro-inquiries-cache-v1';
 const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-match-deliveries-cache-v1';
+const ARCHIVED_DELIVERIES_CACHE_KEY = 'freetiful-pro-match-archived-cache-v1';
 const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
 
 function readCache<T>(key: string): T | null {
@@ -107,8 +108,10 @@ export default function InquiriesPage() {
   // sessionStorage 캐시 즉시 적용 — 한 번 본 데이터를 다시 깜빡이지 않게.
   const cachedInquiries = useMemo(() => readCache<InquiryView[]>(INQUIRIES_CACHE_KEY), []);
   const cachedMatchDeliveries = useMemo(() => readCache<MatchDeliveryView[]>(MATCH_DELIVERIES_CACHE_KEY), []);
+  const cachedArchivedDeliveries = useMemo(() => readCache<MatchDeliveryView[]>(ARCHIVED_DELIVERIES_CACHE_KEY), []);
   const [inquiries, setInquiries] = useState<InquiryView[]>(cachedInquiries ?? []);
   const [matchDeliveries, setMatchDeliveries] = useState<MatchDeliveryView[]>(cachedMatchDeliveries ?? []);
+  const [archivedDeliveries, setArchivedDeliveries] = useState<MatchDeliveryView[]>(cachedArchivedDeliveries ?? []);
   const [loading, setLoading] = useState(cachedInquiries === null);
   const [loadingMatch, setLoadingMatch] = useState(cachedMatchDeliveries === null);
   const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
@@ -152,7 +155,7 @@ export default function InquiriesPage() {
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const mapped: MatchDeliveryView[] = items
-          .filter((d: any) => d.status === 'pending' || d.status === 'viewed')
+          .filter((d: any) => ['pending', 'viewed', 'archived'].includes(d.status))
           .map((d: any) => {
             const raw: any = typeof d.matchRequest?.rawUserInput === 'object' && d.matchRequest?.rawUserInput
               ? d.matchRequest.rawUserInput
@@ -184,8 +187,12 @@ export default function InquiriesPage() {
               deliveredAt: d.deliveredAt,
             };
           });
-        setMatchDeliveries(mapped);
-        writeCache(MATCH_DELIVERIES_CACHE_KEY, mapped);
+        const active = mapped.filter((m) => m.status === 'pending' || m.status === 'viewed');
+        const archived = mapped.filter((m) => m.status === 'archived');
+        setMatchDeliveries(active);
+        setArchivedDeliveries(archived);
+        writeCache(MATCH_DELIVERIES_CACHE_KEY, active);
+        writeCache(ARCHIVED_DELIVERIES_CACHE_KEY, archived);
       })
       .catch(() => {})
       .finally(() => setLoadingMatch(false));
@@ -225,17 +232,39 @@ export default function InquiriesPage() {
     }
   }
 
+  async function handleArchive(m: MatchDeliveryView) {
+    try {
+      await matchApi.respond(m.id, 'archive');
+      setMatchDeliveries((prev) => {
+        const next = prev.filter((item) => item.id !== m.id);
+        writeCache(MATCH_DELIVERIES_CACHE_KEY, next);
+        return next;
+      });
+      setArchivedDeliveries((prev) => {
+        const archived = [{ ...m, status: 'archived' }, ...prev.filter((item) => item.id !== m.id)];
+        writeCache(ARCHIVED_DELIVERIES_CACHE_KEY, archived);
+        return archived;
+      });
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      toast.success('보관함으로 이동했습니다');
+    } catch (e: any) {
+      toast.error(`보관 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    }
+  }
+
   const filtered = inquiries.filter((i) =>
     filter === 'all' ? true : filter === 'pending' ? i.unread > 0 : filter === 'replied' ? i.unread === 0 : false
   );
   const pendingCount = inquiries.filter((i) => i.unread > 0).length;
   const matchCount = matchDeliveries.length;
+  const archivedCount = archivedDeliveries.length;
 
   const TABS: { key: Filter; label: string; badge?: number }[] = [
     { key: 'all', label: '전체' },
     { key: 'pending', label: '미답변', badge: pendingCount },
     { key: 'replied', label: '답변완료' },
     { key: 'match', label: '예약요청', badge: matchCount },
+    { key: 'archived', label: '보관', badge: archivedCount },
   ];
 
   return (
@@ -343,6 +372,13 @@ export default function InquiriesPage() {
 
                 <div className="flex gap-2 pt-2 border-t border-gray-50">
                   <button
+                    onClick={() => handleArchive(m)}
+                    disabled={initiatingChat === m.id}
+                    className="h-10 px-3 rounded-xl bg-blue-50 text-[#3180F7] text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-50"
+                  >
+                    보관
+                  </button>
+                  <button
                     onClick={() => handleReject(m.id)}
                     disabled={initiatingChat === m.id}
                     className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-50"
@@ -367,6 +403,49 @@ export default function InquiriesPage() {
         </div>
       )}
 
+      {filter === 'archived' && (
+        <div className="px-4 pt-3 pb-4 space-y-3">
+          {loadingMatch ? (
+            <ProCardListSkeleton count={2} actions className="space-y-3" />
+          ) : archivedDeliveries.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-gray-400 text-sm">보관된 요청이 없습니다</p>
+              <p className="text-gray-300 text-[11px] mt-1">요청 카드를 보관하면 이곳에서 다시 확인할 수 있습니다</p>
+            </div>
+          ) : (
+            archivedDeliveries.map((m) => (
+              <div key={m.id} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm space-y-3 opacity-90">
+                <div className="flex items-start gap-3">
+                  <img src={m.customerImage} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">보관됨</span>
+                      <p className="text-sm font-bold text-gray-900 truncate">{m.customerName}</p>
+                      <span className="text-[10px] text-gray-300 ml-auto shrink-0">{timeAgo(m.deliveredAt)}</span>
+                    </div>
+                    <p className="text-[13px] text-gray-700 font-medium">
+                      {[m.categoryName, m.eventCategoryName].filter(Boolean).join(' · ')}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={10} /> {formatDate(m.eventDate)}
+                        {m.eventTime ? ` ${formatTime(m.eventTime)}${m.eventTimeEnd ? ` ~ ${formatTime(m.eventTimeEnd)}` : ''}` : ''}
+                      </span>
+                      {m.eventLocation && <span className="flex items-center gap-1"><MapPin size={10} /> {m.eventLocation}</span>}
+                    </div>
+                    {m.note && (
+                      <p className="text-[12px] text-gray-600 mt-2 bg-gray-50 rounded-xl px-3 py-2 line-clamp-3">
+                        {m.note}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {filter === 'all' && !loadingMatch && matchDeliveries.length > 0 && !loading && filtered.length > 0 && (
         <div className="px-4">
           <div className="h-px bg-gray-100" />
@@ -374,7 +453,7 @@ export default function InquiriesPage() {
       )}
 
       {/* 채팅 탭 (전체/미답변/답변완료) */}
-      {filter !== 'match' && (
+      {filter !== 'match' && filter !== 'archived' && (
         <div className="px-4 pt-3 pb-4 space-y-3">
           {loading ? (
             <ProCardListSkeleton count={4} className="space-y-3" />

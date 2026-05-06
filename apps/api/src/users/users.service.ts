@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { NotificationService } from '../notification/notification.service';
+import { ImageService } from '../image/image.service';
 import { UserRole } from '@prisma/client';
 
 const NOTIFICATION_SETTING_FIELDS = [
@@ -25,6 +26,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly discovery: DiscoveryService,
     private readonly notificationService: NotificationService,
+    private readonly imageService: ImageService,
   ) {}
 
   async getProfile(userId: string) {
@@ -46,7 +48,7 @@ export class UsersService {
 
   async updateProfile(
     userId: string,
-    data: { name?: string; phone?: string; profileImageUrl?: string },
+    data: { name?: string; phone?: string; profileImageUrl?: string; profileImageDataUrl?: string },
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -56,16 +58,44 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    let profileImageUrl = data.profileImageUrl;
+    if (data.profileImageDataUrl?.startsWith('data:image/')) {
+      profileImageUrl = await this.saveProfileImageFromDataUrl(data.profileImageDataUrl);
+    }
+
     return this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.phone !== undefined && { phone: data.phone }),
-        ...(data.profileImageUrl !== undefined && {
-          profileImageUrl: data.profileImageUrl,
+        ...(profileImageUrl !== undefined && {
+          profileImageUrl,
         }),
       },
     });
+  }
+
+  private async saveProfileImageFromDataUrl(dataUrl: string): Promise<string> {
+    const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+    if (!match) throw new BadRequestException('지원하지 않는 이미지 데이터입니다.');
+    const [, mimeType, base64] = match;
+    const buffer = Buffer.from(base64, 'base64');
+    if (buffer.length > 10 * 1024 * 1024) {
+      throw new BadRequestException('파일 크기는 10MB를 초과할 수 없습니다.');
+    }
+    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    const processed = await this.imageService.processImage({
+      buffer,
+      mimetype: mimeType,
+      originalname: `profile.${ext}`,
+      size: buffer.length,
+    } as Express.Multer.File, {
+      maxWidth: 1200,
+      maxHeight: 1200,
+      quality: 85,
+      requireFace: false,
+    });
+    return processed.webpPath || processed.path;
   }
 
   async getNotificationSettings(userId: string) {
