@@ -18,7 +18,7 @@ export const usersApi = {
   getProfile: () =>
     apiClient.get<User & { proProfile?: any; businessProfile?: any }>(`${BASE}/profile`).then((r) => r.data),
 
-  updateProfile: (data: { name?: string; phone?: string; profileImageUrl?: string }) =>
+  updateProfile: (data: { name?: string; phone?: string; profileImageUrl?: string; profileImageDataUrl?: string }) =>
     apiClient.put<User>(`${BASE}/profile`, data).then((r) => r.data),
 
   getNotificationSettings: () =>

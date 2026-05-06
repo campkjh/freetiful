@@ -25,6 +25,25 @@ function getRefundPolicy(eventDate: string, price: number) {
   return { rate: 0, refundAmount: 0, penalty: price, label: '행사 당일', description: '환불 불가', canCancel: false };
 }
 
+function formatEventTimeShort(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) {
+    const [hh, mm] = value.split(':');
+    return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+  }
+  if (typeof value === 'string') {
+    const isoTime = value.match(/T(\d{2}:\d{2})/);
+    if (isoTime) return isoTime[1];
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function paymentMethodLabel(payment: any): string {
+  return payment?.method || payment?.pgProvider || '결제수단 정보 없음';
+}
+
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -64,10 +83,13 @@ export default function BookingDetailPage() {
             category: q.category || q.proProfile?.categories?.[0]?.category?.name || '사회자',
             date: dateFmt,
             eventDate: dateStr,
-            time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',
+            time: formatEventTimeShort(q.eventTime),
             location: q.eventLocation || '',
             plan: q.title || p.description || '패키지',
+            serviceAmount: q.amount || p.amount || 0,
+            pointUsed: Math.max(0, Number(q.amount || p.amount || 0) - Number(p.amount || 0)),
             price: p.amount || 0,
+            paymentMethod: paymentMethodLabel(p),
             status,
           });
         })
@@ -106,8 +128,8 @@ export default function BookingDetailPage() {
 
   const booking = { ...bookingData, status: bookingStatus };
   const status = STATUS_MAP[booking.status];
-  const pointUsed = 5000;
-  const finalPrice = booking.price - pointUsed;
+  const pointUsed = booking.pointUsed || 0;
+  const finalPrice = booking.price || 0;
   const refundPolicy = getRefundPolicy(booking.eventDate, finalPrice);
 
   const CANCEL_REASONS = [
@@ -125,7 +147,7 @@ export default function BookingDetailPage() {
 
     try {
       const { apiClient } = await import('@/lib/api/client');
-      const paymentId = id.split('-')[0];
+      const paymentId = String(id).split('__')[0];
       await apiClient.post(`/api/v1/payment/${paymentId}/cancel`, { reason: cancelReason });
       setBookingStatus('cancelled');
       setShowCancelModal(false);
@@ -178,15 +200,16 @@ export default function BookingDetailPage() {
         {booking.status !== 'cancelled' && (
           <div className="flex gap-2 mt-3 relative z-10">
             {booking.proPhone ? (
-              <a href={`tel:${booking.proPhone}`} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 text-[13px] font-medium text-gray-700 active:bg-gray-50 transition-colors" style={{ borderRadius: 10 }}>
+              <a href={`tel:${String(booking.proPhone).replace(/[^\d+]/g, '')}`} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 text-[13px] font-medium text-gray-700 active:bg-gray-50 transition-colors" style={{ borderRadius: 10 }}>
                 <Phone size={14} /> 전화하기
               </a>
             ) : (
               <button
-                onClick={() => router.push('/chat')}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 text-[13px] font-medium text-gray-400 cursor-pointer"
+                type="button"
+                disabled
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 text-[13px] font-medium text-gray-300 cursor-not-allowed"
                 style={{ borderRadius: 10 }}
-                title="전화번호 미등록 — 채팅으로 연결됩니다"
+                title="등록된 전화번호가 없습니다"
               >
                 <Phone size={14} /> 전화하기
               </button>
@@ -228,12 +251,14 @@ export default function BookingDetailPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[14px] text-gray-600">서비스 금액</span>
-            <span className="text-[14px] font-medium text-gray-900">{booking.price.toLocaleString()}원</span>
+            <span className="text-[14px] font-medium text-gray-900">{Number(booking.serviceAmount || booking.price || 0).toLocaleString()}원</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] text-gray-600">포인트 사용</span>
-            <span className="text-[14px] font-medium text-blue-600">-{pointUsed.toLocaleString()}원</span>
-          </div>
+          {pointUsed > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-[14px] text-gray-600">포인트 사용</span>
+              <span className="text-[14px] font-medium text-blue-600">-{pointUsed.toLocaleString()}원</span>
+            </div>
+          )}
           <div className="h-px bg-gray-100 my-1" />
           <div className="flex items-center justify-between">
             <span className="text-[15px] font-bold text-gray-900">총 결제 금액</span>
@@ -257,7 +282,7 @@ export default function BookingDetailPage() {
         </div>
         <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg mt-3">
           <span className="text-[12px] text-gray-500">결제 수단</span>
-          <span className="text-[12px] font-medium text-gray-700">퀵계좌이체</span>
+          <span className="text-[12px] font-medium text-gray-700">{booking.paymentMethod}</span>
         </div>
       </div>
 

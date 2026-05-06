@@ -62,6 +62,21 @@ function writeScheduleCache(key: string, data: any) {
   } catch {}
 }
 
+function formatEventTimeShort(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) {
+    const [hh, mm] = value.split(':');
+    return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+  }
+  if (typeof value === 'string') {
+    const isoTime = value.match(/T(\d{2}:\d{2})/);
+    if (isoTime) return isoTime[1];
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 function mapPaymentsToSchedules(data: any[]): ScheduleItem[] {
   const mapped: ScheduleItem[] = [];
   // 결제완료/에스크로/정산완료 만 캘린더에 노출. pending/failed/refunded 는 제외.
@@ -94,7 +109,7 @@ function mapPaymentsToSchedules(data: any[]): ScheduleItem[] {
         category: q.category || q.proProfile?.categories?.[0]?.category?.name || '사회자',
         proName: proUser.name || '',
         proImage: proImg,
-        time: q.eventTime ? new Date(q.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',
+        time: formatEventTimeShort(q.eventTime),
         location: q.eventLocation || '',
         status,
       });
@@ -507,6 +522,18 @@ export default function SchedulePage() {
       .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
   }, [year, month, isLoggedIn, apiSchedules]);
 
+  const overviewSchedules = useMemo(() => {
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const upcoming = monthSchedules
+      .filter((s) => s.date >= todayKey && s.status !== 'completed' && s.status !== 'cancelled')
+      .slice(0, 5);
+    if (upcoming.length > 0) return { title: '다가오는 스케줄', items: upcoming };
+    return {
+      title: '완료된 스케줄',
+      items: monthSchedules.filter((s) => s.status === 'completed').slice(-5).reverse(),
+    };
+  }, [monthSchedules, today]);
+
   // Stats
   const confirmedCount = monthSchedules.filter(s => s.status === 'confirmed').length;
   const pendingCount = monthSchedules.filter(s => s.status === 'pending').length;
@@ -683,6 +710,35 @@ export default function SchedulePage() {
               </div>
             )}
           </div>
+
+          {overviewSchedules.items.length > 0 && (
+            <div className="border-t border-gray-100 bg-gray-50 px-5 py-4">
+              <h3 className="text-[15px] font-bold text-gray-900">{overviewSchedules.title}</h3>
+              <div className="mt-3 space-y-2">
+                {overviewSchedules.items.map((s) => {
+                  const status = STATUS_MAP[s.status];
+                  const dateObj = new Date(s.date);
+                  const dateLabel = `${String(dateObj.getFullYear()).slice(2)}. ${dateObj.getMonth() + 1}. ${dateObj.getDate()} (${DAYS_KR[dateObj.getDay()]})`;
+                  return (
+                    <Link key={`overview-${s.id}`} href={`/schedule/${s.id}`} className="block rounded-2xl bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                      <div className="flex items-center gap-3">
+                        <img src={s.proImage} alt={s.proName} className="h-12 w-10 rounded-lg object-cover" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="truncate text-[14px] font-bold text-gray-900">{s.category} {s.proName}</p>
+                            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${status.bg} ${status.color}`}>{status.label}</span>
+                          </div>
+                          <p className="mt-0.5 text-[12px] text-gray-400">{dateLabel}{s.time ? ` · ${s.time}` : ''}</p>
+                          {s.location && <p className="mt-0.5 truncate text-[12px] text-gray-500">{s.location}</p>}
+                        </div>
+                        <ChevronRight size={16} className="shrink-0 text-gray-300" />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>
       ) : (
         /* List View */

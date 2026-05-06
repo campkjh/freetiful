@@ -32,6 +32,48 @@ export class PaymentService {
     return `Basic ${encoded}`;
   }
 
+  private toDateInput(value?: any): string | undefined {
+    if (!value) return undefined;
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
+  }
+
+  private toTimeInput(value?: any): string | undefined {
+    if (!value) return undefined;
+    if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) {
+      const [hh, mm] = value.split(':');
+      return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+    }
+    if (typeof value === 'string') {
+      const isoTime = value.match(/T(\d{2}:\d{2})/);
+      if (isoTime) return isoTime[1];
+    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  }
+
+  private toTimeDate(value?: any): Date | undefined {
+    const time = this.toTimeInput(value);
+    return time ? new Date(`1970-01-01T${time}:00.000Z`) : undefined;
+  }
+
+  private formatEasyPayMethod(tossData: any): string | null {
+    const provider = String(tossData?.easyPay?.provider || '').toUpperCase();
+    const providerMap: Record<string, string> = {
+      NAVERPAY: '네이버페이',
+      KAKAOPAY: '카카오페이',
+      TOSSPAY: '토스페이',
+      PAYCO: '페이코',
+      SAMSUNGPAY: '삼성페이',
+      LPAY: 'L.pay',
+      SSGPAY: 'SSG페이',
+    };
+    if (provider) return providerMap[provider] || tossData.easyPay.provider;
+    return tossData?.method ?? null;
+  }
+
   /** 주문 생성 (결제 전 pending Payment 레코드) */
   async createOrder(
     userId: string,
@@ -56,7 +98,7 @@ export class PaymentService {
           title: data.orderName,
           eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
           eventLocation: data.eventLocation,
-          eventTime: data.eventTime ? new Date(`1970-01-01T${data.eventTime}`) : undefined,
+          eventTime: this.toTimeDate(data.eventTime),
           status: 'pending',
         },
       });
@@ -67,14 +109,16 @@ export class PaymentService {
       });
       if (!quotation) throw new NotFoundException('견적서를 찾을 수 없습니다.');
       if (quotation.userId !== userId) throw new ForbiddenException('본인의 견적서만 결제할 수 있습니다.');
-      // eventDate 업데이트
-      if (data.eventDate && !quotation.eventDate) {
+      // 채팅 견적서에 일정 정보가 비어 있으면 결제 진입 시 넘어온 의뢰 일정으로 보강한다.
+      const updateData: any = {};
+      const eventDateInput = this.toDateInput(data.eventDate);
+      if (eventDateInput && !quotation.eventDate) updateData.eventDate = new Date(eventDateInput);
+      if (data.eventTime && !quotation.eventTime) updateData.eventTime = this.toTimeDate(data.eventTime);
+      if (data.eventLocation && !quotation.eventLocation) updateData.eventLocation = data.eventLocation;
+      if (Object.keys(updateData).length > 0) {
         await this.prisma.quotation.update({
           where: { id: quotationId },
-          data: {
-            eventDate: new Date(data.eventDate),
-            eventLocation: data.eventLocation ?? quotation.eventLocation,
-          },
+          data: updateData,
         });
       }
     }
@@ -165,7 +209,7 @@ export class PaymentService {
       where: { id: payment.id },
       data: {
         status: 'completed',
-        method: tossData.method ?? null,
+        method: this.formatEasyPayMethod(tossData),
         pgTransactionId: data.paymentKey,
       },
     });
@@ -353,6 +397,7 @@ export class PaymentService {
         take: limit,
         include: {
           quotations: {
+            orderBy: { createdAt: 'desc' },
             include: {
               proProfile: {
                 include: {
@@ -382,6 +427,7 @@ export class PaymentService {
       where: { id: paymentId },
       include: {
         quotations: {
+          orderBy: { createdAt: 'desc' },
           include: {
             proProfile: {
               include: {

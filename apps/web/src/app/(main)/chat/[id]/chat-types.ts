@@ -21,6 +21,7 @@ export interface SystemPayload {
   eventName?: string;
   eventDate?: string;
   eventTime?: string;
+  eventLocation?: string;
   venue?: string;
   daysLeft?: number;
   paymentType?: 'deposit' | 'balance';

@@ -30,7 +30,7 @@ export class UsersController {
   @Put('profile')
   async updateProfile(
     @Req() req: Request,
-    @Body() body: { name?: string; phone?: string; profileImageUrl?: string },
+    @Body() body: { name?: string; phone?: string; profileImageUrl?: string; profileImageDataUrl?: string },
   ) {
     const userId = (req.user as any).id;
     return this.usersService.updateProfile(userId, body);

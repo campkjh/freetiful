@@ -133,12 +133,27 @@ export default function SettingsPage() {
       } catch {}
       // Save to API
       if (authUser) {
-        const updated = await usersApi.updateProfile({
+        const payload = {
           name,
           phone: phone.replace(/\D/g, ''),
-          ...(profileImage.startsWith('data:') ? {} : { profileImageUrl: profileImage }),
+          ...(profileImage.startsWith('data:')
+            ? { profileImageDataUrl: profileImage }
+            : { profileImageUrl: profileImage }),
+        };
+        const updated = await usersApi.updateProfile({
+          ...payload,
         });
         setUser(updated);
+        try {
+          const u = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
+          localStorage.setItem('freetiful-user', JSON.stringify({
+            ...u,
+            name: updated.name,
+            phone: updated.phone,
+            profileImageUrl: updated.profileImageUrl,
+          }));
+        } catch {}
+        if (updated.profileImageUrl) setProfileImage(updated.profileImageUrl);
       }
       toast.success('저장되었습니다');
     } catch {

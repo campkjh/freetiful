@@ -14,6 +14,73 @@ export class QuotationService {
     private notificationService: NotificationService,
   ) {}
 
+  private toDateInput(value?: any): string | undefined {
+    if (!value) return undefined;
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      return value.slice(0, 10);
+    }
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
+  }
+
+  private toTimeInput(value?: any): string | undefined {
+    if (!value) return undefined;
+    if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) {
+      const [hh, mm] = value.split(':');
+      return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+    }
+    if (typeof value === 'string') {
+      const isoTime = value.match(/T(\d{2}:\d{2})/);
+      if (isoTime) return isoTime[1];
+    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  }
+
+  private toTimeDate(value?: any): Date | undefined {
+    const time = this.toTimeInput(value);
+    return time ? new Date(`1970-01-01T${time}:00.000Z`) : undefined;
+  }
+
+  private async withRequestEventDefaults(data: {
+    title?: string;
+    eventDate?: string;
+    eventTime?: string;
+    eventLocation?: string;
+    chatRoomId?: string;
+  }) {
+    const next = {
+      title: data.title,
+      eventDate: this.toDateInput(data.eventDate),
+      eventTime: this.toTimeInput(data.eventTime),
+      eventLocation: data.eventLocation,
+    };
+    if ((!next.eventDate || !next.eventTime || !next.eventLocation || !next.title) && data.chatRoomId) {
+      const room = await this.prisma.chatRoom.findUnique({
+        where: { id: data.chatRoomId },
+        select: {
+          matchRequest: {
+            select: {
+              eventDate: true,
+              eventTime: true,
+              eventLocation: true,
+              rawUserInput: true,
+              eventCategory: { select: { name: true } },
+            },
+          },
+        },
+      });
+      const mr = room?.matchRequest;
+      const raw = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? (mr.rawUserInput as any) : {};
+      next.eventDate = next.eventDate || this.toDateInput(mr?.eventDate || raw.date);
+      next.eventTime = next.eventTime || this.toTimeInput(mr?.eventTime || raw.timeStart);
+      next.eventLocation = next.eventLocation || mr?.eventLocation || raw.location;
+      next.title = next.title || raw.eventName || mr?.eventCategory?.name || '행사 진행';
+    }
+    return next;
+  }
+
   /** 전문가가 견적서 생성 */
   async createQuotation(
     proProfileId: string,
@@ -47,16 +114,18 @@ export class QuotationService {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
 
+    const normalized = await this.withRequestEventDefaults(data);
+
     const quotation = await this.prisma.quotation.create({
       data: {
         proProfileId,
         userId,
         amount: data.amount,
-        title: data.title,
+        title: normalized.title,
         description: data.description,
-        eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
-        eventTime: data.eventTime ? new Date(`1970-01-01T${data.eventTime}`) : undefined,
-        eventLocation: data.eventLocation,
+        eventDate: normalized.eventDate ? new Date(normalized.eventDate) : undefined,
+        eventTime: this.toTimeDate(normalized.eventTime),
+        eventLocation: normalized.eventLocation,
         validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
         chatRoomId: data.chatRoomId,
         matchDeliveryId: data.matchDeliveryId,

@@ -78,7 +78,7 @@ export class MatchController {
   async respondToMatch(
     @Request() req: any,
     @Param('id') id: string,
-    @Body('action') action: 'accept' | 'reject',
+    @Body('action') action: 'accept' | 'reject' | 'archive',
   ) {
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { userId: req.user.id },
