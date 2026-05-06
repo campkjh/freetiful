@@ -93,6 +93,10 @@ function messageTime(message: Pick<MessageItem, 'createdAt'>) {
   return Number.isFinite(time) ? time : 0;
 }
 
+function sortMessagesAsc<T extends Pick<MessageItem, 'createdAt'>>(messages: T[]) {
+  return [...messages].sort((a, b) => messageTime(a) - messageTime(b));
+}
+
 function sameClientMessageId(a: MessageItem, b: MessageItem) {
   const aId = (a.metadata as Record<string, unknown> | null)?.clientMessageId;
   const bId = (b.metadata as Record<string, unknown> | null)?.clientMessageId;
@@ -107,7 +111,7 @@ function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[]
     return messageTime(message) >= requestedAt - 2_000;
   });
 
-  return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
+  return sortMessagesAsc([...fetched, ...preserved]);
 }
 
 interface ChatState {
@@ -202,36 +206,43 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     socket.on('newMessage', (message: MessageItem) => {
       const { currentRoomId, messageCache } = get();
+      const myId = currentUserId();
+      const isMine = !!myId && message.senderId === myId;
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      if (!cachedForRoom.some((m) => m.id === message.id)) {
-        messageCache.set(message.roomId, [...cachedForRoom, message].slice(-80));
+      if (!cachedForRoom.some((m) => m.id === message.id || sameClientMessageId(m, message))) {
+        messageCache.set(message.roomId, sortMessagesAsc([...cachedForRoom, message]).slice(-80));
       }
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       if (message.roomId === currentRoomId) {
         set((s) => ({
-          messages: s.messages.some((m) => m.id === message.id)
+          messages: s.messages.some((m) => m.id === message.id || sameClientMessageId(m, message))
             ? s.messages
-            : [...s.messages, message],
+            : sortMessagesAsc([...s.messages, message]),
         }));
       }
       // Update room list
-      set((s) => ({
-        rooms: s.rooms.map((r) =>
+      set((s) => {
+        const nextRooms = s.rooms.map((r) =>
           r.id === message.roomId
             ? {
                 ...r,
                 ...getRoomFlagsFromMessage(message),
                 lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
                 lastMessageAt: message.createdAt,
-                unreadCount: message.roomId === currentRoomId ? r.unreadCount : r.unreadCount + 1,
+                unreadCount:
+                  message.roomId === currentRoomId || isMine
+                    ? 0
+                    : r.unreadCount + 1,
               }
             : r,
         ).sort((a, b) => {
           const da = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
-        }),
-      }));
+        });
+        writeRoomsCache(nextRooms);
+        return { rooms: nextRooms };
+      });
       if (!hasRoomInList) {
         get().fetchRooms({ limit: 50, force: true }).catch(() => {});
       }
@@ -377,11 +388,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const cached = messageCache.get(roomId) || [];
     set({ currentRoomId: roomId, messages: cached, messageCursor: null, hasMoreMessages: false });
     socket?.emit('joinRoom', { roomId });
+    chatApi.markAsRead(roomId).catch(() => {});
 
     // Reset unread in room list
-    set((s) => ({
-      rooms: s.rooms.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r)),
-    }));
+    set((s) => {
+      const nextRooms = s.rooms.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r));
+      writeRoomsCache(nextRooms);
+      return { rooms: nextRooms };
+    });
   },
 
   leaveRoom: () => {
@@ -425,30 +439,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const applyPersistedMessage = (message: MessageItem) => {
       const { messageCache } = get();
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      if (!cachedForRoom.some((m) => m.id === message.id)) {
-        messageCache.set(message.roomId, [...cachedForRoom, message].slice(-80));
+      if (!cachedForRoom.some((m) => m.id === message.id || sameClientMessageId(m, message))) {
+        messageCache.set(message.roomId, sortMessagesAsc([...cachedForRoom, message]).slice(-80));
       }
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
-      set((s) => ({
-        messages: s.currentRoomId === message.roomId && !s.messages.some((m) => m.id === message.id)
-          ? [...s.messages, message]
-          : s.messages,
-        rooms: s.rooms.map((r) =>
+      set((s) => {
+        const nextMessages = s.currentRoomId === message.roomId && !s.messages.some((m) => m.id === message.id || sameClientMessageId(m, message))
+          ? sortMessagesAsc([...s.messages, message])
+          : s.messages;
+        const nextRooms = s.rooms.map((r) =>
           r.id === message.roomId
             ? {
                 ...r,
                 ...getRoomFlagsFromMessage(message),
                 lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
                 lastMessageAt: message.createdAt,
+                unreadCount: 0,
               }
             : r,
         ).sort((a, b) => {
           const da = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
-        }),
-      }));
-      writeRoomsCache(get().rooms);
+        });
+        writeRoomsCache(nextRooms);
+        return { messages: nextMessages, rooms: nextRooms };
+      });
       if (!hasRoomInList) {
         get().fetchRooms({ limit: 50, force: true }).catch(() => {});
       }

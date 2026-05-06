@@ -61,6 +61,73 @@ function suggestOptionNames(input: string): { name: string; price: number }[] {
 }
 
 const formatKRW = (n: number) => n.toLocaleString('ko-KR') + '원';
+
+async function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error || new Error('이미지를 읽을 수 없습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadImageElement(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('이미지 미리보기를 생성할 수 없습니다.'));
+    img.src = src;
+  });
+}
+
+async function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('이미지를 압축할 수 없습니다.'));
+    }, type, quality);
+  });
+}
+
+async function normalizeChatImage(file: File) {
+  if (!file.type.startsWith('image/')) return fileToDataUrl(file);
+  const originalUrl = await fileToDataUrl(file);
+  const img = await loadImageElement(originalUrl);
+  const longestSide = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
+  const scale = Math.min(1, 1440 / Math.max(1, longestSide));
+  const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+  const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return originalUrl;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let quality = 0.82;
+  let blob = await canvasToBlob(canvas, 'image/webp', quality).catch(() => null);
+  while (blob && blob.size > 1.4 * 1024 * 1024 && quality > 0.5) {
+    quality -= 0.08;
+    blob = await canvasToBlob(canvas, 'image/webp', quality).catch(() => null);
+  }
+  if (!blob) {
+    quality = 0.82;
+    blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+    while (blob.size > 1.4 * 1024 * 1024 && quality > 0.5) {
+      quality -= 0.08;
+      blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+    }
+  }
+
+  const normalized = new File([blob], (file.name.replace(/\.[^.]+$/, '') || 'chat-image') + '.webp', {
+    type: blob.type || 'image/webp',
+    lastModified: Date.now(),
+  });
+  return fileToDataUrl(normalized);
+}
+
 const formatDate = (iso: string) => {
   const d = new Date(iso);
   const days = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1499,13 +1566,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     try {
       const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       if (!roomId || roomId.startsWith('pending-')) return;
-      // file → base64 data URL
-      const dataUrl = await new Promise<string>((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(r.result as string);
-        r.onerror = rej;
-        r.readAsDataURL(file);
-      });
+      const dataUrl = await normalizeChatImage(file);
       // 서버에 전송 → 서버가 디스크 저장 후 공개 URL 로 content 대체
       const saved = (
         await useChatStore.getState().sendMessage({ type: 'image', content: dataUrl }).catch(() => null)

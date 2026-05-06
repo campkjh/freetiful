@@ -4,12 +4,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Clock, MessageCircle, ChevronRight, MapPin, Calendar, DollarSign } from 'lucide-react';
+import { MessageCircle, ChevronRight, MapPin, Calendar, DollarSign, Archive } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { chatApi, type ChatRoomItem } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
+import { archiveMatchRequest, splitArchivedMatchRequests } from '@/lib/pro-request-archive';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { ProCardListSkeleton } from '../_components/ProSkeletons';
+import { SwipeArchiveCard } from '../_components/SwipeArchiveCard';
 
 type Filter = 'all' | 'pending' | 'replied' | 'match';
 
@@ -112,7 +114,12 @@ export default function InquiriesPage() {
   const [loading, setLoading] = useState(cachedInquiries === null);
   const [loadingMatch, setLoadingMatch] = useState(cachedMatchDeliveries === null);
   const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
+  const [showArchivedMatches, setShowArchivedMatches] = useState(false);
   const authUser = useAuthStore((s) => s.user);
+  const { active: activeMatchDeliveries, archived: archivedMatchDeliveries } = useMemo(
+    () => splitArchivedMatchRequests(matchDeliveries),
+    [matchDeliveries],
+  );
 
   // 페이지 진입 시점 기록 — 홈 대시보드의 "새 요청" 카운트가 이 시점 이후 도착건만 세도록.
   useEffect(() => {
@@ -225,11 +232,20 @@ export default function InquiriesPage() {
     }
   }
 
+  function handleArchiveMatch(deliveryId: string) {
+    archiveMatchRequest(deliveryId);
+    setMatchDeliveries((prev) => [...prev]);
+    toast.success('요청을 보관했습니다');
+  }
+
   const filtered = inquiries.filter((i) =>
     filter === 'all' ? true : filter === 'pending' ? i.unread > 0 : filter === 'replied' ? i.unread === 0 : false
   );
   const pendingCount = inquiries.filter((i) => i.unread > 0).length;
-  const matchCount = matchDeliveries.length;
+  const matchCount = activeMatchDeliveries.length;
+  const visibleMatchDeliveries = filter === 'match' && showArchivedMatches
+    ? archivedMatchDeliveries
+    : activeMatchDeliveries;
 
   const TABS: { key: Filter; label: string; badge?: number }[] = [
     { key: 'all', label: '전체' },
@@ -246,13 +262,17 @@ export default function InquiriesPage() {
         </div>
 
         <LayoutGroup id="pro-inquiries-tabs">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 flex-1">
             {TABS.map(({ key, label, badge }) => {
               const active = filter === key;
               return (
                 <button
                   key={key}
-                  onClick={() => setFilter(key)}
+                  onClick={() => {
+                    setFilter(key);
+                    if (key === 'match') setShowArchivedMatches(false);
+                  }}
                   className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
                   style={{ transition: 'color 0.25s ease, transform 0.15s ease' }}
                 >
@@ -275,6 +295,27 @@ export default function InquiriesPage() {
                 </button>
               );
             })}
+            </div>
+            <button
+              type="button"
+              aria-label="보관된 예약 요청 보기"
+              onClick={() => {
+                setFilter('match');
+                setShowArchivedMatches((prev) => !prev);
+              }}
+              className={`relative shrink-0 flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
+                showArchivedMatches
+                  ? 'border-[#3180F7] bg-[#EEF4FF] text-[#3180F7]'
+                  : 'border-gray-200 bg-white text-gray-500'
+              }`}
+            >
+              <Archive size={18} />
+              {archivedMatchDeliveries.length > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#3180F7] px-1 text-center text-[10px] font-bold leading-[18px] text-white">
+                  {archivedMatchDeliveries.length}
+                </span>
+              )}
+            </button>
           </div>
         </LayoutGroup>
       </div>
@@ -289,22 +330,38 @@ export default function InquiriesPage() {
       >
       {/* 예약요청/전체 탭 — 매칭 딜리버리 카드들 */}
       {(filter === 'match' || filter === 'all') && (
-        <div className="px-4 pt-3 pb-4 space-y-3">
+        <div className="px-4 pt-3 pb-4 space-y-2">
           {loadingMatch ? (
             <ProCardListSkeleton count={2} actions className="space-y-3" />
-          ) : matchDeliveries.length === 0 && filter === 'match' ? (
+          ) : visibleMatchDeliveries.length === 0 && filter === 'match' ? (
             <div className="text-center py-20">
-              <p className="text-gray-400 text-sm">새 예약 요청이 없습니다</p>
-              <p className="text-gray-300 text-[11px] mt-1">고객이 매칭 요청을 보내면 여기에 표시됩니다</p>
+              <p className="text-gray-400 text-sm">
+                {showArchivedMatches ? '보관된 예약 요청이 없습니다' : '새 예약 요청이 없습니다'}
+              </p>
+              <p className="text-gray-300 text-[11px] mt-1">
+                {showArchivedMatches ? '보관하거나 2주가 지난 요청이 여기에 모입니다' : '고객이 매칭 요청을 보내면 여기에 표시됩니다'}
+              </p>
             </div>
-          ) : matchDeliveries.length > 0 ? (
-            matchDeliveries.map((m) => (
-              <div key={m.id} className="bg-white rounded-2xl border border-[#3180F7]/30 p-4 shadow-sm space-y-3">
+          ) : visibleMatchDeliveries.length > 0 ? (
+            visibleMatchDeliveries.map((m) => (
+              <SwipeArchiveCard
+                key={m.id}
+                onArchive={() => handleArchiveMatch(m.id)}
+                disabled={showArchivedMatches}
+                className={`bg-white rounded-2xl border p-4 shadow-sm space-y-3 ${
+                  showArchivedMatches ? 'border-gray-200' : 'border-[#3180F7]/30'
+                }`}
+                archiveLabel="보관"
+              >
                 <div className="flex items-start gap-3">
                   <img src={m.customerImage} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">예약 요청</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        showArchivedMatches ? 'bg-gray-100 text-gray-600' : 'bg-[#3180F7] text-white'
+                      }`}>
+                        {showArchivedMatches ? '보관됨' : '예약 요청'}
+                      </span>
                       <p className="text-sm font-bold text-gray-900 truncate">{m.customerName}</p>
                       <span className="text-[10px] text-gray-300 ml-auto shrink-0">{timeAgo(m.deliveredAt)}</span>
                     </div>
@@ -344,30 +401,30 @@ export default function InquiriesPage() {
                 <div className="flex gap-2 pt-2 border-t border-gray-50">
                   <button
                     onClick={() => handleReject(m.id)}
-                    disabled={initiatingChat === m.id}
+                    disabled={initiatingChat === m.id || showArchivedMatches}
                     className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-50"
                   >
                     거절
                   </button>
                   <button
                     onClick={() => handleStartChat(m)}
-                    disabled={initiatingChat === m.id}
+                    disabled={initiatingChat === m.id || showArchivedMatches}
                     className="flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center gap-1"
                   >
                     {initiatingChat === m.id ? (
                       <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> 연결 중…</>
                     ) : (
-                      <><MessageCircle size={12} /> 채팅 걸기</>
+                      <><MessageCircle size={12} /> {showArchivedMatches ? '보관됨' : '채팅 걸기'}</>
                     )}
                   </button>
                 </div>
-              </div>
+              </SwipeArchiveCard>
             ))
           ) : null}
         </div>
       )}
 
-      {filter === 'all' && !loadingMatch && matchDeliveries.length > 0 && !loading && filtered.length > 0 && (
+      {filter === 'all' && !loadingMatch && activeMatchDeliveries.length > 0 && !loading && filtered.length > 0 && (
         <div className="px-4">
           <div className="h-px bg-gray-100" />
         </div>
@@ -386,20 +443,21 @@ export default function InquiriesPage() {
             filtered.map((inq) => (
               <Link key={inq.id} href={`/chat/${inq.id}`} className="card p-4 block hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3">
-                  <img src={inq.image} alt={inq.userName} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                  <img src={inq.image} alt={inq.userName} className="h-10 w-10 shrink-0 rounded-[20px] object-cover" />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="mb-1 flex items-center gap-1.5">
                       {inq.hasQuote && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">견적요청</span>
                       )}
-                      <p className="text-sm font-bold text-gray-900 truncate">{inq.userName}</p>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F2F4F8] text-[#6B7280]">고객</span>
+                      <p className="truncate text-[16px] font-semibold text-[#2B313D]">{inq.userName}</p>
+                      <span className="ml-auto text-[14px] font-normal text-[#A4ABBA]">{inq.receivedAt}</span>
                       {inq.unread > 0 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white ml-auto shrink-0">{inq.unread}</span>
+                        <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{inq.unread}</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 line-clamp-2">{inq.message}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] text-gray-400 flex items-center gap-1"><Clock size={10} /> {inq.receivedAt}</span>
+                    <p className="line-clamp-2 text-[14px] text-gray-600">{inq.message}</p>
+                    <div className="mt-2 flex items-center gap-2">
                       <span className="ml-auto"><ChevronRight size={14} className="text-gray-300" /></span>
                     </div>
                   </div>

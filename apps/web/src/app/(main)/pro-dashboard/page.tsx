@@ -13,7 +13,7 @@ import { scheduleApi } from '@/lib/api/schedule.api';
 import { matchApi } from '@/lib/api/match.api';
 import { apiClient } from '@/lib/api/client';
 import { chatApi } from '@/lib/api/chat.api';
-import { invalidateProCache } from '@/lib/api/discovery.api';
+import { archiveMatchRequest, splitArchivedMatchRequests } from '@/lib/pro-request-archive';
 import {
   ProCardListSkeleton,
   ProMiniCardGridSkeleton,
@@ -22,6 +22,7 @@ import {
   ProStatGridSkeleton,
   ProScheduleCardSkeleton,
 } from './_components/ProSkeletons';
+import { SwipeArchiveCard } from './_components/SwipeArchiveCard';
 
 /* ─── Detailed SVG Icons (multi-layered, flat-color, premium) ─── */
 
@@ -191,7 +192,6 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 const DASHBOARD_CACHE_KEY = 'freetiful-pro-dashboard-cache-v2';
 const DASHBOARD_CACHE_TTL = 5 * 60_000;
-const PUBLIC_PRO_CACHE_KEYS = ['freetiful-pros-cache-v6', 'freetiful-pros-cache-v5', 'freetiful-pros-cache-v4', 'freetiful-pros-cache'];
 
 type DashboardCache = {
   ts: number;
@@ -207,7 +207,6 @@ type DashboardCache = {
   scheduleRequests?: any[];
   matchRequests?: any[];
   quotes?: Quote[];
-  profileHidden?: boolean;
 };
 
 function readDashboardCache(): DashboardCache | null {
@@ -316,14 +315,6 @@ function todayString() {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
-function clearPublicProCaches() {
-  invalidateProCache();
-  if (typeof window === 'undefined') return;
-  try {
-    PUBLIC_PRO_CACHE_KEYS.forEach((key) => localStorage.removeItem(key));
-  } catch {}
-}
-
 /* ─── Component ─── */
 
 export default function ProDashboardPage() {
@@ -367,7 +358,10 @@ export default function ProDashboardPage() {
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>(() => initialDashboardCache?.recentReviews ?? []);
   const [inquiryRooms, setInquiryRooms] = useState<{ id: string; userName: string; image: string; message: string; receivedAt: string; unread: number }[]>(() => initialDashboardCache?.inquiryRooms ?? []);
   const [scheduleRequests, setScheduleRequests] = useState<any[]>(() => initialDashboardCache?.scheduleRequests ?? []);
-  const [matchRequests, setMatchRequests] = useState<any[]>(() => initialDashboardCache?.matchRequests ?? []);
+  const [matchRequests, setMatchRequests] = useState<any[]>(() => {
+    const cached = initialDashboardCache?.matchRequests ?? [];
+    return splitArchivedMatchRequests(cached).active;
+  });
   const [scheduleRequestsLoading, setScheduleRequestsLoading] = useState(!hasCachedScheduleRequests);
   const [matchRequestsLoading, setMatchRequestsLoading] = useState(!hasCachedMatchRequests);
   const [inquiryRoomsLoading, setInquiryRoomsLoading] = useState(!hasCachedInquiryRooms);
@@ -376,9 +370,6 @@ export default function ProDashboardPage() {
   const [upcomingLoading, setUpcomingLoading] = useState(!hasCachedUpcoming);
   const [puddingLoading, setPuddingLoading] = useState(!hasCachedPudding);
   const [revenueLoading, setRevenueLoading] = useState(!hasCachedRevenue);
-  const [profileHidden, setProfileHidden] = useState(() => initialDashboardCache?.profileHidden ?? false);
-  const [profileHiddenLoading, setProfileHiddenLoading] = useState(initialDashboardCache?.profileHidden == null);
-  const [profileHiddenSaving, setProfileHiddenSaving] = useState(false);
   const [rejectSched, setRejectSched] = useState<{ id: string; userName: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [initiatingMatchChat, setInitiatingMatchChat] = useState<string | null>(null);
@@ -453,7 +444,7 @@ export default function ProDashboardPage() {
         setScheduleRequestsLoading(false);
       }
       if (cached.matchRequests) {
-        setMatchRequests(cached.matchRequests);
+        setMatchRequests(splitArchivedMatchRequests(cached.matchRequests).active);
         cachedSectionsRef.current.matchRequests = true;
         setMatchRequestsLoading(false);
       }
@@ -461,10 +452,6 @@ export default function ProDashboardPage() {
         setQuotes(cached.quotes);
         cachedSectionsRef.current.quotes = true;
         setQuotesLoading(false);
-      }
-      if (cached.profileHidden != null) {
-        setProfileHidden(cached.profileHidden);
-        setProfileHiddenLoading(false);
       }
     }
 
@@ -478,22 +465,6 @@ export default function ProDashboardPage() {
       if (cached?.puddingCount == null) setPuddingCount(storedPudding ? Number(storedPudding) : 0);
     } catch { /* ignore */ }
   }, []);
-
-  useEffect(() => {
-    if (!authUser) {
-      setProfileHiddenLoading(false);
-      return;
-    }
-
-    prosApi.getMyProfile()
-      .then((profile: any) => {
-        const hidden = Boolean(profile?.isProfileHidden);
-        setProfileHidden(hidden);
-        writeDashboardCache({ profileHidden: hidden });
-      })
-      .catch(() => {})
-      .finally(() => setProfileHiddenLoading(false));
-  }, [authUser]);
 
   // 스케줄 요청 조회 (고객이 구매해서 대기중인 요청)
   useEffect(() => {
@@ -521,7 +492,8 @@ export default function ProDashboardPage() {
           if (cancelled) return;
           const items = Array.isArray(data) ? data : (data?.data || []);
           // pending 또는 viewed 상태의 요청만 "새 요청" 카운트
-          const active = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
+          const visible = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
+          const { active } = splitArchivedMatchRequests(visible);
           setMatchRequests(active);
           cachedSectionsRef.current.matchRequests = true;
           writeDashboardCache({ matchRequests: active });
@@ -558,7 +530,8 @@ export default function ProDashboardPage() {
     matchApi.getProRequests()
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
-        const active = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
+        const visible = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
+        const { active } = splitArchivedMatchRequests(visible);
         setMatchRequests(active);
         writeDashboardCache({ matchRequests: active });
         window.dispatchEvent(new Event('freetiful:match-requests-changed'));
@@ -657,6 +630,17 @@ export default function ProDashboardPage() {
     } catch (e: any) {
       toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
     }
+  };
+
+  const handleArchiveMatch = (deliveryId: string) => {
+    archiveMatchRequest(deliveryId);
+    setMatchRequests((prev) => {
+      const next = prev.filter((m) => m.id !== deliveryId);
+      writeDashboardCache({ matchRequests: next });
+      return next;
+    });
+    window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+    toast.success('요청을 보관했습니다');
   };
 
   // Fetch chat inquiries (customer 견적 요청) - 견적 요청 메시지 포함된 채팅방
@@ -898,34 +882,6 @@ export default function ProDashboardPage() {
     setContextMenu(null);
   }
 
-  async function handleToggleProfileHidden() {
-    if (profileHiddenLoading || profileHiddenSaving) return;
-    const nextHidden = !profileHidden;
-    const previousHidden = profileHidden;
-    setProfileHidden(nextHidden);
-    setProfileHiddenSaving(true);
-    writeDashboardCache({ profileHidden: nextHidden });
-
-    try {
-      const updated: any = await prosApi.updateProfileVisibility(nextHidden);
-      const confirmedHidden = Boolean(updated?.isProfileHidden ?? nextHidden);
-      setProfileHidden(confirmedHidden);
-      writeDashboardCache({ profileHidden: confirmedHidden });
-      clearPublicProCaches();
-      toast.success(
-        confirmedHidden
-          ? '프로필이 숨김 처리되었습니다. 홈과 사회자 리스트에서 제외됩니다.'
-          : '프로필 노출이 다시 켜졌습니다.',
-      );
-    } catch (e: any) {
-      setProfileHidden(previousHidden);
-      writeDashboardCache({ profileHidden: previousHidden });
-      toast.error(`프로필 노출 설정 실패: ${e?.response?.data?.message || e?.message || ''}`);
-    } finally {
-      setProfileHiddenSaving(false);
-    }
-  }
-
   const handlePointerDown = useCallback((id: string, e: React.PointerEvent) => {
     const x = e.clientX;
     const y = e.clientY;
@@ -985,41 +941,6 @@ export default function ProDashboardPage() {
           </Link>
         </div>
       </div>
-
-      {/* ── Profile Visibility ── */}
-      <div className="px-4 mt-4">
-        <div
-          className={`toss-fade-up flex items-center justify-between gap-4 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
-          style={tossDelay(0, 20)}
-        >
-          <div className="min-w-0">
-            <p className="text-[14px] font-bold text-gray-900">프로필 숨김</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-gray-400">
-              {profileHidden
-                ? '홈과 사회자 리스트에서 노출되지 않습니다'
-                : '홈과 사회자 리스트에 노출 중입니다'}
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={profileHidden}
-            aria-label="프로필 숨김 설정"
-            disabled={profileHiddenLoading || profileHiddenSaving}
-            onClick={handleToggleProfileHidden}
-            className={`toss-pressable relative h-8 w-[52px] shrink-0 rounded-full p-1 transition-[background-color,transform] duration-300 active:scale-[0.94] disabled:opacity-60 ${
-              profileHidden ? 'bg-[#3180F7]' : 'bg-gray-200'
-            }`}
-          >
-            <span
-              className={`block h-6 w-6 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18)] transition-transform duration-300 ${
-                profileHidden ? 'translate-x-5' : 'translate-x-0'
-              } ${profileHiddenSaving ? 'opacity-70' : ''}`}
-            />
-          </button>
-        </div>
-      </div>
-
       {/* ── Quick Stats — 4-up row, 컴팩트 ── */}
       {quickStatsLoading ? (
         <ProStatGridSkeleton />
@@ -1143,7 +1064,7 @@ export default function ProDashboardPage() {
         {matchRequestsLoading ? (
           <ProCardListSkeleton count={2} actions className="space-y-3" />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {matchRequests.slice(0, 3).map((delivery: any, i: number) => {
               const request = delivery.matchRequest || {};
               const raw = getMatchRaw(delivery);
@@ -1158,11 +1079,12 @@ export default function ProDashboardPage() {
               ].filter(Boolean);
 
               return (
-                <div
+                <SwipeArchiveCard
                   key={`match-${delivery.id}`}
+                  onArchive={() => handleArchiveMatch(delivery.id)}
                   className={`toss-fade-up rounded-2xl border border-[#3180F7]/30 bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
-                  style={tossDelay(i, 160)}
                 >
+                  <div style={tossDelay(i, 160)}>
                   <div className="flex items-start gap-3">
                     <img src={customer.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -1217,7 +1139,8 @@ export default function ProDashboardPage() {
                       {initiatingMatchChat === delivery.id ? '연결 중…' : '수락 + 채팅'}
                     </button>
                   </div>
-                </div>
+                  </div>
+                </SwipeArchiveCard>
               );
             })}
 
@@ -1275,7 +1198,7 @@ export default function ProDashboardPage() {
               <div
                 key={i}
                 className={`toss-fade-up bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
-                style={{ ...tossDelay(i, 170), borderRadius: 24 }}
+                style={{ ...tossDelay(i, 170), borderRadius: 24, border: '0.6px solid #F9F9F9' }}
               >
                 {/* 품목 */}
                 <p className="text-[15px] font-semibold text-[#2B313D] truncate">{ev.eventType || '일정'}</p>
@@ -1294,7 +1217,7 @@ export default function ProDashboardPage() {
                     </p>
                   ) : <span />}
                   {ua.paidAt && (
-                    <p className="text-[12px] text-[#8A909C]">
+                    <p className="text-[14px] text-[#8A909C]">
                       {(() => { const p = new Date(ua.paidAt); return `결제 ${String(p.getMonth() + 1).padStart(2, '0')}.${String(p.getDate()).padStart(2, '0')}`; })()}
                     </p>
                   )}
@@ -1304,14 +1227,14 @@ export default function ProDashboardPage() {
                 <div className="flex gap-2 mt-3">
                   <Link
                     href={ua.paymentId ? `/schedule/${ua.paymentId}` : '/schedule'}
-                    className={`flex-1 h-11 leading-[44px] text-center text-[14px] ${TOSS_BUTTON_MOTION}`}
+                    className={`flex-1 h-11 leading-[44px] text-center text-[18px] ${TOSS_BUTTON_MOTION}`}
                     style={{ borderRadius: 12, backgroundColor: '#3787FF', color: '#FFFFFF', fontWeight: 600 }}
                   >
                     상세보기
                   </Link>
                   <Link
                     href="/schedule"
-                    className={`flex-1 h-11 leading-[44px] text-center text-[14px] ${TOSS_BUTTON_MOTION}`}
+                    className={`flex-1 h-11 leading-[44px] text-center text-[18px] ${TOSS_BUTTON_MOTION}`}
                     style={{ borderRadius: 12, backgroundColor: '#F2F3F5', color: '#51535C', fontWeight: 600 }}
                   >
                     일정 보기

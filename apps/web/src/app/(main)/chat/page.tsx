@@ -32,7 +32,7 @@ type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 type ProFilterTab = '전체' | '읽음' | '안 읽음' | '견적문의' | '예약확정' | '숨김';
 
 const ClientAvatar = ({ name }: { name: string }) => (
-  <div className="w-[48px] h-[48px] rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+  <div className="w-[48px] h-[48px] rounded-[20px] bg-gray-200 flex items-center justify-center shrink-0">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
       <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" />
@@ -75,6 +75,7 @@ export default function ChatListPage() {
   const router = useRouter();
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
   const initialRoomsRef = useRef<ChatRoom[] | null>(null);
+  const lastRefreshAtRef = useRef(0);
   if (initialRoomsRef.current === null) initialRoomsRef.current = getInitialRoomsForCurrentUser();
   const [roomsLoading, setRoomsLoading] = useState(() => initialRoomsRef.current?.length === 0);
   const authUser = useAuthStore((s) => s.user);
@@ -98,7 +99,7 @@ export default function ChatListPage() {
     }
 
     if (apiRooms.length > 0) setRoomsLoading(false);
-    fetchRooms({ limit: 50, force: true }).catch(() => {}).finally(() => setRoomsLoading(false));
+    fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
     const timer = window.setTimeout(() => connect(), 250);
     return () => { window.clearTimeout(timer); };
   }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
@@ -106,7 +107,10 @@ export default function ChatListPage() {
   useEffect(() => {
     if (!authHydrated || !authUser) return;
     const refreshRooms = () => {
-      fetchRooms({ limit: 50, force: true }).catch(() => {});
+      const now = Date.now();
+      if (now - lastRefreshAtRef.current < 5_000) return;
+      lastRefreshAtRef.current = now;
+      fetchRooms({ limit: 50 }).catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshRooms();
@@ -356,12 +360,12 @@ export default function ChatListPage() {
                   </>
                   {isPC ? (
                     room.otherUser.profileImageUrl
-                      ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
+                      ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-[20px] object-cover shrink-0" />
                       : <ClientAvatar name={room.otherUser.name} />
                   ) : (
                     <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
                       {room.otherUser.profileImageUrl
-                        ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-full object-cover" />
+                        ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-[20px] object-cover" />
                         : <ClientAvatar name={room.otherUser.name} />
                       }
                     </Link>
@@ -390,17 +394,17 @@ export default function ChatListPage() {
                   ) : (
                     <>
                       <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
-                        <div className="flex items-center gap-1.5 mb-0.5">
+                        <div className="flex items-center gap-1 mb-0.5">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
                             room.iAmPro ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                           }`}>
                             {room.iAmPro ? '고객' : 'PRO'}
                           </span>
-                          <p className={`text-[15px] ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{room.otherUser.role} {room.otherUser.name}님</p>
-                          <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
+                          <p className="truncate text-[16px] font-semibold text-[#2B313D]">{room.otherUser.name}</p>
+                          <span className="ml-auto shrink-0 text-[14px] font-normal text-[#A4ABBA]">{room.lastMessageAt}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className={`text-[13px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
+                          <p className={`truncate pr-2 text-[14px] ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
                           <div className="flex items-center gap-2 shrink-0">
                             {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{room.unreadCount}</span>}
                           </div>

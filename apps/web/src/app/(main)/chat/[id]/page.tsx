@@ -90,6 +90,10 @@ function mergeFetchedMessages(current: Message[], fetched: Message[], requestedA
   return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
 }
 
+function sortMessagesAsc(messages: Message[]) {
+  return [...messages].sort((a, b) => messageTime(a) - messageTime(b));
+}
+
 // Simple inline text with @mention highlighting
 function renderTextWithMentions(text: string) {
   const parts = text.split(/(@[\w가-힣]+)/g);
@@ -470,30 +474,57 @@ export default function ChatRoomPage() {
   }, [authUser, roomId]);
 
   // Sync WebSocket messages
-  const prevWsCountRef = useRef(0);
   useEffect(() => {
     if (wsMessages.length === 0) return;
-    const newCount = wsMessages.length - prevWsCountRef.current;
-    if (newCount <= 0) {
-      prevWsCountRef.current = wsMessages.length;
-      return;
-    }
-    const newWsMessages = wsMessages.slice(prevWsCountRef.current);
-    prevWsCountRef.current = wsMessages.length;
-
-    const mapped: Message[] = newWsMessages.map(mapApiMessage);
+    const mapped: Message[] = wsMessages.map(mapApiMessage);
     setMessages((prev) => {
       const existingIds = new Set(prev.map((m) => m.id));
       const unique = mapped.filter((m) => !existingIds.has(m.id));
-      if (unique.length === 0) return prev;
+      if (unique.length === 0) {
+        return mergeFetchedMessages(prev, mapped, Date.now());
+      }
       // 낙관적 메시지(opt-) 중 같은 senderId+content인 것 제거
       const withoutOptimistic = prev.filter((m) => {
         if (!m.id.startsWith('opt-')) return true;
         return !unique.some((u) => u.senderId === m.senderId && u.content === m.content);
       });
-      return [...withoutOptimistic, ...unique];
+      return sortMessagesAsc([...withoutOptimistic, ...unique]);
     });
   }, [wsMessages]);
+
+  useEffect(() => {
+    if (wsMessages.length === 0 || roomId.startsWith('pending-')) return;
+    const latestSystem = [...wsMessages].reverse().find((m) => m.type === 'system');
+    const kind = (latestSystem?.metadata as Record<string, any> | null)?.system?.kind;
+    if (!kind || !['quote', 'payment_request', 'payment_paid', 'booking_confirmed'].includes(kind)) return;
+    chatApi.getRoom(roomId)
+      .then((res) => {
+        const room = res.data as ChatRoomItem;
+        setRoomMeta({
+          matchRequest: room.matchRequest ?? null,
+          latestQuotation: room.latestQuotation ?? null,
+        });
+      })
+      .catch(() => {});
+  }, [wsMessages, roomId]);
+
+  useEffect(() => {
+    const latestPaid = [...messages].reverse().find((m) => m.type === 'system' && (m.system?.kind === 'payment_paid' || m.system?.kind === 'booking_confirmed'));
+    if (!latestPaid?.system) return;
+    setRoomMeta((prev) => ({
+      matchRequest: prev?.matchRequest ?? null,
+      latestQuotation: {
+        id: prev?.latestQuotation?.id || latestPaid.system?.quotationId || `local-paid-${latestPaid.id}`,
+        amount: latestPaid.system?.amount ?? prev?.latestQuotation?.amount ?? 0,
+        title: prev?.latestQuotation?.title ?? latestPaid.system?.eventName ?? null,
+        status: 'paid',
+        eventDate: latestPaid.system?.eventDate ?? prev?.latestQuotation?.eventDate ?? null,
+        eventTime: latestPaid.system?.eventTime ?? prev?.latestQuotation?.eventTime ?? null,
+        eventLocation: latestPaid.system?.venue ?? prev?.latestQuotation?.eventLocation ?? null,
+        createdAt: prev?.latestQuotation?.createdAt ?? latestPaid.createdAt,
+      },
+    }));
+  }, [messages]);
 
   // Auto-scroll — 최초 로드 시엔 instant 로 맨 밑으로, 이후엔 smooth
   useEffect(() => {
@@ -560,7 +591,7 @@ export default function ChatRoomPage() {
         replyTo: replyTo ? { id: replyTo.id, name: replyTo.name, content: replyTo.content } : null,
         isNew: true,
       };
-      setMessages((prev) => [...prev, optimistic]);
+      setMessages((prev) => sortMessagesAsc([...prev, optimistic]));
       void wsSendMessage({
         type: 'text',
         content: text,
@@ -571,7 +602,7 @@ export default function ChatRoomPage() {
         setMessages((prev) => {
           const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
           if (withoutOptimistic.some((m) => m.id === persisted.id)) return withoutOptimistic;
-          return [...withoutOptimistic, persisted];
+          return sortMessagesAsc([...withoutOptimistic, persisted]);
         });
       }).catch(() => {
         setMessages((prev) => prev.map((m) => (
@@ -599,7 +630,7 @@ export default function ChatRoomPage() {
       replyTo: replyTo ? { id: replyTo.id, name: replyTo.name, content: replyTo.content } : null,
       isNew: true,
     };
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages((prev) => sortMessagesAsc([...prev, newMsg]));
     setInput('');
     setReplyTo(null);
     setMentionQuery(null);
@@ -676,19 +707,19 @@ export default function ChatRoomPage() {
 
   if (showSkeleton) {
     return (
-      <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]" style={{ height: '100dvh' }}>
+      <div className="fixed inset-0 flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[#F2F2F7]">
         {/* Top shimmer bar */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-50 overflow-hidden bg-gray-100">
           <div className="h-full bg-[#3180F7]/40 animate-[shimmerBar_1.4s_ease-in-out_infinite]" style={{ width: '60%' }} />
         </div>
 
         {/* Header skeleton */}
-        <div className="absolute left-0 right-0 top-0 z-30 px-3 pt-3 pb-2 pt-safe">
-          <div className="flex items-center gap-2 max-w-[680px] mx-auto">
+        <div className="relative z-30 px-3 pb-2 pt-3 pt-safe">
+          <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-center gap-2">
             <button onClick={() => router.back()} className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0">
               <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
             </button>
-            <div className="flex-1 flex items-center gap-3 bg-white/90 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12">
+            <div className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-gray-200/60 bg-white/90 pl-1.5 pr-4 shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
               <img src={skeletonImg} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
               <div className="flex-1 min-w-0">
                 {skeletonName
@@ -703,7 +734,7 @@ export default function ChatRoomPage() {
         </div>
 
         {/* Message skeletons */}
-        <div className="flex-1 overflow-hidden pt-[80px] pb-[80px] px-4 flex flex-col gap-5 justify-end">
+        <div className="flex min-h-0 flex-1 flex-col justify-end gap-5 overflow-hidden px-4 pb-6 pt-4">
           {[
             { mine: false, w: 'w-[60%]', h: 'h-14' },
             { mine: true, w: 'w-[45%]', h: 'h-10' },
@@ -719,11 +750,14 @@ export default function ChatRoomPage() {
         </div>
 
         {/* Input skeleton */}
-        <div className="px-3 pb-4 pb-safe pt-2 bg-[#F2F2F7]">
-          <div className="flex items-center gap-2 bg-white rounded-full px-4 h-12 shadow-sm border border-gray-200/60">
+        <div className="px-safe bg-[#F2F2F7] pb-safe pb-4 pt-2">
+          <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-center gap-2">
+            <div className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 shrink-0" />
+            <div className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-200/60 bg-white px-4 shadow-sm">
             <div className="w-5 h-5 rounded-full bg-gray-200 animate-pulse" />
             <div className="flex-1 h-3 bg-gray-100 rounded-full animate-pulse" />
             <div className="w-5 h-5 rounded-full bg-gray-200 animate-pulse" />
+            </div>
           </div>
         </div>
 
@@ -738,22 +772,10 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#F2F2F7]" style={{ height: '100dvh' }}>
-      {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
-      <div
-        className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"
-        style={{
-          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
-          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%)',
-        }}
-      />
-
-      {/* ─── Header (Floating Pill) z-30 ─── */}
-      <div className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
-        <div className="flex items-center gap-2 max-w-[680px] mx-auto pointer-events-auto">
+    <div className="fixed inset-0 flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[#F2F2F7]">
+      {/* ─── Header (Floating Pill) ─── */}
+      <div className="relative z-30 px-safe pb-2 pt-3 pt-safe">
+        <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-center gap-2">
           {/* 뒤로가기 */}
           <button
             onClick={() => router.back()}
@@ -766,7 +788,7 @@ export default function ChatRoomPage() {
           <Link
             href={partnerProfileHref}
             onClick={(e) => { if (!partnerIsPro || !partnerProfileId) e.preventDefault(); }}
-            className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
+            className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-gray-200/60 bg-white/90 pl-1.5 pr-4 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl active:scale-[0.98] transition-transform hover:bg-white"
           >
             <div className="relative shrink-0">
               <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-9 h-9 rounded-full object-cover" />
@@ -805,13 +827,10 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* ─── 스케줄 공지 배너 (헤더 바로 아래 fixed) ─── */}
+      {/* ─── 스케줄 공지 배너 ─── */}
       {roomMeta?.latestQuotation?.status === 'paid' && (
-        <div
-          className="absolute left-3 right-3 pointer-events-auto"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)', zIndex: 25 }}
-        >
-          <div className="max-w-[680px] mx-auto">
+        <div className="px-3 pb-2">
+          <div className="mx-auto w-full max-w-[680px]">
             <ScheduleBanner
               roomMeta={roomMeta}
               isPro={isPro}
@@ -826,16 +845,15 @@ export default function ChatRoomPage() {
       {/* ─── Messages ─── */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[88px]"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
           overscrollBehaviorX: 'contain',
-          paddingTop: roomMeta?.latestQuotation?.status === 'paid'
-            ? (scheduleBannerCollapsed ? 134 : 220)
-            : 80,
+          paddingBottom: '16px',
+          paddingTop: 8,
         }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
-        <div className="max-w-[680px] mx-auto">
+        <div className="mx-auto w-full max-w-[680px]">
           {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
             const mr = roomMeta?.matchRequest;
             const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
@@ -1086,21 +1104,9 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* ─── 입력바 하단 그라데이션 블러 (z-20) ─── */}
-      <div
-        className="absolute left-0 right-0 bottom-0 h-[120px] z-20 pointer-events-none"
-        style={{
-          WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
-          maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          background: 'linear-gradient(to top, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%)',
-        }}
-      />
-
-      {/* ─── Input Bar (Floating Pill) z-30 ─── */}
-      <div className="absolute left-0 right-0 bottom-0 z-30 pb-3 pt-2 pb-safe px-safe pointer-events-none">
-        <div className="flex items-end gap-2 max-w-[680px] mx-auto pointer-events-auto">
+      {/* ─── Input Bar (Floating Pill) ─── */}
+      <div className="px-safe bg-[#F2F2F7] pb-safe pb-3 pt-2">
+        <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-end gap-2">
           {isRecording ? (
             // Recording UI
             <>
@@ -1111,7 +1117,7 @@ export default function ChatRoomPage() {
               >
                 <X size={22} className="text-gray-500" />
               </button>
-              <div className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-red-200/80 px-5 h-12 animate-[slideUp_0.2s_ease]">
+              <div className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-red-200/80 bg-white/90 px-5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl animate-[slideUp_0.2s_ease]">
                 <span className="relative flex h-2.5 w-2.5 shrink-0">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping" />
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
@@ -1146,11 +1152,11 @@ export default function ChatRoomPage() {
               {isPro && (
                 <button
                   onClick={() => setShowQuoteModal(true)}
-                  className="h-12 px-4 rounded-full bg-[#3180F7] text-white shadow-[0_4px_24px_rgba(49,128,247,0.25)] border border-blue-400/30 flex items-center justify-center gap-1.5 shrink-0 active:scale-[0.92] transition-all hover:bg-[#1f6fe5]"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-blue-400/30 bg-[#3180F7] text-white shadow-[0_4px_24px_rgba(49,128,247,0.25)] active:scale-[0.92] transition-all hover:bg-[#1f6fe5] sm:w-auto sm:gap-1.5 sm:px-4"
                   title="견적서 보내기"
                 >
                   <FileSignature size={18} />
-                  <span className="hidden sm:inline text-[13px] font-bold">견적</span>
+                  <span className="hidden text-[13px] font-bold sm:inline">견적</span>
                 </button>
               )}
               <button
@@ -1160,7 +1166,7 @@ export default function ChatRoomPage() {
                 <Plus size={24} className="text-gray-600" />
               </button>
 
-              <div className="flex-1 flex items-center bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-5 pr-1.5 h-12">
+              <div className="flex h-12 min-w-0 flex-1 items-center rounded-full border border-gray-200/60 bg-white/90 pl-4 pr-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:pl-5">
                 <input
                   ref={inputRef}
                   type="text"
@@ -1175,7 +1181,7 @@ export default function ChatRoomPage() {
                     handleSend();
                   }}
                   placeholder="메시지 (@ 으로 멘션)"
-                  className="flex-1 min-w-0 bg-transparent text-[16px] focus:outline-none placeholder:text-gray-400 leading-[1.3]"
+                  className="min-w-0 flex-1 bg-transparent text-[15px] leading-[1.3] focus:outline-none placeholder:text-gray-400 sm:text-[16px]"
                 />
                 {input.trim() ? (
                   <button
