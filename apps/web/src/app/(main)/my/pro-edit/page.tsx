@@ -71,6 +71,7 @@ function compactProfileForCache(profile: any) {
     userId: profile.userId,
     status: profile.status,
     user: profile.user,
+    isProfileHidden: Boolean(profile.isProfileHidden),
     shortIntro: profile.shortIntro,
     careerYears: profile.careerYears,
     awards: profile.awards,
@@ -295,6 +296,8 @@ export default function ProEditPage() {
   const [selectedCompanyLogos, setSelectedCompanyLogos] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
+  const [isProfileHidden, setIsProfileHidden] = useState(false);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [awards, setAwards] = useState('');
   const [detailHtml, setDetailHtml] = useState('');
 
@@ -463,6 +466,7 @@ export default function ProEditPage() {
     if (!p?.id) return;
     safeSetLocalStorage('freetiful-my-pro-id', p.id);
     if (p.shortIntro) setIntro(p.shortIntro);
+    setIsProfileHidden(Boolean(p.isProfileHidden));
     if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
     if (p.awards) setAwards(p.awards);
     if (Array.isArray(p.tags)) {
@@ -777,6 +781,39 @@ export default function ProEditPage() {
   };
   const removeFaqItem = (index: number) => setFaqItems(prev => prev.filter((_, i) => i !== index));
 
+  const patchCachedProfileVisibility = (nextHidden: boolean) => {
+    if (typeof window === 'undefined') return;
+    const userId = authUser?.id;
+    if (!userId) return;
+    try {
+      const cached = readProEditProfileCache(userId);
+      if (!cached) return;
+      writeProEditProfileCache(userId, { ...cached, isProfileHidden: nextHidden });
+    } catch {}
+  };
+
+  const handleToggleProfileVisibility = async () => {
+    if (visibilitySaving) return;
+    const nextHidden = !isProfileHidden;
+    setIsProfileHidden(nextHidden);
+    setVisibilitySaving(true);
+    patchCachedProfileVisibility(nextHidden);
+
+    try {
+      await prosApi.updateProfileVisibility(nextHidden);
+      setToast(nextHidden ? '프로필이 숨김 처리되었습니다.' : '프로필 공개가 다시 켜졌습니다.');
+      setTimeout(() => setToast(''), 1800);
+    } catch (error: any) {
+      setIsProfileHidden(!nextHidden);
+      patchCachedProfileVisibility(!nextHidden);
+      const message = error?.response?.data?.message || error?.message || '프로필 공개 설정을 변경하지 못했습니다.';
+      setToast(String(message));
+      setTimeout(() => setToast(''), 2500);
+    } finally {
+      setVisibilitySaving(false);
+    }
+  };
+
   /* ── Save ── */
   const handleSave = async () => {
     if (saving) return;
@@ -822,6 +859,7 @@ export default function ProEditPage() {
         awards,
         detailHtml,
         youtubeUrl: videos[0] || '',
+        isProfileHidden,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages,
         category: category || undefined,
@@ -896,7 +934,7 @@ export default function ProEditPage() {
             className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#3180F7] to-[#8B5CF6] text-white text-[12px] font-bold shadow-sm active:scale-95 disabled:opacity-50 disabled:active:scale-100"
             title="사진·키워드로 소개글 자동 생성"
           >
-            {aiLoading ? '생성 중...' : '✨ AI 자동 생성'}
+            {aiLoading ? '생성 중...' : 'AI 자동 생성'}
           </button>
         </div>
       </div>
@@ -971,6 +1009,30 @@ export default function ProEditPage() {
             </button>
           </div>
         </div>
+      </Section>
+
+      <Section title="프로필 공개 설정" defaultOpen={true}>
+        <button
+          type="button"
+          onClick={handleToggleProfileVisibility}
+          disabled={visibilitySaving}
+          className="flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-4 text-left transition-colors active:bg-gray-50 disabled:cursor-wait disabled:opacity-70"
+        >
+          <div className="pr-4">
+            <p className="text-[15px] font-bold text-gray-900">프로필 숨김</p>
+            <p className="mt-1 text-[12px] leading-5 text-gray-500">
+              켜두면 홈, 리스트, 검색에서 내 프로필이 보이지 않습니다.
+            </p>
+          </div>
+          <div
+            className={`relative h-7 w-12 rounded-full transition-colors ${isProfileHidden ? 'bg-[#111827]' : 'bg-gray-200'}`}
+            aria-hidden="true"
+          >
+            <span
+              className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${isProfileHidden ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </div>
+        </button>
       </Section>
 
       {/* ─── 2. 한줄 소개 ─── */}
@@ -1534,7 +1596,7 @@ export default function ProEditPage() {
       {/* ─── 10-1. 상세설명 (네이버 스마트에디터 스타일 + AI 자동 생성) ─── */}
       <Section title="상세설명" defaultOpen={false}>
         <div className="space-y-3">
-          <p className="text-[12px] text-gray-400">프로필 상세페이지에 노출될 자기소개 영역입니다. 헤더의 "✨ AI 자동 생성" 버튼을 누르면 여기에 자동으로 채워집니다.</p>
+          <p className="text-[12px] text-gray-400">프로필 상세페이지에 노출될 자기소개 영역입니다. 헤더의 "AI 자동 생성" 버튼을 누르면 여기에 자동으로 채워집니다.</p>
 
           {/* Toolbar — 네이버 스마트에디터 스타일 */}
           <div className="bg-[#F9F9F9] rounded-xl px-3 py-2 flex items-center gap-0.5 flex-wrap">

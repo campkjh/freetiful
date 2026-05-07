@@ -16,6 +16,7 @@ export interface AdminPartnerListItem {
   address: string | null;
   phone: string | null;
   status: string;
+  isVisible: boolean;
   tags: string[];
   createdAt: string;
   images: { imageUrl: string }[];
@@ -33,6 +34,7 @@ export interface AdminPartnerDetail {
   id: string;
   userId: string;
   status: string;
+  isVisible: boolean;
   businessName: string;
   businessType: string | null;
   address: string | null;
@@ -85,6 +87,7 @@ export interface AdminPartnerInput {
   videoUrl?: string | null;
   categoryNames?: string[];
   status?: string;
+  isVisible?: boolean | null;
 }
 
 function withAdminKey() {

@@ -1,0 +1,9 @@
+node_modules
+.git
+.turbo
+.vercel
+apps/web
+apps/*/.next
+apps/*/dist
+*.log
+.DS_Store

@@ -15,6 +15,7 @@ import {
   getWeddingPartnerSectionCategories,
   mergeWeddingPartnerImages,
 } from '@/lib/wedding-partner-images';
+import { getRelevantBusinessCategories, isBusinessRelevantToAnyCategory, sanitizeBusinessImageUrls } from '@/lib/business-quality';
 
 interface BizDetail {
   id: string;
@@ -43,7 +44,20 @@ export default function BusinessDetailPage() {
     if (!id) return;
     apiClient
       .get<BizDetail>(`/api/v1/business/${id}`)
-      .then((r) => setBiz(r.data))
+      .then((r) => {
+        if (!isBusinessRelevantToAnyCategory(r.data)) {
+          setBiz(null);
+          return;
+        }
+        const partnerImageSet = getWeddingPartnerImageSet(r.data.businessName);
+        const apiImages = Array.isArray(r.data.images) ? r.data.images.map((i) => i.imageUrl).filter(Boolean) : [];
+        const mergedImages = sanitizeBusinessImageUrls(mergeWeddingPartnerImages(apiImages, partnerImageSet?.images));
+        if (mergedImages.length === 0) {
+          setBiz(null);
+          return;
+        }
+        setBiz(r.data);
+      })
       .catch(() => setBiz(null))
       .finally(() => setLoading(false));
   }, [id]);
@@ -74,10 +88,10 @@ export default function BusinessDetailPage() {
 
   const partnerImageSet = getWeddingPartnerImageSet(biz.businessName);
   const apiImages = Array.isArray(biz.images) ? biz.images.map((i) => i.imageUrl).filter(Boolean) : [];
-  const mergedImages = mergeWeddingPartnerImages(apiImages, partnerImageSet?.images);
+  const mergedImages = sanitizeBusinessImageUrls(mergeWeddingPartnerImages(apiImages, partnerImageSet?.images));
   const images = mergedImages.length > 0 ? mergedImages : ['/images/default-profile.svg'];
   const categoryNames = Array.from(new Set([
-    ...(biz.categories || []).map((item) => item.category?.name).filter(Boolean),
+    ...getRelevantBusinessCategories(biz),
     ...getWeddingPartnerSectionCategories(partnerImageSet),
   ]));
   const category = categoryNames[0] || partnerImageSet?.category || '웨딩파트너';

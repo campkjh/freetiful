@@ -75,6 +75,35 @@ export class UsersService {
     });
   }
 
+  async uploadProfileImage(userId: string, file: Express.Multer.File) {
+    await this.ensureUser(userId);
+    if (!file) {
+      throw new BadRequestException('이미지 파일이 필요합니다.');
+    }
+
+    const processed = await this.imageService.processImage(file, {
+      maxWidth: 1200,
+      maxHeight: 1200,
+      quality: 85,
+      requireFace: false,
+    });
+
+    const profileImageUrl = processed.webpPath || processed.path;
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profileImageUrl },
+    });
+
+    return {
+      profileImageUrl,
+      width: processed.width,
+      height: processed.height,
+      size: processed.size,
+      mimeType: processed.mimeType,
+    };
+  }
+
   private async saveProfileImageFromDataUrl(dataUrl: string): Promise<string> {
     const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
     if (!match) throw new BadRequestException('지원하지 않는 이미지 데이터입니다.');

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature,
+  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature, Calendar,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -23,6 +23,7 @@ function mapApiMessage(m: MessageItem): Message {
     content: m.content || '',
     type: (m.type === 'link' || m.type === 'sticker') ? 'text' : m.type as Message['type'],
     createdAt: m.createdAt,
+    clientMessageId: typeof meta?.clientMessageId === 'string' ? meta.clientMessageId : undefined,
     isRead: m.isRead,
     replyTo: m.replyTo ? { id: m.replyTo.id, name: m.replyTo.senderId, content: m.replyTo.content || '' } : null,
     reaction: m.reactions?.[0]?.emoji ?? null,
@@ -67,14 +68,20 @@ function messageTime(message: Pick<Message, 'createdAt'>) {
 }
 
 function hasFetchedEquivalent(message: Message, fetched: Message[]) {
-  if (!message.id.startsWith('opt-')) return false;
+  if (!message.id.startsWith('opt-') && !message.id.startsWith('tmp-')) return false;
   const sentAt = messageTime(message);
-  return fetched.some((item) => (
-    item.senderId === message.senderId &&
-    item.content === message.content &&
-    messageTime(item) >= sentAt - 2_000 &&
-    Math.abs(messageTime(item) - sentAt) < 60_000
-  ));
+  return fetched.some((item) => {
+    if (message.clientMessageId && item.clientMessageId && message.clientMessageId === item.clientMessageId) {
+      return true;
+    }
+    if (item.senderId !== message.senderId || item.type !== message.type) return false;
+    if (message.type === 'text') {
+      return item.content === message.content &&
+        messageTime(item) >= sentAt - 2_000 &&
+        Math.abs(messageTime(item) - sentAt) < 60_000;
+    }
+    return Math.abs(messageTime(item) - sentAt) < 20_000;
+  });
 }
 
 function mergeFetchedMessages(current: Message[], fetched: Message[], requestedAt: number) {
@@ -231,6 +238,7 @@ export default function ChatRoomPage() {
   const authUser = useAuthStore((s) => s.user);
   const MY_ID = authUser?.id || '';
   const { connect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
+  const isSocketConnected = useChatStore((s) => s.isConnected);
 
   // ─── Pre-warmed data 즉시 사용 (initial state만 계산) ───
   const initialPreWarmed = (() => {
@@ -278,6 +286,7 @@ export default function ChatRoomPage() {
   const [chatPartner, setChatPartner] = useState<ChatPartner | null>(initialPartner);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
+  const [hasAttemptedInitialLoad, setHasAttemptedInitialLoad] = useState(initialMessages.length > 0 || !!initialPartner);
   const [input, setInput] = useState('');
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
   const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(initialRoomMeta);
@@ -321,6 +330,7 @@ export default function ChatRoomPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const lastSendRef = useRef<{ text: string; at: number } | null>(null);
+  const lastRoomPollAtRef = useRef(0);
 
   // ─── Data fetching ───
   useEffect(() => {
@@ -330,8 +340,6 @@ export default function ChatRoomPage() {
       setIAmProInRoom(initialIAmProInRoom);
       if (initialPartner) {
         setChatPartner(initialPartner);
-      } else if (!roomId.startsWith('pending-')) {
-        setChatPartner(null);
       }
 
       // Handle pending-{proId}: createRoom만 기다리고 URL 즉시 교체
@@ -396,6 +404,8 @@ export default function ChatRoomPage() {
         });
       } catch (err) {
         console.error('Failed to load room info', err);
+      } finally {
+        if (!cancelled) setHasAttemptedInitialLoad(true);
       }
     }
 
@@ -470,7 +480,10 @@ export default function ChatRoomPage() {
       } catch (err) {
         console.error('Failed to load messages', err);
       } finally {
-        if (!cancelled) setMessagesLoading(false);
+        if (!cancelled) {
+          setMessagesLoading(false);
+          setHasAttemptedInitialLoad(true);
+        }
       }
     }
 
@@ -499,10 +512,15 @@ export default function ChatRoomPage() {
       if (unique.length === 0) {
         return mergeFetchedMessages(prev, mapped, Date.now());
       }
-      // 낙관적 메시지(opt-) 중 같은 senderId+content인 것 제거
+      // 낙관적 메시지(opt-/tmp-) 중 서버 확정 메시지와 대응되는 것 제거
       const withoutOptimistic = prev.filter((m) => {
-        if (!m.id.startsWith('opt-')) return true;
-        return !unique.some((u) => u.senderId === m.senderId && u.content === m.content);
+        if (!m.id.startsWith('opt-') && !m.id.startsWith('tmp-')) return true;
+        return !unique.some((u) => {
+          if (m.clientMessageId && u.clientMessageId && m.clientMessageId === u.clientMessageId) return true;
+          if (u.senderId !== m.senderId || u.type !== m.type) return false;
+          if (m.type === 'text') return u.content === m.content;
+          return Math.abs(messageTime(u) - messageTime(m)) < 20_000;
+        });
       });
       return sortMessagesAsc([...withoutOptimistic, ...unique]);
     });
@@ -523,6 +541,83 @@ export default function ChatRoomPage() {
       })
       .catch(() => {});
   }, [wsMessages, roomId]);
+
+  useEffect(() => {
+    if (!authUser || roomId.startsWith('pending-')) return;
+    let cancelled = false;
+
+    const refreshRoomState = async (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastRoomPollAtRef.current < 2_000) return;
+      lastRoomPollAtRef.current = now;
+      const requestedAt = Date.now();
+
+      const [roomRes, messagesRes] = await Promise.allSettled([
+        chatApi.getRoom(roomId),
+        chatApi.getMessages(roomId, { limit: 50 }),
+      ]);
+
+      if (cancelled) return;
+
+      if (roomRes.status === 'fulfilled') {
+        const room = roomRes.value.data as ChatRoomItem & { iAmPro?: boolean; proProfileId?: string };
+        setChatPartner((prev) => ({
+          id: room.otherUser.id,
+          proProfileId: room.proProfileId,
+          name: room.otherUser.name,
+          profileImageUrl: room.otherUser.profileImageUrl || prev?.profileImageUrl || '/images/default-profile.svg',
+          isActive: room.otherUser.isActive ?? prev?.isActive ?? false,
+        }));
+        setIAmProInRoom(Boolean(room.iAmPro));
+        setRoomMeta({
+          matchRequest: room.matchRequest ?? null,
+          latestQuotation: room.latestQuotation ?? null,
+        });
+      }
+
+      if (messagesRes.status === 'fulfilled') {
+        const apiMessages = messagesRes.value.data.data || [];
+        const mapped = apiMessages.map(mapApiMessage);
+        useChatStore.getState().messageCache.set(roomId, apiMessages);
+        setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshRoomState(true);
+      }
+    };
+    const onChatActivity = (event: Event) => {
+      const detail = (event as CustomEvent<{ roomId?: string }>).detail;
+      if (detail?.roomId === roomId) {
+        void refreshRoomState(true);
+      }
+    };
+
+    const interval = !isSocketConnected
+      ? window.setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            void refreshRoomState();
+          }
+        }, 8000)
+      : null;
+
+    window.addEventListener('focus', onVisibility);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('freetiful:chat-room-activity', onChatActivity as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', onVisibility as EventListener);
+    void refreshRoomState(true);
+
+    return () => {
+      cancelled = true;
+      if (interval) window.clearInterval(interval);
+      window.removeEventListener('focus', onVisibility);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('freetiful:chat-room-activity', onChatActivity as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', onVisibility as EventListener);
+    };
+  }, [authUser, roomId, isSocketConnected]);
 
   useEffect(() => {
     const latestPaid = [...messages].reverse().find((m) => m.type === 'system' && (m.system?.kind === 'payment_paid' || m.system?.kind === 'booking_confirmed'));
@@ -717,7 +812,7 @@ export default function ChatRoomPage() {
 
   // Skeleton loading state — pre-warm 데이터가 이미 있으면 skip
   const hasData = !!chatPartner || messages.length > 0;
-  const showSkeleton = !hasData && (roomId.startsWith('pending-') || (messagesLoading && messages.length === 0));
+  const showSkeleton = !hasData && !hasAttemptedInitialLoad && (roomId.startsWith('pending-') || (messagesLoading && messages.length === 0));
   const skeletonName = chatPartner?.name || urlProName;
   const skeletonImg = chatPartner?.profileImageUrl || urlProImg || '/images/default-profile.svg';
 
@@ -894,11 +989,15 @@ export default function ChatRoomPage() {
                   <p className="mt-1 text-[14px] font-semibold text-gray-900 truncate">
                     {eventName}
                   </p>
-                  <p className="mt-1 text-[12px] text-gray-500">
-                    📅 {eventDate ? `${new Date(eventDate).toLocaleDateString('ko-KR')} ${eventTime}`.trim() : '일정 미입력'}
-                  </p>
+                  <div className="mt-1 flex items-center gap-1.5 text-[12px] text-gray-500">
+                    <Calendar size={13} className="shrink-0 text-[#A4ABBA]" />
+                    <p>{eventDate ? `${new Date(eventDate).toLocaleDateString('ko-KR')} ${eventTime}`.trim() : '일정 미입력'}</p>
+                  </div>
                   {eventLocation && (
-                    <p className="mt-0.5 text-[12px] text-gray-500 truncate">📍 {eventLocation}</p>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-gray-500">
+                      <MapPin size={13} className="shrink-0 text-[#A4ABBA]" />
+                      <p className="truncate">{eventLocation}</p>
+                    </div>
                   )}
                   {planLabel && (
                     <span className="mt-1 inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7]/10 text-[#3180F7]">
@@ -1122,7 +1221,7 @@ export default function ChatRoomPage() {
 
       {/* ─── Input Bar (Floating Pill) ─── */}
       <div className="px-safe bg-[#F2F2F7] pb-safe pb-3 pt-2">
-        <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-end gap-2">
+        <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-end gap-1.5 sm:gap-2">
           {isRecording ? (
             // Recording UI
             <>
@@ -1168,21 +1267,21 @@ export default function ChatRoomPage() {
               {isPro && (
                 <button
                   onClick={() => setShowQuoteModal(true)}
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-blue-400/30 bg-[#3180F7] text-white shadow-[0_4px_24px_rgba(49,128,247,0.25)] active:scale-[0.92] transition-all hover:bg-[#1f6fe5] sm:w-auto sm:gap-1.5 sm:px-4"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-blue-400/30 bg-[#3180F7] text-white shadow-[0_4px_24px_rgba(49,128,247,0.25)] active:scale-[0.92] transition-all hover:bg-[#1f6fe5] sm:h-12 sm:w-auto sm:gap-1.5 sm:px-4"
                   title="견적서 보내기"
                 >
-                  <FileSignature size={18} />
+                  <FileSignature size={17} />
                   <span className="hidden text-[13px] font-bold sm:inline">견적</span>
                 </button>
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
-                className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
+                className="h-11 w-11 shrink-0 rounded-full border border-gray-200/60 bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-[0.88] transition-all hover:bg-white sm:h-12 sm:w-12"
               >
-                <Plus size={24} className="text-gray-600" />
+                <Plus size={22} className="text-gray-600" />
               </button>
 
-              <div className="flex h-12 min-w-0 flex-1 items-center rounded-full border border-gray-200/60 bg-white/90 pl-4 pr-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:pl-5">
+              <div className="flex h-11 min-w-0 flex-1 items-center rounded-full border border-gray-200/60 bg-white/90 pl-3 pr-1 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:h-12 sm:pl-5 sm:pr-1.5">
                 <input
                   ref={inputRef}
                   type="text"
@@ -1197,7 +1296,7 @@ export default function ChatRoomPage() {
                     handleSend();
                   }}
                   placeholder="메시지 (@ 으로 멘션)"
-                  className="min-w-0 flex-1 bg-transparent text-[15px] leading-[1.3] focus:outline-none placeholder:text-gray-400 sm:text-[16px]"
+                  className="min-w-0 flex-1 bg-transparent text-[14px] leading-[1.25] focus:outline-none placeholder:text-gray-400 sm:text-[16px]"
                 />
                 {input.trim() ? (
                   <button

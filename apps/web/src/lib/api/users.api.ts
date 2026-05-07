@@ -21,6 +21,16 @@ export const usersApi = {
   updateProfile: (data: { name?: string; phone?: string; profileImageUrl?: string; profileImageDataUrl?: string }) =>
     apiClient.put<User>(`${BASE}/profile`, data).then((r) => r.data),
 
+  uploadProfileImage: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient
+      .post<{ profileImageUrl: string }>(`${BASE}/profile/image`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+
   getNotificationSettings: () =>
     apiClient.get<NotificationSettings>(`${BASE}/notification-settings`).then((r) => r.data),
 

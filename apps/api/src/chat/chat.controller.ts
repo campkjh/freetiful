@@ -9,9 +9,12 @@ import {
   Query,
   UseGuards,
   Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import {
   CreateChatRoomDto,
@@ -90,6 +93,18 @@ export class ChatController {
   @ApiOperation({ summary: '메시지 전송' })
   sendMessage(@Req() req, @Param('roomId') roomId: string, @Body() dto: SendMessageDto) {
     return this.chatService.sendMessage(roomId, req.user.id, dto);
+  }
+
+  @Post('rooms/:roomId/images')
+  @ApiOperation({ summary: '채팅 이미지 업로드' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  uploadImage(
+    @Req() req,
+    @Param('roomId') roomId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.chatService.uploadImage(roomId, req.user.id, file);
   }
 
   @Put('messages/:messageId')

@@ -50,6 +50,7 @@ export default function SettingsPage() {
   const [name, setName] = useState(() => authUser?.name || '');
   const [phone, setPhone] = useState(() => authUser?.phone || '');
   const [profileImage, setProfileImage] = useState(() => authUser?.profileImageUrl || '');
+  const [selectedProfileImageFile, setSelectedProfileImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   // 연결된 소셜 계정 감지 — email prefix 기반 (kakao_*, naver_*, google_*, apple_*)
@@ -119,6 +120,7 @@ export default function SettingsPage() {
     reader.onload = (ev) => {
       const url = ev.target?.result as string;
       setProfileImage(url);
+      setSelectedProfileImageFile(file);
     };
     reader.readAsDataURL(file);
   };
@@ -133,12 +135,15 @@ export default function SettingsPage() {
       } catch {}
       // Save to API
       if (authUser) {
+        let uploadedProfileImageUrl = profileImage;
+        if (selectedProfileImageFile) {
+          const uploaded = await usersApi.uploadProfileImage(selectedProfileImageFile);
+          uploadedProfileImageUrl = uploaded.profileImageUrl || uploadedProfileImageUrl;
+        }
         const payload = {
           name,
           phone: phone.replace(/\D/g, ''),
-          ...(profileImage.startsWith('data:')
-            ? { profileImageDataUrl: profileImage }
-            : { profileImageUrl: profileImage }),
+          profileImageUrl: uploadedProfileImageUrl,
         };
         const updated = await usersApi.updateProfile({
           ...payload,
@@ -154,6 +159,7 @@ export default function SettingsPage() {
           }));
         } catch {}
         if (updated.profileImageUrl) setProfileImage(updated.profileImageUrl);
+        setSelectedProfileImageFile(null);
       }
       toast.success('저장되었습니다');
     } catch {

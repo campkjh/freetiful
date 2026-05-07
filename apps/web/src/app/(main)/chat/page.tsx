@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
+import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -99,27 +99,37 @@ export default function ChatListPage() {
     }
 
     if (apiRooms.length > 0) setRoomsLoading(false);
+    connect();
     fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
-    const timer = window.setTimeout(() => connect(), 250);
-    return () => { window.clearTimeout(timer); };
+    return undefined;
   }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
 
   useEffect(() => {
     if (!authHydrated || !authUser) return;
     const refreshRooms = () => {
       const now = Date.now();
-      if (now - lastRefreshAtRef.current < 5_000) return;
+      if (now - lastRefreshAtRef.current < 2_500) return;
       lastRefreshAtRef.current = now;
-      fetchRooms({ limit: 50 }).catch(() => {});
+      fetchRooms({ limit: 50, force: true }).catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshRooms();
     };
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshRooms();
+    }, 5000);
     window.addEventListener('focus', refreshRooms);
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
+    window.addEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     return () => {
+      window.clearInterval(interval);
       window.removeEventListener('focus', refreshRooms);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
+      window.removeEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     };
   }, [authHydrated, authUser?.id, fetchRooms]);
 
@@ -497,7 +507,7 @@ export default function ChatListPage() {
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
               <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100">
-                <span className="text-4xl">💬</span>
+                <MessageCircle size={38} className="text-[#9DBEF9]" />
               </div>
               <p className="text-gray-500 text-[15px] font-semibold">대화방을 선택하세요</p>
               <p className="text-gray-400 text-[13px] mt-1">목록을 누르면 저장되는 실제 채팅방으로 이동합니다</p>

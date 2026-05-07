@@ -165,6 +165,15 @@ function readStoredProCategory() {
   }
 }
 
+function readStoredUserRole() {
+  if (typeof window === 'undefined') return 'general';
+  try {
+    return localStorage.getItem('userRole') === 'pro' ? 'pro' : 'general';
+  } catch {
+    return 'general';
+  }
+}
+
 function readViewAsUserFlag() {
   if (typeof window === 'undefined') return false;
   try {
@@ -189,6 +198,15 @@ function writeStoredProProfileStatus(status: 'draft' | 'pending' | 'approved' | 
     if (status) localStorage.setItem('proRegistrationComplete', status);
     else localStorage.removeItem('proRegistrationComplete');
   } catch {}
+}
+
+function readStoredProProfileStatus(): 'draft' | 'pending' | 'approved' | 'rejected' | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('proRegistrationComplete');
+    if (raw === 'draft' || raw === 'pending' || raw === 'approved' || raw === 'rejected') return raw;
+  } catch {}
+  return null;
 }
 
 function clearStoredProModeForCurrentAccount() {
@@ -368,15 +386,18 @@ export default function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState({ name: '게스트', email: '', image: '/images/default-profile.svg', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
   const authUser = useAuthStore((s) => s.user);
+  const authHydrated = useAuthStore((s) => s.hasHydrated);
   const { logout: authLogout } = useAuth();
   const router = useRouter();
-  const [proRegistrationPending, setProRegistrationPending] = useState(false);
-  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(null);
+  const [storedUserRole, setStoredUserRole] = useState<'general' | 'pro'>(() => readStoredUserRole());
+  const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(() => readStoredProProfileStatus());
+  const [proRegistrationPending, setProRegistrationPending] = useState(() => readStoredProProfileStatus() === 'pending');
   const [proCategoryName, setProCategoryName] = useState<string>(() => readStoredProCategory());
-  const [isPro, setIsPro] = useState(false);
   const [viewAsUser, setViewAsUser] = useState(() => readViewAsUserFlag());
   const [couponCount, setCouponCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
+  const effectiveRole = authHydrated ? (authUser?.role || storedUserRole) : storedUserRole;
+  const actualIsPro = effectiveRole === 'pro';
   // 프로 통계 (이번달 매출 / 총 리뷰 / 푸딩)
   const [proStats, setProStats] = useState<ProStats>(() => {
     const cached = readCachedProStats();
@@ -406,7 +427,6 @@ export default function MyPage() {
       // role/pro 상태를 낙관적으로 맞춰주어 본문도 네비와 동시에 바뀌게 한다.
       const currentUser = useAuthStore.getState().user;
       if (currentUser?.role === 'pro') {
-        setIsPro(true);
         if (!nextViewAsUser) {
           setProProfileStatus((prev) => prev ?? 'approved');
           setProRegistrationPending(false);
@@ -421,6 +441,24 @@ export default function MyPage() {
       window.removeEventListener('freetiful:view-mode-changed', syncViewAsUser);
     };
   }, []);
+
+  useEffect(() => {
+    const syncStoredRole = () => setStoredUserRole(readStoredUserRole());
+    syncStoredRole();
+    window.addEventListener('storage', syncStoredRole);
+    window.addEventListener('freetiful:view-mode-changed', syncStoredRole);
+    return () => {
+      window.removeEventListener('storage', syncStoredRole);
+      window.removeEventListener('freetiful:view-mode-changed', syncStoredRole);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (actualIsPro && !viewAsUser) {
+      setProProfileStatus((prev) => prev ?? 'approved');
+      setProRegistrationPending(false);
+    }
+  }, [actualIsPro, viewAsUser]);
 
   useEffect(() => {
     let cancelled = false;
@@ -447,7 +485,6 @@ export default function MyPage() {
         coupons: 0,
         role: authUser.role,
       });
-      setIsPro(authUser.role === 'pro');
       // Fetch point balance from API
       usersApi.getPointBalance().then((res) => {
         if (!cancelled) setUser((prev) => ({ ...prev, points: res.balance }));
@@ -486,7 +523,6 @@ export default function MyPage() {
         setProStats(PRO_STATS_EMPTY);
       }
     } else {
-      setIsPro(false);
       setProProfileStatus(null);
       setProRegistrationPending(false);
     }
@@ -511,7 +547,6 @@ export default function MyPage() {
         const status = (profileUser?.proProfile?.status || null) as 'draft' | 'pending' | 'approved' | 'rejected' | null;
         const serverRole = profileUser?.role || authUser.role || 'general';
 
-        setIsPro(serverRole === 'pro');
         setProProfileStatus(status);
         setProRegistrationPending(status === 'pending');
         writeStoredProProfileStatus(status);
@@ -592,13 +627,11 @@ export default function MyPage() {
       setViewAsUser(false);
 
       if (authUser.role === 'pro') {
-        setIsPro(true);
         return;
       }
 
       usersApi.switchRole('pro').then((updatedUser) => {
         useAuthStore.getState().setUser({ ...authUser, ...updatedUser, role: 'pro' as any });
-        setIsPro(true);
       }).catch(() => {
         setProProfileStatus(null);
         setProRegistrationPending(false);
@@ -644,11 +677,11 @@ export default function MyPage() {
   };
 
   // 승인된 프로만 PRO 뷰로 분기. role=pro 이지만 ProProfile 미승인인 경우는 일반 뷰로 폴백.
-  const isApprovedPro = isPro && proProfileStatus === 'approved' && !viewAsUser;
-  const partnerSwitchTitle = isPro && viewAsUser ? '프로회원뷰로 전환하기 🎉' : '파트너스로 전환하기 🎉';
-  const partnerSwitchDescription = isPro && viewAsUser
-    ? '프로 승인 계정입니다. 사회자 마이페이지로 돌아가세요'
-    : '파트너 승인 완료! 지금 바로 사회자 모드로 시작하세요';
+  const isApprovedPro = actualIsPro && proProfileStatus === 'approved' && !viewAsUser;
+  const partnerSwitchTitle = actualIsPro && viewAsUser ? '프로회원뷰로 전환하기' : '파트너스로 전환하기';
+  const partnerSwitchDescription = actualIsPro && viewAsUser
+    ? '프로 승인 계정입니다. 전문가 마이페이지로 돌아가세요'
+    : '파트너 승인 완료! 지금 바로 전문가 모드로 시작하세요';
   if (isApprovedPro) {
     const isTopRank = (proStats.rank != null && proStats.rank <= 10) || proStats.pudding >= 100;
     return (

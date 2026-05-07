@@ -15,11 +15,15 @@ import {
   WEDDING_PARTNER_CATEGORY_TABS,
 } from '@/lib/business-categories';
 import {
-  getBusinessCategoryNames,
   getBusinessDisplayTags,
   isPopularBusinessPartner,
   sortPopularPartnersFirst,
 } from '@/lib/business-popularity';
+import {
+  getRelevantBusinessCategories,
+  isBusinessRelevantToAnyCategory,
+  sanitizeBusinessImageUrls,
+} from '@/lib/business-quality';
 import { deriveBusinessTagSuggestions, extractBusinessTagsFromHtml } from '@/lib/business-tags';
 import {
   getWeddingPartnerImageSet,
@@ -698,16 +702,25 @@ const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v7';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_REQUEST_VERSION = '20260429-category-quality';
 
-function BusinessCard({ biz }: { biz: BusinessPartner }) {
+function BusinessCard({
+  biz,
+}: {
+  biz: BusinessPartner;
+}) {
+  const [hidden, setHidden] = useState(false);
+  if (hidden || !biz.images[0]) return null;
   return (
     <Link href={`/businesses/${biz.id}`} className="block group">
       {/* 상단 와이드 이미지 */}
       <div className="relative w-full aspect-[2/1] rounded-xl overflow-hidden bg-gray-100">
-        <img
-          src={biz.images[0]}
-          alt={biz.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-        />
+        {biz.images[0] ? (
+          <img
+            src={biz.images[0]}
+            alt={biz.name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            onError={() => setHidden(true)}
+          />
+        ) : null}
         {/* 좌측 상단 로고 마크 */}
         <div className="absolute top-3 left-3 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
           <span className="text-[12px] font-black text-gray-900">{biz.name.charAt(0)}</span>
@@ -1401,26 +1414,26 @@ export default function HomePage() {
         if (cancelled) return;
         const items = Array.isArray(res.data) ? res.data : res.data?.items;
         if (!Array.isArray(items)) return;
-        const mapped: BusinessPartner[] = items.map((b: any, i: number) => {
-          const categories = getBusinessCategoryNames(b);
-          const visibleCategories = categories.filter((name) => name !== '인기');
+        const mapped: BusinessPartner[] = items.filter((b: any) => isBusinessRelevantToAnyCategory(b)).map((b: any, i: number) => {
+          const categories = getRelevantBusinessCategories(b);
+          const visibleCategories = categories;
           const isPopular = isPopularBusinessPartner(b, categories);
           const businessName = b.businessName || b.name || b.title || '웨딩 파트너';
           const partnerImageSet = getWeddingPartnerImageSet(businessName, b.name, b.title);
           const apiImages = Array.isArray(b.images)
             ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
             : [];
-          const mergedImages = mergeWeddingPartnerImages(
+          const mergedImages = sanitizeBusinessImageUrls(mergeWeddingPartnerImages(
             partnerImageSet?.images,
             [b.image, b.imageUrl],
             apiImages,
-          );
+          ));
           const displayCategories = Array.from(new Set([
             ...(visibleCategories.length > 0 ? visibleCategories : categories),
             ...getWeddingPartnerSectionCategories(partnerImageSet),
           ]));
           const businessCategories = Array.from(
-            new Set(displayCategories.filter((name): name is string => Boolean(name && name !== '인기'))),
+            new Set(displayCategories.filter((name): name is string => Boolean(name))),
           );
           const address = b.address || '';
           const markerTags = extractBusinessTagsFromHtml(b.descriptionHtml);
@@ -1440,13 +1453,13 @@ export default function HomePage() {
             categories: businessCategories.length > 0 ? businessCategories : [b.businessType || '웨딩홀'],
             name: businessName,
             location: address.split(' ')[0] || b.region || '전국',
-            images: mergedImages.length > 0 ? mergedImages : ['/images/default-profile.svg'],
+            images: mergedImages,
             tags: getBusinessDisplayTags(businessCategories, b.businessType, isPopular, 3, sourceTags),
             isPopular,
             originalPrice: b.originalPrice ?? 0,
             discountPercent: b.discountPercent ?? 0,
           };
-        }).filter((b: BusinessPartner) => b.name.trim().length > 0);
+        }).filter((b: BusinessPartner) => b.name.trim().length > 0 && b.images.length > 0);
         const sorted = sortPopularPartnersFirst(mapped);
         setBusinesses(sorted);
         try { localStorage.setItem(BUSINESS_CACHE_KEY, JSON.stringify({ data: sorted, ts: Date.now() })); } catch {}

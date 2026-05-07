@@ -15,6 +15,7 @@ import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFi
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
+import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminPartnersApi, type AdminPartnerListItem } from '@/lib/api/admin-partners.api';
 import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
 
@@ -48,6 +49,7 @@ export default function AdminPartnersPage() {
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<{ status?: number; message?: string } | null>(null);
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const fetchList = async (p = page, s = search, range = dateRange, append = false) => {
     if (append) setLoadingMore(true);
@@ -93,6 +95,26 @@ export default function AdminPartnersPage() {
     }
   };
 
+  const handleToggleVisibility = async (partner: AdminPartnerListItem, checked: boolean) => {
+    const previous = items;
+    setTogglingId(partner.id);
+    setItems((prev) => prev.map((item) => (
+      item.id === partner.id ? { ...item, isVisible: checked } : item
+    )));
+    try {
+      const updated = await adminPartnersApi.update(partner.id, { isVisible: checked });
+      setItems((prev) => prev.map((item) => (
+        item.id === partner.id ? { ...item, isVisible: updated.isVisible } : item
+      )));
+      toast.success(checked ? '유저 페이지에 노출됩니다' : '유저 페이지에서 숨김 처리되었습니다');
+    } catch (e: any) {
+      setItems(previous);
+      toast.error(`노출 상태 변경 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -119,6 +141,7 @@ export default function AdminPartnersPage() {
         { header: '주소', value: (row) => row.address || '' },
         { header: '전화', value: (row) => row.phone || '' },
         { header: '상태', value: (row) => statusLabel[row.status]?.text || row.status },
+        { header: '노출', value: (row) => row.isVisible ? '노출' : '숨김' },
         { header: '이미지수', value: (row) => row.images?.length || 0 },
         { header: '등록일', value: (row) => formatExportDate(row.createdAt, true) },
       ]);
@@ -203,19 +226,20 @@ export default function AdminPartnersPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">전화</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">등록일</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="상태">상태</AdminTerm></th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">노출</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-sm text-gray-400">
+                  <td colSpan={10} className="text-center py-12 text-sm text-gray-400">
                     로딩 중...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-sm text-gray-400">
+                  <td colSpan={10} className="text-center py-12 text-sm text-gray-400">
                     등록된 업체가 없습니다
                   </td>
                 </tr>
@@ -287,6 +311,16 @@ export default function AdminPartnersPage() {
                         >
                           {statusLabel[b.status]?.text || b.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center">
+                          <AdminSwitch
+                            checked={b.isVisible}
+                            onChange={(checked) => handleToggleVisibility(b, checked)}
+                            disabled={togglingId === b.id}
+                            ariaLabel={`${b.businessName} 노출 토글`}
+                          />
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1 flex-wrap">

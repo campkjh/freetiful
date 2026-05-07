@@ -41,6 +41,7 @@ export interface Message {
   content: string;
   type: 'text' | 'image' | 'file' | 'location' | 'system' | 'voice';
   createdAt: string;
+  clientMessageId?: string;
   isRead: boolean;
   fileName?: string;
   duration?: number;

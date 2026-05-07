@@ -2,18 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, TrendingUp, Trophy, Info } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Trophy, Info, MessageCircle, ClipboardList, Target, Star, FilePenLine, Users, Medal } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
 import { ProCardListSkeleton, ProRankingSkeleton, SkeletonBlock } from '../_components/ProSkeletons';
 
 const EARNING_RULES = [
-  { action: '1:1 견적 답변', pudding: '+3', icon: '💬' },
-  { action: '다중 견적 답변', pudding: '+2', icon: '📋' },
-  { action: '매칭 성공', pudding: '+10', icon: '🎯' },
-  { action: '만점 리뷰', pudding: '+8', icon: '⭐' },
-  { action: '클로저 정보 등록', pudding: '+3', icon: '📝' },
-  { action: '추천 유저 가입', pudding: '+8', icon: '👥' },
+  { action: '1:1 견적 답변', pudding: '+3', icon: MessageCircle },
+  { action: '다중 견적 답변', pudding: '+2', icon: ClipboardList },
+  { action: '매칭 성공', pudding: '+10', icon: Target },
+  { action: '만점 리뷰', pudding: '+8', icon: Star },
+  { action: '클로저 정보 등록', pudding: '+3', icon: FilePenLine },
+  { action: '추천 유저 가입', pudding: '+8', icon: Users },
 ];
 
 const REASON_LABEL: Record<string, string> = {
@@ -107,8 +107,9 @@ export default function PuddingPage() {
               </>
             ) : (
               <>
-                <p className="text-lg font-bold">
-                  {myRank == null ? '랭킹 없음' : myRank <= 3 ? `${['🥇','🥈','🥉'][myRank - 1]} ${myRank}위` : `${myRank}위`}
+                <p className="text-lg font-bold inline-flex items-center gap-1.5">
+                  <Medal size={18} className="text-white/90" />
+                  {myRank == null ? '랭킹 없음' : `${myRank}위`}
                 </p>
                 <p className="text-[10px] opacity-70">실시간 랭킹 반영</p>
               </>
@@ -162,7 +163,7 @@ export default function PuddingPage() {
         <div className="grid grid-cols-2 gap-2">
           {EARNING_RULES.map((rule) => (
             <div key={rule.action} className="card p-3 flex items-center gap-2.5">
-              <span className="text-xl">{rule.icon}</span>
+              <rule.icon size={20} className="text-[#3180F7]" />
               <div>
                 <p className="text-xs text-gray-700">{rule.action}</p>
                 <p className="text-sm font-bold text-primary-500">{rule.pudding}</p>

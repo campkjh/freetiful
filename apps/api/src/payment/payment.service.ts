@@ -9,6 +9,9 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { PuddingService } from '../pudding/pudding.service';
+import { ChatService } from '../chat/chat.service';
+import { ChatRealtimeService } from '../chat/chat-realtime.service';
+import { MessageTypeEnum } from '../chat/dto/chat.dto';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 
@@ -23,6 +26,8 @@ export class PaymentService {
     private config: ConfigService,
     private notificationService: NotificationService,
     private pudding: PuddingService,
+    private chatService: ChatService,
+    private chatRealtimeService: ChatRealtimeService,
   ) {
     this.tossSecretKey = this.config.get<string>('TOSS_SECRET_KEY', '');
   }
@@ -264,6 +269,7 @@ export class PaymentService {
 
     // 채팅방 생성/찾기 + 스케줄 등록 시스템 메시지 추가
     let chatRoomId: string | null = null;
+    let proUserId: string | null = null;
     try {
       let room = await this.prisma.chatRoom.findFirst({
         where: {
@@ -279,6 +285,7 @@ export class PaymentService {
           select: { userId: true },
         });
         if (pro) {
+          proUserId = pro.userId;
           room = await this.prisma.chatRoom.create({
             data: {
               userId: payment.userId,
@@ -297,17 +304,21 @@ export class PaymentService {
         const sysContent = isDirectPurchase
           ? `📅 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 프로의 수락을 기다리는 중입니다.`
           : `✅ 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 스케줄이 확정되었습니다.`;
-        await this.prisma.message.create({
-          data: {
-            roomId: room.id,
-            senderId: payment.userId,
-            type: 'system',
-            content: sysContent,
+        const systemMessage = await this.chatService.sendMessage(room.id, payment.userId, {
+          type: MessageTypeEnum.system,
+          content: sysContent,
+          metadata: {
+            system: {
+              kind: isDirectPurchase ? 'payment_pending_acceptance' : 'payment_paid',
+              paymentId: payment.id,
+            },
           },
         });
-        await this.prisma.chatRoom.update({
-          where: { id: room.id },
-          data: { lastMessageAt: new Date() },
+        const memberIds = await this.chatService.getRoomMemberIds(room.id);
+        await this.chatRealtimeService.emitPersistedMessage(room.id, systemMessage.id, {
+          roomUpdatedUserIds: memberIds.filter((memberId) => memberId !== payment.userId),
+          unreadUserIds: memberIds.filter((memberId) => memberId !== payment.userId),
+          dashboardUserIds: memberIds,
         });
       }
     } catch (e) {
@@ -338,6 +349,7 @@ export class PaymentService {
         where: { id: payment.proProfileId },
         select: { userId: true },
       });
+      proUserId = proProfile?.userId ?? proUserId;
       if (proProfile) {
         if (isDirectPurchase) {
           this.notificationService.createNotification(
@@ -358,6 +370,13 @@ export class PaymentService {
         }
       }
     } catch {}
+
+    this.chatRealtimeService.emitDashboardUpdated([payment.userId, proUserId], {
+      kind: 'payment',
+      paymentId: payment.id,
+      proProfileId: payment.proProfileId,
+      chatRoomId,
+    });
 
     // 거래 성사 푸딩 +300 (결제 완료 시점 — 프로의 수락 여부와 무관하게 "거래 성사"로 간주)
     this.pudding.awardDealCompleted(payment.proProfileId, payment.id).catch(() => {});

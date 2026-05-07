@@ -7,7 +7,10 @@ import {
   Query,
   UseGuards,
   Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
@@ -34,6 +37,16 @@ export class UsersController {
   ) {
     const userId = (req.user as any).id;
     return this.usersService.updateProfile(userId, body);
+  }
+
+  @Post('profile/image')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  async uploadProfileImage(
+    @Req() req: Request,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const userId = (req.user as any).id;
+    return this.usersService.uploadProfileImage(userId, file);
   }
 
   @Get('notification-settings')

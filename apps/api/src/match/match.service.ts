@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { ChatRealtimeService } from '../chat/chat-realtime.service';
 
 const CATEGORY_ALIASES: Record<string, string[]> = {
   mc: ['사회자', 'MC', '전문 사회자', '전문사회자', '결혼식 사회자', '결혼식사회자'],
@@ -51,6 +52,7 @@ export class MatchService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private chatRealtimeService: ChatRealtimeService,
   ) {}
 
   /** 사용자가 매칭 요청 생성 */
@@ -137,6 +139,11 @@ export class MatchService {
       category.id,
       data.selectedProProfileIds,
     );
+
+    this.chatRealtimeService.emitMatchUpdated([userId], {
+      kind: 'match-request-created',
+      matchRequestId: matchRequest.id,
+    });
 
     return matchRequest;
   }
@@ -389,6 +396,21 @@ export class MatchService {
         )
         .catch(() => {});
     }
+
+    this.chatRealtimeService.emitMatchUpdated(
+      validTargets.map((target) => target.proProfile?.user?.id ?? null),
+      {
+        kind: 'match-request-delivered',
+        matchRequestId,
+      },
+    );
+    this.chatRealtimeService.emitDashboardUpdated(
+      validTargets.map((target) => target.proProfile?.user?.id ?? null),
+      {
+        kind: 'match-request-delivered',
+        matchRequestId,
+      },
+    );
   }
 
   /** 사용자의 매칭 요청 목록 */
@@ -479,13 +501,24 @@ export class MatchService {
     const customerId = delivery.matchRequest?.user?.id;
 
     if (action === 'archive') {
-      return this.prisma.matchDelivery.update({
+      const archived = await this.prisma.matchDelivery.update({
         where: { id: matchDeliveryId },
         data: { status: 'archived' },
         include: {
           matchRequest: { include: { category: true, eventCategory: true } },
         },
       });
+      this.chatRealtimeService.emitMatchUpdated([customerId, delivery.proProfile?.user?.id], {
+        kind: 'match-request-archived',
+        matchDeliveryId,
+        matchRequestId: delivery.matchRequestId,
+      });
+      this.chatRealtimeService.emitDashboardUpdated([customerId, delivery.proProfile?.user?.id], {
+        kind: 'match-request-archived',
+        matchDeliveryId,
+        matchRequestId: delivery.matchRequestId,
+      });
+      return archived;
     }
 
     if (action === 'accept') {
@@ -514,6 +547,17 @@ export class MatchService {
         ).catch(() => {});
       }
 
+      this.chatRealtimeService.emitMatchUpdated([customerId, delivery.proProfile?.user?.id], {
+        kind: 'match-request-accepted',
+        matchDeliveryId,
+        matchRequestId: delivery.matchRequestId,
+      });
+      this.chatRealtimeService.emitDashboardUpdated([customerId, delivery.proProfile?.user?.id], {
+        kind: 'match-request-accepted',
+        matchDeliveryId,
+        matchRequestId: delivery.matchRequestId,
+      });
+
       return result;
     } else {
       const result = await this.prisma.matchDelivery.update({
@@ -534,6 +578,17 @@ export class MatchService {
           { matchDeliveryId, proProfileId },
         ).catch(() => {});
       }
+
+      this.chatRealtimeService.emitMatchUpdated([customerId, delivery.proProfile?.user?.id], {
+        kind: 'match-request-declined',
+        matchDeliveryId,
+        matchRequestId: delivery.matchRequestId,
+      });
+      this.chatRealtimeService.emitDashboardUpdated([customerId, delivery.proProfile?.user?.id], {
+        kind: 'match-request-declined',
+        matchDeliveryId,
+        matchRequestId: delivery.matchRequestId,
+      });
 
       return result;
     }

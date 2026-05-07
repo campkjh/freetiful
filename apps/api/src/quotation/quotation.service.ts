@@ -6,12 +6,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { ChatRealtimeService } from '../chat/chat-realtime.service';
 
 @Injectable()
 export class QuotationService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private chatRealtimeService: ChatRealtimeService,
   ) {}
 
   private toDateInput(value?: any): string | undefined {
@@ -148,6 +150,24 @@ export class QuotationService {
       `${quotation.proProfile.user.name} 사회자가 ${(data.amount || 0).toLocaleString()}원 견적서를 보냈습니다.`,
       { quotationId: quotation.id },
     ).catch(() => {});
+
+    const proUserId = quotation.proProfile?.user?.id;
+    this.chatRealtimeService.emitDashboardUpdated([userId, proUserId], {
+      kind: 'quotation-created',
+      quotationId: quotation.id,
+      chatRoomId: data.chatRoomId ?? null,
+    });
+    this.chatRealtimeService.emitMatchUpdated([userId, proUserId], {
+      kind: 'quotation-created',
+      quotationId: quotation.id,
+      chatRoomId: data.chatRoomId ?? null,
+    });
+    if (data.chatRoomId) {
+      this.chatRealtimeService.emitToUsers([userId, proUserId], 'roomUpdated', {
+        roomId: data.chatRoomId,
+        quotationId: quotation.id,
+      });
+    }
 
     return quotation;
   }
@@ -310,6 +330,25 @@ export class QuotationService {
           { quotationId: id },
         ).catch(() => {});
       }
+    }
+
+    this.chatRealtimeService.emitDashboardUpdated([updated.userId, proUserId], {
+      kind: 'quotation-status-updated',
+      quotationId: id,
+      status,
+      chatRoomId: updated.chatRoomId ?? null,
+    });
+    this.chatRealtimeService.emitMatchUpdated([updated.userId, proUserId], {
+      kind: 'quotation-status-updated',
+      quotationId: id,
+      status,
+      chatRoomId: updated.chatRoomId ?? null,
+    });
+    if (updated.chatRoomId) {
+      this.chatRealtimeService.emitToUsers([updated.userId, proUserId], 'roomUpdated', {
+        roomId: updated.chatRoomId,
+        quotationId: id,
+      });
     }
 
     return updated;

@@ -30,6 +30,7 @@ const NAME_TAG_RULES: Array<{ test: RegExp; tags: string[] }> = [
 ];
 
 const TAG_MARKER_RE = /<!--freetiful-business-tags:([A-Za-z0-9+/=]+)-->/;
+const VISIBILITY_MARKER_RE = /<!--freetiful-business-visibility:(visible|hidden)-->/;
 
 function uniqueClean(values: unknown[], max = 6) {
   const seen = new Set<string>();
@@ -62,7 +63,10 @@ export function extractBusinessTagsFromHtml(html?: string | null) {
 }
 
 export function stripBusinessTagMarker(html?: string | null) {
-  const stripped = String(html || '').replace(TAG_MARKER_RE, '').trim();
+  const stripped = String(html || '')
+    .replace(TAG_MARKER_RE, '')
+    .replace(VISIBILITY_MARKER_RE, '')
+    .trim();
   return stripped || null;
 }
 
@@ -73,6 +77,22 @@ export function withBusinessTagMarker(html: string | null | undefined, tags: unk
 
   const encoded = Buffer.from(JSON.stringify(normalizedTags), 'utf8').toString('base64');
   return `${cleanHtml || ''}\n<!--freetiful-business-tags:${encoded}-->`.trim();
+}
+
+export function extractBusinessVisibilityFromHtml(html?: string | null) {
+  const visibility = html?.match(VISIBILITY_MARKER_RE)?.[1];
+  if (visibility === 'visible') return true;
+  if (visibility === 'hidden') return false;
+  return null;
+}
+
+export function withBusinessVisibilityMarker(
+  html: string | null | undefined,
+  isVisible?: boolean | null,
+) {
+  const withoutVisibility = String(html || '').replace(VISIBILITY_MARKER_RE, '').trim();
+  if (typeof isVisible !== 'boolean') return withoutVisibility || null;
+  return `${withoutVisibility}\n<!--freetiful-business-visibility:${isVisible ? 'visible' : 'hidden'}-->`.trim();
 }
 
 export function deriveBusinessTags(input: {

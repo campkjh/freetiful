@@ -64,6 +64,13 @@ function writeRoomsCache(rooms: ChatRoomItem[], userId = currentUserId()) {
   } catch {}
 }
 
+function dispatchChatEvent(name: string, detail?: Record<string, unknown>) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  } catch {}
+}
+
 function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
   const system = (message.metadata as any)?.system;
   if (system?.kind === 'quote') return { hasQuoteInquiry: true };
@@ -74,6 +81,34 @@ function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
   if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
   if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
   return {};
+}
+
+function getRoomFlagsFromPayload(data: SendMessagePayload): Partial<ChatRoomItem> {
+  const system = (data.metadata as Record<string, any> | null)?.system;
+  if (system?.kind === 'quote') return { hasQuoteInquiry: true };
+  if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
+    return { hasQuoteInquiry: true, hasConfirmedBooking: true };
+  }
+  const content = data.content || '';
+  if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
+  if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
+  return {};
+}
+
+function getPreviewContent(data: SendMessagePayload) {
+  if (typeof data.content === 'string' && data.content.trim()) return data.content;
+  switch (data.type) {
+    case 'image':
+      return '사진을 보냈습니다';
+    case 'file':
+      return '파일을 보냈습니다';
+    case 'location':
+      return '위치를 공유했습니다';
+    case 'system':
+      return '안내 메시지를 보냈습니다';
+    default:
+      return '메시지를 보냈습니다';
+  }
 }
 
 function ensureClientMessageId(data: SendMessagePayload): SendMessagePayload {
@@ -201,8 +236,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       timeout: 8000,
     });
 
-    socket.on('connect', () => set({ isConnected: true }));
-    socket.on('disconnect', () => set({ isConnected: false }));
+    socket.on('connect', () => {
+      set({ isConnected: true });
+      dispatchChatEvent('freetiful:chat-socket-connected');
+    });
+    socket.on('disconnect', () => {
+      set({ isConnected: false });
+      dispatchChatEvent('freetiful:chat-socket-disconnected');
+    });
 
     socket.on('newMessage', (message: MessageItem) => {
       const { currentRoomId, messageCache } = get();
@@ -243,16 +284,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
         writeRoomsCache(nextRooms);
         return { rooms: nextRooms };
       });
+      dispatchChatEvent('freetiful:chat-room-activity', {
+        roomId: message.roomId,
+        messageId: message.id,
+        type: message.type,
+        systemKind: (message.metadata as any)?.system?.kind || null,
+      });
       if (!hasRoomInList) {
         get().fetchRooms({ limit: 50, force: true }).catch(() => {});
       }
     });
 
+    let refreshTimer: number | null = null;
     const refreshRooms = () => {
-      get().fetchRooms({ limit: 50, force: true }).catch(() => {});
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
+        dispatchChatEvent('freetiful:chat-rooms-changed');
+        refreshTimer = null;
+      }, 120);
     };
     socket.on('roomUpdated', refreshRooms);
     socket.on('unreadUpdate', refreshRooms);
+    socket.on('dashboardUpdated', (data: Record<string, unknown>) => {
+      refreshRooms();
+      dispatchChatEvent('freetiful:dashboard-updated', data);
+    });
+    socket.on('matchUpdated', (data: Record<string, unknown>) => {
+      dispatchChatEvent('freetiful:match-requests-changed', data);
+      dispatchChatEvent('freetiful:dashboard-updated', data);
+    });
 
     socket.on('messageEdited', (updated: any) => {
       set((s) => ({
@@ -317,6 +378,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   disconnect: () => {
     get().socket?.disconnect();
     set({ socket: null, isConnected: false });
+    dispatchChatEvent('freetiful:chat-socket-disconnected');
   },
 
   fetchRooms: async (params) => {
@@ -436,6 +498,47 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const roomId = currentRoomId;
     const payload = ensureClientMessageId(data);
+    const previewCreatedAt = new Date().toISOString();
+    const previewContent = getPreviewContent(payload);
+    const hasRoomInList = get().rooms.some((room) => room.id === roomId);
+
+    if (hasRoomInList) {
+      set((s) => {
+        const nextRooms = s.rooms.map((r) =>
+          r.id === roomId
+            ? {
+                ...r,
+                ...getRoomFlagsFromPayload(payload),
+                lastMessage: {
+                  id: `pending-${(payload.metadata as Record<string, unknown> | undefined)?.clientMessageId || Date.now()}`,
+                  type: payload.type,
+                  content: previewContent,
+                  createdAt: previewCreatedAt,
+                },
+                lastMessageAt: previewCreatedAt,
+                unreadCount: 0,
+              }
+            : r,
+        ).sort((a, b) => {
+          const da = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return db - da;
+        });
+        writeRoomsCache(nextRooms);
+        return { rooms: nextRooms };
+      });
+      dispatchChatEvent('freetiful:chat-room-activity', {
+        roomId,
+        type: payload.type,
+        optimistic: true,
+        systemKind: ((payload.metadata as Record<string, any> | null)?.system?.kind) || null,
+      });
+      dispatchChatEvent('freetiful:chat-rooms-changed', {
+        roomId,
+        optimistic: true,
+      });
+    }
+
     const applyPersistedMessage = (message: MessageItem) => {
       const { messageCache } = get();
       const cachedForRoom = messageCache.get(message.roomId) || [];
@@ -464,6 +567,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
         writeRoomsCache(nextRooms);
         return { messages: nextMessages, rooms: nextRooms };
+      });
+      dispatchChatEvent('freetiful:chat-room-activity', {
+        roomId: message.roomId,
+        messageId: message.id,
+        type: message.type,
+        systemKind: (message.metadata as any)?.system?.kind || null,
+      });
+      dispatchChatEvent('freetiful:chat-rooms-changed', {
+        roomId: message.roomId,
+        messageId: message.id,
       });
       if (!hasRoomInList) {
         get().fetchRooms({ limit: 50, force: true }).catch(() => {});

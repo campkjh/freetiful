@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { resolveBusinessTags, stripBusinessTagMarker } from './business-tags';
+import {
+  extractBusinessVisibilityFromHtml,
+  resolveBusinessTags,
+  stripBusinessTagMarker,
+} from './business-tags';
 import { isBusinessRelevantToAnyCategory, isBusinessRelevantToCategory } from './business-quality';
 
 const BUSINESS_LIST_MAX_CANDIDATES = 1000;
@@ -8,6 +12,16 @@ const BUSINESS_LIST_MAX_CANDIDATES = 1000;
 @Injectable()
 export class BusinessService {
   constructor(private prisma: PrismaService) {}
+
+  private isKakaoSeededBusinessEmail(email?: string | null) {
+    return !!email && email.startsWith('kakao-') && email.endsWith('@freetiful.local');
+  }
+
+  private isBusinessVisible(input: { descriptionHtml?: string | null; user?: { email?: string | null } | null }) {
+    const explicitVisibility = extractBusinessVisibilityFromHtml(input.descriptionHtml);
+    if (typeof explicitVisibility === 'boolean') return explicitVisibility;
+    return !this.isKakaoSeededBusinessEmail(input.user?.email);
+  }
 
   async getBusinesses(page: number, limit: number, search?: string, category?: string) {
     const normalizedPage = Math.max(1, Number.isFinite(page) ? page : 1);
@@ -66,14 +80,18 @@ export class BusinessService {
           take: 1,
           select: { imageUrl: true },
         },
+        user: {
+          select: { email: true },
+        },
       },
     });
 
-    const filteredItems = candidates.filter((item) => (
-      category && category !== '전체'
+    const filteredItems = candidates.filter((item) => {
+      if (!this.isBusinessVisible(item)) return false;
+      return category && category !== '전체'
         ? isBusinessRelevantToCategory(item, category)
-        : isBusinessRelevantToAnyCategory(item)
-    ));
+        : isBusinessRelevantToAnyCategory(item);
+    });
     const items = filteredItems.slice(skip, skip + normalizedLimit);
     const total = filteredItems.length;
 
@@ -106,12 +124,20 @@ export class BusinessService {
         categories: { include: { category: true } },
         images: { orderBy: { displayOrder: 'asc' } },
         user: {
-          select: { id: true, name: true, profileImageUrl: true },
+          select: { id: true, name: true, profileImageUrl: true, email: true },
         },
       },
     });
 
     if (!business) {
+      throw new NotFoundException('업체를 찾을 수 없습니다.');
+    }
+
+    if (
+      business.status !== 'approved' ||
+      !this.isBusinessVisible(business) ||
+      !isBusinessRelevantToAnyCategory(business)
+    ) {
       throw new NotFoundException('업체를 찾을 수 없습니다.');
     }
 
@@ -121,8 +147,11 @@ export class BusinessService {
       data: { profileViews: { increment: 1 } },
     });
 
+    const { email: _ownerEmail, ...publicUser } = business.user || {};
+
     return {
       ...business,
+      user: publicUser,
       descriptionHtml: stripBusinessTagMarker(business.descriptionHtml),
       tags: resolveBusinessTags(business),
     };

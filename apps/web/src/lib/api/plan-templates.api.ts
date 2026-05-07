@@ -17,6 +17,12 @@ const CACHE_TTL = 60_000;
 let cache: { data: PlanTemplate[]; ts: number } | null = null;
 let inflight: Promise<PlanTemplate[]> | null = null;
 
+function sanitizePlanTemplates(items: PlanTemplate[]) {
+  return items
+    .filter((item) => item?.planKey !== 'test')
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+}
+
 const FALLBACK: PlanTemplate[] = [
   { id: 'fb-premium', planKey: 'premium', label: 'Premium', description: '행사 1시간 진행', defaultPrice: 450000, includedItems: ['사회 진행', '사전 미팅'], displayOrder: 0, isActive: true },
   { id: 'fb-superior', planKey: 'superior', label: 'Superior', description: '행사 2시간 진행', defaultPrice: 800000, includedItems: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '포토타임 진행', '영상 큐시트 관리'], displayOrder: 1, isActive: true },
@@ -31,7 +37,8 @@ export async function getPlanTemplates(options?: { skipCache?: boolean }): Promi
   inflight = apiClient
     .get<PlanTemplate[]>('/api/v1/plan-templates')
     .then((r) => {
-      const data = Array.isArray(r.data) && r.data.length > 0 ? r.data : FALLBACK;
+      const sanitized = Array.isArray(r.data) ? sanitizePlanTemplates(r.data) : [];
+      const data = sanitized.length > 0 ? sanitized : FALLBACK;
       cache = { data, ts: Date.now() };
       inflight = null;
       return data;

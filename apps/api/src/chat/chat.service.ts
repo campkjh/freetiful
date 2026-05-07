@@ -1113,6 +1113,29 @@ export class ChatService {
     return { ...message, reactions: [], isRead: message.reads.some((r) => r.userId !== message.senderId) };
   }
 
+  async uploadImage(roomId: string, userId: string, file: Express.Multer.File) {
+    await this.verifyMembership(roomId, userId);
+    if (!file) {
+      throw new BadRequestException('이미지 파일이 필요합니다.');
+    }
+
+    const processed = await this.imageService.processImage(file, {
+      requireFace: false,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 85,
+    });
+
+    return {
+      imageUrl: processed.webpPath || processed.path,
+      originalUrl: processed.path,
+      width: processed.width,
+      height: processed.height,
+      size: processed.size,
+      mimeType: processed.mimeType,
+    };
+  }
+
   async getRoomMemberIds(roomId: string) {
     const members = await this.prisma.chatRoomMember.findMany({
       where: { roomId },

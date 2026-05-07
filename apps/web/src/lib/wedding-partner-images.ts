@@ -652,6 +652,32 @@ export const WEDDING_PARTNER_IMAGE_SETS = {
       "/images/wedding-partners/studio/050-57dbdcae/08.webp"
     ]
   },
+  "스튜디오패스": {
+    "category": "스튜디오",
+    "images": [
+      "/images/wedding-partners/studio/studio-pass/00.png",
+      "/images/wedding-partners/studio/studio-pass/01.jpeg",
+      "/images/wedding-partners/studio/studio-pass/02.jpeg",
+      "/images/wedding-partners/studio/studio-pass/03.jpeg",
+      "/images/wedding-partners/studio/studio-pass/04.jpeg",
+      "/images/wedding-partners/studio/studio-pass/05.jpeg",
+      "/images/wedding-partners/studio/studio-pass/06.jpeg",
+      "/images/wedding-partners/studio/studio-pass/07.jpeg"
+    ]
+  },
+  "studiopass": {
+    "category": "스튜디오",
+    "images": [
+      "/images/wedding-partners/studio/studio-pass/00.png",
+      "/images/wedding-partners/studio/studio-pass/01.jpeg",
+      "/images/wedding-partners/studio/studio-pass/02.jpeg",
+      "/images/wedding-partners/studio/studio-pass/03.jpeg",
+      "/images/wedding-partners/studio/studio-pass/04.jpeg",
+      "/images/wedding-partners/studio/studio-pass/05.jpeg",
+      "/images/wedding-partners/studio/studio-pass/06.jpeg",
+      "/images/wedding-partners/studio/studio-pass/07.jpeg"
+    ]
+  },
   "몬트샤인": {
     "category": "드레스",
     "images": [

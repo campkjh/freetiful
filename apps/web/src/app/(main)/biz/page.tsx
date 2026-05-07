@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import { useT } from '@/lib/biz/i18n';
 import LanguageToggle from '@/components/biz/LanguageToggle';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 /* ─── Map (OpenStreetMap iframe, no API key needed) ──────── */
 function BizKakaoMap() {
@@ -413,6 +414,8 @@ const HISTORY_DATA = [
 export default function BizPage() {
   const t = useT();
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
+  const authHydrated = useAuthStore((s) => s.hasHydrated);
   const [activeSection, setActiveSection] = useState('회사소개');
   const [inquiry, setInquiry] = useState({ company: '', name: '', phone: '', email: '', type: '', message: '' });
   const [inquiryFile, setInquiryFile] = useState<File | null>(null);
@@ -431,6 +434,13 @@ export default function BizPage() {
   const [receptionExiting, setReceptionExiting] = useState(false);
   const receptionRef = useRef<HTMLElement>(null);
   const receptionVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (!authHydrated) return;
+    if (authUser?.role === 'pro') {
+      router.replace('/main');
+    }
+  }, [authHydrated, authUser?.role, router]);
 
   useEffect(() => {
     const h = () => setScrollY(window.scrollY);

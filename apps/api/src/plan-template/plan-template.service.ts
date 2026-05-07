@@ -27,14 +27,6 @@ const DEFAULT_TEMPLATES = [
     includedItems: ['사회 진행', '사전 미팅', '대본 작성', '리허설 참석', '축사/건배사 코디', '포토타임 진행', '하객 응대 안내', '2차 진행', '영상 큐시트 관리', '전담 코디네이터'],
     displayOrder: 2,
   },
-  {
-    planKey: 'test',
-    label: 'Test',
-    description: '테스트용 (결제 플로우 확인)',
-    defaultPrice: 100,
-    includedItems: ['테스트 서비스'],
-    displayOrder: 99,
-  },
 ];
 
 @Injectable()
@@ -55,6 +47,9 @@ export class PlanTemplateService implements OnModuleInit {
           update: {}, // 존재하면 건드리지 않음 (어드민이 수정한 값 유지)
         });
       }
+      await this.prisma.planTemplate.deleteMany({
+        where: { planKey: 'test' },
+      });
       this.logger.log('Plan template defaults seeded');
     } catch (e: any) {
       this.logger.warn(`Plan template seed skipped: ${e?.message || e}`);
@@ -63,13 +58,19 @@ export class PlanTemplateService implements OnModuleInit {
 
   async listActive() {
     return this.prisma.planTemplate.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        planKey: { not: 'test' },
+      },
       orderBy: { displayOrder: 'asc' },
     });
   }
 
   async listAll() {
     return this.prisma.planTemplate.findMany({
+      where: {
+        planKey: { not: 'test' },
+      },
       orderBy: { displayOrder: 'asc' },
     });
   }

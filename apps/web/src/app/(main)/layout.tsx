@@ -200,13 +200,20 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const interval = window.setInterval(refresh, 30000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:match-requests-changed', refresh);
+    window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('freetiful:match-requests-changed', refresh);
+      window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
     };
   }, [authHydrated, authUser?.id, authUser?.role, viewAsUser]);
+
+  useEffect(() => {
+    if (!authHydrated || authUser?.role !== 'pro' || !pathname.startsWith('/biz')) return;
+    router.replace(viewAsUser ? '/main' : '/pro-dashboard');
+  }, [authHydrated, authUser?.role, pathname, router, viewAsUser]);
 
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
@@ -247,7 +254,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => window.clearTimeout(timeout);
   }, [authUser]);
 
-  const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
+  const NAV_ITEMS = isPro
+    ? PRO_NAV_ITEMS
+    : actualIsPro
+      ? USER_NAV_ITEMS.filter((item) => item.href !== '/biz')
+      : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';
 
   const syncViewMode = (nextViewAsUser: boolean) => {

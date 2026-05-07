@@ -21,16 +21,20 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
 import {
-  getBusinessCategoryNames,
   isPopularBusinessPartner,
   sortPopularPartnersFirst,
 } from '@/lib/business-popularity';
+import {
+  getRelevantBusinessCategories,
+  isBusinessRelevantToAnyCategory,
+  isBusinessRelevantToCategory,
+  sanitizeBusinessImageUrls,
+} from '@/lib/business-quality';
 import { deriveBusinessTagSuggestions, extractBusinessTagsFromHtml, normalizeBusinessTags } from '@/lib/business-tags';
 import {
   getWeddingPartnerImageSet,
   getWeddingPartnerSectionCategories,
   mergeWeddingPartnerImages,
-  WEDDING_PARTNER_IMAGE_SETS,
 } from '@/lib/wedding-partner-images';
 
 // ─── Types ─────────────────────────────────────────────────
@@ -93,7 +97,7 @@ const FILTER_GROUPS = [
 
 // 실제 비즈 데이터는 /api/v1/business 에서 로드 (목업 데이터 제거됨)
 const MOCK_RANK_ITEMS: RankItem[] = [];
-const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v8';
+const BUSINESS_CACHE_KEY = 'freetiful-business-list-cache-v9';
 const BUSINESS_BANNER_CACHE_KEY = 'freetiful-business-list-banners-cache-v1';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_PAGE_SIZE = 24;
@@ -172,24 +176,6 @@ function getBusinessListParams(category: string, page: number, limit: number) {
   };
 }
 
-const CATEGORY_FALLBACK_IMAGES = Object.values(WEDDING_PARTNER_IMAGE_SETS).reduce<Record<string, string>>((acc, set) => {
-  const firstImage = set.images[0];
-  if (firstImage && !acc[set.category]) acc[set.category] = firstImage;
-  if (firstImage && set.images.some((image) => image.includes('/hair-makeup/'))) {
-    acc.헤어 ||= firstImage;
-    acc.메이크업 ||= firstImage;
-  }
-  return acc;
-}, {});
-
-function getBusinessFallbackImage(categories: string[], businessType?: string | null) {
-  const candidates = [...categories, businessType, '웨딩홀'].filter(Boolean) as string[];
-  for (const category of candidates) {
-    if (CATEGORY_FALLBACK_IMAGES[category]) return CATEGORY_FALLBACK_IMAGES[category];
-  }
-  return '/images/default-profile.svg';
-}
-
 function rerankBusinessItems(items: RankItem[], rankOffset = 0) {
   return sortPopularPartnersFirst(items).map((item, index) => ({
     ...item,
@@ -198,24 +184,22 @@ function rerankBusinessItems(items: RankItem[], rankOffset = 0) {
 }
 
 function mapBusinessToRankItem(b: any, index: number, rankOffset = 0): RankItem {
-  const categories = getBusinessCategoryNames(b);
+  const categories = getRelevantBusinessCategories(b);
   const businessName = b.title || b.name || b.businessName || '';
   const partnerImageSet = getWeddingPartnerImageSet(businessName, b.businessName, b.name, b.title);
   const apiImages = Array.isArray(b.images)
     ? b.images.map((image: any) => image?.imageUrl).filter(Boolean)
     : [];
   const displayCategories = Array.from(new Set([
-    ...categories.filter((name: string) => name !== '인기'),
+    ...categories,
     ...getWeddingPartnerSectionCategories(partnerImageSet),
   ]));
   const displayCategory = displayCategories[0] || b.businessType || '전체';
-  const imageFallback = getBusinessFallbackImage(displayCategories, b.businessType || displayCategory);
-  const mergedImages = mergeWeddingPartnerImages(
+  const mergedImages = sanitizeBusinessImageUrls(mergeWeddingPartnerImages(
     partnerImageSet?.images,
     [b.image, b.imageUrl],
     apiImages,
-    [imageFallback],
-  );
+  ));
   const address = b.address || '';
   const markerTags = extractBusinessTagsFromHtml(b.descriptionHtml);
   const isPopular = isPopularBusinessPartner(b, categories);
@@ -248,8 +232,8 @@ function mapBusinessToRankItem(b: any, index: number, rankOffset = 0): RankItem 
     finalPrice: b.finalPrice ?? b.price ?? 0,
     hasAppPay: b.hasAppPay ?? false,
     hasAppBooking: b.hasAppBooking ?? false,
-    image: mergedImages[0] || '/images/default-profile.svg',
-    imageFallback,
+    image: mergedImages[0] || '',
+    imageFallback: '',
     tags,
     verifiedBadge: b.verifiedBadge,
     isPopular,
@@ -258,7 +242,9 @@ function mapBusinessToRankItem(b: any, index: number, rankOffset = 0): RankItem 
 
 function mapBusinesses(items: any[], rankOffset = 0) {
   return rerankBusinessItems(
-    items.map((business, index) => mapBusinessToRankItem(business, index, rankOffset)),
+    items
+      .map((business, index) => mapBusinessToRankItem(business, index, rankOffset))
+      .filter((item) => Boolean(item.image)),
     rankOffset,
   );
 }
@@ -269,7 +255,12 @@ function matchesBusinessCategory(item: RankItem, category: string) {
 }
 
 function prepareBusinessItems(rawItems: any[], category: string, rankOffset = 0) {
-  const mapped = mapBusinesses(rawItems, rankOffset);
+  const filtered = rawItems.filter((item) => {
+    if (!isBusinessRelevantToAnyCategory(item)) return false;
+    if (category === '전체') return true;
+    return isBusinessRelevantToCategory(item, category);
+  });
+  const mapped = mapBusinesses(filtered, rankOffset);
   if (category === '전체') return { items: mapped, backendScoped: true };
 
   const scopedItems = mapped.filter((item) => matchesBusinessCategory(item, category));
@@ -317,10 +308,21 @@ interface BusinessRankListProps {
   muted?: boolean;
 }
 
-function BusinessRankList({ items, favorites, onToggleFav, muted = false }: BusinessRankListProps) {
+function BusinessRankList({
+  items,
+  favorites,
+  onToggleFav,
+  muted = false,
+}: BusinessRankListProps) {
+  const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
+  const visibleItems = useMemo(
+    () => items.filter((item) => item.image && !brokenIds.has(item.id)),
+    [brokenIds, items],
+  );
+
   return (
     <div className={`divide-y divide-gray-50 bg-white ${muted ? 'pointer-events-none opacity-70' : ''}`}>
-      {items.map((item, index) => (
+      {visibleItems.map((item, index) => (
         <Link
           key={item.id}
           href={`/businesses/${item.id}`}
@@ -329,22 +331,24 @@ function BusinessRankList({ items, favorites, onToggleFav, muted = false }: Busi
           className="flex gap-3 px-4 py-4 group active:bg-gray-50/50 transition-colors"
         >
           <div className="relative w-[120px] h-[120px] shrink-0 rounded-xl overflow-hidden bg-gray-100">
-            <img
-              src={item.image}
-              alt={item.title}
-              loading={!muted && index < 2 ? 'eager' : 'lazy'}
-              decoding="async"
-              className="h-full w-full object-cover"
-              onError={(event) => {
-                const image = event.currentTarget;
-                if (image.dataset.fallbackUsed === 'true') {
-                  image.src = '/images/default-profile.svg';
-                  return;
-                }
-                image.dataset.fallbackUsed = 'true';
-                image.src = item.imageFallback || '/images/default-profile.svg';
-              }}
-            />
+            {item.image ? (
+              <img
+                src={item.image}
+                alt={item.title}
+                loading={!muted && index < 2 ? 'eager' : 'lazy'}
+                decoding="async"
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                  event.currentTarget.removeAttribute('src');
+                  setBrokenIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(item.id);
+                    return next;
+                  });
+                }}
+              />
+            ) : null}
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col">

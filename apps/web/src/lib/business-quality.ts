@@ -1,20 +1,4 @@
-const WEDDING_PARTNER_CATEGORIES = [
-  '웨딩홀',
-  '드레스',
-  '피부과',
-  '스튜디오',
-  '헤어',
-  '메이크업',
-  '가전',
-  '스냅',
-  '한복',
-  '성형외과',
-  '보석',
-  '답례품',
-  '자동차',
-  '신혼여행',
-  '가구',
-];
+import { WEDDING_PARTNER_CATEGORIES, type WeddingPartnerCategory } from './business-categories';
 
 const GLOBAL_REJECT_KEYWORDS = [
   '장례',
@@ -39,7 +23,7 @@ const GLOBAL_REJECT_KEYWORDS = [
   '부동산',
 ];
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
+const CATEGORY_KEYWORDS: Record<WeddingPartnerCategory, string[]> = {
   웨딩홀: ['웨딩홀', '예식장', '컨벤션', '채플', '웨딩', '호텔웨딩', '하우스웨딩', '파크텔', '빌라드', '아모르'],
   드레스: ['드레스', '브라이덜', '브라이드', '부띠끄', '부티크', '웨딩샵'],
   피부과: ['피부', '피부과', '의원', '클리닉', '에스테틱', '스킨', '뷰티'],
@@ -57,8 +41,8 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   가구: ['가구', '침대', '소파', '리빙', '한샘', '이케아', '테이블', '매트리스'],
 };
 
-const CATEGORY_REJECT_KEYWORDS: Record<string, string[]> = {
-  웨딩홀: ['장례', '상조', '떡볶이', '분식'],
+const CATEGORY_REJECT_KEYWORDS: Partial<Record<WeddingPartnerCategory, string[]>> = {
+  웨딩홀: ['장례', '상조', '떡볶이', '분식', '부페', '뷔페'],
   드레스: ['웨딩홀', '예식장', '컨벤션'],
   스튜디오: ['웨딩홀', '예식장', '컨벤션'],
   성형외과: ['피부과'],
@@ -67,7 +51,37 @@ const CATEGORY_REJECT_KEYWORDS: Record<string, string[]> = {
   신혼여행: ['시티투어버스', '서울시티투어버스', '리무진'],
 };
 
-const TYPE_CATEGORY_RULES: Array<{ test: RegExp; categories: string[] }> = [
+const DISALLOWED_IMAGE_HOST_PATTERNS = [
+  /(^|\.)inven\.co\.kr$/i,
+  /(^|\.)ruliweb\.com$/i,
+  /(^|\.)viva100\.com$/i,
+  /(^|\.)uf\.daum\.net$/i,
+  /(^|\.)newsis\.com$/i,
+  /(^|\.)yna\.co\.kr$/i,
+  /(^|\.)mt\.co\.kr$/i,
+  /(^|\.)mk\.co\.kr$/i,
+  /(^|\.)joongang\.co\.kr$/i,
+  /(^|\.)chosun\.com$/i,
+];
+
+const ALLOWED_IMAGE_HOST_PATTERNS = [
+  /(^|\.)postfiles\.pstatic\.net$/i,
+  /(^|\.)blogfiles\.pstatic\.net$/i,
+  /(^|\.)mblogthumb-phinf\.pstatic\.net$/i,
+  /(^|\.)dthumb-phinf\.pstatic\.net$/i,
+  /(^|\.)ldb-phinf\.pstatic\.net$/i,
+  /(^|\.)search\.pstatic\.net$/i,
+  /(^|\.)naverbooking-phinf\.pstatic\.net$/i,
+  /(^|\.)shop-phinf\.pstatic\.net$/i,
+  /(^|\.)blog\.kakaocdn\.net$/i,
+  /(^|\.)cdn\.imweb\.me$/i,
+  /(^|\.)storage\.googleapis\.com$/i,
+  /(^|\.)marryviliaprestige\.com$/i,
+  /(^|\.)eltower\.co\.kr$/i,
+  /(^|\.)bridevalley\.co\.kr$/i,
+];
+
+const TYPE_CATEGORY_RULES: Array<{ test: RegExp; categories: WeddingPartnerCategory[] }> = [
   { test: /웨딩홀|예식장|컨벤션|채플/, categories: ['웨딩홀'] },
   { test: /드레스|브라이덜|브라이드/, categories: ['드레스'] },
   { test: /피부과|피부|에스테틱/, categories: ['피부과'] },
@@ -88,14 +102,17 @@ const TYPE_CATEGORY_RULES: Array<{ test: RegExp; categories: string[] }> = [
 
 const TRUSTED_CURATED_BUSINESS_BEFORE = new Date('2026-04-27T15:00:00.000Z').getTime();
 
-export type BusinessQualityInput = {
+type BusinessCategoryItem = { category?: { name?: string | null } | null; name?: string | null };
+
+export interface BusinessQualityInput {
   businessName?: string | null;
   businessType?: string | null;
   address?: string | null;
   descriptionHtml?: string | null;
   createdAt?: Date | string | null;
-  categories?: Array<{ category?: { name?: string | null } | null }>;
-};
+  approvedAt?: Date | string | null;
+  categories?: Array<BusinessCategoryItem | null> | null;
+}
 
 function normalizeText(value?: string | null) {
   return String(value || '')
@@ -104,19 +121,16 @@ function normalizeText(value?: string | null) {
     .replace(/\s+/g, '');
 }
 
+function hasAnyKeyword(text: string, keywords: readonly string[]) {
+  return keywords.some((keyword) => text.includes(normalizeText(keyword)));
+}
+
 function getSearchText(business: BusinessQualityInput) {
-  return normalizeText([
-    business.businessName,
-    business.businessType,
-    business.address,
-  ].filter(Boolean).join(' '));
+  return normalizeText([business.businessName, business.businessType, business.address].filter(Boolean).join(' '));
 }
 
 function getNameTypeText(business: BusinessQualityInput) {
-  return normalizeText([
-    business.businessName,
-    business.businessType,
-  ].filter(Boolean).join(' '));
+  return normalizeText([business.businessName, business.businessType].filter(Boolean).join(' '));
 }
 
 function getAddressText(business: BusinessQualityInput) {
@@ -124,11 +138,10 @@ function getAddressText(business: BusinessQualityInput) {
 }
 
 function isTrustedCuratedBusiness(business: BusinessQualityInput) {
-  if (!business.createdAt) return false;
-  const createdAt = business.createdAt instanceof Date
-    ? business.createdAt.getTime()
-    : new Date(business.createdAt).getTime();
-  return Number.isFinite(createdAt) && createdAt < TRUSTED_CURATED_BUSINESS_BEFORE;
+  const raw = business.createdAt || business.approvedAt;
+  if (!raw) return false;
+  const value = raw instanceof Date ? raw.getTime() : new Date(raw).getTime();
+  return Number.isFinite(value) && value < TRUSTED_CURATED_BUSINESS_BEFORE;
 }
 
 function getCategoriesForType(businessType?: string | null) {
@@ -138,58 +151,54 @@ function getCategoriesForType(businessType?: string | null) {
   return matched?.categories || [];
 }
 
-function hasAnyKeyword(text: string, keywords: string[]) {
-  return keywords.some((keyword) => text.includes(normalizeText(keyword)));
-}
-
-function hasGlobalRejectKeyword(text: string) {
-  return hasAnyKeyword(text, GLOBAL_REJECT_KEYWORDS);
-}
-
-function hasCategoryRejectKeyword(text: string, category: string) {
-  return hasAnyKeyword(text, CATEGORY_REJECT_KEYWORDS[category] || []);
-}
-
-function hasCategoryKeywordInNameType(business: BusinessQualityInput, category: string) {
+function hasCategoryKeywordInNameType(business: BusinessQualityInput, category: WeddingPartnerCategory) {
   return hasAnyKeyword(getNameTypeText(business), CATEGORY_KEYWORDS[category] || [category]);
 }
 
-function hasCategoryKeywordInAddress(business: BusinessQualityInput, category: string) {
+function hasCategoryKeywordInAddress(business: BusinessQualityInput, category: WeddingPartnerCategory) {
   return hasAnyKeyword(getAddressText(business), CATEGORY_KEYWORDS[category] || [category]);
 }
 
-function isAllowedCrossCategory(category: string, typeCategories: string[], text: string) {
+function isAllowedCrossCategory(category: WeddingPartnerCategory, typeCategories: WeddingPartnerCategory[], text: string) {
   if ((category === '헤어' || category === '메이크업') && typeCategories.some((item) => item === '헤어' || item === '메이크업')) {
     return true;
   }
-  if (category === '한복' && hasAnyKeyword(text, CATEGORY_KEYWORDS.한복)) {
-    return true;
-  }
-  if (category === '스냅' && hasAnyKeyword(text, CATEGORY_KEYWORDS.스냅)) {
-    return true;
-  }
+  if (category === '한복' && hasAnyKeyword(text, CATEGORY_KEYWORDS.한복)) return true;
+  if (category === '스냅' && hasAnyKeyword(text, CATEGORY_KEYWORDS.스냅)) return true;
   return false;
+}
+
+export function getBusinessCategoryNames(business: BusinessQualityInput) {
+  return (business.categories || [])
+    .map((item) => item?.category?.name || item?.name)
+    .filter(
+      (name): name is WeddingPartnerCategory =>
+        typeof name === 'string' && WEDDING_PARTNER_CATEGORIES.includes(name.trim() as WeddingPartnerCategory),
+    )
+    .map((name) => name.trim() as WeddingPartnerCategory);
 }
 
 export function isBusinessRelevantToCategory(business: BusinessQualityInput, category?: string | null) {
   const targetCategory = String(category || '').trim();
   if (!targetCategory || targetCategory === '전체' || targetCategory === '인기') return true;
-  if (!WEDDING_PARTNER_CATEGORIES.includes(targetCategory)) return true;
+  if (!WEDDING_PARTNER_CATEGORIES.includes(targetCategory as WeddingPartnerCategory)) return true;
 
+  const typedCategory = targetCategory as WeddingPartnerCategory;
   const text = getSearchText(business);
-  if (!text || hasGlobalRejectKeyword(text) || hasCategoryRejectKeyword(text, targetCategory)) return false;
+  if (!text || hasAnyKeyword(text, GLOBAL_REJECT_KEYWORDS) || hasAnyKeyword(text, CATEGORY_REJECT_KEYWORDS[typedCategory] || [])) {
+    return false;
+  }
 
   const trustedCurated = isTrustedCuratedBusiness(business);
-  const strongNameTypeMatch = hasCategoryKeywordInNameType(business, targetCategory);
-  const addressOnlyMatch = hasCategoryKeywordInAddress(business, targetCategory);
+  const strongNameTypeMatch = hasCategoryKeywordInNameType(business, typedCategory);
+  const addressOnlyMatch = hasCategoryKeywordInAddress(business, typedCategory);
   const typeCategories = getCategoriesForType(business.businessType);
+
   if (typeCategories.length > 0) {
-    if (typeCategories.includes(targetCategory)) {
-      return trustedCurated || strongNameTypeMatch;
-    }
+    if (typeCategories.includes(typedCategory)) return trustedCurated || strongNameTypeMatch;
     return trustedCurated
-      ? isAllowedCrossCategory(targetCategory, typeCategories, text)
-      : isAllowedCrossCategory(targetCategory, typeCategories, getNameTypeText(business));
+      ? isAllowedCrossCategory(typedCategory, typeCategories, text)
+      : isAllowedCrossCategory(typedCategory, typeCategories, getNameTypeText(business));
   }
 
   if (strongNameTypeMatch) return true;
@@ -197,22 +206,43 @@ export function isBusinessRelevantToCategory(business: BusinessQualityInput, cat
   return false;
 }
 
-export function getBusinessCategoryNames(business: BusinessQualityInput) {
-  return (business.categories || [])
-    .map((item) => item.category?.name)
-    .filter((name): name is string => Boolean(name && name !== '전체' && name !== '인기'));
+export function getRelevantBusinessCategories(business: BusinessQualityInput) {
+  const explicit = getBusinessCategoryNames(business).filter((category) => isBusinessRelevantToCategory(business, category));
+  if (explicit.length > 0) return explicit;
+
+  return getCategoriesForType(business.businessType).filter((category) => isBusinessRelevantToCategory(business, category));
 }
 
 export function isBusinessRelevantToAnyCategory(business: BusinessQualityInput) {
   const text = getSearchText(business);
-  if (!text || hasGlobalRejectKeyword(text)) return false;
+  if (!text || hasAnyKeyword(text, GLOBAL_REJECT_KEYWORDS)) return false;
+  return getRelevantBusinessCategories(business).length > 0;
+}
 
-  const categoryNames = getBusinessCategoryNames(business);
-  if (categoryNames.length === 0) {
-    const inferredCategories = getCategoriesForType(business.businessType);
-    if (inferredCategories.length === 0) return false;
-    return inferredCategories.some((category) => isBusinessRelevantToCategory(business, category));
+function hasImageFileExtension(url: string) {
+  return /\.(jpg|jpeg|png|webp|avif|gif)(\?|$)/i.test(url);
+}
+
+export function isAllowedBusinessImageUrl(url?: string | null) {
+  const raw = String(url || '').trim();
+  if (!raw) return false;
+  if (raw.startsWith('/')) return true;
+
+  try {
+    const parsed = new URL(raw);
+    const hostname = parsed.hostname;
+    if (!hostname) return false;
+    if (DISALLOWED_IMAGE_HOST_PATTERNS.some((pattern) => pattern.test(hostname))) return false;
+    if (ALLOWED_IMAGE_HOST_PATTERNS.some((pattern) => pattern.test(hostname))) return true;
+    return hasImageFileExtension(parsed.pathname);
+  } catch {
+    return false;
   }
+}
 
-  return categoryNames.some((category) => isBusinessRelevantToCategory(business, category));
+export function sanitizeBusinessImageUrls(urls: Array<string | null | undefined>) {
+  return urls
+    .map((url) => String(url || '').trim())
+    .filter((url) => isAllowedBusinessImageUrl(url))
+    .filter((url, index, array) => array.indexOf(url) === index);
 }

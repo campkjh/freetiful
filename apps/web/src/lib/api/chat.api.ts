@@ -107,6 +107,16 @@ export const chatApi = {
   sendMessage: (roomId: string, data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string }) =>
     apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data),
 
+  uploadImage: (roomId: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.post<{ imageUrl: string; originalUrl?: string; width?: number; height?: number; size?: number; mimeType?: string }>(
+      `${BASE}/rooms/${roomId}/images`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+  },
+
   editMessage: (messageId: string, content: string) =>
     apiClient.put(`${BASE}/messages/${messageId}`, { content }),
 

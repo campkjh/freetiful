@@ -89,8 +89,8 @@ async function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: nu
   });
 }
 
-async function normalizeChatImage(file: File) {
-  if (!file.type.startsWith('image/')) return fileToDataUrl(file);
+async function normalizeChatImageFile(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) return file;
   const originalUrl = await fileToDataUrl(file);
   const img = await loadImageElement(originalUrl);
   const longestSide = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
@@ -101,7 +101,7 @@ async function normalizeChatImage(file: File) {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return originalUrl;
+  if (!ctx) return file;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, 0, 0, width, height);
@@ -121,11 +121,10 @@ async function normalizeChatImage(file: File) {
     }
   }
 
-  const normalized = new File([blob], (file.name.replace(/\.[^.]+$/, '') || 'chat-image') + '.webp', {
+  return new File([blob], (file.name.replace(/\.[^.]+$/, '') || 'chat-image') + '.webp', {
     type: blob.type || 'image/webp',
     lastModified: Date.now(),
   });
-  return fileToDataUrl(normalized);
 }
 
 const formatDate = (iso: string) => {
@@ -1563,6 +1562,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const handleImageSend = async (file: File) => {
     setShowAttach(false);
     const tempId = `tmp-${Date.now()}`;
+    const clientMessageId = `cm-img-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const localUrl = URL.createObjectURL(file);
     // 낙관적 UI: 로컬 미리보기 먼저 표시
     setMessages((prev) => [...prev, {
@@ -1571,6 +1571,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       content: localUrl,
       type: 'image',
       createdAt: new Date().toISOString(),
+      clientMessageId,
       isRead: false,
       isNew: true,
     }]);
@@ -1578,18 +1579,33 @@ export default function ChatExtras(props: ChatExtrasProps) {
     try {
       const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       if (!roomId || roomId.startsWith('pending-')) return;
-      const dataUrl = await normalizeChatImage(file);
-      // 서버에 전송 → 서버가 디스크 저장 후 공개 URL 로 content 대체
+      const normalizedFile = await normalizeChatImageFile(file);
+      const upload = await chatApi.uploadImage(roomId, normalizedFile);
+      const imageUrl = upload.data?.imageUrl;
+      if (!imageUrl) throw new Error('업로드된 이미지 URL을 확인할 수 없습니다.');
+
       const saved = (
-        await useChatStore.getState().sendMessage({ type: 'image', content: dataUrl }).catch(() => null)
-      ) || ((await chatApi.sendMessage(roomId, { type: 'image', content: dataUrl })).data as any);
+        await useChatStore.getState().sendMessage({
+          type: 'image',
+          content: imageUrl,
+          metadata: { clientMessageId },
+        }).catch(() => null)
+      ) || ((await chatApi.sendMessage(roomId, { type: 'image', content: imageUrl, metadata: { clientMessageId } })).data as any);
       // 임시 메시지를 서버 응답으로 교체 (senderId, content 는 서버 값)
-      setMessages((prev) => prev.map((m) => m.id === tempId ? {
-        ...m,
-        id: saved.id,
-        content: saved.content || localUrl,
-        isNew: false,
-      } : m));
+      setMessages((prev) => {
+        const withoutPersisted = prev.filter((m) => m.id !== saved.id);
+        return withoutPersisted.map((m) => (
+          m.id === tempId || m.clientMessageId === clientMessageId
+            ? {
+                ...m,
+                id: saved.id,
+                content: saved.content || localUrl,
+                clientMessageId,
+                isNew: false,
+              }
+            : m
+        ));
+      });
     } catch (e: any) {
       toast.error(`이미지 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
       // 실패한 임시 메시지 제거
@@ -1661,11 +1677,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
       (err) => {
         toast.dismiss(loadingToast);
         if (err.code === err.PERMISSION_DENIED) {
-          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
+          toast('지도에서 위치를 선택해주세요');
         } else if (err.code === err.POSITION_UNAVAILABLE) {
-          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
+          toast('지도에서 위치를 선택해주세요');
         } else if (err.code === err.TIMEOUT) {
-          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
+          toast('지도에서 위치를 선택해주세요');
         }
         setShowLocationPicker(true);
       },
@@ -1779,7 +1795,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       if (roomId && !roomId.startsWith('pending-')) {
         const quoteMessagePayload = {
           type: 'system' as any,
-          content: `💰 견적서 발송: ${totalAmount.toLocaleString()}원`,
+          content: `견적서 발송: ${totalAmount.toLocaleString()}원`,
           metadata: {
             system: {
               kind: 'quote',
@@ -2123,7 +2139,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
               />
               {!quoteEventDate && (
                 <p className="text-[11px] text-amber-600 flex items-center gap-1">
-                  ⚠️ 행사일을 설정해야 스케줄에 자동 등록됩니다
+                  행사일을 설정해야 스케줄에 자동 등록됩니다
                 </p>
               )}
             </div>

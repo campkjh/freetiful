@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell } from 'lucide-react';
+import { Bell, Calendar, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { quotationApi } from '@/lib/api/quotation.api';
@@ -192,6 +192,7 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 const DASHBOARD_CACHE_KEY = 'freetiful-pro-dashboard-cache-v2';
 const DASHBOARD_CACHE_TTL = 5 * 60_000;
+let memoryDashboardCache: DashboardCache | null = null;
 
 type DashboardCache = {
   ts: number;
@@ -210,12 +211,16 @@ type DashboardCache = {
 };
 
 function readDashboardCache(): DashboardCache | null {
+  if (memoryDashboardCache?.ts && Date.now() - memoryDashboardCache.ts <= DASHBOARD_CACHE_TTL) {
+    return memoryDashboardCache;
+  }
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as DashboardCache;
     if (!parsed?.ts || Date.now() - parsed.ts > DASHBOARD_CACHE_TTL) return null;
+    memoryDashboardCache = parsed;
     return parsed;
   } catch {
     return null;
@@ -223,11 +228,19 @@ function readDashboardCache(): DashboardCache | null {
 }
 
 function writeDashboardCache(patch: Omit<Partial<DashboardCache>, 'ts'>) {
-  if (typeof window === 'undefined') return;
   try {
-    const prevRaw = localStorage.getItem(DASHBOARD_CACHE_KEY);
-    const prev = prevRaw ? JSON.parse(prevRaw) : {};
-    localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ ...prev, ...patch, ts: Date.now() }));
+    const prev =
+      memoryDashboardCache ||
+      (typeof window !== 'undefined'
+        ? (() => {
+            const prevRaw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+            return prevRaw ? JSON.parse(prevRaw) : {};
+          })()
+        : {});
+    memoryDashboardCache = { ...prev, ...patch, ts: Date.now() };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(memoryDashboardCache));
+    }
   } catch {}
 }
 
@@ -392,6 +405,8 @@ export default function ProDashboardPage() {
     };
   }, []);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inquiryBootstrapTimerRef = useRef<number | null>(null);
+  const quoteBootstrapTimerRef = useRef<number | null>(null);
   const cachedSectionsRef = useRef({
     scheduleRequests: hasCachedScheduleRequests,
     matchRequests: hasCachedMatchRequests,
@@ -505,14 +520,20 @@ export default function ProDashboardPage() {
     };
     load();
     const refresh = () => load(true);
-    const interval = window.setInterval(() => load(true), 15000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load(true);
+    }, 5000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:match-requests-changed', refresh);
+    window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('freetiful:match-requests-changed', refresh);
+      window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
     };
   }, [authUser]);
 
@@ -538,6 +559,67 @@ export default function ProDashboardPage() {
       })
       .catch(() => {});
   };
+
+  const refreshInquiryRooms = useCallback((silent = true) => {
+    if (!authUser) return;
+    if (!silent && !cachedSectionsRef.current.inquiryRooms) setInquiryRoomsLoading(true);
+    apiClient.get('/api/v1/chat/rooms', { params: { page: 1, limit: 20, withTotal: false } })
+      .then((res: any) => {
+        const rooms = (res?.data?.data || []) as any[];
+        const mapped = rooms
+          .filter((r) => (
+            r.iAmPro &&
+            (
+              r.hasQuoteInquiry ||
+              r.matchRequestId ||
+              r.latestQuotationStatus ||
+              /견적|문의/.test(r.lastMessage?.content || '')
+            )
+          ))
+          .map((r) => {
+            const d = r.lastMessageAt ? new Date(r.lastMessageAt) : null;
+            const diff = d ? Date.now() - d.getTime() : 0;
+            const min = Math.floor(diff / 60000);
+            const ago = !d ? '' : min < 1 ? '방금' : min < 60 ? `${min}분 전` : Math.floor(min / 60) < 24 ? `${Math.floor(min / 60)}시간 전` : `${Math.floor(min / 1440)}일 전`;
+            return {
+              id: r.id,
+              userName: r.otherUser?.name || '고객',
+              image: r.otherUser?.profileImageUrl || '/images/default-profile.svg',
+              message: (r.lastMessage?.content || '').replace('견적 요청', '').split('\n').find((l: string) => l.trim())?.trim() || '견적 요청',
+              receivedAt: ago,
+              unread: r.unreadCount || 0,
+            };
+          });
+        setInquiryRooms(mapped);
+        cachedSectionsRef.current.inquiryRooms = true;
+        writeDashboardCache({ inquiryRooms: mapped });
+      })
+      .catch(() => {})
+      .finally(() => setInquiryRoomsLoading(false));
+  }, [authUser]);
+
+  const refreshQuotes = useCallback((silent = true) => {
+    if (!authUser) return;
+    if (!silent && !cachedSectionsRef.current.quotes) setQuotesLoading(true);
+    quotationApi.getForPro({ limit: 20 })
+      .then((data: any) => {
+        const items = data?.data || (Array.isArray(data) ? data : []);
+        const mapped: Quote[] = items.map((q: any) => ({
+          id: q.id,
+          clientName: q.user?.name ? q.user.name.slice(0, 1) + '**' : '고객**',
+          eventType: q.title || '행사',
+          eventDate: q.eventDate || new Date().toISOString(),
+          plan: (q.planName as Quote['plan']) || 'Premium',
+          budget: q.amount ? `₩${Number(q.amount).toLocaleString()}` : '협의',
+          status: q.status === 'cancelled' ? 'rejected' : ((q.status || 'pending') as Quote['status']),
+        }));
+        setQuotes(mapped);
+        cachedSectionsRef.current.quotes = true;
+        writeDashboardCache({ quotes: mapped });
+      })
+      .catch(() => {})
+      .finally(() => setQuotesLoading(false));
+  }, [authUser]);
 
   const handleAcceptSchedule = async (id: string, goToChat = true) => {
     try {
@@ -646,71 +728,58 @@ export default function ProDashboardPage() {
   // Fetch chat inquiries (customer 견적 요청) - 견적 요청 메시지 포함된 채팅방
   useEffect(() => {
     if (!authUser) { setInquiryRoomsLoading(false); return; }
-    if (!cachedSectionsRef.current.inquiryRooms) setInquiryRoomsLoading(true);
-    apiClient.get('/api/v1/chat/rooms', { params: { page: 1, limit: 20, withTotal: false } })
-      .then((res: any) => {
-        const rooms = (res?.data?.data || []) as any[];
-        const mapped = rooms
-          .filter((r) => (
-            r.iAmPro &&
-            (
-              r.hasQuoteInquiry ||
-              r.matchRequestId ||
-              r.latestQuotationStatus ||
-              /견적|문의/.test(r.lastMessage?.content || '')
-            )
-          ))
-          .map((r) => {
-            const d = r.lastMessageAt ? new Date(r.lastMessageAt) : null;
-            const diff = d ? Date.now() - d.getTime() : 0;
-            const min = Math.floor(diff / 60000);
-            const ago = !d ? '' : min < 1 ? '방금' : min < 60 ? `${min}분 전` : Math.floor(min / 60) < 24 ? `${Math.floor(min / 60)}시간 전` : `${Math.floor(min / 1440)}일 전`;
-            return {
-              id: r.id,
-              userName: r.otherUser?.name || '고객',
-              image: r.otherUser?.profileImageUrl || '/images/default-profile.svg',
-              message: (r.lastMessage?.content || '').replace('📋 견적 요청', '').split('\n').find((l: string) => l.trim())?.trim() || '견적 요청',
-              receivedAt: ago,
-              unread: r.unreadCount || 0,
-            };
-          });
-        setInquiryRooms(mapped);
-        cachedSectionsRef.current.inquiryRooms = true;
-        writeDashboardCache({ inquiryRooms: mapped });
-      })
-      .catch(() => {})
-      .finally(() => setInquiryRoomsLoading(false));
-  }, [authUser]);
+    inquiryBootstrapTimerRef.current = window.setTimeout(
+      () => refreshInquiryRooms(false),
+      cachedSectionsRef.current.inquiryRooms ? 120 : 220,
+    );
+    const refresh = () => refreshInquiryRooms();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshInquiryRooms();
+    }, 5000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
+    window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    return () => {
+      if (inquiryBootstrapTimerRef.current) window.clearTimeout(inquiryBootstrapTimerRef.current);
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
+      window.removeEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    };
+  }, [authUser, refreshInquiryRooms]);
 
   // Fetch quotation requests for pro
   useEffect(() => {
     if (!authUser) { setQuotesLoading(false); return; }
-    if (!cachedSectionsRef.current.quotes) setQuotesLoading(true);
-    quotationApi.getForPro({ limit: 20 })
-      .then((data: any) => {
-        const items = data?.data || (Array.isArray(data) ? data : []);
-        const mapped: Quote[] = items.map((q: any) => ({
-          id: q.id,
-          clientName: q.user?.name ? q.user.name.slice(0, 1) + '**' : '고객**',
-          eventType: q.title || '행사',
-          eventDate: q.eventDate || new Date().toISOString(),
-          plan: (q.planName as Quote['plan']) || 'Premium',
-          budget: q.amount ? `₩${Number(q.amount).toLocaleString()}` : '협의',
-          status: q.status === 'cancelled' ? 'rejected' : ((q.status || 'pending') as Quote['status']),
-        }));
-        setQuotes(mapped);
-        cachedSectionsRef.current.quotes = true;
-        writeDashboardCache({ quotes: mapped });
-      })
-      .catch(() => {})
-      .finally(() => setQuotesLoading(false));
-  }, [authUser]);
+    quoteBootstrapTimerRef.current = window.setTimeout(
+      () => refreshQuotes(false),
+      cachedSectionsRef.current.quotes ? 160 : 280,
+    );
+    const refresh = () => refreshQuotes();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshQuotes();
+    }, 5000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
+    window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    return () => {
+      if (quoteBootstrapTimerRef.current) window.clearTimeout(quoteBootstrapTimerRef.current);
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
+      window.removeEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    };
+  }, [authUser, refreshQuotes]);
 
   // Fetch review stats + recent reviews
   useEffect(() => {
     if (!authUser) { setReviewsLoading(false); return; }
     if (!cachedSectionsRef.current.reviews) setReviewsLoading(true);
-    reviewApi.getMine({ page: 1, limit: 5 })
+    reviewApi.getMine({ page: 1, limit: 2 })
       .then((data: any) => {
         const items = data?.data || (Array.isArray(data) ? data : []);
         const total = data?.total ?? items.length;
@@ -778,67 +847,90 @@ export default function ProDashboardPage() {
           };
         });
 
-    Promise.allSettled([
-      scheduleApi.getMySchedule(thisMonth),
-      scheduleApi.getMySchedule(nextMonth),
-    ]).then(([thisResult, nextResult]) => {
-      const thisRows = thisResult.status === 'fulfilled' && Array.isArray(thisResult.value) ? thisResult.value : [];
-      const nextRows = nextResult.status === 'fulfilled' && Array.isArray(nextResult.value) ? nextResult.value : [];
-      const upcoming = toUpcoming([...thisRows, ...nextRows]);
-      setUpcomingEvents(upcoming);
-      cachedSectionsRef.current.upcoming = true;
-      writeDashboardCache({ upcomingEvents: upcoming });
-    }).finally(() => setUpcomingLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        const thisRowsRaw = await scheduleApi.getMySchedule(thisMonth).catch(() => []);
+        const thisRows = Array.isArray(thisRowsRaw) ? thisRowsRaw : [];
+        let upcoming = toUpcoming(thisRows);
+        if (upcoming.length < 3) {
+          const nextRowsRaw = await scheduleApi.getMySchedule(nextMonth).catch(() => []);
+          const nextRows = Array.isArray(nextRowsRaw) ? nextRowsRaw : [];
+          upcoming = toUpcoming([...thisRows, ...nextRows]);
+        }
+        if (cancelled) return;
+        setUpcomingEvents(upcoming);
+        cachedSectionsRef.current.upcoming = true;
+        writeDashboardCache({ upcomingEvents: upcoming });
+      } finally {
+        if (!cancelled) setUpcomingLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [authUser]);
 
   // Fetch pudding from API + 일일 출석체크 (하루 1회 +50)
   useEffect(() => {
     if (!authUser) { setPuddingLoading(false); return; }
     if (!cachedSectionsRef.current.pudding) setPuddingLoading(true);
-    apiClient.get('/api/v1/pro/pudding')
-      .then((res) => {
-        if (res.data?.balance != null) {
-          setPuddingCount(res.data.balance);
-          cachedSectionsRef.current.pudding = true;
-          writeDashboardCache({ puddingCount: res.data.balance });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setPuddingLoading(false));
+    const timer = window.setTimeout(() => {
+      apiClient.get('/api/v1/pro/pudding')
+        .then((res) => {
+          if (res.data?.balance != null) {
+            setPuddingCount(res.data.balance);
+            cachedSectionsRef.current.pudding = true;
+            writeDashboardCache({ puddingCount: res.data.balance });
+          }
+        })
+        .catch(() => {})
+        .finally(() => setPuddingLoading(false));
 
-    apiClient.post('/api/v1/pro/pudding/attendance')
-      .then((res) => {
-        if (res.data?.granted) {
-          toast.success('출석체크 완료! +50 푸딩 🍮', { duration: 2500 });
-          setPuddingCount((prev) => {
-            const next = prev + 50;
-            writeDashboardCache({ puddingCount: next });
-            return next;
-          });
-        }
-      })
-      .catch(() => { /* silently ignore */ });
+      apiClient.post('/api/v1/pro/pudding/attendance')
+        .then((res) => {
+          if (res.data?.granted) {
+            toast.success('출석체크 완료! +50 푸딩 🍮', { duration: 2500 });
+            setPuddingCount((prev) => {
+              const next = prev + 50;
+              writeDashboardCache({ puddingCount: next });
+              return next;
+            });
+          }
+        })
+        .catch(() => { /* silently ignore */ });
+    }, cachedSectionsRef.current.pudding ? 240 : 420);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [authUser]);
 
   // Fetch revenue stats
   useEffect(() => {
     if (!authUser) { setRevenueLoading(false); return; }
     if (!cachedSectionsRef.current.revenue) setRevenueLoading(true);
-    apiClient.get('/api/v1/pro/revenue')
-      .then((res) => {
-        const d = res.data;
-        if (d?.thisMonth != null) setMonthlyRevenue(d.thisMonth);
-        if (d?.lastMonth != null) setLastMonthRevenue(d.lastMonth);
-        if (d?.profileViews != null) setProfileViews(d.profileViews);
-        cachedSectionsRef.current.revenue = true;
-        writeDashboardCache({
-          ...(d?.thisMonth != null ? { monthlyRevenue: d.thisMonth } : {}),
-          ...(d?.lastMonth != null ? { lastMonthRevenue: d.lastMonth } : {}),
-          ...(d?.profileViews != null ? { profileViews: d.profileViews } : {}),
-        });
-      })
-      .catch(() => { /* fallback */ })
-      .finally(() => setRevenueLoading(false));
+    const timer = window.setTimeout(() => {
+      apiClient.get('/api/v1/pro/revenue')
+        .then((res) => {
+          const d = res.data;
+          if (d?.thisMonth != null) setMonthlyRevenue(d.thisMonth);
+          if (d?.lastMonth != null) setLastMonthRevenue(d.lastMonth);
+          if (d?.profileViews != null) setProfileViews(d.profileViews);
+          cachedSectionsRef.current.revenue = true;
+          writeDashboardCache({
+            ...(d?.thisMonth != null ? { monthlyRevenue: d.thisMonth } : {}),
+            ...(d?.lastMonth != null ? { lastMonthRevenue: d.lastMonth } : {}),
+            ...(d?.profileViews != null ? { profileViews: d.profileViews } : {}),
+          });
+        })
+        .catch(() => { /* fallback */ })
+        .finally(() => setRevenueLoading(false));
+    }, cachedSectionsRef.current.revenue ? 280 : 480);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [authUser]);
 
   // Close context menu on outside click
@@ -1008,10 +1100,16 @@ export default function ProDashboardPage() {
                   <p className="text-[15px] font-semibold text-[#2B313D] truncate">{req.title || '행사'}</p>
                   {/* 행사 주소 */}
                   {req.eventLocation && (
-                    <p className="mt-1 text-[13px] text-[#51535C]">📍 {req.eventLocation}</p>
+                    <div className="mt-1 flex items-center gap-1.5 text-[13px] text-[#51535C]">
+                      <MapPin size={14} className="shrink-0 text-[#A4ABBA]" />
+                      <p className="min-w-0 truncate">{req.eventLocation}</p>
+                    </div>
                   )}
                   {/* 행사 일시 */}
-                  <p className="mt-0.5 text-[13px] text-[#51535C]">📅 {dateLabel}{timeLabel ? ` ${timeLabel}` : ''}</p>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[#51535C]">
+                    <Calendar size={14} className="shrink-0 text-[#A4ABBA]" />
+                    <p>{dateLabel}{timeLabel ? ` ${timeLabel}` : ''}</p>
+                  </div>
 
                   {/* 가격 + 결제일시 */}
                   <div className="flex items-end justify-between mt-2.5">
@@ -1082,23 +1180,32 @@ export default function ProDashboardPage() {
                 <SwipeArchiveCard
                   key={`match-${delivery.id}`}
                   onArchive={() => handleArchiveMatch(delivery.id)}
-                  className={`toss-fade-up rounded-2xl border border-[#3180F7]/30 bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
+                  className={`toss-fade-up rounded-[24px] border bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
+                  style={{ borderColor: '#F9F9F9' }}
                 >
                   <div style={tossDelay(i, 160)}>
                   <div className="flex items-start gap-3">
                     <img src={customer.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">새 요청</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">예약 요청</span>
                         <p className="text-sm font-bold text-gray-900 truncate">{customer.name || '고객'}</p>
                         <span className="text-[10px] text-gray-300 ml-auto shrink-0">{timeAgo(delivery.deliveredAt)}</span>
                       </div>
                       <p className="text-[13px] text-gray-700 font-medium">
                         {[request.category?.name || raw.categoryName, request.eventCategory?.name || raw.eventType || raw.eventName].filter(Boolean).join(' · ') || '행사 요청'}
                       </p>
-                      <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
-                        <span>📅 {eventDate ? formatDate(eventDate) : '미정'}{eventTime ? ` ${formatMatchTime(eventTime)}${eventTimeEnd ? ` ~ ${formatMatchTime(eventTimeEnd)}` : ''}` : ''}</span>
-                        {(request.eventLocation || raw.location) && <span>📍 {request.eventLocation || raw.location}</span>}
+                      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Calendar size={12} className="shrink-0 text-[#A4ABBA]" />
+                          {eventDate ? formatDate(eventDate) : '미정'}{eventTime ? ` ${formatMatchTime(eventTime)}${eventTimeEnd ? ` ~ ${formatMatchTime(eventTimeEnd)}` : ''}` : ''}
+                        </span>
+                        {(request.eventLocation || raw.location) && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <MapPin size={12} className="shrink-0 text-[#A4ABBA]" />
+                            {request.eventLocation || raw.location}
+                          </span>
+                        )}
                       </div>
                       {raw.planLabel && (
                         <p className="text-[12px] font-bold text-gray-700 mt-1.5">선택 플랜: {raw.planLabel}</p>
@@ -1125,18 +1232,25 @@ export default function ProDashboardPage() {
 
                   <div className="flex gap-2 pt-2 border-t border-gray-50">
                     <button
+                      onClick={() => handleArchiveMatch(delivery.id)}
+                      disabled={initiatingMatchChat === delivery.id}
+                      className={`h-11 px-4 rounded-[12px] bg-blue-50 text-[#3180F7] text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-50 ${TOSS_BUTTON_MOTION}`}
+                    >
+                      보관
+                    </button>
+                    <button
                       onClick={() => handleRejectMatch(delivery.id)}
                       disabled={initiatingMatchChat === delivery.id}
-                      className={`flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold hover:bg-gray-200 disabled:opacity-50 ${TOSS_BUTTON_MOTION}`}
+                      className={`flex-1 h-11 rounded-[12px] bg-gray-100 text-gray-600 text-[18px] font-semibold hover:bg-gray-200 disabled:opacity-50 ${TOSS_BUTTON_MOTION}`}
                     >
                       거절
                     </button>
                     <button
                       onClick={() => handleStartMatchChat(delivery)}
                       disabled={initiatingMatchChat === delivery.id}
-                      className={`flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 disabled:opacity-60 ${TOSS_BUTTON_MOTION}`}
+                      className={`flex-1 h-11 rounded-[12px] bg-[#3180F7] text-white text-[18px] font-semibold hover:bg-blue-600 disabled:opacity-60 ${TOSS_BUTTON_MOTION}`}
                     >
-                      {initiatingMatchChat === delivery.id ? '연결 중…' : '수락 + 채팅'}
+                      {initiatingMatchChat === delivery.id ? '연결 중…' : '채팅'}
                     </button>
                   </div>
                   </div>
@@ -1204,10 +1318,16 @@ export default function ProDashboardPage() {
                 <p className="text-[15px] font-semibold text-[#2B313D] truncate">{ev.eventType || '일정'}</p>
                 {/* 행사 주소 */}
                 {ev.venue && (
-                  <p className="mt-1 text-[13px] text-[#51535C]">📍 {ev.venue}</p>
+                  <div className="mt-1 flex items-center gap-1.5 text-[13px] text-[#51535C]">
+                    <MapPin size={14} className="shrink-0 text-[#A4ABBA]" />
+                    <p className="min-w-0 truncate">{ev.venue}</p>
+                  </div>
                 )}
                 {/* 행사 일시 */}
-                <p className="mt-0.5 text-[13px] text-[#51535C]">📅 {ev.date}{ev.day ? ` (${ev.day})` : ''}{ua.time ? ` ${ua.time}` : ''}</p>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[#51535C]">
+                  <Calendar size={14} className="shrink-0 text-[#A4ABBA]" />
+                  <p>{ev.date}{ev.day ? ` (${ev.day})` : ''}{ua.time ? ` ${ua.time}` : ''}</p>
+                </div>
 
                 {/* 가격 + 결제일시 */}
                 <div className="flex items-end justify-between mt-2.5">

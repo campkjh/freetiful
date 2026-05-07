@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { MessageCircle, ChevronRight, MapPin, Calendar, DollarSign, Archive } from 'lucide-react';
+import { MessageCircle, ChevronRight, ChevronDown, ChevronUp, MapPin, Calendar, Archive } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { chatApi, type ChatRoomItem } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
@@ -19,15 +19,21 @@ const INQUIRIES_CACHE_KEY = 'freetiful-pro-inquiries-cache-v1';
 const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-match-deliveries-cache-v1';
 const ARCHIVED_DELIVERIES_CACHE_KEY = 'freetiful-pro-match-archived-cache-v1';
 const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
+const memoryCache = new Map<string, unknown>();
 
 function readCache<T>(key: string): T | null {
+  const memoryHit = memoryCache.get(key);
+  if (memoryHit !== undefined) return memoryHit as T;
   if (typeof window === 'undefined') return null;
   try {
     const raw = sessionStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
+    const parsed = raw ? (JSON.parse(raw) as T) : null;
+    if (parsed !== null) memoryCache.set(key, parsed);
+    return parsed;
   } catch { return null; }
 }
 function writeCache(key: string, data: unknown) {
+  memoryCache.set(key, data);
   if (typeof window === 'undefined') return;
   try { sessionStorage.setItem(key, JSON.stringify(data)); } catch {}
 }
@@ -107,6 +113,7 @@ function formatBudget(min: number | null, max: number | null): string {
 export default function InquiriesPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   // sessionStorage 캐시 즉시 적용 — 한 번 본 데이터를 다시 깜빡이지 않게.
   const cachedInquiries = useMemo(() => readCache<InquiryView[]>(INQUIRIES_CACHE_KEY), []);
   const cachedMatchDeliveries = useMemo(() => readCache<MatchDeliveryView[]>(MATCH_DELIVERIES_CACHE_KEY), []);
@@ -130,9 +137,10 @@ export default function InquiriesPage() {
     window.dispatchEvent(new Event('freetiful:inquiries-viewed'));
   }, []);
 
-  useEffect(() => {
-    if (!authUser) { setLoading(false); return; }
-    chatApi.getRooms({ page: 1, limit: 20 })
+  const refreshInquiries = useCallback((silent = true) => {
+    if (!authUser) return;
+    if (!silent && cachedInquiries === null) setLoading(true);
+    chatApi.getRooms({ page: 1, limit: 12, withTotal: false })
       .then((res) => {
         const rooms = (res.data.data || []) as ChatRoomItem[];
         const next: InquiryView[] = rooms.map((r) => ({
@@ -154,10 +162,11 @@ export default function InquiriesPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [authUser]);
+  }, [authUser, cachedInquiries]);
 
-  useEffect(() => {
-    if (!authUser) { setLoadingMatch(false); return; }
+  const refreshMatchDeliveries = useCallback((silent = true) => {
+    if (!authUser) return;
+    if (!silent && cachedMatchDeliveries === null) setLoadingMatch(true);
     matchApi.getProRequests()
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
@@ -203,7 +212,47 @@ export default function InquiriesPage() {
       })
       .catch(() => {})
       .finally(() => setLoadingMatch(false));
-  }, [authUser]);
+  }, [authUser, cachedMatchDeliveries]);
+
+  useEffect(() => {
+    if (!authUser) { setLoading(false); return; }
+    refreshInquiries(false);
+    const refresh = () => refreshInquiries();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshInquiries();
+    }, 5000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
+    window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
+      window.removeEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    };
+  }, [authUser, refreshInquiries]);
+
+  useEffect(() => {
+    if (!authUser) { setLoadingMatch(false); return; }
+    refreshMatchDeliveries(false);
+    const refresh = () => refreshMatchDeliveries();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshMatchDeliveries();
+    }, 5000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
+    window.addEventListener('freetiful:match-requests-changed', refresh as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
+      window.removeEventListener('freetiful:match-requests-changed', refresh as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    };
+  }, [authUser, refreshMatchDeliveries]);
 
   async function handleStartChat(m: MatchDeliveryView) {
     if (initiatingChat) return;
@@ -268,6 +317,10 @@ export default function InquiriesPage() {
     ? archivedMatchDeliveries
     : activeMatchDeliveries;
   const archivedCount = archivedDeliveries.length;
+
+  const toggleNote = useCallback((id: string) => {
+    setExpandedNotes((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
   const TABS: { key: Filter; label: string; badge?: number }[] = [
     { key: 'all', label: '전체' },
@@ -401,9 +454,6 @@ export default function InquiriesPage() {
                     {m.planLabel && (
                       <p className="text-[12px] font-bold text-gray-700 mt-1.5">선택 플랜: {m.planLabel}</p>
                     )}
-                    <p className="text-[12px] font-bold text-[#3180F7] mt-1.5 flex items-center gap-1">
-                      <DollarSign size={11} /> {formatBudget(m.budgetMin, m.budgetMax)}
-                    </p>
                     {(m.styles.length > 0 || m.personalities.length > 0 || m.moods.length > 0) && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {[...m.moods, ...m.styles, ...m.personalities].slice(0, 8).map((tag, i) => (
@@ -414,9 +464,28 @@ export default function InquiriesPage() {
                       </div>
                     )}
                     {m.note && (
-                      <p className="text-[12px] text-gray-600 mt-2 bg-gray-50 rounded-xl px-3 py-2 line-clamp-3">
-                        {m.note}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => toggleNote(m.id)}
+                        className="mt-2 block w-full rounded-xl bg-gray-50 px-3 py-2 text-left"
+                      >
+                        <motion.div
+                          initial={false}
+                          animate={{ height: expandedNotes[m.id] ? 'auto' : 40 }}
+                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                          className="relative overflow-hidden"
+                        >
+                          <p className="pr-5 text-[12px] leading-5 text-gray-600 whitespace-pre-wrap break-words">
+                            {m.note}
+                          </p>
+                          {!expandedNotes[m.id] && (
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-xl bg-gradient-to-t from-gray-50 via-gray-50/92 to-transparent" />
+                          )}
+                          <span className="pointer-events-none absolute bottom-0 right-0 text-[#D1D5DB]">
+                            {expandedNotes[m.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </span>
+                        </motion.div>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -425,7 +494,7 @@ export default function InquiriesPage() {
                   <button
                     onClick={() => handleArchive(m)}
                     disabled={initiatingChat === m.id}
-                    className="h-10 px-3 rounded-xl bg-blue-50 text-[#3180F7] text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-50"
+                    className="h-11 px-4 rounded-[12px] bg-blue-50 text-[#3180F7] text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-50"
                   >
                     보관
                   </button>
@@ -465,7 +534,7 @@ export default function InquiriesPage() {
             </div>
           ) : (
             archivedDeliveries.map((m) => (
-              <div key={m.id} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm space-y-3 opacity-90">
+              <div key={m.id} className="bg-white rounded-[24px] border border-gray-100 p-4 shadow-sm space-y-3 opacity-90">
                 <div className="flex items-start gap-3">
                   <img src={m.customerImage} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -485,9 +554,28 @@ export default function InquiriesPage() {
                       {m.eventLocation && <span className="flex items-center gap-1"><MapPin size={10} /> {m.eventLocation}</span>}
                     </div>
                     {m.note && (
-                      <p className="text-[12px] text-gray-600 mt-2 bg-gray-50 rounded-xl px-3 py-2 line-clamp-3">
-                        {m.note}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => toggleNote(`archived-${m.id}`)}
+                        className="mt-2 block w-full rounded-xl bg-gray-50 px-3 py-2 text-left"
+                      >
+                        <motion.div
+                          initial={false}
+                          animate={{ height: expandedNotes[`archived-${m.id}`] ? 'auto' : 40 }}
+                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                          className="relative overflow-hidden"
+                        >
+                          <p className="pr-5 text-[12px] leading-5 text-gray-600 whitespace-pre-wrap break-words">
+                            {m.note}
+                          </p>
+                          {!expandedNotes[`archived-${m.id}`] && (
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-xl bg-gradient-to-t from-gray-50 via-gray-50/92 to-transparent" />
+                          )}
+                          <span className="pointer-events-none absolute bottom-0 right-0 text-[#D1D5DB]">
+                            {expandedNotes[`archived-${m.id}`] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </span>
+                        </motion.div>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -514,7 +602,7 @@ export default function InquiriesPage() {
             </div>
           ) : (
             filtered.map((inq) => (
-              <Link key={inq.id} href={`/chat/${inq.id}`} className="card p-4 block hover:shadow-md transition-shadow">
+              <Link key={inq.id} href={`/chat/${inq.id}`} className="card p-4 block rounded-[24px] hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3">
                   <img src={inq.image} alt={inq.userName} className="h-10 w-10 shrink-0 rounded-[20px] object-cover" />
                   <div className="flex-1 min-w-0">

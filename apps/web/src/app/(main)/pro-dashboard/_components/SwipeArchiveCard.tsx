@@ -8,6 +8,7 @@ type SwipeArchiveCardProps = {
   children: React.ReactNode;
   onArchive: () => void;
   className?: string;
+  style?: React.CSSProperties;
   archiveLabel?: string;
   disabled?: boolean;
 };
@@ -16,6 +17,7 @@ export function SwipeArchiveCard({
   children,
   onArchive,
   className = '',
+  style,
   archiveLabel = '보관',
   disabled = false,
 }: SwipeArchiveCardProps) {
@@ -35,7 +37,7 @@ export function SwipeArchiveCard({
         </div>
       </motion.div>
       <motion.div
-        style={{ x }}
+        style={{ x, ...style }}
         drag={disabled ? false : 'x'}
         dragDirectionLock
         dragConstraints={{ left: -108, right: 0 }}

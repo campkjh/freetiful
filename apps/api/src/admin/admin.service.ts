@@ -7,10 +7,12 @@ import { DiscoveryService } from '../discovery/discovery.service';
 import { ImageService } from '../image/image.service';
 import { UsersService } from '../users/users.service';
 import {
+  extractBusinessVisibilityFromHtml,
   normalizeBusinessTags,
   resolveBusinessTags,
   stripBusinessTagMarker,
   withBusinessTagMarker,
+  withBusinessVisibilityMarker,
 } from '../business/business-tags';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
@@ -93,6 +95,16 @@ export class AdminService {
     const withSeconds = value.length === 5 ? `${value}:00` : value;
     const date = new Date(`1970-01-01T${withSeconds}.000+09:00`);
     return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private isKakaoSeededBusinessEmail(email?: string | null) {
+    return !!email && email.startsWith('kakao-') && email.endsWith('@freetiful.local');
+  }
+
+  private resolveBusinessVisibility(input: { descriptionHtml?: string | null; user?: { email?: string | null } | null }) {
+    const explicitVisibility = extractBusinessVisibilityFromHtml(input.descriptionHtml);
+    if (typeof explicitVisibility === 'boolean') return explicitVisibility;
+    return !this.isKakaoSeededBusinessEmail(input.user?.email);
   }
 
   private async recalculateProReviewStats(proProfileId: string) {
@@ -235,6 +247,7 @@ export class AdminService {
       this.prisma.businessProfile.findMany({
         where,
         include: {
+          user: { select: { email: true } },
           images: { orderBy: { displayOrder: 'asc' }, take: 1, select: { imageUrl: true } },
           categories: { include: { category: { select: { id: true, name: true } } } },
         },
@@ -253,6 +266,7 @@ export class AdminService {
         address: b.address,
         phone: b.phone,
         status: b.status,
+        isVisible: this.resolveBusinessVisibility(b),
         tags: resolveBusinessTags(b),
         createdAt: b.createdAt,
         images: b.images.map((i) => ({ imageUrl: i.imageUrl })),
@@ -268,6 +282,7 @@ export class AdminService {
     const business = await this.prisma.businessProfile.findUnique({
       where: { id },
       include: {
+        user: { select: { id: true, email: true } },
         images: { orderBy: { displayOrder: 'asc' } },
         categories: { include: { category: true } },
       },
@@ -275,6 +290,7 @@ export class AdminService {
     if (!business) throw new NotFoundException('업체를 찾을 수 없습니다');
     return {
       ...business,
+      isVisible: this.resolveBusinessVisibility(business),
       descriptionHtml: stripBusinessTagMarker(business.descriptionHtml),
       tags: resolveBusinessTags(business),
     };
@@ -295,6 +311,7 @@ export class AdminService {
     tags?: string[];
     categoryNames?: string[];
     status?: string;
+    isVisible?: boolean | null;
   }) {
     if (!data.businessName || !data.businessName.trim()) {
       throw new NotFoundException('업체명은 필수입니다');
@@ -321,6 +338,11 @@ export class AdminService {
       categoryIds.push(...cats.map((c) => c.id));
     }
 
+    const descriptionHtml = withBusinessVisibilityMarker(
+      withBusinessTagMarker(data.descriptionHtml, data.tags),
+      data.isVisible ?? true,
+    );
+
     const profile = await this.prisma.businessProfile.create({
       data: {
         userId: user.id,
@@ -332,7 +354,7 @@ export class AdminService {
         phone: data.phone || null,
         lat: data.lat !== undefined && data.lat !== null && data.lat !== '' ? Number(data.lat) : null,
         lng: data.lng !== undefined && data.lng !== null && data.lng !== '' ? Number(data.lng) : null,
-        descriptionHtml: withBusinessTagMarker(data.descriptionHtml, data.tags),
+        descriptionHtml,
         instagramUrl: data.instagramUrl || null,
         websiteUrl: data.websiteUrl || null,
         videoUrl: data.videoUrl || null,
@@ -366,6 +388,7 @@ export class AdminService {
       tags?: string[];
       categoryNames?: string[];
       status?: string;
+      isVisible?: boolean | null;
     },
   ) {
     const existing = await this.prisma.businessProfile.findUnique({ where: { id } });
@@ -379,15 +402,23 @@ export class AdminService {
     if (data.phone !== undefined) allowed.phone = data.phone || null;
     if (data.lat !== undefined) allowed.lat = data.lat === null || data.lat === '' ? null : Number(data.lat);
     if (data.lng !== undefined) allowed.lng = data.lng === null || data.lng === '' ? null : Number(data.lng);
+    let nextDescriptionHtml = existing.descriptionHtml;
     if (data.descriptionHtml !== undefined || data.tags !== undefined) {
-      allowed.descriptionHtml = withBusinessTagMarker(
+      nextDescriptionHtml = withBusinessTagMarker(
         data.descriptionHtml !== undefined ? data.descriptionHtml : existing.descriptionHtml,
         data.tags !== undefined ? normalizeBusinessTags(data.tags) : resolveBusinessTags(existing),
       );
+      allowed.descriptionHtml = nextDescriptionHtml;
     }
     if (data.instagramUrl !== undefined) allowed.instagramUrl = data.instagramUrl || null;
     if (data.websiteUrl !== undefined) allowed.websiteUrl = data.websiteUrl || null;
     if (data.videoUrl !== undefined) allowed.videoUrl = data.videoUrl || null;
+    if (data.isVisible !== undefined) {
+      const visibilitySource = data.descriptionHtml !== undefined || data.tags !== undefined
+        ? nextDescriptionHtml
+        : existing.descriptionHtml;
+      allowed.descriptionHtml = withBusinessVisibilityMarker(visibilitySource, data.isVisible);
+    }
     if (data.status !== undefined) {
       allowed.status = data.status as any;
       if (data.status === 'approved' && !existing.approvedAt) allowed.approvedAt = new Date();

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { createHash } from 'crypto';
 import { BusinessStatus, PrismaClient, UserRole } from '@prisma/client';
-import { deriveBusinessTags, withBusinessTagMarker } from '../src/business/business-tags';
+import { deriveBusinessTags, withBusinessTagMarker, withBusinessVisibilityMarker } from '../src/business/business-tags';
 
 const prisma = new PrismaClient();
 
@@ -162,14 +162,14 @@ async function upsertBusinessFromKakao(
     categoryNames: [categoryName],
   });
   const kakaoCategory = clean(item.category_name);
-  const descriptionHtml = withBusinessTagMarker(
+  const descriptionHtml = withBusinessVisibilityMarker(withBusinessTagMarker(
     [
       `<p>${name}은(는) 카카오맵 지역검색 기준으로 등록된 ${categoryName} 파트너입니다.</p>`,
       address ? `<p><strong>주소</strong> ${address}</p>` : '',
       kakaoCategory ? `<p><strong>카카오 카테고리</strong> ${kakaoCategory}</p>` : '',
     ].filter(Boolean).join(''),
     tags,
-  );
+  ), false);
 
   const existing = await findExistingBusiness(name, address, placeUrl);
   const sourceKey = hashKey(`kakao:${categoryName}:${item.id || name}:${address || placeUrl}`);
