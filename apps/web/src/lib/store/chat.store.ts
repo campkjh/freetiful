@@ -578,9 +578,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         roomId: message.roomId,
         messageId: message.id,
       });
-      if (!hasRoomInList) {
+      window.setTimeout(() => {
         get().fetchRooms({ limit: 50, force: true }).catch(() => {});
-      }
+      }, hasRoomInList ? 250 : 0);
     };
 
     const sendViaRest = async () => {

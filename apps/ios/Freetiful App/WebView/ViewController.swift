@@ -106,7 +106,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "nativeNavState"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -646,13 +646,13 @@ class ViewController: UIViewController,
         case "appleLogin":  startAppleLogin()
         case "socialLogout": socialLogout()
         case "nativeNavState": handleNativeNavState(message.body)
-        case "oneSignalLogin":
+        case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
                 print("📌 OneSignal.login(\(userId))")
                 DispatchQueue.main.async {
                     OneSignal.login(userId)
-                    OneSignalManager.shared.deliverCurrentPushId()
+                    self.schedulePushIdentityRefresh()
                 }
             }
         default: break
@@ -705,6 +705,7 @@ class ViewController: UIViewController,
             let inject = {
                 self.webView.evaluateJavaScript(js) { _, err in
                     if let err = err { print("❌ loginCompleted JS 주입 실패:", err) }
+                    self.schedulePushIdentityRefresh()
                 }
             }
             if let presented = self.presentedViewController {
@@ -773,6 +774,15 @@ class ViewController: UIViewController,
             }
             print("📌 URL로 onesignalID 전달: \(pushId)")
             self?.pendingPushSubscriptionId = nil
+        }
+    }
+
+    private func schedulePushIdentityRefresh() {
+        OneSignalManager.shared.deliverCurrentPushId()
+        [0.8, 2.0, 4.0].forEach { delay in
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                OneSignalManager.shared.deliverCurrentPushId()
+            }
         }
     }
 
@@ -914,7 +924,10 @@ class ViewController: UIViewController,
             let userJSON = String(data: userData, encoding: .utf8) ?? "{}"
 
             // OneSignal에 유저 연결
-            DispatchQueue.main.async { OneSignal.login(userId) }
+            DispatchQueue.main.async {
+                OneSignal.login(userId)
+                self?.schedulePushIdentityRefresh()
+            }
 
             print("✅ [CurrentAuth] API login success, injecting JWT for user:", userId)
             self?.injectJWT(accessToken: accessToken, refreshToken: refreshToken, userJSON: userJSON)

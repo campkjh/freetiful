@@ -277,6 +277,15 @@ export async function syncPushRegistration(userId?: string | null): Promise<void
     registerPushSubscription(),
     flushOneSignalPlayerId(),
   ]);
+
+  if (isNativeWebView() && userId && typeof window !== 'undefined') {
+    [500, 1500, 3500].forEach((delay) => {
+      window.setTimeout(() => {
+        notifyNativeLogin(userId);
+        void flushOneSignalPlayerId();
+      }, delay);
+    });
+  }
 }
 
 function urlBase64ToUint8Array(base64String: string) {

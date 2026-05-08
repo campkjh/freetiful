@@ -120,8 +120,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       const memberIds = await this.chatService.getRoomMemberIds(roomId);
       for (const memberId of memberIds) {
         this.chatRealtimeService.emitToUser(memberId, 'newMessage', message);
-        if (memberId === client.userId) continue;
         this.chatRealtimeService.emitToUser(memberId, 'roomUpdated', { roomId });
+        if (memberId === client.userId) continue;
         this.chatRealtimeService.emitToUser(memberId, 'unreadUpdate', { roomId });
       }
     } catch (error) {
