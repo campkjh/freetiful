@@ -22,10 +22,12 @@ import {
   applyFavoriteCountToLocalCaches,
   emitFavoriteChange,
   favoriteApi,
+  readStoredFavoriteIds,
   syncStoredFavoriteId,
+  subscribeFavoriteChanges,
 } from '@/lib/api/favorite.api';
 import { chatApi } from '@/lib/api/chat.api';
-import { preWarmChat, getPreWarmByProId } from '@/lib/chat-prewarm';
+import { getPreWarmByProId } from '@/lib/chat-prewarm';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 
@@ -205,6 +207,7 @@ function cancelIdleRun(handle: number) {
 // ─── Pro data type from API ────────────────────────────────
 interface ProDetailData {
   id: string;
+  userId?: string;
   name: string;
   profileImage: string;
   mainImage: string;
@@ -434,6 +437,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
 
   return {
     id: p.id,
+    userId: p.userId,
     name: p.name,
     profileImage: images[0] || '/images/default-profile.svg',
     mainImage: images[0] || '/images/default-profile.svg',
@@ -543,6 +547,7 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
 
   return {
     id: res.id,
+    userId: res.userId || res.user?.id,
     name: userName,
     profileImage: profileImg,
     mainImage: images[0] || profileImg,
@@ -1159,12 +1164,17 @@ export default function ProDetailPage() {
   const [isFavorited, setIsFavorited] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      setIsFavorited(stored.includes(id));
-    } catch {
-      setIsFavorited(false);
-    }
+    setIsFavorited(readStoredFavoriteIds().includes(id));
+  }, [id]);
+
+  useEffect(() => {
+    return subscribeFavoriteChanges((detail) => {
+      if (!detail?.proProfileId || detail.proProfileId !== id) return;
+      setIsFavorited(detail.isFavorited);
+      if (typeof detail.favoriteCount === 'number') {
+        setPro((current) => current ? { ...current, favoriteCount: detail.favoriteCount || 0 } : current);
+      }
+    });
   }, [id]);
 
   // Check favorite status from API
@@ -1173,7 +1183,11 @@ export default function ProDetailPage() {
     let cancelled = false;
     const handle = runWhenIdle(() => {
       favoriteApi.check(id)
-        .then((res) => { if (!cancelled) setIsFavorited(res.isFavorited); })
+        .then((res) => {
+          if (cancelled) return;
+          setIsFavorited(res.isFavorited);
+          syncStoredFavoriteId(id, res.isFavorited);
+        })
         .catch(() => {});
     }, 1000);
     return () => {
@@ -1189,6 +1203,7 @@ export default function ProDetailPage() {
     const handle = runWhenIdle(() => router.prefetch('/chat'), 1800);
     return () => cancelIdleRun(handle);
   }, [authUser, id, router]);
+
   const [openingChat, setOpeningChat] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
@@ -1204,6 +1219,10 @@ export default function ProDetailPage() {
   const [loginModal, setLoginModal] = useState(false);
   const [reviewMenu, setReviewMenu] = useState<string | null>(null);
   const [playingVideos, setPlayingVideos] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (authUser) setLoginModal(false);
+  }, [authUser]);
 
   const descRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
@@ -1391,6 +1410,10 @@ export default function ProDetailPage() {
       setLoginModal(true);
       return;
     }
+    if ((pro.userId && pro.userId === authUser.id) || pro.id === 'my-pro') {
+      toast('본인 프로필에는 문의할 수 없어요');
+      return;
+    }
     const nameParam = encodeURIComponent(pro.name || '');
     const imgParam = encodeURIComponent(pro.profileImage || '');
     const preWarmed = getPreWarmByProId(pro.id);
@@ -1399,10 +1422,25 @@ export default function ProDetailPage() {
       return;
     }
     setOpeningChat(true);
-    const pre = preWarmChat(pro.id);
-    const resolvedId = await pre.roomIdPromise;
-    setOpeningChat(false);
-    if (resolvedId) router.push(`/chat/${resolvedId}?name=${nameParam}&img=${imgParam}`);
+    try {
+      const roomRes = await chatApi.createRoom(pro.id);
+      const roomData = (roomRes as any)?.data || roomRes;
+      const resolvedId: string | undefined = roomData?.id || roomData?.roomId;
+      if (resolvedId) {
+        router.push(`/chat/${resolvedId}?name=${nameParam}&img=${imgParam}`);
+      } else {
+        toast.error('채팅방을 열 수 없습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        rememberAuthReturnTo();
+        if (!requestNativeLoginSheet({ reason: 'pro-detail-chat' })) setLoginModal(true);
+      } else {
+        toast.error('문의하기 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } finally {
+      setOpeningChat(false);
+    }
   };
 
   const handlePurchase = () => {
@@ -2769,39 +2807,9 @@ export default function ProDetailPage() {
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
                 disabled={openingChat}
-                onClick={async () => {
+                onClick={() => {
                   setShowTooltip(false);
-                  if (!authUser) {
-                    rememberAuthReturnTo();
-                    if (requestNativeLoginSheet({ reason: 'pro-detail-chat' })) {
-                      setLoginModal(false);
-                      return;
-                    }
-                    setLoginModal(true);
-                    return;
-                  }
-                  // 본인의 프로 페이지면 차단
-                  const myProId = typeof window !== 'undefined' ? localStorage.getItem('freetiful-my-pro-id') : null;
-                  if (myProId && myProId === pro.id) {
-                    setOpeningChat(false);
-                    return;
-                  }
-                  const nameParam = encodeURIComponent(pro.name || '');
-                  const imgParam = encodeURIComponent(pro.profileImage || '');
-                  const preWarmed = getPreWarmByProId(pro.id);
-                  if (preWarmed?.roomId) {
-                    router.push(`/chat/${preWarmed.roomId}?name=${nameParam}&img=${imgParam}`);
-                    return;
-                  }
-                  // roomId 아직 없으면 버튼에 로딩 표시, createRoom 끝나면 바로 이동
-                  setOpeningChat(true);
-                  const pre = preWarmChat(pro.id);
-                  const resolvedId = await pre.roomIdPromise;
-                  if (resolvedId) {
-                    router.push(`/chat/${resolvedId}?name=${nameParam}&img=${imgParam}`);
-                  } else {
-                    setOpeningChat(false);
-                  }
+                  handleInquiry();
                 }}
                 className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
               >

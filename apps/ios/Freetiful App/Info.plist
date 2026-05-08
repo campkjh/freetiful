@@ -28,6 +28,14 @@
 				<string>naverfreetiful</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>freetiful</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>freetiful</string>
+			</array>
+		</dict>
 	</array>
 	<key>GIDClientID</key>
 	<string>919806921995-gk8dq3i013briji7ll6upefvuerivrij.apps.googleusercontent.com</string>

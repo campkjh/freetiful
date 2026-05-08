@@ -75,16 +75,18 @@ export class PushService {
     const normalizedPlatform = platform?.trim() || 'native';
     if (!normalizedPlayerId) return null;
 
-    // 1) 같은 플랫폼의 옛날 ghost 토큰 DB에서 제거 (재설치/토큰 갱신 케이스)
-    await this.prisma.pushToken.deleteMany({
+    // 1) 같은 subscription ID가 다른 유저에 묶여 있으면 비활성화한다.
+    // 같은 유저의 다른 iOS 기기는 지우면 안 된다. 한 유저가 여러 폰/패드를
+    // 동시에 쓸 수 있으므로 platform 기준 정리는 알림 누락을 만든다.
+    await this.prisma.pushToken.updateMany({
       where: {
-        userId,
-        platform: normalizedPlatform,
-        NOT: { token: normalizedPlayerId },
+        token: normalizedPlayerId,
+        NOT: { userId },
       },
+      data: { isActive: false },
     });
 
-    // 2) 최신 토큰 upsert
+    // 2) 현재 기기 토큰 upsert
     const record = await this.prisma.pushToken.upsert({
       where: { userId_token: { userId, token: normalizedPlayerId } },
       create: { userId, token: normalizedPlayerId, platform: normalizedPlatform, isActive: true },
@@ -139,9 +141,6 @@ export class PushService {
         { headers: { Authorization: `Key ${restKey}` } },
       );
       const subs: OneSignalSub[] = userRes.data?.subscriptions || [];
-      const keepSub = subs.find((s) => s.id === keepSubscriptionId);
-      const keepType = keepSub?.type;
-
       const toDelete: string[] = [];
       for (const s of subs) {
         if (!s.id || s.id === keepSubscriptionId) continue;
@@ -149,8 +148,7 @@ export class PushService {
         if (!isPush) continue;
         const noToken = !s.token;
         const disabled = s.enabled === false;
-        const samePlatformOlder = keepType && s.type === keepType;
-        if (noToken || disabled || samePlatformOlder) {
+        if (noToken || disabled) {
           toDelete.push(s.id);
         }
       }

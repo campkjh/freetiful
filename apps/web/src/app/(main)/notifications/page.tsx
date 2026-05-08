@@ -67,8 +67,11 @@ const typeIconMap: Record<NotifType, { icon: React.ReactNode }> = {
 };
 
 function resolveNotifLink(type: NotifType, data: any): string | undefined {
+  const explicitLink = data?.link || data?.url || data?.deepLink || data?.deeplink || data?.launchURL;
+  if (typeof explicitLink === 'string' && explicitLink.trim()) return explicitLink;
   if (data?.link) return data.link;
-  if (data?.chatRoomId) return `/chat/${data.chatRoomId}`;
+  const chatRoomId = data?.chatRoomId || data?.roomId || data?.chat_room_id || data?.room_id;
+  if (chatRoomId) return `/chat/${chatRoomId}`;
   if (data?.quotationId) return '/my/purchase-history';
   if (data?.paymentId) return '/my/payment-history';
   if (data?.reviewId && data?.proProfileId) return `/pros/${data.proProfileId}/reviews`;
@@ -244,12 +247,25 @@ export default function NotificationsPage() {
           {filteredItems.map((n) => {
             const badge = typeIconMap[n.type];
             const swipeX = swipeStates[n.id] ?? 0;
+            const isSwipeOpen = swipeX > 60;
 
             return (
               <div key={n.id} className="relative overflow-hidden border-b border-gray-100">
                 {/* Delete button behind */}
-                <div className="absolute right-0 top-0 bottom-0 flex items-center justify-center w-[80px] bg-red-500">
-                  <button onClick={() => handleDelete(n.id)} className="flex flex-col items-center gap-1 text-white">
+                <div className="absolute right-0 top-0 bottom-0 z-20 flex items-center justify-center w-[80px] bg-red-500">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDelete(n.id);
+                    }}
+                    className="flex h-full w-full flex-col items-center justify-center gap-1 text-white"
+                  >
                     <Trash2 size={18} />
                     <span className="text-[11px]">삭제</span>
                   </button>
@@ -257,12 +273,13 @@ export default function NotificationsPage() {
 
                 {/* Swipeable content */}
                 <div
-                  className="relative block"
+                  className="relative z-10 block"
                   style={{
                     transform: `translateX(-${swipeX}px)`,
                     transition: swipeX === 0 ? 'transform 0.3s ease' : 'none',
                     backgroundColor: !n.isRead ? '#F0F4FF' : '#FFFFFF',
                     boxShadow: '4px 0 0 0 ' + (!n.isRead ? '#F0F4FF' : '#FFFFFF'),
+                    pointerEvents: isSwipeOpen ? 'none' : 'auto',
                   }}
                   onTouchStart={(e) => handleTouchStart(n.id, e)}
                   onTouchMove={(e) => handleTouchMove(n.id, e)}

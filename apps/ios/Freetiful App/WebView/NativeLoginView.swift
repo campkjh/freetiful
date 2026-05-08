@@ -95,9 +95,9 @@ struct NativeLoginView: View {
                     .background(Color.black.opacity(0.2))
             }
         }
-        // 시트가 드래그/취소로 닫힐 때도 홈으로 (로그인 성공 시는 goHome 건너뜀)
+        // OAuth 앱 전환 중 시트가 잠깐 사라질 수 있어 로딩 중에는 홈 이동을 막는다.
         .onDisappear {
-            if !didLoginSuccessfully {
+            if !didLoginSuccessfully && !isLoading {
                 goHome()
             }
         }
@@ -113,13 +113,22 @@ struct NativeLoginView: View {
                 // 취소/실패 → 홈으로
                 print("❌ 카카오 로그인 취소·실패:", error?.localizedDescription ?? "unknown")
                 self.isLoading = false
-                self.goHome()
             }
         }
-        if UserApi.isKakaoTalkLoginAvailable() {
-            UserApi.shared.loginWithKakaoTalk(completion: handle)
-        } else {
+        let loginWithKakaoAccount = {
             UserApi.shared.loginWithKakaoAccount(completion: handle)
+        }
+        if UserApi.isKakaoTalkLoginAvailable() {
+            UserApi.shared.loginWithKakaoTalk { token, error in
+                if let token = token {
+                    handle(token, nil)
+                } else {
+                    print("⚠️ 카카오톡 로그인 실패, 카카오계정 로그인으로 재시도:", error?.localizedDescription ?? "unknown")
+                    loginWithKakaoAccount()
+                }
+            }
+        } else {
+            loginWithKakaoAccount()
         }
     }
 

@@ -51,6 +51,8 @@ class ViewController: UIViewController,
     private var currentNativeViewAsUser = false
     private var currentNativeHasBlockingOverlay = false
     private var nativeToastView: UIVisualEffectView?
+    private var pendingPushSubscriptionId: String?
+    private let nativeNavigationEnabled = false
 
     // Apple Sign In coordinator (retained during auth flow)
     private var appleCoordinator: AppleSignInCoordinator?
@@ -67,12 +69,17 @@ class ViewController: UIViewController,
     // MARK: - Life Cycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        print("🧭 Freetiful current native auth build marker: 2026-05-08-kakao-native-api")
         setupWebView()
-        setupNativeNavigationBar()
+        if nativeNavigationEnabled {
+            setupNativeNavigationBar()
+        }
         setupLoading()
         observeGoHomeNotification()
+        observePushIdNotification()
         observePushDeepLinkNotification()
         loadInitialPage()
+        OneSignalManager.shared.deliverCurrentPushId()
     }
 
     // MARK: - WebView Setup
@@ -94,7 +101,9 @@ class ViewController: UIViewController,
 
         let contentController = WKUserContentController()
         contentController.addUserScript(userScript)
-        contentController.addUserScript(nativeNavScript)
+        if nativeNavigationEnabled {
+            contentController.addUserScript(nativeNavScript)
+        }
 
         // JS → iOS 브릿지 등록
         ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "nativeNavState"].forEach {
@@ -309,6 +318,7 @@ class ViewController: UIViewController,
     """
 
     private func handleNativeNavState(_ body: Any) {
+        guard nativeNavigationEnabled else { return }
         guard let state = body as? [String: Any] else { return }
         if let path = state["path"] as? String, !path.isEmpty {
             currentNativePath = path
@@ -588,6 +598,7 @@ class ViewController: UIViewController,
             self.logoAnimationView.removeFromSuperview()
             self.webView.isHidden = false
         }
+        flushPendingPushSubscriptionId()
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -629,7 +640,7 @@ class ViewController: UIViewController,
         print("📨 메시지 받음: \(message.name)")
         switch message.name {
         case "showNativeLogin": presentNativeLoginSheet()
-        case "kakaoLogin":  presentNativeLoginSheet()  // 웹의 카카오 버튼 → 네이티브 sheet
+        case "kakaoLogin":  startKakaoLogin()
         case "naverLogin":  startNaverLogin()
         case "googleLogin": startGoogleLogin()
         case "appleLogin":  startAppleLogin()
@@ -639,7 +650,10 @@ class ViewController: UIViewController,
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
                 print("📌 OneSignal.login(\(userId))")
-                DispatchQueue.main.async { OneSignal.login(userId) }
+                DispatchQueue.main.async {
+                    OneSignal.login(userId)
+                    OneSignalManager.shared.deliverCurrentPushId()
+                }
             }
         default: break
         }
@@ -703,6 +717,65 @@ class ViewController: UIViewController,
         }
     }
 
+    private func observePushIdNotification() {
+        NotificationCenter.default.addObserver(
+            forName: .didReceivePushId,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self = self, let pushId = note.object as? String, !pushId.isEmpty else { return }
+            self.pendingPushSubscriptionId = pushId
+            self.flushPendingPushSubscriptionId()
+        }
+    }
+
+    private func flushPendingPushSubscriptionId() {
+        guard let pushId = pendingPushSubscriptionId, !pushId.isEmpty, webView?.url != nil else { return }
+        let safePushId = pushId
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let js = """
+        (function() {
+          var payload = { playerId: "\(safePushId)", subscriptionId: "\(safePushId)", platform: "iOS" };
+          var delivered = false;
+          var names = [
+            'bubble_fn_savePushId',
+            'bubble_fn_saveOneSignalPlayerId',
+            'freetifulSavePushId',
+            'savePushId',
+            'saveOneSignalPlayerId'
+          ];
+          for (var i = 0; i < names.length; i++) {
+            try {
+              if (typeof window[names[i]] === 'function') {
+                window[names[i]](payload);
+                delivered = true;
+              }
+            } catch (e) {}
+          }
+          if (!delivered) {
+            try {
+              localStorage.setItem('freetiful-onesignal-pending', JSON.stringify(payload));
+              localStorage.setItem('freetiful-onesignal-pending-platform', 'iOS');
+            } catch (e) {}
+          }
+          try {
+            if (typeof window.freetifulFlushOneSignalPlayerId === 'function') {
+              window.freetifulFlushOneSignalPlayerId();
+            }
+          } catch (e) {}
+        })();
+        """
+        webView.evaluateJavaScript(js) { [weak self] _, error in
+            if let error = error {
+                print("❌ Push ID JS 전달 실패:", error)
+                return
+            }
+            print("📌 URL로 onesignalID 전달: \(pushId)")
+            self?.pendingPushSubscriptionId = nil
+        }
+    }
+
     private func observePushDeepLinkNotification() {
         NotificationCenter.default.addObserver(
             forName: .pushDeepLinkRequested,
@@ -732,7 +805,34 @@ class ViewController: UIViewController,
         }
     }
 
-    // (카카오 로그인은 NativeLoginView.swift 의 Sheet 가 담당합니다)
+    // MARK: - Kakao Login
+    private func startKakaoLogin() {
+        print("🟣 [CurrentAuth] startKakaoLogin uses /auth/login/kakao/native")
+        let handle: (OAuthToken?, Error?) -> Void = { [weak self] token, error in
+            if let token = token {
+                print("🟢 [CurrentAuth] Kakao token received, calling native API")
+                self?.callAPI(endpoint: "/auth/login/kakao/native", body: ["accessToken": token.accessToken])
+            } else {
+                print("❌ 카카오 로그인 실패:", error?.localizedDescription ?? "unknown")
+            }
+        }
+        let loginWithKakaoAccount = {
+            UserApi.shared.loginWithKakaoAccount(completion: handle)
+        }
+
+        if UserApi.isKakaoTalkLoginAvailable() {
+            UserApi.shared.loginWithKakaoTalk { token, error in
+                if let token = token {
+                    handle(token, nil)
+                } else {
+                    print("⚠️ 카카오톡 로그인 실패, 카카오계정 로그인으로 재시도:", error?.localizedDescription ?? "unknown")
+                    loginWithKakaoAccount()
+                }
+            }
+        } else {
+            loginWithKakaoAccount()
+        }
+    }
 
     // MARK: - Naver Login
     private func startNaverLogin() {
@@ -786,6 +886,7 @@ class ViewController: UIViewController,
     // 프리티풀 API를 호출하고, 응답받은 JWT를 웹앱의 Zustand localStorage에 주입합니다.
     private func callAPI(endpoint: String, body: [String: Any]) {
         guard let url = URL(string: "\(kAPIBase)\(endpoint)") else { return }
+        print("🌐 [CurrentAuth] API request:", url.absoluteString)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -793,6 +894,9 @@ class ViewController: UIViewController,
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             if let error = error { print("❌ API 실패:", error); return }
+            if let http = response as? HTTPURLResponse {
+                print("🌐 [CurrentAuth] API status:", http.statusCode)
+            }
             guard
                 let data = data,
                 let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -812,6 +916,7 @@ class ViewController: UIViewController,
             // OneSignal에 유저 연결
             DispatchQueue.main.async { OneSignal.login(userId) }
 
+            print("✅ [CurrentAuth] API login success, injecting JWT for user:", userId)
             self?.injectJWT(accessToken: accessToken, refreshToken: refreshToken, userJSON: userJSON)
         }.resume()
     }

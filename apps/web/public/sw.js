@@ -13,13 +13,22 @@ self.addEventListener('push', (event) => {
   } catch (e) {}
 
   const payload = data.data || {};
-  const url = payload.url || payload.deepLink || '/notifications';
+  const chatRoomId = payload.chatRoomId || payload.roomId || payload.chat_room_id || payload.room_id;
+  const url =
+    payload.url ||
+    payload.link ||
+    payload.deepLink ||
+    payload.deeplink ||
+    payload.launchURL ||
+    payload.launchUrl ||
+    (chatRoomId ? `/chat/${chatRoomId}` : null) ||
+    (data.event === 'chat' ? '/chat' : '/notifications');
   const options = {
     body: data.body,
     icon: '/favicon.ico',
     badge: '/favicon.ico',
     tag: payload.notificationId || `${data.event || 'default'}:${url}`,
-    data: { url },
+    data: { url, payload },
     vibrate: [200, 100, 200],
     renotify: false,
   };

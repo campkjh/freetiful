@@ -861,7 +861,7 @@ export default function ChatRoomPage() {
         </div>
 
         {/* Input skeleton */}
-        <div className="px-safe bg-[#F2F2F7] pb-safe pb-4 pt-2">
+        <div className="px-safe bg-[#F2F2F7] pb-4 pt-2">
           <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-center gap-2">
             <div className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 shrink-0" />
             <div className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-200/60 bg-white px-4 shadow-sm">
@@ -959,7 +959,9 @@ export default function ChatRoomPage() {
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
           overscrollBehaviorX: 'contain',
-          paddingBottom: '16px',
+          overscrollBehaviorY: 'contain',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: '6px',
           paddingTop: 8,
         }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
@@ -1220,7 +1222,7 @@ export default function ChatRoomPage() {
       </div>
 
       {/* ─── Input Bar (Floating Pill) ─── */}
-      <div className="px-safe bg-[#F2F2F7] pb-safe pb-3 pt-2">
+      <div className="px-safe bg-[#F2F2F7] pb-3 pt-2">
         <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-end gap-1.5 sm:gap-2">
           {isRecording ? (
             // Recording UI

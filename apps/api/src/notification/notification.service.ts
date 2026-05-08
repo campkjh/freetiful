@@ -55,8 +55,14 @@ export class NotificationService {
 
   private withClickTarget(type: NotificationType, data?: Record<string, any>) {
     const next = { ...(data || {}) };
-    if (next.url || next.deepLink) return next;
-    if (next.roomId) next.url = `/chat/${next.roomId}`;
+    const roomId = next.roomId || next.chatRoomId || next.room_id || next.chat_room_id;
+    const explicitLink = next.url || next.link || next.deepLink || next.deeplink || next.launchURL || next.launchUrl;
+    if (roomId) {
+      const normalizedRoomId = String(roomId);
+      next.roomId = normalizedRoomId;
+      next.chatRoomId = normalizedRoomId;
+      next.url = `/chat/${normalizedRoomId}`;
+    } else if (explicitLink) next.url = String(explicitLink);
     else if (next.quotationId) next.url = `/quote/${next.quotationId}`;
     else if (next.proProfileId) next.url = `/pros/${next.proProfileId}`;
     else if (String(type) === 'chat') next.url = '/chat';
@@ -64,7 +70,29 @@ export class NotificationService {
     else if (String(type) === 'payment') next.url = '/my/payment-history';
     else if (String(type) === 'review') next.url = '/my/reviews';
     else next.url = '/notifications';
+    next.link = next.url;
+    next.deepLink = next.url;
+    next.deeplink = next.url;
+    next.launchURL = next.url;
     return next;
+  }
+
+  private oneSignalLaunchUrls(data?: Record<string, any>) {
+    const raw = data?.url || data?.link || data?.deepLink || data?.deeplink || data?.launchURL;
+    if (!raw || typeof raw !== 'string') return {};
+    let path = raw.startsWith('/') ? raw : `/${raw}`;
+    let webUrl = `https://freetiful.com${path}`;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      try {
+        const parsed = new URL(raw);
+        path = parsed.pathname + (parsed.search || '');
+        webUrl = raw;
+      } catch {
+        return {};
+      }
+    }
+    const appUrl = `freetiful://${path.replace(/^\/+/, '')}`;
+    return { app_url: appUrl, web_url: webUrl };
   }
 
   /**
@@ -85,6 +113,7 @@ export class NotificationService {
       headings: { en: title, ko: title },
       contents: { en: body, ko: body },
       data: data || {},
+      ...this.oneSignalLaunchUrls(data),
     };
 
     // 1차: external_id 경로

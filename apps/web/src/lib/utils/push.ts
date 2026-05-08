@@ -16,6 +16,10 @@ type PendingOneSignalId = {
  */
 export async function registerPushSubscription(): Promise<PushSubscription | null> {
   if (typeof window === 'undefined') return null;
+  if (isNativeWebView()) {
+    await unregisterWebPushInNativeShell();
+    return null;
+  }
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return null;
 
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -47,6 +51,33 @@ export async function registerPushSubscription(): Promise<PushSubscription | nul
   } catch (e) {
     console.error('Push subscription failed:', e);
     return null;
+  }
+}
+
+function isNativeWebView() {
+  if (typeof window === 'undefined') return false;
+  const hasIOSBridge = !!(window as unknown as {
+    webkit?: { messageHandlers?: Record<string, unknown> };
+  }).webkit?.messageHandlers;
+  const hasAndroidBridge = !!(window as unknown as { Android?: unknown }).Android;
+  const ua = navigator.userAgent || '';
+  const looksLikeAndroidWebView = /; wv\)/i.test(ua) || /\bVersion\/[\d.]+.*\bChrome\/[\d.]+.*\bMobile Safari\//i.test(ua);
+  return hasIOSBridge || hasAndroidBridge || looksLikeAndroidWebView;
+}
+
+async function unregisterWebPushInNativeShell() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.allSettled(
+      registrations.map(async (registration) => {
+        const subscription = await registration.pushManager.getSubscription().catch(() => null);
+        await subscription?.unsubscribe().catch(() => false);
+        await registration.unregister().catch(() => false);
+      }),
+    );
+  } catch (e) {
+    console.warn('Native shell web push cleanup failed:', e);
   }
 }
 
@@ -175,6 +206,7 @@ export function initNativePushBridge() {
   w.freetifulSavePushId = (payload: unknown) => save(payload, 'native');
   w.savePushId = (payload: unknown) => save(payload, 'native');
   w.saveOneSignalPlayerId = (payload: unknown) => save(payload, 'native');
+  w.freetifulFlushOneSignalPlayerId = () => { void flushOneSignalPlayerId(); };
 }
 
 export const initIOSPushBridge = initNativePushBridge;

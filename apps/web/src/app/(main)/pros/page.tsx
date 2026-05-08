@@ -75,8 +75,8 @@ const PC_SIDEBAR_GROUPS = [
 const PC_QUOTE_CATEGORY_LABELS = ['결혼식 사회자', '행사 사회자', '외국어 사회자'];
 
 const PAGE_SIZE = 10;
-const INITIAL_PRO_LIST_PARAMS = { limit: 24, sort: 'pudding' as const, withTotal: false };
-const FULL_PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: false };
+const INITIAL_PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: true };
+const FULL_PRO_LIST_PARAMS = { limit: 500, sort: 'pudding' as const, withTotal: true };
 const TAB_SPRING = { type: 'spring' as const, stiffness: 520, damping: 36, mass: 0.75 };
 const PANEL_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -184,14 +184,12 @@ function ProListCard({
   };
 
   return (
-    <motion.div
-      layout="position"
+    <div
       ref={ref}
       className={`px-4 py-3 transition-all duration-500 ease-out ${
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
       }`}
       style={{ transitionDelay: `${Math.min(index % PAGE_SIZE, 6) * 35}ms` }}
-      transition={{ layout: { duration: 0.22, ease: PANEL_EASE } }}
     >
       <div
         onMouseEnter={warmDetail}
@@ -266,7 +264,7 @@ function ProListCard({
           />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -717,6 +715,7 @@ function ProsListContent() {
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;
+  const maxPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const hasActiveFilters = selectedRegion !== '전체' || selectedPrice !== 0 || selectedLang !== '전체' || selectedType !== '전체';
   const activeFilterCount = (selectedRegion !== '전체' ? 1 : 0) + (selectedPrice !== 0 ? 1 : 0) + (selectedLang !== '전체' ? 1 : 0) + (selectedType !== '전체' ? 1 : 0);
   const showDualQuoteButtons =
@@ -730,13 +729,13 @@ function ProsListContent() {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) setPage((p) => p + 1);
+        if (entry.isIntersecting) setPage((p) => Math.min(maxPage, p + 1));
       },
       { rootMargin: '480px 0px', threshold: 0 },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, paginatedPros.length]);
+  }, [hasMore, maxPage]);
 
   useEffect(() => {
     if (!hasMore) return;
@@ -744,13 +743,13 @@ function ProsListContent() {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) setPage((p) => p + 1);
+        if (entry.isIntersecting) setPage((p) => Math.min(maxPage, p + 1));
       },
       { rootMargin: '640px 0px', threshold: 0 },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, paginatedPros.length]);
+  }, [hasMore, maxPage]);
 
   if (!apiLoaded && ALL_PROS.length === 0) {
     return (
@@ -882,7 +881,7 @@ function ProsListContent() {
           >
             {filtered.length > 0 ? (
               <>
-                <motion.div layout className="grid grid-cols-4 gap-x-8 gap-y-12">
+                <div className="grid grid-cols-4 gap-x-8 gap-y-12">
                   {paginatedPros.map((pro, index) => (
                     <DesktopProMarketCard
                       key={pro.id}
@@ -892,7 +891,7 @@ function ProsListContent() {
                       onToggleFavorite={toggleFavorite}
                     />
                   ))}
-                </motion.div>
+                </div>
                 {hasMore && (
                   <div ref={desktopLoadMoreRef} className="py-12 text-center">
                     <span className="inline-flex items-center gap-2 rounded-full bg-[#F2F6FF] px-4 py-2 text-[14px] font-bold text-[#3180F7]">
@@ -1169,7 +1168,7 @@ function ProsListContent() {
       >
         {filtered.length > 0 ? (
           <div>
-            <motion.div layout className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100">
               {paginatedPros.map((pro, i) => (
                 <ProListCard
                   key={pro.id}
@@ -1179,7 +1178,7 @@ function ProsListContent() {
                   onToggleFavorite={toggleFavorite}
                 />
               ))}
-            </motion.div>
+            </div>
 
             {hasMore && (
               <div ref={loadMoreRef} className="px-4 py-5">

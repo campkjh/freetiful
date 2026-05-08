@@ -25,12 +25,20 @@ class OneSignalManager: NSObject, OSNotificationClickListener {
         }
     }
 
-    private func fetchPushId() {
+    func deliverCurrentPushId() {
+        fetchPushId()
+    }
+
+    private func fetchPushId(retryCount: Int = 0) {
         if let id = OneSignal.User.pushSubscription.id {
             print("📌 Player ID: \(id)")
             sendPushId(id)
         } else {
             print("❌ Push ID 아직 없음")
+            guard retryCount < 5 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.fetchPushId(retryCount: retryCount + 1)
+            }
         }
     }
 
@@ -49,11 +57,7 @@ class OneSignalManager: NSObject, OSNotificationClickListener {
 
     func onClick(event: OSNotificationClickEvent) {
         let data = event.notification.additionalData
-        let target =
-            data?["url"] as? String ??
-            data?["deepLink"] as? String ??
-            data?["deeplink"] as? String ??
-            event.notification.launchURL
+        let target = clickTarget(from: data, launchURL: event.notification.launchURL)
 
         guard let target, !target.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
@@ -66,6 +70,37 @@ class OneSignalManager: NSObject, OSNotificationClickListener {
                 object: target
             )
         }
+    }
+
+    private func clickTarget(from data: [AnyHashable: Any]?, launchURL: String?) -> String? {
+        if let data {
+            let keys = ["url", "link", "deepLink", "deeplink", "launchURL", "launchUrl", "app_url", "web_url"]
+            for key in keys {
+                if let value = data[key] as? String, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    return value
+                }
+            }
+        }
+
+        if let launchURL, !launchURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return launchURL
+        }
+
+        return chatTarget(from: data)
+    }
+
+    private func chatTarget(from data: [AnyHashable: Any]?) -> String? {
+        guard let data else { return nil }
+        let keys = ["roomId", "chatRoomId", "room_id", "chat_room_id"]
+        for key in keys {
+            if let value = data[key] as? String, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return "/chat/\(value)"
+            }
+            if let value = data[key] as? NSNumber {
+                return "/chat/\(value.stringValue)"
+            }
+        }
+        return nil
     }
 
     func logout() {
