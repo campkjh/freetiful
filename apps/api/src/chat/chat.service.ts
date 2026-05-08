@@ -141,6 +141,22 @@ export class ChatService {
     ];
   }
 
+  private async refreshRoomLastVisibleMessage(roomId: string) {
+    const latestVisible = await this.prisma.message.findFirst({
+      where: { roomId, isDeleted: false },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true },
+    });
+
+    await this.prisma.chatRoom.update({
+      where: { id: roomId },
+      data: {
+        lastMessageId: latestVisible?.id ?? null,
+        lastMessageAt: latestVisible?.createdAt ?? null,
+      },
+    });
+  }
+
   private async ensureRoomsRepaired(userId: string) {
     const last = this.repairCache.get(userId) || 0;
     if (Date.now() - last <= this.REPAIR_THROTTLE) return;
@@ -738,9 +754,10 @@ export class ChatService {
           user: { select: { id: true, name: true, profileImageUrl: true } },
           members: { where: { userId: { in: participantUserIds } }, select: { userId: true, isFavorited: true, unreadCount: true } },
           messages: {
+            where: { isDeleted: false },
             orderBy: { createdAt: 'desc' },
             take: 1,
-            select: { id: true, type: true, content: true, createdAt: true },
+            select: { id: true, senderId: true, type: true, content: true, createdAt: true },
           },
           quotations: {
             orderBy: { createdAt: 'desc' },
@@ -787,7 +804,7 @@ export class ChatService {
         id: room.id,
         otherUser,
         lastMessage: lastMsg
-          ? { id: lastMsg.id, type: lastMsg.type, content: lastMsg.content, createdAt: lastMsg.createdAt }
+          ? { id: lastMsg.id, senderId: lastMsg.senderId, type: lastMsg.type, content: lastMsg.content, createdAt: lastMsg.createdAt }
           : null,
         lastMessageAt: room.lastMessageAt,
         unreadCount: member?.unreadCount ?? 0,
@@ -949,6 +966,35 @@ export class ChatService {
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
+
+    // 방 목록에는 마지막 메시지가 있는데 상세 첫 로드가 비는 오래된 데이터 꼬임 방어.
+    // lastMessageId가 살아있는 정상 메시지라면 최소한 그 메시지는 상세에도 보이게 한다.
+    if (
+      messages.length === 0 &&
+      !search &&
+      !before &&
+      !after &&
+      !cursor
+    ) {
+      const room = await this.prisma.chatRoom.findUnique({
+        where: { id: roomId },
+        select: { lastMessageId: true },
+      });
+      if (room?.lastMessageId) {
+        const lastMessage = await this.prisma.message.findFirst({
+          where: { id: room.lastMessageId, roomId, isDeleted: false },
+          include: {
+            sender: { select: { id: true, name: true, profileImageUrl: true } },
+            replyTo: {
+              select: { id: true, content: true, senderId: true, type: true },
+            },
+            reactions: true,
+            reads: { select: { userId: true, readAt: true } },
+          },
+        });
+        if (lastMessage) messages.push(lastMessage);
+      }
+    }
 
     // Group reactions
     const data = messages.reverse().map((msg) => ({
@@ -1161,10 +1207,21 @@ export class ChatService {
     if (!message) throw new NotFoundException('메시지를 찾을 수 없습니다');
     if (message.senderId !== userId) throw new ForbiddenException('본인 메시지만 삭제할 수 있습니다');
 
-    return this.prisma.message.update({
+    const deleted = await this.prisma.message.update({
       where: { id: messageId },
       data: { isDeleted: true, deletedAt: new Date() },
     });
+
+    await this.refreshRoomLastVisibleMessage(message.roomId);
+    const members = await this.prisma.chatRoomMember.findMany({
+      where: { roomId: message.roomId },
+      select: { userId: true },
+    });
+    for (const member of members) {
+      this.invalidateRoomsCache(member.userId);
+    }
+
+    return deleted;
   }
 
   async addReaction(messageId: string, userId: string, dto: ReactToMessageDto) {

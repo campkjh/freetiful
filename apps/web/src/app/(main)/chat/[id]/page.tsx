@@ -43,6 +43,11 @@ function mapCachedMessage(m: MessageItem | Message): Message {
   return m as Message;
 }
 
+function writeMessageCacheIfPresent(roomId: string, messages: MessageItem[]) {
+  if (messages.length === 0) return;
+  useChatStore.getState().messageCache.set(roomId, messages);
+}
+
 function formatDateDivider(dateStr: string) {
   const d = new Date(dateStr);
   const now = new Date();
@@ -85,6 +90,8 @@ function hasFetchedEquivalent(message: Message, fetched: Message[]) {
 }
 
 function mergeFetchedMessages(current: Message[], fetched: Message[], requestedAt: number) {
+  if (fetched.length === 0 && current.length > 0) return current;
+
   const fetchedIds = new Set(fetched.map((message) => message.id));
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
@@ -419,7 +426,7 @@ export default function ChatRoomPage() {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
-            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            writeMessageCacheIfPresent(roomId, apiMessages);
             setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
@@ -434,7 +441,7 @@ export default function ChatRoomPage() {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
-            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            writeMessageCacheIfPresent(roomId, apiMessages);
             setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
@@ -446,7 +453,7 @@ export default function ChatRoomPage() {
         const warmMessages = await prewarmed.messagesPromise;
         if (cancelled) return;
         if (warmMessages?.length) {
-          useChatStore.getState().messageCache.set(roomId, warmMessages);
+          writeMessageCacheIfPresent(roomId, warmMessages);
           const mapped = warmMessages.map(mapApiMessage);
           setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           setMessagesLoading(false);
@@ -462,7 +469,7 @@ export default function ChatRoomPage() {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
-            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            writeMessageCacheIfPresent(roomId, apiMessages);
             setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
@@ -475,7 +482,7 @@ export default function ChatRoomPage() {
         if (cancelled) return;
         const apiMessages = res.data.data || [];
         const mapped = apiMessages.map(mapApiMessage);
-        useChatStore.getState().messageCache.set(roomId, apiMessages);
+        writeMessageCacheIfPresent(roomId, apiMessages);
         setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
       } catch (err) {
         console.error('Failed to load messages', err);
@@ -578,7 +585,7 @@ export default function ChatRoomPage() {
       if (messagesRes.status === 'fulfilled') {
         const apiMessages = messagesRes.value.data.data || [];
         const mapped = apiMessages.map(mapApiMessage);
-        useChatStore.getState().messageCache.set(roomId, apiMessages);
+        writeMessageCacheIfPresent(roomId, apiMessages);
         setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
       }
     };

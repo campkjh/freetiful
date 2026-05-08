@@ -15,6 +15,7 @@ export interface ChatRoomItem {
   };
   lastMessage: {
     id: string;
+    senderId?: string;
     type: string;
     content: string | null;
     createdAt: string;

@@ -139,6 +139,8 @@ function sameClientMessageId(a: MessageItem, b: MessageItem) {
 }
 
 function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[], requestedAt: number) {
+  if (fetched.length === 0 && current.length > 0) return current;
+
   const fetchedIds = new Set(fetched.map((message) => message.id));
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
@@ -481,7 +483,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const nextMessages = loadMore
         ? [...newMsgs, ...get().messages]
         : mergeFetchedMessageItems(get().messages, newMsgs, requestedAt);
-      get().messageCache.set(roomId, nextMessages);
+      if (nextMessages.length > 0 || newMsgs.length > 0) {
+        get().messageCache.set(roomId, nextMessages);
+      }
       set((s) => ({
         messages: loadMore ? [...newMsgs, ...s.messages] : mergeFetchedMessageItems(s.messages, newMsgs, requestedAt),
         hasMoreMessages: res.data.hasMore,
