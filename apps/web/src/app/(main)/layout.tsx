@@ -185,7 +185,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
     let cancelled = false;
     const refresh = () => {
-      matchApi.getProRequests()
+      matchApi.getProRequests({ limit: 20 })
         .then((data: any) => {
           if (cancelled) return;
           const items = Array.isArray(data) ? data : (data?.data || []);

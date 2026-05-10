@@ -188,6 +188,14 @@ export class ProController {
 
   // ─── Schedule ─────────────────────────────────────────────────────────────
 
+  @Get('schedule/upcoming')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 다가오는 확정 스케줄 조회' })
+  getUpcomingSchedule(@Req() req, @Query('limit') limit?: string) {
+    return this.proService.getUpcomingSchedule(req.user.id, Number(limit) || 3);
+  }
+
   @Get('schedule')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()

@@ -191,7 +191,7 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
 
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 const DASHBOARD_CACHE_KEY = 'freetiful-pro-dashboard-cache-v2';
-const DASHBOARD_CACHE_TTL = 5 * 60_000;
+const DASHBOARD_CACHE_TTL = 15 * 60_000;
 let memoryDashboardCache: DashboardCache | null = null;
 
 type DashboardCache = {
@@ -502,7 +502,7 @@ export default function ProDashboardPage() {
     let cancelled = false;
     const load = (silent = false) => {
       if (!silent && !cachedSectionsRef.current.matchRequests) setMatchRequestsLoading(true);
-      matchApi.getProRequests()
+      matchApi.getProRequests({ limit: 20 })
         .then((data: any) => {
           if (cancelled) return;
           const items = Array.isArray(data) ? data : (data?.data || []);
@@ -522,7 +522,7 @@ export default function ProDashboardPage() {
     const refresh = () => load(true);
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') load(true);
-    }, 5000);
+    }, 15000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:match-requests-changed', refresh);
     window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
@@ -548,7 +548,7 @@ export default function ProDashboardPage() {
   };
 
   const refreshMatchRequests = () => {
-    matchApi.getProRequests()
+    matchApi.getProRequests({ limit: 20 })
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const visible = items.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
@@ -735,7 +735,7 @@ export default function ProDashboardPage() {
     const refresh = () => refreshInquiryRooms();
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') refreshInquiryRooms();
-    }, 5000);
+    }, 15000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
     window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
@@ -760,7 +760,7 @@ export default function ProDashboardPage() {
     const refresh = () => refreshQuotes();
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') refreshQuotes();
-    }, 5000);
+    }, 15000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
     window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
@@ -850,14 +850,18 @@ export default function ProDashboardPage() {
     let cancelled = false;
     (async () => {
       try {
-        const thisRowsRaw = await scheduleApi.getMySchedule(thisMonth).catch(() => []);
-        const thisRows = Array.isArray(thisRowsRaw) ? thisRowsRaw : [];
-        let upcoming = toUpcoming(thisRows);
-        if (upcoming.length < 3) {
-          const nextRowsRaw = await scheduleApi.getMySchedule(nextMonth).catch(() => []);
-          const nextRows = Array.isArray(nextRowsRaw) ? nextRowsRaw : [];
-          upcoming = toUpcoming([...thisRows, ...nextRows]);
-        }
+        const upcomingRowsRaw = await scheduleApi.getUpcoming(3).catch(async () => {
+          const [thisRowsRaw, nextRowsRaw] = await Promise.all([
+            scheduleApi.getMySchedule(thisMonth).catch(() => []),
+            scheduleApi.getMySchedule(nextMonth).catch(() => []),
+          ]);
+          return [
+            ...(Array.isArray(thisRowsRaw) ? thisRowsRaw : []),
+            ...(Array.isArray(nextRowsRaw) ? nextRowsRaw : []),
+          ];
+        });
+        const upcomingRows = Array.isArray(upcomingRowsRaw) ? upcomingRowsRaw : [];
+        const upcoming = toUpcoming(upcomingRows);
         if (cancelled) return;
         setUpcomingEvents(upcoming);
         cachedSectionsRef.current.upcoming = true;

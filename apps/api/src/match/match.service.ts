@@ -440,18 +440,36 @@ export class MatchService {
   }
 
   /** 전문가에게 전달된 매칭 요청 목록 */
-  async getMatchRequestsForPro(proProfileId: string) {
+  async getMatchRequestsForPro(proProfileId: string, limit = 50) {
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
     // 새 요청 섹션은 pending/viewed, 보관 탭은 archived 만 사용한다.
     // 거절/응답 이력은 DB 단계에서 제외해 전체 매칭 히스토리를 끌어오는 비용을 없앤다.
     const deliveries = await this.prisma.matchDelivery.findMany({
       where: { proProfileId, status: { in: ['pending', 'viewed', 'archived'] } },
-      include: {
+      select: {
+        id: true,
+        matchRequestId: true,
+        proProfileId: true,
+        status: true,
+        deliveredAt: true,
+        viewedAt: true,
+        repliedAt: true,
         matchRequest: {
-          include: {
-            category: true,
-            eventCategory: true,
-            styles: { include: { styleOption: true } },
-            personalities: { include: { personalityOption: true } },
+          select: {
+            id: true,
+            userId: true,
+            type: true,
+            eventDate: true,
+            eventTime: true,
+            eventLocation: true,
+            budgetMin: true,
+            budgetMax: true,
+            rawUserInput: true,
+            createdAt: true,
+            category: { select: { id: true, name: true } },
+            eventCategory: { select: { id: true, name: true } },
+            styles: { select: { styleOption: { select: { id: true, name: true } } } },
+            personalities: { select: { personalityOption: { select: { id: true, name: true } } } },
             user: {
               select: { id: true, name: true, profileImageUrl: true },
             },
@@ -459,7 +477,7 @@ export class MatchService {
         },
       },
       orderBy: { deliveredAt: 'desc' },
-      take: 50,
+      take: safeLimit,
     });
 
     return deliveries;

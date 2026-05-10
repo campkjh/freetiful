@@ -167,7 +167,7 @@ export default function InquiriesPage() {
   const refreshMatchDeliveries = useCallback((silent = true) => {
     if (!authUser) return;
     if (!silent && cachedMatchDeliveries === null) setLoadingMatch(true);
-    matchApi.getProRequests()
+    matchApi.getProRequests({ limit: 50 })
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const mapped: MatchDeliveryView[] = items
@@ -220,7 +220,7 @@ export default function InquiriesPage() {
     const refresh = () => refreshInquiries();
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') refreshInquiries();
-    }, 5000);
+    }, 15000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
     window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
@@ -240,7 +240,7 @@ export default function InquiriesPage() {
     const refresh = () => refreshMatchDeliveries();
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') refreshMatchDeliveries();
-    }, 5000);
+    }, 15000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
     window.addEventListener('freetiful:match-requests-changed', refresh as EventListener);

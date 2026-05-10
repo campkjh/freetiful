@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -60,14 +61,15 @@ export class MatchController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '전문가에게 전달된 매칭 요청 조회' })
-  async getMatchRequestsForPro(@Request() req: any) {
+  async getMatchRequestsForPro(@Request() req: any, @Query('limit') limit?: string) {
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { userId: req.user.id },
+      select: { id: true },
     });
     if (!proProfile) {
       throw new Error('전문가 프로필이 없습니다.');
     }
-    return this.matchService.getMatchRequestsForPro(proProfile.id);
+    return this.matchService.getMatchRequestsForPro(proProfile.id, Number(limit) || 50);
   }
 
   /** 전문가가 매칭에 응답 */

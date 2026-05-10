@@ -21,8 +21,8 @@ export const matchApi = {
   getMyRequests: () =>
     apiClient.get(`${BASE}/requests`).then((r) => r.data),
 
-  getProRequests: () =>
-    apiClient.get(`${BASE}/pro/requests`).then((r) => r.data),
+  getProRequests: (params?: { limit?: number }) =>
+    apiClient.get(`${BASE}/pro/requests`, { params }).then((r) => r.data),
 
   respond: (deliveryId: string, action: 'accept' | 'reject' | 'archive') =>
     apiClient.post(`${BASE}/delivery/${deliveryId}/respond`, { action }).then((r) => r.data),

@@ -37,7 +37,7 @@ interface ScheduleItem {
 
 // v2: 결제 status 필터링 로직이 바뀌었으니 v1 캐시(과거 'MC 대기' row 가 들어있던) 버림.
 const SCHEDULE_CACHE_PREFIX = 'freetiful-schedule-cache-v2:';
-const SCHEDULE_CACHE_TTL = 2 * 60_000;
+const SCHEDULE_CACHE_TTL = 10 * 60_000;
 
 function readScheduleCache<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;

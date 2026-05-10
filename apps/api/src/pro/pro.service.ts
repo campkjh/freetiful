@@ -779,29 +779,102 @@ export class ProService implements OnModuleInit {
   // ─── Schedule ────────────────────────────────────────────────────────────
 
   async getSchedule(userId: string, month: string) {
-    const profile = await this.getProfileByUserId(userId);
+    const profile = await this.getProfileIdentityByUserId(userId);
 
-    const [year, mon] = month.split('-').map(Number);
+    const currentMonth = new Date();
+    const targetMonth =
+      month || `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const [year, mon] = targetMonth.split('-').map(Number);
+    if (!year || !mon || mon < 1 || mon > 12) {
+      throw new BadRequestException('조회할 월 정보가 올바르지 않습니다.');
+    }
     const startDate = new Date(year, mon - 1, 1);
-    const endDate = new Date(year, mon, 0);
+    const endDate = new Date(year, mon, 1);
 
     const schedules = await this.prisma.proSchedule.findMany({
       where: {
         proProfileId: profile.id,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lt: endDate },
       },
-      include: {
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        note: true,
+        paymentId: true,
         payment: {
-          include: {
-            quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+          select: {
+            id: true,
+            userId: true,
+            amount: true,
+            status: true,
+            createdAt: true,
+            quotations: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                title: true,
+                eventLocation: true,
+                eventTime: true,
+              },
+            },
           },
         },
       },
       orderBy: { date: 'asc' },
     });
 
-    // Payment.userId → User 조회 (Payment에 user relation이 없어서 수동 lookup)
-    const userIds = Array.from(new Set(schedules.map((s) => (s as any).payment?.userId).filter(Boolean))) as string[];
+    return this.mapScheduleRows(schedules);
+  }
+
+  async getUpcomingSchedule(userId: string, limit = 3) {
+    const profile = await this.getProfileIdentityByUserId(userId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const safeLimit = Math.min(Math.max(Number(limit) || 3, 1), 10);
+
+    const schedules = await this.prisma.proSchedule.findMany({
+      where: {
+        proProfileId: profile.id,
+        status: 'booked',
+        date: { gte: today },
+      },
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        note: true,
+        paymentId: true,
+        payment: {
+          select: {
+            id: true,
+            userId: true,
+            amount: true,
+            status: true,
+            createdAt: true,
+            quotations: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                title: true,
+                eventLocation: true,
+                eventTime: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { date: 'asc' },
+      take: safeLimit,
+    });
+
+    return this.mapScheduleRows(schedules);
+  }
+
+  private async mapScheduleRows(schedules: any[]) {
+    const userIds = Array.from(new Set(schedules.map((s) => s.payment?.userId).filter(Boolean))) as string[];
     const users = userIds.length > 0
       ? await this.prisma.user.findMany({
           where: { id: { in: userIds } },
@@ -834,9 +907,9 @@ export class ProService implements OnModuleInit {
         eventTime: q?.eventTime ?? null,
         clientName: client?.name ?? null,
         clientImage: client?.profileImageUrl ?? null,
-        amount: payment?.amount ? Number(payment.amount) : null,
+        amount: payment?.amount != null ? Number(payment.amount) : null,
         paymentStatus: payment?.status ?? null,
-        paymentId: payment?.id ?? null,
+        paymentId: payment?.id ?? s.paymentId ?? null,
         paidAt: payment?.createdAt ?? null,
       };
     });
@@ -1213,6 +1286,18 @@ export class ProService implements OnModuleInit {
     return profile;
   }
 
+  private async getProfileIdentityByUserId(userId: string) {
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      select: { id: true, profileViews: true },
+    });
+    if (profile) return profile;
+    return this.prisma.proProfile.create({
+      data: { userId },
+      select: { id: true, profileViews: true },
+    });
+  }
+
   // ─── Revenue ──────────────────────────────────────────────────────────────
 
   async getRevenue(userId: string) {
@@ -1328,7 +1413,7 @@ export class ProService implements OnModuleInit {
   // ─── Analytics ────────────────────────────────────────────────────────────
 
   async getAnalytics(userId: string) {
-    const profile = await this.getProfileByUserId(userId);
+    const profile = await this.getProfileIdentityByUserId(userId);
     const now = new Date();
     const weekAgo = new Date(now);
     weekAgo.setDate(weekAgo.getDate() - 7);
@@ -1397,19 +1482,37 @@ export class ProService implements OnModuleInit {
   // ─── Schedule Requests (고객이 구매해서 들어온 대기 요청) ────────────────
 
   async getScheduleRequests(userId: string) {
-    const profile = await this.getProfileByUserId(userId);
+    const profile = await this.getProfileIdentityByUserId(userId);
     const rows = await this.prisma.proSchedule.findMany({
       where: { proProfileId: profile.id, status: 'pending' },
-      include: {
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        paymentId: true,
         payment: {
-          include: {
-            quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+          select: {
+            id: true,
+            userId: true,
+            amount: true,
+            createdAt: true,
+            quotations: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                title: true,
+                eventLocation: true,
+                eventTime: true,
+              },
+            },
           },
         },
       },
       orderBy: { date: 'asc' },
+      take: 50,
     });
-    const userIds = rows.map((r) => r.payment?.userId).filter(Boolean) as string[];
+    const userIds = Array.from(new Set(rows.map((r) => r.payment?.userId).filter(Boolean))) as string[];
     const users = userIds.length > 0
       ? await this.prisma.user.findMany({
           where: { id: { in: userIds } },
