@@ -204,7 +204,8 @@ function ProScheduleView() {
   const authUser = useAuthStore((s) => s.user);
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const cachedInit = readScheduleCache<ProBooking[]>(`pro:${month}`);
+  const cacheKey = `pro:${authUser?.id || 'anon'}:${month}`;
+  const cachedInit = readScheduleCache<ProBooking[]>(cacheKey);
   const [apiBookings, setApiBookings] = useState<ProBooking[]>(cachedInit || []);
   // 캐시가 없을 때만 로딩 — 캐시 있으면 즉시 카드를 보여주고 백그라운드 갱신.
   const [loading, setLoading] = useState<boolean>(cachedInit == null);
@@ -239,12 +240,12 @@ function ProScheduleView() {
           };
         });
         setApiBookings(mapped);
-        writeScheduleCache(`pro:${month}`, mapped);
+        writeScheduleCache(cacheKey, mapped);
       })
       .catch(() => { if (!cancelled && cachedInit == null) setApiBookings([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [authUser, month]);
+  }, [authUser, month, cacheKey]);
   const bookings = apiBookings;
 
   const formatPaidAt = (iso: string | null) => {
@@ -394,7 +395,7 @@ export default function SchedulePage() {
   const [isPro, setIsPro] = useState(false);
   const today = new Date();
   const initialMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>(() => readScheduleCache<ScheduleItem[]>(`user:${initialMonthKey}`) || []);
+  const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>([]);
   useEffect(() => {
     setIsLoggedIn(authUser !== null);
     setIsPro(authUser?.role === 'pro');
@@ -406,16 +407,19 @@ export default function SchedulePage() {
     if (!authUser) return;
     if (authUser.role === 'pro') return;
     let cancelled = false;
+    const cacheKey = `user:${authUser.id}:${initialMonthKey}`;
+    const cached = readScheduleCache<ScheduleItem[]>(cacheKey);
+    if (cached) setApiSchedules(cached);
 
     const fetchGeneralSchedules = () => {
-      apiClient.get('/api/v1/payment', { params: { limit: 100 } })
+      apiClient.get('/api/v1/payment/schedule', { params: { limit: 80 }, timeout: 4000 })
         .then((res: any) => {
           const data = res.data?.data || [];
           if (!Array.isArray(data)) return;
           const mapped = mapPaymentsToSchedules(data);
           if (cancelled) return;
           setApiSchedules(mapped);
-          writeScheduleCache(`user:${initialMonthKey}`, mapped);
+          writeScheduleCache(cacheKey, mapped);
         })
         .catch((err) => { console.error('[Schedule] payment API error:', err); });
     };

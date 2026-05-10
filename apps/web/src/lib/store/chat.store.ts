@@ -508,11 +508,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
     set({ roomsLoading: true });
+    let keepLoadingForRetry = false;
     try {
       const res = await chatApi.getRooms(requestParams);
       applyServerRooms(res.data.data);
+    } catch {
+      if (!hasFilters && get().rooms.length === 0 && typeof window !== 'undefined') {
+        keepLoadingForRetry = true;
+        window.setTimeout(() => {
+          get().fetchRooms({ ...apiParams, limit: requestParams.limit, force: true }).catch(() => {});
+        }, 500);
+      }
     } finally {
-      set({ roomsLoading: false });
+      set({ roomsLoading: keepLoadingForRetry });
     }
   },
 

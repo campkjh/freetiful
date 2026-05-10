@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,7 +14,7 @@ import axios from 'axios';
 import { randomUUID } from 'crypto';
 
 @Injectable()
-export class PaymentService {
+export class PaymentService implements OnModuleInit {
   private readonly logger = new Logger(PaymentService.name);
   private readonly tossSecretKey: string;
   private readonly tossBaseUrl = 'https://api.tosspayments.com/v1/payments';
@@ -25,6 +26,24 @@ export class PaymentService {
     private pudding: PuddingService,
   ) {
     this.tossSecretKey = this.config.get<string>('TOSS_SECRET_KEY', '');
+  }
+
+  onModuleInit() {
+    this.ensurePerformanceIndexes().catch(() => undefined);
+  }
+
+  private async ensurePerformanceIndexes() {
+    await Promise.allSettled([
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "payments_userId_createdAt_idx" ON "payments" ("userId", "createdAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "payments_userId_status_createdAt_idx" ON "payments" ("userId", "status", "createdAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "quotations_paymentId_createdAt_idx" ON "quotations" ("paymentId", "createdAt")',
+      ),
+    ]);
   }
 
   private getAuthHeader(): string {
@@ -386,7 +405,7 @@ export class PaymentService {
   }
 
   /** 결제 내역 목록 조회 */
-  async getPayments(userId: string, page: number, limit: number) {
+  async getPayments(userId: string, page: number, limit: number, withTotal = true) {
     const skip = (page - 1) * limit;
 
     const [payments, total] = await Promise.all([
@@ -409,16 +428,54 @@ export class PaymentService {
           },
         },
       }),
-      this.prisma.payment.count({ where: { userId } }),
+      withTotal ? this.prisma.payment.count({ where: { userId } }) : Promise.resolve(0),
     ]);
 
     return {
       data: payments,
-      total,
+      total: withTotal ? total : payments.length,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: withTotal ? Math.ceil(total / limit) : 1,
     };
+  }
+
+  async getSchedulePayments(userId: string, limit: number) {
+    const take = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        userId,
+        status: { in: ['completed', 'escrowed', 'settled'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        createdAt: true,
+        quotations: {
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+          select: {
+            id: true,
+            title: true,
+            eventDate: true,
+            eventTime: true,
+            eventLocation: true,
+            proProfile: {
+              select: {
+                user: { select: { id: true, name: true, profileImageUrl: true } },
+                images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
+                categories: { take: 1, select: { category: { select: { name: true } } } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return { data: payments, total: payments.length, page: 1, limit: take, totalPages: 1 };
   }
 
   /** 결제 상세 조회 */

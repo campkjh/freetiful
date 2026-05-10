@@ -59,8 +59,18 @@ export class PaymentController {
     @Request() req: any,
     @Query('page') page = 1,
     @Query('limit') limit = 20,
+    @Query('withTotal') withTotal?: string,
   ) {
-    return this.paymentService.getPayments(req.user.id, +page, +limit);
+    return this.paymentService.getPayments(req.user.id, +page, +limit, withTotal !== 'false');
+  }
+
+  /** 스케줄 화면 전용 경량 결제 목록 */
+  @Get('schedule')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '스케줄 화면용 결제 목록 조회' })
+  getSchedulePayments(@Request() req: any, @Query('limit') limit = 50) {
+    return this.paymentService.getSchedulePayments(req.user.id, +limit);
   }
 
   /** 결제 상세 조회 */

@@ -520,7 +520,20 @@ export default function ChatListPage() {
             </LayoutGroup>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {sorted.length === 0 ? (
+            {roomsLoading && rooms.length === 0 ? (
+              <div className="space-y-0">
+                {[1,2,3,4,5].map((i) => (
+                  <div key={i} className="flex items-center gap-3 px-5 py-4">
+                    <div className="w-12 h-12 rounded-[20px] bg-gray-100 animate-pulse shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="h-4 w-28 bg-gray-100 rounded animate-pulse mb-2" />
+                      <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${46 + i * 8}%` }} />
+                    </div>
+                    <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
+                  </div>
+                ))}
+              </div>
+            ) : sorted.length === 0 ? (
               <div className="text-center py-16">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto">
                   <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>

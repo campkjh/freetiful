@@ -79,7 +79,7 @@ export interface MessageItem {
 export const chatApi = {
   // Rooms
   getRooms: (params?: { search?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number; withTotal?: boolean }) =>
-    apiClient.get<{ data: ChatRoomItem[]; total: number; hasMore: boolean }>(`${BASE}/rooms`, { params }),
+    apiClient.get<{ data: ChatRoomItem[]; total: number; hasMore: boolean }>(`${BASE}/rooms`, { params, timeout: 4500 }),
 
   createRoom: (proProfileId: string, matchRequestId?: string) =>
     apiClient.post(`${BASE}/rooms`, { proProfileId, matchRequestId }),

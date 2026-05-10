@@ -42,6 +42,7 @@ export class ChatService implements OnModuleInit {
 
   onModuleInit() {
     this.ensurePerformanceIndexes().catch(() => undefined);
+    this.ensureRoomMembersBackfilled().catch(() => undefined);
   }
 
   private async ensurePerformanceIndexes() {
@@ -64,6 +65,38 @@ export class ChatService implements OnModuleInit {
       this.prisma.$executeRawUnsafe(
         'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_rooms_matchRequestId_idx" ON "chat_rooms" ("matchRequestId")',
       ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "messages_senderId_createdAt_roomId_idx" ON "messages" ("senderId", "createdAt", "roomId")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "quotations_userId_chatRoomId_idx" ON "quotations" ("userId", "chatRoomId")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "quotations_chatRoomId_userId_idx" ON "quotations" ("chatRoomId", "userId")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_requests_userId_createdAt_idx" ON "match_requests" ("userId", "createdAt")',
+      ),
+    ]);
+  }
+
+  private async ensureRoomMembersBackfilled() {
+    await Promise.allSettled([
+      this.prisma.$executeRawUnsafe(`
+        INSERT INTO "chat_room_members" ("roomId", "userId")
+        SELECT cr."id", cr."userId"
+        FROM "chat_rooms" cr
+        WHERE cr."userId" IS NOT NULL
+        ON CONFLICT DO NOTHING
+      `),
+      this.prisma.$executeRawUnsafe(`
+        INSERT INTO "chat_room_members" ("roomId", "userId")
+        SELECT cr."id", pp."userId"
+        FROM "chat_rooms" cr
+        JOIN "pro_profiles" pp ON pp."id" = cr."proProfileId"
+        WHERE pp."userId" IS NOT NULL
+        ON CONFLICT DO NOTHING
+      `),
     ]);
   }
 
@@ -221,6 +254,57 @@ export class ChatService implements OnModuleInit {
         },
       ],
     };
+  }
+
+  private async getHotChatRoomIds(participantUserIds: string[], take: number) {
+    const cap = Math.max(take * 6, 80);
+    const [memberRooms, directRooms, messageRooms, quotationRooms, requestRooms] = await Promise.all([
+      this.prisma.chatRoomMember.findMany({
+        where: { userId: { in: participantUserIds } },
+        select: { roomId: true },
+        take: cap,
+      }),
+      this.prisma.chatRoom.findMany({
+        where: {
+          OR: [
+            { userId: { in: participantUserIds } },
+            { proProfile: { userId: { in: participantUserIds } } },
+          ],
+        },
+        orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+        select: { id: true },
+        take: cap,
+      }),
+      this.prisma.message.findMany({
+        where: { senderId: { in: participantUserIds } },
+        orderBy: { createdAt: 'desc' },
+        distinct: ['roomId'],
+        select: { roomId: true },
+        take: cap,
+      }),
+      this.prisma.quotation.findMany({
+        where: { userId: { in: participantUserIds }, chatRoomId: { not: null } },
+        orderBy: { updatedAt: 'desc' },
+        select: { chatRoomId: true },
+        take: cap,
+      }),
+      this.prisma.chatRoom.findMany({
+        where: { matchRequest: { is: { userId: { in: participantUserIds } } } },
+        orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+        select: { id: true },
+        take: cap,
+      }),
+    ]);
+
+    const ids = new Set<string>();
+    for (const item of memberRooms) ids.add(item.roomId);
+    for (const item of directRooms) ids.add(item.id);
+    for (const item of messageRooms) ids.add(item.roomId);
+    for (const item of quotationRooms) {
+      if (item.chatRoomId) ids.add(item.chatRoomId);
+    }
+    for (const item of requestRooms) ids.add(item.id);
+    return Array.from(ids);
   }
 
   private async refreshRoomLastVisibleMessage(roomId: string) {
@@ -849,36 +933,42 @@ export class ChatService implements OnModuleInit {
       matchRequest: { select: { id: true, eventDate: true, eventTime: true, eventLocation: true } },
     };
 
-    let [rooms, totalCount] = await Promise.all([
-      this.prisma.chatRoom.findMany({
-        where,
-        select: roomSelect,
-        orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
-        skip: (page - 1) * take,
-        take,
-      }),
-      withTotal ? this.prisma.chatRoom.count({ where }) : Promise.resolve(0),
-    ]);
+    let rooms: any[] = [];
+    let totalCount = 0;
 
-    if (rooms.length === 0 && page === 1 && !hasListFilters) {
-      const fallbackWhere = applyListFilters({
-        AND: [
-          { OR: this.chatRoomParticipantWhere(participantUserIds) },
-          this.chatRoomVisibleWhere(participantUserIds),
-        ],
-      });
-      [rooms, totalCount] = await Promise.all([
-        this.prisma.chatRoom.findMany({
-          where: fallbackWhere,
+    // 채팅 리스트 첫 화면은 0.5초 안에 보여야 하므로, 관계 OR 전체 탐색보다
+    // chat_room_members / 직접 소유 / 최근 메시지로 후보 id를 작게 만든 뒤 상세를 조회한다.
+    if (!hasListFilters && page === 1) {
+      const hotRoomIds = await this.getHotChatRoomIds(participantUserIds, take);
+      if (hotRoomIds.length > 0) {
+        rooms = await this.prisma.chatRoom.findMany({
+          where: {
+            id: { in: hotRoomIds },
+            AND: [this.chatRoomVisibleWhere(participantUserIds)],
+          },
           select: roomSelect,
           orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
           take,
-        }),
-        withTotal ? this.prisma.chatRoom.count({ where: fallbackWhere }) : Promise.resolve(0),
-      ]);
-      if (rooms.length > 0) {
-        this.maybeBackgroundRepair(userId);
+        });
+        totalCount = withTotal ? hotRoomIds.length : rooms.length;
       }
+    }
+
+    if (rooms.length === 0) {
+      [rooms, totalCount] = await Promise.all([
+        this.prisma.chatRoom.findMany({
+          where,
+          select: roomSelect,
+          orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+          skip: (page - 1) * take,
+          take,
+        }),
+        withTotal ? this.prisma.chatRoom.count({ where }) : Promise.resolve(0),
+      ]);
+    }
+
+    if (rooms.length === 0 && page === 1 && !hasListFilters) {
+      this.maybeBackgroundRepair(userId);
     }
 
     const data = rooms.map((room) => {

@@ -742,6 +742,9 @@ model Quotation {
   chatRoom   ChatRoom?  @relation(fields: [chatRoomId], references: [id])
   payment    Payment?   @relation(fields: [paymentId], references: [id])
 
+  @@index([userId, chatRoomId])
+  @@index([chatRoomId, userId])
+  @@index([paymentId, createdAt])
   @@map("quotations")
 }
 
@@ -772,6 +775,10 @@ model Payment {
   review       Review?
   settlementLog SettlementLog?
 
+  @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
+  @@index([proProfileId, status, createdAt])
+  @@index([quotationId])
   @@map("payments")
 }
 

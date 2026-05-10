@@ -227,25 +227,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     useChatStore.getState().connect();
     const runPrefetch = () => {
       const chatState = useChatStore.getState();
-      if (chatState.rooms.length === 0 && !chatState.roomsLoading) {
-        chatState.fetchRooms();
+      if (!chatState.roomsLoading) {
+        chatState.fetchRooms({ limit: 50 }).catch(() => {});
       }
       import('@/lib/api/notification.api').then(({ notificationApi }) => {
         notificationApi.prefetch();
       });
     };
 
-    const win = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    if (win.requestIdleCallback) {
-      const id = win.requestIdleCallback(runPrefetch, { timeout: 2500 });
-      return () => win.cancelIdleCallback?.(id);
-    }
-    const timeout = window.setTimeout(runPrefetch, 800);
-    return () => window.clearTimeout(timeout);
-  }, [authUser]);
+    runPrefetch();
+    const retry = window.setTimeout(runPrefetch, 700);
+    return () => window.clearTimeout(retry);
+  }, [authUser?.id]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';
