@@ -8,6 +8,11 @@ const KAKAO_REST_KEY =
   process.env.NEXT_PUBLIC_KAKAO_REST_KEY ||
   process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID ||
   'dca1b472188890116c81a55eff590885';
+const NAVER_CLIENT_ID =
+  process.env.NEXT_PUBLIC_NAVER_CLIENT_ID ||
+  process.env.NEXT_PUBLIC_NAVER_CLIENT_ID_WEB ||
+  'R4WM7ZyC8hHuE_O7qLdy';
+const NAVER_REDIRECT_URI_KEY = 'freetiful-naver-redirect-uri';
 
 function normalizeOrigin(value: string | null | undefined) {
   return value?.replace(/\/+$/, '') || '';
@@ -17,11 +22,7 @@ export function getOAuthOrigin() {
   const configured = normalizeOrigin(process.env.NEXT_PUBLIC_WEB_URL || process.env.NEXT_PUBLIC_APP_URL);
   if (configured) return configured;
   if (typeof window === 'undefined') return DEFAULT_WEB_ORIGIN;
-
-  const origin = normalizeOrigin(window.location.origin);
-  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
-  const isPreview = window.location.hostname.endsWith('.vercel.app');
-  return isLocal || isPreview ? origin : origin.replace('://www.', '://');
+  return normalizeOrigin(window.location.origin);
 }
 
 export function getOAuthRedirectUri(provider: Exclude<Provider, 'google'>) {
@@ -66,6 +67,17 @@ export function consumeAuthReturnTo(fallback = '/main') {
   return normalizeAuthReturnTo(value, fallback);
 }
 
+export function consumeNaverRedirectUri() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const redirectUri = sessionStorage.getItem(NAVER_REDIRECT_URI_KEY);
+    sessionStorage.removeItem(NAVER_REDIRECT_URI_KEY);
+    return redirectUri || null;
+  } catch {
+    return null;
+  }
+}
+
 export function startOAuth(provider: Provider) {
   if (typeof window === 'undefined') return;
 
@@ -90,10 +102,17 @@ export function startOAuth(provider: Provider) {
   if (provider === 'naver') {
     if (ios?.naverLogin) { ios.naverLogin.postMessage({}); return; }
     if (and?.naverLogin) { and.naverLogin(); return; }
-    const key = 'R4WM7ZyC8hHuE_O7qLdy'; // 백엔드 NAVER_CLIENT_ID 와 동일
-    const state = Math.random().toString(36).substring(7);
+    const state = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const redirectUri = getOAuthRedirectUri('naver');
     sessionStorage.setItem('naver_state', state);
-    window.location.href = `https://nid.naver.com/oauth2.0/authorize?client_id=${key}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('naver'))}&response_type=code&state=${state}`;
+    sessionStorage.setItem(NAVER_REDIRECT_URI_KEY, redirectUri);
+    const params = new URLSearchParams({
+      client_id: NAVER_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      state,
+    });
+    window.location.href = `https://nid.naver.com/oauth2.0/authorize?${params.toString()}`;
     return;
   }
 
