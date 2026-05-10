@@ -464,6 +464,7 @@ model ProSchedule {
   payment    Payment?   @relation(fields: [paymentId], references: [id])
 
   @@unique([proProfileId, date])
+  @@index([proProfileId, status, date])
   @@map("pro_schedules")
 }
 
@@ -584,6 +585,7 @@ model MatchDelivery {
   matchRequest MatchRequest @relation(fields: [matchRequestId], references: [id], onDelete: Cascade)
   proProfile   ProProfile   @relation(fields: [proProfileId], references: [id])
 
+  @@index([proProfileId, status, deliveredAt])
   @@map("match_deliveries")
 }
 
@@ -610,6 +612,9 @@ model ChatRoom {
 
   @@index([userId, userDeletedAt, lastMessageAt])
   @@index([proProfileId, proDeletedAt, lastMessageAt])
+  @@index([userId, lastMessageAt])
+  @@index([proProfileId, lastMessageAt])
+  @@index([matchRequestId])
   @@index([lastMessageAt])
   @@map("chat_rooms")
 }
@@ -626,6 +631,7 @@ model ChatRoomMember {
 
   @@id([roomId, userId])
   @@index([userId])
+  @@index([userId, roomId])
   @@map("chat_room_members")
 }
 
@@ -652,6 +658,8 @@ model Message {
   reactions MessageReaction[]
 
   @@index([roomId, createdAt])
+  @@index([roomId, isDeleted, createdAt])
+  @@index([senderId, roomId, createdAt])
   @@map("messages")
 }
 

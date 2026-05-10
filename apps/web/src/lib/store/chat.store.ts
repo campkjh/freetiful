@@ -9,6 +9,8 @@ const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
 // 30분 — 채팅 리스트가 단기간 캐시 만료로 사라지는 문제 방지.
 // (예: 다른 페이지에 5분 머무르고 돌아오면 빈 화면이 깜빡 → 다시 채워지던 현상)
 const ROOM_CACHE_TTL = 30 * 60_000;
+const ROOM_REVALIDATE_MS = 5_000;
+const DEFAULT_SOCKET_URL = 'https://affectionate-smile-production-6535.up.railway.app';
 
 type FetchRoomsParams = {
   search?: string;
@@ -64,9 +66,35 @@ function writeRoomsCache(rooms: ChatRoomItem[], userId = currentUserId()) {
   } catch {}
 }
 
+function dispatchChatEvent(name: string, detail?: Record<string, unknown>) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  } catch {}
+}
+
+function normalizeSocketBaseUrl(value?: string | null) {
+  const trimmed = value?.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return trimmed
+    .replace(/\/api\/v1$/i, '')
+    .replace(/\/api$/i, '')
+    .replace(/\/chat$/i, '');
+}
+
+function isSameBrowserHost(url: string) {
+  if (typeof window === 'undefined') return false;
+  try {
+    return new URL(url, window.location.origin).hostname === window.location.hostname;
+  } catch {
+    return false;
+  }
+}
+
 function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
   const system = (message.metadata as any)?.system;
   if (system?.kind === 'quote') return { hasQuoteInquiry: true };
+  if (system?.kind === 'payment_pending_acceptance') return { hasQuoteInquiry: true };
   if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
     return { hasQuoteInquiry: true, hasConfirmedBooking: true };
   }
@@ -74,6 +102,35 @@ function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
   if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
   if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
   return {};
+}
+
+function getRoomFlagsFromPayload(data: SendMessagePayload): Partial<ChatRoomItem> {
+  const system = (data.metadata as Record<string, any> | null)?.system;
+  if (system?.kind === 'quote') return { hasQuoteInquiry: true };
+  if (system?.kind === 'payment_pending_acceptance') return { hasQuoteInquiry: true };
+  if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
+    return { hasQuoteInquiry: true, hasConfirmedBooking: true };
+  }
+  const content = data.content || '';
+  if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
+  if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
+  return {};
+}
+
+function getPreviewContent(data: SendMessagePayload) {
+  if (typeof data.content === 'string' && data.content.trim()) return data.content;
+  switch (data.type) {
+    case 'image':
+      return '사진을 보냈습니다';
+    case 'file':
+      return '파일을 보냈습니다';
+    case 'location':
+      return '위치를 공유했습니다';
+    case 'system':
+      return '안내 메시지를 보냈습니다';
+    default:
+      return '메시지를 보냈습니다';
+  }
 }
 
 function ensureClientMessageId(data: SendMessagePayload): SendMessagePayload {
@@ -93,13 +150,24 @@ function messageTime(message: Pick<MessageItem, 'createdAt'>) {
   return Number.isFinite(time) ? time : 0;
 }
 
+function sortMessagesAsc<T extends Pick<MessageItem, 'createdAt'>>(messages: T[]) {
+  return [...messages].sort((a, b) => messageTime(a) - messageTime(b));
+}
+
 function sameClientMessageId(a: MessageItem, b: MessageItem) {
   const aId = (a.metadata as Record<string, unknown> | null)?.clientMessageId;
   const bId = (b.metadata as Record<string, unknown> | null)?.clientMessageId;
   return typeof aId === 'string' && aId.length > 0 && aId === bId;
 }
 
+function replaceOrAppendMessage(messages: MessageItem[], message: MessageItem) {
+  const filtered = messages.filter((item) => item.id !== message.id && !sameClientMessageId(item, message));
+  return sortMessagesAsc([...filtered, message]);
+}
+
 function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[], requestedAt: number) {
+  if (fetched.length === 0 && current.length > 0) return current;
+
   const fetchedIds = new Set(fetched.map((message) => message.id));
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
@@ -107,7 +175,7 @@ function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[]
     return messageTime(message) >= requestedAt - 2_000;
   });
 
-  return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
+  return sortMessagesAsc([...fetched, ...preserved]);
 }
 
 interface ChatState {
@@ -143,7 +211,7 @@ interface ChatState {
   fetchMessages: (roomId: string, loadMore?: boolean) => Promise<void>;
   sendMessage: (data: SendMessagePayload) => Promise<MessageItem | null>;
   editMessage: (messageId: string, content: string) => void;
-  deleteMessage: (messageId: string) => void;
+  deleteMessage: (messageId: string) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
   setTyping: (isTyping: boolean) => void;
   toggleFavorite: (roomId: string) => Promise<void>;
@@ -175,18 +243,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const isProdHost =
       typeof window !== 'undefined' &&
       /freetiful\.com$/i.test(window.location.hostname);
+    const isHttpLocalDev =
+      typeof window !== 'undefined' &&
+      window.location.hostname === 'localhost' &&
+      /^https?:$/i.test(window.location.protocol);
     const fallbackUrl =
-      typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      isHttpLocalDev
         ? 'http://localhost:4000'
-        : isProdHost
-          ? 'https://affectionate-smile-production-6535.up.railway.app'
-          : typeof window !== 'undefined'
-            ? window.location.origin
-            : '';
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SOCKET_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      fallbackUrl;
+        : DEFAULT_SOCKET_URL;
+    const socketEnvUrl = normalizeSocketBaseUrl(process.env.NEXT_PUBLIC_SOCKET_URL);
+    const apiEnvUrl = normalizeSocketBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+    const safeApiEnvUrl = isProdHost && isSameBrowserHost(apiEnvUrl) ? '' : apiEnvUrl;
+    const baseUrl = socketEnvUrl || safeApiEnvUrl || normalizeSocketBaseUrl(fallbackUrl);
 
     const socket = io(baseUrl + '/chat', {
       auth: { token },
@@ -194,54 +262,129 @@ export const useChatStore = create<ChatState>((set, get) => ({
       reconnection: true,
       reconnectionDelay: 300,
       reconnectionDelayMax: 2000,
-      timeout: 8000,
+      timeout: 2500,
+      rememberUpgrade: true,
     });
 
-    socket.on('connect', () => set({ isConnected: true }));
-    socket.on('disconnect', () => set({ isConnected: false }));
+    socket.on('connect', () => {
+      set({ isConnected: true });
+      dispatchChatEvent('freetiful:chat-socket-connected');
+    });
+    socket.on('disconnect', () => {
+      set({ isConnected: false });
+      dispatchChatEvent('freetiful:chat-socket-disconnected');
+    });
 
     socket.on('newMessage', (message: MessageItem) => {
       const { currentRoomId, messageCache } = get();
+      const myId = currentUserId();
+      const isMine = !!myId && message.senderId === myId;
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      if (!cachedForRoom.some((m) => m.id === message.id)) {
-        messageCache.set(message.roomId, [...cachedForRoom, message].slice(-80));
-      }
+      messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       if (message.roomId === currentRoomId) {
         set((s) => ({
-          messages: s.messages.some((m) => m.id === message.id)
-            ? s.messages
-            : [...s.messages, message],
+          messages: replaceOrAppendMessage(s.messages, message),
         }));
       }
       // Update room list
-      set((s) => ({
-        rooms: s.rooms.map((r) =>
+      set((s) => {
+        const nextRooms = s.rooms.map((r) =>
           r.id === message.roomId
             ? {
                 ...r,
                 ...getRoomFlagsFromMessage(message),
                 lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
                 lastMessageAt: message.createdAt,
-                unreadCount: message.roomId === currentRoomId ? r.unreadCount : r.unreadCount + 1,
+                unreadCount:
+                  message.roomId === currentRoomId || isMine
+                    ? 0
+                    : r.unreadCount + 1,
               }
             : r,
         ).sort((a, b) => {
           const da = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
-        }),
-      }));
+        });
+        writeRoomsCache(nextRooms);
+        return { rooms: nextRooms };
+      });
+      dispatchChatEvent('freetiful:chat-room-activity', {
+        roomId: message.roomId,
+        messageId: message.id,
+        type: message.type,
+        systemKind: (message.metadata as any)?.system?.kind || null,
+      });
       if (!hasRoomInList) {
         get().fetchRooms({ limit: 50, force: true }).catch(() => {});
       }
     });
 
+    socket.on('profileUpdated', (data: { userId: string; name?: string | null; profileImageUrl?: string | null }) => {
+      if (!data?.userId) return;
+      set((s) => {
+        const nextRooms = s.rooms.map((room) => {
+          if (room.otherUser.id !== data.userId) return room;
+          return {
+            ...room,
+            otherUser: {
+              ...room.otherUser,
+              ...(data.name !== undefined ? { name: data.name || room.otherUser.name } : {}),
+              ...(data.profileImageUrl !== undefined ? { profileImageUrl: data.profileImageUrl } : {}),
+            },
+          };
+        });
+        const nextMessages = s.messages.map((message) => {
+          if (message.senderId !== data.userId) return message;
+          return {
+            ...message,
+            sender: {
+              ...message.sender,
+              ...(data.name !== undefined ? { name: data.name || message.sender.name } : {}),
+              ...(data.profileImageUrl !== undefined ? { profileImageUrl: data.profileImageUrl } : {}),
+            },
+          };
+        });
+        for (const [roomId, cached] of s.messageCache.entries()) {
+          s.messageCache.set(roomId, cached.map((message) => (
+            message.senderId === data.userId
+              ? {
+                  ...message,
+                  sender: {
+                    ...message.sender,
+                    ...(data.name !== undefined ? { name: data.name || message.sender.name } : {}),
+                    ...(data.profileImageUrl !== undefined ? { profileImageUrl: data.profileImageUrl } : {}),
+                  },
+                }
+              : message
+          )));
+        }
+        writeRoomsCache(nextRooms);
+        return { rooms: nextRooms, messages: nextMessages };
+      });
+      dispatchChatEvent('freetiful:chat-profile-updated', data);
+    });
+
+    let refreshTimer: number | null = null;
     const refreshRooms = () => {
-      get().fetchRooms({ limit: 50, force: true }).catch(() => {});
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
+        dispatchChatEvent('freetiful:chat-rooms-changed');
+        refreshTimer = null;
+      }, 120);
     };
     socket.on('roomUpdated', refreshRooms);
     socket.on('unreadUpdate', refreshRooms);
+    socket.on('dashboardUpdated', (data: Record<string, unknown>) => {
+      refreshRooms();
+      dispatchChatEvent('freetiful:dashboard-updated', data);
+    });
+    socket.on('matchUpdated', (data: Record<string, unknown>) => {
+      dispatchChatEvent('freetiful:match-requests-changed', data);
+      dispatchChatEvent('freetiful:dashboard-updated', data);
+    });
 
     socket.on('messageEdited', (updated: any) => {
       set((s) => ({
@@ -306,6 +449,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   disconnect: () => {
     get().socket?.disconnect();
     set({ socket: null, isConnected: false });
+    dispatchChatEvent('freetiful:chat-socket-disconnected');
   },
 
   fetchRooms: async (params) => {
@@ -324,9 +468,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const hasFilters = !!(apiParams.search || apiParams.dateFrom || apiParams.dateTo);
-    const requestParams = { limit: 30, ...apiParams };
+    const requestParams = { limit: 30, withTotal: false, ...apiParams };
     if (!force && !hasFilters && roomsLoading) return;
-    if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < 30_000) {
+    if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < ROOM_REVALIDATE_MS) {
       set({ roomsLoading: false });
       return;
     }
@@ -377,11 +521,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const cached = messageCache.get(roomId) || [];
     set({ currentRoomId: roomId, messages: cached, messageCursor: null, hasMoreMessages: false });
     socket?.emit('joinRoom', { roomId });
+    chatApi.markAsRead(roomId).catch(() => {});
 
     // Reset unread in room list
-    set((s) => ({
-      rooms: s.rooms.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r)),
-    }));
+    set((s) => {
+      const nextRooms = s.rooms.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r));
+      writeRoomsCache(nextRooms);
+      return { rooms: nextRooms };
+    });
   },
 
   leaveRoom: () => {
@@ -405,7 +552,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const nextMessages = loadMore
         ? [...newMsgs, ...get().messages]
         : mergeFetchedMessageItems(get().messages, newMsgs, requestedAt);
-      get().messageCache.set(roomId, nextMessages);
+      if (nextMessages.length > 0 || newMsgs.length > 0) {
+        get().messageCache.set(roomId, nextMessages);
+      }
       set((s) => ({
         messages: loadMore ? [...newMsgs, ...s.messages] : mergeFetchedMessageItems(s.messages, newMsgs, requestedAt),
         hasMoreMessages: res.data.hasMore,
@@ -422,36 +571,122 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const roomId = currentRoomId;
     const payload = ensureClientMessageId(data);
-    const applyPersistedMessage = (message: MessageItem) => {
-      const { messageCache } = get();
-      const cachedForRoom = messageCache.get(message.roomId) || [];
-      if (!cachedForRoom.some((m) => m.id === message.id)) {
-        messageCache.set(message.roomId, [...cachedForRoom, message].slice(-80));
-      }
-      const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
-      set((s) => ({
-        messages: s.currentRoomId === message.roomId && !s.messages.some((m) => m.id === message.id)
-          ? [...s.messages, message]
-          : s.messages,
-        rooms: s.rooms.map((r) =>
-          r.id === message.roomId
+    const previewCreatedAt = new Date().toISOString();
+    const previewContent = getPreviewContent(payload);
+    const hasRoomInList = get().rooms.some((room) => room.id === roomId);
+    const currentUser = useAuthStore.getState().user;
+    const optimisticClientMessageId = (payload.metadata as Record<string, unknown> | undefined)?.clientMessageId;
+    const optimisticMessage: MessageItem | null = currentUser
+      ? {
+          id: `pending-${optimisticClientMessageId || Date.now()}`,
+          roomId,
+          senderId: currentUser.id,
+          type: payload.type as MessageItem['type'],
+          content: payload.content || null,
+          metadata: payload.metadata || null,
+          replyToId: payload.replyToId || null,
+          replyTo: null,
+          isEdited: false,
+          isDeleted: false,
+          isRead: false,
+          createdAt: previewCreatedAt,
+          sender: {
+            id: currentUser.id,
+            name: currentUser.name || '나',
+            profileImageUrl: currentUser.profileImageUrl || null,
+          },
+          reactions: [],
+        }
+      : null;
+
+    if (optimisticMessage) {
+      set((s) => {
+        const nextMessages = s.currentRoomId === roomId
+          ? replaceOrAppendMessage(s.messages, optimisticMessage)
+          : s.messages;
+        const cached = s.messageCache.get(roomId) || [];
+        s.messageCache.set(roomId, replaceOrAppendMessage(cached, optimisticMessage).slice(-80));
+        return { messages: nextMessages };
+      });
+    }
+
+    if (hasRoomInList) {
+      set((s) => {
+        const nextRooms = s.rooms.map((r) =>
+          r.id === roomId
             ? {
                 ...r,
-                ...getRoomFlagsFromMessage(message),
-                lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
-                lastMessageAt: message.createdAt,
+                ...getRoomFlagsFromPayload(payload),
+                lastMessage: {
+                  id: `pending-${(payload.metadata as Record<string, unknown> | undefined)?.clientMessageId || Date.now()}`,
+                  type: payload.type,
+                  content: previewContent,
+                  createdAt: previewCreatedAt,
+                },
+                lastMessageAt: previewCreatedAt,
+                unreadCount: 0,
               }
             : r,
         ).sort((a, b) => {
           const da = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
-        }),
-      }));
-      writeRoomsCache(get().rooms);
-      if (!hasRoomInList) {
+        });
+        writeRoomsCache(nextRooms);
+        return { rooms: nextRooms };
+      });
+      dispatchChatEvent('freetiful:chat-room-activity', {
+        roomId,
+        type: payload.type,
+        optimistic: true,
+        systemKind: ((payload.metadata as Record<string, any> | null)?.system?.kind) || null,
+      });
+      dispatchChatEvent('freetiful:chat-rooms-changed', {
+        roomId,
+        optimistic: true,
+      });
+    }
+
+    const applyPersistedMessage = (message: MessageItem) => {
+      const { messageCache } = get();
+      const cachedForRoom = messageCache.get(message.roomId) || [];
+      messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
+      const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
+      set((s) => {
+        const nextMessages = s.currentRoomId === message.roomId
+          ? replaceOrAppendMessage(s.messages, message)
+          : s.messages;
+        const nextRooms = s.rooms.map((r) =>
+          r.id === message.roomId
+            ? {
+                ...r,
+                ...getRoomFlagsFromMessage(message),
+                lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
+                lastMessageAt: message.createdAt,
+                unreadCount: 0,
+              }
+            : r,
+        ).sort((a, b) => {
+          const da = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return db - da;
+        });
+        writeRoomsCache(nextRooms);
+        return { messages: nextMessages, rooms: nextRooms };
+      });
+      dispatchChatEvent('freetiful:chat-room-activity', {
+        roomId: message.roomId,
+        messageId: message.id,
+        type: message.type,
+        systemKind: (message.metadata as any)?.system?.kind || null,
+      });
+      dispatchChatEvent('freetiful:chat-rooms-changed', {
+        roomId: message.roomId,
+        messageId: message.id,
+      });
+      window.setTimeout(() => {
         get().fetchRooms({ limit: 50, force: true }).catch(() => {});
-      }
+      }, hasRoomInList ? 250 : 0);
     };
 
     const sendViaRest = async () => {
@@ -470,7 +705,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (settled) return;
         settled = true;
         resolve(null);
-      }, 4500);
+      }, 1200);
 
       socket.emit('sendMessage', { roomId, ...payload }, (ack?: SendMessageAck) => {
         if (settled) return;
@@ -505,10 +740,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
     socket.emit('editMessage', { messageId, roomId: currentRoomId, content });
   },
 
-  deleteMessage: (messageId) => {
+  deleteMessage: async (messageId) => {
     const { socket, currentRoomId } = get();
-    if (!socket || !currentRoomId) return;
-    socket.emit('deleteMessage', { messageId, roomId: currentRoomId });
+    if (!currentRoomId) return;
+
+    set((s) => {
+      const nextMessages = s.messages.map((m) =>
+        m.id === messageId ? { ...m, isDeleted: true, content: '삭제된 메시지입니다' } : m,
+      );
+      const cached = s.messageCache.get(currentRoomId) || [];
+      s.messageCache.set(
+        currentRoomId,
+        cached.map((m) => (m.id === messageId ? { ...m, isDeleted: true, content: '삭제된 메시지입니다' } : m)),
+      );
+      return { messages: nextMessages };
+    });
+
+    await chatApi.deleteMessage(messageId);
+    if (socket?.connected) {
+      socket.emit('deleteMessage', { messageId, roomId: currentRoomId });
+    }
   },
 
   addReaction: (messageId, emoji) => {
@@ -532,6 +783,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   deleteRoom: async (roomId) => {
     await chatApi.deleteRoom(roomId);
-    set((s) => ({ rooms: s.rooms.filter((r) => r.id !== roomId) }));
+    set((s) => {
+      const nextRooms = s.rooms.filter((r) => r.id !== roomId);
+      writeRoomsCache(nextRooms);
+      return { rooms: nextRooms };
+    });
   },
 }));

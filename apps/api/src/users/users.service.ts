@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
+import { ChatRealtimeService } from '../chat/chat-realtime.service';
 import { UserRole } from '@prisma/client';
 
 const NOTIFICATION_SETTING_FIELDS = [
@@ -27,6 +28,7 @@ export class UsersService {
     private readonly discovery: DiscoveryService,
     private readonly notificationService: NotificationService,
     private readonly imageService: ImageService,
+    private readonly chatRealtime: ChatRealtimeService,
   ) {}
 
   async getProfile(userId: string) {
@@ -63,7 +65,7 @@ export class UsersService {
       profileImageUrl = await this.saveProfileImageFromDataUrl(data.profileImageDataUrl);
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
@@ -73,6 +75,43 @@ export class UsersService {
         }),
       },
     });
+    if (data.name !== undefined || profileImageUrl !== undefined) {
+      this.chatRealtime.emitProfileUpdatedForUser(userId, {
+        name: updated.name,
+        profileImageUrl: updated.profileImageUrl,
+      }).catch(() => undefined);
+    }
+    return updated;
+  }
+
+  async uploadProfileImage(userId: string, file: Express.Multer.File) {
+    await this.ensureUser(userId);
+    if (!file) {
+      throw new BadRequestException('이미지 파일이 필요합니다.');
+    }
+
+    const processed = await this.imageService.processImage(file, {
+      maxWidth: 1200,
+      maxHeight: 1200,
+      quality: 85,
+      requireFace: false,
+    });
+
+    const profileImageUrl = processed.webpPath || processed.path;
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profileImageUrl },
+    });
+    this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl }).catch(() => undefined);
+
+    return {
+      profileImageUrl,
+      width: processed.width,
+      height: processed.height,
+      size: processed.size,
+      mimeType: processed.mimeType,
+    };
   }
 
   private async saveProfileImageFromDataUrl(dataUrl: string): Promise<string> {

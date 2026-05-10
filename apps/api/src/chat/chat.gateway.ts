@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -11,7 +12,21 @@ import { Ack } from '@nestjs/websockets/decorators/ack.decorator';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
+import { ChatRealtimeService } from './chat-realtime.service';
 import { SendMessageDto } from './dto/chat.dto';
+
+const defaultSocketOrigins = [
+  'http://localhost:3000',
+  'http://localhost:4000',
+  'http://localhost:8100',
+  'http://localhost:8081',
+  'http://localhost',
+  'https://localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'https://freetiful.com',
+  'https://www.freetiful.com',
+];
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -19,28 +34,26 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? [
-      'http://localhost:3000',
-      'http://localhost:8081',
-      'https://freetiful.com',
-      'https://www.freetiful.com',
-    ],
+    origin: Array.from(new Set([...(process.env.ALLOWED_ORIGINS?.split(',') ?? []), ...defaultSocketOrigins])),
     credentials: true,
   },
   namespace: '/chat',
   pingInterval: 10000,
   pingTimeout: 5000,
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server: Server;
-
-  private userSockets = new Map<string, Set<string>>();
 
   constructor(
     private jwtService: JwtService,
     private chatService: ChatService,
+    private chatRealtimeService: ChatRealtimeService,
   ) {}
+
+  afterInit(server: Server) {
+    this.chatRealtimeService.setServer(server);
+  }
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
@@ -56,11 +69,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const payload = this.jwtService.verify(token);
       client.userId = payload.sub;
 
-      // Track connected sockets per user
-      if (!this.userSockets.has(payload.sub)) {
-        this.userSockets.set(payload.sub, new Set());
-      }
-      this.userSockets.get(payload.sub)!.add(client.id);
+      this.chatRealtimeService.trackUserSocket(payload.sub, client.id);
     } catch {
       client.disconnect();
     }
@@ -68,11 +77,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: AuthenticatedSocket) {
     if (client.userId) {
-      const sockets = this.userSockets.get(client.userId);
-      if (sockets) {
-        sockets.delete(client.id);
-        if (sockets.size === 0) this.userSockets.delete(client.userId);
-      }
+      this.chatRealtimeService.untrackUserSocket(client.userId, client.id);
     }
   }
 
@@ -122,9 +127,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Notify connected room-list screens that are not currently joined to the room.
       const memberIds = await this.chatService.getRoomMemberIds(roomId);
       for (const memberId of memberIds) {
+        this.chatRealtimeService.emitToUser(memberId, 'newMessage', message);
+        this.chatRealtimeService.emitToUser(memberId, 'roomUpdated', { roomId });
         if (memberId === client.userId) continue;
-        this.emitToUser(memberId, 'roomUpdated', { roomId });
-        this.emitToUser(memberId, 'unreadUpdate', { roomId });
+        this.chatRealtimeService.emitToUser(memberId, 'unreadUpdate', { roomId });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '메시지 전송에 실패했습니다';
@@ -201,15 +207,5 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       roomId: data.roomId,
       userId: client.userId,
     });
-  }
-
-  // Helper: emit to specific user across all their connected sockets
-  private emitToUser(userId: string, event: string, data: any) {
-    const sockets = this.userSockets.get(userId);
-    if (sockets) {
-      for (const socketId of sockets) {
-        this.server.to(socketId).emit(event, data);
-      }
-    }
   }
 }

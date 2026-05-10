@@ -16,6 +16,7 @@ import { DiscoveryService } from '../discovery/discovery.service';
 import { NotificationService } from '../notification/notification.service';
 import { PaymentService } from '../payment/payment.service';
 import { PuddingService } from '../pudding/pudding.service';
+import { ChatRealtimeService } from '../chat/chat-realtime.service';
 
 const LEGACY_HANDOVER_PROFILES = [
   {
@@ -64,6 +65,8 @@ function handoverSearchMatches(profile: LegacyHandoverProfile, search?: string) 
 export class ProService implements OnModuleInit {
   private readonly logger = new Logger(ProService.name);
   private readonly priceResetAuditAction = 'maintenance:force_reset_all_pro_service_prices_to_zero_20260503_v2';
+  private profileIdentityCache = new Map<string, { id: string; profileViews: number; ts: number }>();
+  private readonly PROFILE_IDENTITY_CACHE_TTL = 10 * 60_000;
 
   constructor(
     private prisma: PrismaService,
@@ -73,11 +76,13 @@ export class ProService implements OnModuleInit {
     @Inject(forwardRef(() => PaymentService))
     private paymentService: PaymentService,
     private pudding: PuddingService,
+    private chatRealtime: ChatRealtimeService,
   ) {}
 
   // 서버 시작 시 기존 프로 유저들의 User.profileImageUrl 이 비어있으면
   // 대표 ProProfileImage 의 URL 로 채워줌 (일회성 마이그레이션).
   async onModuleInit() {
+    this.ensurePerformanceIndexes().catch(() => undefined);
     await this.resetExistingProServicePricesToInquiryOnce();
 
     try {
@@ -114,6 +119,17 @@ export class ProService implements OnModuleInit {
     } catch (e: any) {
       this.logger.warn(`profile image sync skipped: ${e?.message || e}`);
     }
+  }
+
+  private async ensurePerformanceIndexes() {
+    await Promise.allSettled([
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "pro_schedules_proProfileId_status_date_idx" ON "pro_schedules" ("proProfileId", "status", "date")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_deliveries_proProfileId_status_deliveredAt_idx" ON "match_deliveries" ("proProfileId", "status", "deliveredAt")',
+      ),
+    ]);
   }
 
   private async resetExistingProServicePricesToInquiryOnce() {
@@ -656,6 +672,7 @@ export class ProService implements OnModuleInit {
         where: { id: userId },
         data: { profileImageUrl: image.imageUrl },
       });
+      this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl: image.imageUrl }).catch(() => undefined);
     }
 
     return image;
@@ -701,11 +718,13 @@ export class ProService implements OnModuleInit {
           where: { id: userId },
           data: { profileImageUrl: first.imageUrl },
         });
+        this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl: first.imageUrl }).catch(() => undefined);
       } else {
         await this.prisma.user.update({
           where: { id: userId },
           data: { profileImageUrl: null },
         });
+        this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl: null }).catch(() => undefined);
       }
     }
   }
@@ -738,6 +757,7 @@ export class ProService implements OnModuleInit {
           where: { id: userId },
           data: { profileImageUrl: firstImg.imageUrl },
         });
+        this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl: firstImg.imageUrl }).catch(() => undefined);
       }
     }
 
@@ -779,29 +799,219 @@ export class ProService implements OnModuleInit {
   // ─── Schedule ────────────────────────────────────────────────────────────
 
   async getSchedule(userId: string, month: string) {
-    const profile = await this.getProfileByUserId(userId);
+    const profile = await this.getProfileIdentityByUserId(userId);
 
-    const [year, mon] = month.split('-').map(Number);
+    const currentMonth = new Date();
+    const targetMonth =
+      month || `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const [year, mon] = targetMonth.split('-').map(Number);
+    if (!year || !mon || mon < 1 || mon > 12) {
+      throw new BadRequestException('조회할 월 정보가 올바르지 않습니다.');
+    }
     const startDate = new Date(year, mon - 1, 1);
-    const endDate = new Date(year, mon, 0);
+    const endDate = new Date(year, mon, 1);
 
     const schedules = await this.prisma.proSchedule.findMany({
       where: {
         proProfileId: profile.id,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lt: endDate },
       },
-      include: {
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        note: true,
+        paymentId: true,
         payment: {
-          include: {
-            quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+          select: {
+            id: true,
+            userId: true,
+            amount: true,
+            status: true,
+            createdAt: true,
+            quotations: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                title: true,
+                eventLocation: true,
+                eventTime: true,
+              },
+            },
           },
         },
       },
       orderBy: { date: 'asc' },
     });
 
-    // Payment.userId → User 조회 (Payment에 user relation이 없어서 수동 lookup)
-    const userIds = Array.from(new Set(schedules.map((s) => (s as any).payment?.userId).filter(Boolean))) as string[];
+    return this.mapScheduleRows(schedules);
+  }
+
+  async getUpcomingSchedule(userId: string, limit = 3) {
+    const profile = await this.getProfileIdentityByUserId(userId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const safeLimit = Math.min(Math.max(Number(limit) || 3, 1), 10);
+
+    const schedules = await this.prisma.proSchedule.findMany({
+      where: {
+        proProfileId: profile.id,
+        status: 'booked',
+        date: { gte: today },
+      },
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        note: true,
+        paymentId: true,
+        payment: {
+          select: {
+            id: true,
+            userId: true,
+            amount: true,
+            status: true,
+            createdAt: true,
+            quotations: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                title: true,
+                eventLocation: true,
+                eventTime: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { date: 'asc' },
+      take: safeLimit,
+    });
+
+    return this.mapScheduleRows(schedules);
+  }
+
+  async getDashboardSnapshot(userId: string) {
+    const profile = await this.getProfileIdentityByUserId(userId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [pendingSchedules, upcomingSchedules, matchRequests] = await Promise.all([
+      this.prisma.proSchedule.findMany({
+        where: { proProfileId: profile.id, status: 'pending' },
+        select: {
+          id: true,
+          date: true,
+          status: true,
+          paymentId: true,
+          payment: {
+            select: {
+              id: true,
+              userId: true,
+              amount: true,
+              createdAt: true,
+              quotations: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  title: true,
+                  eventLocation: true,
+                  eventTime: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { date: 'asc' },
+        take: 20,
+      }),
+      this.prisma.proSchedule.findMany({
+        where: {
+          proProfileId: profile.id,
+          status: 'booked',
+          date: { gte: today },
+        },
+        select: {
+          id: true,
+          date: true,
+          status: true,
+          note: true,
+          paymentId: true,
+          payment: {
+            select: {
+              id: true,
+              userId: true,
+              amount: true,
+              status: true,
+              createdAt: true,
+              quotations: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  title: true,
+                  eventLocation: true,
+                  eventTime: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { date: 'asc' },
+        take: 3,
+      }),
+      this.prisma.matchDelivery.findMany({
+        where: { proProfileId: profile.id, status: { in: ['pending', 'viewed'] } },
+        select: {
+          id: true,
+          matchRequestId: true,
+          proProfileId: true,
+          status: true,
+          deliveredAt: true,
+          viewedAt: true,
+          repliedAt: true,
+          matchRequest: {
+            select: {
+              id: true,
+              userId: true,
+              type: true,
+              eventDate: true,
+              eventTime: true,
+              eventLocation: true,
+              budgetMin: true,
+              budgetMax: true,
+              rawUserInput: true,
+              createdAt: true,
+              category: { select: { id: true, name: true } },
+              eventCategory: { select: { id: true, name: true } },
+              styles: { select: { styleOption: { select: { id: true, name: true } } } },
+              personalities: { select: { personalityOption: { select: { id: true, name: true } } } },
+              user: { select: { id: true, name: true, profileImageUrl: true } },
+            },
+          },
+        },
+        orderBy: { deliveredAt: 'desc' },
+        take: 20,
+      }),
+    ]);
+
+    const [scheduleRequests, upcoming] = await Promise.all([
+      this.mapScheduleRequestRows(pendingSchedules),
+      this.mapScheduleRows(upcomingSchedules),
+    ]);
+
+    return {
+      scheduleRequests,
+      upcoming,
+      matchRequests,
+    };
+  }
+
+  private async mapScheduleRows(schedules: any[]) {
+    const userIds = Array.from(new Set(schedules.map((s) => s.payment?.userId).filter(Boolean))) as string[];
     const users = userIds.length > 0
       ? await this.prisma.user.findMany({
           where: { id: { in: userIds } },
@@ -834,10 +1044,39 @@ export class ProService implements OnModuleInit {
         eventTime: q?.eventTime ?? null,
         clientName: client?.name ?? null,
         clientImage: client?.profileImageUrl ?? null,
-        amount: payment?.amount ? Number(payment.amount) : null,
+        amount: payment?.amount != null ? Number(payment.amount) : null,
         paymentStatus: payment?.status ?? null,
-        paymentId: payment?.id ?? null,
+        paymentId: payment?.id ?? s.paymentId ?? null,
         paidAt: payment?.createdAt ?? null,
+      };
+    });
+  }
+
+  private async mapScheduleRequestRows(rows: any[]) {
+    const userIds = Array.from(new Set(rows.map((r) => r.payment?.userId).filter(Boolean))) as string[];
+    const users = userIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, profileImageUrl: true },
+        })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    return rows.map((r) => {
+      const user = r.payment ? userMap.get(r.payment.userId) : null;
+      const quotation = r.payment?.quotations?.[0];
+      return {
+        id: r.id,
+        date: r.date,
+        status: r.status,
+        amount: r.payment?.amount || 0,
+        paymentId: r.paymentId,
+        clientId: r.payment?.userId,
+        clientName: user?.name || '고객',
+        clientImage: user?.profileImageUrl || null,
+        title: quotation?.title || '스케줄 요청',
+        eventLocation: quotation?.eventLocation || null,
+        eventTime: quotation?.eventTime || null,
+        paidAt: r.payment?.createdAt || null,
       };
     });
   }
@@ -962,18 +1201,23 @@ export class ProService implements OnModuleInit {
         });
       } else {
         const mainIdx = Math.max(0, Math.min(data.mainPhotoIndex ?? 0, data.photos.length - 1));
-        const savedImages: { path: string; originalPath: string; index: number }[] = [];
-        const failures: { index: number; error: string }[] = [];
-
-        for (let i = 0; i < data.photos.length; i++) {
-          try {
-            const processed = await this.savePhotoFromDataUrl(data.photos[i]);
-            if (processed) savedImages.push({ ...processed, index: i });
-            else failures.push({ index: i, error: 'invalid data URL' });
-          } catch (e: any) {
-            failures.push({ index: i, error: e?.message || String(e) });
-          }
-        }
+        const processedPhotos = await Promise.all(
+          data.photos.map(async (photo, index) => {
+            try {
+              const processed = await this.savePhotoFromDataUrl(photo);
+              if (!processed) return { index, error: 'invalid data URL' };
+              return { ...processed, index };
+            } catch (e: any) {
+              return { index, error: e?.message || String(e) };
+            }
+          }),
+        );
+        const savedImages = processedPhotos.filter(
+          (photo): photo is { path: string; originalPath: string; index: number } => 'path' in photo,
+        );
+        const failures = processedPhotos.filter(
+          (photo): photo is { index: number; error: string } => 'error' in photo,
+        );
 
         // 모든 사진 실패 시 에러로 터뜨려 프론트가 알림 표시
         if (savedImages.length === 0) {
@@ -983,27 +1227,28 @@ export class ProService implements OnModuleInit {
         }
 
         // 성공한 사진만 있을 때 기존 이미지 교체
+        const primarySource = savedImages.find((img) => img.index === mainIdx) || savedImages[0];
         await this.prisma.proProfileImage.deleteMany({ where: { proProfileId: profile.id } });
-        for (const img of savedImages) {
+        for (const [displayOrder, img] of savedImages.entries()) {
           await this.prisma.proProfileImage.create({
             data: {
               proProfileId: profile.id,
               imageUrl: img.path,
               originalUrl: img.originalPath,
-              displayOrder: img.index,
-              isPrimary: img.index === mainIdx,
+              displayOrder,
+              isPrimary: img.index === primarySource.index,
               hasFace: true,
             },
           });
         }
 
         // 대표 사진을 User.profileImageUrl 로 동기화 — 프로필 아바타(마이페이지/채팅/견적카드)에 반영됨
-        const primary = savedImages.find((img) => img.index === mainIdx) || savedImages[0];
-        if (primary) {
+        if (primarySource) {
           await this.prisma.user.update({
             where: { id: userId },
-            data: { profileImageUrl: primary.path },
+            data: { profileImageUrl: primarySource.path },
           });
+          this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl: primarySource.path }).catch(() => undefined);
         }
       }
     }
@@ -1154,6 +1399,12 @@ export class ProService implements OnModuleInit {
         select: { id: true, name: true, email: true, phone: true, profileImageUrl: true },
       });
     }
+    if (updatedUser) {
+      this.chatRealtime.emitProfileUpdatedForUser(userId, {
+        name: updatedUser.name,
+        profileImageUrl: updatedUser.profileImageUrl,
+      }).catch(() => undefined);
+    }
 
     // 저장 직후 디스커버리 캐시 (리스트 + 상세) 전부 무효화 — 변경사항 즉시 반영
     this.discovery.invalidateCache(profile.id);
@@ -1206,6 +1457,27 @@ export class ProService implements OnModuleInit {
       });
     }
     return profile;
+  }
+
+  private async getProfileIdentityByUserId(userId: string) {
+    const cached = this.profileIdentityCache.get(userId);
+    if (cached && Date.now() - cached.ts < this.PROFILE_IDENTITY_CACHE_TTL) {
+      return { id: cached.id, profileViews: cached.profileViews };
+    }
+    const profile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      select: { id: true, profileViews: true },
+    });
+    if (profile) {
+      this.profileIdentityCache.set(userId, { ...profile, ts: Date.now() });
+      return profile;
+    }
+    const created = await this.prisma.proProfile.create({
+      data: { userId },
+      select: { id: true, profileViews: true },
+    });
+    this.profileIdentityCache.set(userId, { ...created, ts: Date.now() });
+    return created;
   }
 
   // ─── Revenue ──────────────────────────────────────────────────────────────
@@ -1323,7 +1595,7 @@ export class ProService implements OnModuleInit {
   // ─── Analytics ────────────────────────────────────────────────────────────
 
   async getAnalytics(userId: string) {
-    const profile = await this.getProfileByUserId(userId);
+    const profile = await this.getProfileIdentityByUserId(userId);
     const now = new Date();
     const weekAgo = new Date(now);
     weekAgo.setDate(weekAgo.getDate() - 7);
@@ -1392,19 +1664,37 @@ export class ProService implements OnModuleInit {
   // ─── Schedule Requests (고객이 구매해서 들어온 대기 요청) ────────────────
 
   async getScheduleRequests(userId: string) {
-    const profile = await this.getProfileByUserId(userId);
+    const profile = await this.getProfileIdentityByUserId(userId);
     const rows = await this.prisma.proSchedule.findMany({
       where: { proProfileId: profile.id, status: 'pending' },
-      include: {
+      select: {
+        id: true,
+        date: true,
+        status: true,
+        paymentId: true,
         payment: {
-          include: {
-            quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+          select: {
+            id: true,
+            userId: true,
+            amount: true,
+            createdAt: true,
+            quotations: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                title: true,
+                eventLocation: true,
+                eventTime: true,
+              },
+            },
           },
         },
       },
       orderBy: { date: 'asc' },
+      take: 50,
     });
-    const userIds = rows.map((r) => r.payment?.userId).filter(Boolean) as string[];
+    const userIds = Array.from(new Set(rows.map((r) => r.payment?.userId).filter(Boolean))) as string[];
     const users = userIds.length > 0
       ? await this.prisma.user.findMany({
           where: { id: { in: userIds } },

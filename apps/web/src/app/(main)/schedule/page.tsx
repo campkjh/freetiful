@@ -37,7 +37,7 @@ interface ScheduleItem {
 
 // v2: 결제 status 필터링 로직이 바뀌었으니 v1 캐시(과거 'MC 대기' row 가 들어있던) 버림.
 const SCHEDULE_CACHE_PREFIX = 'freetiful-schedule-cache-v2:';
-const SCHEDULE_CACHE_TTL = 2 * 60_000;
+const SCHEDULE_CACHE_TTL = 10 * 60_000;
 
 function readScheduleCache<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
@@ -331,7 +331,7 @@ function ProScheduleView() {
               <div
                 key={booking.id}
                 className="bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
-                style={{ borderRadius: 24 }}
+                style={{ borderRadius: 24, border: '0.6px solid #F9F9F9' }}
               >
                 {/* 품목 */}
                 <p className="text-[15px] font-semibold truncate" style={{ color: '#2B313D' }}>
@@ -339,12 +339,16 @@ function ProScheduleView() {
                 </p>
                 {/* 행사 주소 */}
                 {booking.venue && (
-                  <p className="mt-1 text-[13px]" style={{ color: '#51535C' }}>📍 {booking.venue}</p>
+                  <div className="mt-1 flex items-center gap-1.5 text-[13px]" style={{ color: '#51535C' }}>
+                    <MapPin size={14} className="shrink-0 text-[#A4ABBA]" />
+                    <p className="min-w-0 truncate">{booking.venue}</p>
+                  </div>
                 )}
                 {/* 행사 일시 */}
-                <p className="mt-0.5 text-[13px]" style={{ color: '#51535C' }}>
-                  📅 {dateLabel}{booking.time ? ` ${booking.time}` : ''}
-                </p>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[13px]" style={{ color: '#51535C' }}>
+                  <Calendar size={14} className="shrink-0 text-[#A4ABBA]" />
+                  <p>{dateLabel}{booking.time ? ` ${booking.time}` : ''}</p>
+                </div>
 
                 {/* 가격 + 결제일시 */}
                 <div className="flex items-end justify-between mt-2.5">
@@ -352,7 +356,7 @@ function ProScheduleView() {
                     {booking.amount}원
                   </p>
                   {booking.paidAt && (
-                    <p className="text-[12px]" style={{ color: '#8A909C' }}>
+                    <p className="text-[14px]" style={{ color: '#8A909C' }}>
                       결제 {formatPaidAt(booking.paidAt)}
                     </p>
                   )}
@@ -362,14 +366,14 @@ function ProScheduleView() {
                 <div className="grid grid-cols-2 gap-2 mt-3">
                   <Link
                     href={booking.paymentId ? `/schedule/${booking.paymentId}` : `/schedule/${booking.id}`}
-                    className="h-11 leading-[44px] text-center text-[14px] active:scale-[0.98] transition-transform"
+                    className="h-11 leading-[44px] text-center text-[18px] active:scale-[0.98] transition-transform"
                     style={{ borderRadius: 12, backgroundColor: '#3787FF', color: '#FFFFFF', fontWeight: 600 }}
                   >
                     상세보기
                   </Link>
                   <Link
                     href="/chat"
-                    className="h-11 leading-[44px] text-center text-[14px] active:scale-[0.98] transition-transform"
+                    className="h-11 leading-[44px] text-center text-[18px] active:scale-[0.98] transition-transform"
                     style={{ borderRadius: 12, backgroundColor: '#F2F3F5', color: '#51535C', fontWeight: 600 }}
                   >
                     채팅하기

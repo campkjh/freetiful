@@ -188,6 +188,22 @@ export class ProController {
 
   // ─── Schedule ─────────────────────────────────────────────────────────────
 
+  @Get('dashboard/snapshot')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '사회자 홈 핵심 데이터 스냅샷' })
+  getDashboardSnapshot(@Req() req) {
+    return this.proService.getDashboardSnapshot(req.user.id);
+  }
+
+  @Get('schedule/upcoming')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 다가오는 확정 스케줄 조회' })
+  getUpcomingSchedule(@Req() req, @Query('limit') limit?: string) {
+    return this.proService.getUpcomingSchedule(req.user.id, Number(limit) || 3);
+  }
+
   @Get('schedule')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()

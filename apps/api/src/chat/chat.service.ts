@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
@@ -24,7 +25,7 @@ import {
 } from './dto/chat.dto';
 
 @Injectable()
-export class ChatService {
+export class ChatService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
@@ -33,9 +34,38 @@ export class ChatService {
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
-  private CACHE_TTL = 60_000; // 1분 (채팅은 짧게)
+  private CACHE_TTL = 3_000; // 채팅/프로필 변경은 빠르게 반영
   private repairCache = new Map<string, number>(); // userId → last repair ts
   private REPAIR_THROTTLE = 30 * 60_000; // 30분 (한 번 repair 후 30분 동안은 skip)
+  private participantCache = new Map<string, { ids: string[]; ts: number }>();
+  private PARTICIPANT_CACHE_TTL = 10 * 60_000;
+
+  onModuleInit() {
+    this.ensurePerformanceIndexes().catch(() => undefined);
+  }
+
+  private async ensurePerformanceIndexes() {
+    await Promise.allSettled([
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_room_members_userId_roomId_idx" ON "chat_room_members" ("userId", "roomId")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "messages_senderId_roomId_createdAt_idx" ON "messages" ("senderId", "roomId", "createdAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "messages_roomId_isDeleted_createdAt_idx" ON "messages" ("roomId", "isDeleted", "createdAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_rooms_userId_lastMessageAt_idx" ON "chat_rooms" ("userId", "lastMessageAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_rooms_proProfileId_lastMessageAt_idx" ON "chat_rooms" ("proProfileId", "lastMessageAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_rooms_matchRequestId_idx" ON "chat_rooms" ("matchRequestId")',
+      ),
+    ]);
+  }
 
   private getRoomCached(key: string) {
     const hit = this.roomCache.get(key);
@@ -62,6 +92,7 @@ export class ChatService {
   /** 특정 유저의 룸 목록 캐시 무효화 (새 룸 생성/메시지 전송 시 호출) */
   private invalidateRoomsCache(userId: string) {
     this.repairCache.delete(userId);
+    this.participantCache.delete(userId);
     for (const key of this.roomCache.keys()) {
       if (key.startsWith(`rooms:${userId}:`) || key.includes(`"userId":"${userId}"`)) {
         this.roomCache.delete(key);
@@ -126,8 +157,20 @@ export class ChatService {
   }
 
   private async getChatParticipantUserIds(userId: string) {
+    const cached = this.participantCache.get(userId);
+    if (cached && Date.now() - cached.ts < this.PARTICIPANT_CACHE_TTL) return cached.ids;
     const legacyUserIds = await this.findLegacyChatUserIds(userId);
-    return Array.from(new Set([userId, ...legacyUserIds].filter(Boolean)));
+    const ids = Array.from(new Set([userId, ...legacyUserIds].filter(Boolean)));
+    this.participantCache.set(userId, { ids, ts: Date.now() });
+    return ids;
+  }
+
+  private fastChatRoomParticipantWhere(participantUserIds: string[]) {
+    return [
+      { userId: { in: participantUserIds } },
+      { proProfile: { userId: { in: participantUserIds } } },
+      { members: { some: { userId: { in: participantUserIds } } } },
+    ];
   }
 
   private chatRoomParticipantWhere(participantUserIds: string[]) {
@@ -139,6 +182,61 @@ export class ChatService {
       { quotations: { some: { userId: { in: participantUserIds } } } },
       { matchRequest: { is: { userId: { in: participantUserIds } } } },
     ];
+  }
+
+  private chatRoomVisibleWhere(participantUserIds: string[]) {
+    return {
+      OR: [
+        { userId: { in: participantUserIds }, userDeletedAt: null },
+        { proProfile: { userId: { in: participantUserIds } }, proDeletedAt: null },
+        {
+          AND: [
+            {
+              OR: [
+                { members: { some: { userId: { in: participantUserIds } } } },
+                { messages: { some: { senderId: { in: participantUserIds } } } },
+                { quotations: { some: { userId: { in: participantUserIds } } } },
+                { matchRequest: { is: { userId: { in: participantUserIds } } } },
+              ],
+            },
+            { userDeletedAt: null },
+            { proDeletedAt: null },
+          ],
+        },
+      ],
+    };
+  }
+
+  private fastChatRoomVisibleWhere(participantUserIds: string[]) {
+    return {
+      OR: [
+        { userId: { in: participantUserIds }, userDeletedAt: null },
+        { proProfile: { userId: { in: participantUserIds } }, proDeletedAt: null },
+        {
+          AND: [
+            { members: { some: { userId: { in: participantUserIds } } } },
+            { userDeletedAt: null },
+            { proDeletedAt: null },
+          ],
+        },
+      ],
+    };
+  }
+
+  private async refreshRoomLastVisibleMessage(roomId: string) {
+    const latestVisible = await this.prisma.message.findFirst({
+      where: { roomId, isDeleted: false },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true },
+    });
+
+    await this.prisma.chatRoom.update({
+      where: { id: roomId },
+      data: {
+        lastMessageId: latestVisible?.id ?? null,
+        lastMessageAt: latestVisible?.createdAt ?? null,
+      },
+    });
   }
 
   private async ensureRoomsRepaired(userId: string) {
@@ -674,7 +772,9 @@ export class ChatService {
   async getRooms(userId: string, query: ChatRoomQueryDto) {
     const { search, dateFrom, dateTo, page = 1, limit = 20 } = query;
     const take = Math.min(Number(limit) || 20, 50);
-    const withTotal = query.withTotal !== false;
+    const withTotal = query.withTotal === undefined
+      ? true
+      : query.withTotal === true || String(query.withTotal).toLowerCase() === 'true';
 
     const cacheKey = `rooms:${userId}:${JSON.stringify({
       page,
@@ -687,75 +787,99 @@ export class ChatService {
     // 1) cache fastpath — repair 보다 먼저 확인 (cache hit 시 repair 스킵)
     const cached = this.getRoomCached(cacheKey);
     if (cached) {
-      // repair 는 백그라운드로 throttle 후 실행 (응답 막지 않음)
-      this.maybeBackgroundRepair(userId);
       return cached;
     }
 
-    // 2) repair 는 throttle (유저당 30분에 1회). cache miss 시에만 동기 실행 — 보장된 정확성 필요할 때만
-    await this.ensureRoomsRepaired(userId);
     const participantUserIds = await this.getChatParticipantUserIds(userId);
 
-    const where: any = {
-      OR: this.chatRoomParticipantWhere(participantUserIds),
-    };
+    const hasListFilters = !!(search || dateFrom || dateTo);
+    const applyListFilters = (targetWhere: any) => {
+      if (dateFrom || dateTo) {
+        targetWhere.lastMessageAt = {};
+        if (dateFrom) targetWhere.lastMessageAt.gte = new Date(dateFrom);
+        if (dateTo) targetWhere.lastMessageAt.lte = new Date(dateTo);
+      }
 
-    if (dateFrom || dateTo) {
-      where.lastMessageAt = {};
-      if (dateFrom) where.lastMessageAt.gte = new Date(dateFrom);
-      if (dateTo) where.lastMessageAt.lte = new Date(dateTo);
-    }
-
-    if (search) {
-      where.AND = [
-        {
+      if (search) {
+        targetWhere.AND.push({
           OR: [
             { user: { name: { contains: search, mode: 'insensitive' } } },
             { proProfile: { user: { name: { contains: search, mode: 'insensitive' } } } },
             { messages: { some: { content: { contains: search, mode: 'insensitive' } } } },
           ],
-        },
-      ];
-    }
+        });
+      }
+      return targetWhere;
+    };
 
-    const [rooms, totalCount] = await Promise.all([
+    const where: any = applyListFilters({
+      AND: [
+        { OR: this.fastChatRoomParticipantWhere(participantUserIds) },
+        this.fastChatRoomVisibleWhere(participantUserIds),
+      ],
+    });
+
+    const roomSelect = {
+      id: true,
+      userId: true,
+      proProfileId: true,
+      matchRequestId: true,
+      lastMessageAt: true,
+      proProfile: {
+        select: {
+          userId: true,
+          user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+          images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
+          categories: { take: 1, select: { category: { select: { name: true } } } },
+        },
+      },
+      user: { select: { id: true, name: true, profileImageUrl: true } },
+      members: { where: { userId: { in: participantUserIds } }, select: { userId: true, isFavorited: true, unreadCount: true } },
+      messages: {
+        where: { isDeleted: false },
+        orderBy: { createdAt: 'desc' as const },
+        take: 1,
+        select: { id: true, senderId: true, type: true, content: true, createdAt: true },
+      },
+      quotations: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 1,
+        select: { id: true, amount: true, title: true, status: true, eventDate: true, eventTime: true, eventLocation: true, createdAt: true },
+      },
+      matchRequest: { select: { id: true, eventDate: true, eventTime: true, eventLocation: true } },
+    };
+
+    let [rooms, totalCount] = await Promise.all([
       this.prisma.chatRoom.findMany({
         where,
-        select: {
-          id: true,
-          userId: true,
-          proProfileId: true,
-          matchRequestId: true,
-          lastMessageAt: true,
-          proProfile: {
-            select: {
-              userId: true,
-              user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
-              images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
-              categories: { take: 1, select: { category: { select: { name: true } } } },
-            },
-          },
-          user: { select: { id: true, name: true, profileImageUrl: true } },
-          members: { where: { userId: { in: participantUserIds } }, select: { userId: true, isFavorited: true, unreadCount: true } },
-          messages: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: { id: true, type: true, content: true, createdAt: true },
-          },
-          quotations: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: { id: true, amount: true, title: true, status: true, eventDate: true, eventTime: true, eventLocation: true, createdAt: true },
-          },
-          // 채팅 헤더 아래 스케줄 배너가 즉시 렌더되도록 핵심 필드만 미리 포함.
-          matchRequest: { select: { id: true, eventDate: true, eventTime: true, eventLocation: true } },
-        },
+        select: roomSelect,
         orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
         skip: (page - 1) * take,
         take,
       }),
       withTotal ? this.prisma.chatRoom.count({ where }) : Promise.resolve(0),
     ]);
+
+    if (rooms.length === 0 && page === 1 && !hasListFilters) {
+      const fallbackWhere = applyListFilters({
+        AND: [
+          { OR: this.chatRoomParticipantWhere(participantUserIds) },
+          this.chatRoomVisibleWhere(participantUserIds),
+        ],
+      });
+      [rooms, totalCount] = await Promise.all([
+        this.prisma.chatRoom.findMany({
+          where: fallbackWhere,
+          select: roomSelect,
+          orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+          take,
+        }),
+        withTotal ? this.prisma.chatRoom.count({ where: fallbackWhere }) : Promise.resolve(0),
+      ]);
+      if (rooms.length > 0) {
+        this.maybeBackgroundRepair(userId);
+      }
+    }
 
     const data = rooms.map((room) => {
       const member = room.members.find((m) => m.userId === userId) ?? room.members[0];
@@ -787,7 +911,7 @@ export class ChatService {
         id: room.id,
         otherUser,
         lastMessage: lastMsg
-          ? { id: lastMsg.id, type: lastMsg.type, content: lastMsg.content, createdAt: lastMsg.createdAt }
+          ? { id: lastMsg.id, senderId: lastMsg.senderId, type: lastMsg.type, content: lastMsg.content, createdAt: lastMsg.createdAt }
           : null,
         lastMessageAt: room.lastMessageAt,
         unreadCount: member?.unreadCount ?? 0,
@@ -807,16 +931,22 @@ export class ChatService {
     const total = withTotal ? totalCount : data.length;
     const result = { data, total, page, limit: take, hasMore: withTotal ? page * take < total : data.length === take };
     this.setRoomCached(cacheKey, result);
+    if (data.length === 0 && !search && !dateFrom && !dateTo) {
+      this.maybeBackgroundRepair(userId);
+    }
     return result;
   }
 
   async getRoomById(roomId: string, userId: string) {
-    await this.ensureRoomsRepaired(userId);
+    this.maybeBackgroundRepair(userId);
     const participantUserIds = await this.getChatParticipantUserIds(userId);
     const room = await this.prisma.chatRoom.findFirst({
       where: {
         id: roomId,
-        OR: this.chatRoomParticipantWhere(participantUserIds),
+        AND: [
+          { OR: this.fastChatRoomParticipantWhere(participantUserIds) },
+          this.fastChatRoomVisibleWhere(participantUserIds),
+        ],
       },
       include: {
         proProfile: {
@@ -949,6 +1079,35 @@ export class ChatService {
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
+
+    // 방 목록에는 마지막 메시지가 있는데 상세 첫 로드가 비는 오래된 데이터 꼬임 방어.
+    // lastMessageId가 살아있는 정상 메시지라면 최소한 그 메시지는 상세에도 보이게 한다.
+    if (
+      messages.length === 0 &&
+      !search &&
+      !before &&
+      !after &&
+      !cursor
+    ) {
+      const room = await this.prisma.chatRoom.findUnique({
+        where: { id: roomId },
+        select: { lastMessageId: true },
+      });
+      if (room?.lastMessageId) {
+        const lastMessage = await this.prisma.message.findFirst({
+          where: { id: room.lastMessageId, roomId, isDeleted: false },
+          include: {
+            sender: { select: { id: true, name: true, profileImageUrl: true } },
+            replyTo: {
+              select: { id: true, content: true, senderId: true, type: true },
+            },
+            reactions: true,
+            reads: { select: { userId: true, readAt: true } },
+          },
+        });
+        if (lastMessage) messages.push(lastMessage);
+      }
+    }
 
     // Group reactions
     const data = messages.reverse().map((msg) => ({
@@ -1113,6 +1272,29 @@ export class ChatService {
     return { ...message, reactions: [], isRead: message.reads.some((r) => r.userId !== message.senderId) };
   }
 
+  async uploadImage(roomId: string, userId: string, file: Express.Multer.File) {
+    await this.verifyMembership(roomId, userId);
+    if (!file) {
+      throw new BadRequestException('이미지 파일이 필요합니다.');
+    }
+
+    const processed = await this.imageService.processImage(file, {
+      requireFace: false,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 85,
+    });
+
+    return {
+      imageUrl: processed.webpPath || processed.path,
+      originalUrl: processed.path,
+      width: processed.width,
+      height: processed.height,
+      size: processed.size,
+      mimeType: processed.mimeType,
+    };
+  }
+
   async getRoomMemberIds(roomId: string) {
     const members = await this.prisma.chatRoomMember.findMany({
       where: { roomId },
@@ -1138,10 +1320,21 @@ export class ChatService {
     if (!message) throw new NotFoundException('메시지를 찾을 수 없습니다');
     if (message.senderId !== userId) throw new ForbiddenException('본인 메시지만 삭제할 수 있습니다');
 
-    return this.prisma.message.update({
+    const deleted = await this.prisma.message.update({
       where: { id: messageId },
       data: { isDeleted: true, deletedAt: new Date() },
     });
+
+    await this.refreshRoomLastVisibleMessage(message.roomId);
+    const members = await this.prisma.chatRoomMember.findMany({
+      where: { roomId: message.roomId },
+      select: { userId: true },
+    });
+    for (const member of members) {
+      this.invalidateRoomsCache(member.userId);
+    }
+
+    return deleted;
   }
 
   async addReaction(messageId: string, userId: string, dto: ReactToMessageDto) {

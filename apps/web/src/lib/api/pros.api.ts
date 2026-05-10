@@ -25,6 +25,13 @@ export const prosApi = {
   getMyProfile: () =>
     apiClient.get<ProProfile | null>(`${BASE}/pro/profile`).then((r) => r.data),
 
+  getDashboardSnapshot: () =>
+    apiClient.get<{
+      scheduleRequests: any[];
+      upcoming: any[];
+      matchRequests: any[];
+    }>(`${BASE}/pro/dashboard/snapshot`).then((r) => r.data),
+
   getProfileHandoverCandidates: (params?: { search?: string; limit?: number }) =>
     apiClient
       .get<ProfileHandoverCandidate[]>(`${BASE}/pro/profile-handover/candidates`, { params })

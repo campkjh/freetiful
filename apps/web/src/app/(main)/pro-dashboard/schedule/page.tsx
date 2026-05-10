@@ -15,7 +15,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 type DateStatus = 'available' | 'booked' | 'unavailable';
 const SCHEDULE_CACHE_KEY = 'freetiful-pro-schedule-cache-v1';
-const SCHEDULE_CACHE_TTL = 5 * 60_000;
+const SCHEDULE_CACHE_TTL = 10 * 60_000;
 
 function readScheduleCache(month: string) {
   if (typeof window === 'undefined') return null;

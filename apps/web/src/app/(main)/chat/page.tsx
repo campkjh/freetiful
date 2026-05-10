@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
+import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -32,7 +32,7 @@ type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 type ProFilterTab = '전체' | '읽음' | '안 읽음' | '견적문의' | '예약확정' | '숨김';
 
 const ClientAvatar = ({ name }: { name: string }) => (
-  <div className="w-[48px] h-[48px] rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+  <div className="w-[48px] h-[48px] rounded-[20px] bg-gray-200 flex items-center justify-center shrink-0">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
       <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" />
@@ -75,6 +75,7 @@ export default function ChatListPage() {
   const router = useRouter();
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
   const initialRoomsRef = useRef<ChatRoom[] | null>(null);
+  const lastRefreshAtRef = useRef(0);
   if (initialRoomsRef.current === null) initialRoomsRef.current = getInitialRoomsForCurrentUser();
   const [roomsLoading, setRoomsLoading] = useState(() => initialRoomsRef.current?.length === 0);
   const authUser = useAuthStore((s) => s.user);
@@ -82,6 +83,7 @@ export default function ChatListPage() {
   const connect = useChatStore((s) => s.connect);
   const disconnect = useChatStore((s) => s.disconnect);
   const fetchRooms = useChatStore((s) => s.fetchRooms);
+  const deleteRoomFromStore = useChatStore((s) => s.deleteRoom);
   const apiRooms = useChatStore((s) => s.rooms);
   const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
   const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
@@ -98,24 +100,37 @@ export default function ChatListPage() {
     }
 
     if (apiRooms.length > 0) setRoomsLoading(false);
-    fetchRooms({ limit: 50, force: true }).catch(() => {}).finally(() => setRoomsLoading(false));
-    const timer = window.setTimeout(() => connect(), 250);
-    return () => { window.clearTimeout(timer); };
+    connect();
+    fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
+    return undefined;
   }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
 
   useEffect(() => {
     if (!authHydrated || !authUser) return;
     const refreshRooms = () => {
+      const now = Date.now();
+      if (now - lastRefreshAtRef.current < 2_500) return;
+      lastRefreshAtRef.current = now;
       fetchRooms({ limit: 50, force: true }).catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshRooms();
     };
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshRooms();
+    }, 15000);
     window.addEventListener('focus', refreshRooms);
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
+    window.addEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     return () => {
+      window.clearInterval(interval);
       window.removeEventListener('focus', refreshRooms);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
+      window.removeEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     };
   }, [authHydrated, authUser?.id, fetchRooms]);
 
@@ -147,6 +162,8 @@ export default function ChatListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showSearch, setShowSearch] = useState(false);
   const [search, setSearch] = useState('');
+  const [deleteConfirmRooms, setDeleteConfirmRooms] = useState<ChatRoom[]>([]);
+  const [deletingRooms, setDeletingRooms] = useState(false);
 
   // 롱프레스 액션 메뉴
   const [actionMenu, setActionMenu] = useState<{ room: ChatRoom; x: number; y: number } | null>(null);
@@ -216,18 +233,41 @@ export default function ChatListPage() {
     setEditMode(false);
   };
 
-  const deleteSelected = () => {
-    setRooms((prev) => prev.filter((r) => !selectedIds.has(r.id)));
-    setSelectedIds(new Set());
-    setEditMode(false);
+  const promptDeleteSelected = () => {
+    const targets = rooms.filter((r) => selectedIds.has(r.id));
+    if (targets.length === 0) return;
+    setDeleteConfirmRooms(targets);
   };
 
-  // 단일 액션
-  const handleDeleteRoom = (id: string) => {
-    if (confirm('이 채팅방을 삭제하시겠습니까?')) {
-      setRooms((prev) => prev.filter((r) => r.id !== id));
-    }
+  const promptDeleteRoom = (room: ChatRoom) => {
     setActionMenu(null);
+    setDeleteConfirmRooms([room]);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deletingRooms) return;
+    setDeleteConfirmRooms([]);
+  };
+
+  const confirmDeleteRooms = async () => {
+    const targets = deleteConfirmRooms;
+    if (targets.length === 0 || deletingRooms) return;
+
+    setDeletingRooms(true);
+    const targetIds = new Set(targets.map((room) => room.id));
+    try {
+      await Promise.all(targets.map((room) => deleteRoomFromStore(room.id)));
+      setRooms((prev) => prev.filter((room) => !targetIds.has(room.id)));
+      setSelectedIds(new Set());
+      setEditMode(false);
+      setDeleteConfirmRooms([]);
+      window.dispatchEvent(new Event('freetiful:chat-rooms-changed'));
+    } catch {
+      alert('채팅방 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      fetchRooms({ limit: 50, force: true }).catch(() => {});
+    } finally {
+      setDeletingRooms(false);
+    }
   };
 
   const handleHideRoom = (id: string) => {
@@ -315,6 +355,10 @@ export default function ChatListPage() {
                     userSelect: 'none',
                   }}
                   onClick={() => {
+                    if (editMode && !isPC) {
+                      toggleSelect(room.id);
+                      return;
+                    }
                     if (isPC) router.push(`/chat/${room.id}`);
                   }}
                   onMouseEnter={() => handlePrewarmRoom(room.id)}
@@ -356,12 +400,12 @@ export default function ChatListPage() {
                   </>
                   {isPC ? (
                     room.otherUser.profileImageUrl
-                      ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-full object-cover shrink-0" />
+                      ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-[20px] object-cover shrink-0" />
                       : <ClientAvatar name={room.otherUser.name} />
                   ) : (
                     <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
                       {room.otherUser.profileImageUrl
-                        ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-full object-cover" />
+                        ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-[20px] object-cover" />
                         : <ClientAvatar name={room.otherUser.name} />
                       }
                     </Link>
@@ -390,17 +434,17 @@ export default function ChatListPage() {
                   ) : (
                     <>
                       <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
-                        <div className="flex items-center gap-1.5 mb-0.5">
+                        <div className="flex items-center gap-1 mb-0.5">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
                             room.iAmPro ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                           }`}>
                             {room.iAmPro ? '고객' : 'PRO'}
                           </span>
-                          <p className={`text-[15px] ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{room.otherUser.role} {room.otherUser.name}님</p>
-                          <span className="text-[12px] text-gray-400">{room.lastMessageAt}</span>
+                          <p className="truncate text-[16px] font-semibold text-[#2B313D]">{room.otherUser.name}</p>
+                          <span className="ml-auto shrink-0 text-[14px] font-normal text-[#A4ABBA]">{room.lastMessageAt}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className={`text-[13px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
+                          <p className={`truncate pr-2 text-[14px] ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
                           <div className="flex items-center gap-2 shrink-0">
                             {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{room.unreadCount}</span>}
                           </div>
@@ -493,7 +537,7 @@ export default function ChatListPage() {
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
               <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100">
-                <span className="text-4xl">💬</span>
+                <MessageCircle size={38} className="text-[#9DBEF9]" />
               </div>
               <p className="text-gray-500 text-[15px] font-semibold">대화방을 선택하세요</p>
               <p className="text-gray-400 text-[13px] mt-1">목록을 누르면 저장되는 실제 채팅방으로 이동합니다</p>
@@ -583,7 +627,6 @@ export default function ChatListPage() {
           >
             {currentTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span>
           </p>
-          <button onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-gray-500 active:scale-90 transition-transform">{editMode ? '완료' : '편집'}</button>
         </div>
         <>
           {editMode && selectedIds.size > 0 && (
@@ -594,7 +637,7 @@ export default function ChatListPage() {
               <span className="text-[13px] text-gray-500">{selectedIds.size}개 선택됨</span>
               <div className="flex gap-3">
                 <button onClick={archiveSelected} className="flex items-center gap-1 text-[13px] text-gray-600 font-medium active:scale-90 transition-transform"><Archive size={14} /> 보관</button>
-                <button onClick={deleteSelected} className="flex items-center gap-1 text-[13px] text-red-500 font-medium active:scale-90 transition-transform"><Trash2 size={14} /> 삭제</button>
+                <button onClick={promptDeleteSelected} className="flex items-center gap-1 text-[13px] text-red-500 font-medium active:scale-90 transition-transform"><Trash2 size={14} /> 삭제</button>
               </div>
             </div>
           )}
@@ -647,7 +690,7 @@ export default function ChatListPage() {
               { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-gray-800' },
               { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-gray-800' },
               { label: actionMenu.room.isHidden ? '숨김 해제' : '채팅 숨기기', icon: actionMenu.room.isHidden ? <Eye size={18} className="text-gray-500" /> : <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-gray-800' },
-              { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => handleDeleteRoom(actionMenu.room.id), className: 'text-red-500' },
+              { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => promptDeleteRoom(actionMenu.room), className: 'text-red-500' },
             ].map((item, idx) => (
               <button
                 key={item.label}
@@ -714,6 +757,64 @@ export default function ChatListPage() {
                 className="w-full h-11 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[14px] font-bold rounded-2xl active:scale-[0.98] transition-transform"
               >
                 닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 삭제 확인 모달 ─── */}
+      {deleteConfirmRooms.length > 0 && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm flex items-center justify-center px-5 animate-[chatActionFade_0.2s_ease]"
+          onClick={closeDeleteConfirm}
+        >
+          <div
+            className="w-full max-w-[360px] rounded-[24px] bg-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-6 pb-4">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+                <Trash2 size={22} className="text-red-500" />
+              </div>
+              <h2 className="text-center text-[18px] font-extrabold text-gray-900">채팅방 삭제</h2>
+              <p className="mt-2 text-center text-[14px] leading-6 text-gray-500">
+                {deleteConfirmRooms.length === 1
+                  ? `${deleteConfirmRooms[0].otherUser.name}님과의 채팅방을 삭제할까요?`
+                  : `선택한 ${deleteConfirmRooms.length}개의 채팅방을 삭제할까요?`}
+              </p>
+              {deleteConfirmRooms.length > 1 && (
+                <div className="mt-4 rounded-2xl bg-gray-50 px-4 py-3">
+                  {deleteConfirmRooms.slice(0, 3).map((room) => (
+                    <p key={room.id} className="truncate text-[13px] text-gray-600">
+                      {room.otherUser.name}님
+                    </p>
+                  ))}
+                  {deleteConfirmRooms.length > 3 && (
+                    <p className="mt-1 text-[12px] text-gray-400">외 {deleteConfirmRooms.length - 3}개</p>
+                  )}
+                </div>
+              )}
+              <p className="mt-3 text-center text-[12px] leading-5 text-gray-400">
+                삭제하면 내 채팅 목록에서만 사라지고 상대방의 채팅방은 유지됩니다.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                disabled={deletingRooms}
+                className="h-14 text-[15px] font-bold text-gray-600 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteRooms}
+                disabled={deletingRooms}
+                className="h-14 border-l border-gray-100 text-[15px] font-bold text-red-500 disabled:opacity-50"
+              >
+                {deletingRooms ? '삭제 중...' : '삭제하기'}
               </button>
             </div>
           </div>

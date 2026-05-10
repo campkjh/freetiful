@@ -9,10 +9,14 @@ import {
   Query,
   UseGuards,
   Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
+import { ChatRealtimeService } from './chat-realtime.service';
 import {
   CreateChatRoomDto,
   CreateRoomAsProDto,
@@ -32,7 +36,10 @@ import {
 @UseGuards(AuthGuard('jwt'))
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly chatRealtimeService: ChatRealtimeService,
+  ) {}
 
   // ─── Chat Rooms ──────────────────────────────────────────────────────────
 
@@ -88,8 +95,28 @@ export class ChatController {
 
   @Post('rooms/:roomId/messages')
   @ApiOperation({ summary: '메시지 전송' })
-  sendMessage(@Req() req, @Param('roomId') roomId: string, @Body() dto: SendMessageDto) {
-    return this.chatService.sendMessage(roomId, req.user.id, dto);
+  async sendMessage(@Req() req, @Param('roomId') roomId: string, @Body() dto: SendMessageDto) {
+    const message = await this.chatService.sendMessage(roomId, req.user.id, dto);
+    const memberIds = await this.chatService.getRoomMemberIds(roomId).catch(() => []);
+    this.chatRealtimeService.emitPersistedMessage(roomId, message.id, {
+      notifyUserIds: memberIds,
+      roomUpdatedUserIds: memberIds,
+      unreadUserIds: memberIds.filter((id) => id !== req.user.id),
+      dashboardUserIds: memberIds,
+    }).catch(() => undefined);
+    return message;
+  }
+
+  @Post('rooms/:roomId/images')
+  @ApiOperation({ summary: '채팅 이미지 업로드' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  uploadImage(
+    @Req() req,
+    @Param('roomId') roomId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.chatService.uploadImage(roomId, req.user.id, file);
   }
 
   @Put('messages/:messageId')
