@@ -9,6 +9,8 @@ const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
 // 30분 — 채팅 리스트가 단기간 캐시 만료로 사라지는 문제 방지.
 // (예: 다른 페이지에 5분 머무르고 돌아오면 빈 화면이 깜빡 → 다시 채워지던 현상)
 const ROOM_CACHE_TTL = 30 * 60_000;
+const ROOM_REVALIDATE_MS = 5_000;
+const DEFAULT_SOCKET_URL = 'https://affectionate-smile-production-6535.up.railway.app';
 
 type FetchRoomsParams = {
   search?: string;
@@ -236,14 +238,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const isProdHost =
       typeof window !== 'undefined' &&
       /freetiful\.com$/i.test(window.location.hostname);
+    const isHttpLocalDev =
+      typeof window !== 'undefined' &&
+      window.location.hostname === 'localhost' &&
+      /^https?:$/i.test(window.location.protocol);
     const fallbackUrl =
-      typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      isHttpLocalDev
         ? 'http://localhost:4000'
-        : isProdHost
-          ? 'https://affectionate-smile-production-6535.up.railway.app'
-          : typeof window !== 'undefined'
-            ? window.location.origin
-            : '';
+        : DEFAULT_SOCKET_URL;
     const socketEnvUrl = normalizeSocketBaseUrl(process.env.NEXT_PUBLIC_SOCKET_URL);
     const apiEnvUrl = normalizeSocketBaseUrl(process.env.NEXT_PUBLIC_API_URL);
     const safeApiEnvUrl = isProdHost && isSameBrowserHost(apiEnvUrl) ? '' : apiEnvUrl;
@@ -255,7 +257,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       reconnection: true,
       reconnectionDelay: 300,
       reconnectionDelayMax: 2000,
-      timeout: 5000,
+      timeout: 2500,
       rememberUpgrade: true,
     });
 
@@ -422,7 +424,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const hasFilters = !!(apiParams.search || apiParams.dateFrom || apiParams.dateTo);
     const requestParams = { limit: 30, withTotal: false, ...apiParams };
     if (!force && !hasFilters && roomsLoading) return;
-    if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < 30_000) {
+    if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < ROOM_REVALIDATE_MS) {
       set({ roomsLoading: false });
       return;
     }
@@ -624,7 +626,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (settled) return;
         settled = true;
         resolve(null);
-      }, 4500);
+      }, 1200);
 
       socket.emit('sendMessage', { roomId, ...payload }, (ack?: SendMessageAck) => {
         if (settled) return;

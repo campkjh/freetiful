@@ -542,10 +542,24 @@ export default function ProDashboardPage() {
       .then((data: any) => {
         const next = Array.isArray(data) ? data : [];
         setScheduleRequests(next);
+        cachedSectionsRef.current.scheduleRequests = true;
         writeDashboardCache({ scheduleRequests: next });
       })
       .catch(() => {});
   };
+
+  useEffect(() => {
+    if (!authUser) return;
+    const refresh = () => refreshScheduleRequests();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
+      window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
+    };
+  }, [authUser]);
 
   const refreshMatchRequests = () => {
     matchApi.getProRequests({ limit: 20 })

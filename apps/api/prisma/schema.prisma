@@ -654,6 +654,8 @@ model Message {
   reactions MessageReaction[]
 
   @@index([roomId, createdAt])
+  @@index([roomId, isDeleted, createdAt])
+  @@index([senderId, roomId, createdAt])
   @@map("messages")
 }
 

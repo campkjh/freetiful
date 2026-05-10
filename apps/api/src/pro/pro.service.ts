@@ -78,6 +78,7 @@ export class ProService implements OnModuleInit {
   // 서버 시작 시 기존 프로 유저들의 User.profileImageUrl 이 비어있으면
   // 대표 ProProfileImage 의 URL 로 채워줌 (일회성 마이그레이션).
   async onModuleInit() {
+    this.ensurePerformanceIndexes().catch(() => undefined);
     await this.resetExistingProServicePricesToInquiryOnce();
 
     try {
@@ -114,6 +115,17 @@ export class ProService implements OnModuleInit {
     } catch (e: any) {
       this.logger.warn(`profile image sync skipped: ${e?.message || e}`);
     }
+  }
+
+  private async ensurePerformanceIndexes() {
+    await Promise.allSettled([
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "pro_schedules_proProfileId_status_date_idx" ON "pro_schedules" ("proProfileId", "status", "date")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_deliveries_proProfileId_status_deliveredAt_idx" ON "match_deliveries" ("proProfileId", "status", "deliveredAt")',
+      ),
+    ]);
   }
 
   private async resetExistingProServicePricesToInquiryOnce() {

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
@@ -24,7 +25,7 @@ import {
 } from './dto/chat.dto';
 
 @Injectable()
-export class ChatService {
+export class ChatService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
@@ -36,6 +37,26 @@ export class ChatService {
   private CACHE_TTL = 10_000; // 채팅/프로필 변경은 빠르게 반영
   private repairCache = new Map<string, number>(); // userId → last repair ts
   private REPAIR_THROTTLE = 30 * 60_000; // 30분 (한 번 repair 후 30분 동안은 skip)
+  private participantCache = new Map<string, { ids: string[]; ts: number }>();
+  private PARTICIPANT_CACHE_TTL = 10 * 60_000;
+
+  onModuleInit() {
+    this.ensurePerformanceIndexes().catch(() => undefined);
+  }
+
+  private async ensurePerformanceIndexes() {
+    await Promise.allSettled([
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_room_members_userId_roomId_idx" ON "chat_room_members" ("userId", "roomId")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "messages_senderId_roomId_createdAt_idx" ON "messages" ("senderId", "roomId", "createdAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "messages_roomId_isDeleted_createdAt_idx" ON "messages" ("roomId", "isDeleted", "createdAt")',
+      ),
+    ]);
+  }
 
   private getRoomCached(key: string) {
     const hit = this.roomCache.get(key);
@@ -62,6 +83,7 @@ export class ChatService {
   /** 특정 유저의 룸 목록 캐시 무효화 (새 룸 생성/메시지 전송 시 호출) */
   private invalidateRoomsCache(userId: string) {
     this.repairCache.delete(userId);
+    this.participantCache.delete(userId);
     for (const key of this.roomCache.keys()) {
       if (key.startsWith(`rooms:${userId}:`) || key.includes(`"userId":"${userId}"`)) {
         this.roomCache.delete(key);
@@ -126,8 +148,20 @@ export class ChatService {
   }
 
   private async getChatParticipantUserIds(userId: string) {
+    const cached = this.participantCache.get(userId);
+    if (cached && Date.now() - cached.ts < this.PARTICIPANT_CACHE_TTL) return cached.ids;
     const legacyUserIds = await this.findLegacyChatUserIds(userId);
-    return Array.from(new Set([userId, ...legacyUserIds].filter(Boolean)));
+    const ids = Array.from(new Set([userId, ...legacyUserIds].filter(Boolean)));
+    this.participantCache.set(userId, { ids, ts: Date.now() });
+    return ids;
+  }
+
+  private fastChatRoomParticipantWhere(participantUserIds: string[]) {
+    return [
+      { userId: { in: participantUserIds } },
+      { proProfile: { userId: { in: participantUserIds } } },
+      { members: { some: { userId: { in: participantUserIds } } } },
+    ];
   }
 
   private chatRoomParticipantWhere(participantUserIds: string[]) {
@@ -156,6 +190,22 @@ export class ChatService {
                 { matchRequest: { is: { userId: { in: participantUserIds } } } },
               ],
             },
+            { userDeletedAt: null },
+            { proDeletedAt: null },
+          ],
+        },
+      ],
+    };
+  }
+
+  private fastChatRoomVisibleWhere(participantUserIds: string[]) {
+    return {
+      OR: [
+        { userId: { in: participantUserIds }, userDeletedAt: null },
+        { proProfile: { userId: { in: participantUserIds } }, proDeletedAt: null },
+        {
+          AND: [
+            { members: { some: { userId: { in: participantUserIds } } } },
             { userDeletedAt: null },
             { proDeletedAt: null },
           ],
@@ -726,19 +776,15 @@ export class ChatService {
     // 1) cache fastpath — repair 보다 먼저 확인 (cache hit 시 repair 스킵)
     const cached = this.getRoomCached(cacheKey);
     if (cached) {
-      // repair 는 백그라운드로 throttle 후 실행 (응답 막지 않음)
-      this.maybeBackgroundRepair(userId);
       return cached;
     }
 
-    // 2) repair 는 응답을 막지 않고 백그라운드에서 실행한다.
-    this.maybeBackgroundRepair(userId);
     const participantUserIds = await this.getChatParticipantUserIds(userId);
 
     const where: any = {
       AND: [
-        { OR: this.chatRoomParticipantWhere(participantUserIds) },
-        this.chatRoomVisibleWhere(participantUserIds),
+        { OR: this.fastChatRoomParticipantWhere(participantUserIds) },
+        this.fastChatRoomVisibleWhere(participantUserIds),
       ],
     };
 
@@ -848,6 +894,9 @@ export class ChatService {
     const total = withTotal ? totalCount : data.length;
     const result = { data, total, page, limit: take, hasMore: withTotal ? page * take < total : data.length === take };
     this.setRoomCached(cacheKey, result);
+    if (data.length === 0 && !search && !dateFrom && !dateTo) {
+      this.maybeBackgroundRepair(userId);
+    }
     return result;
   }
 
@@ -858,8 +907,8 @@ export class ChatService {
       where: {
         id: roomId,
         AND: [
-          { OR: this.chatRoomParticipantWhere(participantUserIds) },
-          this.chatRoomVisibleWhere(participantUserIds),
+          { OR: this.fastChatRoomParticipantWhere(participantUserIds) },
+          this.fastChatRoomVisibleWhere(participantUserIds),
         ],
       },
       include: {

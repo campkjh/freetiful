@@ -606,7 +606,7 @@ export default function ChatRoomPage() {
       if (document.visibilityState === 'visible') {
         void refreshRoomState();
       }
-    }, isSocketConnected ? 20000 : 2500);
+    }, isSocketConnected ? 5000 : 2500);
 
     window.addEventListener('focus', onVisibility);
     document.addEventListener('visibilitychange', onVisibility);
