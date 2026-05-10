@@ -71,9 +71,28 @@ function dispatchChatEvent(name: string, detail?: Record<string, unknown>) {
   } catch {}
 }
 
+function normalizeSocketBaseUrl(value?: string | null) {
+  const trimmed = value?.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return trimmed
+    .replace(/\/api\/v1$/i, '')
+    .replace(/\/api$/i, '')
+    .replace(/\/chat$/i, '');
+}
+
+function isSameBrowserHost(url: string) {
+  if (typeof window === 'undefined') return false;
+  try {
+    return new URL(url, window.location.origin).hostname === window.location.hostname;
+  } catch {
+    return false;
+  }
+}
+
 function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
   const system = (message.metadata as any)?.system;
   if (system?.kind === 'quote') return { hasQuoteInquiry: true };
+  if (system?.kind === 'payment_pending_acceptance') return { hasQuoteInquiry: true };
   if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
     return { hasQuoteInquiry: true, hasConfirmedBooking: true };
   }
@@ -86,6 +105,7 @@ function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
 function getRoomFlagsFromPayload(data: SendMessagePayload): Partial<ChatRoomItem> {
   const system = (data.metadata as Record<string, any> | null)?.system;
   if (system?.kind === 'quote') return { hasQuoteInquiry: true };
+  if (system?.kind === 'payment_pending_acceptance') return { hasQuoteInquiry: true };
   if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
     return { hasQuoteInquiry: true, hasConfirmedBooking: true };
   }
@@ -184,7 +204,7 @@ interface ChatState {
   fetchMessages: (roomId: string, loadMore?: boolean) => Promise<void>;
   sendMessage: (data: SendMessagePayload) => Promise<MessageItem | null>;
   editMessage: (messageId: string, content: string) => void;
-  deleteMessage: (messageId: string) => void;
+  deleteMessage: (messageId: string) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
   setTyping: (isTyping: boolean) => void;
   toggleFavorite: (roomId: string) => Promise<void>;
@@ -224,10 +244,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : typeof window !== 'undefined'
             ? window.location.origin
             : '';
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SOCKET_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      fallbackUrl;
+    const socketEnvUrl = normalizeSocketBaseUrl(process.env.NEXT_PUBLIC_SOCKET_URL);
+    const apiEnvUrl = normalizeSocketBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+    const safeApiEnvUrl = isProdHost && isSameBrowserHost(apiEnvUrl) ? '' : apiEnvUrl;
+    const baseUrl = socketEnvUrl || safeApiEnvUrl || normalizeSocketBaseUrl(fallbackUrl);
 
     const socket = io(baseUrl + '/chat', {
       auth: { token },
@@ -235,7 +255,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       reconnection: true,
       reconnectionDelay: 300,
       reconnectionDelayMax: 2000,
-      timeout: 8000,
+      timeout: 5000,
+      rememberUpgrade: true,
     });
 
     socket.on('connect', () => {
@@ -399,7 +420,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const hasFilters = !!(apiParams.search || apiParams.dateFrom || apiParams.dateTo);
-    const requestParams = { limit: 30, ...apiParams };
+    const requestParams = { limit: 30, withTotal: false, ...apiParams };
     if (!force && !hasFilters && roomsLoading) return;
     if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < 30_000) {
       set({ roomsLoading: false });
@@ -638,10 +659,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
     socket.emit('editMessage', { messageId, roomId: currentRoomId, content });
   },
 
-  deleteMessage: (messageId) => {
+  deleteMessage: async (messageId) => {
     const { socket, currentRoomId } = get();
-    if (!socket || !currentRoomId) return;
-    socket.emit('deleteMessage', { messageId, roomId: currentRoomId });
+    if (!currentRoomId) return;
+
+    set((s) => {
+      const nextMessages = s.messages.map((m) =>
+        m.id === messageId ? { ...m, isDeleted: true, content: '삭제된 메시지입니다' } : m,
+      );
+      const cached = s.messageCache.get(currentRoomId) || [];
+      s.messageCache.set(
+        currentRoomId,
+        cached.map((m) => (m.id === messageId ? { ...m, isDeleted: true, content: '삭제된 메시지입니다' } : m)),
+      );
+      return { messages: nextMessages };
+    });
+
+    await chatApi.deleteMessage(messageId);
+    if (socket?.connected) {
+      socket.emit('deleteMessage', { messageId, roomId: currentRoomId });
+    }
   },
 
   addReaction: (messageId, emoji) => {
@@ -665,6 +702,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   deleteRoom: async (roomId) => {
     await chatApi.deleteRoom(roomId);
-    set((s) => ({ rooms: s.rooms.filter((r) => r.id !== roomId) }));
+    set((s) => {
+      const nextRooms = s.rooms.filter((r) => r.id !== roomId);
+      writeRoomsCache(nextRooms);
+      return { rooms: nextRooms };
+    });
   },
 }));

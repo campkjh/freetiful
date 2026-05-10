@@ -118,7 +118,7 @@ export default function ChatListPage() {
     };
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') refreshRooms();
-    }, 5000);
+    }, 15000);
     window.addEventListener('focus', refreshRooms);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
@@ -627,7 +627,6 @@ export default function ChatListPage() {
           >
             {currentTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span>
           </p>
-          <button onClick={() => { setEditMode(!editMode); setSelectedIds(new Set()); }} className="text-[13px] font-medium text-gray-500 active:scale-90 transition-transform">{editMode ? '완료' : '편집'}</button>
         </div>
         <>
           {editMode && selectedIds.size > 0 && (

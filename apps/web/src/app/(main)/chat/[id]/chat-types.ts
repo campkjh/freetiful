@@ -4,6 +4,7 @@ export type SystemKind =
   | 'session_start'
   | 'quote'
   | 'payment_request'
+  | 'payment_pending_acceptance'
   | 'payment_paid'
   | 'booking_confirmed'
   | 'reminder'

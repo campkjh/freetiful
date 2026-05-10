@@ -33,7 +33,7 @@ export class ChatService {
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
-  private CACHE_TTL = 60_000; // 1분 (채팅은 짧게)
+  private CACHE_TTL = 10_000; // 채팅/프로필 변경은 빠르게 반영
   private repairCache = new Map<string, number>(); // userId → last repair ts
   private REPAIR_THROTTLE = 30 * 60_000; // 30분 (한 번 repair 후 30분 동안은 skip)
 
@@ -139,6 +139,29 @@ export class ChatService {
       { quotations: { some: { userId: { in: participantUserIds } } } },
       { matchRequest: { is: { userId: { in: participantUserIds } } } },
     ];
+  }
+
+  private chatRoomVisibleWhere(participantUserIds: string[]) {
+    return {
+      OR: [
+        { userId: { in: participantUserIds }, userDeletedAt: null },
+        { proProfile: { userId: { in: participantUserIds } }, proDeletedAt: null },
+        {
+          AND: [
+            {
+              OR: [
+                { members: { some: { userId: { in: participantUserIds } } } },
+                { messages: { some: { senderId: { in: participantUserIds } } } },
+                { quotations: { some: { userId: { in: participantUserIds } } } },
+                { matchRequest: { is: { userId: { in: participantUserIds } } } },
+              ],
+            },
+            { userDeletedAt: null },
+            { proDeletedAt: null },
+          ],
+        },
+      ],
+    };
   }
 
   private async refreshRoomLastVisibleMessage(roomId: string) {
@@ -708,12 +731,15 @@ export class ChatService {
       return cached;
     }
 
-    // 2) repair 는 throttle (유저당 30분에 1회). cache miss 시에만 동기 실행 — 보장된 정확성 필요할 때만
-    await this.ensureRoomsRepaired(userId);
+    // 2) repair 는 응답을 막지 않고 백그라운드에서 실행한다.
+    this.maybeBackgroundRepair(userId);
     const participantUserIds = await this.getChatParticipantUserIds(userId);
 
     const where: any = {
-      OR: this.chatRoomParticipantWhere(participantUserIds),
+      AND: [
+        { OR: this.chatRoomParticipantWhere(participantUserIds) },
+        this.chatRoomVisibleWhere(participantUserIds),
+      ],
     };
 
     if (dateFrom || dateTo) {
@@ -723,15 +749,13 @@ export class ChatService {
     }
 
     if (search) {
-      where.AND = [
-        {
-          OR: [
-            { user: { name: { contains: search, mode: 'insensitive' } } },
-            { proProfile: { user: { name: { contains: search, mode: 'insensitive' } } } },
-            { messages: { some: { content: { contains: search, mode: 'insensitive' } } } },
-          ],
-        },
-      ];
+      where.AND.push({
+        OR: [
+          { user: { name: { contains: search, mode: 'insensitive' } } },
+          { proProfile: { user: { name: { contains: search, mode: 'insensitive' } } } },
+          { messages: { some: { content: { contains: search, mode: 'insensitive' } } } },
+        ],
+      });
     }
 
     const [rooms, totalCount] = await Promise.all([
@@ -828,12 +852,15 @@ export class ChatService {
   }
 
   async getRoomById(roomId: string, userId: string) {
-    await this.ensureRoomsRepaired(userId);
+    this.maybeBackgroundRepair(userId);
     const participantUserIds = await this.getChatParticipantUserIds(userId);
     const room = await this.prisma.chatRoom.findFirst({
       where: {
         id: roomId,
-        OR: this.chatRoomParticipantWhere(participantUserIds),
+        AND: [
+          { OR: this.chatRoomParticipantWhere(participantUserIds) },
+          this.chatRoomVisibleWhere(participantUserIds),
+        ],
       },
       include: {
         proProfile: {

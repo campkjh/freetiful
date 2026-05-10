@@ -79,6 +79,25 @@ export class PaymentService {
     return tossData?.method ?? null;
   }
 
+  private formatEventDateLabel(value?: Date | string | null): string {
+    if (!value) return '미정';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '미정';
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${days[date.getDay()]})`;
+  }
+
+  private formatEventTimeLabel(value?: Date | string | null): string {
+    const time = this.toTimeInput(value);
+    return time || '미정';
+  }
+
+  private toDateIso(value?: Date | string | null): string | undefined {
+    if (!value) return undefined;
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString().slice(0, 10);
+  }
+
   /** 주문 생성 (결제 전 pending Payment 레코드) */
   async createOrder(
     userId: string,
@@ -219,8 +238,9 @@ export class PaymentService {
       },
     });
 
-    // 연관된 견적서 상태 + eventDate 조회
+    // 연관된 견적서 상태 + 일정 정보 조회
     let eventDate: Date | null = null;
+    let paidQuotation: any = null;
     // chatRoomId 유무로 '채팅 견적 결제' vs '직접 구매' 판별
     // - 채팅 견적 결제(프로가 견적서 발송 → 고객 결제): quotation.chatRoomId 존재 → 즉시 확정
     // - 직접 구매(구매하기 / 예약하기 버튼): quotation.chatRoomId 없음 → 프로 수락 대기
@@ -233,6 +253,7 @@ export class PaymentService {
           paymentId: payment.id,
         },
       });
+      paidQuotation = quotation;
       eventDate = quotation.eventDate;
       isDirectPurchase = !quotation.chatRoomId;
     }
@@ -300,10 +321,24 @@ export class PaymentService {
       }
       if (room?.id) {
         chatRoomId = room.id;
+        const eventDateLabel = this.formatEventDateLabel(paidQuotation?.eventDate);
+        const eventTimeLabel = this.formatEventTimeLabel(paidQuotation?.eventTime);
+        const eventLocationLabel = paidQuotation?.eventLocation || '미정';
+        const eventTitle = paidQuotation?.title || '예약 일정';
         // 시스템 메시지 — 직접 구매면 '대기 중', 채팅 견적이면 '확정' 표시
         const sysContent = isDirectPurchase
-          ? `📅 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 프로의 수락을 기다리는 중입니다.`
-          : `✅ 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 스케줄이 확정되었습니다.`;
+          ? [
+              `📅 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 프로의 수락을 기다리는 중입니다.`,
+              `일정: ${eventDateLabel}`,
+              `시간: ${eventTimeLabel}`,
+              `장소: ${eventLocationLabel}`,
+            ].join('\n')
+          : [
+              `✅ 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 스케줄이 확정되었습니다.`,
+              `확정 일정: ${eventDateLabel}`,
+              `확정 시간: ${eventTimeLabel}`,
+              `확정 장소: ${eventLocationLabel}`,
+            ].join('\n');
         const systemMessage = await this.chatService.sendMessage(room.id, payment.userId, {
           type: MessageTypeEnum.system,
           content: sysContent,
@@ -311,6 +346,13 @@ export class PaymentService {
             system: {
               kind: isDirectPurchase ? 'payment_pending_acceptance' : 'payment_paid',
               paymentId: payment.id,
+              quotationId: paidQuotation?.id,
+              amount: data.amount,
+              eventName: eventTitle,
+              eventDate: this.toDateIso(paidQuotation?.eventDate),
+              eventTime: this.toTimeInput(paidQuotation?.eventTime),
+              eventLocation: paidQuotation?.eventLocation || null,
+              venue: paidQuotation?.eventLocation || null,
             },
           },
         });

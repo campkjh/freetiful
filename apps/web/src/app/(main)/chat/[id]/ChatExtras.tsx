@@ -568,7 +568,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
   const sys = msg.system;
   if (!sys) return null;
 
-  if (sys.kind === 'session_start' || !['quote', 'payment_request', 'payment_paid', 'booking_confirmed', 'reminder', 'event_today', 'event_done', 'review_request', 'refund', 'cancel'].includes(sys.kind)) {
+  if (sys.kind === 'session_start' || !['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid', 'booking_confirmed', 'reminder', 'event_today', 'event_done', 'review_request', 'refund', 'cancel'].includes(sys.kind)) {
     return (
       <div className="text-center py-3">
         <span className="inline-block text-[12px] text-gray-500 bg-gray-100 px-3.5 py-1.5 rounded-full">
@@ -1075,6 +1075,22 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V7l-8-5z" fill="white" opacity="0.3"/><path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               안전결제하기
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (sys.kind === 'payment_pending_acceptance') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-2xl border border-blue-100 shadow-sm px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <Clock size={24} className="text-[#3180F7] shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-gray-900">결제 완료 · 수락 대기</p>
+              <p className="text-[12px] text-gray-500 whitespace-pre-line">{msg.content}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -1701,9 +1717,15 @@ export default function ChatExtras(props: ChatExtrasProps) {
     inputRef.current?.focus();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== id));
     setActionMenu(null);
+    try {
+      await useChatStore.getState().deleteMessage(id);
+      toast.success('메시지가 삭제되었습니다');
+    } catch {
+      toast.error('삭제에 실패했습니다. 잠시 후 다시 시도해주세요');
+    }
   };
 
   const handleReport = (msg: Message) => {

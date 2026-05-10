@@ -537,7 +537,7 @@ export default function ChatRoomPage() {
     if (wsMessages.length === 0 || roomId.startsWith('pending-')) return;
     const latestSystem = [...wsMessages].reverse().find((m) => m.type === 'system');
     const kind = (latestSystem?.metadata as Record<string, any> | null)?.system?.kind;
-    if (!kind || !['quote', 'payment_request', 'payment_paid', 'booking_confirmed'].includes(kind)) return;
+    if (!kind || !['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid', 'booking_confirmed'].includes(kind)) return;
     chatApi.getRoom(roomId)
       .then((res) => {
         const room = res.data as ChatRoomItem;
@@ -602,13 +602,11 @@ export default function ChatRoomPage() {
       }
     };
 
-    const interval = !isSocketConnected
-      ? window.setInterval(() => {
-          if (document.visibilityState === 'visible') {
-            void refreshRoomState();
-          }
-        }, 8000)
-      : null;
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void refreshRoomState();
+      }
+    }, isSocketConnected ? 20000 : 2500);
 
     window.addEventListener('focus', onVisibility);
     document.addEventListener('visibilitychange', onVisibility);
@@ -618,7 +616,7 @@ export default function ChatRoomPage() {
 
     return () => {
       cancelled = true;
-      if (interval) window.clearInterval(interval);
+      window.clearInterval(interval);
       window.removeEventListener('focus', onVisibility);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('freetiful:chat-room-activity', onChatActivity as EventListener);
