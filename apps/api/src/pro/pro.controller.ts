@@ -188,6 +188,14 @@ export class ProController {
 
   // ─── Schedule ─────────────────────────────────────────────────────────────
 
+  @Get('dashboard/snapshot')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '사회자 홈 핵심 데이터 스냅샷' })
+  getDashboardSnapshot(@Req() req) {
+    return this.proService.getDashboardSnapshot(req.user.id);
+  }
+
   @Get('schedule/upcoming')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()

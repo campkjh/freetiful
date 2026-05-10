@@ -160,6 +160,11 @@ function sameClientMessageId(a: MessageItem, b: MessageItem) {
   return typeof aId === 'string' && aId.length > 0 && aId === bId;
 }
 
+function replaceOrAppendMessage(messages: MessageItem[], message: MessageItem) {
+  const filtered = messages.filter((item) => item.id !== message.id && !sameClientMessageId(item, message));
+  return sortMessagesAsc([...filtered, message]);
+}
+
 function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[], requestedAt: number) {
   if (fetched.length === 0 && current.length > 0) return current;
 
@@ -275,15 +280,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const myId = currentUserId();
       const isMine = !!myId && message.senderId === myId;
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      if (!cachedForRoom.some((m) => m.id === message.id || sameClientMessageId(m, message))) {
-        messageCache.set(message.roomId, sortMessagesAsc([...cachedForRoom, message]).slice(-80));
-      }
+      messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       if (message.roomId === currentRoomId) {
         set((s) => ({
-          messages: s.messages.some((m) => m.id === message.id || sameClientMessageId(m, message))
-            ? s.messages
-            : sortMessagesAsc([...s.messages, message]),
+          messages: replaceOrAppendMessage(s.messages, message),
         }));
       }
       // Update room list
@@ -318,6 +319,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!hasRoomInList) {
         get().fetchRooms({ limit: 50, force: true }).catch(() => {});
       }
+    });
+
+    socket.on('profileUpdated', (data: { userId: string; name?: string | null; profileImageUrl?: string | null }) => {
+      if (!data?.userId) return;
+      set((s) => {
+        const nextRooms = s.rooms.map((room) => {
+          if (room.otherUser.id !== data.userId) return room;
+          return {
+            ...room,
+            otherUser: {
+              ...room.otherUser,
+              ...(data.name !== undefined ? { name: data.name || room.otherUser.name } : {}),
+              ...(data.profileImageUrl !== undefined ? { profileImageUrl: data.profileImageUrl } : {}),
+            },
+          };
+        });
+        const nextMessages = s.messages.map((message) => {
+          if (message.senderId !== data.userId) return message;
+          return {
+            ...message,
+            sender: {
+              ...message.sender,
+              ...(data.name !== undefined ? { name: data.name || message.sender.name } : {}),
+              ...(data.profileImageUrl !== undefined ? { profileImageUrl: data.profileImageUrl } : {}),
+            },
+          };
+        });
+        for (const [roomId, cached] of s.messageCache.entries()) {
+          s.messageCache.set(roomId, cached.map((message) => (
+            message.senderId === data.userId
+              ? {
+                  ...message,
+                  sender: {
+                    ...message.sender,
+                    ...(data.name !== undefined ? { name: data.name || message.sender.name } : {}),
+                    ...(data.profileImageUrl !== undefined ? { profileImageUrl: data.profileImageUrl } : {}),
+                  },
+                }
+              : message
+          )));
+        }
+        writeRoomsCache(nextRooms);
+        return { rooms: nextRooms, messages: nextMessages };
+      });
+      dispatchChatEvent('freetiful:chat-profile-updated', data);
     });
 
     let refreshTimer: number | null = null;
@@ -528,6 +574,41 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const previewCreatedAt = new Date().toISOString();
     const previewContent = getPreviewContent(payload);
     const hasRoomInList = get().rooms.some((room) => room.id === roomId);
+    const currentUser = useAuthStore.getState().user;
+    const optimisticClientMessageId = (payload.metadata as Record<string, unknown> | undefined)?.clientMessageId;
+    const optimisticMessage: MessageItem | null = currentUser
+      ? {
+          id: `pending-${optimisticClientMessageId || Date.now()}`,
+          roomId,
+          senderId: currentUser.id,
+          type: payload.type as MessageItem['type'],
+          content: payload.content || null,
+          metadata: payload.metadata || null,
+          replyToId: payload.replyToId || null,
+          replyTo: null,
+          isEdited: false,
+          isDeleted: false,
+          isRead: false,
+          createdAt: previewCreatedAt,
+          sender: {
+            id: currentUser.id,
+            name: currentUser.name || '나',
+            profileImageUrl: currentUser.profileImageUrl || null,
+          },
+          reactions: [],
+        }
+      : null;
+
+    if (optimisticMessage) {
+      set((s) => {
+        const nextMessages = s.currentRoomId === roomId
+          ? replaceOrAppendMessage(s.messages, optimisticMessage)
+          : s.messages;
+        const cached = s.messageCache.get(roomId) || [];
+        s.messageCache.set(roomId, replaceOrAppendMessage(cached, optimisticMessage).slice(-80));
+        return { messages: nextMessages };
+      });
+    }
 
     if (hasRoomInList) {
       set((s) => {
@@ -569,13 +650,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const applyPersistedMessage = (message: MessageItem) => {
       const { messageCache } = get();
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      if (!cachedForRoom.some((m) => m.id === message.id || sameClientMessageId(m, message))) {
-        messageCache.set(message.roomId, sortMessagesAsc([...cachedForRoom, message]).slice(-80));
-      }
+      messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       set((s) => {
-        const nextMessages = s.currentRoomId === message.roomId && !s.messages.some((m) => m.id === message.id || sameClientMessageId(m, message))
-          ? sortMessagesAsc([...s.messages, message])
+        const nextMessages = s.currentRoomId === message.roomId
+          ? replaceOrAppendMessage(s.messages, message)
           : s.messages;
         const nextRooms = s.rooms.map((r) =>
           r.id === message.roomId

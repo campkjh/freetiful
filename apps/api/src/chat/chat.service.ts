@@ -34,7 +34,7 @@ export class ChatService implements OnModuleInit {
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
-  private CACHE_TTL = 10_000; // 채팅/프로필 변경은 빠르게 반영
+  private CACHE_TTL = 3_000; // 채팅/프로필 변경은 빠르게 반영
   private repairCache = new Map<string, number>(); // userId → last repair ts
   private REPAIR_THROTTLE = 30 * 60_000; // 30분 (한 번 repair 후 30분 동안은 skip)
   private participantCache = new Map<string, { ids: string[]; ts: number }>();
@@ -54,6 +54,15 @@ export class ChatService implements OnModuleInit {
       ),
       this.prisma.$executeRawUnsafe(
         'CREATE INDEX CONCURRENTLY IF NOT EXISTS "messages_roomId_isDeleted_createdAt_idx" ON "messages" ("roomId", "isDeleted", "createdAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_rooms_userId_lastMessageAt_idx" ON "chat_rooms" ("userId", "lastMessageAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_rooms_proProfileId_lastMessageAt_idx" ON "chat_rooms" ("proProfileId", "lastMessageAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_rooms_matchRequestId_idx" ON "chat_rooms" ("matchRequestId")',
       ),
     ]);
   }
@@ -763,7 +772,9 @@ export class ChatService implements OnModuleInit {
   async getRooms(userId: string, query: ChatRoomQueryDto) {
     const { search, dateFrom, dateTo, page = 1, limit = 20 } = query;
     const take = Math.min(Number(limit) || 20, 50);
-    const withTotal = query.withTotal !== false;
+    const withTotal = query.withTotal === undefined
+      ? true
+      : query.withTotal === true || String(query.withTotal).toLowerCase() === 'true';
 
     const cacheKey = `rooms:${userId}:${JSON.stringify({
       page,

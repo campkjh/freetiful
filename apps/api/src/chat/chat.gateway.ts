@@ -15,18 +15,26 @@ import { ChatService } from './chat.service';
 import { ChatRealtimeService } from './chat-realtime.service';
 import { SendMessageDto } from './dto/chat.dto';
 
+const defaultSocketOrigins = [
+  'http://localhost:3000',
+  'http://localhost:4000',
+  'http://localhost:8100',
+  'http://localhost:8081',
+  'http://localhost',
+  'https://localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'https://freetiful.com',
+  'https://www.freetiful.com',
+];
+
 interface AuthenticatedSocket extends Socket {
   userId?: string;
 }
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? [
-      'http://localhost:3000',
-      'http://localhost:8081',
-      'https://freetiful.com',
-      'https://www.freetiful.com',
-    ],
+    origin: Array.from(new Set([...(process.env.ALLOWED_ORIGINS?.split(',') ?? []), ...defaultSocketOrigins])),
     credentials: true,
   },
   namespace: '/chat',

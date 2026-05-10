@@ -612,6 +612,9 @@ model ChatRoom {
 
   @@index([userId, userDeletedAt, lastMessageAt])
   @@index([proProfileId, proDeletedAt, lastMessageAt])
+  @@index([userId, lastMessageAt])
+  @@index([proProfileId, lastMessageAt])
+  @@index([matchRequestId])
   @@index([lastMessageAt])
   @@map("chat_rooms")
 }
@@ -628,6 +631,7 @@ model ChatRoomMember {
 
   @@id([roomId, userId])
   @@index([userId])
+  @@index([userId, roomId])
   @@map("chat_room_members")
 }
 

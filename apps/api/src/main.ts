@@ -8,6 +8,23 @@ import * as express from 'express';
 import * as path from 'path';
 import { AppModule } from './app.module';
 
+const defaultCorsOrigins = [
+  'http://localhost:3000',
+  'http://localhost:4000',
+  'http://localhost:8100',
+  'http://localhost:8081',
+  'http://localhost',
+  'https://localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'https://freetiful.com',
+  'https://www.freetiful.com',
+];
+
+function corsOrigins() {
+  return Array.from(new Set([...(process.env.ALLOWED_ORIGINS?.split(',') ?? []), ...defaultCorsOrigins]));
+}
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
@@ -24,10 +41,7 @@ async function bootstrap() {
   app.use(compression());
 
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? [
-      'http://localhost:3000',
-      'http://localhost:8081',
-    ],
+    origin: corsOrigins(),
     credentials: true,
   });
 

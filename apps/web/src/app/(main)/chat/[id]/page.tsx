@@ -601,6 +601,18 @@ export default function ChatRoomPage() {
         void refreshRoomState(true);
       }
     };
+    const onProfileUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string; name?: string | null; profileImageUrl?: string | null }>).detail;
+      if (!detail?.userId) return;
+      setChatPartner((prev) => {
+        if (!prev || prev.id !== detail.userId) return prev;
+        return {
+          ...prev,
+          ...(detail.name !== undefined ? { name: detail.name || prev.name } : {}),
+          ...(detail.profileImageUrl !== undefined ? { profileImageUrl: detail.profileImageUrl || '/images/default-profile.svg' } : {}),
+        };
+      });
+    };
 
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -611,6 +623,7 @@ export default function ChatRoomPage() {
     window.addEventListener('focus', onVisibility);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('freetiful:chat-room-activity', onChatActivity as EventListener);
+    window.addEventListener('freetiful:chat-profile-updated', onProfileUpdated as EventListener);
     window.addEventListener('freetiful:dashboard-updated', onVisibility as EventListener);
     void refreshRoomState(true);
 
@@ -620,6 +633,7 @@ export default function ChatRoomPage() {
       window.removeEventListener('focus', onVisibility);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('freetiful:chat-room-activity', onChatActivity as EventListener);
+      window.removeEventListener('freetiful:chat-profile-updated', onProfileUpdated as EventListener);
       window.removeEventListener('freetiful:dashboard-updated', onVisibility as EventListener);
     };
   }, [authUser, roomId, isSocketConnected]);

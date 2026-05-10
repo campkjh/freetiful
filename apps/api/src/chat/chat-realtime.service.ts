@@ -98,4 +98,40 @@ export class ChatRealtimeService {
       this.emitDashboardUpdated(options.dashboardUserIds, { roomId, messageId, kind: 'message' });
     }
   }
+
+  async emitProfileUpdatedForUser(
+    userId: string,
+    data: { name?: string | null; profileImageUrl?: string | null },
+  ) {
+    if (!this.server) return;
+
+    const rooms = await this.prisma.chatRoom.findMany({
+      where: {
+        OR: [
+          { userId },
+          { proProfile: { userId } },
+          { members: { some: { userId } } },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        proProfile: { select: { userId: true } },
+        members: { select: { userId: true } },
+      },
+      take: 500,
+    });
+
+    const affectedUserIds = new Set<string>([userId]);
+    for (const room of rooms) {
+      affectedUserIds.add(room.userId);
+      if (room.proProfile?.userId) affectedUserIds.add(room.proProfile.userId);
+      room.members.forEach((member) => affectedUserIds.add(member.userId));
+      this.server.to(`room:${room.id}`).emit('profileUpdated', { userId, ...data });
+    }
+
+    for (const targetUserId of affectedUserIds) {
+      this.emitToUser(targetUserId, 'profileUpdated', { userId, ...data });
+    }
+  }
 }

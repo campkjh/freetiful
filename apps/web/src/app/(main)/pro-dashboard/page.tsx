@@ -481,6 +481,64 @@ export default function ProDashboardPage() {
     } catch { /* ignore */ }
   }, []);
 
+  useEffect(() => {
+    if (!authUser) return;
+    let cancelled = false;
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
+    prosApi.getDashboardSnapshot()
+      .then((snapshot: any) => {
+        if (cancelled || !snapshot) return;
+
+        const scheduleRows = Array.isArray(snapshot.scheduleRequests) ? snapshot.scheduleRequests : [];
+        setScheduleRequests(scheduleRows);
+        cachedSectionsRef.current.scheduleRequests = true;
+        setScheduleRequestsLoading(false);
+
+        const matchRows = Array.isArray(snapshot.matchRequests) ? snapshot.matchRequests : [];
+        const visible = matchRows.filter((m: any) => m.status === 'pending' || m.status === 'viewed');
+        const { active } = splitArchivedMatchRequests(visible);
+        setMatchRequests(active);
+        cachedSectionsRef.current.matchRequests = true;
+        setMatchRequestsLoading(false);
+
+        const upcomingRows = Array.isArray(snapshot.upcoming) ? snapshot.upcoming : [];
+        const upcoming = upcomingRows
+          .filter((s: any) => s.status === 'booked')
+          .slice(0, 3)
+          .map((s: any) => {
+            const d = new Date(s.date);
+            return {
+              date: `${d.getMonth() + 1}/${d.getDate()}`,
+              day: weekdays[d.getDay()],
+              eventType: s.eventTitle || '일정',
+              venue: s.eventLocation || '',
+              status: '확정',
+            };
+          });
+        setUpcomingEvents(upcoming);
+        cachedSectionsRef.current.upcoming = true;
+        setUpcomingLoading(false);
+
+        writeDashboardCache({
+          scheduleRequests: scheduleRows,
+          matchRequests: active,
+          upcomingEvents: upcoming,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setScheduleRequestsLoading(false);
+          setMatchRequestsLoading(false);
+          setUpcomingLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser]);
+
   // 스케줄 요청 조회 (고객이 구매해서 대기중인 요청)
   useEffect(() => {
     if (!authUser) { setScheduleRequestsLoading(false); return; }
