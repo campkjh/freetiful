@@ -65,9 +65,10 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
 }
 
 function getInitialRoomsForCurrentUser() {
-  const auth = useAuthStore.getState();
+  // chat.store 가 모듈 로드 시점에 localStorage 캐시를 hydrate 하므로
+  // auth.hasHydrated 를 기다리지 않고 즉시 보여줄 수 있다.
+  // userId 일치 여부는 store 내부에서 lastUserId 와 대조해 이미 차단됨.
   const chat = useChatStore.getState();
-  if (!auth.hasHydrated || !auth.user || chat.roomsUserId !== auth.user.id) return [];
   return chat.rooms.map(mapApiRoomToChatRoom);
 }
 
@@ -110,7 +111,9 @@ export default function ChatListPage() {
       const now = Date.now();
       if (now - lastRefreshAtRef.current < 2_500) return;
       lastRefreshAtRef.current = now;
-      fetchRooms({ limit: 50, force: true }).catch(() => {});
+      // force 를 쓰지 않는다 — store 의 revalidate 쓰로틀(5s) + inflight 가드가 중복 호출 차단.
+      // socket newMessage / roomUpdated 가 실시간 업데이트 담당. 여기서는 안전망 fetch.
+      fetchRooms({ limit: 50 }).catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshRooms();

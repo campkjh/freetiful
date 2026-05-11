@@ -220,13 +220,43 @@ interface ChatState {
   deleteRoom: (roomId: string) => Promise<void>;
 }
 
+// 모듈 로드 즉시 localStorage 캐시를 동기로 읽어 초기 rooms 를 채운다.
+// 이러면 페이지가 마운트되기 전에 이미 store.rooms 가 있어 컴포넌트의 초기 render 부터
+// 채팅 리스트가 보인다 — auth.hasHydrated / 첫 fetchRooms 까지 기다리지 않음.
+// 잘못된 user 의 캐시가 보일 위험은 freetiful-auth-user-id 와 대조해 차단.
+function readInitialRoomsCache(): { rooms: ChatRoomItem[]; userId: string | null; ts: number } {
+  if (typeof window === 'undefined') return { rooms: [], userId: null, ts: 0 };
+  try {
+    const lastUserId = localStorage.getItem('freetiful-auth-user-id');
+    const raw = localStorage.getItem(ROOM_CACHE_KEY);
+    if (!raw) return { rooms: [], userId: null, ts: 0 };
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.rooms) || !parsed?.ts || !parsed?.userId) {
+      return { rooms: [], userId: null, ts: 0 };
+    }
+    if (Date.now() - parsed.ts > ROOM_CACHE_TTL) {
+      localStorage.removeItem(ROOM_CACHE_KEY);
+      return { rooms: [], userId: null, ts: 0 };
+    }
+    // 마지막 로그인 user 와 캐시의 userId 가 다르면 다른 사람의 채팅을 보여주지 않는다.
+    if (lastUserId && parsed.userId !== lastUserId) {
+      return { rooms: [], userId: null, ts: 0 };
+    }
+    return { rooms: parsed.rooms as ChatRoomItem[], userId: parsed.userId, ts: parsed.ts };
+  } catch {
+    return { rooms: [], userId: null, ts: 0 };
+  }
+}
+
+const __initialRoomsCache = readInitialRoomsCache();
+
 export const useChatStore = create<ChatState>((set, get) => ({
   socket: null,
   isConnected: false,
-  rooms: [],
-  roomsUserId: null,
+  rooms: __initialRoomsCache.rooms,
+  roomsUserId: __initialRoomsCache.userId,
   roomsLoading: false,
-  lastRoomsFetchAt: 0,
+  lastRoomsFetchAt: __initialRoomsCache.ts,
   currentRoomId: null,
   messages: [],
   messagesLoading: false,

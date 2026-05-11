@@ -411,13 +411,26 @@ function ProScheduleView() {
   );
 }
 
+// 모듈 로드 시점에 동기로 캐시를 읽어 초기 state 에 넣는다.
+// useEffect 안에서 캐시를 읽으면 첫 paint 에 빈 캘린더가 보이고 그 뒤에 채워져 '3초 걸림'으로 체감됨.
+function readInitialSchedules(monthKey: string): ScheduleItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const userId = localStorage.getItem('freetiful-auth-user-id');
+    if (!userId) return [];
+    return readScheduleCache<ScheduleItem[]>(`user:${userId}:${monthKey}`) || [];
+  } catch {
+    return [];
+  }
+}
+
 export default function SchedulePage() {
   const authUser = useAuthStore((s) => s.user);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const today = new Date();
   const initialMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>([]);
+  const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>(() => readInitialSchedules(initialMonthKey));
   const [scheduleLoading, setScheduleLoading] = useState(false);
   useEffect(() => {
     setIsLoggedIn(authUser !== null);
