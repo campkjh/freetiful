@@ -270,6 +270,25 @@ export default function ChatRoomPage() {
     return null;
   })();
 
+  // ─── Keyboard offset (Android WebView: visualViewport로 키보드 높이 감지) ───
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    if (isIOS) return; // iOS WKWebView는 fixed 요소가 visual viewport를 자동 추적
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vv.offsetTop - vv.height);
+      setKeyboardOffset(offset);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+
   // ─── Core state (needed for instant render) ───
   const [chatPartner, setChatPartner] = useState<ChatPartner | null>(initialPartner);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -1105,7 +1124,7 @@ export default function ChatRoomPage() {
       </div>
 
       {/* ─── Input Bar ─── */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 pb-safe px-safe">
+      <div className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: keyboardOffset }}>
         {/* 메시지 목록과의 경계에 그라데이션 블러 */}
         <div
           className="absolute left-0 right-0 bottom-full h-16 pointer-events-none"
