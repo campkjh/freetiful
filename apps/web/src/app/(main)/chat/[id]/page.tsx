@@ -1107,7 +1107,7 @@ export default function ChatRoomPage() {
       {/* ─── Input Bar — flex item (absolute 제거, Android/iOS 키보드 반응형) ─── */}
       {/* absolute bottom-0 대신 flex 아이템으로 변경:
           interactiveWidget=resizes-content 와 함께 뷰포트가 줄어들면 자동으로 키보드 위에 위치 */}
-      <div className="relative z-30 pt-1 pb-safe px-safe shrink-0">
+      <div className="relative z-30 pt-1 pb-safe px-safe shrink-0 w-full overflow-x-hidden">
         {/* 메시지 목록과의 경계에 그라데이션 블러 */}
         <div
           className="absolute left-0 right-0 bottom-full h-16 pointer-events-none"
