@@ -127,6 +127,28 @@ const STATUS_MAP = {
   cancelled: { label: '취소', color: 'text-red-500', bg: 'bg-red-50' },
 };
 
+function UserScheduleSkeleton() {
+  return (
+    <div className="divide-y divide-gray-100">
+      {[0, 1, 2].map((i) => (
+        <div key={`user-schedule-skeleton-${i}`} className="bg-white px-5 py-3">
+          <div className="flex items-start gap-3">
+            <div className="h-16 w-12 shrink-0 animate-pulse rounded-lg bg-gray-100" />
+            <div className="min-w-0 flex-1 pt-0.5">
+              <div className="mb-2 h-4 w-36 animate-pulse rounded bg-gray-100" />
+              <div className="h-3 w-24 animate-pulse rounded bg-gray-100" />
+              <div className="mt-3 flex gap-1.5">
+                <div className="h-6 w-20 animate-pulse rounded-lg bg-gray-100" />
+                <div className="h-6 w-28 animate-pulse rounded-lg bg-gray-100" />
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function getKoreanHolidays(year: number, month: number): Record<number, string> {
   const holidays: Record<number, string> = {};
   // 고정 공휴일
@@ -396,6 +418,7 @@ export default function SchedulePage() {
   const today = new Date();
   const initialMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   const [apiSchedules, setApiSchedules] = useState<ScheduleItem[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
   useEffect(() => {
     setIsLoggedIn(authUser !== null);
     setIsPro(authUser?.role === 'pro');
@@ -404,14 +427,26 @@ export default function SchedulePage() {
   // Fetch schedule from API when authenticated
   // 페이지 재진입 시에도 최신 데이터 반영되도록 visibility 기반 refetch 도 지원
   useEffect(() => {
-    if (!authUser) return;
-    if (authUser.role === 'pro') return;
+    if (!authUser) {
+      setScheduleLoading(false);
+      return;
+    }
+    if (authUser.role === 'pro') {
+      setScheduleLoading(false);
+      return;
+    }
     let cancelled = false;
     const cacheKey = `user:${authUser.id}:${initialMonthKey}`;
     const cached = readScheduleCache<ScheduleItem[]>(cacheKey);
-    if (cached) setApiSchedules(cached);
+    if (cached) {
+      setApiSchedules(cached);
+      setScheduleLoading(false);
+    } else {
+      setScheduleLoading(true);
+    }
 
-    const fetchGeneralSchedules = () => {
+    const fetchGeneralSchedules = (silent = false) => {
+      if (!silent) setScheduleLoading(true);
       apiClient.get('/api/v1/payment/schedule', { params: { limit: 80 }, timeout: 4000 })
         .then((res: any) => {
           const data = res.data?.data || [];
@@ -421,19 +456,21 @@ export default function SchedulePage() {
           setApiSchedules(mapped);
           writeScheduleCache(cacheKey, mapped);
         })
-        .catch((err) => { console.error('[Schedule] payment API error:', err); });
+        .catch((err) => { console.error('[Schedule] payment API error:', err); })
+        .finally(() => { if (!cancelled) setScheduleLoading(false); });
     };
 
-    fetchGeneralSchedules();
+    fetchGeneralSchedules(!!cached);
 
     // 탭 복귀/포커스 시 자동 재조회 (결제 직후 다른 탭에서 돌아와도 즉시 반영)
-    const onVis = () => { if (document.visibilityState === 'visible') fetchGeneralSchedules(); };
+    const onVis = () => { if (document.visibilityState === 'visible') fetchGeneralSchedules(true); };
+    const onFocus = () => fetchGeneralSchedules(true);
     window.addEventListener('visibilitychange', onVis);
-    window.addEventListener('focus', fetchGeneralSchedules);
+    window.addEventListener('focus', onFocus);
     return () => {
       cancelled = true;
       window.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('focus', fetchGeneralSchedules);
+      window.removeEventListener('focus', onFocus);
     };
   }, [authUser, initialMonthKey]);
   const [year, setYear] = useState(today.getFullYear());
@@ -663,7 +700,9 @@ export default function SchedulePage() {
 
           {/* Selected Date Detail */}
           <div className="min-h-[200px]">
-            {selectedSchedules.length > 0 ? (
+            {scheduleLoading && apiSchedules.length === 0 ? (
+              <UserScheduleSkeleton />
+            ) : selectedSchedules.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {selectedSchedules.map(s => {
                   const status = STATUS_MAP[s.status];
@@ -751,7 +790,9 @@ export default function SchedulePage() {
       ) : (
         /* List View */
         <div className="min-h-[200px]">
-          {monthSchedules.length > 0 ? (
+          {scheduleLoading && apiSchedules.length === 0 ? (
+            <UserScheduleSkeleton />
+          ) : monthSchedules.length > 0 ? (
             <div className="divide-y divide-gray-100">
               {monthSchedules.map(s => {
                 const status = STATUS_MAP[s.status];

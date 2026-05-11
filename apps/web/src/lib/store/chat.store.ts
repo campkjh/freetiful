@@ -20,6 +20,7 @@ type FetchRoomsParams = {
   limit?: number;
   withTotal?: boolean;
   force?: boolean;
+  emptyRetry?: number;
 };
 
 type SendMessagePayload = {
@@ -459,7 +460,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
 
-    const { force = false, ...apiParams } = params || {};
+    const { force = false, emptyRetry = 0, ...apiParams } = params || {};
     let { rooms, roomsLoading, lastRoomsFetchAt, roomsUserId } = get();
     if (rooms.length > 0 && roomsUserId !== userId) {
       rooms = [];
@@ -511,12 +512,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     let keepLoadingForRetry = false;
     try {
       const res = await chatApi.getRooms(requestParams);
-      applyServerRooms(res.data.data);
-    } catch {
-      if (!hasFilters && get().rooms.length === 0 && typeof window !== 'undefined') {
+      const nextRooms = res.data.data || [];
+      if (!hasFilters && nextRooms.length === 0 && get().rooms.length === 0 && emptyRetry < 2 && typeof window !== 'undefined') {
         keepLoadingForRetry = true;
         window.setTimeout(() => {
-          get().fetchRooms({ ...apiParams, limit: requestParams.limit, force: true }).catch(() => {});
+          get().fetchRooms({ ...apiParams, limit: requestParams.limit, withTotal: requestParams.withTotal, force: true, emptyRetry: emptyRetry + 1 }).catch(() => {});
+        }, emptyRetry === 0 ? 300 : 700);
+        return;
+      }
+      applyServerRooms(nextRooms);
+    } catch {
+      if (!hasFilters && get().rooms.length === 0 && emptyRetry < 2 && typeof window !== 'undefined') {
+        keepLoadingForRetry = true;
+        window.setTimeout(() => {
+          get().fetchRooms({ ...apiParams, limit: requestParams.limit, withTotal: requestParams.withTotal, force: true, emptyRetry: emptyRetry + 1 }).catch(() => {});
         }, 500);
       }
     } finally {

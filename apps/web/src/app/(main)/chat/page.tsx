@@ -100,7 +100,8 @@ export default function ChatListPage() {
     }
     if (apiRooms.length > 0) setRoomsLoading(false);
     connect();
-    fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
+    if (apiRooms.length === 0) setRoomsLoading(true);
+    fetchRooms({ limit: 50 }).catch(() => {});
     return undefined;
   }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
 
@@ -142,7 +143,7 @@ export default function ChatListPage() {
       // 방어적 처리: apiRooms 가 일시적으로 [] 가 되는 동안 (백그라운드 리프레시 실패,
       // 토큰 재발급 중 등) 기존 채팅 리스트가 깜빡 사라지지 않게 유지한다.
       // store 가 명시적으로 로딩 종료 상태에서 0 개를 반환했을 때만 비운다.
-      if (apiRooms.length === 0 && prev.length > 0 && storeRoomsLoading) return prev;
+      if (apiRooms.length === 0 && storeRoomsLoading) return prev;
       const localState = new Map(prev.map((room) => [room.id, {
         isPinned: room.isPinned,
         isArchived: room.isArchived,

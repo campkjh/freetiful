@@ -104,6 +104,76 @@ const HIDE_FOOTER_PATTERNS = [
   /^\/pro-dashboard/,
 ];
 
+const SCHEDULE_CACHE_PREFIX = 'freetiful-schedule-cache-v2:';
+
+function writeSchedulePrefetchCache(key: string, data: any) {
+  try {
+    localStorage.setItem(SCHEDULE_CACHE_PREFIX + key, JSON.stringify({ data, ts: Date.now() }));
+  } catch {}
+}
+
+function formatScheduleTime(value: any): string {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) {
+    const [hh, mm] = value.split(':');
+    return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+  }
+  if (typeof value === 'string') {
+    const isoTime = value.match(/T(\d{2}:\d{2})/);
+    if (isoTime) return isoTime[1];
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function mapUserScheduleCache(data: any[]) {
+  const allowed = new Set(['completed', 'escrowed', 'settled']);
+  const seenQuotationIds = new Set<string>();
+  return [...data]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .flatMap((payment: any) => {
+      if (!allowed.has(payment.status)) return [];
+      const quotations = Array.isArray(payment.quotations) ? payment.quotations : payment.quotation ? [payment.quotation] : [];
+      return quotations.flatMap((quotation: any) => {
+        if (!quotation?.id || seenQuotationIds.has(quotation.id)) return [];
+        seenQuotationIds.add(quotation.id);
+        const eventDate = quotation.eventDate || payment.createdAt;
+        const eventDateObj = new Date(eventDate);
+        return [{
+          id: `${payment.id}__${quotation.id}`,
+          date: eventDateObj.toISOString().slice(0, 10),
+          title: quotation.title || payment.description || '행사',
+          category: quotation.category || quotation.proProfile?.categories?.[0]?.category?.name || '사회자',
+          proName: quotation.proProfile?.user?.name || '',
+          proImage: quotation.proProfile?.images?.[0]?.imageUrl || quotation.proProfile?.user?.profileImageUrl || '',
+          time: formatScheduleTime(quotation.eventTime),
+          location: quotation.eventLocation || '',
+          status: eventDateObj < new Date() ? 'completed' : 'confirmed',
+        }];
+      });
+    });
+}
+
+function mapProScheduleCache(data: any[]) {
+  return data
+    .filter((booking: any) => ['booked', 'pending', 'completed'].includes(booking.status))
+    .map((booking: any) => ({
+      id: booking.id || booking.date,
+      paymentId: booking.paymentId || null,
+      clientName: booking.clientName || '',
+      eventType: booking.eventTitle || '행사',
+      date: booking.date,
+      time: booking.eventTime ? new Date(booking.eventTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '',
+      venue: booking.eventLocation || '',
+      plan: booking.eventTitle || '',
+      paymentStatus: booking.paymentStatus === 'completed' ? '결제완료' : '대기',
+      amount: booking.amount ? Number(booking.amount).toLocaleString() : '0',
+      status: booking.status === 'booked' ? 'confirmed' : booking.status === 'completed' ? 'completed' : 'pending',
+      paidAt: booking.paidAt || null,
+    }));
+}
+
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -219,7 +289,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => window.removeEventListener('freetiful:show-login', handler);
   }, []);
 
-  // 로그인 시 채팅 소켓 즉시 연결 + 룸/알림 프리페치
+  // 로그인 시 채팅 소켓 즉시 연결 + 룸/알림/스케줄 프리페치
   useEffect(() => {
     const loggedIn = authUser !== null;
     if (!loggedIn) return;
@@ -233,12 +303,32 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       import('@/lib/api/notification.api').then(({ notificationApi }) => {
         notificationApi.prefetch();
       });
+      const now = new Date();
+      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      if (authUser.role === 'pro') {
+        import('@/lib/api/schedule.api').then(({ scheduleApi }) => {
+          scheduleApi.getMySchedule(month)
+            .then((data: any) => {
+              if (Array.isArray(data)) writeSchedulePrefetchCache(`pro:${authUser.id}:${month}`, mapProScheduleCache(data));
+            })
+            .catch(() => {});
+        });
+      } else {
+        import('@/lib/api/client').then(({ apiClient }) => {
+          apiClient.get('/api/v1/payment/schedule', { params: { limit: 80 }, timeout: 4000 })
+            .then((res: any) => {
+              const data = res.data?.data || [];
+              if (Array.isArray(data)) writeSchedulePrefetchCache(`user:${authUser.id}:${month}`, mapUserScheduleCache(data));
+            })
+            .catch(() => {});
+        });
+      }
     };
 
     runPrefetch();
     const retry = window.setTimeout(runPrefetch, 700);
     return () => window.clearTimeout(retry);
-  }, [authUser?.id]);
+  }, [authUser?.id, authUser?.role]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';

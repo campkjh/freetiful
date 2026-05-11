@@ -774,7 +774,7 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#F2F2F7]">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]">
       {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
       <div
         className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"
@@ -789,7 +789,7 @@ export default function ChatRoomPage() {
 
       {/* ─── Header (Floating Pill) z-30 ─── */}
       <div className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
-        <div className="flex items-center gap-2 max-w-[680px] mx-auto pointer-events-auto">
+        <div className="mx-auto flex w-full max-w-[680px] items-center gap-2 px-3 pointer-events-auto sm:px-0">
           {/* 뒤로가기 */}
           <button
             onClick={() => router.back()}
@@ -847,7 +847,7 @@ export default function ChatRoomPage() {
           className="absolute left-3 right-3 pointer-events-auto"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)', zIndex: 25 }}
         >
-          <div className="max-w-[680px] mx-auto">
+          <div className="mx-auto w-full max-w-[680px]">
             <ScheduleBanner
               roomMeta={roomMeta}
               isPro={isPro}
@@ -873,7 +873,7 @@ export default function ChatRoomPage() {
         }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
-        <div className="max-w-[680px] mx-auto">
+        <div className="mx-auto w-full max-w-[680px]">
           {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
             const mr = roomMeta?.matchRequest;
             const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
@@ -981,7 +981,7 @@ export default function ChatRoomPage() {
                   style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  <div className="max-w-[78%] relative">
+                  <div className="relative min-w-0 max-w-[78%]">
                     {/* Message bubble */}
                     {msg.type === 'image' ? (
                       <div
@@ -996,14 +996,14 @@ export default function ChatRoomPage() {
                           src={msg.content}
                           alt=""
                           draggable={false}
-                          className="rounded-2xl max-w-[260px] max-h-[340px] object-cover cursor-pointer select-none"
+                          className="max-h-[340px] max-w-full rounded-2xl object-cover cursor-pointer select-none sm:max-w-[260px]"
                           style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
                           onClick={(e) => { e.stopPropagation(); setImagePreview(msg.content); }}
                         />
                       </div>
                     ) : msg.type === 'file' ? (
                       <div
-                        className={`flex items-center gap-2 px-4 py-3 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1011,7 +1011,7 @@ export default function ChatRoomPage() {
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         <FileText size={18} />
-                        <span className="text-[15px]">{msg.fileName || msg.content}</span>
+                        <span className="min-w-0 break-all text-[15px]">{msg.fileName || msg.content}</span>
                       </div>
                     ) : msg.type === 'location' ? (
                       <div
@@ -1024,20 +1024,20 @@ export default function ChatRoomPage() {
                       >
                         {msg.latitude !== undefined && msg.longitude !== undefined ? (
                           // Simple fallback for location - just show coordinates until NaverMapPreview loads
-                          <div className={`flex items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
+                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
                             <MapPin size={18} />
-                            <span className="text-[15px]">{msg.content}</span>
+                            <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
                           </div>
                         ) : (
-                          <div className={`flex items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
+                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
                             <MapPin size={18} />
-                            <span className="text-[15px]">{msg.content}</span>
+                            <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
                           </div>
                         )}
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
-                        className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-[20px] min-w-[180px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-3 pr-4 py-2.5 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1072,7 +1072,7 @@ export default function ChatRoomPage() {
                       </div>
                     ) : (
                       <div
-                        className={`whitespace-pre-wrap text-[16px] leading-[1.4] cursor-pointer select-none overflow-hidden ${
+                        className={`max-w-full whitespace-pre-wrap break-words text-[16px] leading-[1.4] cursor-pointer select-none overflow-hidden [overflow-wrap:anywhere] ${
                           mine
                             ? 'bg-[#007AFF] text-white rounded-[20px] rounded-br-[6px]'
                             : 'bg-white text-gray-900 rounded-[20px] rounded-bl-[6px] shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'
@@ -1133,7 +1133,7 @@ export default function ChatRoomPage() {
             background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0) 100%)',
           }}
         />
-        <div className="flex items-end gap-2 max-w-[680px] mx-auto pointer-events-auto pt-1">
+        <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pt-1 sm:px-0">
           {isRecording ? (
             // Recording UI
             <>
@@ -1193,7 +1193,7 @@ export default function ChatRoomPage() {
                 <Plus size={24} className="text-gray-600" />
               </button>
 
-              <div className="flex-1 flex items-center bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-5 pr-1.5 h-12">
+              <div className="flex h-12 min-w-0 flex-1 items-center rounded-full border border-gray-200/60 bg-white/90 pl-5 pr-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl">
                 <input
                   ref={inputRef}
                   type="text"
