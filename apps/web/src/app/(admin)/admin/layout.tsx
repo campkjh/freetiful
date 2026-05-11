@@ -150,6 +150,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (isLoginPage) return undefined;
+    document.body.classList.add('app-document-scroll-lock');
+    return () => {
+      document.body.classList.remove('app-document-scroll-lock');
+    };
+  }, [isLoginPage]);
+
   const activeLabel = useMemo(() => {
     for (const section of NAV_SECTIONS) {
       const item = section.items.find((nav) => (nav.exact ? pathname === nav.href : pathname.startsWith(nav.href)));

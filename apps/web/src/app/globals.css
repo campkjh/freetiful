@@ -942,6 +942,7 @@ img:not([src]) {
   }
 
   html {
+    min-height: 100%;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -958,8 +959,19 @@ img:not([src]) {
 
   body {
     @apply text-gray-900 bg-surface-50;
+    min-height: 100%;
     letter-spacing: -0.01em;
     word-break: keep-all;
+  }
+
+  body.app-document-scroll-lock {
+    overflow: hidden;
+  }
+
+  @media (min-width: 1024px) {
+    body.app-desktop-document-scroll-lock {
+      overflow: hidden;
+    }
   }
 
   /* Scrollbar hide */

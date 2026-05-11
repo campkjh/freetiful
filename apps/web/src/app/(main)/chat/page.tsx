@@ -476,7 +476,7 @@ export default function ChatListPage() {
   return (
     <>
       {/* ═══ PC: 2-Panel Layout ═══ */}
-      <div className="hidden lg:flex h-screen bg-gray-100">
+      <div className="hidden h-full min-h-0 bg-gray-100 lg:flex">
         {/* 좌측: 채팅 목록 */}
         <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
           <div className="px-5 pt-6 pb-3">

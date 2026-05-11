@@ -104,6 +104,10 @@ const HIDE_FOOTER_PATTERNS = [
   /^\/pro-dashboard/,
 ];
 
+const DESKTOP_INTERNAL_SCROLL_PATTERNS = [
+  /^\/chat$/,
+];
+
 const SCHEDULE_CACHE_PREFIX = 'freetiful-schedule-cache-v2:';
 
 function writeSchedulePrefetchCache(key: string, data: any) {
@@ -332,6 +336,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = isPro ? '/pro-dashboard' : '/main';
+  const usesDesktopInternalScroll = DESKTOP_INTERNAL_SCROLL_PATTERNS.some((p) => p.test(pathname));
 
   const syncViewMode = (nextViewAsUser: boolean) => {
     try {
@@ -407,10 +412,17 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    document.body.classList.toggle('app-desktop-document-scroll-lock', usesDesktopInternalScroll);
+    return () => {
+      document.body.classList.remove('app-desktop-document-scroll-lock');
+    };
+  }, [usesDesktopInternalScroll]);
+
   return (
-    <div className="min-h-screen bg-surface-50">
+    <div className={`bg-surface-50 ${usesDesktopInternalScroll ? 'min-h-screen lg:flex lg:h-[100dvh] lg:min-h-0 lg:flex-col lg:overflow-hidden' : 'min-h-screen'}`}>
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
-      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50`}>
+      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 ${usesDesktopInternalScroll ? 'lg:shrink-0' : ''}`}>
         <div
           className={`mx-auto h-[72px] flex items-center justify-between transition-all duration-500 ease-out ${
             headerScrolled
@@ -459,8 +471,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </header>
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
-      <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${hideNav ? '' : 'pb-24 lg:pb-12'}`}>
-        <div className="lg:max-w-none">
+      <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${usesDesktopInternalScroll ? 'lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:pb-0' : hideNav ? '' : 'pb-24 lg:pb-12'}`}>
+        <div className={usesDesktopInternalScroll ? 'lg:h-full lg:min-h-0 lg:max-w-none' : 'lg:max-w-none'}>
           <PageTransition>{children}</PageTransition>
         </div>
       </main>
