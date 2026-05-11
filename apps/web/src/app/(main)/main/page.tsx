@@ -1354,7 +1354,7 @@ export default function HomePage() {
     };
 
     loadRealtimePuddingRank();
-    const interval = window.setInterval(loadRealtimePuddingRank, 20_000);
+    const interval = window.setInterval(loadRealtimePuddingRank, 60_000);
     const onFocus = () => loadRealtimePuddingRank();
     const onVisible = () => {
       if (document.visibilityState === 'visible') loadRealtimePuddingRank();

@@ -352,6 +352,11 @@ model ProProfile {
   chatRooms             ChatRoom[]
   settlementLogs        SettlementLog[]
 
+  // 디스커버리 쿼리 핵심 경로: status + isProfileHidden 항상 같이 필터됨
+  @@index([status, isProfileHidden])
+  @@index([status, isProfileHidden, puddingCount])
+  @@index([status, isProfileHidden, avgRating])
+  @@index([status, isProfileHidden, isFeatured])
   @@map("pro_profiles")
 }
 
@@ -853,6 +858,9 @@ model Review {
   images     ReviewImage[]
   reports    ReviewReport[]
 
+  // 프로 상세 페이지 리뷰 목록 쿼리 핵심 경로
+  @@index([proProfileId, isVisible, createdAt])
+  @@index([proProfileId, createdAt])
   @@map("reviews")
 }
 
@@ -934,6 +942,7 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([userId, isRead])
   @@map("notifications")
 }
 

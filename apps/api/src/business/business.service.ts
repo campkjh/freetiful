@@ -3,7 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { resolveBusinessTags, stripBusinessTagMarker } from './business-tags';
 import { isBusinessRelevantToAnyCategory, isBusinessRelevantToCategory } from './business-quality';
 
-const BUSINESS_LIST_MAX_CANDIDATES = 1000;
+// quality 필터를 통과할 비율을 보수적으로 80%로 가정해 배수 샘플링
+const QUALITY_FILTER_BATCH_FACTOR = 4;
 
 @Injectable()
 export class BusinessService {
@@ -12,11 +13,8 @@ export class BusinessService {
   async getBusinesses(page: number, limit: number, search?: string, category?: string) {
     const normalizedPage = Math.max(1, Number.isFinite(page) ? page : 1);
     const normalizedLimit = Math.min(Math.max(1, Number.isFinite(limit) ? limit : 20), 100);
-    const skip = (normalizedPage - 1) * normalizedLimit;
 
-    const where: any = {
-      status: 'approved',
-    };
+    const where: any = { status: 'approved' };
     const andFilters: any[] = [];
 
     if (search) {
@@ -30,72 +28,50 @@ export class BusinessService {
 
     if (category && category !== '전체') {
       andFilters.push({
-        categories: {
-          some: {
-            category: { name: category },
-          },
-        },
+        categories: { some: { category: { name: category } } },
       });
     }
 
-    if (andFilters.length > 0) {
-      where.AND = andFilters;
-    }
+    if (andFilters.length > 0) where.AND = andFilters;
 
-    const candidates = await this.prisma.businessProfile.findMany({
-      where,
-      take: BUSINESS_LIST_MAX_CANDIDATES,
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        businessName: true,
-        businessType: true,
-        address: true,
-        descriptionHtml: true,
-        createdAt: true,
-        approvedAt: true,
-        categories: {
-          select: {
-            category: {
-              select: { name: true },
-            },
-          },
-        },
-        images: {
-          orderBy: { displayOrder: 'asc' },
-          take: 1,
-          select: { imageUrl: true },
-        },
-      },
-    });
+    const select = {
+      id: true, businessName: true, businessType: true, address: true,
+      descriptionHtml: true, createdAt: true, approvedAt: true,
+      categories: { select: { category: { select: { name: true } } } },
+      images: { orderBy: { displayOrder: 'asc' as const }, take: 1, select: { imageUrl: true } },
+    };
 
-    const filteredItems = candidates.filter((item) => (
+    // 페이지별로 필요한 최소 배수만 DB에서 fetch — 1000건 풀 스캔 제거
+    const batchSize = normalizedLimit * QUALITY_FILTER_BATCH_FACTOR;
+    const dbSkip = (normalizedPage - 1) * batchSize;
+
+    const [candidates, dbTotal] = await Promise.all([
+      this.prisma.businessProfile.findMany({ where, take: batchSize, skip: dbSkip, orderBy: { createdAt: 'asc' }, select }),
+      this.prisma.businessProfile.count({ where }),
+    ]);
+
+    const filtered = candidates.filter((item) =>
       category && category !== '전체'
         ? isBusinessRelevantToCategory(item, category)
-        : isBusinessRelevantToAnyCategory(item)
-    ));
-    const items = filteredItems.slice(skip, skip + normalizedLimit);
-    const total = filteredItems.length;
+        : isBusinessRelevantToAnyCategory(item),
+    );
 
     return {
-      items: items.map((item) => {
-        const tags = resolveBusinessTags(item);
-        return {
-          id: item.id,
-          businessName: item.businessName,
-          businessType: item.businessType,
-          address: item.address,
-          createdAt: item.createdAt,
-          approvedAt: item.approvedAt,
-          categories: item.categories,
-          images: item.images,
-          tags,
-        };
-      }),
-      total,
+      items: filtered.slice(0, normalizedLimit).map((item) => ({
+        id: item.id,
+        businessName: item.businessName,
+        businessType: item.businessType,
+        address: item.address,
+        createdAt: item.createdAt,
+        approvedAt: item.approvedAt,
+        categories: item.categories,
+        images: item.images,
+        tags: resolveBusinessTags(item),
+      })),
+      total: dbTotal,
       page: normalizedPage,
       limit: normalizedLimit,
-      totalPages: Math.ceil(total / normalizedLimit),
+      totalPages: Math.ceil(dbTotal / normalizedLimit),
     };
   }
 
