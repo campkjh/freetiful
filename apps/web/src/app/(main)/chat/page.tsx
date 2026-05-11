@@ -108,8 +108,7 @@ export default function ChatListPage() {
   const apiRooms = useChatStore((s) => s.rooms);
   const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
   const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
-  // authHydrated가 false에 고착(rehydration 실패)돼도 localStorage로 폴백
-  const isLoggedIn = authUser !== null || (() => {
+  const isLoggedIn = authHydrated ? authUser !== null : (() => {
     if (typeof window === 'undefined') return false;
     try {
       const raw = localStorage.getItem('prettyful-auth');
@@ -119,19 +118,10 @@ export default function ChatListPage() {
   })();
   const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
 
-  // 안전망: Zustand rehydration 실패 시 2초 후 강제 unblock
   useEffect(() => {
-    if (authHydrated) return;
-    const t = setTimeout(() => {
-      if (!useAuthStore.getState().hasHydrated) {
-        useAuthStore.getState().setHasHydrated(true);
-      }
-    }, 2000);
-    return () => clearTimeout(t);
-  }, [authHydrated]);
-
-  useEffect(() => {
-    if (!authHydrated) return;
+    // authHydrated 의존성 제거 — authUser만으로 게이팅.
+    // hasHydrated=true + authUser=null 조합이 layout 리다이렉트를 유발하므로
+    // 2초 타임아웃 방식 폐기, authUser 변화만 추적한다.
     if (!authUser) {
       disconnect();
       setRooms([]);
@@ -140,16 +130,13 @@ export default function ChatListPage() {
     }
 
     connect();
-    // rooms가 이미 캐시에서 로드됐으면 로딩 해제 후 백그라운드 갱신
     if (rooms.length > 0) setRoomsLoading(false);
     fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
-    // apiRooms.length를 deps에서 제거 — 방 목록이 갱신될 때마다 effect가 재실행되며
-    // fetchRooms()가 이중 호출되는 버그 수정
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authHydrated, authUser?.id]);
+  }, [authUser?.id]);
 
   useEffect(() => {
-    if (!authHydrated || !authUser) return;
+    if (!authUser) return;
     const refreshRooms = () => {
       const now = Date.now();
       if (now - lastRefreshAtRef.current < 2_500) return;
@@ -175,7 +162,7 @@ export default function ChatListPage() {
       window.removeEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
       window.removeEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     };
-  }, [authHydrated, authUser?.id, fetchRooms]);
+  }, [authUser?.id, fetchRooms]);
 
   // Store의 apiRooms가 업데이트되면 local rooms state도 동기화
   // 중요: role은 room별 iAmPro에 따라 결정 (글로벌 isPro 가 아님)

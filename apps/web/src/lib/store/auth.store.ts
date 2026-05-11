@@ -126,19 +126,16 @@ export const useAuthStore = create<AuthState>()(
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
       }),
-      onRehydrateStorage: () => (state, error) => {
-        // localStorage 파싱 실패(error) 또는 빈 state → hasHydrated가 false에 고착되는 버그 방지.
-        // state가 undefined여도 반드시 true로 설정해야 isLoggedIn 체크가 unblock된다.
-        if (error || !state) {
-          useAuthStore.getState().setHasHydrated(true);
-          return;
-        }
-        state.setHasHydrated(true);
+      onRehydrateStorage: () => (state) => {
+        // state가 undefined(파싱 실패)여도 hasHydrated=true를 강제하면
+        // user=null + hasHydrated=true 조합이 되어 layout이 보호 페이지에서
+        // 강제 리다이렉트하는 버그가 생긴다. 원래대로 optional chaining으로 처리.
+        state?.setHasHydrated(true);
         // Hydration 직후, 토큰이 있으면 서버에서 최신 user 정보 한 번 fetch.
         // 머지된 레거시 계정의 cached user 객체를 본 계정으로 자동 갱신 (synthetic email → real).
         if (typeof window === 'undefined') return;
-        const accessToken = state.accessToken;
-        const cachedUser = state.user;
+        const accessToken = state?.accessToken;
+        const cachedUser = state?.user;
         if (!accessToken || !cachedUser) return;
         // 합성 이메일이면 우선순위 높여 즉시 fetch
         const isLegacyEmail = !!cachedUser.email?.match(/^kakao_\d+@kakao\.freetiful\.com$/);
