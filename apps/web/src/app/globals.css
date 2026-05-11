@@ -949,6 +949,8 @@ img:not([src]) {
     /* Android Chrome 자동 텍스트 확대 방지 (iOS는 기본값으로 OK) */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* iOS Safari rubber-band 가 콘텐츠 위/아래로 phantom 영역을 만들어 이중스크롤로 보이는 현상 차단. */
+    overscroll-behavior: none;
   }
 
   /* Android Chrome 에서 100vh 는 툴바 유무에 따라 계산이 튄다.
@@ -962,8 +964,9 @@ img:not([src]) {
     min-height: 100%;
     letter-spacing: -0.01em;
     word-break: keep-all;
-    /* iOS Safari rubber-band 가 nested scroll 영역에서 body 까지 같이 튀어 이중스크롤로 느껴지는 문제 방지. */
-    overscroll-behavior-y: contain;
+    /* iOS Safari rubber-band 완전 비활성. contain 은 부모로의 전파만 막아 자체 rubber-band 는 남음.
+       (none) 으로 바꿔서 상/하 끝에서 phantom 영역이 만들어지지 않게 함. */
+    overscroll-behavior: none;
   }
 
   body.app-document-scroll-lock {
