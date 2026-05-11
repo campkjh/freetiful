@@ -123,10 +123,10 @@ export default function ChatListPage() {
     connect();
     fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
     return undefined;
-  }, [authHydrated, authUser?.id]);
+  }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
 
   useEffect(() => {
-    if (!authUser) return;
+    if (!authHydrated || !authUser) return;
     const refreshRooms = () => {
       const now = Date.now();
       if (now - lastRefreshAtRef.current < 2_500) return;
@@ -152,7 +152,7 @@ export default function ChatListPage() {
       window.removeEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
       window.removeEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     };
-  }, [authUser?.id, fetchRooms]);
+  }, [authHydrated, authUser?.id, fetchRooms]);
 
   // Store의 apiRooms가 업데이트되면 local rooms state도 동기화
   // 중요: role은 room별 iAmPro에 따라 결정 (글로벌 isPro 가 아님)
@@ -160,11 +160,10 @@ export default function ChatListPage() {
   useEffect(() => {
     if (!authUser) return;
     setRooms((prev) => {
-      // apiRooms가 빈 배열이면 기존 방 목록 유지 (로딩 중이든 아니든).
-      // applyServerRooms가 이미 빈 응답을 무시하므로 apiRooms=[]는
-      // fetch 전 초기 상태 or disconnect() 뒤에만 나타남.
-      // 후자(로그아웃)는 첫 번째 effect의 setRooms([])가 처리하므로 여기선 항상 보존.
-      if (apiRooms.length === 0 && prev.length > 0) return prev;
+      // 방어적 처리: apiRooms 가 일시적으로 [] 가 되는 동안 (백그라운드 리프레시 실패,
+      // 토큰 재발급 중 등) 기존 채팅 리스트가 깜빡 사라지지 않게 유지한다.
+      // store 가 명시적으로 로딩 종료 상태에서 0 개를 반환했을 때만 비운다.
+      if (apiRooms.length === 0 && prev.length > 0 && storeRoomsLoading) return prev;
       const localState = new Map(prev.map((room) => [room.id, {
         isPinned: room.isPinned,
         isArchived: room.isArchived,
@@ -196,11 +195,8 @@ export default function ChatListPage() {
   const currentTab = isPro ? proActiveTab : activeTab;
 
   useEffect(() => {
-    // authHydrated 전에는 건드리지 않음: 마운트 직후 storeRoomsLoading=false로
-    // roomsLoading을 false로 만들면 "로그인 후 채팅을 시작하세요"가 순간 노출됨
-    if (!authHydrated) return;
     setRoomsLoading(storeRoomsLoading && rooms.length === 0);
-  }, [storeRoomsLoading, rooms.length, authHydrated]);
+  }, [storeRoomsLoading, rooms.length]);
 
   const filtered = useMemo(() => rooms.filter((r) => {
     // 숨김 탭에서는 숨겨진 채팅만, 다른 탭에서는 숨겨진 채팅 제외
