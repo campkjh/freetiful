@@ -79,12 +79,16 @@ export class NotificationService {
       return false;
     }
 
-    const payloadBase = {
+    // data.url이 있으면 OneSignal 딥링크 파라미터로도 전달
+    // iOS onClick 핸들러는 additionalData["url"]로 읽고, launchURL 은 fallback
+    const targetUrl = data?.url ? `https://freetiful.com${data.url}` : undefined;
+    const payloadBase: Record<string, unknown> = {
       app_id: appId,
       target_channel: 'push',
       headings: { en: title, ko: title },
       contents: { en: body, ko: body },
       data: data || {},
+      ...(targetUrl ? { url: targetUrl } : {}),
     };
 
     // 1차: external_id 경로

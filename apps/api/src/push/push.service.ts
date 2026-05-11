@@ -149,7 +149,9 @@ export class PushService {
         if (!isPush) continue;
         const noToken = !s.token;
         const disabled = s.enabled === false;
-        const samePlatformOlder = keepType && s.type === keepType;
+        // keepType이 있으면 같은 플랫폼만 삭제, 없으면(linkExternalId가 아직 반영 안 된 race 케이스)
+        // push subscription 전체를 삭제해 중복 알림 원천 차단
+        const samePlatformOlder = keepType ? s.type === keepType : isPush;
         if (noToken || disabled || samePlatformOlder) {
           toDelete.push(s.id);
         }
