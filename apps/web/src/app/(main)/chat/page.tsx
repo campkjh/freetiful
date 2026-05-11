@@ -87,6 +87,10 @@ export default function ChatListPage() {
   const deleteRoomFromStore = useChatStore((s) => s.deleteRoom);
   const apiRooms = useChatStore((s) => s.rooms);
   const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
+  const lastRoomsFetchAt = useChatStore((s) => s.lastRoomsFetchAt);
+  // 한 번도 successful fetch 가 없었으면 empty state ("채팅 없음") 대신 skeleton 유지.
+  // → 백엔드 cold response 가 늦어도 "채팅 없음" 이 깜빡 뜨지 않음.
+  const hasEverLoaded = lastRoomsFetchAt > 0;
   const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
   const isLoggedIn = authHydrated && authUser !== null;
   const isPro = authUser?.role === 'pro';
@@ -522,7 +526,7 @@ export default function ChatListPage() {
             </LayoutGroup>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {roomsLoading && rooms.length === 0 ? (
+            {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
               <div className="space-y-0">
                 {[1,2,3,4,5].map((i) => (
                   <div key={i} className="flex items-center gap-3 px-5 py-4">
@@ -657,7 +661,7 @@ export default function ChatListPage() {
             </div>
           )}
         </>
-        {roomsLoading && rooms.length === 0 ? (
+        {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
           <div className="space-y-0">
             {[1,2,3,4,5].map((i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3">

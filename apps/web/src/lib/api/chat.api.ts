@@ -79,7 +79,10 @@ export interface MessageItem {
 export const chatApi = {
   // Rooms
   getRooms: (params?: { search?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number; withTotal?: boolean }) =>
-    apiClient.get<{ data: ChatRoomItem[]; total: number; hasMore: boolean }>(`${BASE}/rooms`, { params, timeout: 3000 }),
+    // 12s timeout — 백엔드 cold response 가 5~10s 걸리는 경우가 있어 짧은 3s 타임아웃은 매번 실패 후
+    // empty state ("채팅 없음") 가 떴다 사라지는 현상을 만들었음. 한 번 success 후엔 server cache(60s)로
+    // 빠르므로 정상 케이스는 영향 없음.
+    apiClient.get<{ data: ChatRoomItem[]; total: number; hasMore: boolean }>(`${BASE}/rooms`, { params, timeout: 12000 }),
 
   createRoom: (proProfileId: string, matchRequestId?: string) =>
     apiClient.post(`${BASE}/rooms`, { proProfileId, matchRequestId }),
