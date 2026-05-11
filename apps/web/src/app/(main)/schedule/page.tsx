@@ -280,7 +280,7 @@ function ProScheduleView() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between px-4 h-14">
@@ -599,7 +599,7 @@ export default function SchedulePage() {
   if (isPro && isLoggedIn) return <ProScheduleView />;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between px-4 h-14">

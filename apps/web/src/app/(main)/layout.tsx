@@ -471,7 +471,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       </header>
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
-      <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${usesDesktopInternalScroll ? 'lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:pb-0' : hideNav ? '' : 'pb-24 lg:pb-12'}`}>
+      {/* main 자체엔 padding-bottom 을 두지 않는다. 각 페이지가 본인의 pb 를 가지므로 main 에서 또 더하면
+          이중 padding 으로 콘텐츠 아래 빈 영역이 더 스크롤되는 "이중 스크롤" 현상이 생김. */}
+      <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${usesDesktopInternalScroll ? 'lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:pb-0' : ''}`}>
         <div className={usesDesktopInternalScroll ? 'lg:h-full lg:min-h-0 lg:max-w-none' : 'lg:max-w-none'}>
           <PageTransition>{children}</PageTransition>
         </div>

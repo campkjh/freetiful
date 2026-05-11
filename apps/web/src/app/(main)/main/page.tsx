@@ -1740,7 +1740,7 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="bg-white min-h-screen w-full px-4 pt-16">
+      <div className="bg-white min-h-screen w-full px-4 pt-16 pb-24">
         {/* Header skeleton */}
         <div className="flex items-center justify-between mb-6">
           <div className="skeleton" style={{ width: 100, height: 28 }} />
@@ -1772,7 +1772,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="home-pc-font-cap bg-white min-h-screen w-full">
+    <div className="home-pc-font-cap bg-white min-h-screen w-full pb-24">
       {showOfficialOpenModal && (
         <div
           role="dialog"

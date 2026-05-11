@@ -962,6 +962,8 @@ img:not([src]) {
     min-height: 100%;
     letter-spacing: -0.01em;
     word-break: keep-all;
+    /* iOS Safari rubber-band 가 nested scroll 영역에서 body 까지 같이 튀어 이중스크롤로 느껴지는 문제 방지. */
+    overscroll-behavior-y: contain;
   }
 
   body.app-document-scroll-lock {

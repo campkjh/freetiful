@@ -333,7 +333,7 @@ export default function FavoritesPage() {
   ];
 
   return (
-    <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
       {/* Header - sticky */}
       <div ref={headerRef} className="sticky top-0 z-20 bg-white border-b border-gray-100" style={{ willChange: 'contents' }}>
         <div className="h-[52px] flex items-center px-4 gap-3">
