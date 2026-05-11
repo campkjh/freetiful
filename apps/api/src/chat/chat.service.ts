@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   OnModuleInit,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
@@ -26,6 +27,8 @@ import {
 
 @Injectable()
 export class ChatService implements OnModuleInit {
+  private readonly logger = new Logger(ChatService.name);
+
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
@@ -180,7 +183,6 @@ export class ChatService implements OnModuleInit {
         OR: [
           { id: { in: candidates } },
           { email: { in: candidates } },
-          { name: { in: candidates } },
         ],
       },
       select: { id: true },
@@ -254,6 +256,25 @@ export class ChatService implements OnModuleInit {
         },
       ],
     };
+  }
+
+  private isHotCandidateVisible(room: {
+    userId: string;
+    userDeletedAt?: Date | null;
+    proDeletedAt?: Date | null;
+    proProfile?: { userId: string };
+  }, participantUserIds: string[]) {
+    const participantSet = new Set(participantUserIds);
+    const isCustomerSide = participantSet.has(room.userId);
+    const isProSide = !!room.proProfile?.userId && participantSet.has(room.proProfile.userId);
+
+    if (isCustomerSide && !room.userDeletedAt) return true;
+    if (isProSide && !room.proDeletedAt) return true;
+
+    // members/messages/quotations/matchRequest 후보로 들어온 레거시 룸은
+    // 양쪽 모두 삭제 처리되지 않았을 때만 노출한다. DB 관계 EXISTS 없이
+    // 이미 좁혀진 후보 id 배열 안에서만 판단해 첫 응답을 가볍게 유지한다.
+    return !room.userDeletedAt && !room.proDeletedAt;
   }
 
   private async getHotChatRoomIds(participantUserIds: string[], take: number) {
@@ -880,6 +901,7 @@ export class ChatService implements OnModuleInit {
   }
 
   async getRooms(userId: string, query: ChatRoomQueryDto) {
+    const startedAt = Date.now();
     const { search, dateFrom, dateTo, page = 1, limit = 20 } = query;
     const take = Math.min(Number(limit) || 20, 50);
     const withTotal = query.withTotal === undefined
@@ -935,6 +957,8 @@ export class ChatService implements OnModuleInit {
       proProfileId: true,
       matchRequestId: true,
       lastMessageAt: true,
+      userDeletedAt: true,
+      proDeletedAt: true,
       proProfile: {
         select: {
           userId: true,
@@ -961,26 +985,30 @@ export class ChatService implements OnModuleInit {
 
     let rooms: any[] = [];
     let totalCount = 0;
+    let usedHotCandidates = false;
 
     // 채팅 리스트 첫 화면은 0.5초 안에 보여야 하므로, 관계 OR 전체 탐색보다
     // chat_room_members / 직접 소유 / 최근 메시지로 후보 id를 작게 만든 뒤 상세를 조회한다.
     if (!hasListFilters && page === 1) {
       const hotRoomIds = await this.getHotChatRoomIds(participantUserIds, take);
       if (hotRoomIds.length > 0) {
-        rooms = await this.prisma.chatRoom.findMany({
+        usedHotCandidates = true;
+        const candidateRooms = await this.prisma.chatRoom.findMany({
           where: {
             id: { in: hotRoomIds },
-            AND: [this.chatRoomVisibleWhere(participantUserIds)],
           },
           select: roomSelect,
           orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
-          take,
+          take: Math.min(hotRoomIds.length, Math.max(take * 2, take)),
         });
+        rooms = candidateRooms
+          .filter((room) => this.isHotCandidateVisible(room, participantUserIds))
+          .slice(0, take);
         totalCount = withTotal ? hotRoomIds.length : rooms.length;
       }
     }
 
-    if (rooms.length === 0) {
+    if (rooms.length === 0 && !usedHotCandidates) {
       [rooms, totalCount] = await Promise.all([
         this.prisma.chatRoom.findMany({
           where,
@@ -1049,6 +1077,10 @@ export class ChatService implements OnModuleInit {
     this.setRoomCached(cacheKey, result);
     if (data.length === 0 && !search && !dateFrom && !dateTo) {
       this.maybeBackgroundRepair(userId);
+    }
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > 1000) {
+      this.logger.warn(`slow chat rooms query user=${userId} elapsed=${elapsed}ms rooms=${data.length} filters=${hasListFilters ? 'yes' : 'no'}`);
     }
     return result;
   }
