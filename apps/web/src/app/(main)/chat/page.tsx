@@ -108,33 +108,21 @@ export default function ChatListPage() {
   const apiRooms = useChatStore((s) => s.rooms);
   const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
   const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
-  const isLoggedIn = authHydrated ? authUser !== null : (() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const raw = localStorage.getItem('prettyful-auth');
-      const s = JSON.parse(raw || '{}')?.state;
-      return !!(s?.user || s?.accessToken);
-    } catch { return false; }
-  })();
-  const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
+  const isLoggedIn = authHydrated && authUser !== null;
+  const isPro = authUser?.role === 'pro';
 
-  // ── 로그인됐을 때: 방 목록 로드 (authUser가 null→User 될 때만 실행)
   useEffect(() => {
-    if (!authUser) return;
+    if (!authHydrated) return;
+    if (!authUser) {
+      disconnect();
+      setRooms([]);
+      setRoomsLoading(false);
+      return;
+    }
+    if (apiRooms.length > 0) setRoomsLoading(false);
     connect();
-    if (rooms.length > 0) setRoomsLoading(false);
     fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser?.id]);
-
-  // ── 로그아웃 확정됐을 때: 방 목록 초기화 (authHydrated=true 이후 user가 없을 때)
-  // 두 effect 분리로 이중 트리거 방지: "로드" effect와 "초기화" effect가 독립 실행
-  useEffect(() => {
-    if (!authHydrated || authUser) return;
-    disconnect();
-    setRooms([]);
-    setRoomsLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return undefined;
   }, [authHydrated, authUser?.id]);
 
   useEffect(() => {
