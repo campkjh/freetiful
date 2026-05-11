@@ -844,9 +844,7 @@ export default function ChatRoomPage() {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
-          // 입력바 높이 = pt-2(8px) + h-12(48px) + pb-safe(max 8px, safe-area) = 56px + safe-area
-          // 16px 여유를 더해 마지막 메시지가 입력바에 딱 맞게 보이도록 함
-          paddingBottom: 'calc(72px + max(env(safe-area-inset-bottom, 0px), 8px))',
+          paddingBottom: 16,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
           paddingTop: roomMeta?.latestQuotation?.status === 'paid'
@@ -1106,21 +1104,17 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* ─── 입력바 하단 그라데이션 블러 (z-20) ─── */}
-      {/* bg색을 페이지 배경(#F2F2F7)에 맞춤 — iOS WebView에서 backdrop-filter 미지원 시 흰색 노출 방지 */}
-      <div
-        className="absolute left-0 right-0 bottom-0 h-[120px] z-20 pointer-events-none"
-        style={{
-          WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
-          maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0.6) 50%, rgba(242,242,247,0) 100%)',
-        }}
-      />
-
-      {/* ─── Input Bar (Floating Pill) z-30 ─── */}
-      <div className="absolute left-0 right-0 bottom-0 z-30 pt-2 pb-safe px-safe pointer-events-none">
+      {/* ─── Input Bar — flex item (absolute 제거, Android/iOS 키보드 반응형) ─── */}
+      {/* absolute bottom-0 대신 flex 아이템으로 변경:
+          interactiveWidget=resizes-content 와 함께 뷰포트가 줄어들면 자동으로 키보드 위에 위치 */}
+      <div className="relative z-30 pt-1 pb-safe px-safe shrink-0">
+        {/* 메시지 목록과의 경계에 그라데이션 블러 */}
+        <div
+          className="absolute left-0 right-0 bottom-full h-16 pointer-events-none"
+          style={{
+            background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0) 100%)',
+          }}
+        />
         <div className="flex items-end gap-2 max-w-[680px] mx-auto pointer-events-auto">
           {isRecording ? (
             // Recording UI
