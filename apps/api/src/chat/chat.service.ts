@@ -6,6 +6,7 @@ import {
   OnModuleInit,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
@@ -278,7 +279,65 @@ export class ChatService implements OnModuleInit {
   }
 
   private async getHotChatRoomIds(participantUserIds: string[], take: number) {
+    if (participantUserIds.length === 0) return [];
     const cap = Math.max(take * 6, 80);
+    const participantValues = Prisma.join(participantUserIds.map((id) => Prisma.sql`(${id})`));
+
+    try {
+      const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        WITH participant_ids("id") AS (
+          VALUES ${participantValues}
+        ),
+        candidate_rooms AS (
+          (SELECT crm."roomId" AS id
+           FROM "chat_room_members" crm
+           JOIN participant_ids p ON p."id" = crm."userId"
+           LIMIT ${cap})
+          UNION
+          (SELECT cr."id" AS id
+           FROM "chat_rooms" cr
+           JOIN participant_ids p ON p."id" = cr."userId"
+           ORDER BY cr."lastMessageAt" DESC NULLS LAST
+           LIMIT ${cap})
+          UNION
+          (SELECT cr."id" AS id
+           FROM "chat_rooms" cr
+           JOIN "pro_profiles" pp ON pp."id" = cr."proProfileId"
+           JOIN participant_ids p ON p."id" = pp."userId"
+           ORDER BY cr."lastMessageAt" DESC NULLS LAST
+           LIMIT ${cap})
+          UNION
+          (SELECT m."roomId" AS id
+           FROM "messages" m
+           JOIN participant_ids p ON p."id" = m."senderId"
+           ORDER BY m."createdAt" DESC
+           LIMIT ${cap})
+          UNION
+          (SELECT q."chatRoomId" AS id
+           FROM "quotations" q
+           JOIN participant_ids p ON p."id" = q."userId"
+           WHERE q."chatRoomId" IS NOT NULL
+           ORDER BY q."updatedAt" DESC
+           LIMIT ${cap})
+          UNION
+          (SELECT cr."id" AS id
+           FROM "chat_rooms" cr
+           JOIN "match_requests" mr ON mr."id" = cr."matchRequestId"
+           JOIN participant_ids p ON p."id" = mr."userId"
+           ORDER BY cr."lastMessageAt" DESC NULLS LAST
+           LIMIT ${cap})
+        )
+        SELECT cr."id" AS id
+        FROM "chat_rooms" cr
+        JOIN candidate_rooms c ON c.id = cr."id"
+        ORDER BY cr."lastMessageAt" DESC NULLS LAST, cr."createdAt" DESC
+        LIMIT ${cap}
+      `);
+      return rows.map((row) => row.id);
+    } catch (error) {
+      this.logger.warn(`fast chat room id query failed; falling back to prisma path`);
+    }
+
     const [memberRooms, directRooms, messageRooms, quotationRooms, requestRooms] = await Promise.all([
       this.prisma.chatRoomMember.findMany({
         where: { userId: { in: participantUserIds } },
