@@ -27,17 +27,25 @@ const nextConfig = {
   reactStrictMode: false,
   transpilePackages: ['@prettyful/types'],
   images: {
-    domains: ['localhost', 'cdn.prettyful.co.kr', 'cdn.freetiful.co.kr', 'k.kakaocdn.net', 'lh3.googleusercontent.com', 'i.pravatar.cc', 'images.unsplash.com', 'picsum.photos', 'jnhwlzeyberhyv7s.public.blob.vercel-storage.com'],
-    // Supabase Storage 공개 URL (프로젝트별 고유 서브도메인) 전부 허용
+    // unoptimized: true 제거 — WebP 변환·리사이징·지연로딩 활성화
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/public/**' },
+      { protocol: 'https', hostname: 'k.kakaocdn.net' },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      { protocol: 'https', hostname: 'img.youtube.com' },
+      { protocol: 'https', hostname: 'cdn.freetiful.co.kr' },
+      { protocol: 'https', hostname: 'cdn.prettyful.co.kr' },
+      { protocol: 'https', hostname: '*.public.blob.vercel-storage.com' },
+      { protocol: 'https', hostname: 'phinf.pstatic.net' },
+      { protocol: 'http', hostname: 'localhost' },
     ],
-    formats: ['image/avif', 'image/webp'],
-    unoptimized: true,
+    formats: ['image/webp'],
     minimumCacheTTL: 2678400,
+    deviceSizes: [375, 640, 750, 828, 1080, 1200],
+    imageSizes: [32, 48, 64, 96, 128, 256],
   },
   experimental: {
-    optimizePackageImports: ['lucide-react'],
+    optimizePackageImports: ['lucide-react', 'framer-motion', 'date-fns'],
   },
   async headers() {
     if (process.env.NODE_ENV !== 'production') return [];
