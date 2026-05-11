@@ -108,8 +108,27 @@ export default function ChatListPage() {
   const apiRooms = useChatStore((s) => s.rooms);
   const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
   const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
-  const isLoggedIn = authHydrated && authUser !== null;
-  const isPro = authUser?.role === 'pro';
+  // authHydrated가 false에 고착(rehydration 실패)돼도 localStorage로 폴백
+  const isLoggedIn = authUser !== null || (() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = localStorage.getItem('prettyful-auth');
+      const s = JSON.parse(raw || '{}')?.state;
+      return !!(s?.user || s?.accessToken);
+    } catch { return false; }
+  })();
+  const isPro = authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro';
+
+  // 안전망: Zustand rehydration 실패 시 2초 후 강제 unblock
+  useEffect(() => {
+    if (authHydrated) return;
+    const t = setTimeout(() => {
+      if (!useAuthStore.getState().hasHydrated) {
+        useAuthStore.getState().setHasHydrated(true);
+      }
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [authHydrated]);
 
   useEffect(() => {
     if (!authHydrated) return;
