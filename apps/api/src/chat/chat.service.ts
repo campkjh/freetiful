@@ -79,7 +79,16 @@ export class ChatService implements OnModuleInit {
         'CREATE INDEX CONCURRENTLY IF NOT EXISTS "quotations_chatRoomId_userId_idx" ON "quotations" ("chatRoomId", "userId")',
       ),
       this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "quotations_chatRoomId_createdAt_idx" ON "quotations" ("chatRoomId", "createdAt" DESC)',
+      ),
+      this.prisma.$executeRawUnsafe(
         'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_requests_userId_createdAt_idx" ON "match_requests" ("userId", "createdAt")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "pro_profile_images_proProfileId_isPrimary_displayOrder_idx" ON "pro_profile_images" ("proProfileId", "isPrimary", "displayOrder")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "pro_categories_proProfileId_idx" ON "pro_categories" ("proProfileId")',
       ),
     ]);
   }
@@ -385,6 +394,243 @@ export class ChatService implements OnModuleInit {
     }
     for (const item of requestRooms) ids.add(item.id);
     return Array.from(ids);
+  }
+
+  private async getRoomsFirstPageFast(userId: string, participantUserIds: string[], take: number) {
+    if (participantUserIds.length === 0) return [];
+    const cap = Math.max(take * 2, take);
+    const participantValues = Prisma.join(participantUserIds.map((id) => Prisma.sql`(${id})`));
+
+    type FastRoomRow = {
+      id: string;
+      userId: string;
+      proProfileId: string;
+      matchRequestId: string | null;
+      lastMessageAt: Date | null;
+      customerId: string;
+      customerName: string | null;
+      customerProfileImageUrl: string | null;
+      proUserId: string;
+      proName: string | null;
+      proProfileImageUrl: string | null;
+      proPrimaryImageUrl: string | null;
+      proCategoryName: string | null;
+      isFavorited: boolean | null;
+      unreadCount: number | null;
+      messageId: string | null;
+      messageSenderId: string | null;
+      messageType: string | null;
+      messageContent: string | null;
+      messageCreatedAt: Date | null;
+      quotationId: string | null;
+      quotationAmount: number | null;
+      quotationTitle: string | null;
+      quotationStatus: string | null;
+      quotationEventDate: Date | null;
+      quotationEventTime: Date | null;
+      quotationEventLocation: string | null;
+      quotationCreatedAt: Date | null;
+      requestId: string | null;
+      requestEventDate: Date | null;
+      requestEventTime: Date | null;
+      requestEventLocation: string | null;
+    };
+
+    const rows = await this.prisma.$queryRaw<FastRoomRow[]>(Prisma.sql`
+      WITH participant_ids("id") AS (
+        VALUES ${participantValues}
+      ),
+      candidate_room_ids AS (
+        SELECT crm."roomId" AS id
+        FROM "chat_room_members" crm
+        JOIN participant_ids p ON p."id" = crm."userId"
+        UNION
+        SELECT cr."id" AS id
+        FROM "chat_rooms" cr
+        JOIN participant_ids p ON p."id" = cr."userId"
+        UNION
+        SELECT cr."id" AS id
+        FROM "chat_rooms" cr
+        JOIN "pro_profiles" pp ON pp."id" = cr."proProfileId"
+        JOIN participant_ids p ON p."id" = pp."userId"
+        UNION
+        SELECT cr."id" AS id
+        FROM "chat_rooms" cr
+        JOIN "match_requests" mr ON mr."id" = cr."matchRequestId"
+        JOIN participant_ids p ON p."id" = mr."userId"
+        UNION
+        SELECT q."chatRoomId" AS id
+        FROM "quotations" q
+        JOIN participant_ids p ON p."id" = q."userId"
+        WHERE q."chatRoomId" IS NOT NULL
+      ),
+      ranked_rooms AS (
+        SELECT cr."id"
+        FROM "chat_rooms" cr
+        JOIN candidate_room_ids c ON c.id = cr."id"
+        JOIN "pro_profiles" pp ON pp."id" = cr."proProfileId"
+        WHERE (
+          (cr."userId" IN (SELECT "id" FROM participant_ids) AND cr."userDeletedAt" IS NULL)
+          OR (pp."userId" IN (SELECT "id" FROM participant_ids) AND cr."proDeletedAt" IS NULL)
+          OR (
+            EXISTS (
+              SELECT 1
+              FROM "chat_room_members" crm
+              JOIN participant_ids p ON p."id" = crm."userId"
+              WHERE crm."roomId" = cr."id"
+            )
+            AND cr."userDeletedAt" IS NULL
+            AND cr."proDeletedAt" IS NULL
+          )
+        )
+        ORDER BY cr."lastMessageAt" DESC NULLS LAST, cr."createdAt" DESC
+        LIMIT ${cap}
+      )
+      SELECT
+        cr."id",
+        cr."userId",
+        cr."proProfileId",
+        cr."matchRequestId",
+        cr."lastMessageAt",
+        customer."id" AS "customerId",
+        customer."name" AS "customerName",
+        customer."profileImageUrl" AS "customerProfileImageUrl",
+        pp."userId" AS "proUserId",
+        pro_user."name" AS "proName",
+        pro_user."profileImageUrl" AS "proProfileImageUrl",
+        pimg."imageUrl" AS "proPrimaryImageUrl",
+        pcat."name" AS "proCategoryName",
+        member_state."isFavorited",
+        member_state."unreadCount",
+        latest_message."id" AS "messageId",
+        latest_message."senderId" AS "messageSenderId",
+        latest_message."type" AS "messageType",
+        latest_message."content" AS "messageContent",
+        latest_message."createdAt" AS "messageCreatedAt",
+        latest_quotation."id" AS "quotationId",
+        latest_quotation."amount" AS "quotationAmount",
+        latest_quotation."title" AS "quotationTitle",
+        latest_quotation."status" AS "quotationStatus",
+        latest_quotation."eventDate" AS "quotationEventDate",
+        latest_quotation."eventTime" AS "quotationEventTime",
+        latest_quotation."eventLocation" AS "quotationEventLocation",
+        latest_quotation."createdAt" AS "quotationCreatedAt",
+        mr."id" AS "requestId",
+        mr."eventDate" AS "requestEventDate",
+        mr."eventTime" AS "requestEventTime",
+        mr."eventLocation" AS "requestEventLocation"
+      FROM ranked_rooms ranked
+      JOIN "chat_rooms" cr ON cr."id" = ranked."id"
+      JOIN "users" customer ON customer."id" = cr."userId"
+      JOIN "pro_profiles" pp ON pp."id" = cr."proProfileId"
+      JOIN "users" pro_user ON pro_user."id" = pp."userId"
+      LEFT JOIN "match_requests" mr ON mr."id" = cr."matchRequestId"
+      LEFT JOIN LATERAL (
+        SELECT crm."isFavorited", crm."unreadCount"
+        FROM "chat_room_members" crm
+        WHERE crm."roomId" = cr."id"
+          AND crm."userId" IN (SELECT "id" FROM participant_ids)
+        ORDER BY CASE WHEN crm."userId" = ${userId} THEN 0 ELSE 1 END
+        LIMIT 1
+      ) member_state ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT m."id", m."senderId", m."type", m."content", m."createdAt"
+        FROM "messages" m
+        WHERE m."roomId" = cr."id" AND m."isDeleted" = false
+        ORDER BY m."createdAt" DESC
+        LIMIT 1
+      ) latest_message ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT q."id", q."amount", q."title", q."status", q."eventDate", q."eventTime", q."eventLocation", q."createdAt"
+        FROM "quotations" q
+        WHERE q."chatRoomId" = cr."id"
+        ORDER BY q."createdAt" DESC
+        LIMIT 1
+      ) latest_quotation ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT pi."imageUrl"
+        FROM "pro_profile_images" pi
+        WHERE pi."proProfileId" = pp."id" AND pi."isPrimary" = true
+        ORDER BY pi."displayOrder" ASC, pi."createdAt" DESC
+        LIMIT 1
+      ) pimg ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT c."name"
+        FROM "pro_categories" pc
+        JOIN "categories" c ON c."id" = pc."categoryId"
+        WHERE pc."proProfileId" = pp."id"
+        LIMIT 1
+      ) pcat ON TRUE
+      ORDER BY cr."lastMessageAt" DESC NULLS LAST, cr."createdAt" DESC
+      LIMIT ${take}
+    `);
+
+    return rows.map((row) => {
+      const isProUser = participantUserIds.includes(row.proUserId);
+      const lastContent = row.messageContent ?? '';
+      const latestQuotationStatus = row.quotationStatus ?? null;
+      const hasQuoteInquiry = Boolean(row.matchRequestId || latestQuotationStatus || /견적|문의/.test(lastContent));
+      const hasConfirmedBooking = Boolean(
+        latestQuotationStatus === 'accepted' ||
+        latestQuotationStatus === 'paid' ||
+        /예약확정|확정|결제 완료|진행/.test(lastContent),
+      );
+
+      return {
+        id: row.id,
+        otherUser: isProUser
+          ? {
+              id: row.customerId,
+              name: row.customerName,
+              profileImageUrl: row.customerProfileImageUrl,
+              category: null,
+            }
+          : {
+              id: row.proUserId,
+              name: row.proName,
+              profileImageUrl: row.proProfileImageUrl ?? row.proPrimaryImageUrl,
+              category: row.proCategoryName ?? null,
+            },
+        lastMessage: row.messageId
+          ? {
+              id: row.messageId,
+              senderId: row.messageSenderId,
+              type: row.messageType,
+              content: row.messageContent,
+              createdAt: row.messageCreatedAt,
+            }
+          : null,
+        lastMessageAt: row.lastMessageAt,
+        unreadCount: row.unreadCount ?? 0,
+        isFavorited: row.isFavorited ?? false,
+        proProfileId: row.proProfileId,
+        iAmPro: isProUser,
+        matchRequestId: row.matchRequestId,
+        latestQuotationStatus,
+        hasQuoteInquiry,
+        hasConfirmedBooking,
+        matchRequest: row.requestId
+          ? {
+              id: row.requestId,
+              eventDate: row.requestEventDate,
+              eventTime: row.requestEventTime,
+              eventLocation: row.requestEventLocation,
+            }
+          : null,
+        latestQuotation: row.quotationId
+          ? {
+              id: row.quotationId,
+              amount: row.quotationAmount,
+              title: row.quotationTitle,
+              status: row.quotationStatus,
+              eventDate: row.quotationEventDate,
+              eventTime: row.quotationEventTime,
+              eventLocation: row.quotationEventLocation,
+              createdAt: row.quotationCreatedAt,
+            }
+          : null,
+      };
+    });
   }
 
   private async refreshRoomLastVisibleMessage(roomId: string) {
@@ -984,6 +1230,25 @@ export class ChatService implements OnModuleInit {
     const participantUserIds = await this.getChatParticipantUserIds(userId);
 
     const hasListFilters = !!(search || dateFrom || dateTo);
+    if (!hasListFilters && page === 1) {
+      try {
+        const data = await this.getRoomsFirstPageFast(userId, participantUserIds, take);
+        const total = data.length;
+        const result = { data, total, page, limit: take, hasMore: data.length === take };
+        this.setRoomCached(cacheKey, result);
+        if (data.length === 0) {
+          this.maybeBackgroundRepair(userId);
+        }
+        const elapsed = Date.now() - startedAt;
+        if (elapsed > 500) {
+          this.logger.warn(`slow fast chat rooms query user=${userId} elapsed=${elapsed}ms rooms=${data.length}`);
+        }
+        return result;
+      } catch (error) {
+        this.logger.warn(`fast chat rooms query failed; falling back to prisma room list`);
+      }
+    }
+
     const applyListFilters = (targetWhere: any) => {
       if (dateFrom || dateTo) {
         targetWhere.lastMessageAt = {};

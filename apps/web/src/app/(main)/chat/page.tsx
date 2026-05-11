@@ -98,12 +98,11 @@ export default function ChatListPage() {
       setRoomsLoading(false);
       return;
     }
-    if (apiRooms.length > 0) setRoomsLoading(false);
     connect();
-    if (apiRooms.length === 0) setRoomsLoading(true);
+    if (useChatStore.getState().rooms.length === 0) setRoomsLoading(true);
     fetchRooms({ limit: 50 }).catch(() => {});
     return undefined;
-  }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
+  }, [authHydrated, authUser?.id, connect, disconnect, fetchRooms]);
 
   useEffect(() => {
     if (!authHydrated || !authUser) return;

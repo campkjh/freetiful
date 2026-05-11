@@ -11,6 +11,8 @@ const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
 const ROOM_CACHE_TTL = 30 * 60_000;
 const ROOM_REVALIDATE_MS = 5_000;
 const DEFAULT_SOCKET_URL = 'https://affectionate-smile-production-6535.up.railway.app';
+let roomsFetchInFlight: Promise<void> | null = null;
+let roomsFetchInFlightKey = '';
 
 type FetchRoomsParams = {
   search?: string;
@@ -20,7 +22,6 @@ type FetchRoomsParams = {
   limit?: number;
   withTotal?: boolean;
   force?: boolean;
-  emptyRetry?: number;
 };
 
 type SendMessagePayload = {
@@ -460,7 +461,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
 
-    const { force = false, emptyRetry = 0, ...apiParams } = params || {};
+    const { force = false, ...apiParams } = params || {};
     let { rooms, roomsLoading, lastRoomsFetchAt, roomsUserId } = get();
     if (rooms.length > 0 && roomsUserId !== userId) {
       rooms = [];
@@ -470,10 +471,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const hasFilters = !!(apiParams.search || apiParams.dateFrom || apiParams.dateTo);
     const requestParams = { limit: 30, withTotal: false, ...apiParams };
+    const requestKey = JSON.stringify({ userId, ...requestParams });
     if (!force && !hasFilters && roomsLoading) return;
     if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < ROOM_REVALIDATE_MS) {
       set({ roomsLoading: false });
       return;
+    }
+    if (!force && roomsFetchInFlight && roomsFetchInFlightKey === requestKey) {
+      return roomsFetchInFlight;
     }
 
     // 빈 응답이 와도 기존 캐시/상태를 절대 비우지 않는다.
@@ -494,43 +499,54 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const cached = readRoomsCache(userId);
       if (cached) {
         set({ rooms: cached.rooms, roomsUserId: userId, lastRoomsFetchAt: cached.ts, roomsLoading: false });
-        chatApi.getRooms(requestParams)
+        roomsFetchInFlightKey = requestKey;
+        roomsFetchInFlight = chatApi.getRooms(requestParams)
           .then((res) => applyServerRooms(res.data.data))
-          .catch(() => {});
-        return;
+          .catch(() => {})
+          .finally(() => {
+            if (roomsFetchInFlightKey === requestKey) {
+              roomsFetchInFlight = null;
+              roomsFetchInFlightKey = '';
+            }
+          });
+        return roomsFetchInFlight;
       }
     }
 
     if (rooms.length > 0) {
       set({ roomsLoading: false });
-      chatApi.getRooms(requestParams)
+      roomsFetchInFlightKey = requestKey;
+      roomsFetchInFlight = chatApi.getRooms(requestParams)
         .then((res) => applyServerRooms(res.data.data))
-        .catch(() => {});
-      return;
+        .catch(() => {})
+        .finally(() => {
+          if (roomsFetchInFlightKey === requestKey) {
+            roomsFetchInFlight = null;
+            roomsFetchInFlightKey = '';
+          }
+        });
+      return roomsFetchInFlight;
     }
     set({ roomsLoading: true });
-    let keepLoadingForRetry = false;
-    try {
-      const res = await chatApi.getRooms(requestParams);
-      const nextRooms = res.data.data || [];
-      if (!hasFilters && nextRooms.length === 0 && get().rooms.length === 0 && emptyRetry < 2 && typeof window !== 'undefined') {
-        keepLoadingForRetry = true;
-        window.setTimeout(() => {
-          get().fetchRooms({ ...apiParams, limit: requestParams.limit, withTotal: requestParams.withTotal, force: true, emptyRetry: emptyRetry + 1 }).catch(() => {});
-        }, emptyRetry === 0 ? 300 : 700);
-        return;
-      }
-      applyServerRooms(nextRooms);
-    } catch {
-      if (!hasFilters && get().rooms.length === 0 && emptyRetry < 2 && typeof window !== 'undefined') {
-        keepLoadingForRetry = true;
-        window.setTimeout(() => {
-          get().fetchRooms({ ...apiParams, limit: requestParams.limit, withTotal: requestParams.withTotal, force: true, emptyRetry: emptyRetry + 1 }).catch(() => {});
-        }, 500);
-      }
-    } finally {
-      set({ roomsLoading: keepLoadingForRetry });
-    }
+    roomsFetchInFlightKey = requestKey;
+    roomsFetchInFlight = chatApi.getRooms(requestParams)
+      .then((res) => {
+        applyServerRooms(res.data.data || []);
+      })
+      .catch(() => {
+        // 실패 시 재시도 루프를 만들지 않는다. 기존 데이터는 유지하고 로딩만 종료한다.
+        if (get().rooms.length === 0) {
+          set({ roomsUserId: userId, lastRoomsFetchAt: Date.now() });
+        }
+      })
+      .finally(() => {
+        if (roomsFetchInFlightKey === requestKey) {
+          roomsFetchInFlight = null;
+          roomsFetchInFlightKey = '';
+        }
+        set({ roomsLoading: false });
+      });
+    return roomsFetchInFlight;
   },
 
   joinRoom: (roomId) => {
