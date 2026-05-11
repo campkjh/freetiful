@@ -21,12 +21,15 @@ export const metadata: Metadata = {
 
 // viewport-fit=cover — iOS/Android WebView에서 env(safe-area-inset-*) 활성화
 // maximumScale/userScalable — Android Chrome에서 핀치 줌으로 vw 계산이 틀어지는 문제 방지
+// interactiveWidget=resizes-content — Android 키보드가 올라올 때 viewport를 shrink해
+//   fixed inset-0 채팅창이 키보드 위에 올바르게 배치되도록 함 (Android Chrome 108+)
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
