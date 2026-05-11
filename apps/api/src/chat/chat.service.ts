@@ -1723,11 +1723,13 @@ export class ChatService implements OnModuleInit {
     });
     if (!room) throw new ForbiddenException('채팅방에 접근할 수 없습니다');
 
-    await this.ensureRoomsRepaired(userId).catch(() => undefined);
+    // 전체 repair를 await하면 getMessages가 최대 수 초 블로킹됨 → 채팅 내용 미표시 버그.
+    // 이 방에 대한 member 레코드만 즉시 생성하고, 전체 repair는 백그라운드로 위임한다.
     await this.prisma.chatRoomMember.createMany({
       data: [{ roomId, userId }],
       skipDuplicates: true,
     });
+    this.ensureRoomsRepaired(userId).catch(() => undefined); // fire-and-forget
     const repairedMember = await this.prisma.chatRoomMember.findUnique({
       where: { roomId_userId: { roomId, userId } },
     });
