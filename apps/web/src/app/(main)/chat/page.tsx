@@ -118,23 +118,24 @@ export default function ChatListPage() {
   })();
   const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
 
+  // ── 로그인됐을 때: 방 목록 로드 (authUser가 null→User 될 때만 실행)
   useEffect(() => {
-    if (!authUser) {
-      // authHydrated=false → Zustand 아직 로딩 중 → 캐시된 방 목록 보존, 아무것도 하지 않음
-      // authHydrated=true  → 실제 비로그인 → 방 목록 초기화
-      if (authHydrated) {
-        disconnect();
-        setRooms([]);
-        setRoomsLoading(false);
-      }
-      return;
-    }
-
+    if (!authUser) return;
     connect();
     if (rooms.length > 0) setRoomsLoading(false);
     fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser?.id, authHydrated]);
+  }, [authUser?.id]);
+
+  // ── 로그아웃 확정됐을 때: 방 목록 초기화 (authHydrated=true 이후 user가 없을 때)
+  // 두 effect 분리로 이중 트리거 방지: "로드" effect와 "초기화" effect가 독립 실행
+  useEffect(() => {
+    if (!authHydrated || authUser) return;
+    disconnect();
+    setRooms([]);
+    setRoomsLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authHydrated, authUser?.id]);
 
   useEffect(() => {
     if (!authUser) return;

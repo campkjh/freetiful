@@ -136,7 +136,22 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window === 'undefined') return;
         const accessToken = state?.accessToken;
         const cachedUser = state?.user;
-        if (!accessToken || !cachedUser) return;
+        if (!accessToken) return; // 토큰 없으면 로그아웃 상태, 할 일 없음
+        // 토큰은 있지만 user 객체가 없는 폰(이전 로그아웃 버그 등)은
+        // API로 프로필을 복구해 authUser=null 고착 방지
+        if (!cachedUser) {
+          setTimeout(() => {
+            import('../api/users.api').then(({ usersApi }) => {
+              usersApi.getProfile()
+                .then((fresh: any) => {
+                  if (!fresh?.id) return;
+                  useAuthStore.getState().setUser(fresh);
+                })
+                .catch(() => {});
+            });
+          }, 100);
+          return;
+        }
         // 합성 이메일이면 우선순위 높여 즉시 fetch
         const isLegacyEmail = !!cachedUser.email?.match(/^kakao_\d+@kakao\.freetiful\.com$/);
         const fire = () => {
