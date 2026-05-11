@@ -28,11 +28,12 @@ export class NotificationService {
       return;
     }
 
-    const payloadBase = {
+    const payloadBase: Record<string, unknown> = {
       app_id: appId,
       headings: { en: title, ko: title },
       contents: { en: body, ko: body },
       data: data || {},
+      ...(data?.url ? { web_url: data.url } : {}),
     };
 
     // 1차: external_id 경로
@@ -162,6 +163,15 @@ export class NotificationService {
     data?: Record<string, any>,
   ) {
     this.logger.log(`[createNotification] userId=${userId} type=${type} title="${title}"`);
+    const settingKeyMap: Partial<Record<NotificationType, 'chatPush' | 'bookingPush' | 'paymentPush' | 'reviewPush' | 'systemPush' | 'marketingPush'>> = {
+      chat: 'chatPush',
+      booking: 'bookingPush',
+      payment: 'paymentPush',
+      review: 'reviewPush',
+      system: 'systemPush',
+      marketing: 'marketingPush',
+    };
+
     const [notification] = await Promise.all([
       this.prisma.notification.create({
         data: {
@@ -178,6 +188,7 @@ export class NotificationService {
           userIds: [userId],
           title,
           body,
+          settingKey: settingKeyMap[type],
           event: String(type),
           data,
         })

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
@@ -157,10 +158,10 @@ export class ChatService {
     // 새 문의 알림 → 전문가에게 (fire-and-forget)
     this.notificationService.createNotification(
       pro.userId,
-      'chat' as any,
+      NotificationType.chat,
       '새 문의가 도착했습니다 💬',
       `${inquiryUser?.name || '고객'}님이 채팅 문의를 보냈습니다.`,
-      { roomId: room.id },
+      { roomId: room.id, url: `/chat/${room.id}` },
     ).catch(() => {});
 
     // 새 채팅 도착 푸딩 +50 (pro 입장)
@@ -271,10 +272,10 @@ export class ChatService {
     // 고객에게 알림
     this.notificationService.createNotification(
       dto.customerUserId,
-      'chat' as any,
+      NotificationType.chat,
       '새 채팅이 도착했습니다 💬',
       `${proProfile.user.name || '사회자'}님이 매칭 요청을 보고 먼저 연락드렸습니다.`,
-      { roomId: room.id, proProfileId: proProfile.id },
+      { roomId: room.id, proProfileId: proProfile.id, url: `/chat/${room.id}` },
     ).catch(() => {});
 
     return {
@@ -587,15 +588,18 @@ export class ChatService {
         this.invalidateRoomsCache(m.userId);
       }
       const senderName = message.sender?.name || '상대방';
-      const preview = (dto.content || '').slice(0, 40);
+      const preview =
+        dto.type === 'image' ? '사진을 보냈습니다.' :
+        dto.type === 'file' ? '파일을 보냈습니다.' :
+        (finalContent || '').slice(0, 40);
       for (const m of allMembers) {
         if (m.userId === userId) continue;
         this.notificationService.createNotification(
           m.userId,
-          'chat' as any,
+          NotificationType.chat,
           `${senderName}님의 메시지`,
           preview || '새 메시지가 도착했습니다.',
-          { roomId, messageId: message.id },
+          { roomId, messageId: message.id, url: `/chat/${roomId}` },
         ).catch(() => {});
       }
     } catch {}

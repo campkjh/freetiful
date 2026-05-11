@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
-import { useAuthStore } from '@/lib/store/auth.store';
+import { useAuthStore, getIsLoggedIn } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 
 // ─── Types ────────────────────────────────────────────────
@@ -35,23 +35,30 @@ const ClientAvatar = ({ name }: { name: string }) => (
 );
 
 export default function ChatListPage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // localStorage를 직접 읽어 Zustand 하이드레이션 전 깜빡임 방지
+  const [isLoggedIn, setIsLoggedIn] = useState(() =>
+    typeof window !== 'undefined' ? getIsLoggedIn(null) : false,
+  );
   const [isPro, setIsPro] = useState(false);
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
-  const [roomsLoading, setRoomsLoading] = useState(true);
+  // 로그인 상태이면 바로 로딩 스켈레톤 표시 (빈 상태 깜빡임 방지)
+  const [roomsLoading, setRoomsLoading] = useState(() =>
+    typeof window !== 'undefined' ? getIsLoggedIn(null) : false,
+  );
   const authUser = useAuthStore((s) => s.user);
   const { connect, disconnect, fetchRooms, rooms: apiRooms } = useChatStore();
 
   useEffect(() => {
-    const loggedIn = authUser !== null || localStorage.getItem('freetiful-logged-in') === 'true';
+    const loggedIn = getIsLoggedIn(authUser);
     setIsLoggedIn(loggedIn);
     setIsPro(authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro');
 
-    if (!loggedIn || !authUser) { setRoomsLoading(false); }
-
-    if (authUser) {
+    if (loggedIn && authUser) {
       connect();
+      setRoomsLoading(true);
       fetchRooms().catch(() => {}).finally(() => setRoomsLoading(false));
+    } else {
+      setRoomsLoading(false);
     }
 
     return () => { disconnect(); };

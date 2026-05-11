@@ -9,7 +9,7 @@ import Footer from '@/components/Footer';
 import FavoriteAnimation from '@/components/FavoriteAnimation';
 import RecommendedProBar from '@/components/RecommendedProBar';
 import PageTransition from '@/components/PageTransition';
-import { useAuthStore } from '@/lib/store/auth.store';
+import { useAuthStore, getIsLoggedIn } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 
 const USER_NAV_ITEMS = [
@@ -80,17 +80,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
-    // localStorage의 zustand persist 데이터에 user/accessToken이 있으면 로그인된 것으로 간주
-    // (authUser가 hydration 전에 null일 수 있으므로 persist 원본도 확인)
-    let hasPersistedToken = false;
-    try {
-      const raw = localStorage.getItem('prettyful-auth');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        hasPersistedToken = !!(parsed?.state?.accessToken || parsed?.state?.user);
-      }
-    } catch {}
-    const isLoggedIn = authUser !== null || hasPersistedToken || localStorage.getItem('freetiful-logged-in') === 'true';
+    const isLoggedIn = getIsLoggedIn(authUser);
     if (!isLoggedIn && needsAuth) {
       const iosBridge = (window as any).webkit?.messageHandlers?.showNativeLogin;
       if (iosBridge) {

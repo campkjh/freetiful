@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useAuthStore } from '@/lib/store/auth.store';
+import { useAuthStore, getIsLoggedIn } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail } from '@/lib/api/discovery.api';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { favoriteApi } from '@/lib/api/favorite.api';
@@ -1476,7 +1476,7 @@ export default function ProDetailPage() {
                 disabled={openingChat}
                 onClick={async () => {
                   setShowTooltip(false);
-                  if (!authUser && localStorage.getItem('freetiful-logged-in') !== 'true') { setLoginModal(true); return; }
+                  if (!getIsLoggedIn(authUser)) { setLoginModal(true); return; }
                   // 본인의 프로 페이지면 차단
                   const myProId = typeof window !== 'undefined' ? localStorage.getItem('freetiful-my-pro-id') : null;
                   if (myProId && myProId === pro.id) {
