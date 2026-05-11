@@ -844,7 +844,7 @@ export default function ChatRoomPage() {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
-          paddingBottom: 16,
+          paddingBottom: 80,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
           paddingTop: roomMeta?.latestQuotation?.status === 'paid'
@@ -1104,10 +1104,8 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* ─── Input Bar — flex item (absolute 제거, Android/iOS 키보드 반응형) ─── */}
-      {/* absolute bottom-0 대신 flex 아이템으로 변경:
-          interactiveWidget=resizes-content 와 함께 뷰포트가 줄어들면 자동으로 키보드 위에 위치 */}
-      <div className="relative z-30 pt-1 pb-safe px-safe shrink-0 w-full overflow-x-hidden">
+      {/* ─── Input Bar ─── */}
+      <div className="absolute bottom-0 left-0 right-0 z-30 pb-safe px-safe">
         {/* 메시지 목록과의 경계에 그라데이션 블러 */}
         <div
           className="absolute left-0 right-0 bottom-full h-16 pointer-events-none"
@@ -1115,7 +1113,7 @@ export default function ChatRoomPage() {
             background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0) 100%)',
           }}
         />
-        <div className="flex items-end gap-2 max-w-[680px] mx-auto pointer-events-auto">
+        <div className="flex items-end gap-2 max-w-[680px] mx-auto pointer-events-auto pt-1">
           {isRecording ? (
             // Recording UI
             <>
