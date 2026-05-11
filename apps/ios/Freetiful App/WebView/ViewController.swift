@@ -542,13 +542,19 @@ class ViewController: UIViewController,
     }
 
     private func loadHome() {
-        webView.load(URLRequest(url: URL(string: "\(kWebBase)/")!))
+        let url = URL(string: "\(kWebBase)/")!
+        // HTML 은 매번 서버 재검증 (Next.js 빌드 ID 변경 즉시 반영). JS/CSS 청크는 immutable 헤더로 캐시 유지.
+        var req = URLRequest(url: url)
+        req.cachePolicy = .reloadRevalidatingCacheData
+        webView.load(req)
     }
 
     private func loadInternalPath(_ path: String) {
         guard let url = URL(string: "\(kWebBase)\(path)") else { return }
         currentNativePath = path
-        webView.load(URLRequest(url: url))
+        var req = URLRequest(url: url)
+        req.cachePolicy = .reloadRevalidatingCacheData
+        webView.load(req)
     }
 
     private func normalizedInternalPath(from rawValue: String?) -> String? {
