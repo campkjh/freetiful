@@ -247,6 +247,32 @@ export class ChatService implements OnModuleInit {
     await this.reviveRoomsWithNewerMessagesForUser(userId);
   }
 
+  private async getRoomParticipantUserIds(roomId: string) {
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId },
+      select: {
+        userId: true,
+        proProfile: { select: { userId: true } },
+        matchRequest: { select: { userId: true } },
+        members: { select: { userId: true } },
+        quotations: { select: { userId: true } },
+      },
+    });
+    if (!room) return [];
+
+    return Array.from(
+      new Set(
+        [
+          room.userId,
+          room.proProfile?.userId,
+          room.matchRequest?.userId,
+          ...room.members.map((member) => member.userId),
+          ...room.quotations.map((quotation) => quotation.userId),
+        ].filter(Boolean) as string[],
+      ),
+    );
+  }
+
   private async mergeLegacyChatData(fromUserId: string, toUserId: string) {
     if (fromUserId === toUserId) return false;
 
@@ -1198,27 +1224,34 @@ export class ChatService implements OnModuleInit {
       },
     });
 
-    // Increment unread for other members
-    await this.prisma.chatRoomMember.updateMany({
-      where: { roomId, userId: { not: userId } },
-      data: { unreadCount: { increment: 1 } },
-    });
+    const participantIds = await this.getRoomParticipantUserIds(roomId);
+    const receiverIds = participantIds.filter((participantId) => participantId !== userId);
+
+    if (participantIds.length > 0) {
+      await this.prisma.chatRoomMember.createMany({
+        data: participantIds.map((participantId) => ({ roomId, userId: participantId })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Increment unread for receivers, including rooms with missing legacy member rows.
+    if (receiverIds.length > 0) {
+      await this.prisma.chatRoomMember.updateMany({
+        where: { roomId, userId: { in: receiverIds } },
+        data: { unreadCount: { increment: 1 } },
+      });
+    }
 
     // 룸 목록 캐시 무효화 (발신자 + 수신자 모두) + 메시지 알림
     try {
-      const allMembers = await this.prisma.chatRoomMember.findMany({
-        where: { roomId },
-        select: { userId: true },
-      });
-      for (const m of allMembers) {
-        this.invalidateRoomsCache(m.userId);
+      for (const participantId of participantIds) {
+        this.invalidateRoomsCache(participantId);
       }
       const senderName = message.sender?.name || '상대방';
-      const preview = (dto.content || '').slice(0, 40);
-      for (const m of allMembers) {
-        if (m.userId === userId) continue;
+      const preview = (finalContent || '').slice(0, 40);
+      for (const receiverId of receiverIds) {
         this.notificationService.createNotification(
-          m.userId,
+          receiverId,
           'chat' as any,
           `${senderName}님의 메시지`,
           preview || '새 메시지가 도착했습니다.',
@@ -1270,11 +1303,7 @@ export class ChatService implements OnModuleInit {
   }
 
   async getRoomMemberIds(roomId: string) {
-    const members = await this.prisma.chatRoomMember.findMany({
-      where: { roomId },
-      select: { userId: true },
-    });
-    return members.map((member) => member.userId);
+    return this.getRoomParticipantUserIds(roomId);
   }
 
   async editMessage(messageId: string, userId: string, dto: EditMessageDto) {
