@@ -119,13 +119,14 @@ export default function ChatListPage() {
   const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
 
   useEffect(() => {
-    // authHydrated 의존성 제거 — authUser만으로 게이팅.
-    // hasHydrated=true + authUser=null 조합이 layout 리다이렉트를 유발하므로
-    // 2초 타임아웃 방식 폐기, authUser 변화만 추적한다.
     if (!authUser) {
-      disconnect();
-      setRooms([]);
-      setRoomsLoading(false);
+      // authHydrated=false → Zustand 아직 로딩 중 → 캐시된 방 목록 보존, 아무것도 하지 않음
+      // authHydrated=true  → 실제 비로그인 → 방 목록 초기화
+      if (authHydrated) {
+        disconnect();
+        setRooms([]);
+        setRoomsLoading(false);
+      }
       return;
     }
 
@@ -133,7 +134,7 @@ export default function ChatListPage() {
     if (rooms.length > 0) setRoomsLoading(false);
     fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser?.id]);
+  }, [authUser?.id, authHydrated]);
 
   useEffect(() => {
     if (!authUser) return;
