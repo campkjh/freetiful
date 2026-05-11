@@ -64,11 +64,32 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
   };
 }
 
-function getInitialRoomsForCurrentUser() {
+function getInitialRoomsForCurrentUser(): ChatRoom[] {
   const auth = useAuthStore.getState();
   const chat = useChatStore.getState();
-  if (!auth.hasHydrated || !auth.user || chat.roomsUserId !== auth.user.id) return [];
-  return chat.rooms.map(mapApiRoomToChatRoom);
+
+  // Zustand가 이미 hydrate + 같은 유저 데이터 → 바로 사용
+  if (auth.hasHydrated && auth.user && chat.roomsUserId === auth.user.id && chat.rooms.length > 0) {
+    return chat.rooms.map(mapApiRoomToChatRoom);
+  }
+
+  // Zustand가 아직 hydrate 전(hasHydrated=false)이어도 localStorage 캐시를 직접 읽어
+  // 첫 렌더부터 방 목록을 보여주고 로딩 스켈레톤을 건너뜀
+  try {
+    const authRaw = localStorage.getItem('prettyful-auth');
+    if (!authRaw) return [];
+    const userId: string | undefined = JSON.parse(authRaw)?.state?.user?.id;
+    if (!userId) return [];
+
+    const cacheRaw = localStorage.getItem('freetiful-chat-rooms-cache-v2');
+    if (!cacheRaw) return [];
+    const parsed = JSON.parse(cacheRaw) as { userId?: string; rooms?: unknown[]; ts?: number };
+    if (parsed?.userId !== userId || !Array.isArray(parsed.rooms)) return [];
+    if (Date.now() - (parsed.ts ?? 0) > 30 * 60_000) return []; // 30분 TTL
+    return (parsed.rooms as any[]).map(mapApiRoomToChatRoom);
+  } catch {
+    return [];
+  }
 }
 
 export default function ChatListPage() {
@@ -99,11 +120,14 @@ export default function ChatListPage() {
       return;
     }
 
-    if (apiRooms.length > 0) setRoomsLoading(false);
     connect();
+    // rooms가 이미 캐시에서 로드됐으면 로딩 해제 후 백그라운드 갱신
+    if (rooms.length > 0) setRoomsLoading(false);
     fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
-    return undefined;
-  }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
+    // apiRooms.length를 deps에서 제거 — 방 목록이 갱신될 때마다 effect가 재실행되며
+    // fetchRooms()가 이중 호출되는 버그 수정
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authHydrated, authUser?.id]);
 
   useEffect(() => {
     if (!authHydrated || !authUser) return;
