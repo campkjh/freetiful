@@ -271,6 +271,17 @@ class ViewController: UIViewController,
       }
 
       window.__freetifulNativeNavInstalled = true;
+
+      // pushState/replaceState: pathname이 즉시 바뀌므로 딜레이 없이 바로 알림.
+      // contentInset.bottom이 즉시 업데이트돼 채팅방 진입 시 하단 여백 제거.
+      // 260ms 후 재알림은 role·overlay 같은 React 상태가 반영된 후 풀 싱크용.
+      var notifyImmediate = function() {
+        hideWebBottomNav();
+        window.__freetifulNativeNavPostState && window.__freetifulNativeNavPostState();
+        setTimeout(window.__freetifulNativeNavPostState, 260);
+      };
+
+      // popstate·storage 등 기타 이벤트는 약간의 딜레이 유지 (React 렌더 완료 대기)
       var notify = function() {
         hideWebBottomNav();
         setTimeout(window.__freetifulNativeNavPostState, 30);
@@ -280,14 +291,14 @@ class ViewController: UIViewController,
       var pushState = history.pushState;
       history.pushState = function() {
         var result = pushState.apply(this, arguments);
-        notify();
+        notifyImmediate();
         return result;
       };
 
       var replaceState = history.replaceState;
       history.replaceState = function() {
         var result = replaceState.apply(this, arguments);
-        notify();
+        notifyImmediate();
         return result;
       };
 
