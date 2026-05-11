@@ -692,7 +692,7 @@ export default function ChatRoomPage() {
 
   if (showSkeleton) {
     return (
-      <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]" style={{ height: '100dvh' }}>
+      <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]">
         {/* Top shimmer bar */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-50 overflow-hidden bg-gray-100">
           <div className="h-full bg-[#3180F7]/40 animate-[shimmerBar_1.4s_ease-in-out_infinite]" style={{ width: '60%' }} />
@@ -754,7 +754,7 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#F2F2F7]" style={{ height: '100dvh' }}>
+    <div className="fixed inset-0 flex flex-col bg-[#F2F2F7]">
       {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
       <div
         className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"
@@ -842,9 +842,11 @@ export default function ChatRoomPage() {
       {/* ─── Messages ─── */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-[88px]"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
+          paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))',
           overscrollBehaviorX: 'contain',
+          overscrollBehaviorY: 'none',
           paddingTop: roomMeta?.latestQuotation?.status === 'paid'
             ? (scheduleBannerCollapsed ? 134 : 220)
             : 80,

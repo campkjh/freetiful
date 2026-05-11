@@ -1364,7 +1364,10 @@ export class ChatService implements OnModuleInit {
         this.invalidateRoomsCache(participantId);
       }
       const senderName = message.sender?.name || '상대방';
-      const preview = (finalContent || '').slice(0, 40);
+      const preview =
+        dto.type === 'image' ? '사진을 보냈습니다.' :
+        dto.type === 'file' ? '파일을 보냈습니다.' :
+        (finalContent || '').slice(0, 40);
       for (const receiverId of receiverIds) {
         this.notificationService.createNotification(
           receiverId,

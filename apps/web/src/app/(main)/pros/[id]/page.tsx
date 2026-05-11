@@ -1156,6 +1156,7 @@ export default function ProDetailPage() {
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const authUser = useAuthStore((s) => s.user);
+  const authHydrated = useAuthStore((s) => s.hasHydrated);
   const [isFavorited, setIsFavorited] = useState(false);
 
   useEffect(() => {
@@ -1382,7 +1383,9 @@ export default function ProDetailPage() {
 
   const handleInquiry = async () => {
     if (!pro) return;
-    if (!authUser) {
+    if (!authHydrated || !authUser) {
+      // Zustand 하이드레이션 전이면 무시, 완료 후 미로그인이면 팝업
+      if (!authHydrated) return;
       rememberAuthReturnTo();
       if (requestNativeLoginSheet({ reason: 'pro-detail-chat' })) {
         setLoginModal(false);
