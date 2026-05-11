@@ -117,7 +117,7 @@ export default function ChatListPage() {
       return !!(s?.user || s?.accessToken);
     } catch { return false; }
   })();
-  const isPro = authUser?.role === 'pro' || localStorage.getItem('userRole') === 'pro';
+  const isPro = authUser?.role === 'pro' || (typeof window !== 'undefined' && localStorage.getItem('userRole') === 'pro');
 
   // 안전망: Zustand rehydration 실패 시 2초 후 강제 unblock
   useEffect(() => {
