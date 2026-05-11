@@ -91,7 +91,10 @@ export class NotificationService {
       ...(targetUrl ? { url: targetUrl } : {}),
     };
 
-    // 1차: external_id 경로
+    // external_id 단일 경로 — 2차 subscription_id 폴백 제거
+    // 이유: recipients=0이어도 OneSignal이 비동기로 실제 전송하는 경우
+    //       1차+2차 모두 전송되어 알림이 2번 오는 버그가 발생했음.
+    //       notification id가 발급됐으면 OneSignal이 접수한 것이므로 1회로 간주.
     try {
       const res = await axios.post(
         'https://onesignal.com/api/v1/notifications',
@@ -103,36 +106,13 @@ export class NotificationService {
       this.logger.log(
         `[OneSignal] external_id=${userId} → id=${res.data?.id} recipients=${recipients} errors=${JSON.stringify(res.data?.errors ?? null)}`,
       );
-      // id가 있어도 recipients=0이면 실제 수신자가 없으므로 subscription_id fallback을 탄다.
-      if (res.status >= 200 && res.status < 300 && hasId && recipients > 0) return true;
+      // id가 발급됐으면 OneSignal이 접수한 것 — recipients=0이어도 성공으로 처리해 web push 중복 방지
+      if (res.status >= 200 && res.status < 300 && hasId) return true;
+      return false;
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: unknown }; message?: string };
       this.logger.warn(
-        `[OneSignal] external_id FAIL ${userId} status=${err.response?.status} data=${JSON.stringify(err.response?.data)} — trying subscription_id fallback`,
-      );
-    }
-
-    // 2차: subscription_id 폴백
-    const subscriptionIds = await this.pushService.getOneSignalSubscriptionIds([userId]);
-    if (!subscriptionIds.length) {
-      this.logger.warn(`[OneSignal] no subscription_id in DB for ${userId} — bridge never delivered playerId`);
-      return false;
-    }
-
-    try {
-      const res = await axios.post(
-        'https://onesignal.com/api/v1/notifications',
-        { ...payloadBase, include_subscription_ids: subscriptionIds },
-        { headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' } },
-      );
-      this.logger.log(
-        `[OneSignal] subscription_id fallback ${userId} subs=${subscriptionIds.length} → id=${res.data?.id} recipients=${res.data?.recipients ?? 'n/a'}`,
-      );
-      return Number(res.data?.recipients || 0) > 0 || !!res.data?.id;
-    } catch (e: unknown) {
-      const err = e as { response?: { status?: number; data?: unknown }; message?: string };
-      this.logger.error(
-        `[OneSignal] subscription_id FAIL ${userId} status=${err.response?.status} data=${JSON.stringify(err.response?.data)}`,
+        `[OneSignal] external_id FAIL ${userId} status=${err.response?.status} data=${JSON.stringify(err.response?.data)}`,
       );
       return false;
     }
