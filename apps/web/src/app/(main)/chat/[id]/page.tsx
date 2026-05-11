@@ -270,16 +270,17 @@ export default function ChatRoomPage() {
     return null;
   })();
 
-  // ─── Keyboard offset (Android WebView: visualViewport로 키보드 높이 감지) ───
+  // ─── Keyboard offset (Android WebView 키보드 감지) ───
+  // interactive-widget=resizes-content 지원 시: window.innerHeight 가 이미 줄어들어 vv.height ≈ innerHeight → offset≈0
+  // 미지원 시: innerHeight 유지, vv.height만 줄어 → offset = 키보드 높이
+  // iOS WKWebView: fixed 요소가 visual viewport 자동 추적하므로 스킵
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   useEffect(() => {
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
     const vv = window.visualViewport;
     if (!vv) return;
-    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    if (isIOS) return; // iOS WKWebView는 fixed 요소가 visual viewport를 자동 추적
     const update = () => {
-      const offset = Math.max(0, window.innerHeight - vv.offsetTop - vv.height);
-      setKeyboardOffset(offset);
+      setKeyboardOffset(Math.max(0, window.innerHeight - vv.height));
     };
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
