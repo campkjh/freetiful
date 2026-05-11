@@ -6,6 +6,17 @@ import { chatApi, type ChatRoomItem, type MessageItem } from '../api/chat.api';
 import { useAuthStore } from './auth.store';
 
 const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
+const HAS_ROOMS_ONCE_KEY = 'freetiful-chat-has-rooms-once';
+
+function markHasRoomsOnce(userId: string) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(HAS_ROOMS_ONCE_KEY, userId); } catch {}
+}
+
+function checkHasRoomsOnce(userId: string | null) {
+  if (typeof window === 'undefined' || !userId) return false;
+  try { return localStorage.getItem(HAS_ROOMS_ONCE_KEY) === userId; } catch { return false; }
+}
 // 30분 — 채팅 리스트가 단기간 캐시 만료로 사라지는 문제 방지.
 // (예: 다른 페이지에 5분 머무르고 돌아오면 빈 화면이 깜빡 → 다시 채워지던 현상)
 const ROOM_CACHE_TTL = 30 * 60_000;
@@ -521,8 +532,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // 빈 응답인데 우리 손엔 데이터가 있다 — 무시. 기존 캐시도 유지.
         return;
       }
+      // 한 번이라도 채팅을 가진 적이 있는 사용자에게 빈 응답이 오면 무시한다.
+      // 백엔드 cold response/legacy id 누락 등으로 일시적 0 결과가 와도 "채팅 없음" 이 깜빡 뜨지 않음.
+      if (nextRooms.length === 0 && checkHasRoomsOnce(userId)) {
+        return;
+      }
       set({ rooms: nextRooms, roomsUserId: userId, lastRoomsFetchAt: Date.now() });
-      if (!hasFilters && nextRooms.length > 0) writeRoomsCache(nextRooms, userId);
+      if (!hasFilters && nextRooms.length > 0) {
+        writeRoomsCache(nextRooms, userId);
+        markHasRoomsOnce(userId);
+      }
     };
 
     if (!force && !hasFilters && rooms.length === 0) {

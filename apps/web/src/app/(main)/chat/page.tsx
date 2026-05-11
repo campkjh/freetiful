@@ -88,9 +88,13 @@ export default function ChatListPage() {
   const apiRooms = useChatStore((s) => s.rooms);
   const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
   const lastRoomsFetchAt = useChatStore((s) => s.lastRoomsFetchAt);
-  // 한 번도 successful fetch 가 없었으면 empty state ("채팅 없음") 대신 skeleton 유지.
-  // → 백엔드 cold response 가 늦어도 "채팅 없음" 이 깜빡 뜨지 않음.
-  const hasEverLoaded = lastRoomsFetchAt > 0;
+  // 한 번도 successful fetch 가 없었으면 + 과거에 채팅을 가진 적 없으면 → skeleton.
+  // 한 번이라도 채팅이 있었던 사용자라면 빈 응답이 와도 절대 "채팅 없음" 띄우지 않음.
+  const hasRoomsOnceFlag = (() => {
+    if (typeof window === 'undefined' || !authUser?.id) return false;
+    try { return localStorage.getItem('freetiful-chat-has-rooms-once') === authUser.id; } catch { return false; }
+  })();
+  const hasEverLoaded = lastRoomsFetchAt > 0 && !hasRoomsOnceFlag;
   const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
   const isLoggedIn = authHydrated && authUser !== null;
   const isPro = authUser?.role === 'pro';
