@@ -1434,7 +1434,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
               setMessages((prev) => {
                 const withoutOpt = prev.filter((m) => m.id !== optimisticId);
                 if (withoutOpt.some((m) => m.id === saved.id)) return withoutOpt;
-                return [...withoutOpt, { ...saved, duration, isNew: false }];
+                const mappedType = (saved.type === 'link' || saved.type === 'sticker') ? 'text' : saved.type as Message['type'];
+                return [...withoutOpt, { ...saved, type: mappedType, duration, isNew: false } as unknown as Message];
               });
             })
             .catch(() => {
