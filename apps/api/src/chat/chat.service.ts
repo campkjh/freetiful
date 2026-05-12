@@ -1723,6 +1723,7 @@ export class ChatService implements OnModuleInit {
       const preview =
         dto.type === 'image' ? '사진을 보냈습니다.' :
         dto.type === 'file' ? '파일을 보냈습니다.' :
+        dto.type === 'voice' ? '음성 메시지를 보냈습니다.' :
         (finalContent || '').slice(0, 40);
       for (const receiverId of receiverIds) {
         this.notificationService.createNotification(
@@ -1752,6 +1753,13 @@ export class ChatService implements OnModuleInit {
     } catch {}
 
     return { ...message, reactions: [], isRead: message.reads.some((r) => r.userId !== message.senderId) };
+  }
+
+  async uploadVoice(roomId: string, userId: string, file: Express.Multer.File) {
+    await this.verifyMembership(roomId, userId);
+    if (!file) throw new BadRequestException('음성 파일이 필요합니다.');
+    const url = await this.imageService.saveRawFile(file);
+    return { audioUrl: url };
   }
 
   async uploadImage(roomId: string, userId: string, file: Express.Multer.File) {

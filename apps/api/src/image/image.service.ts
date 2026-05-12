@@ -382,4 +382,16 @@ export class ImageService {
 
     return this.processImage(fakeFile, { ...options, requireFace: false });
   }
+
+  /** 이미지 처리 없이 원본 파일 그대로 저장 (음성, 일반 파일 등) */
+  async saveRawFile(file: Express.Multer.File): Promise<string> {
+    const ext = path.extname(file.originalname || '') || '.bin';
+    const filename = `${randomUUID()}${ext}`;
+
+    // Supabase 우선, 없으면 DB fallback
+    const supabaseUrl = await this.uploadToSupabase(filename, file.buffer, file.mimetype);
+    if (supabaseUrl) return supabaseUrl;
+
+    return this.saveToDb(file.buffer, file.mimetype);
+  }
 }

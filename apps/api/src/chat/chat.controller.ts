@@ -107,6 +107,18 @@ export class ChatController {
     return message;
   }
 
+  @Post('rooms/:roomId/audio')
+  @ApiOperation({ summary: '채팅 음성 메시지 업로드' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
+  uploadVoice(
+    @Req() req,
+    @Param('roomId') roomId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.chatService.uploadVoice(roomId, req.user.id, file);
+  }
+
   @Post('rooms/:roomId/images')
   @ApiOperation({ summary: '채팅 이미지 업로드' })
   @ApiConsumes('multipart/form-data')

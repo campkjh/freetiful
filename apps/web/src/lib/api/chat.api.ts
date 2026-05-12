@@ -110,6 +110,15 @@ export const chatApi = {
   sendMessage: (roomId: string, data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string }) =>
     apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data),
 
+  uploadAudio: (roomId: string, blob: Blob, mimeType: string) => {
+    const form = new FormData();
+    const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+    form.append('file', blob, `voice.${ext}`);
+    return apiClient.post<{ audioUrl: string }>(`${BASE}/rooms/${roomId}/audio`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
   editMessage: (messageId: string, content: string) =>
     apiClient.put(`${BASE}/messages/${messageId}`, { content }),
 

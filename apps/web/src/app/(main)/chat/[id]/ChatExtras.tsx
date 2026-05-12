@@ -1399,19 +1399,49 @@ export default function ChatExtras(props: ChatExtrasProps) {
       };
       mr.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
+        const localUrl = URL.createObjectURL(blob);
+        const duration = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
+        const optimisticId = `opt-voice-${Date.now()}`;
+
+        // 낙관적 UI: 로컬 blob URL로 즉시 표시
         setMessages((prev) => [...prev, {
-          id: Date.now().toString(),
+          id: optimisticId,
           senderId: MY_ID,
-          content: url,
+          content: localUrl,
           type: 'voice',
           createdAt: new Date().toISOString(),
           isRead: false,
-          duration: Math.max(1, duration),
+          duration,
           isNew: true,
         }]);
         stream.getTracks().forEach((t) => t.stop());
+
+        // 서버 업로드 후 WebSocket 전송 → 상대방 전달 + 알림 발송
+        const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+        if (!roomId || roomId.startsWith('pending-')) return;
+        import('@/lib/api/chat.api').then(({ chatApi }) => {
+          chatApi.uploadAudio(roomId, blob, mimeType || 'audio/webm')
+            .then((res) => {
+              const audioUrl = res.data.audioUrl;
+              return useChatStore.getState().sendMessage({
+                type: 'voice',
+                content: audioUrl,
+                metadata: { duration },
+              });
+            })
+            .then((saved) => {
+              if (!saved) return;
+              setMessages((prev) => {
+                const withoutOpt = prev.filter((m) => m.id !== optimisticId);
+                if (withoutOpt.some((m) => m.id === saved.id)) return withoutOpt;
+                return [...withoutOpt, { ...saved, duration, isNew: false }];
+              });
+            })
+            .catch(() => {
+              // 업로드 실패 시 로컬 메시지 유지 (로컬 재생은 가능)
+              toast.error('음성 메시지 전송에 실패했습니다.');
+            });
+        });
       };
       mr.onerror = (e) => {
         console.error('MediaRecorder error', e);
