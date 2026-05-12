@@ -1218,7 +1218,7 @@ export interface ChatExtrasProps {
   setIsRecording: React.Dispatch<React.SetStateAction<boolean>>;
   recordingTime: number;
   setRecordingTime: React.Dispatch<React.SetStateAction<number>>;
-  onRegisterRecording?: (fns: { stop: (cancel: boolean) => void }) => void;
+  onRegisterRecording?: (fns: { start: () => void; stop: (cancel: boolean) => void }) => void;
   // Voice playback
   playingVoice: string | null;
   setPlayingVoice: React.Dispatch<React.SetStateAction<string | null>>;
@@ -1459,19 +1459,10 @@ export default function ChatExtras(props: ChatExtrasProps) {
     setRecordingTime(0);
   };
 
-  // isRecording prop이 true로 바뀌면 실제 녹음 시작, false로 바뀌면 별도 처리 없음
-  // (stop은 page.tsx의 버튼이 stopRecording을 직접 호출)
-  const prevIsRecordingRef = useRef(isRecording);
+  // page.tsx Mic·취소·전송 버튼이 startRecording/stopRecording을 직접 호출할 수 있도록 등록
+  // (lazy load로 인해 isRecording prop이 이미 true인 채 마운트될 수 있어 useEffect 감시 방식 사용 불가)
   useEffect(() => {
-    if (isRecording && !prevIsRecordingRef.current) {
-      startRecording();
-    }
-    prevIsRecordingRef.current = isRecording;
-  }, [isRecording]);
-
-  // page.tsx 버튼(취소/전송)에서 stopRecording을 직접 호출할 수 있도록 등록
-  useEffect(() => {
-    onRegisterRecording?.({ stop: stopRecording });
+    onRegisterRecording?.({ start: startRecording, stop: stopRecording });
   }, []);
 
   const togglePlayVoice = (msgId: string, url: string) => {

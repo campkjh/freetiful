@@ -14,6 +14,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
+import { notifyNativeLogin, registerPushSubscription, flushOneSignalPlayerId } from '@/lib/utils/push';
 import { matchApi } from '@/lib/api/match.api';
 
 type NavIconProps = { className?: string };
@@ -299,6 +300,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     window.addEventListener('freetiful:show-login', handler);
     return () => window.removeEventListener('freetiful:show-login', handler);
   }, []);
+
+  // 로그인 시 OneSignal external_id 매핑 + 웹 푸시 구독
+  // notifyNativeLogin: iOS/Android 네이티브에 userId 전달 → OneSignal.login(userId) 호출
+  // registerPushSubscription: 웹 브라우저/PWA 사용자용 web push 구독
+  useEffect(() => {
+    if (!authUser?.id) return;
+    notifyNativeLogin(authUser.id);
+    void flushOneSignalPlayerId();
+    void registerPushSubscription();
+  }, [authUser?.id]);
 
   // 로그인 시 채팅 소켓 즉시 연결 + 룸/알림/스케줄 프리페치
   useEffect(() => {

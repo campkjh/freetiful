@@ -320,6 +320,7 @@ export default function ChatRoomPage() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const startRecordingRef = useRef<(() => void) | null>(null);
   const stopRecordingRef = useRef<((cancel: boolean) => void) | null>(null);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
@@ -1220,7 +1221,7 @@ export default function ChatRoomPage() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => setIsRecording(true)}
+                    onClick={() => startRecordingRef.current?.()}
                     className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all ml-1"
                     title="음성 메시지 녹음"
                   >
@@ -1265,7 +1266,7 @@ export default function ChatRoomPage() {
           setIsRecording={setIsRecording}
           recordingTime={recordingTime}
           setRecordingTime={setRecordingTime}
-          onRegisterRecording={({ stop }) => { stopRecordingRef.current = stop; }}
+          onRegisterRecording={({ start, stop }) => { startRecordingRef.current = start; stopRecordingRef.current = stop; }}
           playingVoice={playingVoice}
           setPlayingVoice={setPlayingVoice}
           voicePlayProgress={voicePlayProgress}
