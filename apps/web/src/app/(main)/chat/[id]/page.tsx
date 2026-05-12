@@ -318,6 +318,7 @@ export default function ChatRoomPage() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
   const [messagesLoadFailed, setMessagesLoadFailed] = useState(false);
+  const [messagesLoadError, setMessagesLoadError] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
   const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(initialRoomMeta);
@@ -530,9 +531,13 @@ export default function ChatRoomPage() {
         saveMsgCache(roomId, mapped);
         setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
         setMessagesLoadFailed(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load messages', err);
-        if (!cancelled) setMessagesLoadFailed(true);
+        if (!cancelled) {
+          setMessagesLoadFailed(true);
+          const status = err?.response?.status;
+          setMessagesLoadError(status ? `${status}` : (err?.code || err?.message || '알 수 없음'));
+        }
       } finally {
         if (!cancelled) setMessagesLoading(false);
       }
@@ -982,7 +987,7 @@ export default function ChatRoomPage() {
           )}
           {!messagesLoading && messages.length === 0 && messagesLoadFailed && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <p className="text-[14px] text-gray-400 text-center">메시지를 불러오지 못했어요</p>
+              <p className="text-[14px] text-gray-400 text-center">메시지를 불러오지 못했어요{messagesLoadError ? ` (${messagesLoadError})` : ''}</p>
               <button
                 onClick={() => {
                   setMessagesLoadFailed(false);
@@ -997,7 +1002,11 @@ export default function ChatRoomPage() {
                       setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
                       setMessagesLoadFailed(false);
                     })
-                    .catch(() => setMessagesLoadFailed(true))
+                    .catch((e: any) => {
+                      setMessagesLoadFailed(true);
+                      const s = e?.response?.status;
+                      setMessagesLoadError(s ? `${s}` : (e?.code || e?.message || '알 수 없음'));
+                    })
                     .finally(() => setMessagesLoading(false));
                 }}
                 className="px-5 py-2.5 bg-gray-900 text-white text-[14px] font-semibold rounded-2xl active:scale-95 transition-transform"
