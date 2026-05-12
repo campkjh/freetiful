@@ -315,6 +315,7 @@ export default function ChatRoomPage() {
   const [chatPartner, setChatPartner] = useState<ChatPartner | null>(initialPartner);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
+  const [messagesLoadFailed, setMessagesLoadFailed] = useState(false);
   const [input, setInput] = useState('');
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
   const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(initialRoomMeta);
@@ -517,7 +518,7 @@ export default function ChatRoomPage() {
         return;
       }
       setMessagesLoading(true);
-      try {
+      const tryFetch = async (): Promise<void> => {
         const requestedAt = Date.now();
         const res = await chatApi.getMessages(roomId, { limit: 50 });
         if (cancelled) return;
@@ -526,8 +527,22 @@ export default function ChatRoomPage() {
         useChatStore.getState().messageCache.set(roomId, apiMessages);
         saveMsgCache(roomId, mapped);
         setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
-      } catch (err) {
-        console.error('Failed to load messages', err);
+        setMessagesLoadFailed(false);
+      };
+      try {
+        await tryFetch();
+      } catch {
+        // Railway cold start → 10초 후 1회 자동 재시도
+        if (!cancelled) {
+          await new Promise((res) => setTimeout(res, 10_000));
+          if (cancelled) return;
+          try {
+            await tryFetch();
+          } catch (err2) {
+            console.error('Failed to load messages (retry)', err2);
+            if (!cancelled) setMessagesLoadFailed(true);
+          }
+        }
       } finally {
         if (!cancelled) setMessagesLoading(false);
       }
@@ -975,7 +990,33 @@ export default function ChatRoomPage() {
               ))}
             </div>
           )}
-          {!messagesLoading && messages.length === 0 && chatPartner && (
+          {!messagesLoading && messages.length === 0 && messagesLoadFailed && (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <p className="text-[14px] text-gray-400 text-center">메시지를 불러오지 못했어요</p>
+              <button
+                onClick={() => {
+                  setMessagesLoadFailed(false);
+                  setMessagesLoading(true);
+                  const requestedAt = Date.now();
+                  chatApi.getMessages(roomId, { limit: 50 })
+                    .then((res) => {
+                      const apiMessages = res.data.data || [];
+                      const mapped = apiMessages.map(mapApiMessage);
+                      useChatStore.getState().messageCache.set(roomId, apiMessages);
+                      saveMsgCache(roomId, mapped);
+                      setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
+                      setMessagesLoadFailed(false);
+                    })
+                    .catch(() => setMessagesLoadFailed(true))
+                    .finally(() => setMessagesLoading(false));
+                }}
+                className="px-5 py-2.5 bg-gray-900 text-white text-[14px] font-semibold rounded-2xl active:scale-95 transition-transform"
+              >
+                다시 시도
+              </button>
+            </div>
+          )}
+          {!messagesLoading && messages.length === 0 && !messagesLoadFailed && chatPartner && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <img src={chatPartner.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover mb-3" />
               <p className="text-[15px] font-bold text-gray-900">{chatPartner.name}</p>
