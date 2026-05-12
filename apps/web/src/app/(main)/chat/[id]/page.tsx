@@ -520,7 +520,7 @@ export default function ChatRoomPage() {
         return;
       }
       setMessagesLoading(true);
-      const tryFetch = async (): Promise<void> => {
+      try {
         const requestedAt = Date.now();
         const res = await chatApi.getMessages(roomId, { limit: 50 });
         if (cancelled) return;
@@ -530,21 +530,9 @@ export default function ChatRoomPage() {
         saveMsgCache(roomId, mapped);
         setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
         setMessagesLoadFailed(false);
-      };
-      try {
-        await tryFetch();
-      } catch {
-        // Railway cold start → 10초 후 1회 자동 재시도
-        if (!cancelled) {
-          await new Promise((res) => setTimeout(res, 2_000));
-          if (cancelled) return;
-          try {
-            await tryFetch();
-          } catch (err2) {
-            console.error('Failed to load messages (retry)', err2);
-            if (!cancelled) setMessagesLoadFailed(true);
-          }
-        }
+      } catch (err) {
+        console.error('Failed to load messages', err);
+        if (!cancelled) setMessagesLoadFailed(true);
       } finally {
         if (!cancelled) setMessagesLoading(false);
       }
