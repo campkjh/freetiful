@@ -1432,6 +1432,13 @@ export default function ChatExtras(props: ChatExtrasProps) {
               const audioUrl = res.data.audioUrl || res.data.imageUrl;
               if (!audioUrl) throw new Error('audioUrl missing');
 
+              // 업로드 완료 → 낙관적 메시지 content를 blob URL에서 실제 audioUrl로 교체
+              // 이렇게 하면 재생 중에도 실제 URL로 연속 재생 가능
+              setMessages((prev) => prev.map((m) =>
+                m.id === optimisticId ? { ...m, content: audioUrl } : m,
+              ));
+              // 재생 중이던 경우 progress 키도 audioUrl 기반으로 유지 (id는 그대로)
+
               // store.sendMessage 시도 → null 반환(currentRoomId 없는 경우) 시 REST로 직접 전송
               let saved = await useChatStore.getState().sendMessage({
                 type: 'voice',
@@ -1454,12 +1461,22 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 toast.error('음성 메시지 전송에 실패했습니다.');
                 return;
               }
+              const savedId = (saved as any).id;
+              const mappedType = ((saved as any).type === 'link' || (saved as any).type === 'sticker') ? 'text' : (saved as any).type as Message['type'];
               setMessages((prev) => {
                 const withoutOpt = prev.filter((m) => m.id !== optimisticId);
-                if (withoutOpt.some((m) => m.id === (saved as any).id)) return withoutOpt;
-                const mappedType = ((saved as any).type === 'link' || (saved as any).type === 'sticker') ? 'text' : (saved as any).type as Message['type'];
+                if (withoutOpt.some((m) => m.id === savedId)) return withoutOpt;
                 return [...withoutOpt, { ...(saved as any), type: mappedType, duration, isNew: false } as unknown as Message];
               });
+              // 낙관적 메시지가 재생 중이었다면 → 실제 메시지 ID로 재생 상태 이전
+              if (playingVoice === optimisticId) {
+                setPlayingVoice(savedId);
+                setVoicePlayProgress((prev) => {
+                  const progress = prev[optimisticId] ?? 0;
+                  const { [optimisticId]: _removed, ...rest } = prev;
+                  return { ...rest, [savedId]: progress };
+                });
+              }
             })
             .catch((err) => {
               setMessages((prev) => prev.filter((m) => m.id !== optimisticId));

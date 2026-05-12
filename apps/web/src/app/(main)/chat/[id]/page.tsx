@@ -1158,6 +1158,7 @@ export default function ChatRoomPage() {
                         {/* 재생/일시정지 버튼 */}
                         <button
                           type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => { e.stopPropagation(); handleVoicePlay(msg); }}
                           className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform ${mine ? 'bg-white/20' : 'bg-[#007AFF]'}`}
                         >
