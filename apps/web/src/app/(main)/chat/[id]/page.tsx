@@ -99,6 +99,8 @@ function hasFetchedEquivalent(message: Message, fetched: Message[]) {
 }
 
 function mergeFetchedMessages(current: Message[], fetched: Message[], requestedAt: number) {
+  // API가 빈 배열을 반환하면 기존 메시지를 지우지 않는다 (서버 이상/일시적 빈 응답 방어)
+  if (fetched.length === 0 && current.length > 0) return current;
   const fetchedIds = new Set(fetched.map((message) => message.id));
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
@@ -534,7 +536,7 @@ export default function ChatRoomPage() {
       } catch {
         // Railway cold start → 10초 후 1회 자동 재시도
         if (!cancelled) {
-          await new Promise((res) => setTimeout(res, 10_000));
+          await new Promise((res) => setTimeout(res, 2_000));
           if (cancelled) return;
           try {
             await tryFetch();
