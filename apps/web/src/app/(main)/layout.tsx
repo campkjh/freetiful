@@ -201,9 +201,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => clearTimeout(t);
   }, []);
 
-  // Railway cold start 방지 — 앱 마운트 즉시 백엔드에 요청을 보내 서버를 깨워둠.
-  // 인증 없이 보내도 401이 오며 서버는 warm 상태가 됨.
-  // 사용자가 채팅 탭을 누를 때쯤엔 이미 서버가 응답 가능한 상태.
+  // Railway cold start 방지 — 앱 마운트 즉시 백엔드에 요청을 보내 Node.js 프로세스를 깨움.
+  // 5분 Vercel Cron(/api/warm)과 함께 동작해 평상시엔 항상 warm 상태를 유지.
   useEffect(() => {
     fetch('/api/v1/chat/rooms?limit=1').catch(() => {});
   }, []);
