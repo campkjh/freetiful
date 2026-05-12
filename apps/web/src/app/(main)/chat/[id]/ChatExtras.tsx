@@ -1399,11 +1399,19 @@ export default function ChatExtras(props: ChatExtrasProps) {
       };
       mr.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
-        const localUrl = URL.createObjectURL(blob);
         const duration = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
+        stream.getTracks().forEach((t) => t.stop());
+
+        // 녹음 데이터가 없으면 전송 불가 (iOS 오디오 권한 문제 등)
+        if (blob.size === 0) {
+          toast.error('녹음 데이터가 없습니다. 마이크 권한을 확인해주세요.');
+          return;
+        }
+
+        const localUrl = URL.createObjectURL(blob);
         const optimisticId = `opt-voice-${Date.now()}`;
 
-        // 낙관적 UI: 로컬 blob URL로 즉시 표시
+        // 낙관적 UI
         setMessages((prev) => [...prev, {
           id: optimisticId,
           senderId: MY_ID,
@@ -1414,15 +1422,15 @@ export default function ChatExtras(props: ChatExtrasProps) {
           duration,
           isNew: true,
         }]);
-        stream.getTracks().forEach((t) => t.stop());
 
-        // 서버 업로드 후 WebSocket 전송 → 상대방 전달 + 알림 발송
+        // 서버 업로드 후 WebSocket 전송
         const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
         if (!roomId || roomId.startsWith('pending-')) return;
         import('@/lib/api/chat.api').then(({ chatApi }) => {
           chatApi.uploadAudio(roomId, blob, mimeType || 'audio/webm')
             .then((res) => {
               const audioUrl = res.data.audioUrl || res.data.imageUrl;
+              if (!audioUrl) throw new Error('audioUrl missing');
               return useChatStore.getState().sendMessage({
                 type: 'voice',
                 content: audioUrl,
@@ -1430,7 +1438,12 @@ export default function ChatExtras(props: ChatExtrasProps) {
               });
             })
             .then((saved) => {
-              if (!saved) return;
+              if (!saved) {
+                // sendMessage 실패 시 낙관적 메시지 제거
+                setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+                toast.error('음성 메시지 전송에 실패했습니다.');
+                return;
+              }
               setMessages((prev) => {
                 const withoutOpt = prev.filter((m) => m.id !== optimisticId);
                 if (withoutOpt.some((m) => m.id === saved.id)) return withoutOpt;
@@ -1438,9 +1451,10 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 return [...withoutOpt, { ...saved, type: mappedType, duration, isNew: false } as unknown as Message];
               });
             })
-            .catch(() => {
-              // 업로드 실패 시 로컬 메시지 유지 (로컬 재생은 가능)
-              toast.error('음성 메시지 전송에 실패했습니다.');
+            .catch((err) => {
+              setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+              const detail = err?.message ? ` (${err.message})` : '';
+              toast.error(`음성 전송 실패${detail}`);
             });
         });
       };
