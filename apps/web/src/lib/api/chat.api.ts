@@ -110,12 +110,23 @@ export const chatApi = {
   sendMessage: (roomId: string, data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string }) =>
     apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data),
 
-  uploadAudio: (roomId: string, blob: Blob, mimeType: string) => {
-    const form = new FormData();
+  uploadAudio: async (roomId: string, blob: Blob, mimeType: string): Promise<{ data: { audioUrl: string; imageUrl: string } }> => {
+    // apiClient 기본 Content-Type(application/json)이 FormData를 덮어쓰는 문제 →
+    // fetch를 직접 사용해 브라우저가 multipart/form-data; boundary=... 를 자동 설정하게 함
     const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+    const form = new FormData();
     form.append('file', blob, `voice.${ext}`);
-    // 기존 /images 엔드포인트 재사용 — 오디오 mimetype이면 백엔드에서 raw 저장으로 분기
-    return apiClient.post<{ audioUrl: string; imageUrl: string }>(`${BASE}/rooms/${roomId}/images`, form);
+
+    const { useAuthStore } = await import('../store/auth.store');
+    const token = useAuthStore.getState().accessToken;
+    const res = await fetch(`${BASE}/rooms/${roomId}/images`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!res.ok) throw new Error(`upload failed: ${res.status}`);
+    const data = await res.json();
+    return { data };
   },
 
   editMessage: (messageId: string, content: string) =>
