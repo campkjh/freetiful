@@ -1218,6 +1218,7 @@ export interface ChatExtrasProps {
   setIsRecording: React.Dispatch<React.SetStateAction<boolean>>;
   recordingTime: number;
   setRecordingTime: React.Dispatch<React.SetStateAction<number>>;
+  onRegisterRecording?: (fns: { stop: (cancel: boolean) => void }) => void;
   // Voice playback
   playingVoice: string | null;
   setPlayingVoice: React.Dispatch<React.SetStateAction<string | null>>;
@@ -1266,6 +1267,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     partialCopyMsg, setPartialCopyMsg,
     isRecording, setIsRecording,
     recordingTime, setRecordingTime,
+    onRegisterRecording,
     playingVoice, setPlayingVoice,
     voicePlayProgress, setVoicePlayProgress,
     mentionQuery, setMentionQuery,
@@ -1426,6 +1428,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       }, 100);
     } catch (err: any) {
       console.error('startRecording error', err);
+      setIsRecording(false); // 실패 시 녹음 UI 원복
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
         toast.error('마이크 권한이 거부되었습니다');
       } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
@@ -1455,6 +1458,21 @@ export default function ChatExtras(props: ChatExtrasProps) {
     setIsRecording(false);
     setRecordingTime(0);
   };
+
+  // isRecording prop이 true로 바뀌면 실제 녹음 시작, false로 바뀌면 별도 처리 없음
+  // (stop은 page.tsx의 버튼이 stopRecording을 직접 호출)
+  const prevIsRecordingRef = useRef(isRecording);
+  useEffect(() => {
+    if (isRecording && !prevIsRecordingRef.current) {
+      startRecording();
+    }
+    prevIsRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  // page.tsx 버튼(취소/전송)에서 stopRecording을 직접 호출할 수 있도록 등록
+  useEffect(() => {
+    onRegisterRecording?.({ stop: stopRecording });
+  }, []);
 
   const togglePlayVoice = (msgId: string, url: string) => {
     if (playingVoice && playingVoice !== msgId) {

@@ -320,6 +320,7 @@ export default function ChatRoomPage() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const stopRecordingRef = useRef<((cancel: boolean) => void) | null>(null);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [voicePlayProgress, setVoicePlayProgress] = useState<Record<string, number>>({});
@@ -1138,7 +1139,7 @@ export default function ChatRoomPage() {
             // Recording UI
             <>
               <button
-                onClick={() => setIsRecording(false)}
+                onClick={() => stopRecordingRef.current?.(true)}
                 className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
                 title="취소"
               >
@@ -1165,7 +1166,7 @@ export default function ChatRoomPage() {
                   ))}
                 </div>
                 <button
-                  onClick={() => setIsRecording(false)}
+                  onClick={() => stopRecordingRef.current?.(false)}
                   className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-800 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
                   title="전송"
                 >
@@ -1264,6 +1265,7 @@ export default function ChatRoomPage() {
           setIsRecording={setIsRecording}
           recordingTime={recordingTime}
           setRecordingTime={setRecordingTime}
+          onRegisterRecording={({ stop }) => { stopRecordingRef.current = stop; }}
           playingVoice={playingVoice}
           setPlayingVoice={setPlayingVoice}
           voicePlayProgress={voicePlayProgress}

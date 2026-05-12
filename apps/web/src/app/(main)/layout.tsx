@@ -193,6 +193,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const t = setTimeout(() => setNavMounted(true), 30);
     return () => clearTimeout(t);
   }, []);
+
+  // iOS 네이티브 → 웹 소프트 네비게이션 브릿지
+  // navigateNativeWeb 에서 window.location.href(풀 리로드) 대신 router.push로 전환
+  useEffect(() => {
+    (window as any).__freetifulNavigate = (path: string) => router.push(path);
+    return () => { delete (window as any).__freetifulNavigate; };
+  }, [router]);
   const [isPro, setIsPro] = useState(false);
   // 프로가 "일반 유저 모드로 보기" 를 토글한 상태 (localStorage 유지)
   const [viewAsUser, setViewAsUser] = useState(false);
