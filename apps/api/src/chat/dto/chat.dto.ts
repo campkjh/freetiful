@@ -29,6 +29,7 @@ export enum MessageTypeEnum {
   text = 'text',
   image = 'image',
   file = 'file',
+  voice = 'voice',
   location = 'location',
   link = 'link',
   sticker = 'sticker',
