@@ -96,6 +96,9 @@ export default function ChatListPage() {
   })();
   const hasEverLoaded = lastRoomsFetchAt > 0 && !hasRoomsOnceFlag;
   const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
+  // 앱에서 캐시 없을 때 Railway cold start로 로딩이 오래 걸리면 스켈레톤이 영원히 유지되는 문제.
+  // 8초 후에도 rooms가 비어 있으면 재시도 버튼을 표시.
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
   const isLoggedIn = authHydrated && authUser !== null;
   const isPro = authUser?.role === 'pro';
 
@@ -112,6 +115,15 @@ export default function ChatListPage() {
     fetchRooms({ limit: 50 }).catch(() => {});
     return undefined;
   }, [authHydrated, authUser?.id, connect, disconnect, fetchRooms]);
+
+  // 로딩 타임아웃 — 8초 후 rooms가 비어 있으면 재시도 버튼 표시
+  useEffect(() => {
+    if (!isLoggedIn || rooms.length > 0) { setLoadTimedOut(false); return; }
+    const t = window.setTimeout(() => {
+      if (useChatStore.getState().rooms.length === 0) setLoadTimedOut(true);
+    }, 8000);
+    return () => window.clearTimeout(t);
+  }, [isLoggedIn, rooms.length]);
 
   useEffect(() => {
     if (!authHydrated || !authUser) return;
@@ -186,6 +198,7 @@ export default function ChatListPage() {
 
   useEffect(() => {
     setRoomsLoading(storeRoomsLoading && rooms.length === 0);
+    if (rooms.length > 0) setLoadTimedOut(false);
   }, [storeRoomsLoading, rooms.length]);
 
   const filtered = useMemo(() => rooms.filter((r) => {
@@ -531,18 +544,34 @@ export default function ChatListPage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
-              <div className="space-y-0">
-                {[1,2,3,4,5].map((i) => (
-                  <div key={i} className="flex items-center gap-3 px-5 py-4">
-                    <div className="w-12 h-12 rounded-[20px] bg-gray-100 animate-pulse shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="h-4 w-28 bg-gray-100 rounded animate-pulse mb-2" />
-                      <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${46 + i * 8}%` }} />
+              loadTimedOut ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <p className="text-[13px] text-gray-400">채팅방을 불러오지 못했어요</p>
+                  <button
+                    onClick={() => {
+                      setLoadTimedOut(false);
+                      setRoomsLoading(true);
+                      fetchRooms({ limit: 50, force: true }).catch(() => {});
+                    }}
+                    className="px-4 py-2 bg-gray-900 text-white text-[13px] font-semibold rounded-xl active:scale-95 transition-transform"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  {[1,2,3,4,5].map((i) => (
+                    <div key={i} className="flex items-center gap-3 px-5 py-4">
+                      <div className="w-12 h-12 rounded-[20px] bg-gray-100 animate-pulse shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="h-4 w-28 bg-gray-100 rounded animate-pulse mb-2" />
+                        <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${46 + i * 8}%` }} />
+                      </div>
+                      <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
                     </div>
-                    <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )
             ) : sorted.length === 0 ? (
               <div className="text-center py-16">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto">
@@ -666,18 +695,34 @@ export default function ChatListPage() {
           )}
         </>
         {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
-          <div className="space-y-0">
-            {[1,2,3,4,5].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="w-12 h-12 rounded-full bg-gray-100 animate-pulse shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
-                  <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + i * 10}%` }} />
+          loadTimedOut ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <p className="text-[14px] text-gray-400 text-center">채팅방을 불러오지 못했어요</p>
+              <button
+                onClick={() => {
+                  setLoadTimedOut(false);
+                  setRoomsLoading(true);
+                  fetchRooms({ limit: 50, force: true }).catch(() => {});
+                }}
+                className="px-5 py-2.5 bg-gray-900 text-white text-[14px] font-semibold rounded-2xl active:scale-95 transition-transform"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-0">
+              {[1,2,3,4,5].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 animate-pulse shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
+                    <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + i * 10}%` }} />
+                  </div>
+                  <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
                 </div>
-                <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
         ) : sorted.length === 0 ? (
           <div className="text-center py-20">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto mb-4">
