@@ -843,9 +843,15 @@ export default function ChatRoomPage() {
       {/* ─── Header (Floating Pill) z-30 ─── */}
       <div className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
         <div className="mx-auto flex w-full max-w-[680px] items-center gap-2 px-3 pointer-events-auto sm:px-0">
-          {/* 뒤로가기 */}
+          {/* 뒤로가기 — 푸시 알림 cold start 시 history 없으면 채팅 목록으로 */}
           <button
-            onClick={() => router.back()}
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                router.back();
+              } else {
+                router.replace('/chat');
+              }
+            }}
             className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
           >
             <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
