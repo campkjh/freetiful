@@ -79,16 +79,14 @@ export class NotificationService {
       return false;
     }
 
-    // data.url이 있으면 OneSignal 딥링크 파라미터로도 전달
-    // iOS onClick 핸들러는 additionalData["url"]로 읽고, launchURL 은 fallback
-    const targetUrl = data?.url ? `https://freetiful.com${data.url}` : undefined;
+    // launchURL(url 필드) 제거 — iOS/Android 모두 additionalData["url"]로 읽음
+    // url 필드를 설정하면 Android App Links 미검증 시 브라우저가 열리는 문제 발생
     const payloadBase: Record<string, unknown> = {
       app_id: appId,
       target_channel: 'push',
       headings: { en: title, ko: title },
       contents: { en: body, ko: body },
       data: data || {},
-      ...(targetUrl ? { url: targetUrl } : {}),
     };
 
     // external_id 단일 경로 — 2차 subscription_id 폴백 제거
