@@ -401,8 +401,9 @@ class ViewController: UIViewController,
           var path = \(pathLiteral);
           var url = \(urlLiteral);
           var link = document.querySelector('a[href="' + path + '"]');
-          if (link) {
-            link.click();
+          if (link) { link.click(); return; }
+          if (typeof window.__freetifulNavigate === 'function') {
+            window.__freetifulNavigate(path);
           } else {
             window.location.href = url;
           }
