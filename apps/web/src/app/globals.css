@@ -1218,6 +1218,11 @@ body::after {
   }
 }
 
+/* Android WebView: FrameLayout이 system bar padding을 직접 처리하므로
+   env(safe-area-inset-bottom)이 네비게이션 바 높이를 이중으로 적용하는 문제 해소 */
+html.android-webview .pb-safe { padding-bottom: 0 !important; }
+html.android-webview .pt-safe { padding-top: 0 !important; }
+
 /* ─── Ranking Badges ─────────────────────────────────────────────────────── */
 
 .pudding-rank-1 { @apply text-pudding-gold; }

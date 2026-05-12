@@ -1126,15 +1126,17 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* ─── Input Bar ─── */}
+      {/* ─── 그라데이션 — z-20 (푸터 z-30 뒤에 위치) ─── */}
+      <div
+        className="absolute inset-x-0 h-16 pointer-events-none z-20"
+        style={{
+          bottom: keyboardOffset,
+          background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0) 100%)',
+        }}
+      />
+
+      {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
       <div className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: keyboardOffset }}>
-        {/* 메시지 목록과의 경계에 그라데이션 블러 */}
-        <div
-          className="absolute left-0 right-0 bottom-full h-16 pointer-events-none"
-          style={{
-            background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0) 100%)',
-          }}
-        />
         <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pt-1 sm:px-0">
           {isRecording ? (
             // Recording UI

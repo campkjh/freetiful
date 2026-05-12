@@ -202,11 +202,20 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   }, []);
 
   // iOS 네이티브 → 웹 소프트 네비게이션 브릿지
-  // navigateNativeWeb 에서 window.location.href(풀 리로드) 대신 router.push로 전환
   useEffect(() => {
     (window as any).__freetifulNavigate = (path: string) => router.push(path);
     return () => { delete (window as any).__freetifulNavigate; };
   }, [router]);
+
+  // Android WebView: edge-to-edge + viewport-fit=cover 조합에서
+  // env(safe-area-inset-bottom)이 네비게이션 바 높이를 반환해 불필요한 하단 여백 발생.
+  // html 에 android-webview 클래스를 추가해 pb-safe를 0으로 오버라이드.
+  useEffect(() => {
+    if ((window as any).Android) {
+      document.documentElement.classList.add('android-webview');
+    }
+    return () => { document.documentElement.classList.remove('android-webview'); };
+  }, []);
   const [isPro, setIsPro] = useState(false);
   // 프로가 "일반 유저 모드로 보기" 를 토글한 상태 (localStorage 유지)
   const [viewAsUser, setViewAsUser] = useState(false);
