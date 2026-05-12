@@ -1765,7 +1765,13 @@ export class ChatService implements OnModuleInit {
   async uploadImage(roomId: string, userId: string, file: Express.Multer.File) {
     await this.verifyMembership(roomId, userId);
     if (!file) {
-      throw new BadRequestException('이미지 파일이 필요합니다.');
+      throw new BadRequestException('파일이 필요합니다.');
+    }
+
+    // 오디오 파일은 이미지 처리 없이 raw 저장
+    if (file.mimetype.startsWith('audio/')) {
+      const audioUrl = await this.imageService.saveRawFile(file);
+      return { imageUrl: audioUrl, audioUrl, originalUrl: audioUrl };
     }
 
     const processed = await this.imageService.processImage(file, {

@@ -1422,7 +1422,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
         import('@/lib/api/chat.api').then(({ chatApi }) => {
           chatApi.uploadAudio(roomId, blob, mimeType || 'audio/webm')
             .then((res) => {
-              const audioUrl = res.data.audioUrl;
+              const audioUrl = res.data.audioUrl || res.data.imageUrl;
               return useChatStore.getState().sendMessage({
                 type: 'voice',
                 content: audioUrl,
