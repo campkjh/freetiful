@@ -636,6 +636,15 @@ class ViewController: UIViewController,
         return nil
     }
 
+    // MARK: - WKWebView 마이크/카메라 권한 허용 (getUserMedia 녹음 지원)
+    func webView(_ webView: WKWebView,
+                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        decisionHandler(.grant)
+    }
+
     // MARK: - 줌 방지
     func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
         scrollView.pinchGestureRecognizer?.isEnabled = false

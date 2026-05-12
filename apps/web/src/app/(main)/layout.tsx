@@ -15,6 +15,12 @@ import { useChatStore } from '@/lib/store/chat.store';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import { notifyNativeLogin, registerPushSubscription, flushOneSignalPlayerId } from '@/lib/utils/push';
+
+function isNativeWebView() {
+  if (typeof window === 'undefined') return false;
+  const w = window as any;
+  return !!(w.webkit?.messageHandlers?.nativeNavState) || !!(w.Android);
+}
 import { matchApi } from '@/lib/api/match.api';
 
 type NavIconProps = { className?: string };
@@ -308,7 +314,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     if (!authUser?.id) return;
     notifyNativeLogin(authUser.id);
     void flushOneSignalPlayerId();
-    void registerPushSubscription();
+    // 네이티브 앱(iOS WKWebView / Android WebView) 안에서는 web push 등록 불필요
+    // 오히려 Safari/Chrome이 별도 web push 알림을 보내 앱 대신 브라우저가 열리는 문제 발생
+    if (!isNativeWebView()) void registerPushSubscription();
   }, [authUser?.id]);
 
   // 로그인 시 채팅 소켓 즉시 연결 + 룸/알림/스케줄 프리페치
