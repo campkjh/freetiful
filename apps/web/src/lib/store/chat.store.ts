@@ -61,9 +61,10 @@ function readRoomsCache(userId = currentUserId()): { rooms: ChatRoomItem[]; ts: 
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed?.rooms) || !parsed?.ts) return null;
     if (parsed.userId !== userId) return null;
+    // 만료돼도 삭제하지 않고 반환 — stale-while-revalidate
+    // ts: 0으로 반환하면 호출부에서 만료된 캐시임을 인식해 즉시 API 재조회
     if (Date.now() - parsed.ts > ROOM_CACHE_TTL) {
-      localStorage.removeItem(ROOM_CACHE_KEY);
-      return null;
+      return { ...parsed, ts: 0 };
     }
     return parsed;
   } catch {
@@ -245,15 +246,18 @@ function readInitialRoomsCache(): { rooms: ChatRoomItem[]; userId: string | null
     if (!Array.isArray(parsed?.rooms) || !parsed?.ts || !parsed?.userId) {
       return { rooms: [], userId: null, ts: 0 };
     }
-    if (Date.now() - parsed.ts > ROOM_CACHE_TTL) {
-      localStorage.removeItem(ROOM_CACHE_KEY);
-      return { rooms: [], userId: null, ts: 0 };
-    }
+    // 만료돼도 즉시 삭제하지 않고 스켈레톤 없이 보여준다 — stale-while-revalidate
+    // ts: 0을 반환하면 fetchRooms에서 만료 캐시임을 인식해 즉시 API 재조회
+    const isExpired = Date.now() - parsed.ts > ROOM_CACHE_TTL;
     // 마지막 로그인 user 와 캐시의 userId 가 다르면 다른 사람의 채팅을 보여주지 않는다.
     if (lastUserId && parsed.userId !== lastUserId) {
       return { rooms: [], userId: null, ts: 0 };
     }
-    return { rooms: parsed.rooms as ChatRoomItem[], userId: parsed.userId, ts: parsed.ts };
+    return {
+      rooms: parsed.rooms as ChatRoomItem[],
+      userId: parsed.userId,
+      ts: isExpired ? 0 : parsed.ts,
+    };
   } catch {
     return { rooms: [], userId: null, ts: 0 };
   }
