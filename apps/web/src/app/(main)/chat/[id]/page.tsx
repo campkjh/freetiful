@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature,
+  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature, Play, Pause,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -356,6 +356,7 @@ export default function ChatRoomPage() {
   const [scheduleBannerCollapsed, setScheduleBannerCollapsed] = useState(true);
 
   // ─── Refs ───
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasInitialScrolledRef = useRef(false);
@@ -738,6 +739,27 @@ export default function ChatRoomPage() {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+  };
+
+  const handleVoicePlay = (msg: Message) => {
+    if (playingVoice === msg.id) {
+      voiceAudioRef.current?.pause();
+      setPlayingVoice(null);
+      return;
+    }
+    voiceAudioRef.current?.pause();
+    const audio = new Audio(msg.content);
+    voiceAudioRef.current = audio;
+    audio.addEventListener('timeupdate', () => {
+      if (!audio.duration) return;
+      setVoicePlayProgress((prev) => ({ ...prev, [msg.id]: audio.currentTime / audio.duration }));
+    });
+    audio.addEventListener('ended', () => {
+      setPlayingVoice(null);
+      setVoicePlayProgress((prev) => ({ ...prev, [msg.id]: 0 }));
+    });
+    audio.play().catch(() => {});
+    setPlayingVoice(msg.id);
   };
 
   const scrollToMessage = (id: string) => {
@@ -1126,16 +1148,24 @@ export default function ChatRoomPage() {
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
-                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-3 pr-4 py-2.5 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-2 pr-4 py-2.5 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
                         onContextMenu={(e) => e.preventDefault()}
                       >
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${mine ? 'bg-white/20' : 'bg-[#007AFF]'}`}>
-                          <Mic size={16} className="text-white" />
-                        </div>
+                        {/* 재생/일시정지 버튼 */}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleVoicePlay(msg); }}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform ${mine ? 'bg-white/20' : 'bg-[#007AFF]'}`}
+                        >
+                          {playingVoice === msg.id
+                            ? <Pause size={16} className="text-white" />
+                            : <Play size={16} className="text-white ml-0.5" />
+                          }
+                        </button>
                         <div className="flex-1 flex items-center gap-0.5 h-7 min-w-[80px]">
                           {Array.from({ length: 22 }).map((_, idx) => {
                             const progress = voicePlayProgress[msg.id] || 0;

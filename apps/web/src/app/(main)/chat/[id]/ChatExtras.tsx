@@ -1428,27 +1428,37 @@ export default function ChatExtras(props: ChatExtrasProps) {
         if (!roomId || roomId.startsWith('pending-')) return;
         import('@/lib/api/chat.api').then(({ chatApi }) => {
           chatApi.uploadAudio(roomId, blob, mimeType || 'audio/webm')
-            .then((res) => {
+            .then(async (res) => {
               const audioUrl = res.data.audioUrl || res.data.imageUrl;
               if (!audioUrl) throw new Error('audioUrl missing');
-              return useChatStore.getState().sendMessage({
+
+              // store.sendMessage 시도 → null 반환(currentRoomId 없는 경우) 시 REST로 직접 전송
+              let saved = await useChatStore.getState().sendMessage({
                 type: 'voice',
                 content: audioUrl,
                 metadata: { duration },
               });
+              if (!saved) {
+                const r = await chatApi.sendMessage(roomId, {
+                  type: 'voice',
+                  content: audioUrl,
+                  metadata: { duration },
+                });
+                saved = r.data as any;
+              }
+              return saved;
             })
             .then((saved) => {
               if (!saved) {
-                // sendMessage 실패 시 낙관적 메시지 제거
                 setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
                 toast.error('음성 메시지 전송에 실패했습니다.');
                 return;
               }
               setMessages((prev) => {
                 const withoutOpt = prev.filter((m) => m.id !== optimisticId);
-                if (withoutOpt.some((m) => m.id === saved.id)) return withoutOpt;
-                const mappedType = (saved.type === 'link' || saved.type === 'sticker') ? 'text' : saved.type as Message['type'];
-                return [...withoutOpt, { ...saved, type: mappedType, duration, isNew: false } as unknown as Message];
+                if (withoutOpt.some((m) => m.id === (saved as any).id)) return withoutOpt;
+                const mappedType = ((saved as any).type === 'link' || (saved as any).type === 'sticker') ? 'text' : (saved as any).type as Message['type'];
+                return [...withoutOpt, { ...(saved as any), type: mappedType, duration, isNew: false } as unknown as Message];
               });
             })
             .catch((err) => {
