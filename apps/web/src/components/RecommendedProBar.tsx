@@ -167,7 +167,7 @@ export default function RecommendedProBar() {
     <div
       data-recommended-pro-bar
       className="lg:hidden fixed left-0 right-0 z-40 px-4 pointer-events-none"
-      style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
+      style={{ bottom: 'var(--rec-pro-bar-bottom, calc(80px + env(safe-area-inset-bottom, 0px)))' }}
     >
       <div className="max-w-lg mx-auto flex justify-start pointer-events-auto">
         <button

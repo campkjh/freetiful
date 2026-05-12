@@ -1225,6 +1225,15 @@ body::after {
 html.android-webview .pb-safe { padding-bottom: 0.5rem !important; }
 html.android-webview .pt-safe { padding-top: 0 !important; }
 
+/* 추천 사회자 바 — Android는 FrameLayout이 system bar padding을 직접 처리하므로
+   env(safe-area-inset-bottom) 이중 적용 없이 고정값으로 포지션 */
+html:not(.android-webview) {
+  --rec-pro-bar-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+html.android-webview {
+  --rec-pro-bar-bottom: 88px;
+}
+
 /* ─── Ranking Badges ─────────────────────────────────────────────────────── */
 
 .pudding-rank-1 { @apply text-pudding-gold; }
