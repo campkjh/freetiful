@@ -114,9 +114,9 @@ export const chatApi = {
     const form = new FormData();
     const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
     form.append('file', blob, `voice.${ext}`);
-    return apiClient.post<{ audioUrl: string }>(`${BASE}/rooms/${roomId}/audio`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    // Content-Type 헤더 수동 설정 금지 — axios가 FormData 감지 시 boundary 포함한
+    // 올바른 multipart/form-data; boundary=... 를 자동으로 설정함
+    return apiClient.post<{ audioUrl: string }>(`${BASE}/rooms/${roomId}/audio`, form);
   },
 
   editMessage: (messageId: string, content: string) =>
