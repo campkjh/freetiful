@@ -201,9 +201,27 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => clearTimeout(t);
   }, []);
 
-  // iOS 네이티브 → 웹 소프트 네비게이션 브릿지
+  // iOS/Android 네이티브 → 웹 소프트 네비게이션 브릿지
+  // 채팅방 딥링크 시 pre-warm을 트리거해 메시지를 즉시 표시
   useEffect(() => {
-    (window as any).__freetifulNavigate = (path: string) => router.push(path);
+    (window as any).__freetifulNavigate = (path: string) => {
+      // /chat/{roomId} 패턴이면 진입 전 pre-warm 시작
+      const chatMatch = path.match(/^\/chat\/([^/?]+)/);
+      if (chatMatch && !chatMatch[1].startsWith('pending-')) {
+        const roomId = chatMatch[1];
+        import('@/lib/api/chat.api').then(({ chatApi }) => {
+          chatApi.getMessages(roomId, { limit: 30 }).then((res) => {
+            const msgs = res.data?.data || [];
+            if (msgs.length > 0) {
+              import('@/lib/store/chat.store').then(({ useChatStore }) => {
+                useChatStore.getState().messageCache.set(roomId, msgs);
+              });
+            }
+          }).catch(() => {});
+        });
+      }
+      router.push(path);
+    };
     return () => { delete (window as any).__freetifulNavigate; };
   }, [router]);
 

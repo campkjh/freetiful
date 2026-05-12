@@ -14,6 +14,27 @@ import type { Message, ChatPartner, SystemPayload } from './chat-types';
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
 
+// ── 채팅 메시지 localStorage 캐시 (딥링크·앱 재시작 후 즉시 표시) ─────────────
+const MSG_CACHE_PREFIX = 'freetiful-chat-msg-cache-v1-';
+const MSG_CACHE_LIMIT = 30;
+
+function saveMsgCache(roomId: string, messages: Message[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    const recent = messages.slice(-MSG_CACHE_LIMIT);
+    localStorage.setItem(MSG_CACHE_PREFIX + roomId, JSON.stringify(recent));
+  } catch {}
+}
+
+function loadMsgCache(roomId: string): Message[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(MSG_CACHE_PREFIX + roomId);
+    if (!raw) return [];
+    return JSON.parse(raw) as Message[];
+  } catch { return []; }
+}
+
 /** Convert a MessageItem from the API into our local Message shape */
 function mapApiMessage(m: MessageItem): Message {
   const meta = m.metadata as Record<string, any> | null;
@@ -428,6 +449,25 @@ export default function ChatRoomPage() {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
             useChatStore.getState().messageCache.set(roomId, apiMessages);
+            saveMsgCache(roomId, mapped);
+            setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
+          }
+        }).catch(() => {});
+        return;
+      }
+      // ── localStorage 캐시 (딥링크·앱 재시작 후 즉시 표시) ──────────────────
+      const lsCache = loadMsgCache(roomId);
+      if (lsCache.length > 0) {
+        setMessages(lsCache);
+        setMessagesLoading(false);
+        // 백그라운드 갱신
+        const requestedAt = Date.now();
+        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
+          if (!cancelled) {
+            const apiMessages = res.data.data || [];
+            const mapped = apiMessages.map(mapApiMessage);
+            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            saveMsgCache(roomId, mapped);
             setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
@@ -484,6 +524,7 @@ export default function ChatRoomPage() {
         const apiMessages = res.data.data || [];
         const mapped = apiMessages.map(mapApiMessage);
         useChatStore.getState().messageCache.set(roomId, apiMessages);
+        saveMsgCache(roomId, mapped);
         setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
       } catch (err) {
         console.error('Failed to load messages', err);
