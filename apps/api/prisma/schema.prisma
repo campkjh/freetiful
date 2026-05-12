@@ -61,6 +61,7 @@ enum MessageType {
   text
   image
   file
+  voice
   location
   link
   sticker
