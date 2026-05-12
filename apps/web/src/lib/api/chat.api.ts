@@ -110,23 +110,17 @@ export const chatApi = {
   sendMessage: (roomId: string, data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string }) =>
     apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data),
 
-  uploadAudio: async (roomId: string, blob: Blob, mimeType: string): Promise<{ data: { audioUrl: string; imageUrl: string } }> => {
-    // apiClient 기본 Content-Type(application/json)이 FormData를 덮어쓰는 문제 →
-    // fetch를 직접 사용해 브라우저가 multipart/form-data; boundary=... 를 자동 설정하게 함
+  uploadAudio: (roomId: string, blob: Blob, mimeType: string) => {
     const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
     const form = new FormData();
     form.append('file', blob, `voice.${ext}`);
-
-    const { useAuthStore } = await import('../store/auth.store');
-    const token = useAuthStore.getState().accessToken;
-    const res = await fetch(`${BASE}/rooms/${roomId}/images`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    });
-    if (!res.ok) throw new Error(`upload failed: ${res.status}`);
-    const data = await res.json();
-    return { data };
+    // Content-Type을 null로 설정 → axios가 인스턴스 기본값(application/json)을 제거하고
+    // FormData 감지 시 multipart/form-data; boundary=... 를 자동으로 설정
+    return apiClient.post<{ audioUrl: string; imageUrl: string }>(
+      `${BASE}/rooms/${roomId}/images`,
+      form,
+      { headers: { 'Content-Type': null as any } },
+    );
   },
 
   editMessage: (messageId: string, content: string) =>
