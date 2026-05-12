@@ -201,6 +201,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => clearTimeout(t);
   }, []);
 
+  // Railway cold start 방지 — 앱 마운트 즉시 백엔드에 요청을 보내 서버를 깨워둠.
+  // 인증 없이 보내도 401이 오며 서버는 warm 상태가 됨.
+  // 사용자가 채팅 탭을 누를 때쯤엔 이미 서버가 응답 가능한 상태.
+  useEffect(() => {
+    fetch('/api/v1/chat/rooms?limit=1').catch(() => {});
+  }, []);
+
   // iOS/Android 네이티브 → 웹 소프트 네비게이션 브릿지
   // 채팅방 딥링크 시 pre-warm을 트리거해 메시지를 즉시 표시
   useEffect(() => {
