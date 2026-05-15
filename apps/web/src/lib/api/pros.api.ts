@@ -30,6 +30,16 @@ export const prosApi = {
       scheduleRequests: any[];
       upcoming: any[];
       matchRequests: any[];
+      profile?: {
+        puddingCount?: number;
+        profileViews?: number;
+        avgRating?: number | string;
+        reviewCount?: number;
+      };
+      revenue?: {
+        thisMonth?: number;
+        lastMonth?: number;
+      };
     }>(`${BASE}/pro/dashboard/snapshot`).then((r) => r.data),
 
   getProfileHandoverCandidates: (params?: { search?: string; limit?: number }) =>

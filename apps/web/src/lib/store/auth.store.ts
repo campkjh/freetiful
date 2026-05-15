@@ -148,8 +148,19 @@ export const useAuthStore = create<AuthState>()(
               .catch(() => {});
           });
         };
-        if (isLegacyEmail) fire();
-        else setTimeout(fire, 100); // 일반 케이스는 메인 렌더 후 살짝 늦게
+        if (isLegacyEmail) {
+          fire();
+          return;
+        }
+
+        const win = window as Window & {
+          requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+        };
+        if (win.requestIdleCallback) {
+          win.requestIdleCallback(fire, { timeout: 5000 });
+        } else {
+          setTimeout(fire, 2500);
+        }
       },
     },
   ),

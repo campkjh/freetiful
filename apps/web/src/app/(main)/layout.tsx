@@ -2,19 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Footer from '@/components/Footer';
-import FavoriteAnimation from '@/components/FavoriteAnimation';
-import RecommendedProBar from '@/components/RecommendedProBar';
 import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { useChatStore } from '@/lib/store/chat.store';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
-import { matchApi } from '@/lib/api/match.api';
 
 type NavIconProps = { className?: string };
 
@@ -104,6 +101,37 @@ const HIDE_FOOTER_PATTERNS = [
   /^\/pro-dashboard/,
 ];
 
+const FavoriteAnimation = dynamic(() => import('@/components/FavoriteAnimation'), { ssr: false });
+const RecommendedProBar = dynamic(() => import('@/components/RecommendedProBar'), { ssr: false });
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
+
+function scheduleIdle(callback: () => void, delay = 0, timeout = 3000) {
+  if (typeof window === 'undefined') return () => {};
+  let cancelled = false;
+  let idleId: number | null = null;
+  const win = window as IdleWindow;
+  const timer = window.setTimeout(() => {
+    if (cancelled) return;
+    if (win.requestIdleCallback) {
+      idleId = win.requestIdleCallback(() => {
+        if (!cancelled) callback();
+      }, { timeout });
+      return;
+    }
+    callback();
+  }, delay);
+
+  return () => {
+    cancelled = true;
+    window.clearTimeout(timer);
+    if (idleId != null) win.cancelIdleCallback?.(idleId);
+  };
+}
+
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -149,19 +177,21 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     } else {
       setShowLoginModal(false);
     }
-    // 로그인 상태면 서버에서 최신 프로필 한 번 fetch — 머지된 레거시 토큰의 캐시된 user 정보를 본 계정으로 갱신
+    // 최신 프로필 동기화는 첫 화면을 막지 않도록 idle 이후에만 수행한다.
+    let cancelProfileSync = () => {};
     if (isLoggedIn && authUser) {
-      import('@/lib/api/users.api').then(({ usersApi }) => {
-        usersApi.getProfile()
-          .then((res: any) => {
-            const fresh = res?.data || res;
-            if (!fresh?.id) return;
-            // id 가 바뀌었거나 (alias follow), email 이 다르면 store 갱신
-            const changed = fresh.id !== authUser.id || fresh.email !== authUser.email;
-            if (changed) useAuthStore.getState().setUser(fresh);
-          })
-          .catch(() => { /* 401 등은 다른 곳에서 처리 */ });
-      });
+      cancelProfileSync = scheduleIdle(() => {
+        import('@/lib/api/users.api').then(({ usersApi }) => {
+          usersApi.getProfile()
+            .then((res: any) => {
+              const fresh = res?.data || res;
+              if (!fresh?.id) return;
+              const changed = fresh.id !== authUser.id || fresh.email !== authUser.email;
+              if (changed) useAuthStore.getState().setUser(fresh);
+            })
+            .catch(() => {});
+        });
+      }, 3500, 7000);
     }
     if (isLoggedIn) {
       const realPro = authUser?.role === 'pro';
@@ -175,6 +205,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       setViewAsUser(false);
       setIsPro(false);
     }
+    return cancelProfileSync;
   }, [pathname, needsAuth, authUser, authHydrated]);
 
   useEffect(() => {
@@ -185,7 +216,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
     let cancelled = false;
     const refresh = () => {
-      matchApi.getProRequests({ limit: 20 })
+      import('@/lib/api/match.api').then(({ matchApi }) => matchApi.getProRequests({ limit: 20 }))
         .then((data: any) => {
           if (cancelled) return;
           const items = Array.isArray(data) ? data : (data?.data || []);
@@ -196,13 +227,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         });
     };
 
-    refresh();
+    const cancelInitialRefresh = scheduleIdle(refresh, pathname.startsWith('/pro-dashboard') ? 3500 : 1200, 6000);
     const interval = window.setInterval(refresh, 30000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:match-requests-changed', refresh);
     window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
     return () => {
       cancelled = true;
+      cancelInitialRefresh();
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('freetiful:match-requests-changed', refresh);
@@ -226,33 +258,41 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     return () => window.removeEventListener('freetiful:show-login', handler);
   }, []);
 
-  // 로그인 시 채팅 소켓 즉시 연결 + 룸/알림 프리페치
+  // 로그인 시 채팅 관련 무거운 번들은 채팅 화면에서만 즉시 로드한다.
+  // 안드로이드 WebView에서 사회자 페이지 첫 진입을 막지 않도록 나머지는 idle 이후로 지연.
   useEffect(() => {
     const loggedIn = authUser !== null;
     if (!loggedIn) return;
 
-    useChatStore.getState().connect();
-    const runPrefetch = () => {
+    let cancelled = false;
+    const onChatRoute = pathname.startsWith('/chat');
+
+    const loadChatStore = async (withRooms: boolean) => {
+      const { useChatStore } = await import('@/lib/store/chat.store');
+      if (cancelled) return;
       const chatState = useChatStore.getState();
-      if (chatState.rooms.length === 0 && !chatState.roomsLoading) {
+      chatState.connect();
+      if (withRooms && chatState.rooms.length === 0 && !chatState.roomsLoading) {
         chatState.fetchRooms();
       }
-      import('@/lib/api/notification.api').then(({ notificationApi }) => {
-        notificationApi.prefetch();
-      });
     };
 
-    const win = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
+    const cancelChat = onChatRoute
+      ? scheduleIdle(() => { loadChatStore(true); }, 0, 1500)
+      : scheduleIdle(() => { loadChatStore(false); }, pathname.startsWith('/pro-dashboard') ? 5000 : 2500, 8000);
+
+    const cancelNotifications = scheduleIdle(() => {
+      import('@/lib/api/notification.api').then(({ notificationApi }) => {
+        if (!cancelled) notificationApi.prefetch();
+      });
+    }, pathname.startsWith('/pro-dashboard') ? 5500 : 3000, 9000);
+
+    return () => {
+      cancelled = true;
+      cancelChat();
+      cancelNotifications();
     };
-    if (win.requestIdleCallback) {
-      const id = win.requestIdleCallback(runPrefetch, { timeout: 2500 });
-      return () => win.cancelIdleCallback?.(id);
-    }
-    const timeout = window.setTimeout(runPrefetch, 800);
-    return () => window.clearTimeout(timeout);
-  }, [authUser]);
+  }, [authUser?.id, pathname]);
 
   const NAV_ITEMS = isPro
     ? PRO_NAV_ITEMS
@@ -575,7 +615,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           `}</style>
         </div>
       )}
-      <FavoriteAnimation />
+      {!isPro && <FavoriteAnimation />}
     </div>
   );
 }

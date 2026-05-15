@@ -895,10 +895,20 @@ export class ProService implements OnModuleInit {
 
   async getDashboardSnapshot(userId: string) {
     const profile = await this.getProfileIdentityByUserId(userId);
-    const today = new Date();
+    const now = new Date();
+    const today = new Date(now);
     today.setHours(0, 0, 0, 0);
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    const [pendingSchedules, upcomingSchedules, matchRequests] = await Promise.all([
+    const [
+      pendingSchedules,
+      upcomingSchedules,
+      matchRequests,
+      profileStats,
+      thisMonthRevenue,
+      lastMonthRevenue,
+    ] = await Promise.all([
       this.prisma.proSchedule.findMany({
         where: { proProfileId: profile.id, status: 'pending' },
         select: {
@@ -996,6 +1006,31 @@ export class ProService implements OnModuleInit {
         orderBy: { deliveredAt: 'desc' },
         take: 20,
       }),
+      this.prisma.proProfile.findUnique({
+        where: { id: profile.id },
+        select: {
+          puddingCount: true,
+          profileViews: true,
+          avgRating: true,
+          reviewCount: true,
+        },
+      }),
+      this.prisma.payment.aggregate({
+        where: {
+          proProfileId: profile.id,
+          status: 'completed',
+          createdAt: { gte: thisMonthStart },
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.payment.aggregate({
+        where: {
+          proProfileId: profile.id,
+          status: 'completed',
+          createdAt: { gte: lastMonthStart, lt: thisMonthStart },
+        },
+        _sum: { amount: true },
+      }),
     ]);
 
     const [scheduleRequests, upcoming] = await Promise.all([
@@ -1007,6 +1042,16 @@ export class ProService implements OnModuleInit {
       scheduleRequests,
       upcoming,
       matchRequests,
+      profile: {
+        puddingCount: profileStats?.puddingCount ?? 0,
+        profileViews: profileStats?.profileViews ?? profile.profileViews ?? 0,
+        avgRating: Number(profileStats?.avgRating ?? 0),
+        reviewCount: profileStats?.reviewCount ?? 0,
+      },
+      revenue: {
+        thisMonth: Number(thisMonthRevenue._sum.amount ?? 0),
+        lastMonth: Number(lastMonthRevenue._sum.amount ?? 0),
+      },
     };
   }
 

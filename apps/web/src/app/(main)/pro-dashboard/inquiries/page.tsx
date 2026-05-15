@@ -4,8 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { MessageCircle, ChevronRight, ChevronDown, ChevronUp, MapPin, Calendar, Archive } from 'lucide-react';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { ChevronRight, ChevronDown, ChevronUp, MapPin, Calendar, Archive } from 'lucide-react';
 import { chatApi, type ChatRoomItem } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
 import { splitArchivedMatchRequests } from '@/lib/pro-request-archive';
@@ -146,7 +145,7 @@ export default function InquiriesPage() {
         const next: InquiryView[] = rooms.map((r) => ({
           id: r.id,
           userName: r.otherUser.name,
-          image: r.otherUser.profileImageUrl || '/images/default-profile.svg',
+          image: r.otherUser.profileImageUrl || '/images/default-profile.png',
           message: r.lastMessage?.content?.split('\n')[0] || '(대화를 시작해보세요)',
           receivedAt: timeAgo(r.lastMessageAt),
           unread: r.unreadCount,
@@ -186,7 +185,7 @@ export default function InquiriesPage() {
               status: d.status,
               customerId: d.matchRequest?.user?.id || '',
               customerName: d.matchRequest?.user?.name || '고객',
-              customerImage: d.matchRequest?.user?.profileImageUrl || '/images/default-profile.svg',
+              customerImage: d.matchRequest?.user?.profileImageUrl || '/images/default-profile.png',
               categoryName: d.matchRequest?.category?.name || '',
               eventCategoryName: d.matchRequest?.eventCategory?.name || raw.eventType || '',
               eventDate: d.matchRequest?.eventDate || raw.date || null,
@@ -331,14 +330,13 @@ export default function InquiriesPage() {
   ];
 
   return (
-    <div className="bg-white min-h-screen pb-24">
-      <div className="bg-white px-4 pt-3 pb-2 sticky top-0 z-10">
+    <div className="pro-toss-page pb-24">
+      <div className="pro-toss-header px-4 pt-3 pb-2 sticky top-0 z-10">
         <div className="flex items-center justify-between h-[52px]">
-          <h1 className="text-[18px] font-bold text-gray-900">새 요청</h1>
+          <h1 className="text-[20px] font-bold text-[#2B313D]">새 요청</h1>
         </div>
 
-        <LayoutGroup id="pro-inquiries-tabs">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 flex-1">
             {TABS.map(({ key, label, badge }) => {
               const active = filter === key;
@@ -349,17 +347,8 @@ export default function InquiriesPage() {
                     setFilter(key);
                     if (key === 'match') setShowArchivedMatches(false);
                   }}
-                  className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
-                  style={{ transition: 'color 0.25s ease, transform 0.15s ease' }}
+                  className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-semibold active:scale-95 transition-colors duration-200 ${active ? 'bg-[#3180F7] text-white' : 'text-[#6B7684] bg-[#F2F4F8]'}`}
                 >
-                  {active && (
-                    <motion.span
-                      layoutId="pro-inquiries-tab-pill"
-                      className="absolute inset-0 bg-gray-900 rounded-full"
-                      style={{ zIndex: -1 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                    />
-                  )}
                   <span className="relative inline-flex items-center gap-1.5">
                     {label}
                     {badge != null && badge > 0 && (
@@ -379,10 +368,10 @@ export default function InquiriesPage() {
                 setFilter('match');
                 setShowArchivedMatches((prev) => !prev);
               }}
-              className={`relative shrink-0 flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
+              className={`relative shrink-0 flex h-10 w-10 items-center justify-center rounded-full border transition-colors pro-toss-pressable ${
                 showArchivedMatches
                   ? 'border-[#3180F7] bg-[#EEF4FF] text-[#3180F7]'
-                  : 'border-gray-200 bg-white text-gray-500'
+                  : 'border-[#F2F4F8] bg-white text-[#8B95A1]'
               }`}
             >
               <Archive size={18} />
@@ -393,17 +382,9 @@ export default function InquiriesPage() {
               )}
             </button>
           </div>
-        </LayoutGroup>
       </div>
 
-      <AnimatePresence mode="wait">
-      <motion.div
-        key={filter}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -4 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
-      >
+      <div key={filter} className="animate-[proInquiryFade_160ms_ease-out]">
       {/* 예약요청/전체 탭 — 매칭 딜리버리 카드들 */}
       {(filter === 'match' || filter === 'all') && (
         <div className="px-4 pt-3 pb-4 space-y-2">
@@ -424,13 +405,12 @@ export default function InquiriesPage() {
                 key={m.id}
                 onArchive={() => handleArchive(m)}
                 disabled={showArchivedMatches}
-                className={`bg-white rounded-2xl border p-4 shadow-sm space-y-3 ${
-                  showArchivedMatches ? 'border-gray-200' : 'border-[#3180F7]/30'
-                }`}
+                className="pro-toss-card pro-toss-pressable p-4 space-y-3"
+                style={{ borderColor: '#F9F9F9' }}
                 archiveLabel="보관"
               >
                 <div className="flex items-start gap-3">
-                  <img src={m.customerImage} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                  <img src={m.customerImage} alt="" className="w-10 h-10 rounded-[20px] object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -457,7 +437,7 @@ export default function InquiriesPage() {
                     {(m.styles.length > 0 || m.personalities.length > 0 || m.moods.length > 0) && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {[...m.moods, ...m.styles, ...m.personalities].slice(0, 8).map((tag, i) => (
-                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                          <span key={i} className="text-[10px] px-2 py-1 rounded-full bg-[#F2F4F8] text-[#6B7684] font-semibold">
                             {tag}
                           </span>
                         ))}
@@ -467,24 +447,21 @@ export default function InquiriesPage() {
                       <button
                         type="button"
                         onClick={() => toggleNote(m.id)}
-                        className="mt-2 block w-full rounded-xl bg-gray-50 px-3 py-2 text-left"
+                        className="mt-2 block w-full rounded-[18px] bg-[#F8FAFC] px-3.5 py-3 text-left ring-1 ring-[#EEF2F7]"
                       >
-                        <motion.div
-                          initial={false}
-                          animate={{ height: expandedNotes[m.id] ? 'auto' : 40 }}
-                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                          className="relative overflow-hidden"
+                        <div
+                          className={`relative overflow-hidden transition-[max-height] duration-300 ease-out ${expandedNotes[m.id] ? 'max-h-[420px]' : 'max-h-10'}`}
                         >
                           <p className="pr-5 text-[12px] leading-5 text-gray-600 whitespace-pre-wrap break-words">
                             {m.note}
                           </p>
                           {!expandedNotes[m.id] && (
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-xl bg-gradient-to-t from-gray-50 via-gray-50/92 to-transparent" />
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-[18px] bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/92 to-transparent" />
                           )}
                           <span className="pointer-events-none absolute bottom-0 right-0 text-[#D1D5DB]">
                             {expandedNotes[m.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </span>
-                        </motion.div>
+                        </div>
                       </button>
                     )}
                   </div>
@@ -494,26 +471,26 @@ export default function InquiriesPage() {
                   <button
                     onClick={() => handleArchive(m)}
                     disabled={initiatingChat === m.id}
-                    className="h-11 px-4 rounded-[12px] bg-blue-50 text-[#3180F7] text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-50"
+                    className="h-11 px-4 rounded-[14px] bg-[#EAF2FF] text-[#3180F7] text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-50"
                   >
                     보관
                   </button>
                   <button
                     onClick={() => handleReject(m.id)}
                     disabled={initiatingChat === m.id || showArchivedMatches}
-                    className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-600 text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-50"
+                    className="flex-1 h-11 rounded-[14px] bg-[#F2F4F8] text-[#4E5968] text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-50"
                   >
                     거절
                   </button>
                   <button
                     onClick={() => handleStartChat(m)}
                     disabled={initiatingChat === m.id || showArchivedMatches}
-                    className="flex-1 h-10 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center gap-1"
+                    className="flex-1 h-11 rounded-[14px] bg-[#3180F7] text-white text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center gap-1 shadow-[0_10px_20px_rgba(49,128,247,0.16)]"
                   >
                     {initiatingChat === m.id ? (
                       <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> 연결 중…</>
                     ) : (
-                      <><MessageCircle size={12} /> {showArchivedMatches ? '보관됨' : '채팅 걸기'}</>
+                      <>{showArchivedMatches ? '보관됨' : '채팅'}</>
                     )}
                   </button>
                 </div>
@@ -534,9 +511,9 @@ export default function InquiriesPage() {
             </div>
           ) : (
             archivedDeliveries.map((m) => (
-              <div key={m.id} className="bg-white rounded-[24px] border border-gray-100 p-4 shadow-sm space-y-3 opacity-90">
+              <div key={m.id} className="pro-toss-card p-4 space-y-3 opacity-90">
                 <div className="flex items-start gap-3">
-                  <img src={m.customerImage} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                  <img src={m.customerImage} alt="" className="w-10 h-10 rounded-[20px] object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">보관됨</span>
@@ -557,24 +534,21 @@ export default function InquiriesPage() {
                       <button
                         type="button"
                         onClick={() => toggleNote(`archived-${m.id}`)}
-                        className="mt-2 block w-full rounded-xl bg-gray-50 px-3 py-2 text-left"
+                        className="mt-2 block w-full rounded-[18px] bg-[#F8FAFC] px-3.5 py-3 text-left ring-1 ring-[#EEF2F7]"
                       >
-                        <motion.div
-                          initial={false}
-                          animate={{ height: expandedNotes[`archived-${m.id}`] ? 'auto' : 40 }}
-                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                          className="relative overflow-hidden"
+                        <div
+                          className={`relative overflow-hidden transition-[max-height] duration-300 ease-out ${expandedNotes[`archived-${m.id}`] ? 'max-h-[420px]' : 'max-h-10'}`}
                         >
                           <p className="pr-5 text-[12px] leading-5 text-gray-600 whitespace-pre-wrap break-words">
                             {m.note}
                           </p>
                           {!expandedNotes[`archived-${m.id}`] && (
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-xl bg-gradient-to-t from-gray-50 via-gray-50/92 to-transparent" />
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-[18px] bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/92 to-transparent" />
                           )}
                           <span className="pointer-events-none absolute bottom-0 right-0 text-[#D1D5DB]">
                             {expandedNotes[`archived-${m.id}`] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </span>
-                        </motion.div>
+                        </div>
                       </button>
                     )}
                   </div>
@@ -602,7 +576,7 @@ export default function InquiriesPage() {
             </div>
           ) : (
             filtered.map((inq) => (
-              <Link key={inq.id} href={`/chat/${inq.id}`} className="card p-4 block rounded-[24px] hover:shadow-md transition-shadow">
+              <Link key={inq.id} href={`/chat/${inq.id}`} className="pro-toss-card pro-toss-pressable p-4 block">
                 <div className="flex items-start gap-3">
                   <img src={inq.image} alt={inq.userName} className="h-10 w-10 shrink-0 rounded-[20px] object-cover" />
                   <div className="flex-1 min-w-0">
@@ -628,8 +602,13 @@ export default function InquiriesPage() {
           )}
         </div>
       )}
-      </motion.div>
-      </AnimatePresence>
+      </div>
+      <style jsx>{`
+        @keyframes proInquiryFade {
+          from { opacity: 0.72; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }

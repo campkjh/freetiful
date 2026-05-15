@@ -191,7 +191,7 @@ const BADGE_COLORS: Record<string, { bg: string; text: string }> = {
 
 const CATEGORY_LABELS = ['경력', '만족도', '구성력', '위트', '발성', '이미지'] as const;
 const DASHBOARD_CACHE_KEY = 'freetiful-pro-dashboard-cache-v2';
-const DASHBOARD_CACHE_TTL = 15 * 60_000;
+const DASHBOARD_CACHE_TTL = 24 * 60 * 60_000;
 let memoryDashboardCache: DashboardCache | null = null;
 
 type DashboardCache = {
@@ -244,6 +244,27 @@ function writeDashboardCache(patch: Omit<Partial<DashboardCache>, 'ts'>) {
   } catch {}
 }
 
+function runAfterFirstPaint(callback: () => void, delay = 0, timeout = 2000) {
+  if (typeof window === 'undefined') return () => {};
+  const win = window as typeof window & {
+    requestIdleCallback?: (cb: () => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+  let idleHandle: number | null = null;
+  const timer = window.setTimeout(() => {
+    if (win.requestIdleCallback) {
+      idleHandle = win.requestIdleCallback(callback, { timeout });
+      return;
+    }
+    callback();
+  }, delay);
+
+  return () => {
+    window.clearTimeout(timer);
+    if (idleHandle != null) win.cancelIdleCallback?.(idleHandle);
+  };
+}
+
 /* ─── Animation ─── */
 
 const stagger = {
@@ -268,9 +289,9 @@ const modalSheet = {
   exit: { y: '100%', transition: { duration: 0.25 } },
 };
 
-const TOSS_CARD_MOTION = 'toss-pressable transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out active:scale-[0.985] hover:-translate-y-0.5 hover:border-[#3180F7]/35 hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]';
-const TOSS_BUTTON_MOTION = 'toss-pressable transition-[transform,box-shadow,background-color,color] duration-200 ease-out active:scale-[0.97]';
-const TOSS_ICON_MOTION = 'toss-pressable transition-[transform,background-color] duration-200 ease-out active:scale-[0.9] hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3180F7]/25';
+const TOSS_CARD_MOTION = 'pro-toss-pressable hover:-translate-y-0.5';
+const TOSS_BUTTON_MOTION = 'pro-toss-pressable active:scale-[0.97]';
+const TOSS_ICON_MOTION = 'pro-toss-icon-button focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3180F7]/25';
 
 function tossDelay(index: number, base = 0) {
   return { animationDelay: `${base + index * 45}ms` };
@@ -338,10 +359,7 @@ export default function ProDashboardPage() {
   const hasCachedMatchRequests = initialDashboardCache?.matchRequests != null;
   const hasCachedInquiryRooms = initialDashboardCache?.inquiryRooms != null;
   const hasCachedQuotes = initialDashboardCache?.quotes != null;
-  const hasCachedReviews =
-    initialDashboardCache?.recentReviews != null ||
-    initialDashboardCache?.reviewCount != null ||
-    initialDashboardCache?.avgRating != null;
+  const hasCachedReviews = initialDashboardCache?.recentReviews != null;
   const hasCachedUpcoming = initialDashboardCache?.upcomingEvents != null;
   const hasCachedPudding = initialDashboardCache?.puddingCount != null;
   const hasCachedRevenue =
@@ -405,8 +423,6 @@ export default function ProDashboardPage() {
     };
   }, []);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inquiryBootstrapTimerRef = useRef<number | null>(null);
-  const quoteBootstrapTimerRef = useRef<number | null>(null);
   const cachedSectionsRef = useRef({
     scheduleRequests: hasCachedScheduleRequests,
     matchRequests: hasCachedMatchRequests,
@@ -520,10 +536,40 @@ export default function ProDashboardPage() {
         cachedSectionsRef.current.upcoming = true;
         setUpcomingLoading(false);
 
+        const profileStats = snapshot.profile || {};
+        const revenueStats = snapshot.revenue || {};
+        const nextAvgRating =
+          profileStats.avgRating != null ? Number(profileStats.avgRating).toFixed(1) : undefined;
+
+        if (profileStats.puddingCount != null) {
+          setPuddingCount(Number(profileStats.puddingCount) || 0);
+          cachedSectionsRef.current.pudding = true;
+          setPuddingLoading(false);
+        }
+        if (profileStats.profileViews != null) {
+          setProfileViews(Number(profileStats.profileViews) || 0);
+          cachedSectionsRef.current.revenue = true;
+          setRevenueLoading(false);
+        }
+        if (profileStats.reviewCount != null) setReviewCount(Number(profileStats.reviewCount) || 0);
+        if (nextAvgRating) setAvgRating(nextAvgRating);
+        if (revenueStats.thisMonth != null || revenueStats.lastMonth != null) {
+          if (revenueStats.thisMonth != null) setMonthlyRevenue(Number(revenueStats.thisMonth) || 0);
+          if (revenueStats.lastMonth != null) setLastMonthRevenue(Number(revenueStats.lastMonth) || 0);
+          cachedSectionsRef.current.revenue = true;
+          setRevenueLoading(false);
+        }
+
         writeDashboardCache({
           scheduleRequests: scheduleRows,
           matchRequests: active,
           upcomingEvents: upcoming,
+          ...(profileStats.puddingCount != null ? { puddingCount: Number(profileStats.puddingCount) || 0 } : {}),
+          ...(profileStats.profileViews != null ? { profileViews: Number(profileStats.profileViews) || 0 } : {}),
+          ...(profileStats.reviewCount != null ? { reviewCount: Number(profileStats.reviewCount) || 0 } : {}),
+          ...(nextAvgRating ? { avgRating: nextAvgRating } : {}),
+          ...(revenueStats.thisMonth != null ? { monthlyRevenue: Number(revenueStats.thisMonth) || 0 } : {}),
+          ...(revenueStats.lastMonth != null ? { lastMonthRevenue: Number(revenueStats.lastMonth) || 0 } : {}),
         });
       })
       .catch(() => {
@@ -542,16 +588,22 @@ export default function ProDashboardPage() {
   // 스케줄 요청 조회 (고객이 구매해서 대기중인 요청)
   useEffect(() => {
     if (!authUser) { setScheduleRequestsLoading(false); return; }
-    if (!cachedSectionsRef.current.scheduleRequests) setScheduleRequestsLoading(true);
-    prosApi.getScheduleRequests()
-      .then((data: any) => {
-        const next = Array.isArray(data) ? data : [];
-        setScheduleRequests(next);
-        cachedSectionsRef.current.scheduleRequests = true;
-        writeDashboardCache({ scheduleRequests: next });
-      })
-      .catch(() => {})
-      .finally(() => setScheduleRequestsLoading(false));
+    if (cachedSectionsRef.current.scheduleRequests) {
+      setScheduleRequestsLoading(false);
+      return;
+    }
+    return runAfterFirstPaint(() => {
+      if (cachedSectionsRef.current.scheduleRequests) return;
+      prosApi.getScheduleRequests()
+        .then((data: any) => {
+          const next = Array.isArray(data) ? data : [];
+          setScheduleRequests(next);
+          cachedSectionsRef.current.scheduleRequests = true;
+          writeDashboardCache({ scheduleRequests: next });
+        })
+        .catch(() => {})
+        .finally(() => setScheduleRequestsLoading(false));
+    }, 1800);
   }, [authUser]);
 
   // 사회자/사회자 매치 요청 (홈 > 전문결혼식사회자 찾기 에서 고객이 보낸 요청들)
@@ -576,7 +628,9 @@ export default function ProDashboardPage() {
           if (!cancelled) setMatchRequestsLoading(false);
         });
     };
-    load();
+    const initialRefresh = runAfterFirstPaint(() => {
+      if (!cachedSectionsRef.current.matchRequests) load(true);
+    }, 2200);
     const refresh = () => load(true);
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') load(true);
@@ -587,6 +641,7 @@ export default function ProDashboardPage() {
     window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
     return () => {
       cancelled = true;
+      initialRefresh();
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('freetiful:match-requests-changed', refresh);
@@ -656,7 +711,7 @@ export default function ProDashboardPage() {
             return {
               id: r.id,
               userName: r.otherUser?.name || '고객',
-              image: r.otherUser?.profileImageUrl || '/images/default-profile.svg',
+              image: r.otherUser?.profileImageUrl || '/images/default-profile.png',
               message: (r.lastMessage?.content || '').replace('견적 요청', '').split('\n').find((l: string) => l.trim())?.trim() || '견적 요청',
               receivedAt: ago,
               unread: r.unreadCount || 0,
@@ -800,9 +855,9 @@ export default function ProDashboardPage() {
   // Fetch chat inquiries (customer 견적 요청) - 견적 요청 메시지 포함된 채팅방
   useEffect(() => {
     if (!authUser) { setInquiryRoomsLoading(false); return; }
-    inquiryBootstrapTimerRef.current = window.setTimeout(
+    const cancelInitialRefresh = runAfterFirstPaint(
       () => refreshInquiryRooms(false),
-      cachedSectionsRef.current.inquiryRooms ? 120 : 220,
+      cachedSectionsRef.current.inquiryRooms ? 1200 : 1800,
     );
     const refresh = () => refreshInquiryRooms();
     const interval = window.setInterval(() => {
@@ -813,7 +868,7 @@ export default function ProDashboardPage() {
     window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
     window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
     return () => {
-      if (inquiryBootstrapTimerRef.current) window.clearTimeout(inquiryBootstrapTimerRef.current);
+      cancelInitialRefresh();
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
@@ -825,9 +880,9 @@ export default function ProDashboardPage() {
   // Fetch quotation requests for pro
   useEffect(() => {
     if (!authUser) { setQuotesLoading(false); return; }
-    quoteBootstrapTimerRef.current = window.setTimeout(
+    const cancelInitialRefresh = runAfterFirstPaint(
       () => refreshQuotes(false),
-      cachedSectionsRef.current.quotes ? 160 : 280,
+      cachedSectionsRef.current.quotes ? 1400 : 2000,
     );
     const refresh = () => refreshQuotes();
     const interval = window.setInterval(() => {
@@ -838,7 +893,7 @@ export default function ProDashboardPage() {
     window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
     window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
     return () => {
-      if (quoteBootstrapTimerRef.current) window.clearTimeout(quoteBootstrapTimerRef.current);
+      cancelInitialRefresh();
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
@@ -851,53 +906,59 @@ export default function ProDashboardPage() {
   useEffect(() => {
     if (!authUser) { setReviewsLoading(false); return; }
     if (!cachedSectionsRef.current.reviews) setReviewsLoading(true);
-    reviewApi.getMine({ page: 1, limit: 2 })
-      .then((data: any) => {
-        const items = data?.data || (Array.isArray(data) ? data : []);
-        const total = data?.total ?? items.length;
-        if (total != null) setReviewCount(total);
-        if (data?.avgRating != null) setAvgRating(Number(data.avgRating).toFixed(1));
-        let nextAvgRating = data?.avgRating != null ? Number(data.avgRating).toFixed(1) : undefined;
-        let mapped: RecentReview[] = [];
-        if (items.length > 0) {
-          const avg = (items.reduce((s: number, r: any) => s + (r.avgRating || r.ratingSatisfaction || 0), 0) / items.length).toFixed(1);
-          if (data?.avgRating == null) {
-            nextAvgRating = avg;
-            setAvgRating(avg);
+    return runAfterFirstPaint(() => {
+      reviewApi.getMine({ page: 1, limit: 2 })
+        .then((data: any) => {
+          const items = data?.data || (Array.isArray(data) ? data : []);
+          const total = data?.total ?? items.length;
+          if (total != null) setReviewCount(total);
+          if (data?.avgRating != null) setAvgRating(Number(data.avgRating).toFixed(1));
+          let nextAvgRating = data?.avgRating != null ? Number(data.avgRating).toFixed(1) : undefined;
+          let mapped: RecentReview[] = [];
+          if (items.length > 0) {
+            const avg = (items.reduce((s: number, r: any) => s + (r.avgRating || r.ratingSatisfaction || 0), 0) / items.length).toFixed(1);
+            if (data?.avgRating == null) {
+              nextAvgRating = avg;
+              setAvgRating(avg);
+            }
+            mapped = items.slice(0, 2).map((r: any) => ({
+              id: r.id,
+              author: r.reviewer?.name ? r.reviewer.name.slice(0, 1) + '**' : '고객**',
+              rating: Math.round((r.avgRating || r.ratingSatisfaction || 0) * 10) / 10,
+              text: r.comment || '',
+              date: r.createdAt || new Date().toISOString(),
+              badge: '개인' as const,
+              scores: {
+                경력: r.ratingExperience || 0,
+                만족도: r.ratingSatisfaction || 0,
+                구성력: r.ratingComposition || 0,
+                위트: r.ratingWit || 0,
+                발성: r.ratingVoice || 0,
+                이미지: r.ratingAppearance || 0,
+              },
+            }));
+            setRecentReviews(mapped);
           }
-          mapped = items.slice(0, 2).map((r: any) => ({
-            id: r.id,
-            author: r.reviewer?.name ? r.reviewer.name.slice(0, 1) + '**' : '고객**',
-            rating: Math.round((r.avgRating || r.ratingSatisfaction || 0) * 10) / 10,
-            text: r.comment || '',
-            date: r.createdAt || new Date().toISOString(),
-            badge: '개인' as const,
-            scores: {
-              경력: r.ratingExperience || 0,
-              만족도: r.ratingSatisfaction || 0,
-              구성력: r.ratingComposition || 0,
-              위트: r.ratingWit || 0,
-              발성: r.ratingVoice || 0,
-              이미지: r.ratingAppearance || 0,
-            },
-          }));
-          setRecentReviews(mapped);
-        }
-        cachedSectionsRef.current.reviews = true;
-        writeDashboardCache({
-          reviewCount: total,
-          ...(nextAvgRating ? { avgRating: nextAvgRating } : {}),
-          recentReviews: mapped,
-        });
-      })
-      .catch(() => {})
-      .finally(() => setReviewsLoading(false));
+          cachedSectionsRef.current.reviews = true;
+          writeDashboardCache({
+            reviewCount: total,
+            ...(nextAvgRating ? { avgRating: nextAvgRating } : {}),
+            recentReviews: mapped,
+          });
+        })
+        .catch(() => {})
+        .finally(() => setReviewsLoading(false));
+    }, cachedSectionsRef.current.reviews ? 1600 : 2200);
   }, [authUser]);
 
   // Fetch upcoming scheduled events
   useEffect(() => {
     if (!authUser) { setUpcomingLoading(false); return; }
-    if (!cachedSectionsRef.current.upcoming) setUpcomingLoading(true);
+    if (cachedSectionsRef.current.upcoming) {
+      setUpcomingLoading(false);
+      return;
+    }
+    setUpcomingLoading(true);
     const now = new Date();
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -920,7 +981,11 @@ export default function ProDashboardPage() {
         });
 
     let cancelled = false;
-    (async () => {
+    const cancelDeferred = runAfterFirstPaint(async () => {
+      if (cachedSectionsRef.current.upcoming) {
+        setUpcomingLoading(false);
+        return;
+      }
       try {
         const upcomingRowsRaw = await scheduleApi.getUpcoming(3).catch(async () => {
           const [thisRowsRaw, nextRowsRaw] = await Promise.all([
@@ -941,9 +1006,10 @@ export default function ProDashboardPage() {
       } finally {
         if (!cancelled) setUpcomingLoading(false);
       }
-    })();
+    }, 2400);
     return () => {
       cancelled = true;
+      cancelDeferred();
     };
   }, [authUser]);
 
@@ -951,22 +1017,26 @@ export default function ProDashboardPage() {
   useEffect(() => {
     if (!authUser) { setPuddingLoading(false); return; }
     if (!cachedSectionsRef.current.pudding) setPuddingLoading(true);
-    const timer = window.setTimeout(() => {
-      apiClient.get('/api/v1/pro/pudding')
-        .then((res) => {
-          if (res.data?.balance != null) {
-            setPuddingCount(res.data.balance);
-            cachedSectionsRef.current.pudding = true;
-            writeDashboardCache({ puddingCount: res.data.balance });
-          }
-        })
-        .catch(() => {})
-        .finally(() => setPuddingLoading(false));
+    const cancelDeferred = runAfterFirstPaint(() => {
+      if (!cachedSectionsRef.current.pudding) {
+        apiClient.get('/api/v1/pro/pudding')
+          .then((res) => {
+            if (res.data?.balance != null) {
+              setPuddingCount(res.data.balance);
+              cachedSectionsRef.current.pudding = true;
+              writeDashboardCache({ puddingCount: res.data.balance });
+            }
+          })
+          .catch(() => {})
+          .finally(() => setPuddingLoading(false));
+      } else {
+        setPuddingLoading(false);
+      }
 
       apiClient.post('/api/v1/pro/pudding/attendance')
         .then((res) => {
           if (res.data?.granted) {
-            toast.success('출석체크 완료! +50 푸딩 🍮', { duration: 2500 });
+            toast.success('출석체크 완료 · +50 푸딩', { duration: 2500 });
             setPuddingCount((prev) => {
               const next = prev + 50;
               writeDashboardCache({ puddingCount: next });
@@ -975,18 +1045,24 @@ export default function ProDashboardPage() {
           }
         })
         .catch(() => { /* silently ignore */ });
-    }, cachedSectionsRef.current.pudding ? 240 : 420);
+    }, cachedSectionsRef.current.pudding ? 2600 : 3000);
 
-    return () => {
-      window.clearTimeout(timer);
-    };
+    return cancelDeferred;
   }, [authUser]);
 
   // Fetch revenue stats
   useEffect(() => {
     if (!authUser) { setRevenueLoading(false); return; }
-    if (!cachedSectionsRef.current.revenue) setRevenueLoading(true);
-    const timer = window.setTimeout(() => {
+    if (cachedSectionsRef.current.revenue) {
+      setRevenueLoading(false);
+      return;
+    }
+    setRevenueLoading(true);
+    const cancelDeferred = runAfterFirstPaint(() => {
+      if (cachedSectionsRef.current.revenue) {
+        setRevenueLoading(false);
+        return;
+      }
       apiClient.get('/api/v1/pro/revenue')
         .then((res) => {
           const d = res.data;
@@ -1002,11 +1078,9 @@ export default function ProDashboardPage() {
         })
         .catch(() => { /* fallback */ })
         .finally(() => setRevenueLoading(false));
-    }, cachedSectionsRef.current.revenue ? 280 : 480);
+    }, 3200);
 
-    return () => {
-      window.clearTimeout(timer);
-    };
+    return cancelDeferred;
   }, [authUser]);
 
   // Close context menu on outside click
@@ -1084,18 +1158,18 @@ export default function ProDashboardPage() {
   const quickStatsLoading = false;
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-28">
+    <div className="pro-toss-page pb-28">
       {/* ── Header ── */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+      <div className="sticky top-0 z-30 pro-toss-header">
         <div className="px-5 pt-12 pb-4 flex items-center justify-between">
           <div>
             <h1
-              className="text-xl font-bold text-gray-900"
+              className="text-[22px] font-bold text-[#2B313D] leading-tight"
             >
               안녕하세요, {name}님
             </h1>
             <p
-              className="text-xs text-gray-400 mt-0.5"
+              className="mt-1 text-[13px] font-medium text-[#8B95A1]"
             >
               {todayString()}
             </p>
@@ -1125,7 +1199,7 @@ export default function ProDashboardPage() {
             <div key={i}>
               <Link href={stat.href}>
                 <div
-                  className={`toss-fade-up group rounded-xl bg-white p-2.5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
+                  className={`toss-fade-up pro-toss-card-flat group p-3 ${TOSS_CARD_MOTION}`}
                   style={tossDelay(i, 70)}
                 >
                   <div className={`w-7 h-7 ${stat.bg} rounded-lg flex items-center justify-center mb-1.5 transition-transform duration-200 ease-out group-hover:scale-105 group-active:scale-95`}>
@@ -1169,7 +1243,7 @@ export default function ProDashboardPage() {
               return (
                 <div
                   key={`sched-${req.id}`}
-                  className={`toss-fade-up bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
+                  className={`toss-fade-up pro-toss-card p-4 ${TOSS_CARD_MOTION}`}
                   style={{ ...tossDelay(i, 140), borderRadius: 24 }}
                 >
                   {/* 품목 (행사 제목) */}
@@ -1193,7 +1267,7 @@ export default function ProDashboardPage() {
                       {(req.amount || 0).toLocaleString()}원
                     </p>
                     {paidLabel && (
-                      <p className="text-[12px] text-[#8A909C]">결제 {paidLabel}</p>
+                      <p className="text-[14px] text-[#8A909C]">결제 {paidLabel}</p>
                     )}
                   </div>
 
@@ -1238,7 +1312,7 @@ export default function ProDashboardPage() {
         {matchRequestsLoading ? (
           <ProCardListSkeleton count={2} actions className="space-y-3" />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {matchRequests.slice(0, 3).map((delivery: any, i: number) => {
               const request = delivery.matchRequest || {};
               const raw = getMatchRaw(delivery);
@@ -1256,12 +1330,12 @@ export default function ProDashboardPage() {
                 <SwipeArchiveCard
                   key={`match-${delivery.id}`}
                   onArchive={() => handleArchiveMatch(delivery.id)}
-                  className={`toss-fade-up rounded-[24px] border bg-white p-4 shadow-sm space-y-3 ${TOSS_CARD_MOTION}`}
+                  className={`toss-fade-up pro-toss-card p-4 space-y-3 ${TOSS_CARD_MOTION}`}
                   style={{ borderColor: '#F9F9F9' }}
                 >
                   <div style={tossDelay(i, 160)}>
                   <div className="flex items-start gap-3">
-                    <img src={customer.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                    <img src={customer.profileImageUrl || '/images/default-profile.png'} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7] text-white">예약 요청</span>
@@ -1286,9 +1360,6 @@ export default function ProDashboardPage() {
                       {raw.planLabel && (
                         <p className="text-[12px] font-bold text-gray-700 mt-1.5">선택 플랜: {raw.planLabel}</p>
                       )}
-                      <p className="text-[12px] font-bold text-[#3180F7] mt-1.5">
-                        {formatMatchBudget(request.budgetMin ?? null, request.budgetMax ?? null)}
-                      </p>
                       {tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {tags.slice(0, 6).map((tag: string, i: number) => (
@@ -1347,13 +1418,13 @@ export default function ProDashboardPage() {
       <>
         {contextMenu && (
           <div
-            className="toss-soft-pop fixed z-50 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
+            className="toss-soft-pop pro-toss-floating-menu fixed z-50 min-w-[128px]"
             style={{ top: contextMenu.y, left: Math.min(contextMenu.x, window.innerWidth - 140) }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => handleArchive(contextMenu.id)}
-              className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 font-medium hover:bg-gray-50 w-full"
+              className={`flex w-full items-center gap-2 px-4 py-3 text-[14px] font-semibold text-[#4E5968] hover:bg-[#F7F8FA] ${TOSS_BUTTON_MOTION}`}
             >
               <ArchiveIcon />
               보관
@@ -1387,8 +1458,8 @@ export default function ProDashboardPage() {
               return (
               <div
                 key={i}
-                className={`toss-fade-up bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] ${TOSS_CARD_MOTION}`}
-                style={{ ...tossDelay(i, 170), borderRadius: 24, border: '0.6px solid #F9F9F9' }}
+                className={`toss-fade-up pro-toss-card p-4 ${TOSS_CARD_MOTION}`}
+                style={{ ...tossDelay(i, 170), border: '0.6px solid #F9F9F9' }}
               >
                 {/* 품목 */}
                 <p className="text-[15px] font-semibold text-[#2B313D] truncate">{ev.eventType || '일정'}</p>
@@ -1466,7 +1537,7 @@ export default function ProDashboardPage() {
           ) : recentReviews.map((review, i) => (
             <div
               key={review.id}
-              className={`toss-fade-up rounded-2xl border border-gray-100 bg-white p-4 shadow-sm ${TOSS_CARD_MOTION}`}
+              className={`toss-fade-up pro-toss-card p-4 ${TOSS_CARD_MOTION}`}
               style={tossDelay(i, 190)}
             >
               {/* Header */}
@@ -1498,9 +1569,9 @@ export default function ProDashboardPage() {
 
               {/* Reply */}
               {savedReplies[review.id] ? (
-                <div className="mt-2 bg-blue-50 rounded-lg px-3 py-2">
-                  <p className="text-[11px] text-blue-600 font-medium">내 답글</p>
-                  <p className="text-xs text-blue-800 mt-0.5">{savedReplies[review.id]}</p>
+                <div className="mt-3 rounded-[18px] bg-[#EAF2FF] px-4 py-3">
+                  <p className="text-[12px] font-bold text-[#3180F7]">내 답글</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[#2B313D]">{savedReplies[review.id]}</p>
                 </div>
               ) : (
                 <>
@@ -1512,18 +1583,18 @@ export default function ProDashboardPage() {
                         value={replyTexts[review.id] || ''}
                         onChange={(e) => setReplyTexts((prev) => ({ ...prev, [review.id]: e.target.value }))}
                         placeholder="답글을 입력하세요..."
-                        className="w-full border border-gray-200 rounded-lg p-2.5 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-16"
+                        className="pro-toss-input w-full p-3 text-[16px] placeholder-[#A4ABBA] resize-none h-20"
                       />
                       <div className="flex gap-2 mt-1.5">
                         <button
                           onClick={() => setReplyingTo(null)}
-                          className={`px-3 py-1.5 text-[11px] text-gray-400 font-medium ${TOSS_BUTTON_MOTION}`}
+                          className={`h-9 px-4 rounded-[12px] bg-[#F2F4F8] text-[13px] font-semibold text-[#6B7684] ${TOSS_BUTTON_MOTION}`}
                         >
                           취소
                         </button>
                         <button
                           onClick={() => saveReply(review.id)}
-                          className={`px-3 py-1.5 bg-[#3180F7] text-white text-[11px] font-bold rounded-lg shadow-[0_6px_14px_rgba(49,128,247,0.14)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
+                          className={`h-9 px-4 rounded-[12px] bg-[#3180F7] text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(49,128,247,0.18)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
                         >
                           등록
                         </button>
@@ -1552,27 +1623,27 @@ export default function ProDashboardPage() {
         {confirmAccept && (
           <div
             key="accept-overlay"
-            className="toss-modal-fade fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-6"
+            className="toss-modal-fade pro-toss-modal-overlay fixed inset-0 z-50 flex items-center justify-center px-6"
             onClick={() => setConfirmAccept(null)}
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="toss-soft-pop bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+              className="toss-soft-pop pro-toss-modal-card w-full max-w-sm p-6"
             >
-              <h3 className="text-base font-bold text-gray-900 text-center mb-2">견적 수락</h3>
-              <p className="text-sm text-gray-500 text-center mb-6">
+              <h3 className="mb-2 text-center text-[19px] font-bold text-[#2B313D]">견적 수락</h3>
+              <p className="mb-6 text-center text-[14px] font-medium leading-relaxed text-[#6B7684]">
                 이 견적 요청을 수락하시겠습니까?<br />수락 후 고객에게 알림이 발송됩니다.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmAccept(null)}
-                  className={`flex-1 py-3 rounded-xl bg-gray-100 text-sm font-bold text-gray-500 hover:bg-gray-200 ${TOSS_BUTTON_MOTION}`}
+                  className={`h-12 flex-1 rounded-[14px] bg-[#F2F4F8] text-[16px] font-bold text-[#6B7684] hover:bg-[#E9EEF5] ${TOSS_BUTTON_MOTION}`}
                 >
                   취소
                 </button>
                 <button
                   onClick={() => handleAccept(confirmAccept)}
-                  className={`flex-1 py-3 rounded-xl bg-[#3180F7] text-sm font-bold text-white shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
+                  className={`h-12 flex-1 rounded-[14px] bg-[#3180F7] text-[16px] font-bold text-white shadow-[0_12px_24px_rgba(49,128,247,0.2)] hover:bg-blue-600 ${TOSS_BUTTON_MOTION}`}
                 >
                   수락하기
                 </button>
@@ -1584,16 +1655,16 @@ export default function ProDashboardPage() {
 
       {/* ── 행사 예약 거절 (사유 입력 + 전액 환불) ── */}
       {rejectSched && (
-        <div className="toss-modal-fade fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => { setRejectSched(null); setRejectReason(''); }}>
-          <div onClick={(e) => e.stopPropagation()} className="toss-bottom-sheet bg-white rounded-t-3xl w-full shadow-xl">
+        <div className="toss-modal-fade pro-toss-modal-overlay fixed inset-0 z-50 flex items-end" onClick={() => { setRejectSched(null); setRejectReason(''); }}>
+          <div onClick={(e) => e.stopPropagation()} className="toss-bottom-sheet pro-toss-bottom-sheet w-full">
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+              <div className="pro-toss-sheet-handle" />
             </div>
             <div className="px-5 pt-3 pb-8">
-              <h3 className="text-base font-bold text-gray-900 mb-1">행사 예약 거절</h3>
-              <p className="text-[13px] text-gray-500 mb-2">{rejectSched.userName}님의 행사 예약을 거절합니다.</p>
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
-                <p className="text-[12px] text-amber-700 font-medium">
+              <h3 className="mb-1 text-[20px] font-bold text-[#2B313D]">행사 예약 거절</h3>
+              <p className="mb-3 text-[14px] font-medium text-[#6B7684]">{rejectSched.userName}님의 행사 예약을 거절합니다.</p>
+              <div className="pro-toss-alert mb-4 px-4 py-3">
+                <p className="text-[13px] font-semibold leading-relaxed text-[#B35C00]">
                   거절 즉시 고객에게 <b>전액 환불</b>됩니다. 입력한 사유는 운영 참고용으로만 보관됩니다.
                 </p>
               </div>
@@ -1601,19 +1672,19 @@ export default function ProDashboardPage() {
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="운영 참고용 메모 (예: 해당 날짜에 이미 다른 예약이 있어 수락이 어렵습니다)"
-                className="w-full h-28 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[16px] outline-none focus:border-[#3180F7] resize-none"
+                className="pro-toss-input h-28 w-full px-4 py-3 text-[16px] placeholder-[#A4ABBA] resize-none"
               />
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => { setRejectSched(null); setRejectReason(''); }}
-                  className={`flex-1 h-12 rounded-xl bg-gray-100 text-gray-600 text-[15px] font-bold hover:bg-gray-200 ${TOSS_BUTTON_MOTION}`}
+                  className={`h-12 flex-1 rounded-[14px] bg-[#F2F4F8] text-[16px] font-bold text-[#6B7684] hover:bg-[#E9EEF5] ${TOSS_BUTTON_MOTION}`}
                 >
                   취소
                 </button>
                 <button
                   onClick={handleRejectSchedule}
                   disabled={!rejectReason.trim()}
-                  className={`flex-1 h-12 rounded-xl bg-red-500 text-white text-[15px] font-bold shadow-[0_6px_14px_rgba(239,68,68,0.18)] hover:bg-red-600 disabled:opacity-40 ${TOSS_BUTTON_MOTION}`}
+                  className={`h-12 flex-1 rounded-[14px] bg-[#E5484D] text-[16px] font-bold text-white shadow-[0_12px_24px_rgba(229,72,77,0.2)] hover:bg-red-600 disabled:opacity-40 ${TOSS_BUTTON_MOTION}`}
                 >
                   안내 보내기 · 환불
                 </button>
@@ -1628,21 +1699,22 @@ export default function ProDashboardPage() {
         {rejectTarget && (
           <div
             key="reject-overlay"
-            className="toss-modal-fade fixed inset-0 z-50 bg-black/40 flex items-end"
+            className="toss-modal-fade pro-toss-modal-overlay fixed inset-0 z-50 flex items-end"
             onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="toss-bottom-sheet bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto shadow-xl"
+              className="toss-bottom-sheet pro-toss-bottom-sheet w-full max-h-[82vh] overflow-y-auto"
             >
               <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 bg-gray-200 rounded-full" />
+                <div className="pro-toss-sheet-handle" />
               </div>
               <div className="px-5 pt-3 pb-8">
                 <div className="flex items-center justify-between mb-5">
-                  <h3 className="text-base font-bold text-gray-900">거절 사유 선택</h3>
+                  <h3 className="text-[20px] font-bold text-[#2B313D]">거절 사유 선택</h3>
                   <button
                     onClick={() => { setRejectTarget(null); setSelectedReason(''); setCustomReason(''); }}
+                    className={TOSS_ICON_MOTION}
                   >
                     <CloseIcon />
                   </button>
@@ -1652,10 +1724,10 @@ export default function ProDashboardPage() {
                     <button
                       key={reason}
                       onClick={() => setSelectedReason(reason)}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium ${TOSS_BUTTON_MOTION} ${
+                      className={`w-full text-left px-4 py-3.5 rounded-[16px] text-[15px] font-semibold ${TOSS_BUTTON_MOTION} ${
                         selectedReason === reason
                           ? 'bg-[#3180F7] text-white'
-                          : 'bg-gray-50 text-gray-700 active:bg-gray-100'
+                          : 'bg-[#F2F4F8] text-[#4E5968] active:bg-[#E9EEF5]'
                       }`}
                     >
                       {reason}
@@ -1668,14 +1740,14 @@ export default function ProDashboardPage() {
                       value={customReason}
                       onChange={(e) => setCustomReason(e.target.value)}
                       placeholder="거절 사유를 입력해주세요..."
-                      className="w-full border border-gray-200 rounded-xl p-3 text-[16px] text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7] resize-none h-24"
+                      className="pro-toss-input h-24 w-full p-3.5 text-[16px] placeholder-[#A4ABBA] resize-none"
                     />
                   </div>
                 )}
                 <button
                   onClick={handleReject}
                   disabled={!selectedReason || (selectedReason === '기타' && !customReason.trim())}
-                  className={`w-full py-3.5 rounded-xl bg-[#3180F7] text-white text-sm font-bold shadow-[0_6px_14px_rgba(49,128,247,0.18)] hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed ${TOSS_BUTTON_MOTION}`}
+                  className={`h-[52px] w-full rounded-[16px] bg-[#3180F7] py-3.5 text-[16px] font-bold text-white shadow-[0_12px_24px_rgba(49,128,247,0.2)] hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40 ${TOSS_BUTTON_MOTION}`}
                 >
                   거절하기
                 </button>

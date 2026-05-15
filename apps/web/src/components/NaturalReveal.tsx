@@ -56,6 +56,8 @@ export default function NaturalReveal() {
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
+    if (/Android/i.test(window.navigator.userAgent || '')) return;
+    if (pathname.startsWith('/pro-dashboard') || pathname.startsWith('/chat') || pathname.startsWith('/schedule')) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     let cleanupReveal: (() => void) | null = null;
