@@ -1,73 +1,51 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { ChevronRight, ChevronDown, ChevronUp, MapPin, Calendar, Archive } from 'lucide-react';
-import { chatApi, type ChatRoomItem } from '@/lib/api/chat.api';
+import { Calendar, MapPin } from 'lucide-react';
+import { chatApi } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
-import { splitArchivedMatchRequests } from '@/lib/pro-request-archive';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { ProCardListSkeleton } from '../_components/ProSkeletons';
-import { SwipeArchiveCard } from '../_components/SwipeArchiveCard';
 
-type Filter = 'all' | 'pending' | 'replied' | 'match' | 'archived';
+type Filter = 'all' | 'multi' | 'single';
+type RequestKind = 'multi' | 'single';
 
-const INQUIRIES_CACHE_KEY = 'freetiful-pro-inquiries-cache-v1';
-const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-match-deliveries-cache-v1';
-const ARCHIVED_DELIVERIES_CACHE_KEY = 'freetiful-pro-match-archived-cache-v1';
+const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-simple-requests-cache-v1';
 const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
-const memoryCache = new Map<string, unknown>();
-
-function readCache<T>(key: string): T | null {
-  const memoryHit = memoryCache.get(key);
-  if (memoryHit !== undefined) return memoryHit as T;
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(key);
-    const parsed = raw ? (JSON.parse(raw) as T) : null;
-    if (parsed !== null) memoryCache.set(key, parsed);
-    return parsed;
-  } catch { return null; }
-}
-function writeCache(key: string, data: unknown) {
-  memoryCache.set(key, data);
-  if (typeof window === 'undefined') return;
-  try { sessionStorage.setItem(key, JSON.stringify(data)); } catch {}
-}
-
-interface InquiryView {
-  id: string;
-  userName: string;
-  image: string;
-  message: string;
-  receivedAt: string;
-  unread: number;
-  hasQuote: boolean;
-}
 
 interface MatchDeliveryView {
-  id: string; // delivery id
+  id: string;
   matchRequestId: string;
-  status: string;
   customerId: string;
   customerName: string;
   customerImage: string;
+  requestKind: RequestKind;
   categoryName: string;
   eventCategoryName: string;
   eventDate: string | null;
   eventTime: string | null;
-  eventTimeEnd: string | null;
   eventLocation: string | null;
-  budgetMin: number | null;
-  budgetMax: number | null;
-  planLabel: string;
   note: string;
-  moods: string[];
-  styles: string[];
-  personalities: string[];
   deliveredAt: string;
+}
+
+function readCache(): MatchDeliveryView[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(MATCH_DELIVERIES_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(data: MatchDeliveryView[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(MATCH_DELIVERIES_CACHE_KEY, JSON.stringify(data));
+  } catch {}
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -85,8 +63,9 @@ function timeAgo(dateStr: string | null): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '미정';
+  if (!iso) return '일시 미정';
   const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
   const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
   return `${d.getMonth() + 1}/${d.getDate()} (${weekdays[d.getDay()]})`;
 }
@@ -101,174 +80,126 @@ function formatTime(value: string | null): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function formatBudget(min: number | null, max: number | null): string {
-  const fmt = (n: number) => n >= 10000 ? `${(n / 10000).toFixed(0)}만` : `${n.toLocaleString()}`;
-  if (min != null && max != null) return `${fmt(min)}원 ~ ${fmt(max)}원`;
-  if (min != null) return `${fmt(min)}원 이상`;
-  if (max != null) return `${fmt(max)}원 이하`;
-  return '협의';
+function mapMatchDeliveries(items: any[]): MatchDeliveryView[] {
+  return items
+    .filter((d: any) => ['pending', 'viewed'].includes(d.status))
+    .map((d: any) => {
+      const raw = typeof d.matchRequest?.rawUserInput === 'object' && d.matchRequest?.rawUserInput
+        ? d.matchRequest.rawUserInput
+        : {};
+      const requestKind = d.matchRequest?.type === 'single' ? 'single' : 'multi';
+      return {
+        id: d.id,
+        matchRequestId: d.matchRequestId,
+        customerId: d.matchRequest?.user?.id || '',
+        customerName: d.matchRequest?.user?.name || '고객',
+        customerImage: d.matchRequest?.user?.profileImageUrl || '/images/default-profile.png',
+        requestKind,
+        categoryName: d.matchRequest?.category?.name || raw.categoryName || '사회자 요청',
+        eventCategoryName: d.matchRequest?.eventCategory?.name || raw.eventType || '',
+        eventDate: d.matchRequest?.eventDate || raw.date || null,
+        eventTime: raw.timeStart || d.matchRequest?.eventTime || null,
+        eventLocation: d.matchRequest?.eventLocation || raw.location || null,
+        note: raw.note || '',
+        deliveredAt: d.deliveredAt,
+      };
+    });
 }
 
-export default function InquiriesPage() {
+const TABS: { key: Filter; label: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'multi', label: '다수요청' },
+  { key: 'single', label: '개인요청' },
+];
+
+export default function ProRequestsPage() {
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>('all');
-  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
-  // sessionStorage 캐시 즉시 적용 — 한 번 본 데이터를 다시 깜빡이지 않게.
-  const cachedInquiries = useMemo(() => readCache<InquiryView[]>(INQUIRIES_CACHE_KEY), []);
-  const cachedMatchDeliveries = useMemo(() => readCache<MatchDeliveryView[]>(MATCH_DELIVERIES_CACHE_KEY), []);
-  const cachedArchivedDeliveries = useMemo(() => readCache<MatchDeliveryView[]>(ARCHIVED_DELIVERIES_CACHE_KEY), []);
-  const [inquiries, setInquiries] = useState<InquiryView[]>(cachedInquiries ?? []);
-  const [matchDeliveries, setMatchDeliveries] = useState<MatchDeliveryView[]>(cachedMatchDeliveries ?? []);
-  const [archivedDeliveries, setArchivedDeliveries] = useState<MatchDeliveryView[]>(cachedArchivedDeliveries ?? []);
-  const [loading, setLoading] = useState(cachedInquiries === null);
-  const [loadingMatch, setLoadingMatch] = useState(cachedMatchDeliveries === null);
-  const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
-  const [showArchivedMatches, setShowArchivedMatches] = useState(false);
   const authUser = useAuthStore((s) => s.user);
-  const { active: activeMatchDeliveries, archived: archivedMatchDeliveries } = useMemo(
-    () => splitArchivedMatchRequests(matchDeliveries),
-    [matchDeliveries],
-  );
+  const cached = useMemo(() => readCache(), []);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [requests, setRequests] = useState<MatchDeliveryView[]>(cached ?? []);
+  const [loading, setLoading] = useState(cached === null);
+  const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
 
-  // 페이지 진입 시점 기록 — 홈 대시보드의 "새 요청" 카운트가 이 시점 이후 도착건만 세도록.
-  useEffect(() => {
-    try { localStorage.setItem(VIEWED_AT_KEY, String(Date.now())); } catch {}
-    window.dispatchEvent(new Event('freetiful:inquiries-viewed'));
-  }, []);
-
-  const refreshInquiries = useCallback((silent = true) => {
-    if (!authUser) return;
-    if (!silent && cachedInquiries === null) setLoading(true);
-    chatApi.getRooms({ page: 1, limit: 12, withTotal: false })
-      .then((res) => {
-        const rooms = (res.data.data || []) as ChatRoomItem[];
-        const next: InquiryView[] = rooms.map((r) => ({
-          id: r.id,
-          userName: r.otherUser.name,
-          image: r.otherUser.profileImageUrl || '/images/default-profile.png',
-          message: r.lastMessage?.content?.split('\n')[0] || '(대화를 시작해보세요)',
-          receivedAt: timeAgo(r.lastMessageAt),
-          unread: r.unreadCount,
-          hasQuote: Boolean(
-            r.hasQuoteInquiry ||
-            r.matchRequestId ||
-            r.latestQuotationStatus ||
-            /견적|문의/.test(r.lastMessage?.content || ''),
-          ),
-        }));
-        setInquiries(next);
-        writeCache(INQUIRIES_CACHE_KEY, next);
+  const refreshRequests = useCallback((showLoading = false) => {
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
+    if (showLoading && cached === null) setLoading(true);
+    matchApi.getProRequests({ limit: 80 })
+      .then((data: any) => {
+        const items = Array.isArray(data) ? data : (data?.data || []);
+        const mapped = mapMatchDeliveries(items);
+        setRequests(mapped);
+        writeCache(mapped);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [authUser, cachedInquiries]);
-
-  const refreshMatchDeliveries = useCallback((silent = true) => {
-    if (!authUser) return;
-    if (!silent && cachedMatchDeliveries === null) setLoadingMatch(true);
-    matchApi.getProRequests({ limit: 50 })
-      .then((data: any) => {
-        const items = Array.isArray(data) ? data : (data?.data || []);
-        const mapped: MatchDeliveryView[] = items
-          .filter((d: any) => ['pending', 'viewed', 'archived'].includes(d.status))
-          .map((d: any) => {
-            const raw: any = typeof d.matchRequest?.rawUserInput === 'object' && d.matchRequest?.rawUserInput
-              ? d.matchRequest.rawUserInput
-              : {};
-            const moods = Array.isArray(raw.moods) ? raw.moods.filter(Boolean) : [];
-            const styles = (d.matchRequest?.styles || [])
-              .map((s: any) => s.styleOption?.name || s.styleOption?.label || '')
-              .filter(Boolean);
-            return {
-              id: d.id,
-              matchRequestId: d.matchRequestId,
-              status: d.status,
-              customerId: d.matchRequest?.user?.id || '',
-              customerName: d.matchRequest?.user?.name || '고객',
-              customerImage: d.matchRequest?.user?.profileImageUrl || '/images/default-profile.png',
-              categoryName: d.matchRequest?.category?.name || '',
-              eventCategoryName: d.matchRequest?.eventCategory?.name || raw.eventType || '',
-              eventDate: d.matchRequest?.eventDate || raw.date || null,
-              eventTime: raw.timeStart || d.matchRequest?.eventTime || null,
-              eventTimeEnd: raw.timeEnd || null,
-              eventLocation: d.matchRequest?.eventLocation || raw.location || null,
-              budgetMin: d.matchRequest?.budgetMin ?? null,
-              budgetMax: d.matchRequest?.budgetMax ?? null,
-              planLabel: raw.planLabel || '',
-              note: raw.note || '',
-              moods,
-              styles,
-              personalities: (d.matchRequest?.personalities || []).map((p: any) => p.personalityOption?.name || p.personalityOption?.label || '').filter(Boolean),
-              deliveredAt: d.deliveredAt,
-            };
-          });
-        const active = mapped.filter((m) => m.status === 'pending' || m.status === 'viewed');
-        const archived = mapped.filter((m) => m.status === 'archived');
-        setMatchDeliveries(active);
-        setArchivedDeliveries(archived);
-        writeCache(MATCH_DELIVERIES_CACHE_KEY, active);
-        writeCache(ARCHIVED_DELIVERIES_CACHE_KEY, archived);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingMatch(false));
-  }, [authUser, cachedMatchDeliveries]);
+  }, [authUser, cached]);
 
   useEffect(() => {
-    if (!authUser) { setLoading(false); return; }
-    refreshInquiries(false);
-    const refresh = () => refreshInquiries();
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') refreshInquiries();
-    }, 15000);
-    window.addEventListener('focus', refresh);
-    window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
-    window.addEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
-    window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refresh);
-      window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
-      window.removeEventListener('freetiful:chat-rooms-changed', refresh as EventListener);
-      window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
-    };
-  }, [authUser, refreshInquiries]);
+    try {
+      localStorage.setItem(VIEWED_AT_KEY, String(Date.now()));
+      window.dispatchEvent(new Event('freetiful:inquiries-viewed'));
+    } catch {}
+  }, []);
 
   useEffect(() => {
-    if (!authUser) { setLoadingMatch(false); return; }
-    refreshMatchDeliveries(false);
-    const refresh = () => refreshMatchDeliveries();
+    refreshRequests(true);
+    const refresh = () => refreshRequests(false);
     const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') refreshMatchDeliveries();
-    }, 15000);
+      if (document.visibilityState === 'visible') refresh();
+    }, 10000);
     window.addEventListener('focus', refresh);
-    window.addEventListener('freetiful:chat-room-activity', refresh as EventListener);
     window.addEventListener('freetiful:match-requests-changed', refresh as EventListener);
     window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
-      window.removeEventListener('freetiful:chat-room-activity', refresh as EventListener);
       window.removeEventListener('freetiful:match-requests-changed', refresh as EventListener);
       window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
     };
-  }, [authUser, refreshMatchDeliveries]);
+  }, [refreshRequests]);
 
-  async function handleStartChat(m: MatchDeliveryView) {
-    if (initiatingChat) return;
-    setInitiatingChat(m.id);
+  const filtered = useMemo(() => {
+    if (filter === 'all') return requests;
+    return requests.filter((request) => request.requestKind === filter);
+  }, [filter, requests]);
+
+  async function handleReject(deliveryId: string) {
     try {
-      // 매칭 요청 수락 처리 (중복 허용 — 이미 replied면 실패해도 무시)
-      matchApi.respond(m.id, 'accept').catch(() => {});
-      // 먼저 채팅방 생성 (사회자→고객)
-      const res = await chatApi.createRoomAsPro(m.customerId, m.matchRequestId);
+      await matchApi.respond(deliveryId, 'reject');
+      setRequests((prev) => {
+        const next = prev.filter((request) => request.id !== deliveryId);
+        writeCache(next);
+        return next;
+      });
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      toast.success('요청을 거절했습니다');
+    } catch (e: any) {
+      toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    }
+  }
+
+  async function handleStartChat(request: MatchDeliveryView) {
+    if (initiatingChat) return;
+    setInitiatingChat(request.id);
+    try {
+      matchApi.respond(request.id, 'accept').catch(() => {});
+      const res = await chatApi.createRoomAsPro(request.customerId, request.matchRequestId);
       const roomId = (res as any)?.data?.id || (res as any)?.id;
-      if (roomId) {
-        setMatchDeliveries((prev) => prev.filter((item) => item.id !== m.id));
-        window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-        router.push(`/chat/${roomId}`);
-      } else {
+      if (!roomId) {
         toast.error('채팅방 생성에 실패했습니다');
+        return;
       }
+      setRequests((prev) => {
+        const next = prev.filter((item) => item.id !== request.id);
+        writeCache(next);
+        return next;
+      });
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      router.push(`/chat/${roomId}`);
     } catch (e: any) {
       toast.error(`채팅 연결 실패: ${e?.response?.data?.message || e?.message || ''}`);
     } finally {
@@ -276,339 +207,111 @@ export default function InquiriesPage() {
     }
   }
 
-  async function handleReject(deliveryId: string) {
-    try {
-      await matchApi.respond(deliveryId, 'reject');
-      setMatchDeliveries((prev) => prev.filter((m) => m.id !== deliveryId));
-      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-      toast.success('거절 처리되었습니다');
-    } catch (e: any) {
-      toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
-    }
-  }
-
-  async function handleArchive(m: MatchDeliveryView) {
-    try {
-      await matchApi.respond(m.id, 'archive');
-      setMatchDeliveries((prev) => {
-        const next = prev.filter((item) => item.id !== m.id);
-        writeCache(MATCH_DELIVERIES_CACHE_KEY, next);
-        return next;
-      });
-      setArchivedDeliveries((prev) => {
-        const archived = [{ ...m, status: 'archived' }, ...prev.filter((item) => item.id !== m.id)];
-        writeCache(ARCHIVED_DELIVERIES_CACHE_KEY, archived);
-        return archived;
-      });
-      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-      toast.success('보관함으로 이동했습니다');
-    } catch (e: any) {
-      toast.error(`보관 실패: ${e?.response?.data?.message || e?.message || ''}`);
-    }
-  }
-
-  const filtered = inquiries.filter((i) =>
-    filter === 'all' ? true : filter === 'pending' ? i.unread > 0 : filter === 'replied' ? i.unread === 0 : false
-  );
-  const pendingCount = inquiries.filter((i) => i.unread > 0).length;
-  const matchCount = activeMatchDeliveries.length;
-  const visibleMatchDeliveries = filter === 'match' && showArchivedMatches
-    ? archivedMatchDeliveries
-    : activeMatchDeliveries;
-  const archivedCount = archivedDeliveries.length;
-
-  const toggleNote = useCallback((id: string) => {
-    setExpandedNotes((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
-
-  const TABS: { key: Filter; label: string; badge?: number }[] = [
-    { key: 'all', label: '전체' },
-    { key: 'pending', label: '미답변', badge: pendingCount },
-    { key: 'replied', label: '답변완료' },
-    { key: 'match', label: '예약요청', badge: matchCount },
-    { key: 'archived', label: '보관', badge: archivedCount },
-  ];
-
   return (
-    <div className="pro-toss-page pb-24">
-      <div className="pro-toss-header px-4 pt-3 pb-2 sticky top-0 z-10">
-        <div className="flex items-center justify-between h-[52px]">
+    <div className="pro-toss-page pro-fast-render pb-24">
+      <div className="pro-toss-header sticky top-0 z-10 px-4 pb-3 pt-3">
+        <div className="flex h-[52px] items-center justify-between">
           <h1 className="text-[20px] font-bold text-[#2B313D]">새 요청</h1>
         </div>
-
-        <div className="flex items-center gap-2">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 flex-1">
-            {TABS.map(({ key, label, badge }) => {
-              const active = filter === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => {
-                    setFilter(key);
-                    if (key === 'match') setShowArchivedMatches(false);
-                  }}
-                  className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-semibold active:scale-95 transition-colors duration-200 ${active ? 'bg-[#3180F7] text-white' : 'text-[#6B7684] bg-[#F2F4F8]'}`}
-                >
-                  <span className="relative inline-flex items-center gap-1.5">
-                    {label}
-                    {badge != null && badge > 0 && (
-                      <span className={`text-[10px] font-bold px-1.5 rounded-full ${active ? 'bg-white text-gray-900' : 'bg-red-500 text-white'}`}>
-                        {badge}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-            </div>
-            <button
-              type="button"
-              aria-label="보관된 예약 요청 보기"
-              onClick={() => {
-                setFilter('match');
-                setShowArchivedMatches((prev) => !prev);
-              }}
-              className={`relative shrink-0 flex h-10 w-10 items-center justify-center rounded-full border transition-colors pro-toss-pressable ${
-                showArchivedMatches
-                  ? 'border-[#3180F7] bg-[#EEF4FF] text-[#3180F7]'
-                  : 'border-[#F2F4F8] bg-white text-[#8B95A1]'
-              }`}
-            >
-              <Archive size={18} />
-              {archivedMatchDeliveries.length > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#3180F7] px-1 text-center text-[10px] font-bold leading-[18px] text-white">
-                  {archivedMatchDeliveries.length}
-                </span>
-              )}
-            </button>
-          </div>
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+          {TABS.map((tab) => {
+            const active = filter === tab.key;
+            const count = tab.key === 'all'
+              ? requests.length
+              : requests.filter((request) => request.requestKind === tab.key).length;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFilter(tab.key)}
+                className={`shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold transition active:scale-95 ${
+                  active ? 'bg-[#3180F7] text-white' : 'bg-[#F2F4F8] text-[#6B7684]'
+                }`}
+              >
+                {tab.label}
+                {count > 0 && <span className="ml-1.5 text-[11px]">{count}</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div key={filter} className="animate-[proInquiryFade_160ms_ease-out]">
-      {/* 예약요청/전체 탭 — 매칭 딜리버리 카드들 */}
-      {(filter === 'match' || filter === 'all') && (
-        <div className="px-4 pt-3 pb-4 space-y-2">
-          {loadingMatch ? (
-            <ProCardListSkeleton count={2} actions className="space-y-3" />
-          ) : visibleMatchDeliveries.length === 0 && filter === 'match' ? (
-            <div className="text-center py-20">
-              <p className="text-gray-400 text-sm">
-                {showArchivedMatches ? '보관된 예약 요청이 없습니다' : '새 예약 요청이 없습니다'}
-              </p>
-              <p className="text-gray-300 text-[11px] mt-1">
-                {showArchivedMatches ? '보관하거나 2주가 지난 요청이 여기에 모입니다' : '고객이 매칭 요청을 보내면 여기에 표시됩니다'}
-              </p>
-            </div>
-          ) : visibleMatchDeliveries.length > 0 ? (
-            visibleMatchDeliveries.map((m) => (
-              <SwipeArchiveCard
-                key={m.id}
-                onArchive={() => handleArchive(m)}
-                disabled={showArchivedMatches}
-                className="pro-toss-card pro-toss-pressable p-4 space-y-3"
-                style={{ borderColor: '#F9F9F9' }}
-                archiveLabel="보관"
-              >
-                <div className="flex items-start gap-3">
-                  <img src={m.customerImage} alt="" className="w-10 h-10 rounded-[20px] object-cover shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        showArchivedMatches ? 'bg-gray-100 text-gray-600' : 'bg-[#3180F7] text-white'
-                      }`}>
-                        {showArchivedMatches ? '보관됨' : '예약 요청'}
+      <div className="space-y-3 px-4 pt-3">
+        {loading ? (
+          <ProCardListSkeleton count={4} actions className="space-y-3" />
+        ) : filtered.length === 0 ? (
+          <div className="py-24 text-center">
+            <p className="text-[15px] font-semibold text-[#8B95A1]">새 요청이 없습니다</p>
+          </div>
+        ) : (
+          filtered.map((request) => (
+            <article
+              key={request.id}
+              className="rounded-[24px] border-[0.6px] border-[#F9F9F9] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+            >
+              <div className="flex items-start gap-3">
+                <img
+                  src={request.customerImage}
+                  alt=""
+                  className="h-11 w-11 shrink-0 rounded-[20px] object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                      request.requestKind === 'multi'
+                        ? 'bg-[#EAF2FF] text-[#3180F7]'
+                        : 'bg-[#F2F4F8] text-[#4E5968]'
+                    }`}>
+                      {request.requestKind === 'multi' ? '다수요청' : '개인요청'}
+                    </span>
+                    <strong className="truncate text-[16px] font-bold text-[#2B313D]">{request.customerName}</strong>
+                    <span className="ml-auto shrink-0 text-[12px] font-normal text-[#A4ABBA]">{timeAgo(request.deliveredAt)}</span>
+                  </div>
+                  <p className="text-[14px] font-semibold text-[#4E5968]">
+                    {[request.categoryName, request.eventCategoryName].filter(Boolean).join(' · ')}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[13px] font-medium text-[#6B7684]">
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar size={13} />
+                      {formatDate(request.eventDate)} {formatTime(request.eventTime)}
+                    </span>
+                    {request.eventLocation && (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin size={13} />
+                        {request.eventLocation}
                       </span>
-                      <p className="text-sm font-bold text-gray-900 truncate">{m.customerName}</p>
-                      <span className="text-[10px] text-gray-300 ml-auto shrink-0">{timeAgo(m.deliveredAt)}</span>
-                    </div>
-                    <p className="text-[13px] text-gray-700 font-medium">
-                      {[m.categoryName, m.eventCategoryName].filter(Boolean).join(' · ')}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={10} /> {formatDate(m.eventDate)}
-                        {m.eventTime ? ` ${formatTime(m.eventTime)}${m.eventTimeEnd ? ` ~ ${formatTime(m.eventTimeEnd)}` : ''}` : ''}
-                      </span>
-                      {m.eventLocation && <span className="flex items-center gap-1"><MapPin size={10} /> {m.eventLocation}</span>}
-                    </div>
-                    {m.planLabel && (
-                      <p className="text-[12px] font-bold text-gray-700 mt-1.5">선택 플랜: {m.planLabel}</p>
-                    )}
-                    {(m.styles.length > 0 || m.personalities.length > 0 || m.moods.length > 0) && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {[...m.moods, ...m.styles, ...m.personalities].slice(0, 8).map((tag, i) => (
-                          <span key={i} className="text-[10px] px-2 py-1 rounded-full bg-[#F2F4F8] text-[#6B7684] font-semibold">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {m.note && (
-                      <button
-                        type="button"
-                        onClick={() => toggleNote(m.id)}
-                        className="mt-2 block w-full rounded-[18px] bg-[#F8FAFC] px-3.5 py-3 text-left ring-1 ring-[#EEF2F7]"
-                      >
-                        <div
-                          className={`relative overflow-hidden transition-[max-height] duration-300 ease-out ${expandedNotes[m.id] ? 'max-h-[420px]' : 'max-h-10'}`}
-                        >
-                          <p className="pr-5 text-[12px] leading-5 text-gray-600 whitespace-pre-wrap break-words">
-                            {m.note}
-                          </p>
-                          {!expandedNotes[m.id] && (
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-[18px] bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/92 to-transparent" />
-                          )}
-                          <span className="pointer-events-none absolute bottom-0 right-0 text-[#D1D5DB]">
-                            {expandedNotes[m.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          </span>
-                        </div>
-                      </button>
                     )}
                   </div>
-                </div>
-
-                <div className="flex gap-2 pt-2 border-t border-gray-50">
-                  <button
-                    onClick={() => handleArchive(m)}
-                    disabled={initiatingChat === m.id}
-                    className="h-11 px-4 rounded-[14px] bg-[#EAF2FF] text-[#3180F7] text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-50"
-                  >
-                    보관
-                  </button>
-                  <button
-                    onClick={() => handleReject(m.id)}
-                    disabled={initiatingChat === m.id || showArchivedMatches}
-                    className="flex-1 h-11 rounded-[14px] bg-[#F2F4F8] text-[#4E5968] text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-50"
-                  >
-                    거절
-                  </button>
-                  <button
-                    onClick={() => handleStartChat(m)}
-                    disabled={initiatingChat === m.id || showArchivedMatches}
-                    className="flex-1 h-11 rounded-[14px] bg-[#3180F7] text-white text-[18px] font-semibold active:scale-95 transition-transform disabled:opacity-60 flex items-center justify-center gap-1 shadow-[0_10px_20px_rgba(49,128,247,0.16)]"
-                  >
-                    {initiatingChat === m.id ? (
-                      <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> 연결 중…</>
-                    ) : (
-                      <>{showArchivedMatches ? '보관됨' : '채팅'}</>
-                    )}
-                  </button>
-                </div>
-              </SwipeArchiveCard>
-            ))
-          ) : null}
-        </div>
-      )}
-
-      {filter === 'archived' && (
-        <div className="px-4 pt-3 pb-4 space-y-3">
-          {loadingMatch ? (
-            <ProCardListSkeleton count={2} actions className="space-y-3" />
-          ) : archivedDeliveries.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-gray-400 text-sm">보관된 요청이 없습니다</p>
-              <p className="text-gray-300 text-[11px] mt-1">요청 카드를 보관하면 이곳에서 다시 확인할 수 있습니다</p>
-            </div>
-          ) : (
-            archivedDeliveries.map((m) => (
-              <div key={m.id} className="pro-toss-card p-4 space-y-3 opacity-90">
-                <div className="flex items-start gap-3">
-                  <img src={m.customerImage} alt="" className="w-10 h-10 rounded-[20px] object-cover shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">보관됨</span>
-                      <p className="text-sm font-bold text-gray-900 truncate">{m.customerName}</p>
-                      <span className="text-[10px] text-gray-300 ml-auto shrink-0">{timeAgo(m.deliveredAt)}</span>
-                    </div>
-                    <p className="text-[13px] text-gray-700 font-medium">
-                      {[m.categoryName, m.eventCategoryName].filter(Boolean).join(' · ')}
+                  {request.note && (
+                    <p className="mt-3 rounded-[16px] bg-[#F8FAFC] px-3.5 py-3 text-[13px] leading-5 text-[#4E5968]">
+                      {request.note}
                     </p>
-                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={10} /> {formatDate(m.eventDate)}
-                        {m.eventTime ? ` ${formatTime(m.eventTime)}${m.eventTimeEnd ? ` ~ ${formatTime(m.eventTimeEnd)}` : ''}` : ''}
-                      </span>
-                      {m.eventLocation && <span className="flex items-center gap-1"><MapPin size={10} /> {m.eventLocation}</span>}
-                    </div>
-                    {m.note && (
-                      <button
-                        type="button"
-                        onClick={() => toggleNote(`archived-${m.id}`)}
-                        className="mt-2 block w-full rounded-[18px] bg-[#F8FAFC] px-3.5 py-3 text-left ring-1 ring-[#EEF2F7]"
-                      >
-                        <div
-                          className={`relative overflow-hidden transition-[max-height] duration-300 ease-out ${expandedNotes[`archived-${m.id}`] ? 'max-h-[420px]' : 'max-h-10'}`}
-                        >
-                          <p className="pr-5 text-[12px] leading-5 text-gray-600 whitespace-pre-wrap break-words">
-                            {m.note}
-                          </p>
-                          {!expandedNotes[`archived-${m.id}`] && (
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-[18px] bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/92 to-transparent" />
-                          )}
-                          <span className="pointer-events-none absolute bottom-0 right-0 text-[#D1D5DB]">
-                            {expandedNotes[`archived-${m.id}`] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          </span>
-                        </div>
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      )}
 
-      {filter === 'all' && !loadingMatch && activeMatchDeliveries.length > 0 && !loading && filtered.length > 0 && (
-        <div className="px-4">
-          <div className="h-px bg-gray-100" />
-        </div>
-      )}
-
-      {/* 채팅 탭 (전체/미답변/답변완료) */}
-      {filter !== 'match' && filter !== 'archived' && (
-        <div className="px-4 pt-3 pb-4 space-y-3">
-          {loading ? (
-            <ProCardListSkeleton count={4} className="space-y-3" />
-          ) : filtered.length === 0 && !(filter === 'all' && matchDeliveries.length > 0) ? (
-            <div className="text-center py-20">
-              <p className="text-gray-400 text-sm">문의가 없습니다</p>
-            </div>
-          ) : (
-            filtered.map((inq) => (
-              <Link key={inq.id} href={`/chat/${inq.id}`} className="pro-toss-card pro-toss-pressable p-4 block">
-                <div className="flex items-start gap-3">
-                  <img src={inq.image} alt={inq.userName} className="h-10 w-10 shrink-0 rounded-[20px] object-cover" />
-                  <div className="flex-1 min-w-0">
-                    <div className="mb-1 flex items-center gap-1.5">
-                      {inq.hasQuote && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">견적요청</span>
-                      )}
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F2F4F8] text-[#6B7280]">고객</span>
-                      <p className="truncate text-[16px] font-semibold text-[#2B313D]">{inq.userName}</p>
-                      <span className="ml-auto text-[14px] font-normal text-[#A4ABBA]">{inq.receivedAt}</span>
-                      {inq.unread > 0 && (
-                        <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{inq.unread}</span>
-                      )}
-                    </div>
-                    <p className="line-clamp-2 text-[14px] text-gray-600">{inq.message}</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="ml-auto"><ChevronRight size={14} className="text-gray-300" /></span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))
-          )}
-        </div>
-      )}
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleReject(request.id)}
+                  disabled={initiatingChat === request.id}
+                  className="h-12 flex-1 rounded-[12px] bg-[#F2F4F8] text-[18px] font-semibold text-[#4E5968] transition active:scale-95 disabled:opacity-50"
+                >
+                  거절
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartChat(request)}
+                  disabled={initiatingChat === request.id}
+                  className="h-12 flex-1 rounded-[12px] bg-[#3180F7] text-[18px] font-semibold text-white shadow-[0_10px_20px_rgba(49,128,247,0.16)] transition active:scale-95 disabled:opacity-60"
+                >
+                  {initiatingChat === request.id ? '연결 중' : '채팅'}
+                </button>
+              </div>
+            </article>
+          ))
+        )}
       </div>
-      <style jsx>{`
-        @keyframes proInquiryFade {
-          from { opacity: 0.72; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }

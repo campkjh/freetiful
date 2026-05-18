@@ -97,28 +97,6 @@ export class ReactToMessageDto {
   emoji: string;
 }
 
-// ─── Scheduled Messages ──────────────────────────────────────────────────────
-
-export class CreateScheduledMessageDto {
-  @ApiProperty({ enum: MessageTypeEnum })
-  @IsEnum(MessageTypeEnum)
-  type: MessageTypeEnum;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
-  content?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  metadata?: Record<string, unknown>;
-
-  @ApiProperty()
-  @IsDateString()
-  scheduledAt: string;
-}
-
 // ─── Frequent Messages ──────────────────────────────────────────────────────
 
 export class CreateFrequentMessageDto {
@@ -149,11 +127,6 @@ export class UpdateFrequentMessageDto {
 // ─── Query / Pagination ─────────────────────────────────────────────────────
 
 export class ChatRoomQueryDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  search?: string;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()
@@ -187,11 +160,6 @@ export class ChatRoomQueryDto {
 }
 
 export class MessageQueryDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  search?: string;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()

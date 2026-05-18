@@ -37,31 +37,57 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"
         />
-        <script defer src="https://developers.kakao.com/sdk/js/kakao.min.js" />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17930822929" />
         <script
-          dangerouslySetInnerHTML={{
-            __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','AW-17930822929');`,
-          }}
-        />
-        {/* Google Tag Manager */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-MPKFHWTN');`,
-          }}
-        />
-        <script type="text/javascript" src="https://wcs.naver.net/wcslog.js" />
-        <script
-          type="text/javascript"
           dangerouslySetInnerHTML={{
             __html: `
-              window.wcs_add = window.wcs_add || {};
-              window.wcs_add.wa = 's_4ba653e912f8';
-              window._nasa = window._nasa || {};
-              if (window.wcs) {
-                window.wcs.inflow();
-                window.wcs_do();
-              }
+              (function () {
+                var isAndroidProDashboard = /Android/i.test(navigator.userAgent || '') && location.pathname.indexOf('/pro-dashboard') === 0;
+                var bootDelay = isAndroidProDashboard ? 2200 : 0;
+                var appendScript = function (src, attrs, onload) {
+                  var script = document.createElement('script');
+                  script.src = src;
+                  if (attrs) {
+                    Object.keys(attrs).forEach(function (key) {
+                      if (attrs[key] === true) script.setAttribute(key, '');
+                      else script.setAttribute(key, attrs[key]);
+                    });
+                  }
+                  if (onload) script.onload = onload;
+                  document.head.appendChild(script);
+                };
+                var bootMarketing = function () {
+                  if (window.__freetifulMarketingLoaded) return;
+                  window.__freetifulMarketingLoaded = true;
+                  appendScript('https://developers.kakao.com/sdk/js/kakao.min.js', { defer: true });
+                  window.dataLayer = window.dataLayer || [];
+                  window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+                  window.gtag('js', new Date());
+                  window.gtag('config', 'AW-17930822929');
+                  appendScript('https://www.googletagmanager.com/gtag/js?id=AW-17930822929', { async: true });
+                  (function(w,d,s,l,i){
+                    w[l]=w[l]||[];
+                    w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
+                    var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
+                    j.async=true;
+                    j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
+                    f.parentNode.insertBefore(j,f);
+                  })(window,document,'script','dataLayer','GTM-MPKFHWTN');
+                  window.wcs_add = window.wcs_add || {};
+                  window.wcs_add.wa = 's_4ba653e912f8';
+                  window._nasa = window._nasa || {};
+                  appendScript('https://wcs.naver.net/wcslog.js', {}, function () {
+                    if (window.wcs) {
+                      window.wcs.inflow();
+                      window.wcs_do();
+                    }
+                  });
+                };
+                if (bootDelay) {
+                  window.setTimeout(bootMarketing, bootDelay);
+                } else {
+                  bootMarketing();
+                }
+              })();
             `,
           }}
         />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -12,22 +12,12 @@ import {
   SlidersHorizontal,
   X,
   ChevronUp,
-  Heart,
   Grid2X2,
   Zap,
 } from 'lucide-react';
 import { Suspense } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { discoveryApi, getCachedProList, type ProListItem } from '@/lib/api/discovery.api';
-import { useAuthStore } from '@/lib/store/auth.store';
-import {
-  applyFavoriteCountToLocalCaches,
-  emitFavoriteChange,
-  favoriteApi,
-  readStoredFavoriteIds,
-  subscribeFavoriteChanges,
-  syncStoredFavoriteId,
-} from '@/lib/api/favorite.api';
 
 interface ProItem {
   id: string;
@@ -38,8 +28,7 @@ interface ProItem {
   isNationwide: boolean;
   rating: number;
   reviews: number;
-  favoriteCount: number;
-  puddingRank: number;
+  rank: number;
   image: string;
   intro: string;
   price: number;
@@ -48,7 +37,7 @@ interface ProItem {
 
 const REGIONS = ['전체', '서울/경기', '강원', '충청', '전라', '경상', '제주'];
 const SORT_OPTIONS = [
-  { value: 'pudding_rank', label: '인기순' },
+  { value: 'popular', label: '인기순' },
   { value: 'avg_rating', label: '평점순' },
   { value: 'review_count', label: '리뷰순' },
   { value: 'price_low', label: '가격 낮은순' },
@@ -65,18 +54,17 @@ const PRICE_RANGES = [
 
 const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
 const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외국어사회자'];
-const PC_NAV_ITEMS = ['결혼식 사회자', '행사 사회자', '외국어 사회자', '쇼호스트', '다수견적'];
+const PC_NAV_ITEMS = ['결혼식 사회자', '행사 사회자', '외국어 사회자', '쇼호스트'];
 const PC_SIDEBAR_GROUPS = [
   { title: '사회자', items: ['전체', '사회자', '외국어사회자'] },
   { title: '행사 진행', items: ['쇼호스트', '축가/연주'] },
   { title: '지역', items: REGIONS },
   { title: '외국어', items: LANGUAGES },
 ];
-const PC_QUOTE_CATEGORY_LABELS = ['결혼식 사회자', '행사 사회자', '외국어 사회자'];
 
 const PAGE_SIZE = 10;
-const INITIAL_PRO_LIST_PARAMS = { limit: 80, sort: 'pudding' as const, withTotal: true };
-const FULL_PRO_LIST_PARAMS = { limit: 500, sort: 'pudding' as const, withTotal: true };
+const INITIAL_PRO_LIST_PARAMS = { limit: 80, sort: 'reviews' as const, withTotal: true };
+const FULL_PRO_LIST_PARAMS = { limit: 500, sort: 'reviews' as const, withTotal: true };
 const TAB_SPRING = { type: 'spring' as const, stiffness: 520, damping: 36, mass: 0.75 };
 const PANEL_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -149,13 +137,9 @@ function FilterPill({
 function ProListCard({
   pro,
   index,
-  isFavorited,
-  onToggleFavorite,
 }: {
   pro: ProItem;
   index: number;
-  isFavorited: boolean;
-  onToggleFavorite: (event: MouseEvent, proId: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const prefetchStarted = useRef(false);
@@ -199,7 +183,7 @@ function ProListCard({
         <Link href={`/pros/${pro.id}`} onFocus={warmDetail} className="absolute inset-0 z-0 rounded-xl" aria-label={`${pro.name} 상세보기`} />
         <div className="pointer-events-none relative z-10 w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100 shrink-0">
           <img
-            src={pro.image || '/images/default-profile.svg'}
+            src={pro.image || '/images/default-profile.png'}
             alt={pro.name}
             loading={index < 4 ? 'eager' : 'lazy'}
             decoding="async"
@@ -216,9 +200,9 @@ function ProListCard({
             <p className="text-[16px] font-bold text-gray-900 leading-tight">
               {pro.categories[0] || '사회자'} {pro.name}
             </p>
-            {pro.puddingRank > 0 && pro.puddingRank <= 10 && (
+            {pro.rank > 0 && pro.rank <= 10 && (
               <span className="shrink-0 rounded-full bg-[#EAF3FF] px-2 py-0.5 text-[10px] font-bold text-[#3180F7]">
-                TOP {pro.puddingRank}
+                TOP {pro.rank}
               </span>
             )}
           </div>
@@ -227,10 +211,6 @@ function ProListCard({
               <Star size={13} className="fill-yellow-400 text-yellow-400" />
               <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
               <span className="text-[13px] text-gray-400">({pro.reviews})</span>
-            </div>
-            <div className="flex items-center gap-0.5">
-              <Heart size={12} className="fill-[#FF4D4D] text-[#FF4D4D]" />
-              <span className="text-[12px] font-semibold text-gray-500">{pro.favoriteCount.toLocaleString()}</span>
             </div>
           </div>
           <p className="text-[15px] font-bold text-gray-900 mt-1">
@@ -252,17 +232,6 @@ function ProListCard({
             ))}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={(event) => onToggleFavorite(event, pro.id)}
-          className="relative z-20 -mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full active:scale-90 transition-transform"
-          aria-label={isFavorited ? '찜 해제' : '찜하기'}
-        >
-          <Heart
-            size={22}
-            className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-300'}
-          />
-        </button>
       </div>
     </div>
   );
@@ -280,7 +249,6 @@ function DesktopProsHeader({
   setSelectedType: (value: string) => void;
 }) {
   const applyNav = (label: string) => {
-    if (label === '다수견적') return;
     if (label === '외국어 사회자') {
       setSelectedType('외국어사회자');
       return;
@@ -318,9 +286,6 @@ function DesktopProsHeader({
           <Link href="/biz" className="whitespace-nowrap transition hover:text-[#3180F7]">비즈문의</Link>
           <Link href="/pro-register" className="whitespace-nowrap transition hover:text-[#3180F7]">사회자 등록</Link>
           <Link href="/my" className="whitespace-nowrap transition hover:text-[#3180F7]">마이페이지</Link>
-          <Link href="/quote" className="rounded-[14px] bg-[#111318] px-6 py-4 text-white shadow-[0_12px_24px_rgba(17,19,24,0.14)] transition hover:bg-[#3180F7]">
-            다수견적
-          </Link>
         </nav>
       </div>
       <div className="border-t border-[#F2F4F7]">
@@ -335,11 +300,7 @@ function DesktopProsHeader({
             전체
             <ChevronDown className="h-5 w-5 text-gray-500" />
           </button>
-          {PC_NAV_ITEMS.map((item) => item === '다수견적' ? (
-            <Link key={item} href="/quote" className="ml-auto rounded-full bg-[#EAF3FF] px-5 py-2.5 text-[15px] font-extrabold text-[#3180F7] transition hover:bg-[#3180F7] hover:text-white">
-              {item}
-            </Link>
-          ) : (
+          {PC_NAV_ITEMS.map((item) => (
             <button
               key={item}
               type="button"
@@ -411,13 +372,9 @@ function DesktopProsSidebar({
 function DesktopProMarketCard({
   pro,
   index,
-  isFavorited,
-  onToggleFavorite,
 }: {
   pro: ProItem;
   index: number;
-  isFavorited: boolean;
-  onToggleFavorite: (event: MouseEvent, proId: string) => void;
 }) {
   const displayCategory = pro.categories[0] || '사회자';
   const tagItems = [
@@ -430,22 +387,14 @@ function DesktopProMarketCard({
       <div className="relative aspect-[16/12] overflow-hidden rounded-[10px] bg-[#F2F4F7]">
         <Link href={`/pros/${pro.id}`} onMouseEnter={() => discoveryApi.getProDetail(pro.id).catch(() => {})} className="block h-full w-full">
           <img
-            src={pro.image || '/images/default-profile.svg'}
+            src={pro.image || '/images/default-profile.png'}
             alt={pro.name}
             loading={index < 8 ? 'eager' : 'lazy'}
             decoding="async"
             className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
           />
         </Link>
-        <button
-          type="button"
-          onClick={(event) => onToggleFavorite(event, pro.id)}
-          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-[0_8px_18px_rgba(15,23,42,0.12)] transition active:scale-90"
-          aria-label={isFavorited ? '찜 해제' : '찜하기'}
-        >
-          <Heart size={21} className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'} />
-        </button>
-        {pro.puddingRank > 0 && pro.puddingRank <= 12 && (
+        {pro.rank > 0 && pro.rank <= 12 && (
           <span className="absolute left-3 top-3 rounded-[4px] bg-[#111318] px-2.5 py-1 text-[13px] font-extrabold italic text-white">
             BEST
           </span>
@@ -494,8 +443,7 @@ function mapApiPros(items: ProListItem[]): ProItem[] {
       isNationwide: p.isNationwide ?? false,
       rating: p.avgRating || 0,
       reviews: p.reviewCount || 0,
-      favoriteCount: p.favoriteCount ?? 0,
-      puddingRank: idx + 1,
+      rank: idx + 1,
       image: p.profileImageUrl || p.images?.[0] || '',
       intro: p.shortIntro || '',
       price: 0,
@@ -513,69 +461,6 @@ function ProsListContent() {
   }
   const [apiPros, setApiPros] = useState<ProItem[]>(() => initialCachedProsRef.current || []);
   const [apiLoaded, setApiLoaded] = useState(() => Boolean(initialCachedProsRef.current?.length));
-  const authUser = useAuthStore((s) => s.user);
-  const [favorites, setFavorites] = useState<Set<string>>(() => new Set(readStoredFavoriteIds()));
-
-  const updateFavoriteCount = (proId: string, valueOrDelta: number, mode: 'set' | 'delta' = 'delta') => {
-    applyFavoriteCountToLocalCaches(proId, mode === 'set' ? { favoriteCount: valueOrDelta } : { delta: valueOrDelta });
-    setApiPros((prev) => prev.map((item) => {
-      if (item.id !== proId) return item;
-      const next = mode === 'set' ? valueOrDelta : item.favoriteCount + valueOrDelta;
-      return { ...item, favoriteCount: Math.max(0, next) };
-    }));
-  };
-
-  useEffect(() => {
-    return subscribeFavoriteChanges((detail) => {
-      if (!detail?.proProfileId || detail.source === 'pros-list-optimistic' || detail.source === 'pros-list-revert') return;
-      setFavorites(new Set(readStoredFavoriteIds()));
-      if (typeof detail.favoriteCount === 'number') {
-        updateFavoriteCount(detail.proProfileId, detail.favoriteCount, 'set');
-      } else if (typeof detail.delta === 'number') {
-        updateFavoriteCount(detail.proProfileId, detail.delta, 'delta');
-      }
-    });
-  }, []);
-
-  const toggleFavorite = (event: MouseEvent, proId: string) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const isAdding = !favorites.has(proId);
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (isAdding) next.add(proId);
-      else next.delete(proId);
-      return next;
-    });
-    syncStoredFavoriteId(proId, isAdding);
-    updateFavoriteCount(proId, isAdding ? 1 : -1);
-    emitFavoriteChange({
-      proProfileId: proId,
-      isFavorited: isAdding,
-      delta: isAdding ? 1 : -1,
-      source: 'pros-list-optimistic',
-    });
-
-    if (authUser) {
-      favoriteApi.toggle(proId).catch(() => {
-        setFavorites((prev) => {
-          const next = new Set(prev);
-          if (isAdding) next.delete(proId);
-          else next.add(proId);
-          return next;
-        });
-        syncStoredFavoriteId(proId, !isAdding);
-        updateFavoriteCount(proId, isAdding ? -1 : 1);
-        emitFavoriteChange({
-          proProfileId: proId,
-          isFavorited: !isAdding,
-          delta: isAdding ? -1 : 1,
-          source: 'pros-list-revert',
-        });
-      });
-    }
-  };
-
   useEffect(() => {
     let cancelled = false;
     let idleHandle = 0;
@@ -626,7 +511,7 @@ function ProsListContent() {
           : '전체';
 
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
-  const [sortBy, setSortBy] = useState('pudding_rank');
+  const [sortBy, setSortBy] = useState('popular');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedPrice, setSelectedPrice] = useState(0);
   const [selectedLang, setSelectedLang] = useState(isForeignFilter ? '영어' : '전체');
@@ -706,7 +591,7 @@ function ProsListContent() {
         results = [...results].sort((a, b) => b.experience - a.experience);
         break;
       default:
-        results = [...results].sort((a, b) => a.puddingRank - b.puddingRank);
+        results = [...results].sort((a, b) => a.rank - b.rank);
         break;
     }
 
@@ -718,11 +603,6 @@ function ProsListContent() {
   const maxPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const hasActiveFilters = selectedRegion !== '전체' || selectedPrice !== 0 || selectedLang !== '전체' || selectedType !== '전체';
   const activeFilterCount = (selectedRegion !== '전체' ? 1 : 0) + (selectedPrice !== 0 ? 1 : 0) + (selectedLang !== '전체' ? 1 : 0) + (selectedType !== '전체' ? 1 : 0);
-  const showDualQuoteButtons =
-    isForeignFilter
-    || selectedType === '외국어사회자'
-    || ['전문행사사회자', '행사사회자', '행사MC'].includes(normalizedCategoryParam);
-
   useEffect(() => {
     if (!hasMore) return;
     const el = loadMoreRef.current;
@@ -838,21 +718,6 @@ function ProsListContent() {
                 <Zap className="h-4 w-4 fill-[#3180F7] text-[#3180F7]" />
                 빠른 응답
               </button>
-              <div className="ml-1 flex items-center gap-2">
-                {PC_QUOTE_CATEGORY_LABELS.map((label, index) => (
-                  <Link
-                    key={label}
-                    href={index === 1 ? '/quote?mode=event' : '/quote'}
-                    className={`h-[46px] rounded-[12px] px-5 text-[15px] font-extrabold leading-[46px] transition ${
-                      index === 0
-                        ? 'bg-[#3180F7] text-white shadow-[0_12px_24px_rgba(49,128,247,0.22)] hover:bg-[#176CE6]'
-                        : 'bg-[#EAF3FF] text-[#3180F7] hover:bg-[#DDEEFF]'
-                    }`}
-                  >
-                    {label} 다수견적
-                  </Link>
-                ))}
-              </div>
             </div>
 
             <div className="flex items-center gap-5">
@@ -883,13 +748,7 @@ function ProsListContent() {
               <>
                 <div className="grid grid-cols-4 gap-x-8 gap-y-12">
                   {paginatedPros.map((pro, index) => (
-                    <DesktopProMarketCard
-                      key={pro.id}
-                      pro={pro}
-                      index={index}
-                      isFavorited={favorites.has(pro.id)}
-                      onToggleFavorite={toggleFavorite}
-                    />
+                    <DesktopProMarketCard key={pro.id} pro={pro} index={index} />
                   ))}
                 </div>
                 {hasMore && (
@@ -906,7 +765,7 @@ function ProsListContent() {
                 <Search size={38} className="text-gray-300" />
                 <p className="mt-5 text-[18px] font-bold text-gray-500">해당 조건의 사회자가 없습니다</p>
                 <button
-                  onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); setSelectedLang('전체'); setSelectedType('전체'); }}
+                  onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
                   className="mt-5 rounded-full bg-[#3180F7] px-5 py-3 text-[15px] font-bold text-white"
                 >
                   필터 초기화
@@ -1100,7 +959,7 @@ function ProsListContent() {
                   {/* Reset + Apply */}
                   {hasActiveFilters && (
                     <button
-                      onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); setSelectedLang('전체'); setSelectedType('전체'); }}
+                      onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
                       className="text-[12px] text-red-500 font-medium flex items-center gap-1"
                     >
                       <X size={12} />
@@ -1130,20 +989,6 @@ function ProsListContent() {
           명
         </p>
         <div className="flex items-center gap-2">
-          {showDualQuoteButtons ? (
-            <>
-              <Link href="/quote" className="rounded-full bg-[#F3F8FF] px-3 py-1.5 text-[12px] font-bold text-[#3180F7] active:scale-95 transition-transform">
-                결혼식 다수견적
-              </Link>
-              <Link href="/quote?mode=event" className="rounded-full bg-[#3180F7] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_6px_14px_rgba(49,128,247,0.18)] active:scale-95 transition-transform">
-                행사 다수견적
-              </Link>
-            </>
-          ) : (
-            <Link href="/quote" className="rounded-full bg-[#3180F7] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0_6px_14px_rgba(49,128,247,0.18)] active:scale-95 transition-transform">
-              다수견적
-            </Link>
-          )}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
@@ -1156,7 +1001,7 @@ function ProsListContent() {
         </div>
       </div>
 
-      {/* Pro List — 찜목록 스타일 (가로형 카드) */}
+      {/* Pro List */}
       <motion.div
         ref={listRef}
         animate={{
@@ -1170,13 +1015,7 @@ function ProsListContent() {
           <div>
             <div className="divide-y divide-gray-100">
               {paginatedPros.map((pro, i) => (
-                <ProListCard
-                  key={pro.id}
-                  pro={pro}
-                  index={i}
-                  isFavorited={favorites.has(pro.id)}
-                  onToggleFavorite={toggleFavorite}
-                />
+                <ProListCard key={pro.id} pro={pro} index={i} />
               ))}
             </div>
 
@@ -1206,7 +1045,7 @@ function ProsListContent() {
             </div>
             <p className="text-gray-400 text-[14px] mb-1">해당 조건의 사회자가 없습니다</p>
             <button
-              onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('pudding_rank'); setSelectedLang('전체'); setSelectedType('전체'); }}
+              onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
               className="text-primary-500 text-[13px] font-semibold mt-2"
             >
               필터 초기화

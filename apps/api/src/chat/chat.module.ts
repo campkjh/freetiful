@@ -7,10 +7,9 @@ import { ChatRealtimeService } from './chat-realtime.service';
 import { NotificationModule } from '../notification/notification.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ImageModule } from '../image/image.module';
-import { PuddingModule } from '../pudding/pudding.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, NotificationModule, ImageModule, PuddingModule],
+  imports: [AuthModule, PrismaModule, NotificationModule, ImageModule],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, ChatRealtimeService],
   exports: [ChatService, ChatRealtimeService],

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Camera, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { addPoints } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { reviewApi } from '@/lib/api/review.api';
 
@@ -174,7 +173,6 @@ export default function WriteReviewPage() {
     }
 
     await new Promise(r => setTimeout(r, 1000));
-    addPoints('review_write', 500, '리뷰 작성 적립');
     setSubmitting(false);
     setShowSuccess(true);
   };

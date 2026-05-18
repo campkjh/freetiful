@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, Phone, Share2, Heart, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2, Sparkles } from 'lucide-react';
+import { ChevronLeft, Phone, Share2, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
@@ -18,14 +18,6 @@ import {
   getWeddingPlanTemplate,
   normalizeWeddingPlanKey,
 } from '@/lib/wedding-plans';
-import {
-  applyFavoriteCountToLocalCaches,
-  emitFavoriteChange,
-  favoriteApi,
-  readStoredFavoriteIds,
-  syncStoredFavoriteId,
-  subscribeFavoriteChanges,
-} from '@/lib/api/favorite.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { getPreWarmByProId } from '@/lib/chat-prewarm';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
@@ -222,7 +214,6 @@ interface ProDetailData {
   faqs: { question: string; answer: string }[];
   rating: number;
   reviewCount: number;
-  favoriteCount: number;
   plans: { id: string; label: string; price: number; duration: string; title: string; desc: string[]; workDays: number; revisions: number }[];
   description: string;
   hasDescriptionContent: boolean;
@@ -439,9 +430,9 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     id: p.id,
     userId: p.userId,
     name: p.name,
-    profileImage: images[0] || '/images/default-profile.svg',
-    mainImage: images[0] || '/images/default-profile.svg',
-    images: images.length > 0 ? images : ['/images/default-profile.svg'],
+    profileImage: images[0] || '/images/default-profile.png',
+    mainImage: images[0] || '/images/default-profile.png',
+    images: images.length > 0 ? images : ['/images/default-profile.png'],
     title: `${proCategory} ${p.name}`,
     categoryName: proCategory,
     tags: previewTags,
@@ -452,7 +443,6 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     faqs: [],
     rating: p.avgRating || 0,
     reviewCount: p.reviewCount || 0,
-    favoriteCount: p.favoriteCount || 0,
     plans: plans.length > 0 ? plans : [{
       id: 'base',
       label: '기본',
@@ -562,7 +552,6 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     faqs,
     rating: res.avgRating || 0,
     reviewCount: res.reviewCount || 0,
-    favoriteCount: res.favoriteCount || 0,
     plans: plans.length > 0 ? plans : fallbackPlans,
     description: fallbackDescription,
     hasDescriptionContent,
@@ -1037,7 +1026,6 @@ export default function ProDetailPage() {
           faqs: localFaqs,
           rating: 5.0,
           reviewCount: 0,
-          favoriteCount: 0,
           plans: localPlans,
           description: fallbackDescription,
           hasDescriptionContent,
@@ -1161,41 +1149,6 @@ export default function ProDetailPage() {
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const authUser = useAuthStore((s) => s.user);
-  const [isFavorited, setIsFavorited] = useState(false);
-
-  useEffect(() => {
-    setIsFavorited(readStoredFavoriteIds().includes(id));
-  }, [id]);
-
-  useEffect(() => {
-    return subscribeFavoriteChanges((detail) => {
-      if (!detail?.proProfileId || detail.proProfileId !== id) return;
-      setIsFavorited(detail.isFavorited);
-      if (typeof detail.favoriteCount === 'number') {
-        setPro((current) => current ? { ...current, favoriteCount: detail.favoriteCount || 0 } : current);
-      }
-    });
-  }, [id]);
-
-  // Check favorite status from API
-  useEffect(() => {
-    if (!authUser || !id) return;
-    let cancelled = false;
-    const handle = runWhenIdle(() => {
-      favoriteApi.check(id)
-        .then((res) => {
-          if (cancelled) return;
-          setIsFavorited(res.isFavorited);
-          syncStoredFavoriteId(id, res.isFavorited);
-        })
-        .catch(() => {});
-    }, 1000);
-    return () => {
-      cancelled = true;
-      cancelIdleRun(handle);
-    };
-  }, [authUser, id]);
-
   // 채팅 번들만 prefetch (실제 createRoom 은 사용자가 "문의하기" 버튼 클릭 시점에 실행)
   // 이전 버전은 여기서 preWarmChat(id) 을 호출해 방문만 해도 유령 방이 생기는 버그가 있었음
   useEffect(() => {
@@ -1208,12 +1161,8 @@ export default function ProDetailPage() {
   const [descExpanded, setDescExpanded] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
-  const [favoriteItems, setFavoriteItems] = useState<Set<string>>(new Set());
   const [imageModal, setImageModal] = useState<string | null>(null);
-  const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
-  const lastTapRef = useRef(0);
   const [shareModal, setShareModal] = useState(false);
-  const [purchaseModal, setPurchaseModal] = useState(false);
   const [reviewsModal, setReviewsModal] = useState(false);
   const [phoneModal, setPhoneModal] = useState(false);
   const [loginModal, setLoginModal] = useState(false);
@@ -1300,26 +1249,11 @@ export default function ProDetailPage() {
 
   // Body scroll lock when modals open
   useEffect(() => {
-    const anyModal = imageModal || shareModal || purchaseModal || reviewsModal || phoneModal;
+    const anyModal = imageModal || shareModal || reviewsModal || phoneModal;
     if (anyModal) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
     return () => { document.body.style.overflow = ''; };
-  }, [imageModal, shareModal, purchaseModal, reviewsModal, phoneModal]);
-
-  // Toggle carousel favorite
-  const toggleCarouselFav = (id: string) => {
-    setFavoriteItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        toast('찜 해제', { icon: '💙' });
-      } else {
-        next.add(id);
-        toast('찜 목록에 추가됨', { icon: '❤️' });
-      }
-      return next;
-    });
-  };
+  }, [imageModal, shareModal, reviewsModal, phoneModal]);
 
   // Handlers
   const handleShare = async () => {
@@ -1340,63 +1274,6 @@ export default function ProDetailPage() {
       toast.success('링크가 복사되었습니다');
       setShareModal(false);
     }
-  };
-
-  const syncLocalFavorite = (profileId: string, favorited: boolean) => {
-    syncStoredFavoriteId(profileId, favorited);
-  };
-
-  const updateFavoriteCount = (favorited: boolean) => {
-    setPro((current) => {
-      if (!current) return current;
-      const delta = favorited ? 1 : -1;
-      return { ...current, favoriteCount: Math.max(0, (current.favoriteCount || 0) + delta) };
-    });
-  };
-
-  const applyFavoriteState = (nextFavorited: boolean, showToast = true) => {
-    const profileId = pro?.id || id;
-    if (!profileId || isFavorited === nextFavorited) return;
-    const previousFavorited = isFavorited;
-    setIsFavorited(nextFavorited);
-    updateFavoriteCount(nextFavorited);
-    applyFavoriteCountToLocalCaches(profileId, { delta: nextFavorited ? 1 : -1 });
-    syncLocalFavorite(profileId, nextFavorited);
-    emitFavoriteChange({
-      proProfileId: profileId,
-      isFavorited: nextFavorited,
-      delta: nextFavorited ? 1 : -1,
-      source: 'detail-optimistic',
-    });
-    if (showToast) toast(previousFavorited ? '찜 해제' : '찜 목록에 추가됨', { icon: previousFavorited ? '💙' : '❤️' });
-
-    if (authUser) {
-      favoriteApi.toggle(profileId)
-        .then((res) => {
-          setIsFavorited(res.isFavorited);
-          syncLocalFavorite(profileId, res.isFavorited);
-          if (typeof res.favoriteCount === 'number') {
-            applyFavoriteCountToLocalCaches(profileId, { favoriteCount: res.favoriteCount });
-            setPro((current) => current ? { ...current, favoriteCount: res.favoriteCount || 0 } : current);
-          }
-        })
-        .catch(() => {
-          setIsFavorited(previousFavorited);
-          updateFavoriteCount(previousFavorited);
-          applyFavoriteCountToLocalCaches(profileId, { delta: nextFavorited ? -1 : 1 });
-          syncLocalFavorite(profileId, previousFavorited);
-          emitFavoriteChange({
-            proProfileId: profileId,
-            isFavorited: previousFavorited,
-            delta: nextFavorited ? -1 : 1,
-            source: 'detail-revert',
-          });
-        });
-    }
-  };
-
-  const handleToggleFavorite = () => {
-    applyFavoriteState(!isFavorited);
   };
 
   const handleInquiry = async () => {
@@ -1441,15 +1318,6 @@ export default function ProDetailPage() {
     } finally {
       setOpeningChat(false);
     }
-  };
-
-  const handlePurchase = () => {
-    router.push(`/pros/${pro?.id || id}/booking`);
-  };
-
-  const confirmPurchase = () => {
-    setPurchaseModal(false);
-    router.push(`/pros/${pro?.id || id}/booking`);
   };
 
   const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
@@ -1543,11 +1411,11 @@ export default function ProDetailPage() {
   const displayFaqs = pro.faqs.length > 0 ? pro.faqs : [
     {
       question: `${pro.categoryName || '사회자'} 섭외는 어떻게 진행되나요?`,
-      answer: '문의하기로 일정과 장소, 행사 성격을 알려주시면 사회자가 가능 여부와 견적을 확인해 답변드립니다. 이후 결제와 사전 미팅을 통해 진행 방향을 조율합니다.',
+      answer: '문의하기로 장소와 행사 성격을 알려주시면 사회자가 가능 여부와 견적을 확인해 답변드립니다. 이후 결제와 사전 미팅을 통해 진행 방향을 조율합니다.',
     },
     {
       question: '행사 전 준비 자료는 언제 전달하면 되나요?',
-      answer: '행사 개요, 식순, 요청 멘트, 참고 대본이 있다면 일정 확정 후 전달해 주세요. 결혼식은 보통 본식 한 달 전후로 사전 질문지를 기반으로 대본을 맞춰갑니다.',
+      answer: '행사 개요, 식순, 요청 멘트, 참고 대본이 있다면 전달해 주세요. 결혼식은 보통 본식 한 달 전후로 사전 질문지를 기반으로 대본을 맞춰갑니다.',
     },
     {
       question: '세금계산서 발행이 가능한가요?',
@@ -1620,13 +1488,9 @@ export default function ProDetailPage() {
             <div>
               <div className="mb-5 flex items-center justify-between">
                 <p className="text-[13px] text-gray-500">사회자 찾기 &gt; {pro.categoryName || '사회자'} &gt; {pro.name}</p>
-                <div className="flex items-center gap-5 text-[14px] font-bold text-gray-900">
-                  <button onClick={handleToggleFavorite} className="flex items-center gap-1.5">
-                    <Heart size={18} className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-900'} />
-                    {pro.favoriteCount.toLocaleString()}
-                  </button>
-                  <button onClick={handleShare}><Share2 size={18} /></button>
-                </div>
+	                <div className="flex items-center gap-5 text-[14px] font-bold text-gray-900">
+	                  <button onClick={handleShare}><Share2 size={18} /></button>
+	                </div>
               </div>
 
               <h1 className="max-w-[780px] text-[34px] font-bold leading-tight text-gray-950">{pro.title}</h1>
@@ -1960,7 +1824,7 @@ export default function ProDetailPage() {
                       {pro.recommendedPros.slice(0, 6).map((item) => (
                         <Link key={item.id} href={`/pros/${item.id}`} className="group overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md">
                           <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
-                            <Image src={item.image || '/images/default-profile.svg'} alt={item.name} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="230px" />
+                            <Image src={item.image || '/images/default-profile.png'} alt={item.name} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="230px" />
                             {item.isPartner && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-[#3180F7] shadow-sm">Partners</span>}
                           </div>
                           <div className="p-4">
@@ -2032,9 +1896,6 @@ export default function ProDetailPage() {
                   </div>
                   <button onClick={handleInquiry} className="mt-6 h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 hover:bg-gray-50">
                     사회자에게 문의하기
-                  </button>
-                  <button onClick={handlePurchase} className="mt-3 h-[52px] w-full rounded-lg bg-gray-950 text-[15px] font-bold text-white hover:bg-black">
-                    구매하기
                   </button>
                 </div>
               </div>
@@ -2132,18 +1993,7 @@ export default function ProDetailPage() {
             {pro.images.map((src, i) => (
               <button
                 key={i}
-                onClick={() => {
-                  const now = Date.now();
-                  if (now - lastTapRef.current < 300) {
-                    // Double tap → favorite
-                    if (!isFavorited) applyFavoriteState(true, false);
-                    setShowDoubleTapHeart(true);
-                    setTimeout(() => setShowDoubleTapHeart(false), 900);
-                    lastTapRef.current = 0;
-                  } else {
-                    lastTapRef.current = now;
-                  }
-                }}
+	                onClick={() => setImageModal(src)}
                 className="relative w-full h-full shrink-0 block"
               >
                 {i === 0 || Math.abs(i - activeImage) <= 1 ? (
@@ -2163,17 +2013,6 @@ export default function ProDetailPage() {
             ))}
           </div>
         </div>
-
-        {/* Double-tap heart overlay */}
-        {showDoubleTapHeart && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-            <Heart
-              size={80}
-              className="fill-white text-white drop-shadow-lg"
-              style={{ animation: 'doubleTapHeart 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
-            />
-          </div>
-        )}
 
         {/* Page indicator */}
         <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[12px] font-medium px-2.5 py-1 rounded-full backdrop-blur-sm">
@@ -2478,13 +2317,7 @@ export default function ProDetailPage() {
             >
               <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3/4' }}>
                 <Image src={item.image} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
-                <button
-                  onClick={(e) => { e.preventDefault(); toggleCarouselFav(item.id); }}
-                  className="absolute top-1.5 right-1.5 active:scale-90 transition-transform"
-                >
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill={favoriteItems.has(item.id) ? '#FF4D4D' : 'rgba(0,0,0,0.3)'}/></svg>
-                </button>
-              </div>
+	              </div>
               <div className="mt-1.5">
                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-[2px] rounded-full mb-0.5"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
                 <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.category || '사회자'} {item.author}</p>
@@ -2516,10 +2349,7 @@ export default function ProDetailPage() {
             <div className="flex items-center gap-1 mt-0.5">
               <StarRating value={parseFloat(pro.rating.toFixed(1))} size={12} />
               <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({displayReviewCount})</span>
-              <span className="text-[11px] text-gray-300">·</span>
-              <Heart size={12} className="fill-[#FF4D4D] text-[#FF4D4D]" />
-              <span className="text-[12px] font-semibold text-gray-900">{pro.favoriteCount.toLocaleString()}</span>
-            </div>
+	            </div>
             <p className="text-[11px] text-gray-400 mt-1">연락 가능 시간: {pro.expertStats.contactTime}</p>
             <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
           </div>
@@ -2728,13 +2558,7 @@ export default function ProDetailPage() {
             <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[130px] group">
               <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3/4' }}>
                 <Image src={item.image} alt={item.name} fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
-                <button
-                  onClick={(e) => { e.preventDefault(); toggleCarouselFav(item.id); }}
-                  className="absolute top-1.5 right-1.5 active:scale-90 transition-transform"
-                >
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill={favoriteItems.has(item.id) ? '#FF4D4D' : 'rgba(0,0,0,0.3)'}/></svg>
-                </button>
-              </div>
+	              </div>
               <div className="mt-1.5">
                 {item.isPartner && <img src="/images/partners-badge.svg" alt="Partners" className="h-[18px] mb-0.5" />}
                 <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.role} {item.name}</p>
@@ -2773,24 +2597,7 @@ export default function ProDetailPage() {
         />
       <div className="relative pointer-events-auto pt-10">
         <div className="flex items-center gap-3 max-w-[680px] mx-auto">
-          {/* Heart (원형) */}
-          <button
-            onClick={handleToggleFavorite}
-            className="relative w-12 h-12 rounded-full border border-gray-200 bg-white flex items-center justify-center active:scale-90 transition-transform shrink-0 shadow-sm"
-          >
-            <Heart
-              size={20}
-              className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'}
-              style={{ animation: isFavorited ? 'heartPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined }}
-            />
-            {pro.favoriteCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF4D4D] text-[10px] font-bold text-white flex items-center justify-center leading-none">
-                {pro.favoriteCount > 99 ? '99+' : pro.favoriteCount}
-              </span>
-            )}
-          </button>
-
-          {/* 문의하기 + 구매하기 묶음 (알약) */}
+		          {/* 문의하기 */}
           <div className="relative flex-1">
             {/* 말풍선 — overflow-hidden 바깥 */}
             {showTooltip && (
@@ -2811,7 +2618,7 @@ export default function ProDetailPage() {
                   setShowTooltip(false);
                   handleInquiry();
                 }}
-                className="flex-1 bg-white border border-gray-200 border-r-0 rounded-l-full text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+                className="flex-1 rounded-full border border-gray-200 bg-white text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {openingChat ? (
                   <>
@@ -2821,12 +2628,6 @@ export default function ProDetailPage() {
                 ) : (
                   '문의하기'
                 )}
-              </button>
-              <button
-                onClick={handlePurchase}
-                className="flex-1 bg-[#3180F7] rounded-r-full text-[14px] font-bold text-white active:scale-[0.98] transition-transform"
-              >
-                구매하기
               </button>
             </div>
           </div>
@@ -2920,47 +2721,6 @@ export default function ProDetailPage() {
                   채팅 문의
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Purchase Modal ─── */}
-      {purchaseModal && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
-          onClick={() => setPurchaseModal(false)}
-          style={{ animation: 'modalFade 0.3s ease-out' }}
-        >
-          <div
-            className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-safe"
-            onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
-          >
-            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4 sm:hidden" />
-            <h3 className="text-[18px] font-bold text-gray-900 mb-4">구매 확인</h3>
-            <div className="bg-gray-50 rounded-xl p-4 mb-5">
-              <p className="text-[12px] text-gray-400 mb-1">{plan.label}</p>
-              <p className="text-[15px] font-bold text-gray-900 mb-2">{plan.title}</p>
-              <div className="flex items-end justify-between pt-3 border-t border-gray-200">
-                <span className="text-[13px] text-gray-500">결제 금액</span>
-                <span className="text-[22px] font-bold text-[#3180F7]">{plan.price > 0 ? `${plan.price.toLocaleString()}원` : '문의시 제공'}</span>
-              </div>
-            </div>
-            <p className="text-[12px] text-gray-400 mb-5 text-center">결제 시 VAT가 별도로 추가돼요</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPurchaseModal(false)}
-                className="flex-1 py-3.5 bg-gray-100 rounded-xl text-[14px] font-semibold text-gray-700"
-              >
-                취소
-              </button>
-              <button
-                onClick={confirmPurchase}
-                className="flex-1 py-3.5 rounded-xl text-[14px] font-bold text-white bg-[#3180F7]"
-              >
-                결제하기
-              </button>
             </div>
           </div>
         </div>
@@ -3223,13 +2983,6 @@ export default function ProDetailPage() {
           0% { transform: scale(1); }
           50% { transform: scale(1.4); }
           100% { transform: scale(1); }
-        }
-        @keyframes doubleTapHeart {
-          0% { transform: scale(0); opacity: 0; }
-          15% { transform: scale(1.3); opacity: 1; }
-          30% { transform: scale(1); opacity: 1; }
-          70% { transform: scale(1); opacity: 1; }
-          100% { transform: scale(1.1); opacity: 0; }
         }
         @keyframes buttonShine {
           0% { transform: translateX(-100%) skewX(-15deg); }

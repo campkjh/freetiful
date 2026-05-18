@@ -3,8 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-  Inject,
-  forwardRef,
   OnModuleInit,
   Logger,
 } from '@nestjs/common';
@@ -13,9 +11,6 @@ import type { Multer } from 'multer';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImageService, ImageProcessOptions } from '../image/image.service';
 import { DiscoveryService } from '../discovery/discovery.service';
-import { NotificationService } from '../notification/notification.service';
-import { PaymentService } from '../payment/payment.service';
-import { PuddingService } from '../pudding/pudding.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 
 const LEGACY_HANDOVER_PROFILES = [
@@ -72,10 +67,6 @@ export class ProService implements OnModuleInit {
     private prisma: PrismaService,
     private imageService: ImageService,
     private discovery: DiscoveryService,
-    private notification: NotificationService,
-    @Inject(forwardRef(() => PaymentService))
-    private paymentService: PaymentService,
-    private pudding: PuddingService,
     private chatRealtime: ChatRealtimeService,
   ) {}
 
@@ -124,10 +115,10 @@ export class ProService implements OnModuleInit {
   private async ensurePerformanceIndexes() {
     await Promise.allSettled([
       this.prisma.$executeRawUnsafe(
-        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "pro_schedules_proProfileId_status_date_idx" ON "pro_schedules" ("proProfileId", "status", "date")',
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_deliveries_proProfileId_status_deliveredAt_idx" ON "match_deliveries" ("proProfileId", "status", "deliveredAt")',
       ),
       this.prisma.$executeRawUnsafe(
-        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_deliveries_proProfileId_status_deliveredAt_idx" ON "match_deliveries" ("proProfileId", "status", "deliveredAt")',
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "reviews_proProfileId_isVisible_createdAt_idx" ON "reviews" ("proProfileId", "isVisible", "createdAt")',
       ),
     ]);
   }
@@ -485,7 +476,6 @@ export class ProService implements OnModuleInit {
           email: true,
           profileImageUrl: true,
           referralCode: true,
-          pointBalance: true,
           isActive: true,
           createdAt: true,
         },
@@ -794,384 +784,6 @@ export class ProService implements OnModuleInit {
         hasFace: processed.hasFace,
       },
     });
-  }
-
-  // ─── Schedule ────────────────────────────────────────────────────────────
-
-  async getSchedule(userId: string, month: string) {
-    const profile = await this.getProfileIdentityByUserId(userId);
-
-    const currentMonth = new Date();
-    const targetMonth =
-      month || `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-    const [year, mon] = targetMonth.split('-').map(Number);
-    if (!year || !mon || mon < 1 || mon > 12) {
-      throw new BadRequestException('조회할 월 정보가 올바르지 않습니다.');
-    }
-    const startDate = new Date(year, mon - 1, 1);
-    const endDate = new Date(year, mon, 1);
-
-    const schedules = await this.prisma.proSchedule.findMany({
-      where: {
-        proProfileId: profile.id,
-        date: { gte: startDate, lt: endDate },
-      },
-      select: {
-        id: true,
-        date: true,
-        status: true,
-        note: true,
-        paymentId: true,
-        payment: {
-          select: {
-            id: true,
-            userId: true,
-            amount: true,
-            status: true,
-            createdAt: true,
-            quotations: {
-              orderBy: { createdAt: 'desc' },
-              take: 1,
-              select: {
-                id: true,
-                title: true,
-                eventLocation: true,
-                eventTime: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    return this.mapScheduleRows(schedules);
-  }
-
-  async getUpcomingSchedule(userId: string, limit = 3) {
-    const profile = await this.getProfileIdentityByUserId(userId);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const safeLimit = Math.min(Math.max(Number(limit) || 3, 1), 10);
-
-    const schedules = await this.prisma.proSchedule.findMany({
-      where: {
-        proProfileId: profile.id,
-        status: 'booked',
-        date: { gte: today },
-      },
-      select: {
-        id: true,
-        date: true,
-        status: true,
-        note: true,
-        paymentId: true,
-        payment: {
-          select: {
-            id: true,
-            userId: true,
-            amount: true,
-            status: true,
-            createdAt: true,
-            quotations: {
-              orderBy: { createdAt: 'desc' },
-              take: 1,
-              select: {
-                id: true,
-                title: true,
-                eventLocation: true,
-                eventTime: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { date: 'asc' },
-      take: safeLimit,
-    });
-
-    return this.mapScheduleRows(schedules);
-  }
-
-  async getDashboardSnapshot(userId: string) {
-    const profile = await this.getProfileIdentityByUserId(userId);
-    const now = new Date();
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-    const [
-      pendingSchedules,
-      upcomingSchedules,
-      matchRequests,
-      profileStats,
-      thisMonthRevenue,
-      lastMonthRevenue,
-    ] = await Promise.all([
-      this.prisma.proSchedule.findMany({
-        where: { proProfileId: profile.id, status: 'pending' },
-        select: {
-          id: true,
-          date: true,
-          status: true,
-          paymentId: true,
-          payment: {
-            select: {
-              id: true,
-              userId: true,
-              amount: true,
-              createdAt: true,
-              quotations: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-                select: {
-                  id: true,
-                  title: true,
-                  eventLocation: true,
-                  eventTime: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { date: 'asc' },
-        take: 20,
-      }),
-      this.prisma.proSchedule.findMany({
-        where: {
-          proProfileId: profile.id,
-          status: 'booked',
-          date: { gte: today },
-        },
-        select: {
-          id: true,
-          date: true,
-          status: true,
-          note: true,
-          paymentId: true,
-          payment: {
-            select: {
-              id: true,
-              userId: true,
-              amount: true,
-              status: true,
-              createdAt: true,
-              quotations: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-                select: {
-                  id: true,
-                  title: true,
-                  eventLocation: true,
-                  eventTime: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { date: 'asc' },
-        take: 3,
-      }),
-      this.prisma.matchDelivery.findMany({
-        where: { proProfileId: profile.id, status: { in: ['pending', 'viewed'] } },
-        select: {
-          id: true,
-          matchRequestId: true,
-          proProfileId: true,
-          status: true,
-          deliveredAt: true,
-          viewedAt: true,
-          repliedAt: true,
-          matchRequest: {
-            select: {
-              id: true,
-              userId: true,
-              type: true,
-              eventDate: true,
-              eventTime: true,
-              eventLocation: true,
-              budgetMin: true,
-              budgetMax: true,
-              rawUserInput: true,
-              createdAt: true,
-              category: { select: { id: true, name: true } },
-              eventCategory: { select: { id: true, name: true } },
-              styles: { select: { styleOption: { select: { id: true, name: true } } } },
-              personalities: { select: { personalityOption: { select: { id: true, name: true } } } },
-              user: { select: { id: true, name: true, profileImageUrl: true } },
-            },
-          },
-        },
-        orderBy: { deliveredAt: 'desc' },
-        take: 20,
-      }),
-      this.prisma.proProfile.findUnique({
-        where: { id: profile.id },
-        select: {
-          puddingCount: true,
-          profileViews: true,
-          avgRating: true,
-          reviewCount: true,
-        },
-      }),
-      this.prisma.payment.aggregate({
-        where: {
-          proProfileId: profile.id,
-          status: 'completed',
-          createdAt: { gte: thisMonthStart },
-        },
-        _sum: { amount: true },
-      }),
-      this.prisma.payment.aggregate({
-        where: {
-          proProfileId: profile.id,
-          status: 'completed',
-          createdAt: { gte: lastMonthStart, lt: thisMonthStart },
-        },
-        _sum: { amount: true },
-      }),
-    ]);
-
-    const [scheduleRequests, upcoming] = await Promise.all([
-      this.mapScheduleRequestRows(pendingSchedules),
-      this.mapScheduleRows(upcomingSchedules),
-    ]);
-
-    return {
-      scheduleRequests,
-      upcoming,
-      matchRequests,
-      profile: {
-        puddingCount: profileStats?.puddingCount ?? 0,
-        profileViews: profileStats?.profileViews ?? profile.profileViews ?? 0,
-        avgRating: Number(profileStats?.avgRating ?? 0),
-        reviewCount: profileStats?.reviewCount ?? 0,
-      },
-      revenue: {
-        thisMonth: Number(thisMonthRevenue._sum.amount ?? 0),
-        lastMonth: Number(lastMonthRevenue._sum.amount ?? 0),
-      },
-    };
-  }
-
-  private async mapScheduleRows(schedules: any[]) {
-    const userIds = Array.from(new Set(schedules.map((s) => s.payment?.userId).filter(Boolean))) as string[];
-    const users = userIds.length > 0
-      ? await this.prisma.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, name: true, profileImageUrl: true },
-        })
-      : [];
-    const userMap = new Map(users.map((u) => [u.id, u]));
-
-    return schedules.map((s) => {
-      let eventTitle: string | null = null;
-      let eventLocation: string | null = null;
-      if (s.note) {
-        try {
-          const parsed = JSON.parse(s.note);
-          eventTitle = parsed.eventTitle ?? null;
-          eventLocation = parsed.eventLocation ?? null;
-        } catch {
-          eventTitle = s.note;
-        }
-      }
-      const payment = (s as any).payment;
-      const q = payment?.quotations?.[0];
-      const client = payment?.userId ? userMap.get(payment.userId) : null;
-      return {
-        id: s.id,
-        date: s.date.toISOString().split('T')[0],
-        status: s.status,
-        eventTitle: eventTitle ?? q?.title ?? null,
-        eventLocation: eventLocation ?? q?.eventLocation ?? null,
-        eventTime: q?.eventTime ?? null,
-        clientName: client?.name ?? null,
-        clientImage: client?.profileImageUrl ?? null,
-        amount: payment?.amount != null ? Number(payment.amount) : null,
-        paymentStatus: payment?.status ?? null,
-        paymentId: payment?.id ?? s.paymentId ?? null,
-        paidAt: payment?.createdAt ?? null,
-      };
-    });
-  }
-
-  private async mapScheduleRequestRows(rows: any[]) {
-    const userIds = Array.from(new Set(rows.map((r) => r.payment?.userId).filter(Boolean))) as string[];
-    const users = userIds.length > 0
-      ? await this.prisma.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, name: true, profileImageUrl: true },
-        })
-      : [];
-    const userMap = new Map(users.map((u) => [u.id, u]));
-    return rows.map((r) => {
-      const user = r.payment ? userMap.get(r.payment.userId) : null;
-      const quotation = r.payment?.quotations?.[0];
-      return {
-        id: r.id,
-        date: r.date,
-        status: r.status,
-        amount: r.payment?.amount || 0,
-        paymentId: r.paymentId,
-        clientId: r.payment?.userId,
-        clientName: user?.name || '고객',
-        clientImage: user?.profileImageUrl || null,
-        title: quotation?.title || '스케줄 요청',
-        eventLocation: quotation?.eventLocation || null,
-        eventTime: quotation?.eventTime || null,
-        paidAt: r.payment?.createdAt || null,
-      };
-    });
-  }
-
-  async updateScheduleDate(
-    userId: string,
-    date: string,
-    data: { status: 'available' | 'unavailable' | 'booked'; eventTitle?: string; eventLocation?: string },
-  ) {
-    const profile = await this.getProfileByUserId(userId);
-    const dateObj = new Date(date + 'T00:00:00Z');
-
-    const note =
-      data.eventTitle || data.eventLocation
-        ? JSON.stringify({ eventTitle: data.eventTitle ?? null, eventLocation: data.eventLocation ?? null })
-        : null;
-
-    const schedule = await this.prisma.proSchedule.upsert({
-      where: {
-        proProfileId_date: {
-          proProfileId: profile.id,
-          date: dateObj,
-        },
-      },
-      update: {
-        status: data.status,
-        note,
-      },
-      create: {
-        proProfileId: profile.id,
-        date: dateObj,
-        status: data.status,
-        note,
-        source: 'manual',
-      },
-    });
-
-    return schedule;
-  }
-
-  async getBookedDates(proProfileId: string) {
-    const schedules = await this.prisma.proSchedule.findMany({
-      where: {
-        proProfileId,
-        status: 'booked',
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    return schedules.map((s) => s.date.toISOString().split('T')[0]);
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -1569,19 +1181,11 @@ export class ProService implements OnModuleInit {
   }
 
   async incrementProfileView(proProfileId: string) {
-    const before = await this.prisma.proProfile.findUnique({
-      where: { id: proProfileId },
-      select: { profileViews: true },
-    });
-    const beforeCount = before?.profileViews || 0;
-    const updated = await this.prisma.proProfile.update({
+    await this.prisma.proProfile.update({
       where: { id: proProfileId },
       data: { profileViews: { increment: 1 } },
       select: { profileViews: true },
     });
-    // 100회 경계 넘을 때마다 푸딩 +100 지급 (fire-and-forget)
-    this.pudding.awardProfileViewsIfCrossed100(proProfileId, beforeCount, updated.profileViews)
-      .catch(() => {});
     return { ok: true };
   }
 
@@ -1648,7 +1252,7 @@ export class ProService implements OnModuleInit {
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
     // 이번주/지난주 문의(채팅방) 수
-    const [weeklyInquiries, prevWeekInquiries, weeklyBookings] = await Promise.all([
+    const [weeklyInquiries, prevWeekInquiries] = await Promise.all([
       this.prisma.chatRoom.count({
         where: {
           proProfileId: profile.id,
@@ -1661,13 +1265,6 @@ export class ProService implements OnModuleInit {
           createdAt: { gte: twoWeeksAgo, lt: weekAgo },
         },
       }),
-      this.prisma.proSchedule.count({
-        where: {
-          proProfileId: profile.id,
-          status: { in: ['booked', 'completed'] },
-          date: { gte: weekAgo },
-        },
-      }),
     ]);
 
     // 프로필 조회수는 누적값만 DB에 있음 → 주간 값 근사치로 제공
@@ -1676,232 +1273,19 @@ export class ProService implements OnModuleInit {
       ? `${((weeklyInquiries / weeklyViews) * 100).toFixed(1)}%`
       : '0%';
 
-    // 요일별 예약(booked/completed) 수 집계 — 지난 7일
-    const schedules = await this.prisma.proSchedule.findMany({
-      where: {
-        proProfileId: profile.id,
-        status: { in: ['booked', 'completed'] },
-        date: { gte: weekAgo },
-      },
-      select: { date: true },
-    });
-    const daysKo = ['일', '월', '화', '수', '목', '금', '토'];
-    const dailyMap = new Map<string, number>(daysKo.map((d) => [d, 0]));
-    schedules.forEach((s) => {
-      const label = daysKo[new Date(s.date).getDay()];
-      dailyMap.set(label, (dailyMap.get(label) || 0) + 1);
-    });
     const daily = ['월', '화', '수', '목', '금', '토', '일'].map((day) => ({
       day,
-      views: dailyMap.get(day) || 0,
+      views: 0,
     }));
 
     return {
       weeklyViews,
       weeklyInquiries,
-      weeklyBookings,
+      weeklyBookings: 0,
       prevWeekInquiries,
       conversionRate,
       daily,
     };
   }
 
-  // ─── Schedule Requests (고객이 구매해서 들어온 대기 요청) ────────────────
-
-  async getScheduleRequests(userId: string) {
-    const profile = await this.getProfileIdentityByUserId(userId);
-    const rows = await this.prisma.proSchedule.findMany({
-      where: { proProfileId: profile.id, status: 'pending' },
-      select: {
-        id: true,
-        date: true,
-        status: true,
-        paymentId: true,
-        payment: {
-          select: {
-            id: true,
-            userId: true,
-            amount: true,
-            createdAt: true,
-            quotations: {
-              orderBy: { createdAt: 'desc' },
-              take: 1,
-              select: {
-                id: true,
-                title: true,
-                eventLocation: true,
-                eventTime: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { date: 'asc' },
-      take: 50,
-    });
-    const userIds = Array.from(new Set(rows.map((r) => r.payment?.userId).filter(Boolean))) as string[];
-    const users = userIds.length > 0
-      ? await this.prisma.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, name: true, profileImageUrl: true },
-        })
-      : [];
-    const userMap = new Map(users.map((u) => [u.id, u]));
-    return rows.map((r) => {
-      const user = r.payment ? userMap.get(r.payment.userId) : null;
-      const quotation = r.payment?.quotations?.[0];
-      return {
-        id: r.id,
-        date: r.date,
-        status: r.status,
-        amount: r.payment?.amount || 0,
-        paymentId: r.paymentId,
-        clientId: r.payment?.userId,
-        clientName: user?.name || '고객',
-        clientImage: user?.profileImageUrl || null,
-        title: quotation?.title || '스케줄 요청',
-        eventLocation: quotation?.eventLocation || null,
-        eventTime: quotation?.eventTime || null,
-        paidAt: r.payment?.createdAt || null,
-      };
-    });
-  }
-
-  async acceptScheduleRequest(userId: string, scheduleId: string) {
-    const profile = await this.getProfileByUserId(userId);
-    const schedule = await this.prisma.proSchedule.findUnique({
-      where: { id: scheduleId },
-      include: { payment: true },
-    });
-    if (!schedule || schedule.proProfileId !== profile.id) {
-      throw new NotFoundException('스케줄 요청을 찾을 수 없습니다.');
-    }
-    if (schedule.status !== 'pending') {
-      throw new BadRequestException('이미 처리된 요청입니다.');
-    }
-    const updated = await this.prisma.proSchedule.update({
-      where: { id: scheduleId },
-      data: { status: 'booked', note: null },
-    });
-
-    // 채팅방 존재 보장 + 수락 시스템 메시지 전송
-    if (schedule.payment) {
-      const room = await this.prisma.chatRoom.findFirst({
-        where: {
-          userId: schedule.payment.userId,
-          proProfileId: profile.id,
-          userDeletedAt: null,
-        },
-      });
-      if (room) {
-        await this.prisma.message.create({
-          data: {
-            roomId: room.id,
-            senderId: userId,
-            type: 'system',
-            content: '✅ 스케줄 요청을 수락했습니다. 예약이 확정되었습니다.',
-          },
-        });
-        await this.prisma.chatRoom.update({
-          where: { id: room.id },
-          data: { lastMessageAt: new Date() },
-        });
-      }
-
-      // 알림 → 고객에게
-      this.notification.createNotification(
-        schedule.payment.userId,
-        'booking' as any,
-        '예약이 확정되었습니다! 🎉',
-        `${schedule.payment.amount.toLocaleString()}원 스케줄 요청이 수락되어 예약이 확정되었습니다.`,
-        { scheduleId, paymentId: schedule.paymentId },
-      ).catch(() => {});
-    }
-
-    return updated;
-  }
-
-  async rejectScheduleRequest(userId: string, scheduleId: string, reason?: string) {
-    const profile = await this.getProfileByUserId(userId);
-    const proUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true },
-    });
-    const proName = proUser?.name || '사회자';
-    const proDisplayName =
-      proName === '사회자' ? '해당 사회자' : proName.includes('사회자') ? proName : `${proName} 사회자`;
-    const internalReason = reason?.trim();
-    const schedule = await this.prisma.proSchedule.findUnique({
-      where: { id: scheduleId },
-      include: { payment: true },
-    });
-    if (!schedule || schedule.proProfileId !== profile.id) {
-      throw new NotFoundException('스케줄 요청을 찾을 수 없습니다.');
-    }
-    if (schedule.status !== 'pending') {
-      throw new BadRequestException('이미 처리된 요청입니다.');
-    }
-    if (!internalReason) {
-      throw new BadRequestException('거절 사유를 입력해주세요.');
-    }
-    const updated = await this.prisma.proSchedule.update({
-      where: { id: scheduleId },
-      data: {
-        status: 'unavailable',
-        note: internalReason,
-      },
-    });
-
-    // 결제가 존재하면 자동 전액 환불
-    let refundedAmount = 0;
-    if (schedule.payment && schedule.payment.status === 'completed') {
-      try {
-        const refunded = await this.paymentService.refundAsSystem(
-          schedule.payment.id,
-          `사회자 일정/조건 불일치: ${internalReason}`,
-        );
-        refundedAmount = Number((refunded as any)?.refundAmount || schedule.payment.amount || 0);
-      } catch (e) {
-        // 환불 실패해도 거절 처리는 진행 — 운영팀이 수동 환불
-      }
-    }
-
-    const customerNoticeTitle = '다른 전문가를 추천드릴게요';
-    const customerNoticeBody = `${proDisplayName}의 일정 또는 조건이 맞지 않아요. 프리티풀에서 다른 전문가를 바로 확인해보세요.`;
-
-    // 채팅방에 고객 안내 시스템 메시지 + 알림
-    if (schedule.payment) {
-      const room = await this.prisma.chatRoom.findFirst({
-        where: {
-          userId: schedule.payment.userId,
-          proProfileId: profile.id,
-          userDeletedAt: null,
-        },
-      });
-      if (room) {
-        await this.prisma.message.create({
-          data: {
-            roomId: room.id,
-            senderId: userId,
-            type: 'system',
-            content: `${customerNoticeTitle}\n${customerNoticeBody}${refundedAmount > 0 ? `\n\n결제하신 ${refundedAmount.toLocaleString()}원은 전액 환불 처리됐습니다.` : ''}`,
-          },
-        });
-        await this.prisma.chatRoom.update({
-          where: { id: room.id },
-          data: { lastMessageAt: new Date() },
-        });
-      }
-
-      this.notification.createNotification(
-        schedule.payment.userId,
-        'booking' as any,
-        customerNoticeTitle,
-        `${customerNoticeBody}${refundedAmount > 0 ? `\n${refundedAmount.toLocaleString()}원 환불 처리 완료` : ''}`,
-        { scheduleId, paymentId: schedule.paymentId },
-      ).catch(() => {});
-    }
-
-    return updated;
-  }
 }

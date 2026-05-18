@@ -5,7 +5,6 @@ import { NotificationService } from '../notification/notification.service';
 import { ProService } from '../pro/pro.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { ImageService } from '../image/image.service';
-import { UsersService } from '../users/users.service';
 import {
   extractBusinessVisibilityFromHtml,
   normalizeBusinessTags,
@@ -17,6 +16,9 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 
+const REFERRAL_EVENT_CAMPAIGN_KEY = 'friend-invite-cash-2026';
+const REFERRAL_EVENT_REQUIRED_REFERRALS = 4;
+
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
@@ -27,7 +29,6 @@ export class AdminService {
     private proService: ProService,
     private discoveryService: DiscoveryService,
     private imageService: ImageService,
-    private usersService: UsersService,
   ) {}
 
   private async safeStatsQuery<T>(label: string, query: Promise<T>, fallback: T): Promise<T> {
@@ -217,15 +218,6 @@ export class AdminService {
       label: 'Web',
       source: 'fallback',
     };
-  }
-
-  /** 어드민이 특정 유저(또는 다수 유저)에게 쿠폰 발급 — UsersService 헬퍼 위임 */
-  async grantCoupon(userIds: string[], couponId: string) {
-    const results = await Promise.allSettled(
-      userIds.map((uid) => this.usersService.awardCoupon(uid, couponId)),
-    );
-    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-    return { requested: userIds.length, succeeded, failed: userIds.length - succeeded };
   }
 
   // ─── 웨딩 파트너 업체 (BusinessProfile) CRUD ────────────────────────────
@@ -574,7 +566,6 @@ export class AdminService {
         status: p.status,
         avgRating: Number(p.avgRating),
         reviewCount: p.reviewCount,
-        puddingCount: p.puddingCount,
         isFeatured: p.isFeatured,
         showPartnersLogo: p.showPartnersLogo,
         isProfileHidden: p.isProfileHidden,
@@ -605,9 +596,7 @@ export class AdminService {
             reviews: true,
             quotations: true,
             chatRooms: true,
-            schedules: true,
             matchDeliveries: true,
-            puddingTransactions: true,
           },
         },
       },
@@ -619,22 +608,13 @@ export class AdminService {
 
   private async getProAdminRelations(proProfileId: string) {
     const [
-      favorites,
       chatRooms,
       quotations,
       payments,
-      schedules,
       reviews,
       matchDeliveries,
-      puddingTransactions,
       settlementLogs,
     ] = await Promise.all([
-      this.prisma.favorite.findMany({
-        where: { targetType: 'pro', targetId: proProfileId },
-        include: { user: { select: { id: true, name: true, email: true, phone: true } } },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
       this.prisma.chatRoom.findMany({
         where: { proProfileId },
         include: {
@@ -658,12 +638,6 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
-      this.prisma.proSchedule.findMany({
-        where: { proProfileId },
-        include: { payment: { select: { id: true, amount: true, status: true } } },
-        orderBy: { date: 'desc' },
-        take: 80,
-      }),
       this.prisma.review.findMany({
         where: { proProfileId },
         include: {
@@ -686,11 +660,6 @@ export class AdminService {
         orderBy: { deliveredAt: 'desc' },
         take: 50,
       }),
-      this.prisma.puddingTransaction.findMany({
-        where: { proProfileId },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
       this.prisma.settlementLog.findMany({
         where: { proProfileId },
         include: { payment: { select: { id: true, amount: true, status: true, createdAt: true } } },
@@ -706,14 +675,11 @@ export class AdminService {
     const userMap = new Map(users.map((u) => [u.id, u]));
 
     return {
-      favorites,
       chatRooms,
       quotations: quotations.map((q) => ({ ...q, user: userMap.get(q.userId) || null })),
       payments: payments.map((p) => ({ ...p, user: userMap.get(p.userId) || null })),
-      schedules,
       reviews,
       matchDeliveries,
-      puddingTransactions,
       settlementLogs,
     };
   }
@@ -958,36 +924,6 @@ export class AdminService {
     return updated;
   }
 
-  /** 어드민 수동 푸딩 지급 (양수=적립, 음수=차감) + 트랜잭션 로그 */
-  async awardPudding(proProfileId: string, amount: number, note?: string) {
-    if (!Number.isFinite(amount) || amount === 0) {
-      throw new Error('amount는 0이 아닌 숫자여야 합니다.');
-    }
-    const profile = await this.prisma.proProfile.findUnique({
-      where: { id: proProfileId },
-      select: { id: true, puddingCount: true },
-    });
-    if (!profile) throw new Error('Pro not found');
-    const nextCount = Math.max(0, profile.puddingCount + amount);
-    await this.prisma.$transaction([
-      this.prisma.proProfile.update({
-        where: { id: proProfileId },
-        data: { puddingCount: nextCount },
-      }),
-      this.prisma.puddingTransaction.create({
-        data: {
-          proProfileId,
-          type: amount > 0 ? 'admin_grant' : 'admin_deduct',
-          amount,
-          balanceAfter: nextCount,
-          note: note ?? '어드민 수동 지급',
-        },
-      }),
-    ]);
-    this.discoveryService.invalidateCache(proProfileId);
-    return { proProfileId, previousBalance: profile.puddingCount, amount, newBalance: nextCount };
-  }
-
   // ─── 통계 ────────────────────────────────────────────────────────────────
   async getStats() {
     const kstOffset = 9 * 60 * 60 * 1000;
@@ -1012,9 +948,8 @@ export class AdminService {
     const emptyRows: any[] = [];
     const zeroAmountAggregate = { _sum: { amount: 0 } } as any;
     const zeroSettlementAggregate = { _sum: { netAmount: 0 } } as any;
-    const zeroPuddingAggregate = { _sum: { amount: 0 } } as any;
     const zeroProAggregate = {
-      _sum: { profileViews: 0, puddingCount: 0, reviewCount: 0 },
+      _sum: { profileViews: 0, reviewCount: 0 },
       _avg: { avgRating: 0, responseRate: 0 },
     } as any;
     const zeroBusinessAggregate = { _sum: { profileViews: 0 } } as any;
@@ -1037,9 +972,6 @@ export class AdminService {
       businessAggregate,
       totalReviews,
       visibleReviews,
-      totalFavorites,
-      proFavorites,
-      businessFavorites,
       totalMatchRequests,
       matchStatuses,
       totalDeliveries,
@@ -1066,10 +998,7 @@ export class AdminService {
       sentPushNotifications,
       activePushTokens,
       pushSubscriptions,
-      totalPudding,
-      pudding30d,
       topViewedPros,
-      topPuddingPros,
       topRevenueGroups,
     ] = await Promise.all([
       safe('totalUsers', this.prisma.user.count(), 0),
@@ -1083,7 +1012,7 @@ export class AdminService {
       safe('pendingPros', this.prisma.proProfile.count({ where: { status: 'pending' } }), 0),
       safe('proStatuses', this.prisma.proProfile.groupBy({ by: ['status'], _count: true }), emptyRows),
       safe('proAggregate', this.prisma.proProfile.aggregate({
-        _sum: { profileViews: true, puddingCount: true, reviewCount: true },
+        _sum: { profileViews: true, reviewCount: true },
         _avg: { avgRating: true, responseRate: true },
       }), zeroProAggregate),
       safe('totalBusinesses', this.prisma.businessProfile.count(), 0),
@@ -1091,9 +1020,6 @@ export class AdminService {
       safe('businessAggregate', this.prisma.businessProfile.aggregate({ _sum: { profileViews: true } }), zeroBusinessAggregate),
       safe('totalReviews', this.prisma.review.count(), 0),
       safe('visibleReviews', this.prisma.review.count({ where: { isVisible: true } }), 0),
-      safe('totalFavorites', this.prisma.favorite.count(), 0),
-      safe('proFavorites', this.prisma.favorite.count({ where: { targetType: 'pro' } }), 0),
-      safe('businessFavorites', this.prisma.favorite.count({ where: { targetType: 'business' } }), 0),
       safe('totalMatchRequests', this.prisma.matchRequest.count(), 0),
       safe('matchStatuses', this.prisma.matchRequest.groupBy({ by: ['status'], _count: true }), emptyRows),
       safe('totalDeliveries', this.prisma.matchDelivery.count(), 0),
@@ -1120,18 +1046,10 @@ export class AdminService {
       safe('sentPushNotifications', this.prisma.notification.count({ where: { sentPush: true } }), 0),
       safe('activePushTokens', this.prisma.pushToken.count({ where: { isActive: true } }), 0),
       safe('pushSubscriptions', this.prisma.pushSubscription.count(), 0),
-      safe('totalPudding', this.prisma.puddingTransaction.aggregate({ _sum: { amount: true } }), zeroPuddingAggregate),
-      safe('pudding30d', this.prisma.puddingTransaction.aggregate({ where: { createdAt: thirtyDayRange }, _sum: { amount: true } }), zeroPuddingAggregate),
       safe('topViewedPros', this.prisma.proProfile.findMany({
         where: { status: 'approved' },
         include: { user: { select: { name: true } } },
         orderBy: { profileViews: 'desc' },
-        take: 5,
-      }), emptyRows),
-      safe('topPuddingPros', this.prisma.proProfile.findMany({
-        where: { status: 'approved' },
-        include: { user: { select: { name: true } } },
-        orderBy: { puddingCount: 'desc' },
         take: 5,
       }), emptyRows),
       safe('topRevenueGroups', this.prisma.payment.groupBy({
@@ -1286,9 +1204,6 @@ export class AdminService {
         },
       },
       engagement: {
-        favorites: totalFavorites,
-        proFavorites,
-        businessFavorites,
         chatRooms: totalChatRooms,
         chatRooms7d,
         messages: totalMessages,
@@ -1301,7 +1216,6 @@ export class AdminService {
       },
       funnel: {
         profileViews: totalProfileViews,
-        favorites: totalFavorites,
         matchRequests: totalMatchRequests,
         deliveries: totalDeliveries,
         viewedDeliveries,
@@ -1314,7 +1228,6 @@ export class AdminService {
         reviews: totalReviews,
       },
       rates: {
-        favoriteCtr: rate(totalFavorites, totalProfileViews),
         chatCtr: rate(totalChatRooms, totalProfileViews),
         deliveryViewRate: rate(viewedDeliveries, totalDeliveries),
         deliveryReplyRate: rate(repliedDeliveries, totalDeliveries),
@@ -1357,22 +1270,12 @@ export class AdminService {
         pendingAmount: pendingSettlementAmount._sum.netAmount || 0,
         settledAmount: settledSettlementAmount._sum.netAmount || 0,
       },
-      pudding: {
-        total: totalPudding._sum.amount || 0,
-        last30d: pudding30d._sum.amount || 0,
-        profileBalance: proAggregate._sum.puddingCount || 0,
-      },
       dailySeries,
       topLists: {
         viewedPros: topViewedPros.map((p) => ({
           id: p.id,
           name: p.user?.name || '전문가',
           value: p.profileViews || 0,
-        })),
-        puddingPros: topPuddingPros.map((p) => ({
-          id: p.id,
-          name: p.user?.name || '전문가',
-          value: p.puddingCount || 0,
         })),
         revenuePros: topRevenueGroups.map((row) => ({
           id: row.proProfileId,
@@ -1507,23 +1410,18 @@ export class AdminService {
                 reviews: true,
                 quotations: true,
                 chatRooms: true,
-                schedules: true,
                 matchDeliveries: true,
-                puddingTransactions: true,
               },
             },
           },
         },
         _count: {
           select: {
-            favorites: true,
             chatRooms: true,
             sentMessages: true,
             notifications: true,
             reviews: true,
             matchRequests: true,
-            pointTransactions: true,
-            userCoupons: true,
           },
         },
       },
@@ -1531,21 +1429,13 @@ export class AdminService {
     if (!user) throw new NotFoundException('유저를 찾을 수 없습니다');
 
     const [
-      favorites,
       chatRooms,
       matchRequests,
       quotations,
       payments,
       reviews,
       notifications,
-      pointTransactions,
-      userCoupons,
     ] = await Promise.all([
-      this.prisma.favorite.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        take: 80,
-      }),
       this.prisma.chatRoom.findMany({
         where: { userId },
         include: {
@@ -1588,7 +1478,6 @@ export class AdminService {
       this.prisma.payment.findMany({
         where: { userId },
         include: {
-          schedules: true,
           quotations: { select: { id: true, title: true, eventDate: true, eventLocation: true, status: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -1608,37 +1497,9 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         take: 80,
       }),
-      this.prisma.pointTransaction.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
-      this.prisma.userCoupon.findMany({
-        where: { userId },
-        include: { coupon: true },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
     ]);
 
-    const favoriteProIds = favorites.filter((f) => f.targetType === 'pro').map((f) => f.targetId);
-    const favoriteBusinessIds = favorites.filter((f) => f.targetType === 'business').map((f) => f.targetId);
-    const [favoritePros, favoriteBusinesses, paymentPros] = await Promise.all([
-      favoriteProIds.length
-        ? this.prisma.proProfile.findMany({
-            where: { id: { in: favoriteProIds } },
-            include: {
-              user: { select: { id: true, name: true, email: true, profileImageUrl: true } },
-              images: { orderBy: { displayOrder: 'asc' }, take: 1 },
-            },
-          })
-        : Promise.resolve([]),
-      favoriteBusinessIds.length
-        ? this.prisma.businessProfile.findMany({
-            where: { id: { in: favoriteBusinessIds } },
-            include: { images: { orderBy: { displayOrder: 'asc' }, take: 1 } },
-          })
-        : Promise.resolve([]),
+    const [paymentPros] = await Promise.all([
       payments.length
         ? this.prisma.proProfile.findMany({
             where: { id: { in: Array.from(new Set(payments.map((p) => p.proProfileId))) } },
@@ -1646,28 +1507,17 @@ export class AdminService {
           })
         : Promise.resolve([]),
     ]);
-    const favoriteProMap = new Map(favoritePros.map((p) => [p.id, p] as const));
-    const favoriteBusinessMap = new Map(favoriteBusinesses.map((b) => [b.id, b] as const));
     const paymentProMap = new Map(paymentPros.map((p) => [p.id, p] as const));
 
     return {
       user,
       relations: {
-        favorites: favorites.map((f) => ({
-          ...f,
-          target:
-            f.targetType === 'pro'
-              ? favoriteProMap.get(f.targetId) || null
-              : favoriteBusinessMap.get(f.targetId) || null,
-        })),
         chatRooms,
         matchRequests,
         quotations,
         payments: payments.map((p) => ({ ...p, proProfile: paymentProMap.get(p.proProfileId) || null })),
         reviews,
         notifications,
-        pointTransactions,
-        userCoupons,
       },
     };
   }
@@ -1683,13 +1533,11 @@ export class AdminService {
       'isActive',
       'isBanned',
       'banReason',
-      'pointBalance',
       'referralCode',
     ];
     for (const field of editableFields) {
       if (data[field] !== undefined) allowed[field] = data[field] === '' ? null : data[field];
     }
-    if (allowed.pointBalance !== undefined) allowed.pointBalance = Number(allowed.pointBalance) || 0;
     if (allowed.role !== undefined && !this.editableUserRoles.includes(allowed.role)) {
       throw new BadRequestException('변경할 수 없는 권한입니다.');
     }
@@ -1730,6 +1578,136 @@ export class AdminService {
     }
 
     return this.getUserDetail(user.id);
+  }
+
+  async getReferralEventParticipants(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }) {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const where: any = {
+      OR: [
+        { referrals: { some: { deletedAt: null, isActive: true } } },
+        { referralEventClaims: { some: { campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY } } },
+      ],
+    };
+
+    if (params.search?.trim()) {
+      const keyword = params.search.trim();
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { name: { contains: keyword, mode: 'insensitive' } },
+            { email: { contains: keyword, mode: 'insensitive' } },
+            { referralCode: { contains: keyword, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+
+    if (params.status?.trim()) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          referralEventClaims: {
+            some: {
+              campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+              status: params.status.trim(),
+            },
+          },
+        },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          referralCode: true,
+          createdAt: true,
+          referrals: {
+            where: { deletedAt: null, isActive: true },
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              createdAt: true,
+              referralCode: true,
+            },
+          },
+          referralEventClaims: {
+            where: { campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY },
+            orderBy: { submittedAt: 'desc' },
+            take: 1,
+          },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((row) => {
+        const claim = row.referralEventClaims[0] || null;
+        return {
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          phone: row.phone,
+          referralCode: row.referralCode,
+          createdAt: row.createdAt,
+          referralCount: row.referrals.length,
+          claimEligible: row.referrals.length >= REFERRAL_EVENT_REQUIRED_REFERRALS,
+          claim,
+          referrals: row.referrals,
+        };
+      }),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async updateReferralEventClaim(
+    claimId: string,
+    data: { status?: string; adminNote?: string },
+  ) {
+    const claim = await this.prisma.referralEventClaim.findUnique({
+      where: { id: claimId },
+    });
+    if (!claim) {
+      throw new NotFoundException('이벤트 신청 내역을 찾을 수 없습니다.');
+    }
+
+    const nextStatus = data.status?.trim() || claim.status;
+    const nextNote = data.adminNote !== undefined ? String(data.adminNote || '').trim() || null : claim.adminNote;
+
+    const updated = await this.prisma.referralEventClaim.update({
+      where: { id: claimId },
+      data: {
+        status: nextStatus,
+        adminNote: nextNote,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, phone: true, referralCode: true },
+        },
+      },
+    });
+
+    return updated;
   }
 
   // ─── 유저 권한 변경 ──────────────────────────────────────────────────────
@@ -1937,12 +1915,9 @@ export class AdminService {
         // 기타 user 참조 모두 이관
         await this.prisma.payment.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
         await this.prisma.quotation.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
-        await this.prisma.favorite.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
         await this.prisma.review.updateMany({ where: { reviewerId: fromId }, data: { reviewerId: toId } }).catch(() => {});
         await this.prisma.notification.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
         await this.prisma.matchRequest.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
-        await this.prisma.pointTransaction.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
-        await this.prisma.userCoupon.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
         await this.prisma.authProviderRecord.updateMany({ where: { userId: fromId }, data: { userId: toId } }).catch(() => {});
         await this.prisma.session.deleteMany({ where: { userId: fromId } }).catch(() => {});
 
@@ -2414,25 +2389,9 @@ export class AdminService {
   async deletePayment(id: string) {
     await this.prisma.$transaction([
       this.prisma.quotation.updateMany({ where: { paymentId: id }, data: { paymentId: null } }),
-      this.prisma.proSchedule.updateMany({ where: { paymentId: id }, data: { paymentId: null } }),
       this.prisma.review.deleteMany({ where: { paymentId: id } }),
       this.prisma.payment.delete({ where: { id } }),
     ]);
-    return { success: true };
-  }
-
-  async updateSchedule(id: string, data: any) {
-    const allowed: any = {};
-    if (data.date !== undefined) allowed.date = data.date ? new Date(data.date) : undefined;
-    if (data.status !== undefined) allowed.status = data.status;
-    if (data.note !== undefined) allowed.note = data.note || null;
-    if (data.source !== undefined) allowed.source = data.source || 'admin';
-    if (data.paymentId !== undefined) allowed.paymentId = data.paymentId || null;
-    return this.prisma.proSchedule.update({ where: { id }, data: allowed });
-  }
-
-  async deleteSchedule(id: string) {
-    await this.prisma.proSchedule.delete({ where: { id } });
     return { success: true };
   }
 
@@ -2461,11 +2420,6 @@ export class AdminService {
 
   async deleteMatchRequest(id: string) {
     await this.prisma.matchRequest.delete({ where: { id } });
-    return { success: true };
-  }
-
-  async deleteFavorite(id: string) {
-    await this.prisma.favorite.delete({ where: { id } });
     return { success: true };
   }
 
@@ -2588,8 +2542,8 @@ export class AdminService {
         .createNotification(
           p.userId,
           'system' as any,
-          '오늘도 출석체크 하셨나요? 🍮',
-          '프리티풀에 접속해 푸딩을 받아보세요!',
+          '새 요청을 확인해 주세요',
+          '프리티풀에 접속해 도착한 요청을 확인해 보세요.',
           { type: 'pro_attendance' },
         )
         .catch(() => {});

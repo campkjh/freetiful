@@ -60,7 +60,7 @@ export default function RegionsPage() {
           <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
             initial={{ width: 0 }}
-            animate={{ width: `${(4 / 7) * 100}%` }}
+            animate={{ width: `${(3 / 6) * 100}%` }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
@@ -70,7 +70,7 @@ export default function RegionsPage() {
           transition={{ delay: 0.1 }}
           className="text-2xl font-bold text-gray-900 mb-2"
         >
-          행사 가능 지역 선택 <span className="text-[11px] text-gray-400">4/7</span>
+          행사 가능 지역 선택 <span className="text-[11px] text-gray-400">3/6</span>
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 8 }}

@@ -62,7 +62,6 @@ function clearHandoverCaches(profileId?: string) {
     'freetiful-pro-dashboard-cache-v2',
     'freetiful-my-pro-category',
     'freetiful-my-pro-stats-cache-v1',
-    'freetiful-pudding',
     'proRegister_allAgreed',
     'proRegister_terms',
     'proRegister_name',
@@ -221,7 +220,7 @@ export default function ProfileHandoverPage() {
               <div className="flex gap-3">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
                   <img
-                    src={item.profileImageUrl || '/images/default-profile.svg'}
+                    src={item.profileImageUrl || '/images/default-profile.png'}
                     alt={item.name}
                     className="h-full w-full object-cover"
                   />

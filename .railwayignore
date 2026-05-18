@@ -4,6 +4,7 @@ node_modules
 apps/*/dist
 apps/*/.next
 apps/*/node_modules
+apps/web/public
 packages/*/node_modules
 *.log
 .DS_Store

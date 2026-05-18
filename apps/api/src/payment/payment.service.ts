@@ -8,7 +8,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
-import { PuddingService } from '../pudding/pudding.service';
 import { ChatService } from '../chat/chat.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 import { MessageTypeEnum } from '../chat/dto/chat.dto';
@@ -25,7 +24,6 @@ export class PaymentService {
     private prisma: PrismaService,
     private config: ConfigService,
     private notificationService: NotificationService,
-    private pudding: PuddingService,
     private chatService: ChatService,
     private chatRealtimeService: ChatRealtimeService,
   ) {
@@ -79,25 +77,6 @@ export class PaymentService {
     return tossData?.method ?? null;
   }
 
-  private formatEventDateLabel(value?: Date | string | null): string {
-    if (!value) return '미정';
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return '미정';
-    const days = ['일', '월', '화', '수', '목', '금', '토'];
-    return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${days[date.getDay()]})`;
-  }
-
-  private formatEventTimeLabel(value?: Date | string | null): string {
-    const time = this.toTimeInput(value);
-    return time || '미정';
-  }
-
-  private toDateIso(value?: Date | string | null): string | undefined {
-    if (!value) return undefined;
-    const date = value instanceof Date ? value : new Date(value);
-    return Number.isNaN(date.getTime()) ? undefined : date.toISOString().slice(0, 10);
-  }
-
   /** 주문 생성 (결제 전 pending Payment 레코드) */
   async createOrder(
     userId: string,
@@ -111,7 +90,7 @@ export class PaymentService {
       eventTime?: string;
     },
   ) {
-    // quotationId가 없으면 신규 생성 (직접 예약 결제)
+    // quotationId가 없으면 신규 견적 레코드 생성
     let quotationId = data.quotationId;
     if (!quotationId) {
       const newQuotation = await this.prisma.quotation.create({
@@ -238,13 +217,8 @@ export class PaymentService {
       },
     });
 
-    // 연관된 견적서 상태 + 일정 정보 조회
-    let eventDate: Date | null = null;
+    // 연관된 견적서 상태 조회
     let paidQuotation: any = null;
-    // chatRoomId 유무로 '채팅 견적 결제' vs '직접 구매' 판별
-    // - 채팅 견적 결제(프로가 견적서 발송 → 고객 결제): quotation.chatRoomId 존재 → 즉시 확정
-    // - 직접 구매(구매하기 / 예약하기 버튼): quotation.chatRoomId 없음 → 프로 수락 대기
-    let isDirectPurchase = true;
     if (payment.quotationId) {
       const quotation = await this.prisma.quotation.update({
         where: { id: payment.quotationId },
@@ -254,41 +228,9 @@ export class PaymentService {
         },
       });
       paidQuotation = quotation;
-      eventDate = quotation.eventDate;
-      isDirectPurchase = !quotation.chatRoomId;
     }
 
-    // 스케줄 생성 — 직접 구매이면 pending (프로 수락 대기), 채팅 견적이면 booked (즉시 확정)
-    const scheduleStatus: 'pending' | 'booked' = isDirectPurchase ? 'pending' : 'booked';
-    const scheduleDate = eventDate || new Date();
-    const dateOnly = new Date(Date.UTC(scheduleDate.getFullYear(), scheduleDate.getMonth(), scheduleDate.getDate()));
-    try {
-      await this.prisma.proSchedule.upsert({
-        where: {
-          proProfileId_date: {
-            proProfileId: payment.proProfileId,
-            date: dateOnly,
-          },
-        },
-        create: {
-          proProfileId: payment.proProfileId,
-          date: dateOnly,
-          status: scheduleStatus,
-          paymentId: payment.id,
-          source: 'purchase',
-        },
-        update: {
-          status: scheduleStatus,
-          paymentId: payment.id,
-          source: 'purchase',
-          note: null,
-        },
-      });
-    } catch (e) {
-      this.logger.error(`스케줄 생성 실패: ${e}`);
-    }
-
-    // 채팅방 생성/찾기 + 스케줄 등록 시스템 메시지 추가
+    // 채팅방 생성/찾기 + 결제 시스템 메시지 추가
     let chatRoomId: string | null = null;
     let proUserId: string | null = null;
     try {
@@ -321,38 +263,18 @@ export class PaymentService {
       }
       if (room?.id) {
         chatRoomId = room.id;
-        const eventDateLabel = this.formatEventDateLabel(paidQuotation?.eventDate);
-        const eventTimeLabel = this.formatEventTimeLabel(paidQuotation?.eventTime);
-        const eventLocationLabel = paidQuotation?.eventLocation || '미정';
-        const eventTitle = paidQuotation?.title || '예약 일정';
-        // 시스템 메시지 — 직접 구매면 '대기 중', 채팅 견적이면 '확정' 표시
-        const sysContent = isDirectPurchase
-          ? [
-              `📅 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 프로의 수락을 기다리는 중입니다.`,
-              `일정: ${eventDateLabel}`,
-              `시간: ${eventTimeLabel}`,
-              `장소: ${eventLocationLabel}`,
-            ].join('\n')
-          : [
-              `✅ 결제가 완료되었습니다 (${data.amount.toLocaleString()}원) · 스케줄이 확정되었습니다.`,
-              `확정 일정: ${eventDateLabel}`,
-              `확정 시간: ${eventTimeLabel}`,
-              `확정 장소: ${eventLocationLabel}`,
-            ].join('\n');
+        const eventTitle = paidQuotation?.title || '결제';
+        const sysContent = `결제가 완료되었습니다 (${data.amount.toLocaleString()}원).`;
         const systemMessage = await this.chatService.sendMessage(room.id, payment.userId, {
           type: MessageTypeEnum.system,
           content: sysContent,
           metadata: {
             system: {
-              kind: isDirectPurchase ? 'payment_pending_acceptance' : 'payment_paid',
+              kind: 'payment_paid',
               paymentId: payment.id,
               quotationId: paidQuotation?.id,
               amount: data.amount,
               eventName: eventTitle,
-              eventDate: this.toDateIso(paidQuotation?.eventDate),
-              eventTime: this.toTimeInput(paidQuotation?.eventTime),
-              eventLocation: paidQuotation?.eventLocation || null,
-              venue: paidQuotation?.eventLocation || null,
             },
           },
         });
@@ -369,23 +291,13 @@ export class PaymentService {
 
     // 알림: 고객 + 전문가
     try {
-      if (isDirectPurchase) {
-        this.notificationService.createNotification(
-          payment.userId,
-          'payment' as any,
-          '결제가 완료되었습니다 ✅',
-          `${data.amount.toLocaleString()}원 결제가 완료되었습니다. 프로의 수락을 기다려주세요.`,
-          { paymentId: payment.id },
-        ).catch(() => {});
-      } else {
-        this.notificationService.createNotification(
-          payment.userId,
-          'payment' as any,
-          '결제가 완료되었습니다 ✅',
-          `${data.amount.toLocaleString()}원 결제가 완료되어 스케줄이 확정되었습니다.`,
-          { paymentId: payment.id },
-        ).catch(() => {});
-      }
+      this.notificationService.createNotification(
+        payment.userId,
+        'payment' as any,
+        '결제가 완료되었습니다',
+        `${data.amount.toLocaleString()}원 결제가 완료되었습니다.`,
+        { paymentId: payment.id },
+      ).catch(() => {});
 
       const proProfile = await this.prisma.proProfile.findUnique({
         where: { id: payment.proProfileId },
@@ -393,23 +305,13 @@ export class PaymentService {
       });
       proUserId = proProfile?.userId ?? proUserId;
       if (proProfile) {
-        if (isDirectPurchase) {
-          this.notificationService.createNotification(
-            proProfile.userId,
-            'booking' as any,
-            '새 예약 요청이 도착했습니다 📅',
-            `${data.amount.toLocaleString()}원 새 예약 요청이 도착했습니다. 수락/거절을 선택해주세요.`,
-            { paymentId: payment.id },
-          ).catch(() => {});
-        } else {
-          this.notificationService.createNotification(
-            proProfile.userId,
-            'booking' as any,
-            '새 예약이 확정되었습니다 🎉',
-            `${data.amount.toLocaleString()}원 예약이 확정되었습니다. 채팅에서 고객과 상세 일정을 논의해주세요.`,
-            { paymentId: payment.id },
-          ).catch(() => {});
-        }
+        this.notificationService.createNotification(
+          proProfile.userId,
+          'payment' as any,
+          '결제가 완료되었습니다',
+          `${data.amount.toLocaleString()}원 결제가 완료되었습니다.`,
+          { paymentId: payment.id },
+        ).catch(() => {});
       }
     } catch {}
 
@@ -419,9 +321,6 @@ export class PaymentService {
       proProfileId: payment.proProfileId,
       chatRoomId,
     });
-
-    // 거래 성사 푸딩 +300 (결제 완료 시점 — 프로의 수락 여부와 무관하게 "거래 성사"로 간주)
-    this.pudding.awardDealCompleted(payment.proProfileId, payment.id).catch(() => {});
 
     // 정산 로그 생성 (status=pending) — 관리자가 정산 버튼 누르면 settled 로 전환
     try {
@@ -598,12 +497,6 @@ export class PaymentService {
       }).catch(() => {});
     }
 
-    // ProSchedule 상태 cancelled로
-    await this.prisma.proSchedule.updateMany({
-      where: { paymentId: payment.id },
-      data: { status: 'cancelled', note: `고객 취소: ${reason}` },
-    });
-
     // 채팅방에 시스템 메시지
     const room = await this.prisma.chatRoom.findFirst({
       where: {
@@ -618,7 +511,7 @@ export class PaymentService {
           roomId: room.id,
           senderId: userId,
           type: 'system',
-          content: `⚠️ 고객이 예약을 취소했습니다.\n사유: ${reason}\n환불 금액: ${refundAmount.toLocaleString()}원 (환불률 ${refundRate}%)`,
+          content: `고객이 결제를 취소했습니다.\n사유: ${reason}\n환불 금액: ${refundAmount.toLocaleString()}원 (환불률 ${refundRate}%)`,
         },
       });
       await this.prisma.chatRoom.update({
@@ -644,9 +537,9 @@ export class PaymentService {
       if (proProfile) {
         this.notificationService.createNotification(
           proProfile.userId,
-          'booking' as any,
-          '예약이 취소되었습니다',
-          `고객 요청으로 예약이 취소되었습니다.\n사유: ${reason}`,
+          'payment' as any,
+          '결제가 취소되었습니다',
+          `고객 요청으로 결제가 취소되었습니다.\n사유: ${reason}`,
           { paymentId: payment.id },
         ).catch(() => {});
       }
@@ -657,7 +550,7 @@ export class PaymentService {
 
   /**
    * 시스템(프로 거절 등) 에 의한 강제 환불 — 권한 체크 없이 환불 진행.
-   * ProService.rejectScheduleRequest 등 내부 호출 전용.
+   * 내부 시스템 호출 전용.
    */
   async refundAsSystem(paymentId: string, reason: string) {
     const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });

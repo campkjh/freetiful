@@ -87,7 +87,7 @@ function PaymentSuccessInner() {
           </svg>
         </div>
         <h1 className="text-[22px] font-bold text-gray-900 mb-1">결제 완료!</h1>
-        <p className="text-[14px] text-gray-500 mb-2">스케줄이 등록되었습니다 · 프로의 수락을 기다려주세요</p>
+        <p className="text-[14px] text-gray-500 mb-2">결제가 정상적으로 완료되었습니다</p>
         <p className="text-[13px] text-gray-400 mb-8">주문번호: {orderId}</p>
 
         <div className="space-y-2.5">

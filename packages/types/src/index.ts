@@ -10,13 +10,6 @@ export type MatchRequestType = 'multi' | 'single';
 export type MatchRequestStatus = 'open' | 'matched' | 'cancelled' | 'expired';
 export type MessageType = 'text' | 'image' | 'file' | 'location' | 'link' | 'sticker' | 'system';
 export type NotificationType = 'chat' | 'booking' | 'payment' | 'review' | 'system' | 'marketing';
-export type PuddingReason =
-  | 'quote_reply_single'
-  | 'quote_reply_multi'
-  | 'successful_match'
-  | 'perfect_review'
-  | 'info_registered'
-  | 'referral_joined';
 
 // ─── User ────────────────────────────────────────────────────────────────────
 
@@ -28,7 +21,6 @@ export interface User {
   email: string | null;
   profileImageUrl: string | null;
   referralCode: string;
-  pointBalance: number;
   isActive: boolean;
   createdAt: string;
 }
@@ -60,8 +52,6 @@ export interface ProProfile {
   detailHtml: string | null;
   youtubeUrl: string | null;
   isNationwide: boolean;
-  puddingCount: number;
-  puddingRank: number | null;
   profileViews: number;
   avgRating: number;
   reviewCount: number;
@@ -195,7 +185,6 @@ export interface ChatRoom {
   proProfileId: string;
   lastMessageAt: string | null;
   unreadCount: number;
-  isFavorited: boolean;
   otherUser?: Partial<User & { proProfile?: Partial<ProProfile> }>;
   lastMessage?: Message;
 }

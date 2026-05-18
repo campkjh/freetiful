@@ -215,7 +215,7 @@ const COMPANY_INFO = {
   established: '2024년',
   business: '프리랜서 진행자 매칭 플랫폼',
   experts: '1,000여 명',
-  address: '서울 강남구 논현대로10길 30, 505-제이20호',
+  address: '서울시 중구 퇴계로36길 2, 충무로관 본관 130호',
   phone: '02-765-8882',
   email: 'freetiful2025@gmail.com',
   website: 'https://freetiful.com',

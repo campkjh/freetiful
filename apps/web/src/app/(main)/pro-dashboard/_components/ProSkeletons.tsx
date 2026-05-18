@@ -13,7 +13,7 @@ export function ProStatGridSkeleton({ count = 5 }: { count?: number }) {
   return (
     <div className="px-4 mt-5 grid grid-cols-3 gap-2">
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="rounded-xl bg-white p-2.5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        <div key={index} className="pro-toss-card-flat p-2.5">
           <SkeletonBlock className="mb-1.5 h-7 w-7 rounded-lg" />
           <SkeletonBlock className="mb-1.5 h-2.5 w-14 rounded" />
           <SkeletonBlock className="h-3.5 w-16 rounded" />
@@ -27,7 +27,7 @@ export function ProMetricGridSkeleton({ count = 3, columns = 'grid-cols-3' }: { 
   return (
     <div className={`px-4 mt-5 grid ${columns} gap-2`}>
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="rounded-xl bg-white p-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        <div key={index} className="pro-toss-card-flat p-3">
           <SkeletonBlock className="mb-2 h-8 w-8 rounded-lg" />
           <SkeletonBlock className="mb-1.5 h-2.5 w-16 rounded" />
           <SkeletonBlock className="h-4 w-20 rounded" />
@@ -51,7 +51,7 @@ export function ProCardListSkeleton({
   return (
     <div className={`${className} space-y-3`}>
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="rounded-2xl bg-white p-4 shadow-sm">
+        <div key={index} className="pro-toss-card p-4">
           <div className="flex items-start gap-3">
             {avatar && <SkeletonBlock className="h-10 w-10 shrink-0 rounded-full" />}
             <div className="min-w-0 flex-1">
@@ -75,34 +75,11 @@ export function ProCardListSkeleton({
   );
 }
 
-// 새 예약 / 다가오는 일정 카드용 — 실제 카드 레이아웃과 정확히 매칭
-export function ProScheduleCardSkeleton({ count = 2 }: { count?: number }) {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]" style={{ borderRadius: 24 }}>
-          <SkeletonBlock className="h-4 w-2/3 rounded mb-2" />
-          <SkeletonBlock className="h-3 w-1/2 rounded mb-1" />
-          <SkeletonBlock className="h-3 w-1/3 rounded mb-3" />
-          <div className="flex items-end justify-between mt-2">
-            <SkeletonBlock className="h-5 w-24 rounded" />
-            <SkeletonBlock className="h-3 w-20 rounded" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 mt-3">
-            <SkeletonBlock className="h-11" style={{ borderRadius: 12 }} />
-            <SkeletonBlock className="h-11" style={{ borderRadius: 12 }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function ProMiniCardGridSkeleton({ count = 2 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="rounded-xl border border-gray-100 bg-white p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        <div key={index} className="pro-toss-card-flat p-2.5">
           <div className="mb-2 flex items-center justify-between">
             <SkeletonBlock className="h-3.5 w-14 rounded" />
             <SkeletonBlock className="h-4 w-9 rounded-full" />
@@ -119,7 +96,7 @@ export function ProReviewListSkeleton({ count = 2, className = '' }: { count?: n
   return (
     <div className={`space-y-4 ${className}`}>
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div key={index} className="pro-toss-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <SkeletonBlock className="h-3.5 w-16 rounded" />
@@ -143,7 +120,7 @@ export function ProReviewListSkeleton({ count = 2, className = '' }: { count?: n
 
 export function ProRevenueSkeleton() {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+    <div className="pro-toss-card p-5">
       {Array.from({ length: 2 }).map((_, index) => (
         <div key={index} className={index === 0 ? 'mb-4' : ''}>
           <div className="mb-1.5 flex items-center justify-between">
@@ -165,7 +142,7 @@ export function ProChartSkeleton({ className = 'px-4 mt-6' }: { className?: stri
   return (
     <div className={className}>
       <SkeletonBlock className="mb-3 h-4 w-28 rounded" />
-      <div className="rounded-2xl bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+      <div className="pro-toss-card p-5">
         <div className="flex h-32 items-end gap-3">
           {[52, 76, 36, 88, 64, 46, 70].map((height, index) => (
             <div key={index} className="flex flex-1 flex-col items-center gap-1">
@@ -182,7 +159,7 @@ export function ProChartSkeleton({ className = 'px-4 mt-6' }: { className?: stri
 
 export function ProRankingSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <div className="card overflow-hidden">
+    <div className="pro-toss-card overflow-hidden">
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} className="flex items-center gap-3 border-b border-gray-50 px-4 py-3 last:border-0">
           <SkeletonBlock className="h-4 w-5 rounded" />
@@ -199,7 +176,7 @@ export function ProNotificationListSkeleton({ count = 5, className = 'px-4 mt-2'
   return (
     <div className={className}>
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className="flex items-start gap-3 border-b border-gray-100 py-4">
+        <div key={index} className="pro-toss-card mb-3 flex items-start gap-3 p-4">
           <SkeletonBlock className="mt-0.5 h-6 w-6 shrink-0 rounded-lg" />
           <div className="min-w-0 flex-1">
             <SkeletonBlock className="mb-2 h-3.5 w-32 rounded" />
@@ -214,7 +191,7 @@ export function ProNotificationListSkeleton({ count = 5, className = 'px-4 mt-2'
 
 export function ProCalendarSkeleton() {
   return (
-    <div className="bg-white px-4 py-4">
+    <div className="pro-toss-card px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
         <SkeletonBlock className="h-6 w-6 rounded-full" />
         <SkeletonBlock className="h-4 w-24 rounded" />

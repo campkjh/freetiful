@@ -14,7 +14,7 @@ export class DiscoveryService implements OnModuleInit {
     // 서버 시작 시 캐시 워밍업
     try {
       await Promise.all([
-        this.getProList({ limit: 50, sort: 'pudding', withTotal: false }),
+        this.getProList({ limit: 50, sort: 'reviews', withTotal: false }),
         this.getProList({ limit: 12, sort: 'rating', withTotal: false }),
       ]);
       this.logger.log('Pro list cache warmed up');
@@ -132,7 +132,7 @@ export class DiscoveryService implements OnModuleInit {
     page?: number;
     limit?: number;
     search?: string;
-    sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding';
+    sort?: 'rating' | 'reviews' | 'price' | 'experience';
     gender?: string;
     minPrice?: number;
     maxPrice?: number;
@@ -147,10 +147,9 @@ export class DiscoveryService implements OnModuleInit {
     const { sort = 'rating', gender, minPrice, maxPrice, featured, region } = params;
     const search = params.search?.trim();
     const withTotal = params.withTotal !== false;
-    const isRealtimePuddingRank = sort === 'pudding';
 
     const cacheKey = JSON.stringify({ fn: 'getProList', page, limit, search, sort, gender, minPrice, maxPrice, featured, region, withTotal });
-    const cached = isRealtimePuddingRank ? null : this.getCached<any>(cacheKey);
+    const cached = this.getCached<any>(cacheKey);
     if (cached) return cached;
 
     // 공개 목록 조건:
@@ -207,9 +206,8 @@ export class DiscoveryService implements OnModuleInit {
 
     const orderBy: any =
       sort === 'reviews' ? [{ reviewCount: 'desc' as const }, { avgRating: 'desc' as const }, { id: 'asc' as const }]
-      : sort === 'experience' ? [{ careerYears: 'desc' as const }, { puddingCount: 'desc' as const }, { id: 'asc' as const }]
-      : sort === 'pudding' ? [{ puddingCount: 'desc' as const }, { avgRating: 'desc' as const }, { reviewCount: 'desc' as const }, { id: 'asc' as const }]
-      : [{ avgRating: 'desc' as const }, { puddingCount: 'desc' as const }, { id: 'asc' as const }];
+      : sort === 'experience' ? [{ careerYears: 'desc' as const }, { reviewCount: 'desc' as const }, { id: 'asc' as const }]
+      : [{ avgRating: 'desc' as const }, { reviewCount: 'desc' as const }, { id: 'asc' as const }];
 
     const [data, totalCount] = await Promise.all([
       this.prisma.proProfile.findMany({
@@ -224,7 +222,6 @@ export class DiscoveryService implements OnModuleInit {
           careerYears: true,
           isFeatured: true,
           showPartnersLogo: true,
-          puddingCount: true,
           gender: true,
           youtubeUrl: true,
           isNationwide: true,
@@ -253,17 +250,6 @@ export class DiscoveryService implements OnModuleInit {
       withTotal ? this.prisma.proProfile.count({ where }) : Promise.resolve(0),
     ]);
     const total = withTotal ? totalCount : data.length;
-    const favoriteCounts = data.length
-      ? await this.prisma.favorite.groupBy({
-          by: ['targetId'],
-          where: {
-            targetType: 'pro',
-            targetId: { in: data.map((p) => p.id) },
-          },
-          _count: { targetId: true },
-        })
-      : [];
-    const favoriteCountMap = new Map(favoriteCounts.map((row) => [row.targetId, row._count.targetId]));
 
     const result = {
       data: data.map((p) => ({
@@ -281,8 +267,6 @@ export class DiscoveryService implements OnModuleInit {
         basePrice: 0,
         isFeatured: p.isFeatured,
         showPartnersLogo: p.showPartnersLogo,
-        puddingCount: p.puddingCount,
-        favoriteCount: favoriteCountMap.get(p.id) || 0,
         gender: p.gender,
         youtubeUrl: p.youtubeUrl,
         isNationwide: p.isNationwide,
@@ -296,7 +280,7 @@ export class DiscoveryService implements OnModuleInit {
       limit,
       hasMore: withTotal ? page * limit < total : data.length === limit,
     };
-    if (!isRealtimePuddingRank) this.setCached(cacheKey, result);
+    this.setCached(cacheKey, result);
     return result;
   }
 
@@ -307,8 +291,7 @@ export class DiscoveryService implements OnModuleInit {
     const detailCacheKey = `proDetail:${proProfileId}`;
     const detailCached = this.getCached<any>(detailCacheKey);
     if (detailCached) return detailCached;
-    const [pro, favoriteCount] = await Promise.all([
-      this.prisma.proProfile.findUnique({
+    const pro = await this.prisma.proProfile.findUnique({
         where: { id: proProfileId },
         select: {
           id: true,
@@ -368,9 +351,7 @@ export class DiscoveryService implements OnModuleInit {
             take: 10,
           },
         },
-      }),
-      this.prisma.favorite.count({ where: { targetType: 'pro', targetId: proProfileId } }),
-    ]);
+      });
 
     if (!pro) return null;
 
@@ -387,7 +368,6 @@ export class DiscoveryService implements OnModuleInit {
       regionNames: pro.regions.map((r) => r.region.name),
       languageCodes: pro.languages.map((l) => l.languageCode),
       tagList: pro.tags || [],
-      favoriteCount,
     };
     this.setCached(detailCacheKey, detailResult);
     return detailResult;

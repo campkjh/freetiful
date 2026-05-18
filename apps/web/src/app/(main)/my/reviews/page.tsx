@@ -108,7 +108,7 @@ export default function ReviewsPage() {
           </div>
         ) : items.map((review) => {
           const targetName = review.proProfile?.user?.name || review.reviewer?.name || '고객';
-          const image = review.proProfile?.images?.[0]?.imageUrl || review.proProfile?.user?.profileImageUrl || review.reviewer?.profileImageUrl || '/images/default-profile.svg';
+          const image = review.proProfile?.images?.[0]?.imageUrl || review.proProfile?.user?.profileImageUrl || review.reviewer?.profileImageUrl || '/images/default-profile.png';
           return (
             <article key={review.id} className="rounded-2xl bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">

@@ -22,7 +22,6 @@ export interface ChatRoomItem {
   } | null;
   lastMessageAt: string | null;
   unreadCount: number;
-  isFavorited: boolean;
   /** 룸에 연결된 프로 프로필 ID — 결제/프로필 이동 시 사용 */
   proProfileId?: string;
   /** 내가 프로(사회자) 측인지 */
@@ -31,10 +30,6 @@ export interface ChatRoomItem {
   matchRequestId?: string | null;
   /** 가장 최근 견적 상태 */
   latestQuotationStatus?: string | null;
-  /** 견적문의 탭에 노출할 방인지 */
-  hasQuoteInquiry?: boolean;
-  /** 예약확정 탭에 노출할 방인지 */
-  hasConfirmedBooking?: boolean;
   matchRequest?: {
     id: string;
     type?: string | null;
@@ -79,7 +74,7 @@ export interface MessageItem {
 
 export const chatApi = {
   // Rooms
-  getRooms: (params?: { search?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number; withTotal?: boolean }) =>
+  getRooms: (params?: { dateFrom?: string; dateTo?: string; page?: number; limit?: number; withTotal?: boolean }) =>
     apiClient.get<{ data: ChatRoomItem[]; total: number; hasMore: boolean }>(`${BASE}/rooms`, { params }),
 
   createRoom: (proProfileId: string, matchRequestId?: string) =>
@@ -95,14 +90,11 @@ export const chatApi = {
   deleteRoom: (roomId: string) =>
     apiClient.delete(`${BASE}/rooms/${roomId}`),
 
-  toggleFavorite: (roomId: string) =>
-    apiClient.post<{ isFavorited: boolean }>(`${BASE}/rooms/${roomId}/favorite`),
-
   markAsRead: (roomId: string) =>
     apiClient.post(`${BASE}/rooms/${roomId}/read`),
 
   // Messages
-  getMessages: (roomId: string, params?: { search?: string; before?: string; after?: string; limit?: number; cursor?: string }) =>
+  getMessages: (roomId: string, params?: { before?: string; after?: string; limit?: number; cursor?: string }) =>
     apiClient.get<{ data: MessageItem[]; hasMore: boolean; cursor: string | null }>(`${BASE}/rooms/${roomId}/messages`, { params }),
 
   sendMessage: (roomId: string, data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string }) =>
@@ -127,22 +119,9 @@ export const chatApi = {
   addReaction: (messageId: string, emoji: string) =>
     apiClient.post(`${BASE}/messages/${messageId}/reactions`, { emoji }),
 
-  searchMessages: (roomId: string, q: string) =>
-    apiClient.get(`${BASE}/rooms/${roomId}/search`, { params: { q } }),
-
   // Photo Gallery
   getPhotoGallery: (roomId: string, params?: { page?: number; limit?: number }) =>
     apiClient.get(`${BASE}/rooms/${roomId}/photos`, { params }),
-
-  // Scheduled Messages
-  createScheduledMessage: (roomId: string, data: { type: string; content?: string; scheduledAt: string }) =>
-    apiClient.post(`${BASE}/rooms/${roomId}/scheduled`, data),
-
-  getScheduledMessages: (roomId: string) =>
-    apiClient.get(`${BASE}/rooms/${roomId}/scheduled`),
-
-  deleteScheduledMessage: (id: string) =>
-    apiClient.delete(`${BASE}/scheduled/${id}`),
 
   // Frequent Messages
   getFrequentMessages: () =>

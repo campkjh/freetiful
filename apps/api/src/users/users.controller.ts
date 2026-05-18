@@ -4,18 +4,17 @@ import {
   Put,
   Post,
   Body,
-  Query,
+  Param,
   UseGuards,
   Req,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { Request } from 'express';
-import { UserRole } from '@prisma/client';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -64,37 +63,6 @@ export class UsersController {
     return this.usersService.updateNotificationSettings(userId, body);
   }
 
-  @Get('points')
-  async getPointBalance(@Req() req: Request) {
-    const userId = (req.user as any).id;
-    return this.usersService.getPointBalance(userId);
-  }
-
-  @Get('points/history')
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  async getPointHistory(
-    @Req() req: Request,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const userId = (req.user as any).id;
-    return this.usersService.getPointHistory(
-      userId,
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 20,
-    );
-  }
-
-  @Post('role')
-  async switchRole(
-    @Req() req: Request,
-    @Body() body: { role: 'general' | 'pro' },
-  ) {
-    const userId = (req.user as any).id;
-    return this.usersService.switchRole(userId, body.role as UserRole);
-  }
-
   @Post('delete-account')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -103,9 +71,36 @@ export class UsersController {
     return this.usersService.deleteAccount(userId);
   }
 
-  @Get('coupons')
-  async getCoupons(@Req() req: Request) {
+  @Get('referral-event')
+  async getReferralEventStatus(@Req() req: Request) {
     const userId = (req.user as any).id;
-    return this.usersService.getCoupons(userId);
+    return this.usersService.getReferralEventStatus(userId);
+  }
+
+  @Post('referral-event/code')
+  async applyReferralEventCode(
+    @Req() req: Request,
+    @Body() body: { code?: string },
+  ) {
+    const userId = (req.user as any).id;
+    return this.usersService.applyReferralEventCode(userId, body.code || '');
+  }
+
+  @Post('referral-event/rewards/:step/claim')
+  async claimReferralEventReward(
+    @Req() req: Request,
+    @Param('step') step: string,
+  ) {
+    const userId = (req.user as any).id;
+    return this.usersService.claimReferralEventReward(userId, Number(step));
+  }
+
+  @Post('referral-event/claim')
+  async submitReferralEventClaim(
+    @Req() req: Request,
+    @Body() body: { bankName?: string; accountHolder?: string; accountNumber?: string },
+  ) {
+    const userId = (req.user as any).id;
+    return this.usersService.submitReferralEventClaim(userId, body);
   }
 }

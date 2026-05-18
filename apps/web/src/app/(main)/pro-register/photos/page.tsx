@@ -273,12 +273,12 @@ export default function PhotosPage() {
           <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
             initial={{ width: 0 }}
-            animate={{ width: `${(5 / 7) * 100}%` }}
+            animate={{ width: `${(4 / 6) * 100}%` }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
         <motion.h1 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-2xl font-bold text-gray-900 mb-2">
-          프로필사진 <span className="text-[11px] text-gray-400">5/7</span>
+          프로필사진 <span className="text-[11px] text-gray-400">4/6</span>
         </motion.h1>
         <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-sm text-gray-400">
           대표 사진은 얼굴이 포함된 사진만 등록 가능합니다

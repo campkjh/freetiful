@@ -77,10 +77,10 @@ function resolveNotifLink(type: NotifType, data: any): string | undefined {
   if (data?.reviewId && data?.proProfileId) return `/pros/${data.proProfileId}/reviews`;
   if (data?.proProfileId) return `/pros/${data.proProfileId}`;
   if (type === 'chat') return '/chat';
-  if (type === 'booking') return '/schedule';
+  if (type === 'booking') return '/main';
   if (type === 'payment') return '/my/payment-history';
   if (type === 'review') return '/my/purchase-history';
-  if (type === 'marketing') return '/my/coupons';
+  if (type === 'marketing') return '/my';
   if (type === 'system') return '/my/announcements';
   return undefined;
 }
@@ -146,15 +146,9 @@ export default function NotificationsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const previousItems = items;
     setItems(prev => prev.filter(n => n.id !== id));
     setSwipeStates(prev => { const next = { ...prev }; delete next[id]; return next; });
-    try {
-      await notificationApi.deleteOne(id);
-    } catch {
-      setItems(previousItems);
-      loadNotifications().catch(() => {});
-    }
+    await notificationApi.deleteOne(id);
   };
 
   const handleTouchStart = useCallback((id: string, e: React.TouchEvent) => {
@@ -176,6 +170,7 @@ export default function NotificationsPage() {
   const handleMouseDown = useCallback((id: string, e: React.MouseEvent) => {
     mouseDown.current[id] = true;
     touchStartX.current[id] = e.clientX;
+    touchCurrentX.current[id] = e.clientX;
   }, []);
 
   const handleMouseMove = useCallback((id: string, e: React.MouseEvent) => {
@@ -250,9 +245,9 @@ export default function NotificationsPage() {
             const isSwipeOpen = swipeX > 60;
 
             return (
-              <div key={n.id} className="relative overflow-hidden border-b border-gray-100">
+              <div key={n.id} className="relative overflow-hidden border-b border-gray-100 bg-red-500">
                 {/* Delete button behind */}
-                <div className="absolute right-0 top-0 bottom-0 z-20 flex items-center justify-center w-[80px] bg-red-500">
+                <div className="absolute right-0 top-0 bottom-0 z-0 flex items-center justify-center w-[80px] bg-red-500">
                   <button
                     type="button"
                     onPointerDown={(e) => e.stopPropagation()}

@@ -91,29 +91,11 @@ function isSameBrowserHost(url: string) {
   }
 }
 
-function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
-  const system = (message.metadata as any)?.system;
-  if (system?.kind === 'quote') return { hasQuoteInquiry: true };
-  if (system?.kind === 'payment_pending_acceptance') return { hasQuoteInquiry: true };
-  if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
-    return { hasQuoteInquiry: true, hasConfirmedBooking: true };
-  }
-  const content = message.content || '';
-  if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
-  if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
+function getRoomFlagsFromMessage(_message: MessageItem): Partial<ChatRoomItem> {
   return {};
 }
 
-function getRoomFlagsFromPayload(data: SendMessagePayload): Partial<ChatRoomItem> {
-  const system = (data.metadata as Record<string, any> | null)?.system;
-  if (system?.kind === 'quote') return { hasQuoteInquiry: true };
-  if (system?.kind === 'payment_pending_acceptance') return { hasQuoteInquiry: true };
-  if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
-    return { hasQuoteInquiry: true, hasConfirmedBooking: true };
-  }
-  const content = data.content || '';
-  if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
-  if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
+function getRoomFlagsFromPayload(_data: SendMessagePayload): Partial<ChatRoomItem> {
   return {};
 }
 
@@ -124,6 +106,8 @@ function getPreviewContent(data: SendMessagePayload) {
       return '사진을 보냈습니다';
     case 'file':
       return '파일을 보냈습니다';
+    case 'sticker':
+      return '이모티콘을 보냈습니다';
     case 'location':
       return '위치를 공유했습니다';
     case 'system':
@@ -214,7 +198,6 @@ interface ChatState {
   deleteMessage: (messageId: string) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
   setTyping: (isTyping: boolean) => void;
-  toggleFavorite: (roomId: string) => Promise<void>;
   deleteRoom: (roomId: string) => Promise<void>;
 }
 
@@ -772,13 +755,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { socket, currentRoomId } = get();
     if (!socket || !currentRoomId) return;
     socket.emit('typing', { roomId: currentRoomId, isTyping });
-  },
-
-  toggleFavorite: async (roomId) => {
-    const res = await chatApi.toggleFavorite(roomId);
-    set((s) => ({
-      rooms: s.rooms.map((r) => (r.id === roomId ? { ...r, isFavorited: res.data.isFavorited } : r)),
-    }));
   },
 
   deleteRoom: async (roomId) => {

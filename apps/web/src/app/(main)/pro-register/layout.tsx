@@ -6,7 +6,7 @@ import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const PARTNER_ACCESS_KEY = 'freetiful-partner-apply-access';
-const PARTNER_ACCESS_PASSWORD = '프리티풀';
+const PARTNER_ACCESS_PASSWORD = '1234';
 const secureTextStyle = {
   WebkitTextSecurity: 'disc',
 } as CSSProperties & { WebkitTextSecurity?: string };

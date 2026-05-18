@@ -16,9 +16,7 @@ import { PaymentModule } from './payment/payment.module';
 import { ReviewModule } from './review/review.module';
 import { NotificationModule } from './notification/notification.module';
 import { PushModule } from './push/push.module';
-import { FavoriteModule } from './favorite/favorite.module';
 import { AdminModule } from './admin/admin.module';
-import { PuddingModule } from './pudding/pudding.module';
 import { RefDataModule } from './ref-data/ref-data.module';
 import { PlanTemplateModule } from './plan-template/plan-template.module';
 import { BannerModule } from './banner/banner.module';
@@ -49,9 +47,7 @@ import { HealthController } from './health.controller';
     ReviewModule,
     NotificationModule,
     PushModule,
-    FavoriteModule,
     AdminModule,
-    PuddingModule,
     RefDataModule,
     PlanTemplateModule,
     BannerModule,

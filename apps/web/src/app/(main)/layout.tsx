@@ -2,11 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import toast from 'react-hot-toast';
 import Footer from '@/components/Footer';
 import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -18,12 +15,6 @@ type NavIconProps = { className?: string };
 const HomeNavIcon = ({ className }: NavIconProps) => (
   <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
     <path d="M13.7124 5.93065C14.4843 5.38575 15.5157 5.38575 16.2876 5.93065L23.4399 10.9795C24.0323 11.3978 24.3851 12.0775 24.3853 12.8027V22.2461C24.385 23.479 23.3848 24.4785 22.1519 24.4785H18.2791C18.0324 24.4785 17.8325 24.2786 17.8325 24.032V19.1897C17.8325 18.9431 17.6326 18.7432 17.386 18.7432H12.6131C12.3664 18.7432 12.1665 18.9431 12.1665 19.1897V24.032C12.1665 24.2786 11.9666 24.4785 11.72 24.4785H7.84717C6.61427 24.4784 5.61497 23.479 5.61475 22.2461V12.8027C5.61487 12.0774 5.96748 11.3978 6.56006 10.9795L13.7124 5.93065Z" fill="currentColor" />
-  </svg>
-);
-
-const ScheduleNavIcon = ({ className }: NavIconProps) => (
-  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
-    <path d="M20.3737 4.79883C20.9363 4.79883 21.3929 5.25481 21.3932 5.81738V7.87402H21.5914C22.5494 7.87413 23.3588 8.5845 23.484 9.53418L25.2614 23.043C25.4116 24.1864 24.5211 25.2012 23.3678 25.2012H6.6305C5.49825 25.201 4.6153 24.221 4.73206 23.0947L6.13245 9.58691C6.23342 8.61407 7.05284 7.87422 8.03089 7.87402H8.6139V5.81738C8.61416 5.25509 9.0702 4.79928 9.63245 4.79883C10.1951 4.79883 10.6517 5.25481 10.652 5.81738V7.87402H13.984V5.81738C13.9843 5.25493 14.4411 4.79902 15.0035 4.79883C15.566 4.79899 16.0218 5.25491 16.0221 5.81738V7.87402H19.3551V5.81738C19.3554 5.25509 19.8114 4.79928 20.3737 4.79883ZM17.6696 12.2559C17.0394 12.2559 16.4729 12.3893 15.9791 12.6641L15.7721 12.79C15.2346 13.1474 14.8286 13.6654 14.5485 14.3262L14.5475 14.3271C14.2702 14.9883 14.1375 15.7752 14.1373 16.6777C14.1346 17.5838 14.2666 18.3769 14.5436 19.0459V19.0469C14.8231 19.7148 15.2288 20.2399 15.7653 20.6055H15.7662C16.3067 20.9716 16.9454 21.1505 17.6686 21.1533H17.6696C18.3931 21.1533 19.0314 20.9762 19.57 20.6094C20.1065 20.2438 20.5108 19.7188 20.7877 19.0508C21.0676 18.3817 21.2018 17.5874 21.2018 16.6787C21.204 15.8886 21.1027 15.1875 20.8893 14.583L20.7907 14.3291C20.5105 13.6685 20.1026 13.1497 19.5631 12.79H19.5621C19.0244 12.4302 18.389 12.2559 17.6696 12.2559ZM10.8571 12.4092L8.86683 13.6689L8.73402 13.7539V15.9365L9.17249 15.6611L10.6217 14.752V20.9766H12.8942V12.3652H10.9274L10.8571 12.4092ZM17.6696 14.2217C17.905 14.2217 18.1023 14.2985 18.2741 14.4541L18.275 14.4551C18.4513 14.6131 18.605 14.8657 18.7184 15.2393V15.2412C18.8326 15.61 18.8941 16.0869 18.8942 16.6787V16.6797C18.8967 17.5867 18.7615 18.22 18.526 18.6172C18.2925 19.0107 18.0102 19.1719 17.6696 19.1719C17.4929 19.1718 17.3367 19.1286 17.1959 19.041L17.0602 18.9385C16.884 18.7777 16.7297 18.5214 16.6139 18.1436C16.5016 17.7656 16.4411 17.2797 16.441 16.6797C16.4437 15.7863 16.5807 15.1618 16.816 14.7695C17.0491 14.3813 17.3308 14.2218 17.6696 14.2217Z" fill="currentColor" />
   </svg>
 );
 
@@ -47,12 +38,6 @@ const NewRequestNavIcon = ({ className }: NavIconProps) => (
   </svg>
 );
 
-const FavoritesNavIcon = ({ className }: NavIconProps) => (
-  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
-    <path d="M15 24.5333L6.22971 16.1939C3.95859 13.7403 3.95859 9.76001 6.22971 7.30647C8.50083 4.85292 12.1887 4.85292 14.4598 7.30647L15 7.88867L15.5402 7.30647C17.8113 4.85292 21.4992 4.85292 23.7703 7.30647C26.0414 9.76001 26.0414 13.7403 23.7703 16.1939L15 24.5333Z" fill="currentColor" />
-  </svg>
-);
-
 const MyNavIcon = ({ className }: NavIconProps) => (
   <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
     <rect x="1.3" y="4.96992" width="27.4" height="20.06" rx="10.03" stroke="currentColor" strokeWidth="1.6" />
@@ -62,19 +47,13 @@ const MyNavIcon = ({ className }: NavIconProps) => (
 
 const USER_NAV_ITEMS = [
   { href: '/main',      icon: HomeNavIcon,      label: '홈' },
-  { href: '/schedule',  icon: ScheduleNavIcon,  label: '스케줄' },
   { href: '/biz',       icon: BizNavIcon,       label: 'Biz' },
   { href: '/chat',      icon: ChatNavIcon,      label: '채팅' },
-  { href: '/favorites', icon: FavoritesNavIcon, label: '찜' },
   { href: '/my',        icon: MyNavIcon,        label: '마이' },
 ];
 
 const PRO_NAV_ITEMS = [
-  { href: '/pro-dashboard',           icon: HomeNavIcon,       label: '홈' },
   { href: '/pro-dashboard/inquiries', icon: NewRequestNavIcon, label: '새요청' },
-  { href: '/schedule',                icon: ScheduleNavIcon,   label: '스케줄' },
-  { href: '/chat',                    icon: ChatNavIcon,       label: '채팅' },
-  { href: '/my',                      icon: MyNavIcon,         label: '마이' },
 ];
 
 const HIDE_NAV_PATTERNS = [
@@ -87,29 +66,22 @@ const HIDE_NAV_PATTERNS = [
   /^\/pros$/,
   /^\/businesses$/,
   /^\/biz/,
-  /^\/quote/,
   /^\/careers$/,
-  /^\/schedule\/.+/,
   /^\/search/,
 ];
 
 const HIDE_FOOTER_PATTERNS = [
   /^\/chat$/,
-  /^\/favorites$/,
-  /^\/schedule$/,
   /^\/my$/,
   /^\/pro-dashboard/,
 ];
-
-const FavoriteAnimation = dynamic(() => import('@/components/FavoriteAnimation'), { ssr: false });
-const RecommendedProBar = dynamic(() => import('@/components/RecommendedProBar'), { ssr: false });
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
   cancelIdleCallback?: (id: number) => void;
 };
 
-function scheduleIdle(callback: () => void, delay = 0, timeout = 3000) {
+function queueIdleTask(callback: () => void, delay = 0, timeout = 3000) {
   if (typeof window === 'undefined') return () => {};
   let cancelled = false;
   let idleId: number | null = null;
@@ -147,11 +119,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const t = setTimeout(() => setNavMounted(true), 30);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    const ua = window.navigator.userAgent || '';
+    const platform = /Android/i.test(ua)
+      ? 'android'
+      : /iPhone|iPad|iPod/i.test(ua)
+        ? 'ios'
+        : 'web';
+    document.documentElement.dataset.platform = platform;
+  }, []);
+
   const [isPro, setIsPro] = useState(false);
-  // 프로가 "일반 유저 모드로 보기" 를 토글한 상태 (localStorage 유지)
-  const [viewAsUser, setViewAsUser] = useState(false);
-  // 실제 계정 role이 pro인지 (viewAsUser 무관)
-  const [actualIsPro, setActualIsPro] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
@@ -159,7 +138,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [newRequestCount, setNewRequestCount] = useState(0);
 
   // 로그인이 필요한 ��이지 패턴
-  const AUTH_REQUIRED = [/^\/chat/, /^\/schedule/, /^\/favorites/, /^\/my/, /^\/quote/, /^\/pro-/];
+  const AUTH_REQUIRED = [/^\/chat/, /^\/my/, /^\/pro-/];
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
@@ -180,7 +159,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     // 최신 프로필 동기화는 첫 화면을 막지 않도록 idle 이후에만 수행한다.
     let cancelProfileSync = () => {};
     if (isLoggedIn && authUser) {
-      cancelProfileSync = scheduleIdle(() => {
+      cancelProfileSync = queueIdleTask(() => {
         import('@/lib/api/users.api').then(({ usersApi }) => {
           usersApi.getProfile()
             .then((res: any) => {
@@ -194,22 +173,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       }, 3500, 7000);
     }
     if (isLoggedIn) {
-      const realPro = authUser?.role === 'pro';
-      const viewing = localStorage.getItem('viewAsUser') === 'true';
-      setActualIsPro(realPro);
-      setViewAsUser(viewing);
-      // 실제 pro 이지만 일반 유저 뷰 토글이 켜져있으면 네비를 user로
-      setIsPro(realPro && !viewing);
+      setIsPro(authUser?.role === 'pro');
     } else {
-      setActualIsPro(false);
-      setViewAsUser(false);
       setIsPro(false);
     }
     return cancelProfileSync;
   }, [pathname, needsAuth, authUser, authHydrated]);
 
   useEffect(() => {
-    if (!authHydrated || !authUser || authUser.role !== 'pro' || viewAsUser) {
+    if (!authHydrated || !authUser || authUser.role !== 'pro') {
       setNewRequestCount(0);
       return;
     }
@@ -227,7 +199,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         });
     };
 
-    const cancelInitialRefresh = scheduleIdle(refresh, pathname.startsWith('/pro-dashboard') ? 3500 : 1200, 6000);
+    const cancelInitialRefresh = queueIdleTask(refresh, pathname.startsWith('/pro-dashboard') ? 3500 : 1200, 6000);
     const interval = window.setInterval(refresh, 30000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:match-requests-changed', refresh);
@@ -240,12 +212,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       window.removeEventListener('freetiful:match-requests-changed', refresh);
       window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
     };
-  }, [authHydrated, authUser?.id, authUser?.role, viewAsUser]);
+  }, [authHydrated, authUser?.id, authUser?.role]);
 
   useEffect(() => {
     if (!authHydrated || authUser?.role !== 'pro' || !pathname.startsWith('/biz')) return;
-    router.replace(viewAsUser ? '/main' : '/pro-dashboard');
-  }, [authHydrated, authUser?.role, pathname, router, viewAsUser]);
+    router.replace('/pro-dashboard/inquiries');
+  }, [authHydrated, authUser?.role, pathname, router]);
 
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
@@ -278,10 +250,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     };
 
     const cancelChat = onChatRoute
-      ? scheduleIdle(() => { loadChatStore(true); }, 0, 1500)
-      : scheduleIdle(() => { loadChatStore(false); }, pathname.startsWith('/pro-dashboard') ? 5000 : 2500, 8000);
+      ? queueIdleTask(() => { loadChatStore(true); }, 0, 1500)
+      : queueIdleTask(() => { loadChatStore(false); }, pathname.startsWith('/pro-dashboard') ? 5000 : 2500, 8000);
 
-    const cancelNotifications = scheduleIdle(() => {
+    const cancelNotifications = queueIdleTask(() => {
       import('@/lib/api/notification.api').then(({ notificationApi }) => {
         if (!cancelled) notificationApi.prefetch();
       });
@@ -294,54 +266,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     };
   }, [authUser?.id, pathname]);
 
-  const NAV_ITEMS = isPro
-    ? PRO_NAV_ITEMS
-    : actualIsPro
-      ? USER_NAV_ITEMS.filter((item) => item.href !== '/biz')
-      : USER_NAV_ITEMS;
-  const homeHref = isPro ? '/pro-dashboard' : '/main';
-
-  const syncViewMode = (nextViewAsUser: boolean) => {
-    try {
-      if (nextViewAsUser) localStorage.setItem('viewAsUser', 'true');
-      else localStorage.removeItem('viewAsUser');
-    } catch {}
-    setViewAsUser(nextViewAsUser);
-    setIsPro(actualIsPro && !nextViewAsUser);
-    window.dispatchEvent(new CustomEvent('freetiful:view-mode-changed', { detail: { viewAsUser: nextViewAsUser } }));
-  };
-
-  const handleViewModeToggle = () => {
-    const nextViewAsUser = isPro;
-    syncViewMode(nextViewAsUser);
-    toast.success(nextViewAsUser ? '일반회원으로 전환되었습니다' : '프로회원으로 전환되었습니다', {
-      id: 'view-mode-switch',
-      duration: 1800,
-    });
-
-    if (pathname === '/my') return;
-    router.push(nextViewAsUser ? '/main' : '/pro-dashboard');
-  };
-
-  useEffect(() => {
-    const syncFromStorage = () => {
-      if (!actualIsPro) {
-        setViewAsUser(false);
-        setIsPro(false);
-        return;
-      }
-      const viewing = localStorage.getItem('viewAsUser') === 'true';
-      setViewAsUser(viewing);
-      setIsPro(!viewing);
-    };
-
-    window.addEventListener('storage', syncFromStorage);
-    window.addEventListener('freetiful:view-mode-changed', syncFromStorage);
-    return () => {
-      window.removeEventListener('storage', syncFromStorage);
-      window.removeEventListener('freetiful:view-mode-changed', syncFromStorage);
-    };
-  }, [actualIsPro]);
+  const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
+  const homeHref = isPro ? '/pro-dashboard/inquiries' : '/main';
 
   // pathname 변경 시 collapsing 리셋
   useEffect(() => {
@@ -436,9 +362,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       {/* ─── Footer ────────────────────────────────────────────────── */}
       {!hideNav && !isPro && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && <Footer />}
 
-      {/* ─── 추천 사회자 플로팅 (모바일 네비 위, 일반유저만) ──────── */}
-      {!hideNav && !isPro && <RecommendedProBar />}
-
       {/* ─── Mobile Bottom Nav Gradient Blur ───────────────────── */}
       {!hideNav && (
         <div
@@ -459,8 +382,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             bottom: navMounted && navVisible ? 0 : -80,
             transform: navMounted && navVisible ? 'scale(1) translateY(0)' : 'scale(0.88) translateY(8px)',
             opacity: navMounted && navVisible ? 1 : 0,
-            filter: navMounted && navVisible ? 'blur(0)' : 'blur(6px)',
-            transition: 'bottom 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease, filter 0.4s ease',
+            transition: 'bottom 0.42s cubic-bezier(0.34, 1.2, 0.64, 1), transform 0.42s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.25s ease',
           }}
         >
           <div
@@ -482,16 +404,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               }}
             >
               <div className="flex items-center h-full overflow-hidden p-[3px]">
-                {/* 프로↔일반유저 뷰 토글 chevron (실제 계정 role이 pro일 때만 노출) */}
-                {actualIsPro && (
-                  <button
-                    aria-label={isPro ? '일반 유저로 보기' : '프로 모드로 돌아가기'}
-                    onClick={handleViewModeToggle}
-                    className="shrink-0 w-[40px] h-[40px] rounded-full flex items-center justify-center text-gray-500 bg-gray-100/80 active:scale-90 transition-transform mr-1"
-                  >
-                    {isPro ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                  </button>
-                )}
                 <div className="flex-1 flex items-center justify-around">
                 {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
                   const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
@@ -500,10 +412,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   const itemStyle: React.CSSProperties = {
                     opacity: bizCollapsing ? 0 : 1,
                     transform: bizCollapsing ? 'scale(0.5)' : 'scale(1)',
-                    filter: bizCollapsing ? 'blur(4px)' : 'blur(0px)',
                     transition: bizCollapsing
-                      ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s, filter 0.25s ease ${idx * 0.03}s`
-                      : 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                      ? `opacity 0.2s ease ${idx * 0.03}s, transform 0.2s ease ${idx * 0.03}s`
+                      : 'opacity 0.28s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease',
                     ...(navExpanding ? { animation: `platformIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.06}s both` } : {}),
                   };
                   return isBiz ? (
@@ -558,16 +469,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           {/* Nav transition keyframes */}
           <style>{`
             @keyframes platformPillExpand {
-              0% { width: 60px; filter: blur(0px); }
-              15% { filter: blur(3px); }
-              50% { filter: blur(1px); }
-              70% { width: 105%; filter: blur(0px); }
-              100% { width: 100%; filter: blur(0px); }
+              0% { width: 60px; }
+              70% { width: 105%; }
+              100% { width: 100%; }
             }
             @keyframes platformIconAppear {
-              0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
-              60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
-              100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+              0% { opacity: 0; transform: scale(0.3) translateY(4px); }
+              60% { opacity: 1; transform: scale(1.06) translateY(-1px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
             }
           `}</style>
         </nav>
@@ -615,7 +524,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           `}</style>
         </div>
       )}
-      {!isPro && <FavoriteAnimation />}
     </div>
   );
 }

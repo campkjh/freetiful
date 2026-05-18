@@ -66,7 +66,7 @@ export class NotificationService {
     else if (next.quotationId) next.url = `/quote/${next.quotationId}`;
     else if (next.proProfileId) next.url = `/pros/${next.proProfileId}`;
     else if (String(type) === 'chat') next.url = '/chat';
-    else if (String(type) === 'booking') next.url = '/schedule';
+    else if (String(type) === 'booking') next.url = '/main';
     else if (String(type) === 'payment') next.url = '/my/payment-history';
     else if (String(type) === 'review') next.url = '/my/reviews';
     else next.url = '/notifications';

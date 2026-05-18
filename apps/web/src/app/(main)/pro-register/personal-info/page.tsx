@@ -85,7 +85,7 @@ export default function PersonalInfoPage() {
           <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
             initial={{ width: 0 }}
-            animate={{ width: `${(3 / 7) * 100}%` }}
+            animate={{ width: `${(2 / 6) * 100}%` }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
@@ -95,7 +95,7 @@ export default function PersonalInfoPage() {
           transition={{ delay: 0.1 }}
           className="text-2xl font-bold text-gray-900"
         >
-          개인정보 <span className="text-[11px] text-gray-400">3/7</span>
+          개인정보 <span className="text-[11px] text-gray-400">2/6</span>
         </motion.h1>
       </div>
 

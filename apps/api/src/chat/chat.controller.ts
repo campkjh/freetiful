@@ -23,7 +23,6 @@ import {
   SendMessageDto,
   EditMessageDto,
   ReactToMessageDto,
-  CreateScheduledMessageDto,
   CreateFrequentMessageDto,
   UpdateFrequentMessageDto,
   ChatRoomQueryDto,
@@ -71,12 +70,6 @@ export class ChatController {
   @ApiOperation({ summary: '채팅방 삭제 (내 측에서만)' })
   deleteRoom(@Req() req, @Param('roomId') roomId: string) {
     return this.chatService.deleteRoom(roomId, req.user.id);
-  }
-
-  @Post('rooms/:roomId/favorite')
-  @ApiOperation({ summary: '채팅방 즐겨찾기 토글' })
-  toggleFavorite(@Req() req, @Param('roomId') roomId: string) {
-    return this.chatService.toggleFavorite(roomId, req.user.id);
   }
 
   @Post('rooms/:roomId/read')
@@ -137,38 +130,12 @@ export class ChatController {
     return this.chatService.addReaction(messageId, req.user.id, dto);
   }
 
-  @Get('rooms/:roomId/search')
-  @ApiOperation({ summary: '채팅방 내 메시지 검색' })
-  searchMessages(@Req() req, @Param('roomId') roomId: string, @Query('q') q: string) {
-    return this.chatService.searchMessages(roomId, req.user.id, q);
-  }
-
   // ─── Photo Gallery ───────────────────────────────────────────────────────
 
   @Get('rooms/:roomId/photos')
   @ApiOperation({ summary: '채팅방 사진첩 (20일 후 자동 삭제)' })
   getPhotoGallery(@Req() req, @Param('roomId') roomId: string, @Query() query: PhotoGalleryQueryDto) {
     return this.chatService.getPhotoGallery(roomId, req.user.id, query);
-  }
-
-  // ─── Scheduled Messages ──────────────────────────────────────────────────
-
-  @Post('rooms/:roomId/scheduled')
-  @ApiOperation({ summary: '예약 메시지 생성' })
-  createScheduled(@Req() req, @Param('roomId') roomId: string, @Body() dto: CreateScheduledMessageDto) {
-    return this.chatService.createScheduledMessage(roomId, req.user.id, dto);
-  }
-
-  @Get('rooms/:roomId/scheduled')
-  @ApiOperation({ summary: '예약 메시지 목록' })
-  getScheduled(@Req() req, @Param('roomId') roomId: string) {
-    return this.chatService.getScheduledMessages(roomId, req.user.id);
-  }
-
-  @Delete('scheduled/:id')
-  @ApiOperation({ summary: '예약 메시지 삭제' })
-  deleteScheduled(@Req() req, @Param('id') id: string) {
-    return this.chatService.deleteScheduledMessage(id, req.user.id);
   }
 
   // ─── Frequent Messages ───────────────────────────────────────────────────

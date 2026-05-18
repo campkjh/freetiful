@@ -417,18 +417,6 @@ export default function AdminProEditPage() {
         <div className="space-y-5">
           <AdminRelationSummary relations={adminRelations} />
 
-          <AdminRelationGroup title="찜한 유저" items={adminRelations?.favorites || []}>
-            {(fav: any) => (
-              <AdminRelationRow
-                key={fav.id}
-                title={fav.user?.name || fav.user?.email || fav.id}
-                meta={`${fav.user?.email || ''} · ${new Date(fav.createdAt).toLocaleDateString('ko-KR')}`}
-              >
-                <button onClick={() => runAdminAction('찜 삭제 완료', 'DELETE', `/api/v1/admin/favorites/${fav.id}`, undefined, '이 찜 데이터를 삭제할까요?')} className="admin-danger-btn">삭제</button>
-              </AdminRelationRow>
-            )}
-          </AdminRelationGroup>
-
           <AdminRelationGroup title="채팅방" items={adminRelations?.chatRooms || []}>
             {(room: any) => (
               <AdminRelationRow
@@ -462,20 +450,7 @@ export default function AdminProEditPage() {
                 meta={`${p.method || 'method 없음'} · ${new Date(p.createdAt).toLocaleDateString('ko-KR')}`}
               >
                 <AdminStatusSelect value={p.status} options={['pending', 'completed', 'failed', 'refunded', 'escrowed', 'settled']} onChange={(status) => runAdminAction('결제 상태 변경 완료', 'PATCH', `/api/v1/admin/payments/${p.id}`, { status })} />
-                <button onClick={() => runAdminAction('결제 삭제 완료', 'DELETE', `/api/v1/admin/payments/${p.id}`, undefined, '결제와 연결 리뷰를 삭제하고 견적/스케줄 연결을 해제할까요?')} className="admin-danger-btn">삭제</button>
-              </AdminRelationRow>
-            )}
-          </AdminRelationGroup>
-
-          <AdminRelationGroup title="스케줄" items={adminRelations?.schedules || []}>
-            {(s: any) => (
-              <AdminRelationRow
-                key={s.id}
-                title={`${new Date(s.date).toLocaleDateString('ko-KR')} · ${s.status}`}
-                meta={`${s.source || 'manual'}${s.note ? ` · ${s.note}` : ''}`}
-              >
-                <AdminStatusSelect value={s.status} options={['available', 'unavailable', 'booked', 'pending', 'cancelled', 'completed']} onChange={(status) => runAdminAction('스케줄 상태 변경 완료', 'PATCH', `/api/v1/admin/schedules/${s.id}`, { status })} />
-                <button onClick={() => runAdminAction('스케줄 삭제 완료', 'DELETE', `/api/v1/admin/schedules/${s.id}`, undefined, '스케줄을 삭제할까요?')} className="admin-danger-btn">삭제</button>
+                <button onClick={() => runAdminAction('결제 삭제 완료', 'DELETE', `/api/v1/admin/payments/${p.id}`, undefined, '결제와 연결 리뷰를 삭제할까요?')} className="admin-danger-btn">삭제</button>
               </AdminRelationRow>
             )}
           </AdminRelationGroup>
@@ -505,11 +480,11 @@ export default function AdminProEditPage() {
             )}
           </AdminRelationGroup>
 
-          <AdminRelationGroup title="푸딩/정산 로그" items={[...(adminRelations?.puddingTransactions || []), ...(adminRelations?.settlementLogs || [])]}>
+          <AdminRelationGroup title="정산 로그" items={adminRelations?.settlementLogs || []}>
             {(item: any) => (
               <AdminRelationRow
                 key={item.id}
-                title={item.type ? `${item.type} · ${item.amount}` : `${item.status} · ${Number(item.netAmount || 0).toLocaleString()}원`}
+                title={`${item.status} · ${Number(item.netAmount || 0).toLocaleString()}원`}
                 meta={new Date(item.createdAt).toLocaleDateString('ko-KR')}
               />
             )}
@@ -1024,11 +999,9 @@ export default function AdminProEditPage() {
 
 function AdminRelationSummary({ relations }: { relations: any }) {
   const entries = [
-    ['찜', relations?.favorites?.length || 0],
     ['채팅', relations?.chatRooms?.length || 0],
     ['견적', relations?.quotations?.length || 0],
     ['결제', relations?.payments?.length || 0],
-    ['스케줄', relations?.schedules?.length || 0],
     ['매칭', relations?.matchDeliveries?.length || 0],
     ['리뷰', relations?.reviews?.length || 0],
     ['정산', relations?.settlementLogs?.length || 0],

@@ -364,7 +364,7 @@ export default function ProfilePage() {
           <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
             initial={{ width: 0 }}
-            animate={{ width: `${(7 / 7) * 100}%` }}
+            animate={{ width: `${(6 / 6) * 100}%` }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
@@ -374,7 +374,7 @@ export default function ProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          사회자 프로필 <span className="text-[11px] text-gray-400">7/7</span>
+          사회자 프로필 <span className="text-[11px] text-gray-400">6/6</span>
         </motion.h1>
       </div>
 

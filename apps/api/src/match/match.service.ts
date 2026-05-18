@@ -337,7 +337,6 @@ export class MatchService {
             include: { user: { select: { id: true, name: true } } },
           },
         },
-        take: 20, // 무차별 fan-out 방지 — 상위 20명만
       });
       deliveryTargets = proCategories;
     }
@@ -350,7 +349,6 @@ export class MatchService {
           user: { isActive: true },
         },
         include: { user: { select: { id: true, name: true } } },
-        take: 20,
       });
       deliveryTargets = fallbackPros.map((proProfile) => ({
         proProfileId: proProfile.id,
@@ -390,8 +388,8 @@ export class MatchService {
         .createNotification(
           proUserId,
           'system' as any,
-          '새 매칭 요청이 도착했습니다 📋',
-          `${customerName}님이 ${categoryName} 견적을 요청했습니다.`,
+          '새 요청이 도착했습니다',
+          `${customerName}님이 ${categoryName} 요청을 보냈습니다.`,
           { type: 'match_request', matchRequestId },
         )
         .catch(() => {});

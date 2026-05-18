@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature, Calendar,
+  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-prewarm';
+import { getProfileImageUrl } from '@/lib/default-profile';
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
@@ -21,7 +22,7 @@ function mapApiMessage(m: MessageItem): Message {
     id: m.id,
     senderId: m.senderId,
     content: m.content || '',
-    type: (m.type === 'link' || m.type === 'sticker') ? 'text' : m.type as Message['type'],
+    type: m.type === 'link' ? 'text' : m.type as Message['type'],
     createdAt: m.createdAt,
     clientMessageId: typeof meta?.clientMessageId === 'string' ? meta.clientMessageId : undefined,
     isRead: m.isRead,
@@ -129,113 +130,6 @@ function SystemMessageFallback({ msg }: { msg: Message }) {
   );
 }
 
-// eventTime 은 DB 에서 `1970-01-01T${HH:MM}` 형태 Date 로 저장돼 ISO 문자열로 직렬화되므로
-// 그대로 표시하면 "1970-01-01T..." 가 노출된다. 항상 HH:MM 만 추출해서 보여준다.
-function formatEventTimeShort(t: string | Date | null | undefined): string {
-  if (!t) return '';
-  if (typeof t === 'string' && /^\d{1,2}:\d{2}/.test(t)) {
-    const [hh, mm] = t.split(':');
-    return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
-  }
-  if (typeof t === 'string') {
-    const isoTime = t.match(/T(\d{2}:\d{2})/);
-    if (isoTime) return isoTime[1];
-  }
-  try {
-    const d = typeof t === 'string' ? new Date(t) : t;
-    if (Number.isNaN(d.getTime())) return '';
-    const h = d.getHours().toString().padStart(2, '0');
-    const m = d.getMinutes().toString().padStart(2, '0');
-    return `${h}:${m}`;
-  } catch {
-    return '';
-  }
-}
-
-// 채팅 헤더 바로 아래 fixed 위치에 도킹되는 스케줄 공지 — 결제 완료 시 노출.
-// 톤앤매너: 흰 배경 + 블루(#3180F7) 액센트, 백드롭 블러로 헤더와 같은 결.
-function ScheduleBanner({
-  roomMeta,
-  isPro,
-  chatPartner,
-  collapsed,
-  onToggle,
-}: {
-  roomMeta: Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null;
-  isPro: boolean;
-  chatPartner: ChatPartner | null;
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
-  const q = roomMeta?.latestQuotation;
-  if (!q || q.status !== 'paid') return null;
-
-  const mr = roomMeta?.matchRequest as any;
-  const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-  const dateSource = mr?.eventDate || raw.date || q.eventDate;
-  const timeSource = mr?.eventTime || raw.timeStart || q.eventTime;
-  const location = mr?.eventLocation || raw.location || (q as any).eventLocation;
-  const eventTitle = raw.eventName || q.title || mr?.eventCategory?.name || '행사 진행';
-
-  const dateStr = dateSource
-    ? new Date(dateSource).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-    : '일정 미정';
-  const timeShort = formatEventTimeShort(timeSource);
-  const timeSuffix = timeShort ? ` · ${timeShort}` : '';
-
-  return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{
-        background: 'rgba(255,255,255,0.96)',
-        backdropFilter: 'blur(18px)',
-        WebkitBackdropFilter: 'blur(18px)',
-        border: '1px solid rgba(49,128,247,0.18)',
-        boxShadow: '0 8px 24px rgba(49,128,247,0.10), 0 1px 0 rgba(0,0,0,0.02)',
-      }}
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-2.5 active:bg-[#3180F7]/[0.04] transition-colors"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
-            <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="#3180F7" strokeWidth="1.8" />
-            <path d="M3 10h18" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M8 3v4M16 3v4" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          <p className="text-[12.5px] font-bold text-gray-900 truncate">
-            확정된 일정 · {dateStr}{timeSuffix}
-          </p>
-        </div>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          className="shrink-0 transition-transform"
-          style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
-        >
-          <path d="M6 9l6 6 6-6" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {!collapsed && (
-        <div className="px-4 pb-3 pt-2 border-t border-gray-100 space-y-1">
-          <p className="text-[13.5px] font-semibold text-gray-900">{eventTitle}</p>
-          {location && <p className="text-[12px] text-gray-500 truncate">장소 · {location}</p>}
-          {q.amount != null && (
-            <p className="text-[12px] text-gray-600 tabular-nums">결제 완료 · {Number(q.amount).toLocaleString('ko-KR')}원</p>
-          )}
-          <p className="text-[11px] text-gray-400 mt-1">
-            {isPro ? '고객과 세부 진행 사항을 채팅으로 논의해주세요' : '사회자와 세부 진행 사항을 채팅으로 논의해주세요'}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ChatRoomPage() {
   const { id: roomId } = useParams<{ id: string }>();
   const router = useRouter();
@@ -262,14 +156,12 @@ export default function ChatRoomPage() {
     id: initialPreWarmed.room.otherUser.id,
     proProfileId: (initialPreWarmed.room as any).proProfileId,
     name: initialPreWarmed.room.otherUser.name,
-    profileImageUrl: initialPreWarmed.room.otherUser.profileImageUrl || '/images/default-profile.svg',
+    profileImageUrl: getProfileImageUrl(initialPreWarmed.room.otherUser.profileImageUrl, initialPreWarmed.room.otherUser.id || initialPreWarmed.room.otherUser.name),
     isActive: initialPreWarmed.room.otherUser.isActive ?? false,
   } : null;
   const initialMessages: Message[] = initialPreWarmed?.messages ? initialPreWarmed.messages.map(mapApiMessage) : [];
 
-  // 헤더 아래 스케줄 배너가 즉시 뜨도록, prewarm 또는 store rooms 에 들어있는
-  // matchRequest / latestQuotation 을 초기값으로 사용. (이전엔 chatApi.getRoom 응답을
-  // 기다려야 해서 채팅방 진입 후 한참 뒤에야 배너가 떴음)
+  // 채팅방 안에서는 결제 상태 판단에 필요한 최소 메타만 유지한다.
   const initialRoomMeta = (() => {
     if (typeof window === 'undefined') return null;
     const fromPrewarm: any = initialPreWarmed?.room;
@@ -326,7 +218,6 @@ export default function ChatRoomPage() {
   const [pinnedMessage, setPinnedMessage] = useState<{ id: string; name: string; content: string } | null>(null);
   const [partialCopyMsg, setPartialCopyMsg] = useState<Message | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [scheduleBannerCollapsed, setScheduleBannerCollapsed] = useState(true);
 
   // ─── Refs ───
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -361,7 +252,7 @@ export default function ChatRoomPage() {
               id: pre.room.otherUser.id,
               proProfileId: proId,                  // pending-{proId} 의 proId 가 곧 pro profile ID
               name: pre.room.otherUser.name,
-              profileImageUrl: pre.room.otherUser.profileImageUrl || '/images/default-profile.svg',
+              profileImageUrl: getProfileImageUrl(pre.room.otherUser.profileImageUrl, pre.room.otherUser.id || pre.room.otherUser.name),
               isActive: pre.room.otherUser.isActive ?? false,
             });
             if (typeof pre.room.iAmPro === 'boolean') {
@@ -384,7 +275,7 @@ export default function ChatRoomPage() {
             id: storeRoom.otherUser.id,
             proProfileId: (storeRoom as any).proProfileId,
             name: storeRoom.otherUser.name,
-            profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-profile.svg',
+            profileImageUrl: getProfileImageUrl(storeRoom.otherUser.profileImageUrl, storeRoom.otherUser.id || storeRoom.otherUser.name),
             isActive: (storeRoom.otherUser as any).isActive ?? true,
           });
           if (typeof storeRoom.iAmPro === 'boolean') {
@@ -400,7 +291,7 @@ export default function ChatRoomPage() {
           id: room.otherUser.id,
           proProfileId: room.proProfileId,
           name: room.otherUser.name,
-          profileImageUrl: room.otherUser.profileImageUrl || '/images/default-profile.svg',
+          profileImageUrl: getProfileImageUrl(room.otherUser.profileImageUrl, room.otherUser.id || room.otherUser.name),
           isActive: room.otherUser.isActive ?? false,
         });
         // 현재 유저의 전역 role 이 아니라, 이 채팅방 안에서의 역할만 신뢰한다.
@@ -537,7 +428,7 @@ export default function ChatRoomPage() {
     if (wsMessages.length === 0 || roomId.startsWith('pending-')) return;
     const latestSystem = [...wsMessages].reverse().find((m) => m.type === 'system');
     const kind = (latestSystem?.metadata as Record<string, any> | null)?.system?.kind;
-    if (!kind || !['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid', 'booking_confirmed'].includes(kind)) return;
+    if (!kind || !['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid'].includes(kind)) return;
     chatApi.getRoom(roomId)
       .then((res) => {
         const room = res.data as ChatRoomItem;
@@ -572,7 +463,7 @@ export default function ChatRoomPage() {
           id: room.otherUser.id,
           proProfileId: room.proProfileId,
           name: room.otherUser.name,
-          profileImageUrl: room.otherUser.profileImageUrl || prev?.profileImageUrl || '/images/default-profile.svg',
+          profileImageUrl: getProfileImageUrl(room.otherUser.profileImageUrl || prev?.profileImageUrl, room.otherUser.id || room.otherUser.name || prev?.id || prev?.name),
           isActive: room.otherUser.isActive ?? prev?.isActive ?? false,
         }));
         setIAmProInRoom(Boolean(room.iAmPro));
@@ -609,7 +500,7 @@ export default function ChatRoomPage() {
         return {
           ...prev,
           ...(detail.name !== undefined ? { name: detail.name || prev.name } : {}),
-          ...(detail.profileImageUrl !== undefined ? { profileImageUrl: detail.profileImageUrl || '/images/default-profile.svg' } : {}),
+          ...(detail.profileImageUrl !== undefined ? { profileImageUrl: getProfileImageUrl(detail.profileImageUrl, detail.userId || prev.name) } : {}),
         };
       });
     };
@@ -639,7 +530,7 @@ export default function ChatRoomPage() {
   }, [authUser, roomId, isSocketConnected]);
 
   useEffect(() => {
-    const latestPaid = [...messages].reverse().find((m) => m.type === 'system' && (m.system?.kind === 'payment_paid' || m.system?.kind === 'booking_confirmed'));
+    const latestPaid = [...messages].reverse().find((m) => m.type === 'system' && m.system?.kind === 'payment_paid');
     if (!latestPaid?.system) return;
     setRoomMeta((prev) => ({
       matchRequest: prev?.matchRequest ?? null,
@@ -648,9 +539,6 @@ export default function ChatRoomPage() {
         amount: latestPaid.system?.amount ?? prev?.latestQuotation?.amount ?? 0,
         title: prev?.latestQuotation?.title ?? latestPaid.system?.eventName ?? null,
         status: 'paid',
-        eventDate: latestPaid.system?.eventDate ?? prev?.latestQuotation?.eventDate ?? null,
-        eventTime: latestPaid.system?.eventTime ?? prev?.latestQuotation?.eventTime ?? null,
-        eventLocation: latestPaid.system?.venue ?? prev?.latestQuotation?.eventLocation ?? null,
         createdAt: prev?.latestQuotation?.createdAt ?? latestPaid.createdAt,
       },
     }));
@@ -833,7 +721,7 @@ export default function ChatRoomPage() {
   const hasData = !!chatPartner || messages.length > 0;
   const showSkeleton = !hasData && !hasAttemptedInitialLoad && (roomId.startsWith('pending-') || (messagesLoading && messages.length === 0));
   const skeletonName = chatPartner?.name || urlProName;
-  const skeletonImg = chatPartner?.profileImageUrl || urlProImg || '/images/default-profile.svg';
+  const skeletonImg = getProfileImageUrl(chatPartner?.profileImageUrl || urlProImg, chatPartner?.id || skeletonName);
 
   if (showSkeleton) {
     return (
@@ -921,7 +809,7 @@ export default function ChatRoomPage() {
             className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
           >
             <div className="relative shrink-0">
-              <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-9 h-9 rounded-full object-cover" />
+              <img src={getProfileImageUrl(chatPartner?.profileImageUrl, chatPartner?.id || chatPartner?.name)} alt="" className="w-9 h-9 rounded-full object-cover" />
               {chatPartner?.isActive && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#34C759] border-2 border-white rounded-full" />}
             </div>
             <div className="flex-1 min-w-0 leading-tight">
@@ -957,21 +845,6 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* ─── 스케줄 공지 배너 ─── */}
-      {roomMeta?.latestQuotation?.status === 'paid' && (
-        <div className="px-3 pb-2">
-          <div className="mx-auto w-full max-w-[680px]">
-            <ScheduleBanner
-              roomMeta={roomMeta}
-              isPro={isPro}
-              chatPartner={chatPartner}
-              collapsed={scheduleBannerCollapsed}
-              onToggle={() => setScheduleBannerCollapsed((v) => !v)}
-            />
-          </div>
-        </div>
-      )}
-
       {/* ─── Messages ─── */}
       <div
         ref={scrollContainerRef}
@@ -989,16 +862,6 @@ export default function ChatRoomPage() {
           {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
             const mr = roomMeta?.matchRequest;
             const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-            const fmtTime = (v: any) => {
-              if (!v) return '';
-              if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5);
-              try {
-                const d = new Date(v);
-                return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-              } catch { return ''; }
-            };
-            const eventDate = mr?.eventDate || roomMeta.latestQuotation?.eventDate || raw.date;
-            const eventTime = fmtTime(mr?.eventTime || roomMeta.latestQuotation?.eventTime || raw.timeStart);
             const eventLocation = mr?.eventLocation || (roomMeta.latestQuotation as any)?.eventLocation || raw.location;
             const eventName = roomMeta.latestQuotation?.title || raw.eventName || mr?.eventCategory?.name || '행사 정보 확인 필요';
             const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
@@ -1010,10 +873,6 @@ export default function ChatRoomPage() {
                   <p className="mt-1 text-[14px] font-semibold text-gray-900 truncate">
                     {eventName}
                   </p>
-                  <div className="mt-1 flex items-center gap-1.5 text-[12px] text-gray-500">
-                    <Calendar size={13} className="shrink-0 text-[#A4ABBA]" />
-                    <p>{eventDate ? `${new Date(eventDate).toLocaleDateString('ko-KR')} ${eventTime}`.trim() : '일정 미입력'}</p>
-                  </div>
                   {eventLocation && (
                     <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-gray-500">
                       <MapPin size={13} className="shrink-0 text-[#A4ABBA]" />
@@ -1115,6 +974,24 @@ export default function ChatRoomPage() {
                           className="rounded-2xl max-w-[260px] max-h-[340px] object-cover cursor-pointer select-none"
                           style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
                           onClick={(e) => { e.stopPropagation(); setImagePreview(msg.content); }}
+                        />
+                      </div>
+                    ) : msg.type === 'sticker' ? (
+                      <div
+                        className={`select-none ${msg.isNew ? 'animate-[stickerPop_0.45s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ WebkitTouchCallout: 'none', transformOrigin: mine ? 'right bottom' : 'left bottom' }}
+                        onPointerDown={(e) => handleLongPressStart(e, msg)}
+                        onPointerUp={handleLongPressCancel}
+                        onPointerLeave={handleLongPressCancel}
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        <img
+                          src={msg.content}
+                          alt="이모티콘"
+                          draggable={false}
+                          className="h-[128px] w-[128px] object-contain sm:h-[148px] sm:w-[148px]"
+                          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                       </div>
                     ) : msg.type === 'file' ? (
@@ -1389,9 +1266,6 @@ export default function ChatRoomPage() {
       {showCustomerInfo && (() => {
         const mr = roomMeta?.matchRequest as any;
         const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-        const eventDate = mr?.eventDate || raw.date || roomMeta?.latestQuotation?.eventDate;
-        const eventTime = formatEventTimeShort(mr?.eventTime || raw.timeStart || roomMeta?.latestQuotation?.eventTime);
-        const eventTimeEnd = formatEventTimeShort(raw.timeEnd);
         const eventLocation = mr?.eventLocation || raw.location || (roomMeta?.latestQuotation as any)?.eventLocation;
         const eventName = raw.eventName || roomMeta?.latestQuotation?.title || mr?.eventCategory?.name || '의뢰 정보';
         const moods = Array.isArray(raw.moods) ? raw.moods.filter(Boolean) : [];
@@ -1409,7 +1283,7 @@ export default function ChatRoomPage() {
               <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" />
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
-                  <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="h-12 w-12 rounded-full object-cover" />
+                  <img src={getProfileImageUrl(chatPartner?.profileImageUrl, chatPartner?.id || chatPartner?.name)} alt="" className="h-12 w-12 rounded-full object-cover" />
                   <div className="min-w-0">
                     <p className="truncate text-[17px] font-bold text-gray-900">{chatPartner?.name || '고객'}</p>
                     <p className="text-[12px] font-semibold text-[#3180F7]">고객 의뢰 정보</p>
@@ -1425,14 +1299,7 @@ export default function ChatRoomPage() {
                   <p className="text-[12px] font-bold text-[#3180F7]">행사</p>
                   <p className="mt-1 text-[15px] font-bold text-gray-900">{eventName}</p>
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-gray-50 px-4 py-3">
-                    <p className="text-[11px] font-bold text-gray-400">일정</p>
-                    <p className="mt-1 text-[14px] font-semibold text-gray-900">
-                      {eventDate ? new Date(eventDate).toLocaleDateString('ko-KR') : '미정'}
-                      {eventTime ? ` ${eventTime}${eventTimeEnd ? ` ~ ${eventTimeEnd}` : ''}` : ''}
-                    </p>
-                  </div>
+                <div className="grid grid-cols-1 gap-2">
                   <div className="rounded-2xl bg-gray-50 px-4 py-3">
                     <p className="text-[11px] font-bold text-gray-400">예산</p>
                     <p className="mt-1 text-[14px] font-semibold text-gray-900">{budget || '협의'}</p>
@@ -1474,6 +1341,11 @@ export default function ChatRoomPage() {
           50% { transform: scale(1.08); opacity: 1; }
           70% { transform: scale(0.96); }
           100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes stickerPop {
+          0% { transform: translateY(10px) scale(0.55) rotate(-4deg); opacity: 0; }
+          62% { transform: translateY(-2px) scale(1.04) rotate(1.5deg); opacity: 1; }
+          100% { transform: translateY(0) scale(1) rotate(0); opacity: 1; }
         }
         @keyframes menuPop {
           0% { transform: scale(0.4); opacity: 0; }

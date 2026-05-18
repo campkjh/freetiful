@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronUp,
   Grid2X2,
-  Heart,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -303,15 +302,11 @@ async function fetchBusinessPage(category: string, page: number, limit: number, 
 
 interface BusinessRankListProps {
   items: RankItem[];
-  favorites: Set<string>;
-  onToggleFav?: (id: string) => void;
   muted?: boolean;
 }
 
 function BusinessRankList({
   items,
-  favorites,
-  onToggleFav,
   muted = false,
 }: BusinessRankListProps) {
   const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
@@ -396,20 +391,6 @@ function BusinessRankList({
               </div>
             )}
           </div>
-
-          {!muted && onToggleFav && (
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); onToggleFav(item.id); }}
-              className="shrink-0 self-start p-1 active:scale-90 transition-transform"
-              aria-label={favorites.has(item.id) ? '찜 해제' : '찜하기'}
-            >
-              <Heart
-                size={22}
-                className={favorites.has(item.id) ? 'fill-[#FF4D4D] text-[#FF4D4D]' : 'text-gray-300'}
-              />
-            </button>
-          )}
         </Link>
       ))}
     </div>
@@ -655,13 +636,9 @@ function DesktopBusinessSidebar({
 function DesktopBusinessMarketCard({
   item,
   index,
-  isFavorited,
-  onToggleFav,
 }: {
   item: RankItem;
   index: number;
-  isFavorited: boolean;
-  onToggleFav: (id: string) => void;
 }) {
   return (
     <article className="group min-w-0">
@@ -676,26 +653,14 @@ function DesktopBusinessMarketCard({
             onError={(event) => {
               const image = event.currentTarget;
               if (image.dataset.fallbackUsed === 'true') {
-                image.src = '/images/default-profile.svg';
+                image.src = '/images/default-profile.png';
                 return;
               }
               image.dataset.fallbackUsed = 'true';
-              image.src = item.imageFallback || '/images/default-profile.svg';
+              image.src = item.imageFallback || '/images/default-profile.png';
             }}
           />
         </Link>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onToggleFav(item.id);
-          }}
-          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-[0_8px_18px_rgba(15,23,42,0.12)] transition active:scale-90"
-          aria-label={isFavorited ? '찜 해제' : '찜하기'}
-        >
-          <Heart size={21} className={isFavorited ? 'fill-[#3180F7] text-[#3180F7]' : 'text-gray-400'} />
-        </button>
         {item.isPopular && (
           <span className="absolute left-3 top-3 rounded-[4px] bg-[#111318] px-2.5 py-1 text-[13px] font-extrabold italic text-white">
             PICK
@@ -753,7 +718,6 @@ export default function BusinessListPage() {
   const swipeOffsetRef = useRef(0);
   const lastWheelSwipeAtRef = useRef(0);
   const [tabIndicator, setTabIndicator] = useState({ left: 28, width: 36 });
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [rankItems, setRankItems] = useState<RankItem[]>(() => initialBusinessSnapshot.cache?.data ?? MOCK_RANK_ITEMS);
   const [businessPage, setBusinessPage] = useState(() => initialBusinessSnapshot.cache?.page ?? 1);
@@ -948,15 +912,6 @@ export default function BusinessListPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const toggleFav = useCallback((id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
   const toggleFilterOption = useCallback((groupKey: string, option: string) => {
     setFilters((prev) => {
       const next = { ...prev };
@@ -1122,7 +1077,6 @@ export default function BusinessListPage() {
           </div>
           <BusinessRankList
             items={(categoryPreviewItems[category] || []).slice(0, 3)}
-            favorites={favorites}
             muted
           />
         </>
@@ -1130,7 +1084,7 @@ export default function BusinessListPage() {
         <div className="h-[220px]" />
       )}
     </div>
-  ), [categoryPreviewItems, favorites]);
+  ), [categoryPreviewItems]);
 
   const paneWidth = Math.max(280, listViewportWidth - 72);
   const paneGap = 12;
@@ -1277,8 +1231,6 @@ export default function BusinessListPage() {
                     key={item.id}
                     item={item}
                     index={index}
-                    isFavorited={favorites.has(item.id)}
-                    onToggleFav={toggleFav}
                   />
                 ))}
               </div>
@@ -1568,8 +1520,6 @@ export default function BusinessListPage() {
               <>
                 <BusinessRankList
                   items={visibleRankItems}
-                  favorites={favorites}
-                  onToggleFav={toggleFav}
                 />
                 {hasMoreBusinesses && (
                   <div ref={loadMoreRef} className="px-4 py-5">

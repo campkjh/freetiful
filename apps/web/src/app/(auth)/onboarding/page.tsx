@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { initSignupBonus } from '@/lib/points';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { usersApi } from '@/lib/api/users.api';
 
@@ -35,7 +34,6 @@ export default function OnboardingPage() {
       try {
         const updated = await usersApi.updateProfile({ name: name.trim(), phone: phone.replace(/\D/g, '') });
         useAuthStore.getState().setUser({ ...authUser, name: updated.name, phone: updated.phone } as any);
-        // Signup bonus is handled by initSignupBonus() below via localStorage
       } catch {}
     }
 
@@ -44,7 +42,6 @@ export default function OnboardingPage() {
     localStorage.setItem('freetiful-user', JSON.stringify({ ...existing, name: name.trim(), phone }));
     localStorage.setItem('freetiful-logged-in', 'true');
     setLoading(false);
-    initSignupBonus();
     router.push('/main');
   };
 

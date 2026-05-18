@@ -8,20 +8,20 @@ export const revalidate = 0;
 let cachedBuildId: string | null | undefined;
 
 function getBuildId() {
-  const envBuildId = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_BUILD_ID;
-  if (envBuildId) return envBuildId;
+  const explicitBuildId = process.env.NEXT_PUBLIC_BUILD_ID;
+  if (explicitBuildId) return explicitBuildId;
 
   if (process.env.NODE_ENV !== 'production') return null;
 
   if (cachedBuildId !== undefined) return cachedBuildId;
 
   const buildIdPath = join(process.cwd(), '.next', 'BUILD_ID');
-  if (!existsSync(buildIdPath)) {
-    cachedBuildId = null;
-    return cachedBuildId;
+  if (existsSync(buildIdPath)) {
+    cachedBuildId = readFileSync(buildIdPath, 'utf8').trim() || null;
+    if (cachedBuildId) return cachedBuildId;
   }
 
-  cachedBuildId = readFileSync(buildIdPath, 'utf8').trim() || null;
+  cachedBuildId = process.env.VERCEL_URL || process.env.VERCEL_GIT_COMMIT_SHA || null;
   return cachedBuildId;
 }
 

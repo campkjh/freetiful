@@ -32,6 +32,17 @@ apiClient.interceptors.request.use((config) => {
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (v: string) => void; reject: (e: unknown) => void }> = [];
 
+function promptLoginForExpiredSession(error?: unknown) {
+  if (typeof window === 'undefined') return;
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  if (status && status !== 401) return;
+
+  try {
+    useAuthStore.getState().logout();
+    window.dispatchEvent(new Event('freetiful:show-login'));
+  } catch {}
+}
+
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -49,6 +60,10 @@ apiClient.interceptors.response.use(
 
     try {
       const store = useAuthStore.getState();
+      if (!store.refreshToken) {
+        promptLoginForExpiredSession(error);
+        return Promise.reject(error);
+      }
       // Bypass apiClient to avoid recursive 401 loops
       const res = await axios.post(`/api/v1/auth/refresh`, { refreshToken: store.refreshToken });
       const { accessToken, refreshToken: newRefreshToken } = res.data.tokens;
@@ -58,11 +73,11 @@ apiClient.interceptors.response.use(
       return apiClient(original);
     } catch (e) {
       failedQueue.forEach((q) => q.reject(e));
-      // 로그아웃 금지 — refresh 실패해도 사용자가 명시적으로 로그아웃할 때까지 세션 유지.
-      // 어드민 경로에서만 로그인 페이지로 보내고, 일반 사용자는 토큰 없이 API만 실패하게 둠.
       if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
         useAuthStore.getState().logout();
         window.location.href = '/admin/login';
+      } else {
+        promptLoginForExpiredSession(e);
       }
       return Promise.reject(e);
     } finally {

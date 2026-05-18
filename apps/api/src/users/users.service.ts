@@ -8,7 +8,7 @@ import { DiscoveryService } from '../discovery/discovery.service';
 import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
-import { UserRole } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 const NOTIFICATION_SETTING_FIELDS = [
   'chatPush',
@@ -20,6 +20,12 @@ const NOTIFICATION_SETTING_FIELDS = [
   'marketingSms',
   'marketingEmail',
 ] as const;
+
+const REFERRAL_EVENT_CAMPAIGN_KEY = 'friend-invite-cash-2026';
+const REFERRAL_EVENT_MAX_REWARD = 5000;
+const REFERRAL_EVENT_REQUIRED_REFERRALS = 4;
+const REFERRAL_EVENT_STEP_REWARD = 1000;
+const REFERRAL_EVENT_TOTAL_STEPS = 5;
 
 @Injectable()
 export class UsersService {
@@ -171,149 +177,6 @@ export class UsersService {
     return user;
   }
 
-  async getPointBalance(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, pointBalance: true },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return { balance: user.pointBalance };
-  }
-
-  async getPointHistory(userId: string, page: number = 1, limit: number = 20) {
-    const skip = (page - 1) * limit;
-
-    const [transactions, total] = await Promise.all([
-      this.prisma.pointTransaction.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.pointTransaction.count({ where: { userId } }),
-    ]);
-
-    return {
-      data: transactions,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  async addPoints(
-    userId: string,
-    amount: number,
-    description: string,
-    type: string,
-  ) {
-    if (amount <= 0) {
-      throw new BadRequestException('Amount must be positive');
-    }
-
-    const transaction = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.update({
-        where: { id: userId },
-        data: { pointBalance: { increment: amount } },
-      });
-
-      return tx.pointTransaction.create({
-        data: {
-          userId,
-          type,
-          amount,
-          reason: description,
-          balanceAfter: user.pointBalance,
-        },
-      });
-    });
-
-    this.notificationService
-      .createNotification(
-        userId,
-        'system' as any,
-        '포인트가 적립되었습니다 🪙',
-        `${amount.toLocaleString()}P 적립 — ${description}`,
-        { type: 'point_earned', amount, reason: description },
-      )
-      .catch(() => {});
-
-    return transaction;
-  }
-
-  async usePoints(userId: string, amount: number, description: string) {
-    if (amount <= 0) {
-      throw new BadRequestException('Amount must be positive');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { pointBalance: true },
-      });
-
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-
-      if (user.pointBalance < amount) {
-        throw new BadRequestException('Insufficient point balance');
-      }
-
-      const updatedUser = await tx.user.update({
-        where: { id: userId },
-        data: { pointBalance: { decrement: amount } },
-      });
-
-      const transaction = await tx.pointTransaction.create({
-        data: {
-          userId,
-          type: 'use',
-          amount: -amount,
-          reason: description,
-          balanceAfter: updatedUser.pointBalance,
-        },
-      });
-
-      return transaction;
-    });
-  }
-
-  async switchRole(userId: string, role: UserRole) {
-    const allowedRoles: UserRole[] = ['general', 'pro'];
-    if (!allowedRoles.includes(role)) {
-      throw new BadRequestException(
-        'Role must be either "general" or "pro"',
-      );
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    // role 전환 시 role 만 업데이트. discovery 목록은 user.role 로 필터하므로
-    // ProProfile.status 는 건드리지 않아도 자동으로 숨겨짐.
-    // (나중에 다시 pro 모드로 돌아오면 기존 approved 프로필 그대로 복구됨)
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: { role },
-    });
-    // discovery 캐시 전체 무효화 — 리스트에 즉시 반영되도록
-    this.discovery.invalidateCache();
-    return updated;
-  }
-
   async deleteAccount(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -337,60 +200,303 @@ export class UsersService {
     return { success: true };
   }
 
-  async getCoupons(userId: string) {
-    const rows = await this.prisma.userCoupon.findMany({
-      where: { userId },
-      include: { coupon: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    const now = new Date();
-    return rows.map((r) => {
-      const expired = r.coupon.validUntil ? r.coupon.validUntil < now : false;
-      const title = r.coupon.type === 'percentage'
-        ? `${r.coupon.value}% 할인`
-        : `${r.coupon.value.toLocaleString()}원 할인`;
-      return {
-        id: r.id,
-        code: r.coupon.code,
-        title,
-        type: r.coupon.type,
-        value: r.coupon.value,
-        minOrderAmount: r.coupon.minOrderAmount,
-        maxDiscountAmount: r.coupon.maxDiscountAmount,
-        validUntil: r.coupon.validUntil,
-        isUsed: r.isUsed,
-        usedAt: r.usedAt,
-        status: r.isUsed ? 'used' : expired ? 'expired' : 'available',
-      };
-    });
+  private async generateUniqueReferralCode() {
+    for (let i = 0; i < 10; i++) {
+      const code = `FT${randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+      const existing = await this.prisma.user.findUnique({
+        where: { referralCode: code },
+        select: { id: true },
+      });
+      if (!existing) return code;
+    }
+    return `FT${Date.now().toString(36).toUpperCase()}`;
   }
 
-  /** 쿠폰 발급 + 푸쉬 알림 — 어드민/시스템 트리거에서 호출 */
-  async awardCoupon(userId: string, couponId: string) {
-    const coupon = await this.prisma.coupon.findUnique({ where: { id: couponId } });
-    if (!coupon) throw new NotFoundException('쿠폰을 찾을 수 없습니다.');
+  private async ensureReferralCode(user: { id: string; referralCode: string | null }) {
+    const current = String(user.referralCode || '').trim().toUpperCase();
+    if (current && current !== 'FREETIFUL2026') return current;
 
-    const userCoupon = await this.prisma.userCoupon.create({
-      data: { userId, couponId },
+    const referralCode = await this.generateUniqueReferralCode();
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { referralCode },
+    });
+    return referralCode;
+  }
+
+  async getReferralEventStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        referralCode: true,
+        referredByUserId: true,
+      },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    const referralCode = await this.ensureReferralCode(user);
+
+    const [referralCount, rewards, claim, inviter] = await Promise.all([
+      this.prisma.user.count({
+        where: {
+          referredByUserId: userId,
+          deletedAt: null,
+          isActive: true,
+        },
+      }),
+      this.prisma.referralEventReward.findMany({
+        where: {
+          userId,
+          campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+        },
+        orderBy: { step: 'asc' },
+      }),
+      this.prisma.referralEventClaim.findUnique({
+        where: {
+          userId_campaignKey: {
+            userId,
+            campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+          },
+        },
+      }),
+      user.referredByUserId
+        ? this.prisma.user.findUnique({
+            where: { id: user.referredByUserId },
+            select: { id: true, name: true, referralCode: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const eligibleSteps = Math.min(
+      REFERRAL_EVENT_TOTAL_STEPS,
+      1 + Math.min(referralCount, REFERRAL_EVENT_REQUIRED_REFERRALS),
+    );
+    const claimedSteps = new Set(rewards.map((reward) => reward.step));
+    const claimedRewardAmount = rewards.reduce((sum, reward) => sum + reward.rewardAmount, 0);
+
+    const milestones = Array.from({ length: REFERRAL_EVENT_TOTAL_STEPS }, (_, index) => {
+      const step = index + 1;
+      const eligible = step <= eligibleSteps;
+      const claimed = claimedSteps.has(step);
+      return {
+        step,
+        rewardAmount: REFERRAL_EVENT_STEP_REWARD,
+        completed: eligible,
+        eligible,
+        claimed,
+        label:
+          step === 1
+            ? '가입완료보상'
+            : `친구 ${step}명 초대`,
+      };
     });
 
-    const desc = coupon.type === 'percentage'
-      ? `${coupon.value}% 할인 쿠폰이 발급되었습니다`
-      : `${coupon.value.toLocaleString()}원 할인 쿠폰이 발급되었습니다`;
-    const expiry = coupon.validUntil
-      ? ` · ${coupon.validUntil.toLocaleDateString('ko-KR')}까지`
-      : '';
+    return {
+      campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+      referralCode,
+      referralCount,
+      requiredReferrals: REFERRAL_EVENT_REQUIRED_REFERRALS,
+      totalRewardAmount: REFERRAL_EVENT_MAX_REWARD,
+      stepRewardAmount: REFERRAL_EVENT_STEP_REWARD,
+      completedRewardAmount: Math.min(eligibleSteps * REFERRAL_EVENT_STEP_REWARD, REFERRAL_EVENT_MAX_REWARD),
+      claimedRewardAmount,
+      availableRewardAmount: Math.max(0, Math.min(eligibleSteps * REFERRAL_EVENT_STEP_REWARD, REFERRAL_EVENT_MAX_REWARD) - claimedRewardAmount),
+      claimEligible: claimedSteps.size >= REFERRAL_EVENT_TOTAL_STEPS,
+      hasEnteredReferralCode: !!user.referredByUserId,
+      enteredReferralCode: inviter?.referralCode || null,
+      inviterName: inviter?.name || null,
+      claim,
+      milestones,
+    };
+  }
+
+  async claimReferralEventReward(userId: string, step: number) {
+    const normalizedStep = Number(step);
+    if (!Number.isInteger(normalizedStep) || normalizedStep < 1 || normalizedStep > REFERRAL_EVENT_TOTAL_STEPS) {
+      throw new BadRequestException('유효하지 않은 보상 단계입니다.');
+    }
+
+    await this.ensureUser(userId);
+
+    const referralCount = await this.prisma.user.count({
+      where: {
+        referredByUserId: userId,
+        deletedAt: null,
+        isActive: true,
+      },
+    });
+    const eligibleSteps =
+      normalizedStep === 1
+        ? 1
+        : Math.min(
+            REFERRAL_EVENT_TOTAL_STEPS,
+            1 + Math.min(referralCount, REFERRAL_EVENT_REQUIRED_REFERRALS),
+          );
+
+    if (normalizedStep > eligibleSteps) {
+      throw new BadRequestException('아직 받을 수 없는 보상입니다.');
+    }
+
+    await this.prisma.referralEventReward.upsert({
+      where: {
+        userId_campaignKey_step: {
+          userId,
+          campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+          step: normalizedStep,
+        },
+      },
+      create: {
+        userId,
+        campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+        step: normalizedStep,
+        rewardAmount: REFERRAL_EVENT_STEP_REWARD,
+        claimedAt: new Date(),
+      },
+      update: {},
+    });
+
+    return this.getReferralEventStatus(userId);
+  }
+
+  async applyReferralEventCode(userId: string, code: string) {
+    const normalizedCode = code.trim().toUpperCase();
+    if (!normalizedCode) {
+      throw new BadRequestException('초대코드를 입력해주세요.');
+    }
+
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        referredByUserId: true,
+        referralCode: true,
+      },
+    });
+    if (!currentUser) throw new NotFoundException('User not found');
+    if (currentUser.referredByUserId) {
+      throw new BadRequestException('이미 초대코드를 등록하셨습니다.');
+    }
+    if (currentUser.referralCode === normalizedCode) {
+      throw new BadRequestException('본인 초대코드는 등록할 수 없습니다.');
+    }
+
+    const inviter = await this.prisma.user.findUnique({
+      where: { referralCode: normalizedCode },
+      select: { id: true, name: true, referralCode: true, isActive: true, deletedAt: true },
+    });
+    if (!inviter || !inviter.isActive || inviter.deletedAt) {
+      throw new BadRequestException('유효하지 않은 초대코드입니다.');
+    }
+    if (inviter.id === userId) {
+      throw new BadRequestException('본인 초대코드는 등록할 수 없습니다.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { referredByUserId: inviter.id },
+    });
+
+    const referralCount = await this.prisma.user.count({
+      where: {
+        referredByUserId: inviter.id,
+        deletedAt: null,
+        isActive: true,
+      },
+    });
+
+    this.notificationService
+      .createNotification(
+        inviter.id,
+        'system' as any,
+        '친구 초대가 반영됐어요',
+        `${referralCount}명의 친구가 초대코드로 참여했어요.`,
+        {
+          type: 'referral_event_joined',
+          referralCount,
+          joinedUserId: userId,
+        },
+      )
+      .catch(() => undefined);
+
+    return this.getReferralEventStatus(userId);
+  }
+
+  async submitReferralEventClaim(
+    userId: string,
+    data: { bankName?: string; accountHolder?: string; accountNumber?: string },
+  ) {
+    const bankName = String(data.bankName || '').trim();
+    const accountHolder = String(data.accountHolder || '').trim();
+    const accountNumber = String(data.accountNumber || '').trim();
+
+    if (!bankName || !accountHolder || !accountNumber) {
+      throw new BadRequestException('은행명, 예금주, 계좌번호를 모두 입력해주세요.');
+    }
+
+    const [referralCount, rewardCount] = await Promise.all([
+      this.prisma.user.count({
+        where: {
+          referredByUserId: userId,
+          deletedAt: null,
+          isActive: true,
+        },
+      }),
+      this.prisma.referralEventReward.count({
+        where: {
+          userId,
+          campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+          step: { gte: 1, lte: REFERRAL_EVENT_TOTAL_STEPS },
+        },
+      }),
+    ]);
+    if (rewardCount < REFERRAL_EVENT_TOTAL_STEPS) {
+      throw new BadRequestException('마지막 1,000원까지 받은 후 신청할 수 있습니다.');
+    }
+
+    const claim = await this.prisma.referralEventClaim.upsert({
+      where: {
+        userId_campaignKey: {
+          userId,
+          campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+        },
+      },
+      create: {
+        userId,
+        campaignKey: REFERRAL_EVENT_CAMPAIGN_KEY,
+        referralCountSnapshot: referralCount,
+        rewardAmount: REFERRAL_EVENT_MAX_REWARD,
+        bankName,
+        accountHolder,
+        accountNumber,
+        status: 'pending',
+        submittedAt: new Date(),
+      },
+      update: {
+        referralCountSnapshot: referralCount,
+        rewardAmount: REFERRAL_EVENT_MAX_REWARD,
+        bankName,
+        accountHolder,
+        accountNumber,
+        status: 'pending',
+        submittedAt: new Date(),
+      },
+    });
 
     this.notificationService
       .createNotification(
         userId,
         'system' as any,
-        '새 쿠폰이 도착했어요 🎟️',
-        `${desc}${expiry}`,
-        { type: 'coupon_issued', couponId, code: coupon.code },
+        '정산 신청이 접수됐어요',
+        '친구 초대 이벤트 현금 지급 신청이 접수되었습니다.',
+        {
+          type: 'referral_event_claim_submitted',
+          claimId: claim.id,
+        },
       )
-      .catch(() => {});
+      .catch(() => undefined);
 
-    return userCoupon;
+    return this.getReferralEventStatus(userId);
   }
+
 }

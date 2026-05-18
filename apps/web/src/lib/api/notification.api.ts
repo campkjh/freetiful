@@ -36,10 +36,6 @@ function rememberDeletedId(id: string) {
   writeDeletedIds([id, ...ids]);
 }
 
-function forgetDeletedId(id: string) {
-  writeDeletedIds(readDeletedIds().filter((existing) => existing !== id));
-}
-
 function rememberDeleteAllCutoff() {
   if (typeof window === 'undefined') return;
   try {
@@ -218,8 +214,9 @@ export const notificationApi = {
     return apiClient.delete(`${BASE}/${id}`).then((r) => {
       return r.data;
     }).catch((e) => {
-      forgetDeletedId(id);
-      throw e;
+      // 서버 삭제가 실패해도 사용자가 삭제한 알림은 로컬에서 계속 숨긴다.
+      // 이전 캐시에 남은 알림이 다시 나타나는 UX가 더 치명적이다.
+      return { ok: false, locallyDeleted: true, error: e };
     });
   },
 

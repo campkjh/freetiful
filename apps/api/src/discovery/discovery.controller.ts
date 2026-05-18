@@ -20,7 +20,7 @@ export class DiscoveryController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('search') search?: string,
-    @Query('sort') sort?: 'rating' | 'reviews' | 'price' | 'experience' | 'pudding',
+    @Query('sort') sort?: 'rating' | 'reviews' | 'price' | 'experience',
     @Query('gender') gender?: string,
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,
@@ -29,11 +29,7 @@ export class DiscoveryController {
     @Query('withTotal') withTotal?: string,
     @Res({ passthrough: true }) res?: any,
   ) {
-    if (sort === 'pudding') {
-      res?.setHeader('Cache-Control', 'no-store, max-age=0');
-    } else {
-      res?.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
-    }
+    res?.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
     return this.discovery.getProList({
       page,
       limit,

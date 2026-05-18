@@ -79,30 +79,6 @@ enum MatchRequestStatus {
   expired
 }
 
-enum PuddingTransactionType {
-  earn
-  reset
-  admin_grant
-  admin_deduct
-}
-
-enum PuddingReason {
-  quote_reply_single
-  quote_reply_multi
-  successful_match
-  perfect_review
-  info_registered
-  referral_joined
-  // 2026-04 신규: 활동 기반 지급 규칙
-  daily_attendance      // 매일 출석체크 +50
-  review_received       // 고객 리뷰 작성 +100
-  deal_completed        // 거래 성사 +300
-  new_chat_received     // 새 채팅 도착 +50
-  replied_to_customer   // 고객 채팅에 답변 (1회/고객) +50
-  review_reply          // 고객 리뷰에 답글 +100
-  profile_views_100     // 프로필 조회 100회 단위 +100
-}
-
 enum NotificationType {
   chat
   booking
@@ -110,15 +86,6 @@ enum NotificationType {
   review
   system
   marketing
-}
-
-enum ScheduleStatus {
-  available
-  unavailable
-  booked
-  pending
-  cancelled
-  completed
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -136,7 +103,6 @@ model User {
   banReason       String?
   referralCode    String    @unique
   referredByUserId String?
-  pointBalance    Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
@@ -156,16 +122,14 @@ model User {
   pushTokens         PushToken[]
   pushSubscriptions  PushSubscription[]
   notificationSettings NotificationSettings?
-  favorites          Favorite[]
-  pointTransactions  PointTransaction[]
-  userCoupons        UserCoupon[]
+  referralEventClaims ReferralEventClaim[]
+  referralEventRewards ReferralEventReward[]
   refundAccount      RefundAccount?
   matchRequests      MatchRequest[]
   reviews            Review[]
   reports            Report[]             @relation("Reporter")
   chatRoomMembers    ChatRoomMember[]
   chatRooms          ChatRoom[]
-  scheduledMessages  ScheduledMessage[] @relation("ScheduledMessages")
   frequentMessages   FrequentMessage[]
   settledLogs        SettlementLog[]    @relation("SettlementSettledBy")
 
@@ -318,8 +282,6 @@ model ProProfile {
   detailHtml     String?
   youtubeUrl     String?
   isNationwide   Boolean   @default(false)
-  puddingCount   Int       @default(0)
-  puddingRank    Int?
   profileViews   Int       @default(0)
   responseRate   Decimal?  @db.Decimal(5, 2)
   avgRating      Decimal   @default(0) @db.Decimal(3, 2)
@@ -343,12 +305,9 @@ model ProProfile {
   companyExperiences    ProCompanyExperience[]
   services              ProService[]
   faqs                  ProFaq[]
-  schedules             ProSchedule[]
   matchDeliveries       MatchDelivery[]
   quotations            Quotation[]
   reviews               Review[]
-  puddingTransactions   PuddingTransaction[]
-  puddingRankings       PuddingRanking[]
   chatRooms             ChatRoom[]
   settlementLogs        SettlementLog[]
 
@@ -449,23 +408,6 @@ model ProFaq {
   proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
 
   @@map("pro_faqs")
-}
-
-model ProSchedule {
-  id           String         @id @default(uuid())
-  proProfileId String
-  date         DateTime       @db.Date
-  status       ScheduleStatus @default(available)
-  paymentId    String?
-  source       String         @default("manual")
-  note         String?
-
-  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
-  payment    Payment?   @relation(fields: [paymentId], references: [id])
-
-  @@unique([proProfileId, date])
-  @@index([proProfileId, status, date])
-  @@map("pro_schedules")
 }
 
 // ─── Business Profiles ───────────────────────────────────────────────────────
@@ -608,7 +550,6 @@ model ChatRoom {
   messages          Message[]
   members           ChatRoomMember[]
   quotations        Quotation[]
-  scheduledMessages ScheduledMessage[]
 
   @@index([userId, userDeletedAt, lastMessageAt])
   @@index([proProfileId, proDeletedAt, lastMessageAt])
@@ -622,7 +563,6 @@ model ChatRoom {
 model ChatRoomMember {
   roomId      String
   userId      String
-  isFavorited Boolean  @default(false)
   lastReadAt  DateTime?
   unreadCount Int      @default(0)
 
@@ -687,25 +627,6 @@ model MessageReaction {
   @@map("message_reactions")
 }
 
-model ScheduledMessage {
-  id          String      @id @default(uuid())
-  roomId      String
-  senderId    String
-  type        MessageType @default(text)
-  content     String?
-  metadata    Json?
-  scheduledAt DateTime
-  isSent      Boolean     @default(false)
-  sentAt      DateTime?
-  createdAt   DateTime    @default(now())
-
-  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sender User     @relation("ScheduledMessages", fields: [senderId], references: [id])
-
-  @@index([scheduledAt, isSent])
-  @@map("scheduled_messages")
-}
-
 model FrequentMessage {
   id           String   @id @default(uuid())
   userId       String
@@ -768,7 +689,6 @@ model Payment {
   updatedAt       DateTime      @updatedAt
 
   quotations   Quotation[]
-  schedules    ProSchedule[]
   review       Review?
   settlementLog SettlementLog?
 
@@ -878,38 +798,6 @@ model ReviewReport {
   @@map("review_reports")
 }
 
-// ─── Pudding ──────────────────────────────────────────────────────────────────
-
-model PuddingTransaction {
-  id           String                 @id @default(uuid())
-  proProfileId String
-  type         PuddingTransactionType
-  amount       Int
-  reason       PuddingReason?
-  referenceId  String?
-  balanceAfter Int
-  note         String?
-  createdAt    DateTime               @default(now())
-
-  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
-
-  @@index([proProfileId, createdAt])
-  @@map("pudding_transactions")
-}
-
-model PuddingRanking {
-  id           String   @id @default(uuid())
-  proProfileId String
-  rankDate     DateTime @db.Date
-  rank         Int
-  puddingCount Int
-
-  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
-
-  @@unique([proProfileId, rankDate])
-  @@map("pudding_rankings")
-}
-
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 model Notification {
@@ -973,76 +861,6 @@ model NotificationSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notification_settings")
-}
-
-// ─── Favorites ───────────────────────────────────────────────────────────────
-
-model Favorite {
-  id         String   @id @default(uuid())
-  userId     String
-  targetType String   // 'pro' | 'business'
-  targetId   String
-  createdAt  DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, targetType, targetId])
-  @@index([userId, targetType, createdAt])
-  @@index([targetType, targetId])
-  @@map("favorites")
-}
-
-// ─── Points & Coupons ────────────────────────────────────────────────────────
-
-model PointTransaction {
-  id          String   @id @default(uuid())
-  userId      String
-  type        String
-  amount      Int
-  reason      String?
-  referenceId String?
-  balanceAfter Int
-  expiresAt   DateTime?
-  createdAt   DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-  @@map("point_transactions")
-}
-
-model Coupon {
-  id               String    @id @default(uuid())
-  code             String    @unique
-  type             String    // 'percentage' | 'fixed'
-  value            Int
-  minOrderAmount   Int?
-  maxDiscountAmount Int?
-  validFrom        DateTime?
-  validUntil       DateTime?
-  totalQuantity    Int?
-  usedCount        Int       @default(0)
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-
-  userCoupons UserCoupon[]
-
-  @@map("coupons")
-}
-
-model UserCoupon {
-  id        String    @id @default(uuid())
-  userId    String
-  couponId  String
-  isUsed    Boolean   @default(false)
-  usedAt    DateTime?
-  paymentId String?
-  createdAt DateTime  @default(now())
-
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  coupon  Coupon @relation(fields: [couponId], references: [id])
-
-  @@map("user_coupons")
 }
 
 // ─── CMS ─────────────────────────────────────────────────────────────────────
@@ -1181,6 +999,45 @@ model Banner {
 
   @@index([placement, isActive, sortOrder])
   @@map("banners")
+}
+
+model ReferralEventClaim {
+  id                  String   @id @default(uuid())
+  userId              String
+  campaignKey         String   @default("friend-invite-cash-2026")
+  referralCountSnapshot Int    @default(0)
+  rewardAmount        Int      @default(5000)
+  bankName            String
+  accountHolder       String
+  accountNumber       String
+  status              String   @default("pending") // pending | approved | paid | rejected
+  adminNote           String?
+  submittedAt         DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, campaignKey])
+  @@index([campaignKey, status, submittedAt])
+  @@map("referral_event_claims")
+}
+
+model ReferralEventReward {
+  id           String   @id @default(uuid())
+  userId       String
+  campaignKey  String   @default("friend-invite-cash-2026")
+  step         Int
+  rewardAmount Int      @default(1000)
+  claimedAt    DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, campaignKey, step])
+  @@index([campaignKey, claimedAt])
+  @@map("referral_event_rewards")
 }
 
 // ─── Uploaded Files (DB 저장 — Railway 파일시스템 비영구 이슈 대응) ─────

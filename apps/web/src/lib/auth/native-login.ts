@@ -79,7 +79,6 @@ function normalizeUser(value: any): User | null {
     email: value.email ?? null,
     profileImageUrl: value.profileImageUrl || value.profile_image_url || value.picture || null,
     referralCode: value.referralCode || '',
-    pointBalance: Number(value.pointBalance || 0),
     isActive: value.isActive !== false,
     createdAt: value.createdAt || new Date().toISOString(),
   };

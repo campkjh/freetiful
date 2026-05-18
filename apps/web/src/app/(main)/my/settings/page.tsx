@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Lock, Link2, Wallet, Camera } from 'lucide-react';
+import { ChevronLeft, Lock, Wallet, Camera } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { usersApi } from '@/lib/api/users.api';
-import { startOAuth } from '@/lib/auth/oauth';
 import toast from 'react-hot-toast';
+import { getProfileImageUrl } from '@/lib/default-profile';
 
 // 소셜 로그인 아이콘
 const KakaoIcon = () => (
@@ -176,6 +176,8 @@ export default function SettingsPage() {
     return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
   };
 
+  const profilePreviewImage = getProfileImageUrl(profileImage, authUser?.id || authUser?.email || name);
+
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
       {/* ─── Header ─────────────────────────────────────────────────── */}
@@ -190,16 +192,12 @@ export default function SettingsPage() {
       <div className="flex justify-center py-8">
         <div className="relative">
           <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100">
-            {profileImage ? (
-              <img src={profileImage} alt="프로필" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="8" r="4" fill="#D1D5DB" />
-                  <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#D1D5DB" />
-                </svg>
-              </div>
-            )}
+            <img
+              src={profilePreviewImage}
+              alt="프로필"
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = getProfileImageUrl(null, authUser?.id || authUser?.email || name); }}
+            />
           </div>
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -241,45 +239,6 @@ export default function SettingsPage() {
             placeholder="010-0000-0000"
           />
         </div>
-      </div>
-
-      <div className="h-1.5 bg-gray-50" />
-
-      {/* ─── Linked Accounts ─────────────────────────────────────────── */}
-      <div className="px-4 py-5 space-y-3">
-        <p className="text-[13px] font-bold text-gray-500 flex items-center gap-1"><Link2 size={12} /> 연결된 계정</p>
-        {SOCIAL_PROVIDERS.map((acc) => {
-          const isConnected = connectedProviders.has(acc.key);
-          return (
-            <div key={acc.key} className="flex items-center justify-between py-2.5">
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-full ${acc.bg} flex items-center justify-center`}>
-                  {acc.icon}
-                </div>
-                <div>
-                  <p className="text-[14px] font-semibold text-gray-900">{acc.name}</p>
-                  <p className="text-[11px] text-gray-400">{isConnected ? '연결됨' : '미연결'}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (isConnected) {
-                    setDisconnectTarget(acc.name);
-                  } else if (acc.key === 'kakao' || acc.key === 'naver' || acc.key === 'google') {
-                    startOAuth(acc.key);
-                  } else {
-                    toast('Apple 계정 연결은 iOS 앱에서 이용할 수 있습니다', { icon: '🔗' });
-                  }
-                }}
-                className={`text-[12px] font-bold px-4 py-2 rounded-full transition-colors active:scale-95 ${
-                  isConnected ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-gray-900 text-white hover:bg-gray-800'
-                }`}
-              >
-                {isConnected ? '연결끊기' : '연결하기'}
-              </button>
-            </div>
-          );
-        })}
       </div>
 
       <div className="h-1.5 bg-gray-50" />

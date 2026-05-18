@@ -1087,6 +1087,219 @@ body::after {
     box-shadow: inset 0 1px 1px rgba(255,255,255,0.5);
   }
 
+  /* ─── Pro Dashboard — Toss Mobile Tone ───────────────────────────────── */
+
+  .pro-toss-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    color: #2B313D;
+    background:
+      radial-gradient(circle at 50% -8%, rgba(49,128,247,0.08), rgba(247,248,250,0) 34%),
+      #F7F8FA;
+  }
+
+  .pro-toss-header {
+    background: rgba(255,255,255,0.9);
+    border-bottom: 0.6px solid rgba(231,235,242,0.82);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  }
+
+  .pro-toss-card {
+    overflow: hidden;
+    border-radius: 24px;
+    border: 0.6px solid #F2F4F8;
+    background: rgba(255,255,255,0.96);
+    box-shadow: 0 10px 28px rgba(15,23,42,0.045);
+  }
+
+  .pro-toss-card-flat {
+    overflow: hidden;
+    border-radius: 22px;
+    border: 0.6px solid #F4F6FA;
+    background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.025);
+  }
+
+  .pro-toss-pressable {
+    transition:
+      transform 180ms var(--spring),
+      box-shadow 220ms ease,
+      border-color 220ms ease,
+      background-color 220ms ease,
+      color 220ms ease;
+  }
+
+  .pro-toss-pressable:active {
+    transform: scale(0.985);
+  }
+
+  .pro-toss-pressable:hover {
+    box-shadow: 0 14px 34px rgba(15,23,42,0.07);
+  }
+
+  .pro-toss-icon-button {
+    display: inline-flex;
+    height: 44px;
+    width: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.92);
+    border: 0.6px solid #F2F4F8;
+    box-shadow: 0 8px 22px rgba(15,23,42,0.055);
+    transition: transform 180ms var(--spring), background-color 180ms ease;
+  }
+
+  .pro-toss-icon-button:active {
+    transform: scale(0.94);
+  }
+
+  .pro-toss-primary-button {
+    border-radius: 12px;
+    background: #3180F7;
+    color: #FFFFFF;
+    font-size: 18px;
+    font-weight: 700;
+    transition: transform 180ms var(--spring), background-color 180ms ease;
+  }
+
+  .pro-toss-secondary-button {
+    border-radius: 12px;
+    background: #F2F4F8;
+    color: #4E5968;
+    font-size: 18px;
+    font-weight: 700;
+    transition: transform 180ms var(--spring), background-color 180ms ease;
+  }
+
+  .pro-toss-modal-overlay {
+    background: rgba(17,24,39,0.36);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .pro-toss-modal-card {
+    overflow: hidden;
+    border-radius: 28px;
+    border: 0.6px solid rgba(255,255,255,0.78);
+    background: rgba(255,255,255,0.96);
+    box-shadow: 0 22px 54px rgba(15,23,42,0.18);
+  }
+
+  .pro-toss-bottom-sheet {
+    overflow: hidden;
+    border-radius: 30px 30px 0 0;
+    border: 0.6px solid rgba(255,255,255,0.78);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,253,0.98));
+    box-shadow: 0 -20px 52px rgba(15,23,42,0.16);
+  }
+
+  .pro-toss-sheet-handle {
+    width: 42px;
+    height: 4px;
+    border-radius: 999px;
+    background: #D8DEE8;
+  }
+
+  .pro-toss-floating-menu {
+    overflow: hidden;
+    border-radius: 20px;
+    border: 0.6px solid rgba(229,233,240,0.9);
+    background: rgba(255,255,255,0.94);
+    box-shadow: 0 18px 42px rgba(15,23,42,0.16);
+    backdrop-filter: blur(18px) saturate(1.25);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  }
+
+  .pro-toss-input {
+    border-radius: 18px;
+    border: 0.6px solid #E7ECF3;
+    background: #F8FAFC;
+    color: #2B313D;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  }
+
+  .pro-toss-input:focus {
+    outline: none;
+    border-color: rgba(49,128,247,0.5);
+    background: #FFFFFF;
+    box-shadow: 0 0 0 4px rgba(49,128,247,0.08);
+  }
+
+  .pro-toss-alert {
+    border-radius: 18px;
+    border: 0.6px solid rgba(245,158,11,0.18);
+    background: linear-gradient(135deg, rgba(255,251,235,0.98), rgba(255,247,237,0.96));
+  }
+
+  .pro-toss-section-title {
+    color: #2B313D;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .pro-toss-section-subtitle {
+    margin-top: 2px;
+    color: #8B95A1;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .pro-toss-pressable:hover {
+      box-shadow: inherit;
+    }
+
+    .pro-toss-page.pro-fast-render .toss-fade-up,
+    .pro-toss-page.pro-fast-render .toss-soft-pop {
+      animation: none !important;
+      transition-duration: 120ms !important;
+    }
+  }
+
+  html[data-platform="android"] .pro-toss-page {
+    background: #F7F8FA;
+  }
+
+  html[data-platform="android"] .pro-toss-header,
+  html[data-platform="android"] .pro-toss-modal-overlay,
+  html[data-platform="android"] .pro-toss-floating-menu {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html[data-platform="android"] .pro-toss-card {
+    box-shadow: 0 1px 4px rgba(15,23,42,0.035);
+  }
+
+  html[data-platform="android"] .pro-toss-card-flat {
+    box-shadow: 0 1px 2px rgba(15,23,42,0.025);
+  }
+
+  html[data-platform="android"] .pro-toss-icon-button {
+    box-shadow: 0 1px 4px rgba(15,23,42,0.045);
+  }
+
+  html[data-platform="android"] .pro-toss-modal-card,
+  html[data-platform="android"] .pro-toss-bottom-sheet,
+  html[data-platform="android"] .pro-toss-floating-menu {
+    box-shadow: 0 8px 24px rgba(15,23,42,0.10);
+  }
+
+  html[data-platform="android"] [data-ios-mobile-bottom-nav],
+  html[data-platform="android"] [data-ios-mobile-bottom-nav] * {
+    filter: none !important;
+  }
+
+  html[data-platform="android"] .pro-fast-render .toss-fade-up,
+  html[data-platform="android"] .pro-fast-render .toss-soft-pop {
+    animation: none !important;
+  }
+
   /* ─── Typography ──────────────────────────────────────────────────────── */
 
   .section-title {
@@ -1202,10 +1415,6 @@ body::after {
 }
 
 /* ─── Ranking Badges ─────────────────────────────────────────────────────── */
-
-.pudding-rank-1 { @apply text-pudding-gold; }
-.pudding-rank-2 { @apply text-pudding-silver; }
-.pudding-rank-3 { @apply text-pudding-bronze; }
 
 /* ─── Skeleton Loader ────────────────────────────────────────────────────── */
 

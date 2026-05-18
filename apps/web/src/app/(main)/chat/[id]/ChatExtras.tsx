@@ -17,6 +17,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
+import { CHAT_STICKERS, type ChatSticker } from '@/lib/chat-stickers';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 export type { Message, ChatPartner, SystemPayload };
@@ -61,6 +62,14 @@ function suggestOptionNames(input: string): { name: string; price: number }[] {
 }
 
 const formatKRW = (n: number) => n.toLocaleString('ko-KR') + '원';
+
+function sortChatMessages(messages: Message[]) {
+  return [...messages].sort((a, b) => {
+    const aTime = new Date(a.createdAt).getTime();
+    const bTime = new Date(b.createdAt).getTime();
+    return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+  });
+}
 
 async function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -132,12 +141,6 @@ const formatDate = (iso: string) => {
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 };
-const normalizeDateParam = (value: any): string => {
-  if (!value) return '';
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
-};
 const normalizeTimeParam = (value: any): string => {
   if (!value) return '';
   if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) {
@@ -159,12 +162,6 @@ const buildQuoteCheckoutUrl = (chatPartner: ChatPartner | null, sys: SystemPaylo
     plan: sys.plan || 'premium',
     quotationId: sys.quotationId || quoteDetail?.id || '',
   });
-  const eventDate = normalizeDateParam(sys.eventDate || quoteDetail?.eventDate);
-  const eventTime = normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime);
-  const eventLocation = sys.eventLocation || quoteDetail?.eventLocation || '';
-  if (eventDate) params.set('eventDate', eventDate);
-  if (eventTime) params.set('slots', eventTime);
-  if (eventLocation) params.set('eventLocation', eventLocation);
   const qs = params.toString();
   return proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
 };
@@ -489,7 +486,7 @@ function KakaoMapEmbed({ venue }: { venue: string }) {
 // 여러 인스턴스가 렌더될 때 서로 비교하기 위해 간단한 글로벌 레지스트리 사용.
 const quoteCardRegistry = new Set<HTMLElement>();
 let quoteScrollRaf = 0;
-function scheduleQuoteCenterUpdate() {
+function queueQuoteCenterUpdate() {
   if (quoteScrollRaf) return;
   quoteScrollRaf = requestAnimationFrame(() => {
     quoteScrollRaf = 0;
@@ -514,9 +511,9 @@ function useNearestQuoteCard<T extends HTMLElement>() {
     const el = ref.current;
     if (!el) return;
     quoteCardRegistry.add(el);
-    scheduleQuoteCenterUpdate();
-    const onScroll = () => scheduleQuoteCenterUpdate();
-    const onResize = () => scheduleQuoteCenterUpdate();
+    queueQuoteCenterUpdate();
+    const onScroll = () => queueQuoteCenterUpdate();
+    const onResize = () => queueQuoteCenterUpdate();
     // 창 스크롤 + 채팅 컨테이너 스크롤(캡처) 모두 커버
     window.addEventListener('scroll', onScroll, { passive: true, capture: true });
     window.addEventListener('resize', onResize);
@@ -524,7 +521,7 @@ function useNearestQuoteCard<T extends HTMLElement>() {
       quoteCardRegistry.delete(el);
       window.removeEventListener('scroll', onScroll, { capture: true } as any);
       window.removeEventListener('resize', onResize);
-      scheduleQuoteCenterUpdate();
+      queueQuoteCenterUpdate();
     };
   }, []);
   return ref;
@@ -568,7 +565,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
   const sys = msg.system;
   if (!sys) return null;
 
-  if (sys.kind === 'session_start' || !['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid', 'booking_confirmed', 'reminder', 'event_today', 'event_done', 'review_request', 'refund', 'cancel'].includes(sys.kind)) {
+  if (sys.kind === 'session_start' || !['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid', 'review_request', 'refund', 'cancel'].includes(sys.kind)) {
     return (
       <div className="text-center py-3">
         <span className="inline-block text-[12px] text-gray-500 bg-gray-100 px-3.5 py-1.5 rounded-full">
@@ -628,13 +625,13 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               {(() => {
                 const proImg = (sys as any)?.proImage
                   || (isPro ? myProfileImage : chatPartner?.profileImageUrl)
-                  || '/images/default-profile.svg';
+                  || '/images/default-profile.png';
                 return (
                   <img
                     src={proImg}
                     alt=""
                     className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.png'; }}
                   />
                 );
               })()}
@@ -958,21 +955,6 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">행사명</p>
                 <p className="text-[16px] font-semibold text-gray-900">{sys.eventName || quoteDetail?.title || '행사 진행'}</p>
               </div>
-              {(sys.eventDate || quoteDetail?.eventDate) && (
-                <div>
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">행사 일정</p>
-                  <p className="text-[15px] text-gray-800">
-                    {(() => {
-                      const d = sys.eventDate || quoteDetail?.eventDate;
-                      if (!d) return '미정';
-                      try {
-                        return new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
-                      } catch { return String(d); }
-                    })()}
-                    {normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime) ? ` · ${normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime)}` : ''}
-                  </p>
-                </div>
-              )}
               {quoteDetail?.eventLocation && (
                 <div>
                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">장소</p>
@@ -1107,40 +1089,6 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             <p className="text-[14px] font-bold text-gray-900">{isDeposit ? '예약금' : '잔금'} 결제 완료</p>
             <p className="text-[13px] text-gray-500 tabular-nums">{formatKRW(sys.amount || 0)}</p>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (sys.kind === 'booking_confirmed') {
-    return (
-      <div className={wrapperClass}>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="bg-[#3180F7] px-4 py-3.5 text-white">
-            <div className="flex items-center gap-2 mb-1.5">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="white" opacity="0.3"/><path d="M9 13l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <p className="text-[11px] font-semibold tracking-wider uppercase opacity-80">CONFIRMED</p>
-            </div>
-            <p className="text-[16px] font-semibold">예약이 확정되었습니다</p>
-            <p className="text-[12px] opacity-60 mt-0.5">내 스케줄에 자동 추가되었습니다</p>
-          </div>
-          {sys.venue && <KakaoMapEmbed venue={sys.venue} />}
-          {(sys.eventDate || sys.venue) && (
-            <div className="px-4 py-3 space-y-1.5">
-              {sys.eventDate && (
-                <div className="flex items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E5E7EB"/><rect x="3" y="4" width="18" height="6" rx="2.5" fill="#9CA3AF"/></svg>
-                  <p className="text-[12px] text-gray-600">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
-                </div>
-              )}
-              {sys.venue && (
-                <div className="flex items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EF4444"/><circle cx="12" cy="9" r="2" fill="white"/></svg>
-                  <p className="text-[12px] text-gray-600">{sys.venue}</p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     );
@@ -1370,6 +1318,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const [quoteEventLocation, setQuoteEventLocation] = useState('');
   const [quoteMemo, setQuoteMemo] = useState('');
   const [quoteCustomAmount, setQuoteCustomAmount] = useState('');
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
 
   // 견적 작성 모달이 열릴 때, 고객 매칭 요청/최신 견적 정보를 자동 채움.
   // 프로가 직접 다시 입력하지 않아도 행사일/시간/장소/이름이 들어가 있게.
@@ -1627,6 +1576,72 @@ export default function ChatExtras(props: ChatExtrasProps) {
       // 실패한 임시 메시지 제거
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
+  };
+
+  const handleStickerSend = async (sticker: ChatSticker) => {
+    setShowAttach(false);
+    setShowStickerPicker(false);
+    if (!MY_ID) {
+      toast.error('로그인이 필요합니다');
+      return;
+    }
+
+    const clientMessageId = `cm-sticker-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const optimistic: Message = {
+      id: `opt-sticker-${clientMessageId}`,
+      senderId: MY_ID,
+      content: sticker.src,
+      type: 'sticker',
+      createdAt: new Date().toISOString(),
+      clientMessageId,
+      isRead: false,
+      isNew: true,
+    };
+    setMessages((prev) => sortChatMessages([...prev, optimistic]));
+
+    const saved = await useChatStore.getState().sendMessage({
+      type: 'sticker',
+      content: sticker.src,
+      metadata: {
+        clientMessageId,
+        stickerId: sticker.id,
+        stickerAlt: sticker.alt,
+      },
+      replyToId: replyTo?.id,
+    }).catch(() => null);
+
+    if (!saved) {
+      setMessages((prev) => prev.filter((message) => message.id !== optimistic.id));
+      toast.error('이모티콘 전송 실패');
+      return;
+    }
+
+    const persisted: Message = {
+      id: saved.id,
+      senderId: saved.senderId,
+      content: saved.content || sticker.src,
+      type: saved.type === 'sticker' ? 'sticker' : 'text',
+      createdAt: saved.createdAt,
+      clientMessageId,
+      isRead: saved.isRead,
+      replyTo: saved.replyTo ? {
+        id: saved.replyTo.id,
+        name: saved.replyTo.senderId,
+        content: saved.replyTo.content || '',
+      } : null,
+      reaction: saved.reactions?.[0]?.emoji ?? null,
+      isNew: false,
+    };
+
+    setMessages((prev) => {
+      const withoutOptimistic = prev.filter((message) => (
+        message.id !== optimistic.id &&
+        message.id !== persisted.id &&
+        message.clientMessageId !== clientMessageId
+      ));
+      return sortChatMessages([...withoutOptimistic, persisted]);
+    });
+    setReplyTo(null);
   };
 
   const handleFileSend = async (file: File) => {
@@ -1892,7 +1907,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
     { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => cameraInputRef.current?.click() },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
-    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
+    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); setShowStickerPicker(true); } },
     { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
     { icon: <MapPin size={24} className="text-white" />, bg: 'bg-slate-700', label: '위치', action: handleLocationSend },
     { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
@@ -2127,7 +2142,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
               className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-4"
             />
 
-            {/* ─── 행사 정보 (행사일이 스케줄링에 사용됨) ─── */}
+            {/* ─── 행사 정보 ─── */}
             <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">행사 정보</p>
             <div className="space-y-2 mb-4">
               <input
@@ -2159,11 +2174,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 placeholder="행사 장소 (예: 그랜드 워커힐 서울)"
                 className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
               />
-              {!quoteEventDate && (
-                <p className="text-[11px] text-amber-600 flex items-center gap-1">
-                  행사일을 설정해야 스케줄에 자동 등록됩니다
-                </p>
-              )}
             </div>
 
             {/* 총액 표시 */}
@@ -2226,6 +2236,52 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   <span className="text-[17px] text-gray-900">{item.label}</span>
                 </button>
               ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ─── 이모티콘 선택 ─── */}
+      {showStickerPicker && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/10 animate-[fadeIn_0.25s_ease]"
+            style={{ backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+            onClick={() => setShowStickerPicker(false)}
+          />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-2xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.12)] pb-safe"
+            style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3 mb-4" />
+            <div className="px-5 pb-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold tracking-wider text-[#3180F7]">FREETIFUL</p>
+                  <h3 className="text-[18px] font-black text-gray-900">이모티콘</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowStickerPicker(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 active:scale-90 transition-transform"
+                >
+                  <X size={18} className="text-gray-500" />
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {CHAT_STICKERS.map((sticker, index) => (
+                  <button
+                    key={sticker.id}
+                    type="button"
+                    onClick={() => handleStickerSend(sticker)}
+                    className="aspect-square rounded-2xl bg-gray-50 p-1.5 active:scale-95 hover:bg-blue-50 transition-all"
+                    style={{ animation: `attachItemUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) ${index * 0.025}s both` }}
+                  >
+                    <img src={sticker.src} alt={sticker.alt} draggable={false} className="h-full w-full object-contain" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </>

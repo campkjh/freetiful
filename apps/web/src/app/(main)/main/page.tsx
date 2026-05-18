@@ -1,19 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Bell, ChevronDown, ChevronRight, MapPin, X } from 'lucide-react';
+import { Search, Bell, ChevronRight, MapPin, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { triggerFavoriteAnimation } from '@/components/FavoriteAnimation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
-import {
-  WEDDING_PARTNER_CATEGORIES,
-  WEDDING_PARTNER_CATEGORY_ICONS,
-  WEDDING_PARTNER_CATEGORY_TABS,
-} from '@/lib/business-categories';
+import { matchApi } from '@/lib/api/match.api';
+import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
 import {
   getBusinessDisplayTags,
   isPopularBusinessPartner,
@@ -31,14 +27,6 @@ import {
   mergeWeddingPartnerImages,
 } from '@/lib/wedding-partner-images';
 import { discoveryApi } from '@/lib/api/discovery.api';
-import {
-  applyFavoriteCountToLocalCaches,
-  emitFavoriteChange,
-  favoriteApi,
-  readStoredFavoriteIds,
-  subscribeFavoriteChanges,
-  syncStoredFavoriteId,
-} from '@/lib/api/favorite.api';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
 
 const OFFICIAL_OPEN_MODAL_SESSION_KEY = 'freetiful-official-open-modal-20260506';
@@ -461,8 +449,6 @@ interface ProData {
   regions: string[];
   languages: string[];
   isNationwide: boolean;
-  favoriteCount: number;
-  pudding?: number;
   image: string;
   images: string[];
   intro: string;
@@ -502,8 +488,6 @@ function mapDiscoveryProToHomePro(p: any): ProData {
     regions: p.regions || [],
     languages: p.languages || [],
     isNationwide: p.isNationwide ?? false,
-    favoriteCount: p.favoriteCount ?? 0,
-    pudding: p.puddingCount ?? 0,
     image: p.images?.[0] || p.profileImageUrl || '',
     images: p.images || [],
     intro: p.shortIntro || '',
@@ -518,9 +502,9 @@ function mapDiscoveryProToHomePro(p: any): ProData {
   };
 }
 
-function sortByPuddingRank(items: ProData[]) {
+function sortByHomeRank(items: ProData[]) {
   return [...items].sort((a, b) =>
-    (b.pudding ?? 0) - (a.pudding ?? 0)
+    (b.experience ?? 0) - (a.experience ?? 0)
     || a.name.localeCompare(b.name, 'ko')
   );
 }
@@ -583,7 +567,7 @@ function HomeHeroProfileMarqueeRow({
             draggable={false}
             loading="lazy"
             decoding="async"
-            onError={(e) => { e.currentTarget.src = '/images/default-profile.svg'; }}
+            onError={(e) => { e.currentTarget.src = '/images/default-profile.png'; }}
           />
         </div>
       ))}
@@ -629,41 +613,6 @@ function HomeHeroProfileMarquee({ images }: { images: string[] }) {
     </div>
   );
 }
-
-const desktopHeroMenuItems = [
-  {
-    label: '결혼식사회자',
-    items: ['전문결혼식사회자', '외국어사회자', '주례없는 예식'],
-  },
-  {
-    label: 'MC',
-    items: ['행사 MC', '방송 MC', '쇼호스트'],
-  },
-  {
-    label: '기업행사',
-    items: ['기업행사', '시상식', '워크샵'],
-  },
-  {
-    label: '연례행사',
-    items: ['연례행사', '송년회', '창립기념식'],
-  },
-  {
-    label: '체육대회',
-    items: ['체육대회', '레크리에이션', '팀빌딩'],
-  },
-  {
-    label: '컨퍼런스',
-    items: ['컨퍼런스', '세미나', '포럼'],
-  },
-  {
-    label: '축가',
-    items: ['축가·연주', '축가', '연주'],
-  },
-  {
-    label: '쇼호스트',
-    items: ['쇼호스트', '라이브커머스', '제품행사'],
-  },
-];
 
 const homeSearchSlotKeywords = [
   '결혼식사회자',
@@ -789,8 +738,8 @@ function getBusinessPartnerSections(businesses: BusinessPartner[]) {
 }
 
 const BANNERS = [
-  { id: 'b1', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490590.png' },
-  { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png' },
+  { id: 'b1', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490590.png', linkUrl: '/my/invite' },
+  { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png', linkUrl: null },
 ];
 
 const HOME_REGIONS = ['전국', '서울/경기', '충청', '경상', '전라', '강원', '제주'];
@@ -810,28 +759,12 @@ function matchesRegion(pro: ProData, region: string) {
   return Array.isArray(pro.regions) && pro.regions.some((r) => aliases.includes(r));
 }
 
-const MOBILE_CATEGORY_TABS = ['모두', '결혼식사회자', '관공서 행사', '컨퍼런스/세미나', '체육대회'];
-
-const EVENT_PACKAGES = [
-  { name: '라이브커머스', slug: 'live-commerce', tags: ['온라인마켓', '이벤트진행'], image: '/images/group-1707482240.png' },
-  { name: '공식행사', slug: 'official-event', tags: ['기업소통', '전문사회자'], image: '/images/group-1707482241.png' },
-  { name: '송년회', slug: 'year-end-party', tags: ['송년행사', '감사이벤트'], image: '/images/group-1707482242.png' },
-  { name: '통번역', slug: 'interpretation', tags: ['동시통역', '외국어MC'], image: '/images/group-1707482243.png' },
-  { name: '기업 PT', slug: 'corporate-pt', tags: ['프레젠테이션', '전문진행'], image: '/images/group-1707482244.png' },
-  { name: '레크리에이션', slug: 'recreation', tags: ['팀미션', '게임사회자'], image: '/images/group-1707482245.png' },
-  { name: '팀빌딩', slug: 'team-building', tags: ['팀워크', '조직활성화'], image: '/images/group-1707482246.png' },
-  { name: '체육대회', slug: 'sports', tags: ['체육행사', '운동회'], image: '/images/group-1707482247.png' },
-  { name: '워크숍', slug: 'workshop', tags: ['교육행사', '세미나'], image: '/images/group-1707482248.png' },
-];
-
-function ProCard({ pro, favorites, toggleFavorite, index }: {
+function ProCard({ pro, index }: {
   pro: ProData;
-  favorites: Set<string>;
-  toggleFavorite: (e: MouseEvent, id: string) => void;
   index: number;
 }) {
   const skipAnim = useHomeAnimationSkip();
-  const primaryImage = pro.images[0] || pro.image || '/images/default-profile.svg';
+  const primaryImage = pro.images[0] || pro.image || '/images/default-profile.png';
   const secondaryImage = pro.images[1] || primaryImage;
   const tertiaryImage = pro.images[2] || primaryImage;
   return (
@@ -877,16 +810,6 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
             </div>
           </div>
         )}
-        <button
-          onClick={(e) => toggleFavorite(e, pro.id)}
-          className="absolute top-2 right-2 transition-transform duration-200 active:scale-125 z-20"
-        >
-          {favorites.has(pro.id) ? (
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="rgba(0,0,0,0.3)"/></svg>
-          )}
-        </button>
       </div>
       <div className="mt-1.5">
         {pro.isPartner && (
@@ -896,12 +819,6 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
           </span>
         )}
         <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[15px] lg:font-bold">사회자 {pro.name}</h4>
-        <div className="flex items-center gap-2 mt-0.5 mb-1">
-          <div className="flex items-center gap-0.5">
-            <svg width="11" height="11" viewBox="0 0 20 20" fill="none"><path d="M1.85156 7.75662C1.85156 11.7173 5.12524 13.8279 7.52163 15.717C8.36726 16.3836 9.18173 17.0113 9.99619 17.0113C10.8107 17.0113 11.6251 16.3836 12.4707 15.717C14.8671 13.8279 18.1408 11.7173 18.1408 7.75662C18.1408 3.79594 13.6611 0.987106 9.99619 4.79486C6.33124 0.987106 1.85156 3.79594 1.85156 7.75662Z" fill="#FF4D4D"/></svg>
-            <span className="text-[11px] text-gray-400">{pro.favoriteCount ?? pro.pudding ?? 0}</span>
-          </div>
-        </div>
         <div className="flex flex-wrap gap-1">
           {pro.experience > 0 && (
             <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
@@ -918,250 +835,127 @@ function ProCard({ pro, favorites, toggleFavorite, index }: {
   );
 }
 
-function CherryBlossomAnimation() {
-  const petals = [
-    { top: '10%', delay: '0s',   duration: '4s',   size: 7 },
-    { top: '45%', delay: '1.5s', duration: '4.5s', size: 6 },
-    { top: '75%', delay: '2.8s', duration: '4.2s', size: 7 },
-  ];
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-visible">
-      {petals.map((p, i) => (
-        <span
-          key={i}
-          className="absolute"
-          style={{
-            top: p.top,
-            left: -8,
-            fontSize: p.size,
-            lineHeight: 1,
-            animation: `petalDrift ${p.duration} ${p.delay} linear infinite`,
-          }}
-        >
-          🌸
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function SparkleAnimation() {
-  const sparkles = [
-    { top: '10%', left: '15%', delay: '0s',   duration: '1.4s', size: 8 },
-    { top: '20%', left: '75%', delay: '0.3s', duration: '1.6s', size: 6 },
-    { top: '55%', left: '88%', delay: '0.7s', duration: '1.3s', size: 7 },
-    { top: '80%', left: '10%', delay: '1.0s', duration: '1.5s', size: 6 },
-    { top: '45%', left: '5%',  delay: '0.5s', duration: '1.2s', size: 5 },
-    { top: '75%', left: '70%', delay: '1.2s', duration: '1.4s', size: 7 },
-    { top: '30%', left: '45%', delay: '0.9s', duration: '1.5s', size: 5 },
-  ];
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-visible">
-      {sparkles.map((s, i) => (
-        <svg
-          key={i}
-          width={s.size}
-          height={s.size}
-          viewBox="0 0 20 20"
-          className="absolute"
-          style={{
-            top: s.top,
-            left: s.left,
-            animation: `sparkle ${s.duration} ${s.delay} ease-in-out infinite`,
-          }}
-        >
-          <path d="M10 0 L12 8 L20 10 L12 12 L10 20 L8 12 L0 10 L8 8 Z" fill="#3180F7" />
-        </svg>
-      ))}
-    </div>
-  );
-}
-
-function ApplianceIconSwap() {
-  const icons = ['/images/category-icons/appliance.png', '/images/category-icons/appliance-2.png'];
-  const [tick, setTick] = useState(0);
+function SimpleMatchRequestModal({
+  open,
+  requestType,
+  onClose,
+  authUser,
+}: {
+  open: boolean;
+  requestType: 'wedding' | 'event';
+  onClose: () => void;
+  authUser: { id?: string; role?: string | null } | null;
+}) {
+  const [location, setLocation] = useState('');
+  const [dateTime, setDateTime] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 3000);
-    return () => clearInterval(timer);
-  }, []);
+    if (!open) return;
+    setLocation('');
+    setDateTime('');
+    setSubmitting(false);
+  }, [open, requestType]);
 
-  const src = icons[tick % icons.length];
-  return (
-    <div className="absolute inset-0 overflow-hidden">
-      <img
-        key={tick}
-        src={src}
-        alt="가전"
-        className="absolute inset-0 w-full h-full object-contain"
-        style={{ animation: 'applianceSwoosh 0.55s cubic-bezier(0.22, 1, 0.36, 1) both' }}
-      />
-    </div>
-  );
-}
+  if (!open) return null;
 
-function LanguageBadge() {
-  const LANGS = ['English', '中文', '日本語', 'ภาษาไทย', 'العربية', 'Español'];
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setIdx((i) => (i + 1) % LANGS.length), 2000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <span
-      className="home-category-language-badge absolute bottom-0 left-1/2 z-20 -translate-x-1/2 overflow-hidden rounded-full"
-    >
-      <span
-        className="home-category-language-badge-track"
-        style={{ transform: `translateY(-${idx * 16}px)` }}
-      >
-        {LANGS.map((lang) => (
-          <span key={lang} className="home-category-language-badge-item">
-            {lang}
-          </span>
-        ))}
-      </span>
-    </span>
-  );
-}
+  const title = requestType === 'wedding' ? '전문결혼식 사회자 요청' : '전문행사 사회자 요청';
+  const categoryName = requestType === 'wedding' ? '결혼식사회자' : '전문행사사회자';
+  const eventName = requestType === 'wedding' ? '결혼식' : '행사';
 
-type HomeCategoryItem = { name: string; img: string; href: string };
-const HOME_CATEGORY_ICON_DIR = '/images/category-icons';
+  const submit = async () => {
+    if (!authUser) {
+      window.dispatchEvent(new Event('freetiful:show-login'));
+      return;
+    }
+    if (!location.trim()) {
+      toast.error('장소를 입력해주세요.');
+      return;
+    }
+    if (!dateTime) {
+      toast.error('일시를 선택해주세요.');
+      return;
+    }
 
-function getHomeCategoryItems(): HomeCategoryItem[] {
-  const weddingPartnerCats = WEDDING_PARTNER_CATEGORIES
-    .filter((name) => name !== '가전')
-    .map((name) => ({
-      name,
-      img: `${HOME_CATEGORY_ICON_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS[name]}`,
-      href: `/businesses?category=${encodeURIComponent(name)}`,
-    }));
-  const applianceCat = WEDDING_PARTNER_CATEGORIES.includes('가전')
-    ? [{
-        name: '가전',
-        img: `${HOME_CATEGORY_ICON_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS['가전']}`,
-        href: `/businesses?category=${encodeURIComponent('가전')}`,
-      }]
-    : [];
-  return [
-    { name: '결혼식사회자', img: `${HOME_CATEGORY_ICON_DIR}/wedding-mc.png`, href: '/pros?category=결혼식사회자' },
-    { name: '행사사회자', img: `${HOME_CATEGORY_ICON_DIR}/event-mc.png`, href: '/pros?category=전문행사사회자' },
-    { name: '외국어사회자', img: `${HOME_CATEGORY_ICON_DIR}/foreign-mc.png`, href: '/pros?category=외국어사회자' },
-    ...weddingPartnerCats,
-    ...applianceCat,
-  ];
-}
-
-function HomeCategoryIcon({ item }: { item: HomeCategoryItem }) {
-  return (
-    <>
-      {item.name === '웨딩홀' ? (
-        <video
-          src="/images/wedding-hall-video.mp4"
-          autoPlay
-          muted
-          playsInline
-          preload="auto"
-          className="w-full h-full object-cover rounded-full"
-          ref={(v) => { if (v) v.playbackRate = 0.5; }}
-          onEnded={(e) => {
-            const v = e.currentTarget;
-            setTimeout(() => { v.currentTime = 0; v.play().catch(() => {}); }, 1500);
-          }}
-        />
-      ) : item.name === '가전' ? (
-        <ApplianceIconSwap />
-      ) : (
-        <img src={item.img} alt={item.name} className="w-full h-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/images/cat-wedding-hall.png'; }} />
-      )}
-      {item.name === '헤어' && <CherryBlossomAnimation />}
-    </>
-  );
-}
-
-function CategorySwiper() {
-  const skipAnim = useHomeAnimationSkip();
-  const allCats = getHomeCategoryItems();
-  const PAGE_SIZE = 10;
-  const pages: typeof allCats[] = [];
-  for (let i = 0; i < allCats.length; i += PAGE_SIZE) pages.push(allCats.slice(i, i + PAGE_SIZE));
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [activePage, setActivePage] = useState(0);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const handler = () => {
-      const i = Math.round(el.scrollLeft / el.clientWidth);
-      setActivePage(i);
-    };
-    el.addEventListener('scroll', handler, { passive: true });
-    return () => el.removeEventListener('scroll', handler);
-  }, []);
-
-  const scrollToPage = (pageIdx: number) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ left: el.clientWidth * pageIdx, behavior: 'smooth' });
+    const [eventDate, eventTimeWithSeconds] = dateTime.split('T');
+    const eventTime = eventTimeWithSeconds?.slice(0, 5);
+    setSubmitting(true);
+    try {
+      await matchApi.createRequest({
+        categoryId: categoryName,
+        eventDate,
+        eventTime,
+        eventLocation: location.trim(),
+        type: 'multi',
+        rawUserInput: {
+          source: 'home_simple_request_modal',
+          categoryName,
+          eventType: eventName,
+          eventName,
+          location: location.trim(),
+          date: eventDate,
+          timeStart: eventTime,
+          targetScope: 'all',
+          requestKind: 'multi',
+        },
+      });
+      toast.success('모든 사회자에게 요청을 보냈습니다.');
+      onClose();
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '요청 전송에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="pb-2 pt-1 relative">
-      <div ref={scrollRef} className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
-        {pages.map((pageCats, pi) => (
-          <div key={pi} className="shrink-0 w-full snap-start">
-            <div className="grid grid-cols-5 gap-y-3 gap-x-1 py-2 pl-[18px] pr-[10px] lg:grid-cols-10 lg:gap-x-3 lg:px-2 lg:py-3">
-              {pageCats.map((item, i) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
-                  style={skipAnim ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + i * 0.04}s forwards` }}
-                >
-                  <div className="w-[60px] h-[60px] lg:w-16 lg:h-16 flex items-center justify-center relative">
-                    <HomeCategoryIcon item={item} />
-                    {item.name === '외국어사회자' && <LanguageBadge />}
-                  </div>
-                  <span className="text-[12px] lg:text-[13px] font-medium text-center leading-tight mt-1" style={{ color: '#51535C' }}>{item.name}</span>
-                </Link>
-              ))}
-            </div>
+    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/45 px-4 pb-4 pt-10 backdrop-blur-[2px] lg:items-center lg:pb-10">
+      <div className="w-full max-w-[420px] rounded-[28px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <p className="text-[13px] font-semibold text-[#3180F7]">빠른 요청</p>
+            <h2 className="mt-1 text-[22px] font-bold text-[#2B313D]">{title}</h2>
           </div>
-        ))}
-      </div>
-      {/* 우측 플로팅 화살표 — glassmorphism */}
-      {activePage < pages.length - 1 && (
-        <button
-          onClick={() => scrollToPage(activePage + 1)}
-          className="absolute top-1/2 -translate-y-1/2 right-2 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-all z-10"
-          style={{
-            background: 'rgba(255, 255, 255, 0.55)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255, 255, 255, 0.6)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-          }}
-          aria-label="다음 카테고리"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-        </button>
-      )}
-      {/* 페이지 인디케이터 */}
-      <div className="flex items-center justify-center gap-1.5 mt-2">
-        {pages.map((_, i) => (
           <button
-            key={i}
-            onClick={() => scrollToPage(i)}
-            className="block rounded-full transition-all duration-300"
-            style={{
-              width: i === activePage ? 28 : 4,
-              height: 3,
-              backgroundColor: i === activePage ? '#111111' : '#D1D5DB',
-            }}
-            aria-label={`페이지 ${i + 1}`}
-          />
-        ))}
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F2F4F8] text-[#6B7684] active:scale-95"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1.5 block text-[13px] font-semibold text-[#4E5968]">장소</span>
+            <input
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              placeholder="예: 서울 중구 프리티풀웨딩홀"
+              className="h-[52px] w-full rounded-2xl border border-[#E5E8EF] bg-white px-4 text-[16px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-[13px] font-semibold text-[#4E5968]">일시</span>
+            <input
+              type="datetime-local"
+              value={dateTime}
+              onChange={(event) => setDateTime(event.target.value)}
+              className="h-[52px] w-full rounded-2xl border border-[#E5E8EF] bg-white px-4 text-[16px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
+            />
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={submit}
+          disabled={submitting}
+          className="mt-5 h-[52px] w-full rounded-2xl bg-[#3180F7] text-[17px] font-bold text-white shadow-[0_14px_26px_rgba(49,128,247,0.22)] transition active:scale-[0.98] disabled:opacity-60"
+        >
+          {submitting ? '요청 보내는 중...' : '모든 사회자에게 요청하기'}
+        </button>
       </div>
     </div>
   );
@@ -1173,6 +967,8 @@ export default function HomePage() {
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
   const [phonePreviewSrc, setPhonePreviewSrc] = useState<string | null>(null);
   const [showOfficialOpenModal, setShowOfficialOpenModal] = useState(false);
+  const [simpleRequestOpen, setSimpleRequestOpen] = useState(false);
+  const [simpleRequestType, setSimpleRequestType] = useState<'wedding' | 'event'>('wedding');
   const skipHomeAnim = useHomeAnimationSkip();
   useEffect(() => () => resetHomeAnimationDecision(), []);
 
@@ -1314,10 +1110,8 @@ export default function HomePage() {
   const router = useRouter();
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const isPro = authUser?.role === 'pro';
-    const isGeneralByChoice = isPro && localStorage.getItem('viewAsUser') === 'true';
-    if (isPro && !isGeneralByChoice) {
-      router.replace('/pro-dashboard');
+    if (authUser?.role === 'pro') {
+      router.replace('/pro-dashboard/inquiries');
     }
   }, [authUser, router]);
 
@@ -1338,8 +1132,8 @@ export default function HomePage() {
       setApiPros((prev) => prev ?? []);
     }, 8000);
 
-    const loadRealtimePuddingRank = () => {
-      discoveryApi.getProList({ limit: 41, sort: 'pudding', withTotal: false, realtime: true })
+    const loadRealtimeProRank = () => {
+      discoveryApi.getProList({ limit: 41, sort: 'reviews', withTotal: false, realtime: true })
         .then((res) => {
           if (cancelled) return;
           clearTimeout(timeout);
@@ -1352,7 +1146,7 @@ export default function HomePage() {
               seen.add(key);
               return true;
             });
-            const mapped = sortByPuddingRank(deduped.map(mapDiscoveryProToHomePro));
+            const mapped = sortByHomeRank(deduped.map(mapDiscoveryProToHomePro));
             setApiPros(mapped);
             try { localStorage.setItem(HOME_PROS_CACHE_KEY, JSON.stringify(mapped)); } catch {}
           } else {
@@ -1366,11 +1160,11 @@ export default function HomePage() {
         });
     };
 
-    loadRealtimePuddingRank();
-    const interval = window.setInterval(loadRealtimePuddingRank, 20_000);
-    const onFocus = () => loadRealtimePuddingRank();
+    loadRealtimeProRank();
+    const interval = window.setInterval(loadRealtimeProRank, 20_000);
+    const onFocus = () => loadRealtimeProRank();
     const onVisible = () => {
-      if (document.visibilityState === 'visible') loadRealtimePuddingRank();
+      if (document.visibilityState === 'visible') loadRealtimeProRank();
     };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisible);
@@ -1385,7 +1179,7 @@ export default function HomePage() {
   }, []);
 
   // Use API data only - no mock fallback
-  const prosData = useMemo(() => sortByPuddingRank(apiPros || []), [apiPros]);
+  const prosData = useMemo(() => sortByHomeRank(apiPros || []), [apiPros]);
   const heroProfileImages = useMemo(() => {
     const images = prosData.flatMap((pro) => [pro.image, ...pro.images])
       .filter((src): src is string => Boolean(src && !src.includes('default-profile')));
@@ -1484,7 +1278,7 @@ export default function HomePage() {
     }
     let cancelled = false;
     setRegionalLoading(true);
-    discoveryApi.getProList({ limit: 12, sort: 'pudding', region: selectedRegion, withTotal: false })
+    discoveryApi.getProList({ limit: 12, sort: 'reviews', region: selectedRegion, withTotal: false })
       .then((res) => {
         if (cancelled) return;
         const mapped = (res.data || []).map(mapDiscoveryProToHomePro);
@@ -1571,10 +1365,6 @@ export default function HomePage() {
     );
   };
 
-  const [favorites, setFavorites] = useState<Set<string>>(() => {
-    return new Set(readStoredFavoriteIds());
-  });
-  const [selectedMobileTab, setSelectedMobileTab] = useState('결혼식사회자');
   const [bannerIdx, setBannerIdx] = useState(0);
   const [bannerDragOffset, setBannerDragOffset] = useState(0);
   const bannerPointerStartRef = useRef<{ x: number; y: number; active: boolean } | null>(null);
@@ -1586,13 +1376,13 @@ export default function HomePage() {
     let cancelled = false;
     fetch('/api/v1/banners?placement=home').then((r) => r.ok ? r.json() : null).then((data) => {
       if (cancelled || !Array.isArray(data) || data.length === 0) return;
-      setBanners(data.map((b: any) => ({
+      setBanners(data.map((b: any, index: number) => ({
         id: b.id,
         title: b.title || '',
         subtitle: b.subtitle || '',
         bgColor: b.bgColor || '',
         image: b.imageUrl,
-        linkUrl: b.linkUrl || null,
+        linkUrl: b.linkUrl || (index === 0 ? '/my/invite' : null),
       })));
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -1620,13 +1410,6 @@ export default function HomePage() {
   };
   const desktopHeroBanners = banners.length > 0 ? banners : BANNERS;
   const desktopHeroBannerIdx = bannerIdx % desktopHeroBanners.length;
-  const [viewedPros, setViewedPros] = useState<{ id: string; time: number }[]>([]);
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('viewed-pros') || '[]');
-      setViewedPros(stored);
-    } catch {}
-  }, []);
   const [logoVisible, setLogoVisible] = useState(true);
   const headerRef = useRef<HTMLDivElement>(null);
   const rankScrollRef = useRef<HTMLDivElement>(null);
@@ -1650,91 +1433,11 @@ export default function HomePage() {
 
   const businessPartnerSections = useMemo(() => getBusinessPartnerSections(businesses), [businesses]);
   const warmProsList = () => {
-    discoveryApi.getProList({ limit: 100, sort: 'pudding', withTotal: false, realtime: true }).catch(() => {});
+    discoveryApi.getProList({ limit: 100, sort: 'reviews', withTotal: false, realtime: true }).catch(() => {});
   };
-  const updateProFavoriteCount = (proId: string, valueOrDelta: number, mode: 'set' | 'delta' = 'delta') => {
-    applyFavoriteCountToLocalCaches(proId, mode === 'set' ? { favoriteCount: valueOrDelta } : { delta: valueOrDelta });
-    const update = (items: ProData[] | null) => {
-      if (!items) return items;
-      return items.map((item) => {
-        if (item.id !== proId) return item;
-        const current = item.favoriteCount ?? item.pudding ?? 0;
-        const nextCount = mode === 'set' ? valueOrDelta : current + valueOrDelta;
-        return { ...item, favoriteCount: Math.max(0, nextCount) };
-      });
-    };
-    setApiPros((prev) => {
-      const next = update(prev);
-      if (next) {
-        try { localStorage.setItem(HOME_PROS_CACHE_KEY, JSON.stringify(next)); } catch {}
-      }
-      return next;
-    });
-    setRegionalPros((prev) => update(prev) || prev);
-  };
-
-  useEffect(() => {
-    return subscribeFavoriteChanges((detail) => {
-      if (!detail?.proProfileId || detail.source === 'home-optimistic' || detail.source === 'home-revert') return;
-      setFavorites(new Set(readStoredFavoriteIds()));
-      if (typeof detail.favoriteCount === 'number') {
-        updateProFavoriteCount(detail.proProfileId, detail.favoriteCount, 'set');
-      } else if (typeof detail.delta === 'number') {
-        updateProFavoriteCount(detail.proProfileId, detail.delta, 'delta');
-      }
-    });
-  }, []);
-
-  const toggleFavorite = (e: MouseEvent, proId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const isAdding = !favorites.has(proId);
-    updateProFavoriteCount(proId, isAdding ? 1 : -1);
-    syncStoredFavoriteId(proId, isAdding);
-    emitFavoriteChange({
-      proProfileId: proId,
-      isFavorited: isAdding,
-      delta: isAdding ? 1 : -1,
-      source: 'home-optimistic',
-    });
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(proId)) next.delete(proId);
-      else next.add(proId);
-      return next;
-    });
-    // Sync to API if authenticated
-    if (authUser) {
-      favoriteApi.toggle(proId)
-        .catch(() => {
-          updateProFavoriteCount(proId, isAdding ? -1 : 1);
-          syncStoredFavoriteId(proId, !isAdding);
-          emitFavoriteChange({
-            proProfileId: proId,
-            isFavorited: !isAdding,
-            delta: isAdding ? -1 : 1,
-            source: 'home-revert',
-          });
-          setFavorites((prev) => {
-            const next = new Set(prev);
-            if (isAdding) next.delete(proId);
-            else next.add(proId);
-            return next;
-          });
-        });
-    }
-    // Trigger fly animation when adding to favorites
-    if (isAdding) {
-      const pro = prosData.find((p) => p.id === proId);
-      if (pro) {
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        triggerFavoriteAnimation({
-          imageUrl: pro.image,
-          startX: rect.left + rect.width / 2,
-          startY: rect.top + rect.height / 2,
-        });
-      }
-    }
+  const openSimpleRequest = (type: 'wedding' | 'event') => {
+    setSimpleRequestType(type);
+    setSimpleRequestOpen(true);
   };
 
   const [loading, setLoading] = useState(true);
@@ -1786,6 +1489,13 @@ export default function HomePage() {
 
   return (
     <div className="home-pc-font-cap bg-white min-h-screen w-full">
+      <SimpleMatchRequestModal
+        open={simpleRequestOpen}
+        requestType={simpleRequestType}
+        authUser={authUser}
+        onClose={() => setSimpleRequestOpen(false)}
+      />
+
       {showOfficialOpenModal && (
         <div
           role="dialog"
@@ -2007,8 +1717,9 @@ export default function HomePage() {
         {/* Category cards (결혼식사회자 영상 + 행사사회자) */}
         <div className="px-[10px] pt-3 pb-1 lg:px-0 lg:pt-0 lg:pb-2">
           <div className="grid grid-cols-2 gap-3 lg:gap-4">
-            <Link
-              href="/quote"
+            <button
+              type="button"
+              onClick={() => openSimpleRequest('wedding')}
               className="group block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 hover:scale-[1.02] active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
@@ -2023,9 +1734,10 @@ export default function HomePage() {
                 </div>
                 <ChevronRight size={20} className="text-[#2B313D]/80 shrink-0 lg:w-7 lg:h-7" />
               </div>
-            </Link>
-            <Link
-              href="/quote?mode=event"
+            </button>
+            <button
+              type="button"
+              onClick={() => openSimpleRequest('event')}
               className="group relative aspect-square rounded-2xl lg:rounded-[22px] overflow-hidden px-3 lg:px-5 flex items-end opacity-0 shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
@@ -2036,39 +1748,11 @@ export default function HomePage() {
                 <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문행사</span>
                 <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>사회자 찾기</span>
               </div>
-            </Link>
+            </button>
           </div>
         </div>
 
-        {/* 3. Category text tabs */}
-        <div
-          className="flex gap-2 overflow-x-auto scrollbar-hide px-[10px] py-2 lg:px-0 lg:py-3 opacity-0"
-          style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards' }}
-        >
-          {['결혼식사회자', '행사 맞춤의뢰', 'MC', '기업행사', '연례행사', '체육대회', '컨퍼런스'].map((tab) => {
-            const active = selectedMobileTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setSelectedMobileTab(tab)}
-                className={`shrink-0 text-[12px] lg:text-[13px] font-medium px-3 lg:px-4 py-1.5 lg:py-2 rounded-[12px] transition-all duration-300 active:scale-95 ${
-                  active
-                    ? 'bg-[#2B313D] text-white shadow-[0_2px_8px_rgba(43,49,61,0.2)]'
-                    : 'text-[#51535C]'
-                }`}
-                style={active ? {} : { backgroundColor: '#F2F3F5' }}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 4. Icon category grid — 5x2, 스와이프로 다음 페이지 */}
-        <CategorySwiper />
-
-
-        {/* 5. Slide Banner — 아이콘 그리드 아래, 관심있는 사회자 위 */}
+        {/* 5. Slide Banner */}
         <div className="px-[10px] pt-2 pb-1 lg:px-0 lg:pt-3 lg:pb-2">
           <div
             className="relative w-full overflow-hidden rounded-2xl lg:rounded-[22px] select-none"
@@ -2168,35 +1852,8 @@ export default function HomePage() {
             </Link>
           </Reveal>
 
-          <Reveal delay={100} className="relative z-40">
-            <div className="mb-8 flex flex-wrap justify-center gap-x-1.5 gap-y-1.5">
-              {desktopHeroMenuItems.map((menu) => (
-                <div key={menu.label} className="home-desktop-category-menu group relative">
-                  <Link
-                    href={proCategoryHref(menu.label)}
-                    className="flex items-center gap-1 rounded-xl px-3 py-2 text-[14px] font-semibold text-gray-700 transition-all duration-200 hover:bg-white/80 hover:text-gray-950 hover:shadow-sm focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3180F7]/25"
-                  >
-                    <span>{menu.label}</span>
-                    <ChevronDown size={14} className="home-desktop-category-chevron text-gray-400 transition-transform duration-200 group-hover:rotate-180 group-hover:text-gray-700" />
-                  </Link>
-                  <div className="home-desktop-category-dropdown pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 w-[148px] -translate-x-1/2 translate-y-1 rounded-2xl p-1.5 text-left opacity-0 transition-all duration-200">
-                    {menu.items.map((item) => (
-                      <Link
-                        key={item}
-                        href={proCategoryHref(item)}
-                        className="block rounded-xl px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950 focus-visible:bg-gray-50 focus-visible:outline-none"
-                      >
-                        {item}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Reveal>
-
           <Reveal delay={150} className="relative z-10">
-            <div className="mx-auto mb-10 grid max-w-6xl grid-cols-[minmax(480px,1.95fr)_1fr_1fr] gap-4">
+            <div className="mx-auto mb-8 grid max-w-6xl grid-cols-[minmax(480px,1.95fr)_1fr_1fr] gap-4">
               <div
                 className="group relative h-[140px] select-none overflow-hidden rounded-2xl shadow-sm"
                 style={{ touchAction: 'pan-y' }}
@@ -2271,8 +1928,9 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <Link
-                href="/quote?mode=wedding"
+              <button
+                type="button"
+                onClick={() => openSimpleRequest('wedding')}
                 className="group relative h-[140px] flex-1 overflow-hidden rounded-2xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
               >
                 <video
@@ -2297,10 +1955,11 @@ export default function HomePage() {
                   </div>
                   <ChevronRight size={22} className="shrink-0 text-[#2B313D]/80" />
                 </div>
-              </Link>
+              </button>
 
-              <Link
-                href="/quote?mode=event"
+              <button
+                type="button"
+                onClick={() => openSimpleRequest('event')}
                 className="group relative flex h-[140px] flex-1 items-center gap-3 overflow-visible rounded-2xl border border-gray-200 bg-white py-3 pl-2 pr-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
               >
                 <span className="event-biz-float-bubble absolute -top-5 right-4 z-30 rounded-full bg-[#3180F7] px-3.5 py-1.5 text-[11px] font-bold leading-none text-white">
@@ -2334,76 +1993,15 @@ export default function HomePage() {
                   <span className="block whitespace-nowrap text-[20px] font-bold leading-tight text-[#2B313D]">전문행사</span>
                   <span className="block whitespace-nowrap text-[20px] font-bold leading-tight text-[#2B313D]">사회자 찾기</span>
                 </div>
-              </Link>
+              </button>
             </div>
           </Reveal>
-
-          <div className="mx-auto mb-0 grid max-w-5xl grid-cols-9 gap-x-4 gap-y-5">
-            {getHomeCategoryItems().map((item) => (
-              <Link key={item.name} href={item.href} className="group flex flex-col items-center gap-1.5">
-                <div className="relative flex h-[64px] w-[64px] items-center justify-center">
-                  <div className="home-pc-category-icon-shell relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-white/90 bg-white p-2 shadow-[0_14px_30px_rgba(15,23,42,0.12)] ring-1 ring-black/[0.03] transition-all duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:shadow-[0_18px_36px_rgba(15,23,42,0.16)]">
-                    <HomeCategoryIcon item={item} />
-                  </div>
-                  {item.name === '외국어사회자' && <LanguageBadge />}
-                </div>
-                <span className="text-center text-[12px] font-medium leading-tight text-gray-600 transition-colors group-hover:text-gray-900">{item.name}</span>
-              </Link>
-            ))}
-          </div>
         </div>
       </div>
 
       <div className="px-[10px] lg:px-8 pt-0 pb-6 lg:pt-2 lg:pb-12 space-y-4 lg:space-y-7 lg:max-w-7xl lg:mx-auto">
 
         <LazySection height={2000}>
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 0. 관심있는 사회자 (최근 본 사회자)                            */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {viewedPros.length > 0 && (() => {
-          const viewedProData = viewedPros
-            .map((v) => {
-              const pro = prosData.find((p) => p.id === v.id);
-              return pro ? { ...pro, viewedTime: v.time } : null;
-            })
-            .filter(Boolean) as (ProData & { viewedTime: number })[];
-          if (viewedProData.length === 0) return null;
-          const isRecent = (time: number) => Date.now() - time < 1000 * 60 * 30; // 30분 이내
-          return (
-            <section className="mb-4">
-              <div className="flex items-center justify-between mb-1">
-                <div>
-                  <h3 className="section-title">관심있는 사회자</h3>
-                  <p className="section-subtitle mt-1">최근 본 사회자를 다시 확인해보세요.</p>
-                </div>
-                <Link href="/favorites" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600" style={{ transition: 'color 0.3s' }}>
-                  전체보기 <ChevronRight size={16} />
-                </Link>
-              </div>
-              <div className="flex gap-0 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0">
-                {viewedProData.map((pro) => (
-                  <Link
-                    key={pro.id}
-                    href={`/pros/${pro.id}`}
-                    className="shrink-0 w-[100px] flex flex-col items-center"
-                  >
-                    <div className="relative w-[84px] h-[112px] rounded-xl overflow-hidden">
-                      <img src={pro.image} alt={pro.name} className="w-full h-full object-cover" />
-                      {isRecent(pro.viewedTime) && (
-                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-red-500">
-                          최근 본
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[16px] font-bold text-gray-900 mt-1.5 text-center">{pro.name}</p>
-                    <p className="text-[14px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          );
-        })()}
-
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 2. 이달의 TOP 사회자                                        */}
         {/* ══════════════════════════════════════════════��════════════ */}
@@ -2413,7 +2011,7 @@ export default function HomePage() {
               <img src="/images/trophy.png" alt="" className="w-10 h-10 object-contain shrink-0" />
               <div>
                 <h3 className="section-title">BEST 결혼식 사회자</h3>
-                <p className="section-subtitle mt-1">푸딩 수 기준 실시간 랭킹</p>
+                <p className="section-subtitle mt-1">검증된 인기 사회자</p>
               </div>
             </div>
             <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600 pb-0.5" style={{ transition: 'color 0.3s' }}>
@@ -2503,73 +2101,6 @@ export default function HomePage() {
         <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 지금 접속중인 사회자 (100px 원형 + hover 부채꼴)            */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {prosData.length > 0 && (
-          <section>
-            <Reveal>
-              <div className="flex items-center justify-between mb-1">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="section-title">지금 접속중인 사회자</h3>
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
-                    </span>
-                  </div>
-                  <p className="section-subtitle mt-1">지금 바로 상담 가능한 사회자예요</p>
-                </div>
-              </div>
-            </Reveal>
-            <div className="flex gap-3 overflow-x-auto overflow-y-visible scrollbar-hide -mx-[10px] px-[10px] lg:mx-0 lg:px-0 pt-3">
-              {prosData.slice(0, 10).map((pro, idx) => {
-                const minutesAgo = (idx * 7) % 60; // 간단한 더미 시간
-                const isNow = idx < 3;
-                const images = pro.images && pro.images.length >= 3 ? pro.images : [pro.image, pro.image, pro.image];
-                return (
-                  <Link
-                    key={pro.id}
-                    href={`/pros/${pro.id}`}
-                    className="flex items-center gap-4 group p-[10px] rounded-[14px] active:bg-black/5 active:scale-[0.97] transition-all duration-200 shrink-0"
-                  >
-                    <div className="relative w-[100px] h-[100px] shrink-0 my-3 z-10">
-                      <img
-                        src={images[2]}
-                        alt=""
-                        className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[64px] group-hover:translate-y-[-12px] group-hover:rotate-[12deg] group-hover:scale-90 z-[1]"
-                      />
-                      <img
-                        src={images[1]}
-                        alt=""
-                        className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] delay-[50ms] group-hover:translate-x-[34px] group-hover:translate-y-[-18px] group-hover:rotate-[6deg] group-hover:scale-95 z-[2]"
-                      />
-                      <img
-                        src={images[0]}
-                        alt={pro.name}
-                        className="absolute w-[100px] h-[100px] rounded-full object-cover border-[1.4px] border-white shadow-lg z-[3] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-                      />
-                      <span className={`absolute bottom-1 right-1 z-[4] w-4 h-4 rounded-full border-[1.4px] border-white ${isNow ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-[12px] font-medium text-gray-400">{formatCareerLabel(pro.experience)}</span>
-                      <p className="text-[16px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
-                      <p className="text-[12px] mt-1">
-                        {isNow ? (
-                          <span className="text-green-600 font-semibold">현재 접속중</span>
-                        ) : (
-                          <span className="text-gray-400">접속 {minutesAgo}분 전</span>
-                        )}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        )}
-        {prosData.length > 0 && <div className="my-6 border-t border-gray-100" />}
-
-        {/* ═══════════════════════════════════════════════════════════ */}
         {/* 지역별 사회자                                              */}
         {/* ═══════════════════════════════════════════════════════════ */}
         {prosData.length > 0 && (() => {
@@ -2654,7 +2185,7 @@ export default function HomePage() {
                 <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
                   {regionFiltered.slice(0, 6).map((pro, i) => (
                     <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                      <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
+                      <ProCard pro={pro} index={i} />
                     </div>
                   ))}
                 </div>
@@ -2698,7 +2229,7 @@ export default function HomePage() {
               ))
             ) : prosData.slice(0, 10).map((pro, i) => (
               <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
-                <ProCard pro={pro} favorites={favorites} toggleFavorite={toggleFavorite} index={i} />
+                <ProCard pro={pro} index={i} />
               </div>
             ))}
           </div>
@@ -2740,48 +2271,6 @@ export default function HomePage() {
             <div className="my-6 border-t border-gray-100" />
           </>
         )}
-
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 7. 행사 맞춤의뢰                                           */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        <section>
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="section-title">행사 맞춤의뢰</h3>
-              <p className="section-subtitle mt-1">프리티풀의 완벽한 행사 인프라</p>
-            </div>
-            <Link href="/match" className="text-[13px] text-primary-500 font-semibold flex items-center gap-0.5 hover:text-primary-600" style={{ transition: 'color 0.3s' }}>
-              전체보기 <ChevronRight size={16} />
-            </Link>
-          </div>
-
-          {/* Package Cards Grid */}
-          <div className="grid grid-cols-3 gap-2 lg:grid-cols-6 lg:gap-3">
-            {EVENT_PACKAGES.map((pkg) => (
-              <Link
-                key={pkg.name}
-                href={`/events/${pkg.slug}`}
-                className="block group"
-              >
-                {/* Card Image */}
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-                  <img
-                    src={pkg.image}
-                    alt={pkg.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-                {/* Info */}
-                <p className="mt-1.5 text-[16px] font-bold text-gray-900 leading-tight line-clamp-1">{pkg.name}</p>
-                <p className="text-[14px] text-gray-400 leading-tight line-clamp-1 mt-0.5">
-                  {pkg.tags.join(' · ')}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-        <div className="my-6 border-t border-gray-100" />
         </LazySection>
       </div>
 

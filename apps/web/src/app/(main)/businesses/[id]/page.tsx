@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Share2, Heart, MapPin, Phone, Globe, Instagram } from 'lucide-react';
+import { ArrowLeft, Share2, MapPin, Phone, Globe, Instagram } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import {
   deriveBusinessTagSuggestions,
@@ -36,7 +36,6 @@ export default function BusinessDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [activeImage, setActiveImage] = useState(0);
-  const [isFavorited, setIsFavorited] = useState(false);
   const [biz, setBiz] = useState<BizDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,7 +88,7 @@ export default function BusinessDetailPage() {
   const partnerImageSet = getWeddingPartnerImageSet(biz.businessName);
   const apiImages = Array.isArray(biz.images) ? biz.images.map((i) => i.imageUrl).filter(Boolean) : [];
   const mergedImages = sanitizeBusinessImageUrls(mergeWeddingPartnerImages(apiImages, partnerImageSet?.images));
-  const images = mergedImages.length > 0 ? mergedImages : ['/images/default-profile.svg'];
+  const images = mergedImages.length > 0 ? mergedImages : ['/images/default-profile.png'];
   const categoryNames = Array.from(new Set([
     ...getRelevantBusinessCategories(biz),
     ...getWeddingPartnerSectionCategories(partnerImageSet),
@@ -118,9 +117,6 @@ export default function BusinessDetailPage() {
           <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
           <div className="flex items-center gap-2">
             <button className="p-2"><Share2 size={20} className="text-gray-600" /></button>
-            <button className="p-2" onClick={() => setIsFavorited(!isFavorited)}>
-              <Heart size={20} className={isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-600'} />
-            </button>
           </div>
         </div>
       </div>
@@ -214,12 +210,6 @@ export default function BusinessDetailPage() {
 
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg bg-white border-t border-gray-100 px-4 py-3 z-40">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsFavorited(!isFavorited)}
-            className="w-12 h-12 flex items-center justify-center border border-gray-200 rounded-xl shrink-0"
-          >
-            <Heart size={22} className={isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-400'} />
-          </button>
           {biz.phone && (
             <a href={`tel:${biz.phone}`} className="flex-1">
               <button className="btn-primary flex items-center justify-center gap-2 w-full">

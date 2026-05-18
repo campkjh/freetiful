@@ -29,7 +29,7 @@ type AdminNavItem = {
 
 const TOP_NAV = [
   { href: '/admin', label: '홈', exact: true, paths: ['/admin'] },
-  { href: '/admin/users', label: '유저 센터', paths: ['/admin/users'] },
+  { href: '/admin/users', label: '유저 센터', paths: ['/admin/users', '/admin/referral-event'] },
   { href: '/admin/pros', label: '사회자 센터', paths: ['/admin/pros', '/admin/partners', '/admin/businesses'] },
   { href: '/admin/bookings', label: '예약 센터', paths: ['/admin/bookings'] },
   { href: '/admin/inquiries', label: '문의 센터', paths: ['/admin/inquiries'] },
@@ -48,6 +48,7 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
     label: '유저 센터',
     items: [
       { href: '/admin/users', label: '유저 관리' },
+      { href: '/admin/referral-event', label: '친구초대 이벤트' },
       { href: '/admin/pros', label: '사회자 관리' },
       { href: '/admin/partners', label: '웨딩 파트너 업체' },
       { href: '/admin/businesses', label: 'Biz 고객사' },

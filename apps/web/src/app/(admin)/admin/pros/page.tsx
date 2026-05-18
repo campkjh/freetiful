@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Check, X, Edit3, AlertCircle, RefreshCw, CircleDollarSign } from 'lucide-react';
+import { Search, Check, X, Edit3, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -21,7 +21,6 @@ interface ProItem {
   image: string;
   avgRating: number;
   reviewCount: number;
-  puddingCount?: number;
   isFeatured: boolean;
   isProfileHidden: boolean;
 }
@@ -118,26 +117,6 @@ export default function AdminProsPage() {
     } catch { toast.error('변경 실패'); }
   };
 
-  const handleAwardPudding = async (id: string, name: string) => {
-    const input = window.prompt(`${name} 에게 지급할 푸딩 수량 (양수=적립, 음수=차감)`, '100');
-    if (input === null) return;
-    const amount = Number(input);
-    if (!Number.isFinite(amount) || amount === 0) {
-      toast.error('0이 아닌 숫자를 입력하세요');
-      return;
-    }
-    const note = window.prompt('메모 (선택)', '어드민 수동 지급') || undefined;
-    try {
-      const res: any = await adminFetch('POST', `/api/v1/admin/pros/${id}/pudding`, { amount, note });
-      toast.success(`${amount > 0 ? '+' : ''}${amount} 지급 → 잔액 ${res?.newBalance ?? '?'}`);
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const msg = err?.response?.data?.message || err?.message || '알 수 없는 오류';
-      toast.error(`푸딩 지급 실패${status ? ` (${status})` : ''}: ${msg}`);
-      console.error('푸딩 지급 실패:', err);
-    }
-  };
-
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -161,7 +140,6 @@ export default function AdminProsPage() {
         { header: '상태', value: (row) => statusLabel[row.status]?.text || row.status },
         { header: '평점', value: (row) => row.avgRating ?? '' },
         { header: '리뷰수', value: (row) => row.reviewCount },
-        { header: '푸딩', value: (row) => row.puddingCount ?? '' },
         { header: '파트너로고 노출', value: (row) => row.showPartnersLogo },
         { header: '추천 노출', value: (row) => row.isFeatured },
         { header: '프로필 숨김', value: (row) => row.isProfileHidden },
@@ -272,7 +250,6 @@ export default function AdminProsPage() {
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로필상태">상태</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">평점</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">리뷰</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="푸딩">푸딩</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="로고">로고</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="추천">추천</AdminTerm></th>
                 <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로필상태">숨김</AdminTerm></th>
@@ -283,7 +260,7 @@ export default function AdminProsPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={10} className="px-4 py-3">
+                    <td colSpan={9} className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="skeleton h-10 w-10 rounded-full" />
                         <div className="flex-1 space-y-2">
@@ -296,7 +273,7 @@ export default function AdminProsPage() {
                   </tr>
                 ))
               ) : pros.length === 0 ? (
-                <tr><td colSpan={10} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
+                <tr><td colSpan={9} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
               ) : pros.map((pro) => (
                 <tr key={pro.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
@@ -313,7 +290,6 @@ export default function AdminProsPage() {
                   </td>
                   <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">{pro.avgRating?.toFixed(1) || '-'}</td>
                   <td className="px-4 py-3 text-center text-sm text-gray-600">{pro.reviewCount}</td>
-                  <td className="px-4 py-3 text-center text-sm font-bold text-amber-600">{pro.puddingCount != null ? pro.puddingCount.toLocaleString() : '-'}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
                       <AdminSwitch
@@ -349,13 +325,6 @@ export default function AdminProsPage() {
                       >
                         <Edit3 size={12} /> 수정
                       </Link>
-                      <button
-                        onClick={() => handleAwardPudding(pro.id, pro.name)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors"
-                        title="푸딩 수동 지급/차감"
-                      >
-                        <CircleDollarSign size={12} /> 푸딩
-                      </button>
                       {pro.status !== 'approved' && (
                         <button
                           onClick={() => handleApprove(pro.id)}

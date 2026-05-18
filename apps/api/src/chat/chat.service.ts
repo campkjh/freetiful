@@ -8,7 +8,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
-import { PuddingService } from '../pudding/pudding.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CreateChatRoomDto,
@@ -16,7 +15,6 @@ import {
   SendMessageDto,
   EditMessageDto,
   ReactToMessageDto,
-  CreateScheduledMessageDto,
   CreateFrequentMessageDto,
   UpdateFrequentMessageDto,
   ChatRoomQueryDto,
@@ -30,7 +28,6 @@ export class ChatService implements OnModuleInit {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private imageService: ImageService,
-    private pudding: PuddingService,
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
@@ -544,7 +541,6 @@ export class ChatService implements OnModuleInit {
       this.invalidateRoomsCache(userId);
       this.invalidateRoomsCache(existingWithJoins.proProfile.userId);
 
-      const member = existingWithJoins.members[0];
       const isProUser = existingWithJoins.proProfile.userId === userId;
       const otherUser = isProUser
         ? existingWithJoins.user
@@ -559,14 +555,11 @@ export class ChatService implements OnModuleInit {
       return {
         id: existingWithJoins.id,
         otherUser,
-        isFavorited: member?.isFavorited ?? false,
-        unreadCount: member?.unreadCount ?? 0,
+        unreadCount: existingWithJoins.members[0]?.unreadCount ?? 0,
         proProfileId: existingWithJoins.proProfileId,
         iAmPro: isProUser,
         matchRequestId: existingWithJoins.matchRequestId,
         latestQuotationStatus: existingWithJoins.quotations[0]?.status ?? null,
-        hasQuoteInquiry: Boolean(existingWithJoins.matchRequestId || existingWithJoins.quotations.length > 0),
-        hasConfirmedBooking: ['accepted', 'paid'].includes(existingWithJoins.quotations[0]?.status ?? ''),
       };
     }
 
@@ -628,9 +621,6 @@ export class ChatService implements OnModuleInit {
       { roomId: room.id },
     ).catch(() => {});
 
-    // 새 채팅 도착 푸딩 +50 (pro 입장)
-    this.pudding.awardNewChatReceived(room.proProfileId, room.id).catch(() => {});
-
     // 추가 쿼리 없이 응답 조립 (이미 pro join을 받아놨음)
     return {
       id: room.id,
@@ -640,14 +630,11 @@ export class ChatService implements OnModuleInit {
         profileImageUrl: pro.user.profileImageUrl ?? pro.images[0]?.imageUrl,
         isActive: pro.user.isActive,
       },
-      isFavorited: false,
       unreadCount: 0,
       proProfileId: room.proProfileId,
       iAmPro: false, // createRoom 호출자는 항상 고객 측 (proProfile.userId === userId 면 위에서 차단됨)
       matchRequestId: room.matchRequestId,
       latestQuotationStatus: null,
-      hasQuoteInquiry: Boolean(room.matchRequestId),
-      hasConfirmedBooking: false,
     };
   }
 
@@ -709,7 +696,6 @@ export class ChatService implements OnModuleInit {
       this.invalidateRoomsCache(dto.customerUserId);
       this.invalidateRoomsCache(proUserId);
 
-      const member = existing.members[0];
       return {
         id: existing.id,
         otherUser: {
@@ -718,14 +704,11 @@ export class ChatService implements OnModuleInit {
           profileImageUrl: existing.user.profileImageUrl,
           isActive: existing.user.isActive,
         },
-        isFavorited: member?.isFavorited ?? false,
-        unreadCount: member?.unreadCount ?? 0,
+        unreadCount: existing.members[0]?.unreadCount ?? 0,
         proProfileId: existing.proProfileId,
         iAmPro: true,
         matchRequestId: existing.matchRequestId,
         latestQuotationStatus: existing.quotations[0]?.status ?? null,
-        hasQuoteInquiry: Boolean(existing.matchRequestId || existing.quotations.length > 0),
-        hasConfirmedBooking: ['accepted', 'paid'].includes(existing.quotations[0]?.status ?? ''),
       };
     }
 
@@ -784,19 +767,16 @@ export class ChatService implements OnModuleInit {
         profileImageUrl: customer.profileImageUrl,
         isActive: customer.isActive,
       },
-      isFavorited: false,
       unreadCount: 0,
       proProfileId: room.proProfileId,
       iAmPro: true,
       matchRequestId: room.matchRequestId,
       latestQuotationStatus: null,
-      hasQuoteInquiry: Boolean(room.matchRequestId),
-      hasConfirmedBooking: false,
     };
   }
 
   async getRooms(userId: string, query: ChatRoomQueryDto) {
-    const { search, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const { dateFrom, dateTo, page = 1, limit = 20 } = query;
     const take = Math.min(Number(limit) || 20, 50);
     const withTotal = query.withTotal === undefined
       ? true
@@ -805,7 +785,6 @@ export class ChatService implements OnModuleInit {
     const cacheKey = `rooms:${userId}:${JSON.stringify({
       page,
       limit: take,
-      search: search || '',
       dateFrom: dateFrom || '',
       dateTo: dateTo || '',
       withTotal,
@@ -831,16 +810,6 @@ export class ChatService implements OnModuleInit {
       if (dateTo) where.lastMessageAt.lte = new Date(dateTo);
     }
 
-    if (search) {
-      where.AND.push({
-        OR: [
-          { user: { name: { contains: search, mode: 'insensitive' } } },
-          { proProfile: { user: { name: { contains: search, mode: 'insensitive' } } } },
-          { messages: { some: { content: { contains: search, mode: 'insensitive' } } } },
-        ],
-      });
-    }
-
     const [rooms, totalCount] = await Promise.all([
       this.prisma.chatRoom.findMany({
         where,
@@ -859,7 +828,7 @@ export class ChatService implements OnModuleInit {
             },
           },
           user: { select: { id: true, name: true, profileImageUrl: true } },
-          members: { where: { userId: { in: participantUserIds } }, select: { userId: true, isFavorited: true, unreadCount: true } },
+          members: { where: { userId: { in: participantUserIds } }, select: { userId: true, unreadCount: true } },
           messages: {
             where: { isDeleted: false },
             orderBy: { createdAt: 'desc' },
@@ -869,10 +838,8 @@ export class ChatService implements OnModuleInit {
           quotations: {
             orderBy: { createdAt: 'desc' },
             take: 1,
-            select: { id: true, amount: true, title: true, status: true, eventDate: true, eventTime: true, eventLocation: true, createdAt: true },
+            select: { id: true, amount: true, title: true, status: true, createdAt: true },
           },
-          // 채팅 헤더 아래 스케줄 배너가 즉시 렌더되도록 핵심 필드만 미리 포함.
-          matchRequest: { select: { id: true, eventDate: true, eventTime: true, eventLocation: true } },
         },
         orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
         skip: (page - 1) * take,
@@ -887,17 +854,6 @@ export class ChatService implements OnModuleInit {
       const isProUser = participantUserIds.includes(room.proProfile.userId);
       const proCategory = room.proProfile.categories?.[0]?.category?.name;
       const latestQuotationStatus = room.quotations[0]?.status ?? null;
-      const lastContent = lastMsg?.content ?? '';
-      const hasQuoteInquiry = Boolean(
-        room.matchRequestId ||
-        latestQuotationStatus ||
-        /견적|문의/.test(lastContent),
-      );
-      const hasConfirmedBooking = Boolean(
-        latestQuotationStatus === 'accepted' ||
-        latestQuotationStatus === 'paid' ||
-        /예약확정|확정|결제 완료|진행/.test(lastContent),
-      );
       const otherUser = isProUser
         ? { id: room.user.id, name: room.user.name, profileImageUrl: room.user.profileImageUrl, category: null as string | null }
         : {
@@ -915,23 +871,17 @@ export class ChatService implements OnModuleInit {
           : null,
         lastMessageAt: room.lastMessageAt,
         unreadCount: member?.unreadCount ?? 0,
-        isFavorited: member?.isFavorited ?? false,
         proProfileId: room.proProfileId,
         iAmPro: isProUser,
         matchRequestId: room.matchRequestId,
         latestQuotationStatus,
-        hasQuoteInquiry,
-        hasConfirmedBooking,
-        // 채팅 디테일 페이지의 스케줄 배너가 prewarm 만으로 즉시 렌더되게 하기 위함.
-        matchRequest: (room as any).matchRequest ?? null,
-        latestQuotation: room.quotations[0] ?? null,
       };
     });
 
     const total = withTotal ? totalCount : data.length;
     const result = { data, total, page, limit: take, hasMore: withTotal ? page * take < total : data.length === take };
     this.setRoomCached(cacheKey, result);
-    if (data.length === 0 && !search && !dateFrom && !dateTo) {
+    if (data.length === 0 && !dateFrom && !dateTo) {
       this.maybeBackgroundRepair(userId);
     }
     return result;
@@ -961,18 +911,13 @@ export class ChatService implements OnModuleInit {
           select: {
             id: true,
             type: true,
-            eventDate: true,
-            eventTime: true,
-            eventLocation: true,
-            budgetMin: true,
-            budgetMax: true,
             status: true,
             rawUserInput: true,
             category: { select: { id: true, name: true } },
             eventCategory: { select: { id: true, name: true } },
           },
         },
-        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, amount: true, title: true, status: true, eventDate: true, eventTime: true, eventLocation: true, createdAt: true } },
+        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { id: true, amount: true, title: true, status: true, createdAt: true } },
       },
     });
 
@@ -992,7 +937,6 @@ export class ChatService implements OnModuleInit {
     return {
       id: room.id,
       otherUser,
-      isFavorited: member?.isFavorited ?? false,
       unreadCount: member?.unreadCount ?? 0,
       iAmPro: isProUser, // 이 채팅방에서 내가 프로(사회자) 측인지
       proProfileId: room.proProfileId,
@@ -1027,35 +971,18 @@ export class ChatService implements OnModuleInit {
     this.invalidateRoomsCache(room.proProfile.userId);
   }
 
-  async toggleFavorite(roomId: string, userId: string) {
-    const member = await this.prisma.chatRoomMember.findUnique({
-      where: { roomId_userId: { roomId, userId } },
-    });
-    if (!member) throw new NotFoundException('채팅방 멤버를 찾을 수 없습니다');
-
-    const updated = await this.prisma.chatRoomMember.update({
-      where: { roomId_userId: { roomId, userId } },
-      data: { isFavorited: !member.isFavorited },
-    });
-
-    return { isFavorited: updated.isFavorited };
-  }
-
   // ─── Messages ────────────────────────────────────────────────────────────
 
   async getMessages(roomId: string, userId: string, query: MessageQueryDto) {
     await this.verifyMembership(roomId, userId);
 
-    const { search, before, after, limit = 50, cursor } = query;
+    const { before, after, limit = 50, cursor } = query;
 
     const where: any = {
       roomId,
       isDeleted: false,
     };
 
-    if (search) {
-      where.content = { contains: search, mode: 'insensitive' };
-    }
     if (after) {
       where.createdAt = { ...(where.createdAt || {}), gte: new Date(after) };
     }
@@ -1084,7 +1011,6 @@ export class ChatService implements OnModuleInit {
     // lastMessageId가 살아있는 정상 메시지라면 최소한 그 메시지는 상세에도 보이게 한다.
     if (
       messages.length === 0 &&
-      !search &&
       !before &&
       !after &&
       !cursor
@@ -1260,22 +1186,6 @@ export class ChatService implements OnModuleInit {
       }
     } catch {}
 
-    // 프로가 고객에게 답변 시 푸딩 +50 (해당 고객에 대해 1회)
-    try {
-      const room = await this.prisma.chatRoom.findUnique({
-        where: { id: roomId },
-        select: {
-          userId: true,
-          proProfileId: true,
-          proProfile: { select: { userId: true, id: true } },
-        },
-      });
-      if (room?.proProfile?.userId === userId && room.userId) {
-        // 발신자가 이 방의 프로 → 고객에게 보낸 답변
-        this.pudding.awardRepliedToCustomer(room.proProfileId, room.userId).catch(() => {});
-      }
-    } catch {}
-
     return { ...message, reactions: [], isRead: message.reads.some((r) => r.userId !== message.senderId) };
   }
 
@@ -1435,46 +1345,6 @@ export class ChatService implements OnModuleInit {
     return { data: photos, total, page, limit, hasMore: page * limit < total };
   }
 
-  // ─── Scheduled Messages ──────────────────────────────────────────────────
-
-  async createScheduledMessage(roomId: string, userId: string, dto: CreateScheduledMessageDto) {
-    await this.verifyMembership(roomId, userId);
-
-    const scheduledAt = new Date(dto.scheduledAt);
-    if (scheduledAt <= new Date()) {
-      throw new BadRequestException('예약 시간은 현재 시간 이후여야 합니다');
-    }
-
-    return this.prisma.scheduledMessage.create({
-      data: {
-        roomId,
-        senderId: userId,
-        type: dto.type,
-        content: dto.content,
-        metadata: dto.metadata as any,
-        scheduledAt,
-      },
-    });
-  }
-
-  async getScheduledMessages(roomId: string, userId: string) {
-    await this.verifyMembership(roomId, userId);
-
-    return this.prisma.scheduledMessage.findMany({
-      where: { roomId, senderId: userId, isSent: false },
-      orderBy: { scheduledAt: 'asc' },
-    });
-  }
-
-  async deleteScheduledMessage(id: string, userId: string) {
-    const msg = await this.prisma.scheduledMessage.findUnique({ where: { id } });
-    if (!msg) throw new NotFoundException('예약 메시지를 찾을 수 없습니다');
-    if (msg.senderId !== userId) throw new ForbiddenException();
-    if (msg.isSent) throw new BadRequestException('이미 전송된 메시지입니다');
-
-    await this.prisma.scheduledMessage.delete({ where: { id } });
-  }
-
   // ─── Frequent Messages ───────────────────────────────────────────────────
 
   async getFrequentMessages(userId: string) {
@@ -1509,65 +1379,7 @@ export class ChatService implements OnModuleInit {
     await this.prisma.frequentMessage.delete({ where: { id } });
   }
 
-  // ─── Search Messages in Room ─────────────────────────────────────────────
-
-  async searchMessages(roomId: string, userId: string, search: string) {
-    await this.verifyMembership(roomId, userId);
-
-    return this.prisma.message.findMany({
-      where: {
-        roomId,
-        isDeleted: false,
-        content: { contains: search, mode: 'insensitive' },
-      },
-      include: {
-        sender: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-  }
-
   // ─── Cron Jobs ───────────────────────────────────────────────────────────
-
-  @Cron(CronExpression.EVERY_MINUTE)
-  async processScheduledMessages() {
-    const due = await this.prisma.scheduledMessage.findMany({
-      where: { isSent: false, scheduledAt: { lte: new Date() } },
-    });
-
-    for (const sm of due) {
-      await this.prisma.$transaction(async (tx) => {
-        const message = await tx.message.create({
-          data: {
-            roomId: sm.roomId,
-            senderId: sm.senderId,
-            type: sm.type as any,
-            content: sm.content,
-            metadata: sm.metadata as any,
-            mediaExpiresAt: ['image', 'file'].includes(sm.type)
-              ? new Date(Date.now() + 20 * 24 * 60 * 60 * 1000)
-              : null,
-          },
-        });
-
-        await tx.chatRoom.update({
-          where: { id: sm.roomId },
-          data: { lastMessageId: message.id, lastMessageAt: message.createdAt },
-        });
-
-        await tx.chatRoomMember.updateMany({
-          where: { roomId: sm.roomId, userId: { not: sm.senderId } },
-          data: { unreadCount: { increment: 1 } },
-        });
-
-        await tx.scheduledMessage.update({
-          where: { id: sm.id },
-          data: { isSent: true, sentAt: new Date() },
-        });
-      });
-    }
-  }
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async cleanupExpiredMedia() {

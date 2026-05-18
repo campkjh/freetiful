@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import { Pin, PinOff, Trash2, Archive, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
+import { getProfileImageUrl } from '@/lib/default-profile';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -20,25 +21,33 @@ interface ChatRoom {
   unreadCount: number;
   isPinned: boolean;
   isArchived: boolean;
-  isHidden?: boolean;
   matchRequestId?: string | null;
   latestQuotationStatus?: string | null;
-  hasQuoteInquiry?: boolean;
-  hasConfirmedBooking?: boolean;
 }
 
-type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
+type FilterTab = '전체' | '읽음' | '안 읽음' | '보관';
 
-type ProFilterTab = '전체' | '읽음' | '안 읽음' | '견적문의' | '예약확정' | '숨김';
+type ProFilterTab = '전체' | '읽음' | '안 읽음' | '보관';
 
-const ClientAvatar = ({ name }: { name: string }) => (
-  <div className="w-[48px] h-[48px] rounded-[20px] bg-gray-200 flex items-center justify-center shrink-0">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
-      <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" />
-    </svg>
-  </div>
+const ClientAvatar = ({ name, id }: { name: string; id?: string }) => (
+  <img
+    src={getProfileImageUrl(null, id || name)}
+    alt={name}
+    draggable={false}
+    className="w-[48px] h-[48px] rounded-[20px] object-cover shrink-0 bg-gray-100"
+    onError={(e) => { e.currentTarget.src = getProfileImageUrl(null, name); }}
+  />
 );
+
+function getLastMessagePreview(message?: { type?: string; content?: string | null } | null) {
+  if (!message) return '';
+  if (message.type === 'image') return '사진을 보냈습니다';
+  if (message.type === 'file') return '파일을 보냈습니다';
+  if (message.type === 'location') return '위치를 공유했습니다';
+  if (message.type === 'sticker') return '이모티콘을 보냈습니다';
+  if (message.type === 'system') return message.content || '안내 메시지를 보냈습니다';
+  return message.content || '';
+}
 
 function mapApiRoomToChatRoom(r: any): ChatRoom {
   return {
@@ -49,18 +58,15 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
       name: r.otherUser.name,
       // 룸 기준 역할을 사용한다. 내가 프로 측이면 상대는 고객, 아니면 상대 프로의 카테고리.
       role: r.iAmPro ? '고객' : (r.otherUser.category || '사회자'),
-      profileImageUrl: r.otherUser.profileImageUrl || '',
+      profileImageUrl: getProfileImageUrl(r.otherUser.profileImageUrl, r.otherUser.id || r.otherUser.name),
     },
-    lastMessage: r.lastMessage?.content || '',
+    lastMessage: getLastMessagePreview(r.lastMessage),
     lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
     unreadCount: r.unreadCount,
     isPinned: false,
     isArchived: false,
-    isHidden: false,
     matchRequestId: r.matchRequestId ?? null,
     latestQuotationStatus: r.latestQuotationStatus ?? null,
-    hasQuoteInquiry: !!r.hasQuoteInquiry,
-    hasConfirmedBooking: !!r.hasConfirmedBooking,
   };
 }
 
@@ -147,7 +153,6 @@ export default function ChatListPage() {
       const localState = new Map(prev.map((room) => [room.id, {
         isPinned: room.isPinned,
         isArchived: room.isArchived,
-        isHidden: room.isHidden,
       }]));
       return apiRooms.map((apiRoom) => {
         const mapped = mapApiRoomToChatRoom(apiRoom);
@@ -160,8 +165,6 @@ export default function ChatListPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showSearch, setShowSearch] = useState(false);
-  const [search, setSearch] = useState('');
   const [deleteConfirmRooms, setDeleteConfirmRooms] = useState<ChatRoom[]>([]);
   const [deletingRooms, setDeletingRooms] = useState(false);
 
@@ -179,34 +182,21 @@ export default function ChatListPage() {
   }, [storeRoomsLoading, rooms.length]);
 
   const filtered = useMemo(() => rooms.filter((r) => {
-    // 숨김 탭에서는 숨겨진 채팅만, 다른 탭에서는 숨겨진 채팅 제외
-    if (currentTab === '숨김') {
-      if (!r.isHidden) return false;
-    } else {
-      if (r.isHidden) return false;
-    }
-    if (search) {
-      const q = search.toLowerCase();
-      if (!r.otherUser.name.toLowerCase().includes(q) && !r.lastMessage.toLowerCase().includes(q)) return false;
-    }
     if (isPro) {
       switch (proActiveTab) {
         case '읽음': return r.unreadCount === 0;
         case '안 읽음': return r.unreadCount > 0;
-        case '견적문의': return !!r.hasQuoteInquiry;
-        case '예약확정': return !!r.hasConfirmedBooking;
-        case '숨김': return true;
-        default: return true;
+        case '보관': return r.isArchived;
+        default: return !r.isArchived;
       }
     }
     switch (activeTab) {
       case '읽음': return r.unreadCount === 0 && !r.isArchived;
       case '안 읽음': return r.unreadCount > 0 && !r.isArchived;
       case '보관': return r.isArchived;
-      case '숨김': return true;
       default: return !r.isArchived;
     }
-  }), [rooms, currentTab, search, isPro, proActiveTab, activeTab]);
+  }), [rooms, isPro, proActiveTab, activeTab]);
 
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
@@ -270,11 +260,6 @@ export default function ChatListPage() {
     }
   };
 
-  const handleHideRoom = (id: string) => {
-    setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isHidden: !r.isHidden } : r));
-    setActionMenu(null);
-  };
-
   const handleArchiveRoom = (id: string) => {
     setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isArchived: !r.isArchived } : r));
     setActionMenu(null);
@@ -328,8 +313,8 @@ export default function ChatListPage() {
     if (room) preWarmExistingRoom(room);
   };
 
-  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관', '숨김'];
-  const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '견적문의', '예약확정', '숨김'];
+  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관'];
+  const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '보관'];
 
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
@@ -401,12 +386,12 @@ export default function ChatListPage() {
                   {isPC ? (
                     room.otherUser.profileImageUrl
                       ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-[20px] object-cover shrink-0" />
-                      : <ClientAvatar name={room.otherUser.name} />
+                      : <ClientAvatar name={room.otherUser.name} id={room.otherUser.id} />
                   ) : (
                     <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
                       {room.otherUser.profileImageUrl
                         ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-[20px] object-cover" />
-                        : <ClientAvatar name={room.otherUser.name} />
+                        : <ClientAvatar name={room.otherUser.name} id={room.otherUser.id} />
                       }
                     </Link>
                   )}
@@ -481,16 +466,6 @@ export default function ChatListPage() {
         <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
           <div className="px-5 pt-6 pb-3">
             <h1 className="text-[20px] font-extrabold text-gray-900 mb-3">{isPro ? '고객 문의' : '채팅'}</h1>
-            <div className="relative mb-3">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="검색"
-                className="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-gray-300"
-              />
-            </div>
             <LayoutGroup id="chat-tabs-desktop">
               <div className="flex gap-1.5 flex-wrap">
                 {(isPro ? PRO_TABS : TABS).map((tab) => {
@@ -551,41 +526,7 @@ export default function ChatListPage() {
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between h-[52px]">
             <h1 className="text-[18px] font-bold text-gray-900">{isPro ? '고객 문의' : '채팅'}</h1>
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className={`p-2 rounded-full transition-colors active:scale-90 ${showSearch ? 'bg-gray-100' : ''}`}
-            >
-              <>
-                {showSearch ? (
-                  <span
-                    key="x"
-                    className="block"
-                  >
-                    <X size={20} className="text-gray-500" />
-                  </span>
-                ) : (
-                  <span
-                    key="search"
-                    className="block"
-                  >
-                    <Search size={20} className="text-gray-500" />
-                  </span>
-                )}
-              </>
-            </button>
           </div>
-          <>
-            {showSearch && (
-              <div
-                key="search-input"
-                className="relative"
-              >
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 대화 내용 검색" className="w-full bg-gray-100 rounded-2xl pl-9 pr-9 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-gray-300" autoFocus />
-                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-gray-400" /></button>}
-              </div>
-            )}
-          </>
           <LayoutGroup id="chat-tabs-mobile">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
               {(isPro ? PRO_TABS : TABS).map((tab) => {
@@ -661,8 +602,8 @@ export default function ChatListPage() {
               <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
               <circle cx="8.5" cy="12" r="1.2" fill="white"/><circle cx="11.5" cy="12" r="1.2" fill="white"/><circle cx="14.5" cy="12" r="1.2" fill="white"/>
             </svg>
-            <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
-            {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">사회자 찾아보기</Link>}
+            <p className="text-gray-400 text-[14px]">{!isLoggedIn ? '로그인 후 채팅을 시작하세요' : currentTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
+            {currentTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">사회자 찾아보기</Link>}
           </div>
         ) : renderChatList(false)}
       </div>
@@ -689,7 +630,6 @@ export default function ChatListPage() {
               { label: '미리보기', icon: <Eye size={18} className="text-gray-500" />, onClick: () => handleOpenPreview(actionMenu.room), className: 'text-gray-800' },
               { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-gray-800' },
               { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-gray-800' },
-              { label: actionMenu.room.isHidden ? '숨김 해제' : '채팅 숨기기', icon: actionMenu.room.isHidden ? <Eye size={18} className="text-gray-500" /> : <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-gray-800' },
               { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => promptDeleteRoom(actionMenu.room), className: 'text-red-500' },
             ].map((item, idx) => (
               <button

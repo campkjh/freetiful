@@ -81,9 +81,6 @@ interface Stats {
     businessStatus?: Record<string, number>;
   };
   engagement?: {
-    favorites?: number;
-    proFavorites?: number;
-    businessFavorites?: number;
     chatRooms?: number;
     chatRooms7d?: number;
     messages?: number;
@@ -96,7 +93,6 @@ interface Stats {
   };
   funnel?: {
     profileViews?: number;
-    favorites?: number;
     matchRequests?: number;
     deliveries?: number;
     viewedDeliveries?: number;
@@ -109,7 +105,6 @@ interface Stats {
     reviews?: number;
   };
   rates?: {
-    favoriteCtr?: number;
     chatCtr?: number;
     deliveryViewRate?: number;
     deliveryReplyRate?: number;
@@ -128,15 +123,9 @@ interface Stats {
     pendingAmount?: number;
     settledAmount?: number;
   };
-  pudding?: {
-    total?: number;
-    last30d?: number;
-    profileBalance?: number;
-  };
   dailySeries?: DailyPoint[];
   topLists?: {
     viewedPros?: TopListItem[];
-    puddingPros?: TopListItem[];
     revenuePros?: TopListItem[];
   };
   degraded?: boolean;
@@ -296,9 +285,6 @@ async function fetchFallbackStats(): Promise<Stats> {
       businessStatus: { approved: toNumber(businesses?.total), pending: 0, draft: 0, rejected: 0 },
     },
     engagement: {
-      favorites: 0,
-      proFavorites: 0,
-      businessFavorites: 0,
       chatRooms: 0,
       chatRooms7d: 0,
       messages: 0,
@@ -311,7 +297,6 @@ async function fetchFallbackStats(): Promise<Stats> {
     },
     funnel: {
       profileViews: 0,
-      favorites: 0,
       matchRequests: toNumber(bookings?.total) || matchRequests.length,
       deliveries: sumBy(matchRequests, (booking: any) => booking.deliveryCount),
       viewedDeliveries: 0,
@@ -324,7 +309,6 @@ async function fetchFallbackStats(): Promise<Stats> {
       reviews: toNumber(reviews?.total),
     },
     rates: {
-      favoriteCtr: 0,
       chatCtr: 0,
       deliveryViewRate: 0,
       deliveryReplyRate: 0,
@@ -367,9 +351,8 @@ async function fetchFallbackStats(): Promise<Stats> {
       pendingAmount: pendingSettlementAmount,
       settledAmount: settledSettlementAmount,
     },
-    pudding: { total: 0, last30d: 0, profileBalance: 0 },
     dailySeries: createEmptyDailySeries(),
-    topLists: { viewedPros: [], puddingPros: [], revenuePros: [] },
+    topLists: { viewedPros: [], revenuePros: [] },
     degraded: true,
   };
 }
@@ -759,7 +742,7 @@ export default function AdminDashboardPage() {
   const navItems = [
     { href: '/admin/pros', icon: UserCheck, label: '사회자 관리', desc: '승인 · 반려 · 프로필', count: stats?.pendingPros ? `대기 ${formatNumber(stats.pendingPros)}` : undefined, countTone: 'warn' as const },
     { href: '/admin/users', icon: Users, label: '유저 관리', desc: '회원 목록 · 권한', count: stats ? `${formatNumber(allUsers)}명` : undefined },
-    { href: '/admin/bookings', icon: Calendar, label: '의뢰 · 예약', desc: '예약 현황', count: stats?.matchRequests?.total != null ? `${formatNumber(stats.matchRequests.total)}건` : undefined },
+    { href: '/admin/bookings', icon: Calendar, label: '요청 관리', desc: '요청 현황', count: stats?.matchRequests?.total != null ? `${formatNumber(stats.matchRequests.total)}건` : undefined },
     { href: '/admin/payments', icon: CreditCard, label: '결제 관리', desc: '결제 내역 · 매출', count: stats?.revenue?.thisMonth != null ? formatMoney(stats.revenue.thisMonth) : undefined },
     { href: '/admin/settlements', icon: Wallet, label: '정산 관리', desc: '사회자 정산 처리', count: stats?.settlements?.pending != null ? `대기 ${formatNumber(stats.settlements.pending)}` : undefined },
     { href: '/admin/reviews', icon: Star, label: '리뷰 관리', desc: '리뷰 목록 · 삭제', count: stats?.totalReviews != null ? `${formatNumber(stats.totalReviews)}건` : undefined },
@@ -802,12 +785,6 @@ export default function AdminDashboardPage() {
   const ctrItems = useMemo(() => {
     if (!stats) return [];
     return [
-      {
-        label: '찜 CTR',
-        value: toNumber(stats.rates?.favoriteCtr),
-        detail: `${formatNumber(stats.engagement?.favorites)} / ${formatNumber(profileViews)} 프로필 조회`,
-        color: BLUE,
-      },
       {
         label: '채팅 진입 CTR',
         value: toNumber(stats.rates?.chatCtr),
@@ -857,7 +834,6 @@ export default function AdminDashboardPage() {
     if (!stats) return [];
     return [
       { label: '프로필 조회', value: toNumber(stats.funnel?.profileViews), color: BLUE },
-      { label: '찜', value: toNumber(stats.funnel?.favorites), color: BLUE },
       { label: '요청 생성', value: toNumber(stats.funnel?.matchRequests), color: GREEN },
       { label: '전달', value: toNumber(stats.funnel?.deliveries), color: GREEN },
       { label: '열람', value: toNumber(stats.funnel?.viewedDeliveries), color: ORANGE },
@@ -875,7 +851,6 @@ export default function AdminDashboardPage() {
         { label: '업체 조회수', value: `${formatNumber(stats.profiles?.businessViews)}회`, sub: '웨딩파트너' },
         { label: '평균 평점', value: toNumber(stats.profiles?.avgRating).toFixed(2), sub: '승인 프로 기준', tone: 'blue' as const },
         { label: '평균 응답률', value: formatRate(stats.profiles?.avgResponseRate), sub: '프로 응답 지표', tone: 'green' as const },
-        { label: '찜', value: `${formatNumber(stats.engagement?.favorites)}건`, sub: `프로 ${formatNumber(stats.engagement?.proFavorites)} · 업체 ${formatNumber(stats.engagement?.businessFavorites)}` },
         { label: '채팅방', value: `${formatNumber(stats.engagement?.chatRooms)}개`, sub: `7일 ${formatNumber(stats.engagement?.chatRooms7d)}` },
         { label: '메시지', value: `${formatNumber(stats.engagement?.messages)}개`, sub: `7일 ${formatNumber(stats.engagement?.messages7d)}` },
         { label: '리뷰 노출', value: `${formatNumber(stats.visibleReviews)}건`, sub: `전체 ${formatNumber(stats.totalReviews)}` },
@@ -890,8 +865,6 @@ export default function AdminDashboardPage() {
         { label: '환불/실패', value: `${formatNumber(toNumber(stats.payments?.refunded) + toNumber(stats.payments?.failed))}건`, sub: `환불액 ${formatMoney(stats.payments?.refundedAmount)}`, tone: 'red' as const },
         { label: '정산 대기', value: `${formatNumber(stats.settlements?.pending)}건`, sub: formatMoney(stats.settlements?.pendingAmount), tone: 'blue' as const },
         { label: '정산 완료', value: `${formatNumber(stats.settlements?.settled)}건`, sub: formatMoney(stats.settlements?.settledAmount), tone: 'green' as const },
-        { label: '푸딩 총량', value: `${formatNumber(stats.pudding?.profileBalance)}개`, sub: `거래누적 ${formatNumber(stats.pudding?.total)}` },
-        { label: '푸딩 30일', value: `${formatNumber(stats.pudding?.last30d)}개`, sub: '최근 변동', tone: 'blue' as const },
       ]
     : [];
 
@@ -1177,7 +1150,7 @@ export default function AdminDashboardPage() {
 
           <AdminSection
             eyebrow="거래 센터"
-            title="견적 · 결제 · 정산 · 푸딩"
+            title="견적 · 결제 · 정산"
             aside={<span className="text-[12px] font-normal text-[#8B95A1]">거래 흐름 전체</span>}
           >
             <MetricBand items={commerceItems} minWidth={1120} />
@@ -1234,7 +1207,7 @@ export default function AdminDashboardPage() {
           <AdminSection
             eyebrow="프로 센터"
             title="승인 상태 · 랭킹"
-            aside={<span className="text-[12px] font-normal text-[#8B95A1]">조회수 · 푸딩 · 매출 TOP</span>}
+            aside={<span className="text-[12px] font-normal text-[#8B95A1]">조회수 · 매출 TOP</span>}
           >
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
@@ -1252,16 +1225,11 @@ export default function AdminDashboardPage() {
                 <BreakdownList items={businessStatusItems} />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
               <TopList
                 title="조회수 TOP"
                 items={stats.topLists?.viewedPros || []}
                 valueLabel="조회"
-              />
-              <TopList
-                title="푸딩 TOP"
-                items={stats.topLists?.puddingPros || []}
-                valueLabel="푸딩"
               />
               <TopList
                 title="매출 TOP"

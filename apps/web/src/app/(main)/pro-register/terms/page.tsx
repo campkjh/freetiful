@@ -53,7 +53,7 @@ export default function TermsPage() {
 
   const handleNext = () => {
     if (!allAgreed) return;
-    router.push('/pro-register/promo-code');
+    router.push('/pro-register/personal-info');
   };
 
   return (
@@ -83,7 +83,7 @@ export default function TermsPage() {
           <motion.div
             className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
             initial={{ width: 0 }}
-            animate={{ width: `${(1 / 7) * 100}%` }}
+            animate={{ width: `${(1 / 6) * 100}%` }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
@@ -101,7 +101,7 @@ export default function TermsPage() {
           transition={{ delay: 0.1 }}
           className="text-2xl font-bold text-gray-900 mb-2"
         >
-          파트너스 시작하기 <span className="text-[11px] text-gray-400">1/7</span>
+          파트너스 시작하기 <span className="text-[11px] text-gray-400">1/6</span>
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 8 }}

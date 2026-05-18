@@ -7,9 +7,6 @@ import type { User } from '@prettyful/types';
 const USER_SCOPED_STORAGE_KEYS = [
   'freetiful-auth-user-id',
   'freetiful-chat-rooms-cache-v1',
-  'freetiful-coupon-cache',
-  'freetiful-favorites',
-  'freetiful-favorites-list-cache-v1',
   'freetiful-my-pro-category',
   'freetiful-my-pro-id',
   'freetiful-my-pro-stats-cache-v1',
@@ -17,7 +14,6 @@ const USER_SCOPED_STORAGE_KEYS = [
   'freetiful-notifications-count',
   'freetiful-payment-cache',
   'freetiful-pro-dashboard-cache-v2',
-  'freetiful-pudding',
   'freetiful-purchase-cache',
   'freetiful-user',
   'prettyful-auth',

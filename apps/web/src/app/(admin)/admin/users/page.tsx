@@ -261,10 +261,10 @@ export default function AdminUsersPage() {
                     <div key={u.id} className="bg-white rounded-lg border border-amber-200 p-3 text-xs">
                       <div className="flex items-start gap-3">
                         <img
-                          src={u.profileImageUrl || '/images/default-profile.svg'}
+                          src={u.profileImageUrl || '/images/default-profile.png'}
                           alt={u.name}
                           className="w-10 h-10 rounded-full object-cover bg-gray-100 shrink-0"
-                          onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
+                          onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.png'; }}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">

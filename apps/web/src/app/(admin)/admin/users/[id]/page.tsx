@@ -87,7 +87,6 @@ export default function AdminUserDetailPage() {
         isActive: !!data.user?.isActive,
         isBanned: !!data.user?.isBanned,
         banReason: data.user?.banReason || '',
-        pointBalance: data.user?.pointBalance || 0,
         referralCode: data.user?.referralCode || '',
         notificationSettings: data.user?.notificationSettings || {},
       });
@@ -156,7 +155,6 @@ export default function AdminUserDetailPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         {[
-          ['찜', counts.favorites],
           ['채팅', counts.chatRooms],
           ['매칭요청', counts.matchRequests],
           ['리뷰', counts.reviews],
@@ -185,7 +183,6 @@ export default function AdminUserDetailPage() {
           <Field label="이메일" value={form.email} onChange={(v) => setForm((f: any) => ({ ...f, email: v }))} />
           <Field label="전화번호" value={form.phone} onChange={(v) => setForm((f: any) => ({ ...f, phone: v }))} />
           <Field label="프로필 이미지 URL" value={form.profileImageUrl} onChange={(v) => setForm((f: any) => ({ ...f, profileImageUrl: v }))} />
-          <Field label="포인트 잔액" type="number" value={form.pointBalance} onChange={(v) => setForm((f: any) => ({ ...f, pointBalance: Number(v) || 0 }))} />
           <Field label="추천 코드" value={form.referralCode} onChange={(v) => setForm((f: any) => ({ ...f, referralCode: v }))} />
           <div>
             <label className="block text-xs font-bold text-gray-400 mb-1">권한</label>
@@ -212,7 +209,7 @@ export default function AdminUserDetailPage() {
       {user?.proProfile && (
         <Section title="연결된 사회자 프로필">
           <div className="flex items-start gap-4">
-            <img src={user.proProfile.images?.[0]?.imageUrl || user.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-20 h-20 rounded-xl object-cover bg-gray-100" />
+            <img src={user.proProfile.images?.[0]?.imageUrl || user.profileImageUrl || '/images/default-profile.png'} alt="" className="w-20 h-20 rounded-xl object-cover bg-gray-100" />
             <div className="flex-1">
               <p className="text-sm font-extrabold text-gray-900">{user.name}</p>
               <p className="text-xs text-gray-500 mt-1">상태 {user.proProfile.status} · 리뷰 {user.proProfile._count?.reviews || 0} · 견적 {user.proProfile._count?.quotations || 0} · 채팅 {user.proProfile._count?.chatRooms || 0}</p>
@@ -229,16 +226,6 @@ export default function AdminUserDetailPage() {
           </div>
         </Section>
       )}
-
-      <Section title={`찜 목록 (${relations.favorites?.length || 0})`}>
-        <div className="space-y-2">
-          {(relations.favorites || []).map((fav: any) => (
-            <Row key={fav.id} title={`${fav.targetType} · ${fav.target?.user?.name || fav.target?.businessName || fav.targetId}`} meta={dateText(fav.createdAt)}>
-              <MiniButton tone="red" onClick={() => run('찜 삭제 완료', 'DELETE', `/api/v1/admin/favorites/${fav.id}`, undefined, '이 찜 데이터를 삭제할까요?')}>삭제</MiniButton>
-            </Row>
-          ))}
-        </div>
-      </Section>
 
       <Section title={`채팅방 (${relations.chatRooms?.length || 0})`}>
         <div className="space-y-2">
@@ -265,9 +252,9 @@ export default function AdminUserDetailPage() {
         title={`결제 (${relations.payments?.length || 0})`}
         items={relations.payments || []}
         render={(p: any) => (
-          <Row key={p.id} title={`${p.proProfile?.user?.name || '사회자'} · ${money(p.amount)}`} meta={`${p.method || 'method 없음'} · 스케줄 ${p.schedules?.length || 0} · ${dateText(p.createdAt)}`}>
+          <Row key={p.id} title={`${p.proProfile?.user?.name || '사회자'} · ${money(p.amount)}`} meta={`${p.method || 'method 없음'} · ${dateText(p.createdAt)}`}>
             <StatusSelect value={p.status} options={PAYMENT_STATUSES} onChange={(status) => run('결제 상태 변경 완료', 'PATCH', `/api/v1/admin/payments/${p.id}`, { status })} />
-            <MiniButton tone="red" onClick={() => run('결제 삭제 완료', 'DELETE', `/api/v1/admin/payments/${p.id}`, undefined, '결제와 연결 리뷰를 삭제하고 견적/스케줄 연결을 해제할까요?')}>삭제</MiniButton>
+            <MiniButton tone="red" onClick={() => run('결제 삭제 완료', 'DELETE', `/api/v1/admin/payments/${p.id}`, undefined, '결제와 연결 리뷰를 삭제할까요?')}>삭제</MiniButton>
           </Row>
         )}
       />

@@ -91,7 +91,6 @@ async function main() {
         avgRating: +(4.5 + Math.random() * 0.5).toFixed(2),
         reviewCount: Math.floor(20 + Math.random() * 80),
         profileViews: Math.floor(100 + Math.random() * 900),
-        puddingCount: Math.floor(Math.random() * 50),
         approvedAt: new Date(),
       },
     });

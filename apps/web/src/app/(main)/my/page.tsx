@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, LogOut, Star, Clock, MapPin } from 'lucide-react';
+import { ChevronRight, LogOut, Star } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
 import { prosApi } from '@/lib/api/pros.api';
-import { apiClient } from '@/lib/api/client';
+import { getProfileImageUrl } from '@/lib/default-profile';
 
 /* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
 // 이미지 기반 아이콘 헬퍼
@@ -111,50 +111,7 @@ const IconUser = () => (
   </svg>
 );
 
-const UPCOMING_SCHEDULES: { id: string; proName: string; category: string; date: string; time: string; location: string; proImage: string }[] = [];
-
-type ProStats = { revenue: number; reviews: number; pudding: number; rank: number | null };
-
-const PRO_STATS_EMPTY: ProStats = { revenue: 0, reviews: 0, pudding: 0, rank: null };
-const MY_PRO_STATS_CACHE_KEY = 'freetiful-my-pro-stats-cache-v1';
-const PUDDING_STORAGE_KEY = 'freetiful-pudding';
 const PRO_CATEGORY_CACHE_KEY = 'freetiful-my-pro-category';
-
-function readStoredPudding() {
-  if (typeof window === 'undefined') return 0;
-  try {
-    return Number(localStorage.getItem(PUDDING_STORAGE_KEY) || 0);
-  } catch {
-    return 0;
-  }
-}
-
-function readCachedProStats(): ProStats | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(MY_PRO_STATS_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return null;
-    const rank = parsed.rank == null ? null : Number(parsed.rank);
-    return {
-      revenue: Number(parsed.revenue || 0),
-      reviews: Number(parsed.reviews || 0),
-      pudding: Number(parsed.pudding ?? readStoredPudding()),
-      rank: rank != null && Number.isFinite(rank) ? rank : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeCachedProStats(stats: ProStats) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(MY_PRO_STATS_CACHE_KEY, JSON.stringify({ ...stats, ts: Date.now() }));
-    localStorage.setItem(PUDDING_STORAGE_KEY, String(stats.pudding));
-  } catch {}
-}
 
 function readStoredProCategory() {
   if (typeof window === 'undefined') return '사회자';
@@ -163,33 +120,6 @@ function readStoredProCategory() {
   } catch {
     return '사회자';
   }
-}
-
-function readStoredUserRole() {
-  if (typeof window === 'undefined') return 'general';
-  try {
-    return localStorage.getItem('userRole') === 'pro' ? 'pro' : 'general';
-  } catch {
-    return 'general';
-  }
-}
-
-function readViewAsUserFlag() {
-  if (typeof window === 'undefined') return false;
-  try {
-    return localStorage.getItem('viewAsUser') === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function writeViewAsUserFlag(enabled: boolean) {
-  if (typeof window === 'undefined') return;
-  try {
-    if (enabled) localStorage.setItem('viewAsUser', 'true');
-    else localStorage.removeItem('viewAsUser');
-  } catch {}
-  window.dispatchEvent(new CustomEvent('freetiful:view-mode-changed', { detail: { viewAsUser: enabled } }));
 }
 
 function writeStoredProProfileStatus(status: 'draft' | 'pending' | 'approved' | 'rejected' | null) {
@@ -215,146 +145,26 @@ function clearStoredProModeForCurrentAccount() {
     localStorage.removeItem('proRegistrationComplete');
     localStorage.removeItem('freetiful-my-pro-id');
     localStorage.removeItem(PRO_CATEGORY_CACHE_KEY);
-    localStorage.removeItem(MY_PRO_STATS_CACHE_KEY);
     localStorage.removeItem('freetiful-pro-dashboard-cache-v2');
     localStorage.removeItem('pro-quotes');
-    localStorage.removeItem('viewAsUser');
     if (localStorage.getItem('userRole') === 'pro') {
       localStorage.setItem('userRole', 'general');
     }
   } catch {}
 }
 
-/* ─── Pro (사회자) Icons ─── */
-const ProIconRevenue = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="2" y="4" width="20" height="16" rx="3" fill="#10B981"/>
-    <path d="M2 10h20" stroke="#059669" strokeWidth="1.5"/>
-    <text x="12" y="18" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold" fontFamily="system-ui">₩</text>
-  </svg>
-);
-const ProIconSettle = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="3" y="3" width="18" height="18" rx="3" fill="#3B82F6"/>
-    <path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-const ProIconBank = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M3 21h18v-2H3v2zm0-4h4v-6H3v6zm6 0h4v-6H9v6zm6 0h4v-6h-4v6zM12 2L2 7v2h20V7L12 2z" fill="#6366F1"/>
-  </svg>
-);
-const ProIconProfile = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <circle cx="12" cy="8" r="5" fill="#818CF8"/>
-    <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" fill="#818CF8"/>
-    <circle cx="18" cy="6" r="4" fill="#3B82F6"/>
-    <path d="M16.5 6h3M18 4.5v3" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-);
-const ProIconPortfolio = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="2" y="3" width="20" height="18" rx="3" fill="#F59E0B"/>
-    <rect x="5" y="6" width="6" height="5" rx="1" fill="white" opacity="0.6"/>
-    <rect x="13" y="6" width="6" height="5" rx="1" fill="white" opacity="0.6"/>
-    <rect x="5" y="13" width="6" height="5" rx="1" fill="white" opacity="0.6"/>
-    <rect x="13" y="13" width="6" height="5" rx="1" fill="white" opacity="0.6"/>
-  </svg>
-);
-const ProIconFAQ = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <circle cx="12" cy="12" r="10" fill="#F59E0B"/>
-    <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="13" fontWeight="bold" fontFamily="system-ui">?</text>
-  </svg>
-);
-const ProIconPudding = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <ellipse cx="12" cy="8" rx="9" ry="4" fill="#FBBF24"/>
-    <path d="M3 8v8c0 2.2 4 4 9 4s9-1.8 9-4V8" fill="#F59E0B"/>
-    <ellipse cx="12" cy="8" rx="9" ry="4" fill="#FBBF24"/>
-    <ellipse cx="12" cy="8" rx="5" ry="2" fill="#FDE68A"/>
-  </svg>
-);
-const ProIconRanking = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="3" y="14" width="5" height="8" rx="1" fill="#9CA3AF"/>
-    <rect x="9.5" y="6" width="5" height="16" rx="1" fill="#FBBF24"/>
-    <rect x="16" y="10" width="5" height="12" rx="1" fill="#F97316"/>
-    <circle cx="12" cy="3.5" r="2" fill="#FBBF24"/>
-  </svg>
-);
-const ProIconPhone = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1C10.07 21 3 13.93 3 4c0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.31.03.7-.25 1.02l-2.2 2.2z" fill="#4B8DF8"/>
-  </svg>
-);
-const ProIconEmail = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="2" y="4" width="20" height="16" rx="3" fill="#6366F1"/>
-    <path d="M2 7l10 6 10-6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-);
-const ProIconSwitch = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M7.5 4A7.5 7.5 0 0119.3 8" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M19.3 8l1.2-3.2M19.3 8l-3.3-.8" stroke="#4B8DF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16.5 20A7.5 7.5 0 014.7 16" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M4.7 16l-1.2 3.2M4.7 16l3.3.8" stroke="#4B8DF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const PRO_MENU_SECTIONS = [
-  {
-    title: '수익 관리',
-    items: [
-      { href: '/my/revenue', icon: () => <ImgIcon src="/images/pro-mypage-icons/revenue.svg" />, label: '매출 내역' },
-      { href: '/my/settlement', icon: () => <ImgIcon src="/images/pro-mypage-icons/settlement.svg" />, label: '정산 내역' },
-      { href: '/my/bank', icon: () => <ImgIcon src="/images/pro-mypage-icons/bank-account.svg" />, label: '계좌 관리' },
-    ],
-  },
-  {
-    title: '프로필 관리',
-    items: [
-      { href: '/my/pro-edit', icon: () => <ImgIcon src="/images/profile-settings.svg" />, label: '프로필 수정' },
-    ],
-  },
-  {
-    title: '푸딩',
-    items: [
-      { href: '/my/pudding-history', icon: () => <ImgIcon src="/images/pro-mypage-icons/pudding-history.svg" />, label: '푸딩 내역' },
-      { href: '/my/pudding-ranking', icon: () => <ImgIcon src="/images/pro-mypage-icons/ranking.svg" />, label: '랭킹 보기' },
-    ],
-  },
-  {
-    title: '고객센터',
-    items: [
-      { href: 'tel:02-1234-5678', icon: () => <ImgIcon src="/images/pro-mypage-icons/phone-inquiry.svg" />, label: '전화문의' },
-    ],
-  },
-  {
-    title: '기타',
-    items: [
-      { href: '/my/terms', icon: () => <ImgIcon src="/images/pro-mypage-icons/terms.svg" />, label: '약관 및 정책' },
-      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/switch-role.svg" />, label: '일반유저 전환', action: 'switchToGeneral' },
-    ],
-  },
-];
-
 const MENU_SECTIONS = [
+  {
+    title: '설정',
+    items: [
+      { href: '/my/settings', icon: () => <ImgIcon src="/images/profile-settings.svg" />, label: '프로필 설정' },
+    ],
+  },
   {
     title: '나의 활동',
     items: [
       { href: '/my/purchase-history', icon: () => <ImgIcon src="/images/purchase-history.svg" />, label: '구매 내역' },
       { href: '/my/payment-history', icon: IconHistory, label: '결제/환불 내역' },
-      { href: '/my/points', icon: () => <ImgIcon src="/images/point.svg" />, label: '포인트', badge: '' },
-      { href: '/my/coupons', icon: () => <ImgIcon src="/images/coupon.svg" />, label: '쿠폰' },
-    ],
-  },
-  {
-    title: '설정',
-    items: [
-      { href: '/my/settings', icon: () => <ImgIcon src="/images/profile-settings.svg" />, label: '프로필 설정' },
-      { href: '/my/notifications', icon: () => <ImgIcon src="/images/notification-settings.svg" />, label: '알림 설정' },
     ],
   },
   {
@@ -368,10 +178,9 @@ const MENU_SECTIONS = [
   {
     title: '기타',
     items: [
-      { href: '/my/invite', icon: () => <ImgIcon src="/images/invite-friend.svg" />, label: '친구 초대', badge: '500P 적립' },
+      { href: '/my/invite', icon: () => <ImgIcon src="/images/invite-friend.svg" />, label: '친구 초대', badge: '5,000원 이벤트' },
       { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
       { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/partners-apply.svg" />, label: '파트너 신청', action: 'partner' },
-      { href: '#', icon: () => <ImgIcon src="/images/pro-mypage-icons/switch-role.svg" />, label: '프로유저 전환', action: 'switchToPro' },
     ],
   },
 ];
@@ -384,25 +193,13 @@ function truncateEmail(email: string, max = 20): string {
 
 export default function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState({ name: '게스트', email: '', image: '/images/default-profile.svg', linkedAccounts: [] as string[], points: 0, coupons: 0, role: 'general' });
+  const [user, setUser] = useState({ name: '게스트', email: '', image: getProfileImageUrl(null, 'guest'), linkedAccounts: [] as string[], role: 'general' });
   const authUser = useAuthStore((s) => s.user);
   const authHydrated = useAuthStore((s) => s.hasHydrated);
   const { logout: authLogout } = useAuth();
   const router = useRouter();
-  const [storedUserRole, setStoredUserRole] = useState<'general' | 'pro'>(() => readStoredUserRole());
   const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(() => readStoredProProfileStatus());
   const [proRegistrationPending, setProRegistrationPending] = useState(() => readStoredProProfileStatus() === 'pending');
-  const [proCategoryName, setProCategoryName] = useState<string>(() => readStoredProCategory());
-  const [viewAsUser, setViewAsUser] = useState(() => readViewAsUserFlag());
-  const [couponCount, setCouponCount] = useState(0);
-  const [favoritesCount, setFavoritesCount] = useState(0);
-  const effectiveRole = authHydrated ? (authUser?.role || storedUserRole) : storedUserRole;
-  const actualIsPro = effectiveRole === 'pro';
-  // 프로 통계 (이번달 매출 / 총 리뷰 / 푸딩)
-  const [proStats, setProStats] = useState<ProStats>(() => {
-    const cached = readCachedProStats();
-    return cached || { ...PRO_STATS_EMPTY, pudding: readStoredPudding() };
-  });
 
   // 최근 30초 이내 방문 시 진입 애니메이션 스킵 (하위 페이지 뒤로가기 중복 방지)
   const skipAnim = (() => {
@@ -417,111 +214,25 @@ export default function MyPage() {
   const animOrNone = (base: React.CSSProperties) => skipAnim ? undefined : base;
 
   useEffect(() => {
-    const syncViewAsUser = (event?: Event) => {
-      const eventValue = (event as CustomEvent<{ viewAsUser?: boolean }> | undefined)?.detail?.viewAsUser;
-      const nextViewAsUser = typeof eventValue === 'boolean' ? eventValue : readViewAsUserFlag();
-      setViewAsUser(nextViewAsUser);
-
-      // 하단 네비의 < > 전환은 서버 role을 바꾸지 않고 view mode만 바꾼다.
-      // /my는 같은 라우트 안에서 일반/프로 화면을 분기하므로, 이벤트를 받은 즉시
-      // role/pro 상태를 낙관적으로 맞춰주어 본문도 네비와 동시에 바뀌게 한다.
-      const currentUser = useAuthStore.getState().user;
-      if (currentUser?.role === 'pro') {
-        if (!nextViewAsUser) {
-          setProProfileStatus((prev) => prev ?? 'approved');
-          setProRegistrationPending(false);
-        }
-      }
-    };
-    syncViewAsUser();
-    window.addEventListener('storage', syncViewAsUser);
-    window.addEventListener('freetiful:view-mode-changed', syncViewAsUser);
-    return () => {
-      window.removeEventListener('storage', syncViewAsUser);
-      window.removeEventListener('freetiful:view-mode-changed', syncViewAsUser);
-    };
-  }, []);
-
-  useEffect(() => {
-    const syncStoredRole = () => setStoredUserRole(readStoredUserRole());
-    syncStoredRole();
-    window.addEventListener('storage', syncStoredRole);
-    window.addEventListener('freetiful:view-mode-changed', syncStoredRole);
-    return () => {
-      window.removeEventListener('storage', syncStoredRole);
-      window.removeEventListener('freetiful:view-mode-changed', syncStoredRole);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (actualIsPro && !viewAsUser) {
-      setProProfileStatus((prev) => prev ?? 'approved');
-      setProRegistrationPending(false);
+    if (authHydrated && authUser?.role === 'pro') {
+      router.replace('/pro-dashboard/inquiries');
     }
-  }, [actualIsPro, viewAsUser]);
+  }, [authHydrated, authUser?.role, router]);
 
   useEffect(() => {
     let cancelled = false;
     const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);
 
-    const updateProStats = (patch: Partial<ProStats>) => {
-      if (cancelled) return;
-      setProStats((prev) => {
-        const next = { ...prev, ...patch };
-        writeCachedProStats(next);
-        return next;
-      });
-    };
-
     if (authUser) {
       // Use real API data
       setUser({
         name: authUser.name || '게스트',
         email: authUser.email || '',
-        image: authUser.profileImageUrl || '/images/default-profile.svg',
+        image: getProfileImageUrl(authUser.profileImageUrl, authUser.id || authUser.email || authUser.name),
         linkedAccounts: [],
-        points: authUser.pointBalance || 0,
-        coupons: 0,
         role: authUser.role,
       });
-      // Fetch point balance from API
-      usersApi.getPointBalance().then((res) => {
-        if (!cancelled) setUser((prev) => ({ ...prev, points: res.balance }));
-      }).catch(() => {});
-
-      if (authUser.role === 'pro') {
-        const cachedStats = readCachedProStats();
-        if (cachedStats) {
-          setProStats(cachedStats);
-        } else {
-          setProStats((prev) => ({ ...prev, pudding: readStoredPudding() }));
-        }
-
-        // 프로 통계는 서로 기다리지 않고 각각 도착하는 즉시 갱신한다.
-        apiClient.get('/api/v1/pro/pudding', { params: { _t: Date.now() }, timeout: 5000 })
-          .then((res) => {
-            const data = (res as any)?.data || {};
-            const pudding = Number(data.balance ?? data.puddingCount ?? 0);
-            const rank = data.rank == null && data.puddingRank == null ? null : Number(data.rank ?? data.puddingRank);
-            updateProStats({ pudding, rank: rank != null && Number.isFinite(rank) ? rank : null });
-          })
-          .catch(() => {});
-
-        apiClient.get('/api/v1/pro/revenue', { timeout: 7000 })
-          .then((res) => {
-            updateProStats({ revenue: Number((res as any)?.data?.thisMonth || 0) });
-          })
-          .catch(() => {});
-
-        apiClient.get('/api/v1/review/mine', { params: { page: 1, limit: 1 }, timeout: 7000 })
-          .then((res) => {
-            updateProStats({ reviews: Number((res as any)?.data?.total || 0) });
-          })
-          .catch(() => {});
-      } else {
-        setProStats(PRO_STATS_EMPTY);
-      }
     } else {
       setProProfileStatus(null);
       setProRegistrationPending(false);
@@ -563,8 +274,7 @@ export default function MyPage() {
           (
             profileUser.role !== authUser.role ||
             profileUser.name !== authUser.name ||
-            (shouldSyncBaseProfileImage && profileUser.profileImageUrl !== authUser.profileImageUrl) ||
-            profileUser.pointBalance !== authUser.pointBalance
+            (shouldSyncBaseProfileImage && profileUser.profileImageUrl !== authUser.profileImageUrl)
           )
         ) {
           useAuthStore.getState().setUser({
@@ -572,18 +282,12 @@ export default function MyPage() {
             role: serverRole,
             name: profileUser.name,
             profileImageUrl: shouldSyncBaseProfileImage ? profileUser.profileImageUrl : authUser.profileImageUrl,
-            pointBalance: profileUser.pointBalance,
           });
         }
 
         if (status) {
           const profile = await prosApi.getMyProfile().catch(() => null);
           if (cancelled || !profile) return;
-          const catName = (profile as any)?.categories?.[0]?.category?.name;
-          if (catName) {
-            setProCategoryName(catName);
-            try { localStorage.setItem(PRO_CATEGORY_CACHE_KEY, catName); } catch {}
-          }
           const primary = (profile as any)?.images?.find((img: any) => img.isPrimary) || (profile as any)?.images?.[0];
           const effectiveImage = primary?.imageUrl || (profile as any)?.user?.profileImageUrl;
           if (effectiveImage && effectiveImage !== useAuthStore.getState().user?.profileImageUrl) {
@@ -605,14 +309,6 @@ export default function MyPage() {
         }
       });
 
-    try {
-      const coupons = JSON.parse(localStorage.getItem('freetiful-coupons') || '[]');
-      setCouponCount(Array.isArray(coupons) ? coupons.length : 0);
-    } catch { setCouponCount(0); }
-    try {
-      const favs = JSON.parse(localStorage.getItem('freetiful-favorites') || '[]');
-      setFavoritesCount(Array.isArray(favs) ? favs.length : 0);
-    } catch { setFavoritesCount(0); }
     return () => { cancelled = true; };
   }, [isLoggedIn, authUser]);
 
@@ -623,37 +319,9 @@ export default function MyPage() {
     }
 
     if (proProfileStatus === 'approved') {
-      writeViewAsUserFlag(false);
-      setViewAsUser(false);
-
-      if (authUser.role === 'pro') {
-        return;
-      }
-
-      usersApi.switchRole('pro').then((updatedUser) => {
-        useAuthStore.getState().setUser({ ...authUser, ...updatedUser, role: 'pro' as any });
-      }).catch(() => {
-        setProProfileStatus(null);
-        setProRegistrationPending(false);
-        clearStoredProModeForCurrentAccount();
-        router.push('/pro-register/terms');
-      });
+      router.push('/pro-dashboard/inquiries');
     } else {
       router.push('/pro-register/terms');
-    }
-  };
-
-  const handleGeneralMode = () => {
-    if (authUser) {
-      usersApi.switchRole('general').then(() => {
-        useAuthStore.getState().setUser({ ...authUser, role: 'general' as any });
-        router.push('/main');
-        window.location.reload();
-      }).catch(() => {});
-    } else {
-      localStorage.setItem('userRole', 'general');
-      router.push('/main');
-      window.location.reload();
     }
   };
 
@@ -671,135 +339,6 @@ export default function MyPage() {
     router.push('/');
   };
 
-  const handleSwitchToGeneral = () => {
-    writeViewAsUserFlag(true);
-    setViewAsUser(true);
-  };
-
-  // 승인된 프로만 PRO 뷰로 분기. role=pro 이지만 ProProfile 미승인인 경우는 일반 뷰로 폴백.
-  const isApprovedPro = actualIsPro && proProfileStatus === 'approved' && !viewAsUser;
-  const partnerSwitchTitle = actualIsPro && viewAsUser ? '프로회원뷰로 전환하기' : '파트너스로 전환하기';
-  const partnerSwitchDescription = actualIsPro && viewAsUser
-    ? '프로 승인 계정입니다. 전문가 마이페이지로 돌아가세요'
-    : '파트너 승인 완료! 지금 바로 전문가 모드로 시작하세요';
-  if (isApprovedPro) {
-    const isTopRank = (proStats.rank != null && proStats.rank <= 10) || proStats.pudding >= 100;
-    return (
-      <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
-        {/* Header */}
-        <div className="sticky top-0 z-20 bg-white px-4">
-          <div className="h-[52px] flex items-center">
-            <h1 className="text-[18px] font-bold text-gray-900">마이페이지</h1>
-            <span className="ml-2 text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">PRO</span>
-          </div>
-        </div>
-
-        {/* Pro Profile */}
-        <div className="px-4 pb-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
-          <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
-            <div className="relative">
-              <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
-              <div className="absolute -bottom-0.5 -right-0.5 bg-blue-500 rounded-full flex items-center justify-center" style={{ width: 20, height: 20 }}>
-                <svg width={10} height={10} viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
-                </svg>
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[17px] font-bold text-gray-900">{proCategoryName} {user.name}</p>
-                <span className="text-[10px] font-bold text-white bg-blue-500 px-1.5 py-0.5 rounded" style={{ lineHeight: 1.2 }}>PRO</span>
-              </div>
-              <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
-            </div>
-            <ChevronRight size={20} className="text-gray-300 shrink-0" />
-          </Link>
-
-          {/* Pro Quick Stats */}
-          <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.1s both' })}>
-            <Link href="/my/revenue" className="flex-1 py-2 text-center">
-              <p className="text-[17px] font-bold text-gray-900">₩{proStats.revenue.toLocaleString()}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">이번달 매출</p>
-            </Link>
-            <div className="w-px bg-gray-100" />
-            <Link href="/my/reviews" className="flex-1 py-2 text-center">
-              <p className="text-[17px] font-bold text-gray-900">{proStats.reviews}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">총 리뷰</p>
-            </Link>
-            <div className="w-px bg-gray-100" />
-            <Link href="/my/pudding-charge" className="flex-1 py-2 text-center">
-              <p className="text-[17px] font-bold text-gray-900">{proStats.pudding}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">푸딩</p>
-            </Link>
-          </div>
-
-          {/* Pudding ranking info */}
-          <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.15s both' })}>
-            <div className="flex items-center gap-2 mb-1">
-              <ProIconPudding />
-              <p className="text-[13px] font-bold text-amber-800">푸딩 랭킹 시스템</p>
-            </div>
-            <p className="text-[12px] text-amber-600 ml-[28px]">
-              현재 보유: <strong>{proStats.pudding.toLocaleString()}개</strong>
-              {proStats.rank != null && <> · <strong>{proStats.rank}위</strong></>}
-              {isTopRank ? ' (상위권)' : ''}
-            </p>
-            <p className="text-[11px] text-amber-500 ml-[28px] mt-0.5">푸딩을 사용하면 프로필이 상단에 노출됩니다</p>
-          </div>
-        </div>
-
-        {/* Pro Menu Sections */}
-        {PRO_MENU_SECTIONS.map((section, si) => (
-          <div key={section.title} style={animOrNone({ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` })}>
-            {si > 0 && <div className="h-1.5 bg-gray-50" />}
-            <div className="px-4 pt-3 pb-0.5">
-              <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
-            </div>
-            {section.items.map(({ href, icon: Icon, label, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
-              const inner = (
-                <>
-                  <Icon />
-                  <span className="flex-1 text-[14px] text-gray-900">{label}</span>
-                  <ChevronRight size={16} className="text-gray-300 shrink-0" />
-                </>
-              );
-
-              if (action === 'switchToGeneral') {
-                return (
-                  <button key={label} onClick={handleSwitchToGeneral} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
-                    {inner}
-                  </button>
-                );
-              }
-              return (
-                <Link key={label} href={href} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition-colors">
-                  {inner}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-
-        {/* Logout */}
-        <div className="h-1.5 bg-gray-50" />
-        <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full active:bg-gray-50 transition-colors">
-          <LogOut size={18} className="text-gray-400 shrink-0" />
-          <span className="text-[14px] text-gray-400">로그아웃</span>
-        </button>
-
-        <div className="px-4 pt-2 pb-4 text-center">
-          <p className="text-[11px] text-gray-300">Freetiful v1.0.0</p>
-        </div>
-
-        <style dangerouslySetInnerHTML={{ __html: `
-          @keyframes myFadeUp {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-        `}} />
-      </div>
-    );
-  }
 
   return (
     <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
@@ -836,7 +375,7 @@ export default function MyPage() {
       <div className="px-4 pb-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
         <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
           <div className="relative">
-            <img src={user.image || '/images/default-profile.svg'} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
+            <img src={getProfileImageUrl(user.image, user.email || user.name)} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = getProfileImageUrl(null, user.email || user.name); }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
             <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5">
               <div className="w-4.5 h-4.5 bg-[#2B313D] rounded-full flex items-center justify-center" style={{ width: 18, height: 18 }}>
                 <Star size={9} className="text-white fill-white" />
@@ -893,26 +432,6 @@ export default function MyPage() {
           </div>
         )}
 
-        {/* Pro Approved — 파트너스 전환 버튼 */}
-        {proProfileStatus === 'approved' && !isApprovedPro && (
-          <button
-            onClick={handlePartnerApply}
-            className="mt-3 w-full rounded-xl bg-gradient-to-r from-[#3180F7] to-[#5B9AFE] px-4 py-4 flex items-center gap-3 shadow-[0_4px_16px_rgba(49,128,247,0.3)] active:scale-[0.98] transition-transform"
-            style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.08s both' })}
-          >
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L15 8L22 9L17 14L18 21L12 18L6 21L7 14L2 9L9 8L12 2Z" fill="white"/>
-              </svg>
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-[15px] font-bold text-white">{partnerSwitchTitle}</p>
-              <p className="text-[12px] text-white/80 mt-0.5">{partnerSwitchDescription}</p>
-            </div>
-            <ChevronRight size={20} className="text-white shrink-0" />
-          </button>
-        )}
-
         {/* Pro Rejected Banner */}
         {proProfileStatus === 'rejected' && (
           <div
@@ -924,49 +443,7 @@ export default function MyPage() {
           </div>
         )}
 
-        {/* Quick Stats */}
-        <div className="flex mt-3 rounded-xl overflow-hidden bg-gray-50" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.1s both' })}>
-          <Link href="/my/points" className="flex-1 py-2 text-center">
-            <p className="text-[17px] font-bold text-gray-900">{user.points.toLocaleString()}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">포인트</p>
-          </Link>
-          <div className="w-px bg-gray-100" />
-          <Link href="/my/coupons" className="flex-1 py-2 text-center">
-            <p className="text-[17px] font-bold text-gray-900">{couponCount}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">쿠폰</p>
-          </Link>
-          <div className="w-px bg-gray-100" />
-          <Link href="/favorites" className="flex-1 py-2 text-center">
-            <p className="text-[17px] font-bold text-gray-900">{favoritesCount}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">찜</p>
-          </Link>
-        </div>
       </div>
-      )}
-
-      {/* Upcoming Schedules */}
-      {isLoggedIn && typeof window !== 'undefined' && localStorage.getItem('freetiful-has-demo-data') === 'true' && UPCOMING_SCHEDULES.length > 0 && (
-        <div className="px-4 pt-2 pb-1" style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.15s both' })}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] font-bold text-gray-400">다가오는 일정</p>
-            <Link href="/schedule" className="text-[12px] text-gray-400">전체보기</Link>
-          </div>
-          <div className="space-y-2">
-            {UPCOMING_SCHEDULES.map((s) => (
-              <Link key={s.id} href={`/schedule/${s.id}`} className="flex items-center gap-2.5 border border-gray-100 active:bg-gray-50 transition-colors" style={{ padding: 5, borderRadius: 12 }}>
-                <img src={s.proImage} alt={s.proName} className="w-10 h-[52px] rounded-lg object-cover shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-bold text-gray-900">{s.category} {s.proName}</p>
-                  <div className="flex gap-1.5 mt-1.5">
-                    <span className="px-2 py-0.5 bg-gray-50 text-[11px] font-medium text-gray-600" style={{ borderRadius: 6 }}>{s.date} {s.time}</span>
-                    <span className="px-2 py-0.5 bg-gray-50 text-[11px] font-medium text-gray-600" style={{ borderRadius: 6 }}>{s.location}</span>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-gray-300 shrink-0" />
-              </Link>
-            ))}
-          </div>
-        </div>
       )}
 
       {/* Menu Sections */}
@@ -1002,7 +479,7 @@ export default function MyPage() {
               );
             }
 
-            const displayBadge = label === '포인트' ? `${user.points.toLocaleString()}P` : badge;
+            const displayBadge = badge;
             const inner = (
               <>
                 <Icon />
@@ -1012,16 +489,6 @@ export default function MyPage() {
               </>
             );
 
-            if (action === 'switchToPro') {
-              // 승인된 프로필이 서버에 있는 경우에만 표시
-              const hasProRights = proProfileStatus === 'approved';
-              if (!hasProRights) return null;
-              return (
-                <button key={label} onClick={handlePartnerApply} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
-                  {inner}
-                </button>
-              );
-            }
             // 미로그인 상태에서 메뉴 항목 클릭 시 → 네이티브 로그인 팝업 (또는 웹 모달)
             if (!isLoggedIn) {
               return (
@@ -1052,6 +519,22 @@ export default function MyPage() {
         <LogOut size={18} className="text-gray-400 shrink-0" />
         <span className="text-[14px] text-gray-400">로그아웃</span>
       </button>
+
+      <div className="px-4 pt-1 pb-8 flex justify-end">
+        {isLoggedIn ? (
+          <Link href="/my/notifications" className="text-[11px] font-medium text-gray-300 active:text-gray-400 transition-colors">
+            알림 설정
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('freetiful:show-login'))}
+            className="text-[11px] font-medium text-gray-300 active:text-gray-400 transition-colors"
+          >
+            알림 설정
+          </button>
+        )}
+      </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes myFadeUp {

@@ -66,9 +66,6 @@ export class AdminController {
         businessStatus: { approved: 0, pending: 0, draft: 0, rejected: 0 },
       },
       engagement: {
-        favorites: 0,
-        proFavorites: 0,
-        businessFavorites: 0,
         chatRooms: 0,
         chatRooms7d: 0,
         messages: 0,
@@ -81,7 +78,6 @@ export class AdminController {
       },
       funnel: {
         profileViews: 0,
-        favorites: 0,
         matchRequests: 0,
         deliveries: 0,
         viewedDeliveries: 0,
@@ -94,7 +90,6 @@ export class AdminController {
         reviews: 0,
       },
       rates: {
-        favoriteCtr: 0,
         chatCtr: 0,
         deliveryViewRate: 0,
         deliveryReplyRate: 0,
@@ -107,9 +102,8 @@ export class AdminController {
       quotations: { total: 0, pending: 0, accepted: 0, paid: 0, cancelled: 0, refunded: 0, expired: 0 },
       payments: { total: 0, pending: 0, completed: 0, failed: 0, refunded: 0, escrowed: 0, settled: 0, completedAmount: 0, refundedAmount: 0 },
       settlements: { ...zeroStatus, pendingAmount: 0, settledAmount: 0 },
-      pudding: { total: 0, last30d: 0, profileBalance: 0 },
       dailySeries,
-      topLists: { viewedPros: [], puddingPros: [], revenuePros: [] },
+      topLists: { viewedPros: [], revenuePros: [] },
       degraded: true,
     };
   }
@@ -176,20 +170,6 @@ export class AdminController {
     return this.adminService.toggleFeatured(id);
   }
 
-  @Post('pros/:id/pudding')
-  async awardPudding(
-    @Param('id') id: string,
-    @Body() body: { amount: number; note?: string },
-  ) {
-    return this.adminService.awardPudding(id, Number(body.amount) || 0, body.note);
-  }
-
-  /** 어드민 → 유저(들)에게 쿠폰 발급 + 푸쉬 알림 */
-  @Post('coupons/grant')
-  async grantCoupon(@Body() body: { userIds: string[]; couponId: string }) {
-    return this.adminService.grantCoupon(body.userIds || [], body.couponId);
-  }
-
   @Get('stats')
   async getStats() {
     try {
@@ -248,6 +228,29 @@ export class AdminController {
   @Patch('users/:id')
   async updateUser(@Param('id') id: string, @Body() body: any) {
     return this.adminService.updateUser(id, body);
+  }
+
+  @Get('referral-event')
+  async getReferralEventParticipants(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.adminService.getReferralEventParticipants({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+      status,
+    });
+  }
+
+  @Patch('referral-event/claims/:id')
+  async updateReferralEventClaim(
+    @Param('id') id: string,
+    @Body() body: { status?: string; adminNote?: string },
+  ) {
+    return this.adminService.updateReferralEventClaim(id, body);
   }
 
   @Post('cleanup-empty-profiles')
@@ -346,16 +349,6 @@ export class AdminController {
     return this.adminService.deletePayment(id);
   }
 
-  @Patch('schedules/:id')
-  async updateSchedule(@Param('id') id: string, @Body() body: any) {
-    return this.adminService.updateSchedule(id, body);
-  }
-
-  @Delete('schedules/:id')
-  async deleteSchedule(@Param('id') id: string) {
-    return this.adminService.deleteSchedule(id);
-  }
-
   @Patch('match-requests/:id')
   async updateMatchRequest(@Param('id') id: string, @Body() body: any) {
     return this.adminService.updateMatchRequest(id, body);
@@ -374,11 +367,6 @@ export class AdminController {
   @Delete('match-deliveries/:id')
   async deleteMatchDelivery(@Param('id') id: string) {
     return this.adminService.deleteMatchDelivery(id);
-  }
-
-  @Delete('favorites/:id')
-  async deleteFavorite(@Param('id') id: string) {
-    return this.adminService.deleteFavorite(id);
   }
 
   @Patch('notifications/:id')

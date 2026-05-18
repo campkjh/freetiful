@@ -40,7 +40,7 @@ export interface Message {
   id: string;
   senderId: string;
   content: string;
-  type: 'text' | 'image' | 'file' | 'location' | 'system' | 'voice';
+  type: 'text' | 'image' | 'file' | 'location' | 'sticker' | 'system' | 'voice';
   createdAt: string;
   clientMessageId?: string;
   isRead: boolean;

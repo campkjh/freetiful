@@ -21,8 +21,8 @@ const WEDDING_PLANS: PlanTpl[] = WEDDING_PLAN_TEMPLATES.map((plan) => ({
   includedItems: plan.includedItems,
 }));
 
-const TOTAL_STEPS = 7;
-const CURRENT_STEP = 6;
+const TOTAL_STEPS = 6;
+const CURRENT_STEP = 5;
 
 export default function PricingPage() {
   const router = useRouter();

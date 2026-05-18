@@ -38,7 +38,7 @@ export class AuthService {
   ) {}
 
   private generateReferralCode(): string {
-    return Math.random().toString(36).substring(2, 10).toUpperCase();
+    return `FT${uuid().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
   }
 
   /**
@@ -121,17 +121,14 @@ export class AuthService {
       where: { senderId: fromUserId },
       data: { senderId: toUserId },
     });
-    // Payment.userId / Quotation.userId / Favorite.userId / Review.reviewerId / Notification.userId
-    // / MatchRequest.userId / PointTransaction.userId / UserCoupon.userId / AuthProviderRecord.userId
+    // Payment.userId / Quotation.userId / Review.reviewerId / Notification.userId
+    // / MatchRequest.userId / AuthProviderRecord.userId
     // / Session.userId 등 가능한 모든 user 참조를 to 로 옮김 (스키마에 없는 모델은 catch 로 무시)
     await this.prisma.payment.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
     await this.prisma.quotation.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
-    await this.prisma.favorite.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
     await this.prisma.review.updateMany({ where: { reviewerId: fromUserId }, data: { reviewerId: toUserId } }).catch(() => {});
     await this.prisma.notification.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
     await this.prisma.matchRequest.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
-    await this.prisma.pointTransaction.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
-    await this.prisma.userCoupon.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
     await this.prisma.authProviderRecord.updateMany({ where: { userId: fromUserId }, data: { userId: toUserId } }).catch(() => {});
     // 세션은 삭제 (재발급)
     await this.prisma.session.deleteMany({ where: { userId: fromUserId } }).catch(() => {});
