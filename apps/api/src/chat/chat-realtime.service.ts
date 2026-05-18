@@ -69,8 +69,6 @@ export class ChatRealtimeService {
       include: {
         sender: { select: { id: true, name: true, profileImageUrl: true } },
         replyTo: { select: { id: true, content: true, senderId: true, type: true } },
-        reactions: true,
-        reads: { select: { userId: true, readAt: true } },
       },
     });
 
@@ -79,20 +77,11 @@ export class ChatRealtimeService {
     const payload = {
       ...message,
       reactions: [],
-      isRead: message.reads.some((read) => read.userId !== message.senderId),
+      isRead: false,
     };
 
     this.server.to(`room:${roomId}`).emit('newMessage', payload);
-
-    const roomUpdatedUserIds = options?.roomUpdatedUserIds ?? options?.notifyUserIds ?? [];
-    const unreadUserIds = new Set(options?.unreadUserIds ?? options?.notifyUserIds ?? []);
-
-    for (const userId of roomUpdatedUserIds) {
-      this.emitToUser(userId, 'roomUpdated', { roomId, messageId });
-      if (unreadUserIds.has(userId)) {
-        this.emitToUser(userId, 'unreadUpdate', { roomId, messageId });
-      }
-    }
+    this.emitToUsers(options?.notifyUserIds ?? [], 'newMessage', payload);
 
     if (options?.dashboardUserIds?.length) {
       this.emitDashboardUpdated(options.dashboardUserIds, { roomId, messageId, kind: 'message' });

@@ -313,7 +313,7 @@ export default function ChatRoomPage() {
       if (initialMessages.length > 0) {
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
+        chatApi.getMessages(roomId, { limit: 30 }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
@@ -328,7 +328,7 @@ export default function ChatRoomPage() {
         setMessages(prewarmed.messages.map(mapApiMessage));
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
+        chatApi.getMessages(roomId, { limit: 30 }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
@@ -356,7 +356,7 @@ export default function ChatRoomPage() {
         setMessages(cachedMsgs.map(mapCachedMessage));
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
+        chatApi.getMessages(roomId, { limit: 30 }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
@@ -369,7 +369,7 @@ export default function ChatRoomPage() {
       setMessagesLoading(true);
       try {
         const requestedAt = Date.now();
-        const res = await chatApi.getMessages(roomId, { limit: 50 });
+        const res = await chatApi.getMessages(roomId, { limit: 30 });
         if (cancelled) return;
         const apiMessages = res.data.data || [];
         const mapped = apiMessages.map(mapApiMessage);
@@ -446,13 +446,13 @@ export default function ChatRoomPage() {
 
     const refreshRoomState = async (force = false) => {
       const now = Date.now();
-      if (!force && now - lastRoomPollAtRef.current < 2_000) return;
+      if (!force && now - lastRoomPollAtRef.current < 8_000) return;
       lastRoomPollAtRef.current = now;
       const requestedAt = Date.now();
 
       const [roomRes, messagesRes] = await Promise.allSettled([
         chatApi.getRoom(roomId),
-        chatApi.getMessages(roomId, { limit: 50 }),
+        chatApi.getMessages(roomId, { limit: 30 }),
       ]);
 
       if (cancelled) return;
@@ -487,8 +487,12 @@ export default function ChatRoomPage() {
       }
     };
     const onChatActivity = (event: Event) => {
-      const detail = (event as CustomEvent<{ roomId?: string }>).detail;
-      if (detail?.roomId === roomId) {
+      const detail = (event as CustomEvent<{ roomId?: string; systemKind?: string | null }>).detail;
+      const shouldRefreshMeta =
+        detail?.roomId === roomId &&
+        !!detail.systemKind &&
+        ['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid'].includes(detail.systemKind);
+      if (shouldRefreshMeta) {
         void refreshRoomState(true);
       }
     };
@@ -509,15 +513,13 @@ export default function ChatRoomPage() {
       if (document.visibilityState === 'visible') {
         void refreshRoomState();
       }
-    }, isSocketConnected ? 5000 : 2500);
+    }, isSocketConnected ? 30000 : 8000);
 
     window.addEventListener('focus', onVisibility);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('freetiful:chat-room-activity', onChatActivity as EventListener);
     window.addEventListener('freetiful:chat-profile-updated', onProfileUpdated as EventListener);
     window.addEventListener('freetiful:dashboard-updated', onVisibility as EventListener);
-    void refreshRoomState(true);
-
     return () => {
       cancelled = true;
       window.clearInterval(interval);

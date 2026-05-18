@@ -81,8 +81,8 @@ export const chatApi = {
     apiClient.post(`${BASE}/rooms`, { proProfileId, matchRequestId }),
 
   // 사회자가 매칭 요청을 보고 고객에게 먼저 채팅 거는 경우
-  createRoomAsPro: (customerUserId: string, matchRequestId?: string) =>
-    apiClient.post(`${BASE}/rooms/pro-initiate`, { customerUserId, matchRequestId }),
+  createRoomAsPro: (customerUserId: string, matchRequestId?: string, matchDeliveryId?: string) =>
+    apiClient.post(`${BASE}/rooms/pro-initiate`, { customerUserId, matchRequestId, matchDeliveryId }),
 
   getRoom: (roomId: string) =>
     apiClient.get(`${BASE}/rooms/${roomId}`),

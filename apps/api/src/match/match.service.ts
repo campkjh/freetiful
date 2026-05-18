@@ -137,6 +137,7 @@ export class MatchService {
     await this.fanoutMatchRequestToPros(
       matchRequest.id,
       category.id,
+      category.name,
       data.selectedProProfileIds,
     );
 
@@ -295,15 +296,10 @@ export class MatchService {
   private async fanoutMatchRequestToPros(
     matchRequestId: string,
     categoryId: string,
+    categoryName: string,
     selectedProProfileIds?: string[],
   ) {
-    let deliveryTargets: Array<{
-      proProfileId: string;
-      categoryId: string;
-      proProfile: {
-        user?: { id?: string; name?: string | null } | null;
-      } | null;
-    }> = [];
+    let deliveryTargets: Array<{ proProfileId: string; userId: string }> = [];
 
     const uniqueSelectedIds = Array.from(new Set(selectedProProfileIds || [])).filter(Boolean);
 
@@ -315,12 +311,11 @@ export class MatchService {
           isProfileHidden: false,
           user: { isActive: true },
         },
-        include: { user: { select: { id: true, name: true } } },
+        select: { id: true, userId: true },
       });
       deliveryTargets = selectedPros.map((proProfile) => ({
         proProfileId: proProfile.id,
-        categoryId,
-        proProfile,
+        userId: proProfile.userId,
       }));
     } else {
       const proCategories = await this.prisma.proCategory.findMany({
@@ -332,13 +327,15 @@ export class MatchService {
             user: { isActive: true },
           },
         },
-        include: {
-          proProfile: {
-            include: { user: { select: { id: true, name: true } } },
-          },
+        select: {
+          proProfileId: true,
+          proProfile: { select: { userId: true } },
         },
       });
-      deliveryTargets = proCategories;
+      deliveryTargets = proCategories.map((pc) => ({
+        proProfileId: pc.proProfileId,
+        userId: pc.proProfile.userId,
+      }));
     }
 
     if (deliveryTargets.length === 0 && uniqueSelectedIds.length === 0) {
@@ -348,29 +345,16 @@ export class MatchService {
           isProfileHidden: false,
           user: { isActive: true },
         },
-        include: { user: { select: { id: true, name: true } } },
+        select: { id: true, userId: true },
       });
       deliveryTargets = fallbackPros.map((proProfile) => ({
         proProfileId: proProfile.id,
-        categoryId,
-        proProfile,
+        userId: proProfile.userId,
       }));
     }
 
-    const matchRequest = await this.prisma.matchRequest.findUnique({
-      where: { id: matchRequestId },
-      include: {
-        user: { select: { name: true } },
-        category: { select: { name: true } },
-      },
-    });
-    if (!matchRequest) return;
-
-    const customerName = matchRequest.user?.name || '고객';
-    const categoryName = matchRequest.category?.name || '서비스';
-
     // 1) MatchDelivery 일괄 생성 — N개의 RTT 를 1번으로 압축
-    const validTargets = deliveryTargets.filter((pc) => !!pc.proProfile?.user?.id);
+    const validTargets = deliveryTargets.filter((pc) => !!pc.userId);
     if (validTargets.length === 0) return;
 
     await this.prisma.matchDelivery.createMany({
@@ -383,27 +367,27 @@ export class MatchService {
 
     // 2) 알림은 fire-and-forget — 응답을 막지 않는다
     for (const pc of validTargets) {
-      const proUserId = pc.proProfile!.user!.id!;
+      const proUserId = pc.userId;
       this.notificationService
         .createNotification(
           proUserId,
           'system' as any,
           '새 요청이 도착했습니다',
-          `${customerName}님이 ${categoryName} 요청을 보냈습니다.`,
+          `고객님이 ${categoryName || '서비스'} 요청을 보냈습니다.`,
           { type: 'match_request', matchRequestId },
         )
         .catch(() => {});
     }
 
     this.chatRealtimeService.emitMatchUpdated(
-      validTargets.map((target) => target.proProfile?.user?.id ?? null),
+      validTargets.map((target) => target.userId),
       {
         kind: 'match-request-delivered',
         matchRequestId,
       },
     );
     this.chatRealtimeService.emitDashboardUpdated(
-      validTargets.map((target) => target.proProfile?.user?.id ?? null),
+      validTargets.map((target) => target.userId),
       {
         kind: 'match-request-delivered',
         matchRequestId,
@@ -460,14 +444,10 @@ export class MatchService {
             eventDate: true,
             eventTime: true,
             eventLocation: true,
-            budgetMin: true,
-            budgetMax: true,
             rawUserInput: true,
             createdAt: true,
             category: { select: { id: true, name: true } },
             eventCategory: { select: { id: true, name: true } },
-            styles: { select: { styleOption: { select: { id: true, name: true } } } },
-            personalities: { select: { personalityOption: { select: { id: true, name: true } } } },
             user: {
               select: { id: true, name: true, profileImageUrl: true },
             },

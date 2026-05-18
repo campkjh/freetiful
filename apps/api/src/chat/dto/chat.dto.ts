@@ -58,6 +58,11 @@ export class CreateRoomAsProDto {
   @IsOptional()
   @IsUUID()
   matchRequestId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  matchDeliveryId?: string;
 }
 
 // ─── Messages ────────────────────────────────────────────────────────────────
@@ -170,13 +175,13 @@ export class MessageQueryDto {
   @IsDateString()
   after?: string;
 
-  @ApiPropertyOptional({ default: 50 })
+  @ApiPropertyOptional({ default: 30 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
-  limit?: number = 50;
+  @Max(80)
+  limit?: number = 30;
 
   @ApiPropertyOptional()
   @IsOptional()

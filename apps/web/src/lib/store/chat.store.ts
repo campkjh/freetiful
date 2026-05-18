@@ -9,7 +9,7 @@ const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
 // 30분 — 채팅 리스트가 단기간 캐시 만료로 사라지는 문제 방지.
 // (예: 다른 페이지에 5분 머무르고 돌아오면 빈 화면이 깜빡 → 다시 채워지던 현상)
 const ROOM_CACHE_TTL = 30 * 60_000;
-const ROOM_REVALIDATE_MS = 5_000;
+const ROOM_REVALIDATE_MS = 15_000;
 const DEFAULT_SOCKET_URL = 'https://affectionate-smile-production-6535.up.railway.app';
 
 type FetchRoomsParams = {
@@ -241,11 +241,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const socket = io(baseUrl + '/chat', {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
+      upgrade: false,
       reconnection: true,
       reconnectionDelay: 300,
       reconnectionDelayMax: 2000,
-      timeout: 2500,
+      timeout: 1800,
       rememberUpgrade: true,
     });
 
@@ -300,7 +301,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         systemKind: (message.metadata as any)?.system?.kind || null,
       });
       if (!hasRoomInList) {
-        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
+        get().fetchRooms({ limit: 30, force: true }).catch(() => {});
       }
     });
 
@@ -350,18 +351,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
 
     let refreshTimer: number | null = null;
-    const refreshRooms = () => {
+    const refreshRoomIfMissing = (payload?: { roomId?: string }) => {
+      if (payload?.roomId && get().rooms.some((room) => room.id === payload.roomId)) return;
       if (refreshTimer) window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => {
-        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
+        get().fetchRooms({ limit: 30, force: true }).catch(() => {});
         dispatchChatEvent('freetiful:chat-rooms-changed');
         refreshTimer = null;
       }, 120);
     };
-    socket.on('roomUpdated', refreshRooms);
-    socket.on('unreadUpdate', refreshRooms);
+    socket.on('roomUpdated', refreshRoomIfMissing);
+    socket.on('unreadUpdate', refreshRoomIfMissing);
     socket.on('dashboardUpdated', (data: Record<string, unknown>) => {
-      refreshRooms();
       dispatchChatEvent('freetiful:dashboard-updated', data);
     });
     socket.on('matchUpdated', (data: Record<string, unknown>) => {
@@ -504,7 +505,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const cached = messageCache.get(roomId) || [];
     set({ currentRoomId: roomId, messages: cached, messageCursor: null, hasMoreMessages: false });
     socket?.emit('joinRoom', { roomId });
-    chatApi.markAsRead(roomId).catch(() => {});
 
     // Reset unread in room list
     set((s) => {
@@ -530,7 +530,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const cursor = loadMore ? get().messageCursor : undefined;
       const requestedAt = Date.now();
-      const res = await chatApi.getMessages(roomId, { cursor: cursor ?? undefined, limit: 50 });
+      const res = await chatApi.getMessages(roomId, { cursor: cursor ?? undefined, limit: 30 });
       const newMsgs = res.data.data;
       const nextMessages = loadMore
         ? [...newMsgs, ...get().messages]
@@ -667,9 +667,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         roomId: message.roomId,
         messageId: message.id,
       });
-      window.setTimeout(() => {
-        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
-      }, hasRoomInList ? 250 : 0);
+      if (!hasRoomInList) {
+        get().fetchRooms({ limit: 30, force: true }).catch(() => {});
+      }
     };
 
     const sendViaRest = async () => {

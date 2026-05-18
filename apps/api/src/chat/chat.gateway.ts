@@ -89,8 +89,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (!client.userId) return;
     client.join(`room:${data.roomId}`);
 
-    // Mark messages as read
-    await this.chatService.markAsRead(data.roomId, client.userId);
+    // Marking read should never block room entry on low-end devices.
+    this.chatService.markAsRead(data.roomId, client.userId).catch(() => undefined);
     this.server.to(`room:${data.roomId}`).emit('userRead', {
       roomId: data.roomId,
       userId: client.userId,
@@ -124,13 +124,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       this.server.to(`room:${roomId}`).emit('newMessage', message);
       ack?.({ ok: true, message });
 
-      // Notify connected room-list screens that are not currently joined to the room.
+      // Notify connected room-list screens without forcing a room-list refetch.
       const memberIds = await this.chatService.getRoomMemberIds(roomId);
       for (const memberId of memberIds) {
         this.chatRealtimeService.emitToUser(memberId, 'newMessage', message);
-        this.chatRealtimeService.emitToUser(memberId, 'roomUpdated', { roomId });
-        if (memberId === client.userId) continue;
-        this.chatRealtimeService.emitToUser(memberId, 'unreadUpdate', { roomId });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '메시지 전송에 실패했습니다';

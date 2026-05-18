@@ -107,7 +107,7 @@ export default function ChatListPage() {
 
     if (apiRooms.length > 0) setRoomsLoading(false);
     connect();
-    fetchRooms({ limit: 50 }).catch(() => {}).finally(() => setRoomsLoading(false));
+    fetchRooms({ limit: 30 }).catch(() => {}).finally(() => setRoomsLoading(false));
     return undefined;
   }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
 
@@ -115,28 +115,24 @@ export default function ChatListPage() {
     if (!authHydrated || !authUser) return;
     const refreshRooms = () => {
       const now = Date.now();
-      if (now - lastRefreshAtRef.current < 2_500) return;
+      if (now - lastRefreshAtRef.current < 10_000) return;
       lastRefreshAtRef.current = now;
-      fetchRooms({ limit: 50, force: true }).catch(() => {});
+      fetchRooms({ limit: 30, force: true }).catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshRooms();
     };
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') refreshRooms();
-    }, 15000);
+    }, 60000);
     window.addEventListener('focus', refreshRooms);
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
     window.addEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
-    window.addEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('focus', refreshRooms);
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
       window.removeEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
-      window.removeEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     };
   }, [authHydrated, authUser?.id, fetchRooms]);
 
@@ -254,7 +250,7 @@ export default function ChatListPage() {
       window.dispatchEvent(new Event('freetiful:chat-rooms-changed'));
     } catch {
       alert('채팅방 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
-      fetchRooms({ limit: 50, force: true }).catch(() => {});
+      fetchRooms({ limit: 30, force: true }).catch(() => {});
     } finally {
       setDeletingRooms(false);
     }

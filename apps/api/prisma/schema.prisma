@@ -322,6 +322,7 @@ model ProCategory {
   category   Category   @relation(fields: [categoryId], references: [id])
 
   @@id([proProfileId, categoryId])
+  @@index([categoryId, proProfileId])
   @@map("pro_categories")
 }
 
@@ -528,6 +529,7 @@ model MatchDelivery {
   proProfile   ProProfile   @relation(fields: [proProfileId], references: [id])
 
   @@index([proProfileId, status, deliveredAt])
+  @@index([matchRequestId, proProfileId])
   @@map("match_deliveries")
 }
 

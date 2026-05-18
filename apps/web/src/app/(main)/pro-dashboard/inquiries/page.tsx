@@ -7,6 +7,7 @@ import { Calendar, MapPin } from 'lucide-react';
 import { chatApi } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { ProCardListSkeleton } from '../_components/ProSkeletons';
 
 type Filter = 'all' | 'multi' | 'single';
@@ -127,7 +128,7 @@ export default function ProRequestsPage() {
       return;
     }
     if (showLoading && cached === null) setLoading(true);
-    matchApi.getProRequests({ limit: 80 })
+    matchApi.getProRequests({ limit: 40 })
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const mapped = mapMatchDeliveries(items);
@@ -186,12 +187,14 @@ export default function ProRequestsPage() {
     if (initiatingChat) return;
     setInitiatingChat(request.id);
     try {
-      matchApi.respond(request.id, 'accept').catch(() => {});
-      const res = await chatApi.createRoomAsPro(request.customerId, request.matchRequestId);
+      const res = await chatApi.createRoomAsPro(request.customerId, request.matchRequestId, request.id);
       const roomId = (res as any)?.data?.id || (res as any)?.id;
       if (!roomId) {
         toast.error('채팅방 생성에 실패했습니다');
         return;
+      }
+      if ((res as any)?.data?.otherUser) {
+        preWarmExistingRoom((res as any).data);
       }
       setRequests((prev) => {
         const next = prev.filter((item) => item.id !== request.id);

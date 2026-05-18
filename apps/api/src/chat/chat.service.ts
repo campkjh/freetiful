@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ChatRealtimeService } from './chat-realtime.service';
 import {
   CreateChatRoomDto,
   CreateRoomAsProDto,
@@ -28,14 +29,19 @@ export class ChatService implements OnModuleInit {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private imageService: ImageService,
+    private chatRealtimeService: ChatRealtimeService,
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
-  private CACHE_TTL = 3_000; // 채팅/프로필 변경은 빠르게 반영
+  private CACHE_TTL = 10_000; // 실시간 이벤트로 갱신하고, 목록 API는 짧게 버퍼링
   private repairCache = new Map<string, number>(); // userId → last repair ts
   private REPAIR_THROTTLE = 30 * 60_000; // 30분 (한 번 repair 후 30분 동안은 skip)
   private participantCache = new Map<string, { ids: string[]; ts: number }>();
   private PARTICIPANT_CACHE_TTL = 10 * 60_000;
+  private roomParticipantCache = new Map<string, { ids: string[]; ts: number }>();
+  private ROOM_PARTICIPANT_CACHE_TTL = 10 * 60_000;
+  private recentClientMessageCache = new Map<string, { data: any; ts: number }>();
+  private RECENT_CLIENT_MESSAGE_TTL = 2 * 60_000;
 
   onModuleInit() {
     this.ensurePerformanceIndexes().catch(() => undefined);
@@ -60,6 +66,12 @@ export class ChatService implements OnModuleInit {
       ),
       this.prisma.$executeRawUnsafe(
         'CREATE INDEX CONCURRENTLY IF NOT EXISTS "chat_rooms_matchRequestId_idx" ON "chat_rooms" ("matchRequestId")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "pro_categories_categoryId_proProfileId_idx" ON "pro_categories" ("categoryId", "proProfileId")',
+      ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_deliveries_matchRequestId_proProfileId_idx" ON "match_deliveries" ("matchRequestId", "proProfileId")',
       ),
     ]);
   }
@@ -90,11 +102,58 @@ export class ChatService implements OnModuleInit {
   private invalidateRoomsCache(userId: string) {
     this.repairCache.delete(userId);
     this.participantCache.delete(userId);
+    this.participantCache.delete(`legacy:${userId}`);
     for (const key of this.roomCache.keys()) {
       if (key.startsWith(`rooms:${userId}:`) || key.includes(`"userId":"${userId}"`)) {
         this.roomCache.delete(key);
       }
     }
+  }
+
+  private cacheRoomParticipants(roomId: string, userIds: Array<string | null | undefined>) {
+    const ids = Array.from(new Set(userIds.filter(Boolean) as string[]));
+    if (ids.length > 0) {
+      this.roomParticipantCache.set(roomId, { ids, ts: Date.now() });
+    }
+    return ids;
+  }
+
+  private getRecentClientMessage(cacheKey: string) {
+    const hit = this.recentClientMessageCache.get(cacheKey);
+    if (!hit) return null;
+    if (Date.now() - hit.ts > this.RECENT_CLIENT_MESSAGE_TTL) {
+      this.recentClientMessageCache.delete(cacheKey);
+      return null;
+    }
+    return hit.data;
+  }
+
+  private setRecentClientMessage(cacheKey: string, data: any) {
+    this.recentClientMessageCache.set(cacheKey, { data, ts: Date.now() });
+    if (this.recentClientMessageCache.size > 500) {
+      const oldest = this.recentClientMessageCache.keys().next().value;
+      if (oldest) this.recentClientMessageCache.delete(oldest);
+    }
+  }
+
+  private acceptMatchDeliveryInBackground(
+    delivery: { id: string; matchRequestId: string; status: string } | null,
+    customerUserId: string,
+    proUserId: string,
+  ) {
+    if (!delivery || !['pending', 'viewed'].includes(delivery.status)) return;
+    this.prisma.matchDelivery.updateMany({
+      where: { id: delivery.id, status: { in: ['pending', 'viewed'] } },
+      data: { status: 'replied', repliedAt: new Date() },
+    }).then(() => {
+      this.invalidateRoomsCache(customerUserId);
+      this.invalidateRoomsCache(proUserId);
+      this.chatRealtimeService.emitMatchUpdated([customerUserId, proUserId], {
+        kind: 'match-request-accepted',
+        matchDeliveryId: delivery.id,
+        matchRequestId: delivery.matchRequestId,
+      });
+    }).catch(() => undefined);
   }
 
   private async findLegacyChatUserIds(userId: string) {
@@ -153,12 +212,21 @@ export class ChatService implements OnModuleInit {
     return legacyUsers.map((legacyUser) => legacyUser.id);
   }
 
-  private async getChatParticipantUserIds(userId: string) {
-    const cached = this.participantCache.get(userId);
+  private async getChatParticipantUserIds(userId: string, options: { includeLegacy?: boolean } = {}) {
+    const includeLegacy = options.includeLegacy === true;
+    const cacheKey = includeLegacy ? `legacy:${userId}` : userId;
+    const cached = this.participantCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < this.PARTICIPANT_CACHE_TTL) return cached.ids;
+
+    if (!includeLegacy) {
+      const ids = [userId];
+      this.participantCache.set(cacheKey, { ids, ts: Date.now() });
+      return ids;
+    }
+
     const legacyUserIds = await this.findLegacyChatUserIds(userId);
     const ids = Array.from(new Set([userId, ...legacyUserIds].filter(Boolean)));
-    this.participantCache.set(userId, { ids, ts: Date.now() });
+    this.participantCache.set(cacheKey, { ids, ts: Date.now() });
     return ids;
   }
 
@@ -245,6 +313,9 @@ export class ChatService implements OnModuleInit {
   }
 
   private async getRoomParticipantUserIds(roomId: string) {
+    const cached = this.roomParticipantCache.get(roomId);
+    if (cached && Date.now() - cached.ts < this.ROOM_PARTICIPANT_CACHE_TTL) return cached.ids;
+
     const room = await this.prisma.chatRoom.findUnique({
       where: { id: roomId },
       select: {
@@ -252,22 +323,16 @@ export class ChatService implements OnModuleInit {
         proProfile: { select: { userId: true } },
         matchRequest: { select: { userId: true } },
         members: { select: { userId: true } },
-        quotations: { select: { userId: true } },
       },
     });
     if (!room) return [];
 
-    return Array.from(
-      new Set(
-        [
-          room.userId,
-          room.proProfile?.userId,
-          room.matchRequest?.userId,
-          ...room.members.map((member) => member.userId),
-          ...room.quotations.map((quotation) => quotation.userId),
-        ].filter(Boolean) as string[],
-      ),
-    );
+    return this.cacheRoomParticipants(roomId, [
+      room.userId,
+      room.proProfile?.userId,
+      room.matchRequest?.userId,
+      ...room.members.map((member) => member.userId),
+    ]);
   }
 
   private async mergeLegacyChatData(fromUserId: string, toUserId: string) {
@@ -341,7 +406,7 @@ export class ChatService implements OnModuleInit {
   }
 
   private async repairRoomsForUser(userId: string) {
-    const participantUserIds = await this.getChatParticipantUserIds(userId);
+    const participantUserIds = await this.getChatParticipantUserIds(userId, { includeLegacy: true });
     for (const legacyUserId of participantUserIds.filter((id) => id !== userId)) {
       await this.mergeLegacyChatData(legacyUserId, userId).catch(() => false);
     }
@@ -508,7 +573,7 @@ export class ChatService implements OnModuleInit {
     const existingWithJoins = await this.prisma.chatRoom.findFirst({
       where: {
         proProfileId: dto.proProfileId,
-        OR: this.chatRoomParticipantWhere(participantUserIds),
+        OR: this.fastChatRoomParticipantWhere(participantUserIds),
       },
       include: {
         proProfile: {
@@ -519,7 +584,6 @@ export class ChatService implements OnModuleInit {
         },
         user: { select: { id: true, name: true, profileImageUrl: true } },
         members: { where: { userId } },
-        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
       },
     });
     if (existingWithJoins) {
@@ -540,6 +604,7 @@ export class ChatService implements OnModuleInit {
       });
       this.invalidateRoomsCache(userId);
       this.invalidateRoomsCache(existingWithJoins.proProfile.userId);
+      this.cacheRoomParticipants(existingWithJoins.id, [userId, existingWithJoins.proProfile.userId]);
 
       const isProUser = existingWithJoins.proProfile.userId === userId;
       const otherUser = isProUser
@@ -559,7 +624,7 @@ export class ChatService implements OnModuleInit {
         proProfileId: existingWithJoins.proProfileId,
         iAmPro: isProUser,
         matchRequestId: existingWithJoins.matchRequestId,
-        latestQuotationStatus: existingWithJoins.quotations[0]?.status ?? null,
+        latestQuotationStatus: null,
       };
     }
 
@@ -611,6 +676,7 @@ export class ChatService implements OnModuleInit {
     // 룸 목록 캐시 무효화 (고객 + 전문가 양쪽)
     this.invalidateRoomsCache(userId);
     this.invalidateRoomsCache(pro.userId);
+    this.cacheRoomParticipants(room.id, [userId, pro.userId]);
 
     // 새 문의 알림 → 전문가에게 (fire-and-forget)
     this.notificationService.createNotification(
@@ -643,7 +709,9 @@ export class ChatService implements OnModuleInit {
     // 호출자의 proProfile 확인
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { userId: proUserId },
-      include: {
+      select: {
+        id: true,
+        userId: true,
         user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
         images: { where: { isPrimary: true }, take: 1 },
       },
@@ -653,15 +721,34 @@ export class ChatService implements OnModuleInit {
       throw new BadRequestException('본인과는 채팅을 시작할 수 없습니다');
     }
 
-    // matchRequestId가 있으면 해당 요청이 현재 pro에게 전달된 것인지 검증
-    if (dto.matchRequestId) {
-      const delivery = await this.prisma.matchDelivery.findFirst({
-        where: { matchRequestId: dto.matchRequestId, proProfileId: proProfile.id },
+    let deliveryToAccept: {
+      id: string;
+      matchRequestId: string;
+      status: string;
+      matchRequest: { userId: string };
+    } | null = null;
+    if (dto.matchDeliveryId || dto.matchRequestId) {
+      deliveryToAccept = await this.prisma.matchDelivery.findFirst({
+        where: {
+          ...(dto.matchDeliveryId ? { id: dto.matchDeliveryId } : {}),
+          ...(dto.matchRequestId ? { matchRequestId: dto.matchRequestId } : {}),
+          proProfileId: proProfile.id,
+        },
+        select: {
+          id: true,
+          matchRequestId: true,
+          status: true,
+          matchRequest: { select: { userId: true } },
+        },
       });
-      if (!delivery) {
+      if (!deliveryToAccept) {
         throw new ForbiddenException('해당 매칭 요청에 대한 권한이 없습니다');
       }
+      if (deliveryToAccept.matchRequest.userId !== dto.customerUserId) {
+        throw new ForbiddenException('요청 고객 정보가 일치하지 않습니다');
+      }
     }
+    const effectiveMatchRequestId = dto.matchRequestId ?? deliveryToAccept?.matchRequestId;
 
     const customerParticipantUserIds = await this.getChatParticipantUserIds(dto.customerUserId);
 
@@ -669,12 +756,11 @@ export class ChatService implements OnModuleInit {
     const existing = await this.prisma.chatRoom.findFirst({
       where: {
         proProfileId: proProfile.id,
-        OR: this.chatRoomParticipantWhere(customerParticipantUserIds),
+        OR: this.fastChatRoomParticipantWhere(customerParticipantUserIds),
       },
       include: {
         user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
         members: { where: { userId: proUserId } },
-        quotations: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
       },
     });
     if (existing) {
@@ -684,6 +770,7 @@ export class ChatService implements OnModuleInit {
           userId: dto.customerUserId,
           userDeletedAt: null,
           proDeletedAt: null,
+          ...(effectiveMatchRequestId ? { matchRequestId: effectiveMatchRequestId } : {}),
         },
       });
       await this.prisma.chatRoomMember.createMany({
@@ -695,6 +782,8 @@ export class ChatService implements OnModuleInit {
       });
       this.invalidateRoomsCache(dto.customerUserId);
       this.invalidateRoomsCache(proUserId);
+      this.cacheRoomParticipants(existing.id, [dto.customerUserId, proUserId]);
+      this.acceptMatchDeliveryInBackground(deliveryToAccept, dto.customerUserId, proUserId);
 
       return {
         id: existing.id,
@@ -707,8 +796,8 @@ export class ChatService implements OnModuleInit {
         unreadCount: existing.members[0]?.unreadCount ?? 0,
         proProfileId: existing.proProfileId,
         iAmPro: true,
-        matchRequestId: existing.matchRequestId,
-        latestQuotationStatus: existing.quotations[0]?.status ?? null,
+        matchRequestId: effectiveMatchRequestId ?? existing.matchRequestId,
+        latestQuotationStatus: null,
       };
     }
 
@@ -722,7 +811,7 @@ export class ChatService implements OnModuleInit {
       data: {
         userId: dto.customerUserId,
         proProfileId: proProfile.id,
-        matchRequestId: dto.matchRequestId,
+        matchRequestId: effectiveMatchRequestId,
         members: {
           createMany: {
             data: [
@@ -749,6 +838,8 @@ export class ChatService implements OnModuleInit {
 
     this.invalidateRoomsCache(dto.customerUserId);
     this.invalidateRoomsCache(proUserId);
+    this.cacheRoomParticipants(room.id, [dto.customerUserId, proUserId]);
+    this.acceptMatchDeliveryInBackground(deliveryToAccept, dto.customerUserId, proUserId);
 
     // 고객에게 알림
     this.notificationService.createNotification(
@@ -835,11 +926,6 @@ export class ChatService implements OnModuleInit {
             take: 1,
             select: { id: true, senderId: true, type: true, content: true, createdAt: true },
           },
-          quotations: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: { id: true, amount: true, title: true, status: true, createdAt: true },
-          },
         },
         orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
         skip: (page - 1) * take,
@@ -853,7 +939,6 @@ export class ChatService implements OnModuleInit {
       const lastMsg = room.messages[0];
       const isProUser = participantUserIds.includes(room.proProfile.userId);
       const proCategory = room.proProfile.categories?.[0]?.category?.name;
-      const latestQuotationStatus = room.quotations[0]?.status ?? null;
       const otherUser = isProUser
         ? { id: room.user.id, name: room.user.name, profileImageUrl: room.user.profileImageUrl, category: null as string | null }
         : {
@@ -874,7 +959,7 @@ export class ChatService implements OnModuleInit {
         proProfileId: room.proProfileId,
         iAmPro: isProUser,
         matchRequestId: room.matchRequestId,
-        latestQuotationStatus,
+        latestQuotationStatus: null,
       };
     });
 
@@ -888,7 +973,6 @@ export class ChatService implements OnModuleInit {
   }
 
   async getRoomById(roomId: string, userId: string) {
-    this.maybeBackgroundRepair(userId);
     const participantUserIds = await this.getChatParticipantUserIds(userId);
     const room = await this.prisma.chatRoom.findFirst({
       where: {
@@ -969,6 +1053,7 @@ export class ChatService implements OnModuleInit {
     }
     this.invalidateRoomsCache(room.userId);
     this.invalidateRoomsCache(room.proProfile.userId);
+    this.roomParticipantCache.delete(roomId);
   }
 
   // ─── Messages ────────────────────────────────────────────────────────────
@@ -976,7 +1061,8 @@ export class ChatService implements OnModuleInit {
   async getMessages(roomId: string, userId: string, query: MessageQueryDto) {
     await this.verifyMembership(roomId, userId);
 
-    const { before, after, limit = 50, cursor } = query;
+    const { before, after, limit = 30, cursor } = query;
+    const take = Math.min(Number(limit) || 30, 80);
 
     const where: any = {
       roomId,
@@ -1000,11 +1086,9 @@ export class ChatService implements OnModuleInit {
         replyTo: {
           select: { id: true, content: true, senderId: true, type: true },
         },
-        reactions: true,
-        reads: { select: { userId: true, readAt: true } },
       },
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      take,
     });
 
     // 방 목록에는 마지막 메시지가 있는데 상세 첫 로드가 비는 오래된 데이터 꼬임 방어.
@@ -1027,8 +1111,6 @@ export class ChatService implements OnModuleInit {
             replyTo: {
               select: { id: true, content: true, senderId: true, type: true },
             },
-            reactions: true,
-            reads: { select: { userId: true, readAt: true } },
           },
         });
         if (lastMessage) messages.push(lastMessage);
@@ -1036,16 +1118,17 @@ export class ChatService implements OnModuleInit {
     }
 
     // Group reactions
-    const data = messages.reverse().map((msg) => ({
+    const orderedMessages = messages.reverse();
+    const data = orderedMessages.map((msg) => ({
       ...msg,
-      reactions: this.groupReactions(msg.reactions),
-      isRead: msg.reads.some((r) => r.userId !== msg.senderId),
+      reactions: [],
+      isRead: false,
     }));
 
     return {
       data,
-      hasMore: messages.length === limit,
-      cursor: messages.length > 0 ? messages[messages.length - 1].createdAt.toISOString() : null,
+      hasMore: messages.length === take,
+      cursor: orderedMessages.length > 0 ? orderedMessages[0].createdAt.toISOString() : null,
     };
   }
 
@@ -1060,30 +1143,8 @@ export class ChatService implements OnModuleInit {
       typeof metadata?.clientMessageId === 'string' ? metadata.clientMessageId : undefined;
 
     if (clientMessageId) {
-      const existing = await this.prisma.message.findFirst({
-        where: {
-          roomId,
-          senderId: userId,
-          isDeleted: false,
-          metadata: {
-            path: ['clientMessageId'],
-            equals: clientMessageId,
-          } as any,
-        },
-        include: {
-          sender: { select: { id: true, name: true, profileImageUrl: true } },
-          replyTo: { select: { id: true, content: true, senderId: true, type: true } },
-          reactions: true,
-          reads: { select: { userId: true, readAt: true } },
-        },
-      });
-      if (existing) {
-        return {
-          ...existing,
-          reactions: this.groupReactions(existing.reactions),
-          isRead: existing.reads.some((r) => r.userId !== existing.senderId),
-        };
-      }
+      const cached = this.getRecentClientMessage(`${roomId}:${userId}:${clientMessageId}`);
+      if (cached) return cached;
     }
 
     // image 타입이고 content 가 base64 data URL 이면 서버에 저장 후 공개 URL 로 대체
@@ -1120,6 +1181,7 @@ export class ChatService implements OnModuleInit {
       }
     }
 
+    const participantIdsPromise = this.getRoomParticipantUserIds(roomId);
     const message = await this.prisma.message.create({
       data: {
         roomId,
@@ -1135,38 +1197,35 @@ export class ChatService implements OnModuleInit {
       include: {
         sender: { select: { id: true, name: true, profileImageUrl: true } },
         replyTo: { select: { id: true, content: true, senderId: true, type: true } },
-        reads: { select: { userId: true, readAt: true } },
       },
     });
 
-    // Update room last message and revive the room for both sides when a new message arrives.
-    await this.prisma.chatRoom.update({
-      where: { id: roomId },
-      data: {
-        lastMessageId: message.id,
-        lastMessageAt: message.createdAt,
-        userDeletedAt: null,
-        proDeletedAt: null,
-      },
-    });
-
-    const participantIds = await this.getRoomParticipantUserIds(roomId);
+    const participantIds = await participantIdsPromise;
     const receiverIds = participantIds.filter((participantId) => participantId !== userId);
 
-    if (participantIds.length > 0) {
-      await this.prisma.chatRoomMember.createMany({
-        data: participantIds.map((participantId) => ({ roomId, userId: participantId })),
-        skipDuplicates: true,
-      });
-    }
-
-    // Increment unread for receivers, including rooms with missing legacy member rows.
-    if (receiverIds.length > 0) {
-      await this.prisma.chatRoomMember.updateMany({
-        where: { roomId, userId: { in: receiverIds } },
-        data: { unreadCount: { increment: 1 } },
-      });
-    }
+    await Promise.all([
+      this.prisma.chatRoom.update({
+        where: { id: roomId },
+        data: {
+          lastMessageId: message.id,
+          lastMessageAt: message.createdAt,
+          userDeletedAt: null,
+          proDeletedAt: null,
+        },
+      }),
+      participantIds.length > 0
+        ? this.prisma.chatRoomMember.createMany({
+            data: participantIds.map((participantId) => ({ roomId, userId: participantId })),
+            skipDuplicates: true,
+          })
+        : Promise.resolve(),
+      receiverIds.length > 0
+        ? this.prisma.chatRoomMember.updateMany({
+            where: { roomId, userId: { in: receiverIds } },
+            data: { unreadCount: { increment: 1 } },
+          })
+        : Promise.resolve(),
+    ]);
 
     // 룸 목록 캐시 무효화 (발신자 + 수신자 모두) + 메시지 알림
     try {
@@ -1186,7 +1245,11 @@ export class ChatService implements OnModuleInit {
       }
     } catch {}
 
-    return { ...message, reactions: [], isRead: message.reads.some((r) => r.userId !== message.senderId) };
+    const payload = { ...message, reactions: [], isRead: false };
+    if (clientMessageId) {
+      this.setRecentClientMessage(`${roomId}:${userId}:${clientMessageId}`, payload);
+    }
+    return payload;
   }
 
   async uploadImage(roomId: string, userId: string, file: Express.Multer.File) {
@@ -1273,30 +1336,30 @@ export class ChatService implements OnModuleInit {
   async markAsRead(roomId: string, userId: string) {
     await this.verifyMembership(roomId, userId);
 
-    // Reset unread count
-    await this.prisma.chatRoomMember.update({
-      where: { roomId_userId: { roomId, userId } },
+    await this.prisma.chatRoomMember.updateMany({
+      where: { roomId, userId },
       data: { unreadCount: 0, lastReadAt: new Date() },
     });
 
-    // Mark all unread messages as read
-    const unreadMessages = await this.prisma.message.findMany({
-      where: {
-        roomId,
-        senderId: { not: userId },
-        reads: { none: { userId } },
-      },
-      select: { id: true },
-    });
-
-    if (unreadMessages.length > 0) {
+    Promise.resolve().then(async () => {
+      const unreadMessages = await this.prisma.message.findMany({
+        where: {
+          roomId,
+          senderId: { not: userId },
+          reads: { none: { userId } },
+        },
+        select: { id: true },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      });
+      if (unreadMessages.length === 0) return;
       await this.prisma.messageRead.createMany({
         data: unreadMessages.map((m) => ({ messageId: m.id, userId })),
         skipDuplicates: true,
       });
-    }
+    }).catch(() => undefined);
 
-    return { readCount: unreadMessages.length };
+    return { readCount: 0 };
   }
 
   // ─── Photo Gallery ───────────────────────────────────────────────────────
@@ -1403,26 +1466,38 @@ export class ChatService implements OnModuleInit {
   private async verifyMembership(roomId: string, userId: string) {
     const member = await this.prisma.chatRoomMember.findUnique({
       where: { roomId_userId: { roomId, userId } },
+      select: { roomId: true, userId: true },
     });
     if (member) return member;
 
     const participantUserIds = await this.getChatParticipantUserIds(userId);
-    const room = await this.prisma.chatRoom.findFirst({
+    let room = await this.prisma.chatRoom.findFirst({
       where: {
         id: roomId,
-        OR: this.chatRoomParticipantWhere(participantUserIds),
+        OR: this.fastChatRoomParticipantWhere(participantUserIds),
       },
-      select: { id: true },
+      select: { id: true, userId: true, proProfile: { select: { userId: true } }, members: { select: { userId: true } } },
     });
+    if (!room) {
+      const legacyParticipantUserIds = await this.getChatParticipantUserIds(userId, { includeLegacy: true });
+      room = await this.prisma.chatRoom.findFirst({
+        where: {
+          id: roomId,
+          OR: this.chatRoomParticipantWhere(legacyParticipantUserIds),
+        },
+        select: { id: true, userId: true, proProfile: { select: { userId: true } }, members: { select: { userId: true } } },
+      });
+    }
     if (!room) throw new ForbiddenException('채팅방에 접근할 수 없습니다');
 
-    await this.ensureRoomsRepaired(userId).catch(() => undefined);
     await this.prisma.chatRoomMember.createMany({
       data: [{ roomId, userId }],
       skipDuplicates: true,
     });
+    this.cacheRoomParticipants(roomId, [room.userId, room.proProfile?.userId, ...room.members.map((m) => m.userId), userId]);
     const repairedMember = await this.prisma.chatRoomMember.findUnique({
       where: { roomId_userId: { roomId, userId } },
+      select: { roomId: true, userId: true },
     });
     if (!repairedMember) throw new ForbiddenException('채팅방에 접근할 수 없습니다');
     return repairedMember;

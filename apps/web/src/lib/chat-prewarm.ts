@@ -35,7 +35,7 @@ export function preWarmChat(proProfileId: string) {
       roomDataCache.set(roomId, data);
 
       // getMessages만 백그라운드로 (room 정보는 이미 있음)
-      data.messagesPromise = chatApi.getMessages(roomId, { limit: 50 })
+      data.messagesPromise = chatApi.getMessages(roomId, { limit: 30 })
         .then((res) => {
           const messages = res.data.data || [];
           data.messages = messages;
@@ -61,7 +61,7 @@ export function preWarmExistingRoom(room: ChatRoomItem) {
   data.room = room;
   roomDataCache.set(room.id, data);
 
-  data.messagesPromise = chatApi.getMessages(room.id, { limit: 50 })
+  data.messagesPromise = chatApi.getMessages(room.id, { limit: 30 })
     .then((res) => {
       const messages = res.data.data || [];
       data.messages = messages;
