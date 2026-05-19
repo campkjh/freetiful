@@ -10,6 +10,8 @@ const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
 // (예: 다른 페이지에 5분 머무르고 돌아오면 빈 화면이 깜빡 → 다시 채워지던 현상)
 const ROOM_CACHE_TTL = 30 * 60_000;
 const ROOM_REVALIDATE_MS = 15_000;
+const ROOM_LIST_LIMIT = 24;
+const MESSAGE_PAGE_LIMIT = 20;
 const DEFAULT_SOCKET_URL = 'https://affectionate-smile-production-6535.up.railway.app';
 
 type FetchRoomsParams = {
@@ -317,7 +319,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         systemKind: (message.metadata as any)?.system?.kind || null,
       });
       if (!hasRoomInList) {
-        get().fetchRooms({ limit: 30, force: true }).catch(() => {});
+        get().fetchRooms({ limit: ROOM_LIST_LIMIT, force: true }).catch(() => {});
       }
     });
 
@@ -371,7 +373,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (payload?.roomId && get().rooms.some((room) => room.id === payload.roomId)) return;
       if (refreshTimer) window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => {
-        get().fetchRooms({ limit: 30, force: true }).catch(() => {});
+        get().fetchRooms({ limit: ROOM_LIST_LIMIT, force: true }).catch(() => {});
         dispatchChatEvent('freetiful:chat-rooms-changed');
         refreshTimer = null;
       }, 120);
@@ -468,7 +470,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const hasFilters = !!(apiParams.search || apiParams.dateFrom || apiParams.dateTo);
-    const requestParams = { limit: 30, withTotal: false, ...apiParams };
+    const requestParams = { limit: ROOM_LIST_LIMIT, withTotal: false, ...apiParams };
     if (!force && !hasFilters && roomsLoading) return;
     if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < ROOM_REVALIDATE_MS) {
       set({ roomsLoading: false });
@@ -546,7 +548,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const cursor = loadMore ? get().messageCursor : undefined;
       const requestedAt = Date.now();
-      const res = await chatApi.getMessages(roomId, { cursor: cursor ?? undefined, limit: 30 });
+      const res = await chatApi.getMessages(roomId, { cursor: cursor ?? undefined, limit: MESSAGE_PAGE_LIMIT });
       const newMsgs = res.data.data;
       const nextMessages = loadMore
         ? [...newMsgs, ...get().messages]
@@ -684,7 +686,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messageId: message.id,
       });
       if (!hasRoomInList) {
-        get().fetchRooms({ limit: 30, force: true }).catch(() => {});
+        get().fetchRooms({ limit: ROOM_LIST_LIMIT, force: true }).catch(() => {});
       }
     };
 

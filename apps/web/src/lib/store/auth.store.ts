@@ -7,6 +7,7 @@ import type { User } from '@prettyful/types';
 const USER_SCOPED_STORAGE_KEYS = [
   'freetiful-auth-user-id',
   'freetiful-chat-rooms-cache-v1',
+  'freetiful-chat-rooms-cache-v2',
   'freetiful-my-pro-category',
   'freetiful-my-pro-id',
   'freetiful-my-pro-stats-cache-v1',
@@ -47,10 +48,20 @@ const USER_SCOPED_STORAGE_KEYS = [
   'viewAsUser',
 ];
 
+const USER_SCOPED_STORAGE_PREFIXES = [
+  'freetiful-pro-simple-requests-cache-v1:',
+];
+
 export function clearUserScopedAuthStorage() {
   if (typeof window === 'undefined') return;
   try {
     USER_SCOPED_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && USER_SCOPED_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+        localStorage.removeItem(key);
+      }
+    }
   } catch {}
 }
 

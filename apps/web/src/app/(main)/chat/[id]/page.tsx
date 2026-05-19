@@ -15,6 +15,9 @@ import type { Message, ChatPartner, SystemPayload } from './chat-types';
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
 
+const INITIAL_MESSAGE_LIMIT = 18;
+const REFRESH_MESSAGE_LIMIT = 12;
+
 /** Convert a MessageItem from the API into our local Message shape */
 function mapApiMessage(m: MessageItem): Message {
   const meta = m.metadata as Record<string, any> | null;
@@ -130,6 +133,16 @@ function SystemMessageFallback({ msg }: { msg: Message }) {
   );
 }
 
+function mapRoomToPartner(room: ChatRoomItem & { proProfileId?: string }): ChatPartner {
+  return {
+    id: room.otherUser.id,
+    proProfileId: room.proProfileId,
+    name: room.otherUser.name,
+    profileImageUrl: getProfileImageUrl(room.otherUser.profileImageUrl, room.otherUser.id || room.otherUser.name),
+    isActive: room.otherUser.isActive ?? false,
+  };
+}
+
 export default function ChatRoomPage() {
   const { id: roomId } = useParams<{ id: string }>();
   const router = useRouter();
@@ -149,17 +162,22 @@ export default function ChatRoomPage() {
     }
     return getPreWarmByRoomId(roomId);
   })();
-  const initialIAmProInRoom = typeof initialPreWarmed?.room?.iAmPro === 'boolean'
-    ? initialPreWarmed.room.iAmPro
+  const initialStoreRoom = (() => {
+    if (typeof window === 'undefined' || roomId.startsWith('pending-')) return null;
+    return useChatStore.getState().rooms.find((r) => r.id === roomId) || null;
+  })();
+  const initialRoom = initialPreWarmed?.room || initialStoreRoom;
+  const initialIAmProInRoom = typeof initialRoom?.iAmPro === 'boolean'
+    ? initialRoom.iAmPro
     : null;
-  const initialPartner: ChatPartner | null = initialPreWarmed?.room ? {
-    id: initialPreWarmed.room.otherUser.id,
-    proProfileId: (initialPreWarmed.room as any).proProfileId,
-    name: initialPreWarmed.room.otherUser.name,
-    profileImageUrl: getProfileImageUrl(initialPreWarmed.room.otherUser.profileImageUrl, initialPreWarmed.room.otherUser.id || initialPreWarmed.room.otherUser.name),
-    isActive: initialPreWarmed.room.otherUser.isActive ?? false,
-  } : null;
-  const initialMessages: Message[] = initialPreWarmed?.messages ? initialPreWarmed.messages.map(mapApiMessage) : [];
+  const initialPartner: ChatPartner | null = initialRoom ? mapRoomToPartner(initialRoom) : null;
+  const initialCachedMessages = (() => {
+    if (typeof window === 'undefined' || roomId.startsWith('pending-')) return [];
+    return useChatStore.getState().messageCache.get(roomId) || [];
+  })();
+  const initialMessages: Message[] = initialPreWarmed?.messages
+    ? initialPreWarmed.messages.map(mapApiMessage)
+    : initialCachedMessages.map(mapCachedMessage);
 
   // 채팅방 안에서는 결제 상태 판단에 필요한 최소 메타만 유지한다.
   const initialRoomMeta = (() => {
@@ -171,7 +189,7 @@ export default function ChatRoomPage() {
         latestQuotation: fromPrewarm.latestQuotation ?? null,
       };
     }
-    const fromStore: any = useChatStore.getState().rooms.find((r) => r.id === roomId);
+    const fromStore: any = initialStoreRoom;
     if (fromStore?.latestQuotation || fromStore?.matchRequest) {
       return {
         matchRequest: fromStore.matchRequest ?? null,
@@ -267,21 +285,22 @@ export default function ChatRoomPage() {
         return;
       }
 
-      // 이미 pre-warm에서 파트너를 받았으면 fetch 생략
+      // 캐시/프리웜 파트너가 있으면 먼저 즉시 렌더하고, 네트워크 메타는 뒤에서 보정한다.
       if (!initialPartner) {
         const storeRoom = useChatStore.getState().rooms.find((r) => r.id === roomId);
         if (storeRoom) {
-          setChatPartner({
-            id: storeRoom.otherUser.id,
-            proProfileId: (storeRoom as any).proProfileId,
-            name: storeRoom.otherUser.name,
-            profileImageUrl: getProfileImageUrl(storeRoom.otherUser.profileImageUrl, storeRoom.otherUser.id || storeRoom.otherUser.name),
-            isActive: (storeRoom.otherUser as any).isActive ?? true,
-          });
+          setChatPartner(mapRoomToPartner(storeRoom));
           if (typeof storeRoom.iAmPro === 'boolean') {
             setIAmProInRoom(storeRoom.iAmPro);
           }
         }
+      } else {
+        setHasAttemptedInitialLoad(true);
+      }
+
+      if (initialPartner || initialRoomMeta) {
+        await new Promise((resolve) => window.setTimeout(resolve, 80));
+        if (cancelled) return;
       }
       try {
         const res = await chatApi.getRoom(roomId);
@@ -313,7 +332,7 @@ export default function ChatRoomPage() {
       if (initialMessages.length > 0) {
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: 30 }).then((res) => {
+        chatApi.getMessages(roomId, { limit: REFRESH_MESSAGE_LIMIT }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
@@ -328,7 +347,7 @@ export default function ChatRoomPage() {
         setMessages(prewarmed.messages.map(mapApiMessage));
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: 30 }).then((res) => {
+        chatApi.getMessages(roomId, { limit: REFRESH_MESSAGE_LIMIT }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
@@ -356,7 +375,7 @@ export default function ChatRoomPage() {
         setMessages(cachedMsgs.map(mapCachedMessage));
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: 30 }).then((res) => {
+        chatApi.getMessages(roomId, { limit: REFRESH_MESSAGE_LIMIT }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
@@ -369,7 +388,7 @@ export default function ChatRoomPage() {
       setMessagesLoading(true);
       try {
         const requestedAt = Date.now();
-        const res = await chatApi.getMessages(roomId, { limit: 30 });
+        const res = await chatApi.getMessages(roomId, { limit: INITIAL_MESSAGE_LIMIT });
         if (cancelled) return;
         const apiMessages = res.data.data || [];
         const mapped = apiMessages.map(mapApiMessage);
@@ -452,7 +471,7 @@ export default function ChatRoomPage() {
 
       const [roomRes, messagesRes] = await Promise.allSettled([
         chatApi.getRoom(roomId),
-        chatApi.getMessages(roomId, { limit: 30 }),
+        chatApi.getMessages(roomId, { limit: REFRESH_MESSAGE_LIMIT }),
       ]);
 
       if (cancelled) return;

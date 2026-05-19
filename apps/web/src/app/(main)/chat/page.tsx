@@ -29,6 +29,9 @@ type FilterTab = '전체' | '읽음' | '안 읽음' | '보관';
 
 type ProFilterTab = '전체' | '읽음' | '안 읽음' | '보관';
 
+const CHAT_LIST_LIMIT = 24;
+const MESSAGE_PREWARM_LIMIT = 15;
+
 const ClientAvatar = ({ name, id }: { name: string; id?: string }) => (
   <img
     src={getProfileImageUrl(null, id || name)}
@@ -106,9 +109,9 @@ export default function ChatListPage() {
       return;
     }
 
-    connect();
-    fetchRooms({ limit: 30 }).catch(() => {}).finally(() => setRoomsLoading(false));
-    return undefined;
+    fetchRooms({ limit: CHAT_LIST_LIMIT }).catch(() => {}).finally(() => setRoomsLoading(false));
+    const connectTimer = window.setTimeout(() => connect(), 80);
+    return () => window.clearTimeout(connectTimer);
   }, [authHydrated, authUser?.id, connect, disconnect, fetchRooms]);
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export default function ChatListPage() {
       const now = Date.now();
       if (now - lastRefreshAtRef.current < 10_000) return;
       lastRefreshAtRef.current = now;
-      fetchRooms({ limit: 30, force: true }).catch(() => {});
+      fetchRooms({ limit: CHAT_LIST_LIMIT, force: true }).catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshRooms();
@@ -199,6 +202,7 @@ export default function ChatListPage() {
     if (!a.isPinned && b.isPinned) return 1;
     return 0;
   }), [filtered]);
+  const topRoomIdsKey = useMemo(() => sorted.slice(0, 3).map((room) => room.id).join('|'), [sorted]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -250,7 +254,7 @@ export default function ChatListPage() {
       window.dispatchEvent(new Event('freetiful:chat-rooms-changed'));
     } catch {
       alert('채팅방 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
-      fetchRooms({ limit: 30, force: true }).catch(() => {});
+      fetchRooms({ limit: CHAT_LIST_LIMIT, force: true }).catch(() => {});
     } finally {
       setDeletingRooms(false);
     }
@@ -306,14 +310,24 @@ export default function ChatListPage() {
 
   const handlePrewarmRoom = (roomId: string, withMessages = false) => {
     const room = useChatStore.getState().rooms.find((r) => r.id === roomId);
-    if (room) preWarmExistingRoom(room);
+    const warmed = room ? preWarmExistingRoom(room) : null;
     if (!withMessages) return;
     const store = useChatStore.getState();
     if (store.messageCache.get(roomId)?.length) return;
+    if (warmed?.messages?.length) {
+      store.messageCache.set(roomId, warmed.messages);
+      return;
+    }
+    if (warmed?.messagesPromise) {
+      warmed.messagesPromise.then((messages) => {
+        if (messages.length > 0) useChatStore.getState().messageCache.set(roomId, messages);
+      }).catch(() => {});
+      return;
+    }
     const last = messagePrewarmRef.current.get(roomId) || 0;
     if (Date.now() - last < 5000) return;
     messagePrewarmRef.current.set(roomId, Date.now());
-    chatApi.getMessages(roomId, { limit: 30 })
+    chatApi.getMessages(roomId, { limit: MESSAGE_PREWARM_LIMIT })
       .then((res) => {
         const messages = res.data?.data;
         if (Array.isArray(messages) && messages.length > 0) {
@@ -322,6 +336,22 @@ export default function ChatListPage() {
       })
       .catch(() => {});
   };
+
+  useEffect(() => {
+    if (!topRoomIdsKey) return;
+    const topRoomIds = topRoomIdsKey.split('|').filter(Boolean);
+    const run = () => topRoomIds.forEach((roomId) => handlePrewarmRoom(roomId, true));
+    const win = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (win.requestIdleCallback) {
+      const id = win.requestIdleCallback(run, { timeout: 1200 });
+      return () => win.cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(run, 350);
+    return () => window.clearTimeout(timer);
+  }, [topRoomIdsKey]);
 
   const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관'];
   const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '보관'];

@@ -1,5 +1,7 @@
 import { chatApi, type ChatRoomItem, type MessageItem } from './api/chat.api';
 
+const PREWARM_MESSAGE_LIMIT = 15;
+
 export interface ChatPreWarmData {
   roomId?: string;
   room?: ChatRoomItem;
@@ -35,7 +37,7 @@ export function preWarmChat(proProfileId: string) {
       roomDataCache.set(roomId, data);
 
       // getMessages만 백그라운드로 (room 정보는 이미 있음)
-      data.messagesPromise = chatApi.getMessages(roomId, { limit: 30 })
+      data.messagesPromise = chatApi.getMessages(roomId, { limit: PREWARM_MESSAGE_LIMIT })
         .then((res) => {
           const messages = res.data.data || [];
           data.messages = messages;
@@ -61,7 +63,7 @@ export function preWarmExistingRoom(room: ChatRoomItem) {
   data.room = room;
   roomDataCache.set(room.id, data);
 
-  data.messagesPromise = chatApi.getMessages(room.id, { limit: 30 })
+  data.messagesPromise = chatApi.getMessages(room.id, { limit: PREWARM_MESSAGE_LIMIT })
     .then((res) => {
       const messages = res.data.data || [];
       data.messages = messages;

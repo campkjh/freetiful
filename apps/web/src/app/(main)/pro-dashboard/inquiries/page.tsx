@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Calendar, MapPin } from 'lucide-react';
@@ -14,6 +14,8 @@ type Filter = 'all' | 'multi' | 'single';
 type RequestKind = 'multi' | 'single';
 
 const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-simple-requests-cache-v1';
+const MATCH_DELIVERIES_CACHE_TTL = 10 * 60_000;
+const MATCH_REQUEST_LIMIT = 20;
 const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
 
 interface MatchDeliveryView {
@@ -32,19 +34,33 @@ interface MatchDeliveryView {
   deliveredAt: string;
 }
 
-function readCache(): MatchDeliveryView[] | null {
+function cacheKey(userId?: string | null) {
+  return userId ? `${MATCH_DELIVERIES_CACHE_KEY}:${userId}` : MATCH_DELIVERIES_CACHE_KEY;
+}
+
+function readCache(userId?: string | null): MatchDeliveryView[] | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(MATCH_DELIVERIES_CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const raw = localStorage.getItem(cacheKey(userId)) || sessionStorage.getItem(MATCH_DELIVERIES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+    if (!Array.isArray(parsed?.data) || !parsed.ts) return null;
+    if (Date.now() - parsed.ts > MATCH_DELIVERIES_CACHE_TTL) {
+      localStorage.removeItem(cacheKey(userId));
+      return null;
+    }
+    return parsed.data;
   } catch {
     return null;
   }
 }
 
-function writeCache(data: MatchDeliveryView[]) {
+function writeCache(data: MatchDeliveryView[], userId?: string | null) {
   if (typeof window === 'undefined') return;
   try {
+    const payload = JSON.stringify({ data, ts: Date.now() });
+    localStorage.setItem(cacheKey(userId), payload);
     sessionStorage.setItem(MATCH_DELIVERIES_CACHE_KEY, JSON.stringify(data));
   } catch {}
 }
@@ -116,28 +132,41 @@ const TABS: { key: Filter; label: string }[] = [
 export default function ProRequestsPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const cached = useMemo(() => readCache(), []);
+  const cached = useMemo(() => readCache(useAuthStore.getState().user?.id), []);
   const [filter, setFilter] = useState<Filter>('all');
   const [requests, setRequests] = useState<MatchDeliveryView[]>(cached ?? []);
   const [loading, setLoading] = useState(cached === null);
   const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
+  const requestsCountRef = useRef(cached?.length ?? 0);
+
+  useEffect(() => {
+    requestsCountRef.current = requests.length;
+  }, [requests.length]);
 
   const refreshRequests = useCallback((showLoading = false) => {
     if (!authUser) {
       setLoading(false);
       return;
     }
-    if (showLoading && cached === null) setLoading(true);
-    matchApi.getProRequests({ limit: 40 })
+    if (showLoading && requestsCountRef.current === 0) setLoading(true);
+    matchApi.getProRequests({ limit: MATCH_REQUEST_LIMIT })
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const mapped = mapMatchDeliveries(items);
         setRequests(mapped);
-        writeCache(mapped);
+        writeCache(mapped, authUser.id);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [authUser, cached]);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser || requests.length > 0) return;
+    const cachedForUser = readCache(authUser.id);
+    if (!cachedForUser) return;
+    setRequests(cachedForUser);
+    setLoading(false);
+  }, [authUser?.id, requests.length]);
 
   useEffect(() => {
     try {
@@ -173,7 +202,7 @@ export default function ProRequestsPage() {
       await matchApi.respond(deliveryId, 'reject');
       setRequests((prev) => {
         const next = prev.filter((request) => request.id !== deliveryId);
-        writeCache(next);
+        writeCache(next, authUser?.id);
         return next;
       });
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
@@ -198,7 +227,7 @@ export default function ProRequestsPage() {
       }
       setRequests((prev) => {
         const next = prev.filter((item) => item.id !== request.id);
-        writeCache(next);
+        writeCache(next, authUser?.id);
         return next;
       });
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
