@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { useChatStore } from '@/lib/store/chat.store';
+import { getCachedChatRoomsForCurrentUser, useChatStore } from '@/lib/store/chat.store';
 import { chatApi } from '@/lib/api/chat.api';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { getProfileImageUrl } from '@/lib/default-profile';
@@ -76,8 +76,11 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
 function getInitialRoomsForCurrentUser() {
   const auth = useAuthStore.getState();
   const chat = useChatStore.getState();
-  if (!auth.hasHydrated || !auth.user || chat.roomsUserId !== auth.user.id) return [];
-  return chat.rooms.map(mapApiRoomToChatRoom);
+  if (!auth.hasHydrated || !auth.user) return [];
+  if (chat.roomsUserId === auth.user.id && chat.rooms.length > 0) {
+    return chat.rooms.map(mapApiRoomToChatRoom);
+  }
+  return getCachedChatRoomsForCurrentUser().map(mapApiRoomToChatRoom);
 }
 
 export default function ChatListPage() {
@@ -109,9 +112,8 @@ export default function ChatListPage() {
       return;
     }
 
+    connect();
     fetchRooms({ limit: CHAT_LIST_LIMIT }).catch(() => {}).finally(() => setRoomsLoading(false));
-    const connectTimer = window.setTimeout(() => connect(), 80);
-    return () => window.clearTimeout(connectTimer);
   }, [authHydrated, authUser?.id, connect, disconnect, fetchRooms]);
 
   useEffect(() => {
@@ -127,15 +129,17 @@ export default function ChatListPage() {
     };
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') refreshRooms();
-    }, 60000);
+    }, 15000);
     window.addEventListener('focus', refreshRooms);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
+    window.addEventListener('freetiful:chat-socket-connected', refreshRooms as EventListener);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('focus', refreshRooms);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
+      window.removeEventListener('freetiful:chat-socket-connected', refreshRooms as EventListener);
     };
   }, [authHydrated, authUser?.id, fetchRooms]);
 

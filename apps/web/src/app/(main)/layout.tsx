@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -13,25 +13,25 @@ import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 type NavIconProps = { className?: string };
 
 const HomeNavIcon = ({ className }: NavIconProps) => (
-  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+  <svg width="24" height="24" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
     <path d="M13.7124 5.93065C14.4843 5.38575 15.5157 5.38575 16.2876 5.93065L23.4399 10.9795C24.0323 11.3978 24.3851 12.0775 24.3853 12.8027V22.2461C24.385 23.479 23.3848 24.4785 22.1519 24.4785H18.2791C18.0324 24.4785 17.8325 24.2786 17.8325 24.032V19.1897C17.8325 18.9431 17.6326 18.7432 17.386 18.7432H12.6131C12.3664 18.7432 12.1665 18.9431 12.1665 19.1897V24.032C12.1665 24.2786 11.9666 24.4785 11.72 24.4785H7.84717C6.61427 24.4784 5.61497 23.479 5.61475 22.2461V12.8027C5.61487 12.0774 5.96748 11.3978 6.56006 10.9795L13.7124 5.93065Z" fill="currentColor" />
   </svg>
 );
 
 const BizNavIcon = ({ className }: NavIconProps) => (
-  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+  <svg width="24" height="24" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
     <path fillRule="evenodd" clipRule="evenodd" d="M12.3433 4.72301H17.6562C17.9342 4.72299 18.1989 4.72296 18.4219 4.74118C18.665 4.76105 18.9439 4.80739 19.2227 4.94942C19.6136 5.14858 19.9313 5.46636 20.1305 5.85723C20.2725 6.13599 20.3189 6.41491 20.3387 6.65807C20.357 6.88106 20.3569 7.14569 20.3569 7.42374L20.3569 8.54958L21.3796 8.54958C21.9589 8.54956 22.4522 8.54955 22.8571 8.58264C23.2826 8.6174 23.6965 8.69353 24.0922 8.89515C24.6888 9.19912 25.1738 9.68416 25.4778 10.2807C25.6794 10.6764 25.7556 11.0904 25.7903 11.5158C25.8234 11.9208 25.8234 12.4141 25.8234 12.9933V20.8333C25.8234 21.4126 25.8234 21.9059 25.7903 22.3109C25.7556 22.7363 25.6794 23.1502 25.4778 23.5459C25.1738 24.1425 24.6888 24.6276 24.0922 24.9315C23.6965 25.1332 23.2826 25.2093 22.8571 25.2441C22.4522 25.2771 21.9589 25.2771 21.3797 25.2771H8.61989C8.04062 25.2771 7.54729 25.2771 7.14232 25.2441C6.71685 25.2093 6.30293 25.1332 5.90723 24.9315C5.31065 24.6276 4.82562 24.1425 4.52164 23.5459C4.32002 23.1502 4.24389 22.7363 4.20913 22.3109C4.17604 21.9059 4.17606 21.4126 4.17607 20.8334V12.9934C4.17606 12.4141 4.17604 11.9208 4.20913 11.5158C4.24389 11.0904 4.32002 10.6764 4.52164 10.2807C4.82562 9.68416 5.31065 9.19912 5.90723 8.89515C6.30293 8.69353 6.71685 8.6174 7.14232 8.58264C7.54731 8.54955 8.04059 8.54956 8.6199 8.54958L9.64257 8.54958L9.64257 7.42374C9.64255 7.14569 9.64252 6.88106 9.66074 6.65807C9.68061 6.41491 9.72695 6.13599 9.86898 5.85723C10.0681 5.46636 10.3859 5.14858 10.7768 4.94942C11.0556 4.80739 11.3345 4.76105 11.5776 4.74118C11.8006 4.72296 12.0652 4.72299 12.3433 4.72301ZM11.6104 8.54965H18.3888V6.80023C18.3888 6.73985 18.3399 6.6909 18.2795 6.6909H11.7197C11.6593 6.6909 11.6104 6.73985 11.6104 6.80023V8.54965ZM11.7197 13.4695C11.1763 13.4695 10.7358 13.91 10.7358 14.4534C10.7358 14.9969 11.1763 15.4374 11.7197 15.4374H18.2795C18.823 15.4374 19.2635 14.9969 19.2635 14.4534C19.2635 13.91 18.823 13.4695 18.2795 13.4695H11.7197Z" fill="currentColor" />
   </svg>
 );
 
 const ChatNavIcon = ({ className }: NavIconProps) => (
-  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+  <svg width="24" height="24" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
     <path d="M15.0005 5.3501C20.3298 5.35016 24.6497 9.67022 24.6499 14.9995C24.6499 16.5379 24.2898 17.9952 23.6479 19.2876L24.1421 21.1001C24.2539 21.5101 24.3537 21.8758 24.4067 22.1763C24.4605 22.4808 24.4973 22.8668 24.3501 23.2524C24.1572 23.7577 23.7577 24.1572 23.2524 24.3501C22.8669 24.4971 22.4807 24.4605 22.1763 24.4067C21.8758 24.3537 21.5101 24.2539 21.1001 24.1421L19.2876 23.6479C17.9952 24.2897 16.5387 24.6499 15.0005 24.6499C9.67096 24.6499 5.3501 20.3291 5.3501 14.9995C5.35035 9.67018 9.67111 5.3501 15.0005 5.3501ZM10.9429 13.5864C10.1622 13.5864 9.52881 14.2198 9.52881 15.0005C9.52907 15.781 10.1623 16.4136 10.9429 16.4136C11.7234 16.4136 12.3567 15.781 12.3569 15.0005C12.3569 14.2198 11.7236 13.5864 10.9429 13.5864ZM15.0005 13.5864C14.2198 13.5864 13.5874 14.2198 13.5874 15.0005C13.5877 15.781 14.22 16.4136 15.0005 16.4136C15.781 16.4136 16.4143 15.781 16.4146 15.0005C16.4146 14.2198 15.7812 13.5864 15.0005 13.5864ZM19.0581 13.5864C18.2774 13.5864 17.645 14.2198 17.645 15.0005C17.6453 15.781 18.2776 16.4136 19.0581 16.4136C19.8386 16.4136 20.4719 15.781 20.4722 15.0005C20.4722 14.2198 19.8388 13.5864 19.0581 13.5864Z" fill="currentColor" />
   </svg>
 );
 
 const NewRequestNavIcon = ({ className }: NavIconProps) => (
-  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+  <svg width="24" height="24" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
     <path d="M9.3 4.9h11.4c1.6 0 2.9 1.3 2.9 2.9v14.4c0 1.6-1.3 2.9-2.9 2.9H9.3c-1.6 0-2.9-1.3-2.9-2.9V7.8c0-1.6 1.3-2.9 2.9-2.9Z" fill="currentColor" opacity="0.18" />
     <path d="M10.7 9.6h8.6M10.7 14.1h8.6M10.7 18.6h5.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     <path d="M20.8 4.9h-3.1a2.7 2.7 0 0 0-5.4 0H9.2v4.3h11.6V4.9Z" fill="currentColor" />
@@ -39,7 +39,7 @@ const NewRequestNavIcon = ({ className }: NavIconProps) => (
 );
 
 const MyNavIcon = ({ className }: NavIconProps) => (
-  <svg width="20" height="20" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
+  <svg width="24" height="24" viewBox="0 0 30 30" fill="none" className={className} aria-hidden="true">
     <rect x="1.3" y="4.96992" width="27.4" height="20.06" rx="10.03" stroke="currentColor" strokeWidth="1.6" />
     <path d="M7.004 19V10.24H8.624L11.276 13.924L14.036 10.24H15.584V19H13.952V12.856L11.264 16.48L8.636 12.916V19H7.004ZM17.433 22.24L18.909 18.652L16.029 11.98H17.757L19.713 16.708L21.561 11.98H23.265L19.077 22.24H17.433Z" fill="currentColor" />
   </svg>
@@ -134,11 +134,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     document.documentElement.dataset.platform = platform;
   }, []);
 
-  const [isPro, setIsPro] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
   const authHydrated = useAuthStore((s) => s.hasHydrated);
+  const isPro = useMemo(() => authUser?.role === 'pro', [authUser?.role]);
   const [newRequestCount, setNewRequestCount] = useState(0);
 
   // 로그인이 필요한 ��이지 패턴
@@ -176,11 +176,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         });
       }, 3500, 7000);
     }
-    if (isLoggedIn) {
-      setIsPro(authUser?.role === 'pro');
-    } else {
-      setIsPro(false);
-    }
     return cancelProfileSync;
   }, [pathname, needsAuth, authUser, authHydrated]);
 
@@ -203,7 +198,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         });
     };
 
-    const cancelInitialRefresh = queueIdleTask(refresh, pathname.startsWith('/pro-dashboard') ? 3500 : 1200, 6000);
+    const cancelInitialRefresh = queueIdleTask(refresh, pathname.startsWith('/pro-dashboard') ? 0 : 600, 2000);
     const interval = window.setInterval(refresh, 30000);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:match-requests-changed', refresh);
@@ -249,9 +244,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       }
     };
 
-    const cancelChat = onRealtimeRoute
-      ? queueIdleTask(() => { loadChatStore(onChatRoute); }, 0, 1500)
-      : queueIdleTask(() => { loadChatStore(false); }, 2500, 8000);
+    let cancelChat = () => {};
+    if (onRealtimeRoute) {
+      loadChatStore(onChatRoute);
+    } else {
+      cancelChat = queueIdleTask(() => { loadChatStore(false); }, 1800, 5000);
+    }
 
     const cancelNotifications = queueIdleTask(() => {
       import('@/lib/api/notification.api').then(({ notificationApi }) => {
@@ -338,7 +336,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   }`}
                   style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
                 >
-                  <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
+                  <Icon className={`h-5 w-5 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
                   {label}
                   {badge > 0 && (
                     <span className="min-w-[18px] h-[18px] rounded-full bg-[#3180F7] px-1 text-[10px] font-bold leading-[18px] text-white text-center">
@@ -417,7 +415,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       : 'opacity 0.28s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease',
                     ...(navExpanding ? { animation: `platformIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.06}s both` } : {}),
                   };
-                  return isBiz ? (
+                  return (
                     <Link
                       key={href}
                       href={href}
@@ -426,24 +424,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         active ? 'text-gray-900' : 'text-gray-400'
                       }`}
                       style={itemStyle}
-                      onClick={() => {
-                        sessionStorage.setItem('nav-transition', 'from-platform');
-                        setBizCollapsing(false);
-                      }}
-                    >
-                      <Icon className={`h-5 w-5 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
-                      <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
-                    </Link>
-                  ) : (
-                    <Link
-                      key={href}
-                      href={href}
-                      data-nav={label}
-                      className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
-                        active ? 'text-gray-900' : 'text-gray-400'
-                      }`}
-                      style={itemStyle}
-                      onClick={() => {
+                      onClick={(event) => {
+                        if (isBiz) {
+                          event.preventDefault();
+                          sessionStorage.setItem('nav-transition', 'from-platform');
+                          setBizCollapsing(false);
+                          router.push('/biz');
+                          return;
+                        }
                         const navPill = document.querySelector('[data-nav-pill]') as HTMLElement;
                         if (navPill) {
                           navPill.style.animation = 'none';
@@ -452,7 +440,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         }
                       }}
                     >
-                      <Icon className={`h-5 w-5 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
+                      <Icon className={`h-6 w-6 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
                       {badge > 0 && (
                         <span className="absolute right-1 top-0 min-w-[16px] h-[16px] rounded-full bg-[#3180F7] px-1 text-[9px] font-bold leading-[16px] text-white text-center shadow-sm">
                           {badge > 99 ? '99+' : badge}

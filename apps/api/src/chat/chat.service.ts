@@ -75,6 +75,9 @@ export class ChatService implements OnModuleInit {
       this.prisma.$executeRawUnsafe(
         'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_deliveries_matchRequestId_proProfileId_idx" ON "match_deliveries" ("matchRequestId", "proProfileId")',
       ),
+      this.prisma.$executeRawUnsafe(
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "match_deliveries_proProfileId_status_deliveredAt_idx" ON "match_deliveries" ("proProfileId", "status", "deliveredAt" DESC)',
+      ),
     ]);
   }
 
@@ -911,7 +914,14 @@ export class ChatService implements OnModuleInit {
 
     const participantUserIds = await this.getChatParticipantUserIds(userId);
 
-    const where: any = {
+    const memberWhere: any = {
+      AND: [
+        { members: { some: { userId: { in: participantUserIds } } } },
+        this.fastChatRoomVisibleWhere(participantUserIds),
+      ],
+    };
+
+    const legacyWhere: any = {
       AND: [
         { OR: this.fastChatRoomParticipantWhere(participantUserIds) },
         this.fastChatRoomVisibleWhere(participantUserIds),
@@ -919,43 +929,57 @@ export class ChatService implements OnModuleInit {
     };
 
     if (dateFrom || dateTo) {
-      where.lastMessageAt = {};
-      if (dateFrom) where.lastMessageAt.gte = new Date(dateFrom);
-      if (dateTo) where.lastMessageAt.lte = new Date(dateTo);
+      memberWhere.lastMessageAt = {};
+      legacyWhere.lastMessageAt = {};
+      if (dateFrom) {
+        memberWhere.lastMessageAt.gte = new Date(dateFrom);
+        legacyWhere.lastMessageAt.gte = new Date(dateFrom);
+      }
+      if (dateTo) {
+        memberWhere.lastMessageAt.lte = new Date(dateTo);
+        legacyWhere.lastMessageAt.lte = new Date(dateTo);
+      }
     }
 
-    const [rooms, totalCount] = await Promise.all([
+    const roomSelect = {
+      id: true,
+      userId: true,
+      proProfileId: true,
+      matchRequestId: true,
+      lastMessageAt: true,
+      proProfile: {
+        select: {
+          userId: true,
+          user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+          images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
+          categories: { take: 1, select: { category: { select: { name: true } } } },
+        },
+      },
+      user: { select: { id: true, name: true, profileImageUrl: true } },
+      members: { where: { userId: { in: participantUserIds } }, select: { userId: true, unreadCount: true } },
+      messages: {
+        where: { isDeleted: false },
+        orderBy: { createdAt: 'desc' as const },
+        take: 1,
+        select: { id: true, senderId: true, type: true, content: true, createdAt: true },
+      },
+    };
+
+    const loadRooms = (where: any) => Promise.all([
       this.prisma.chatRoom.findMany({
         where,
-        select: {
-          id: true,
-          userId: true,
-          proProfileId: true,
-          matchRequestId: true,
-          lastMessageAt: true,
-          proProfile: {
-            select: {
-              userId: true,
-              user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
-              images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
-              categories: { take: 1, select: { category: { select: { name: true } } } },
-            },
-          },
-          user: { select: { id: true, name: true, profileImageUrl: true } },
-          members: { where: { userId: { in: participantUserIds } }, select: { userId: true, unreadCount: true } },
-          messages: {
-            where: { isDeleted: false },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: { id: true, senderId: true, type: true, content: true, createdAt: true },
-          },
-        },
+        select: roomSelect,
         orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
         skip: (page - 1) * take,
         take,
       }),
       withTotal ? this.prisma.chatRoom.count({ where }) : Promise.resolve(0),
     ]);
+
+    let [rooms, totalCount] = await loadRooms(memberWhere);
+    if (rooms.length === 0 && !dateFrom && !dateTo) {
+      [rooms, totalCount] = await loadRooms(legacyWhere);
+    }
 
     const data = rooms.map((room) => {
       const member = room.members.find((m) => m.userId === userId) ?? room.members[0];

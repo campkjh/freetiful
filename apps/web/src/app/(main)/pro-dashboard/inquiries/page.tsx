@@ -56,6 +56,31 @@ function readCache(userId?: string | null): MatchDeliveryView[] | null {
   }
 }
 
+function readLatestCache(): MatchDeliveryView[] | null {
+  if (typeof window === 'undefined') return null;
+  const currentUserId = useAuthStore.getState().user?.id;
+  const direct = readCache(currentUserId) || readCache(null);
+  if (direct) return direct;
+  try {
+    let latest: { data: MatchDeliveryView[]; ts: number } | null = null;
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(`${MATCH_DELIVERIES_CACHE_KEY}:`)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed?.data) || !parsed.ts) continue;
+      if (Date.now() - parsed.ts > MATCH_DELIVERIES_CACHE_TTL) continue;
+      if (!latest || parsed.ts > latest.ts) {
+        latest = { data: parsed.data, ts: parsed.ts };
+      }
+    }
+    return latest?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function writeCache(data: MatchDeliveryView[], userId?: string | null) {
   if (typeof window === 'undefined') return;
   try {
@@ -132,7 +157,7 @@ const TABS: { key: Filter; label: string }[] = [
 export default function ProRequestsPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const cached = useMemo(() => readCache(useAuthStore.getState().user?.id), []);
+  const cached = useMemo(() => readLatestCache(), []);
   const [filter, setFilter] = useState<Filter>('all');
   const [requests, setRequests] = useState<MatchDeliveryView[]>(cached ?? []);
   const [loading, setLoading] = useState(cached === null);
@@ -180,15 +205,17 @@ export default function ProRequestsPage() {
     const refresh = () => refreshRequests(false);
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') refresh();
-    }, 10000);
+    }, 3500);
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:match-requests-changed', refresh as EventListener);
     window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    window.addEventListener('freetiful:chat-socket-connected', refresh as EventListener);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('freetiful:match-requests-changed', refresh as EventListener);
       window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
+      window.removeEventListener('freetiful:chat-socket-connected', refresh as EventListener);
     };
   }, [refreshRequests]);
 

@@ -293,15 +293,12 @@ export default function ChatRoomPage() {
           if (typeof storeRoom.iAmPro === 'boolean') {
             setIAmProInRoom(storeRoom.iAmPro);
           }
+          setHasAttemptedInitialLoad(true);
         }
       } else {
         setHasAttemptedInitialLoad(true);
       }
 
-      if (initialPartner || initialRoomMeta) {
-        await new Promise((resolve) => window.setTimeout(resolve, 80));
-        if (cancelled) return;
-      }
       try {
         const res = await chatApi.getRoom(roomId);
         if (cancelled) return;

@@ -68,8 +68,13 @@ function writeRoomsCache(rooms: ChatRoomItem[], userId = currentUserId()) {
   } catch {}
 }
 
+export function getCachedChatRoomsForCurrentUser(): ChatRoomItem[] {
+  return readRoomsCache()?.rooms || [];
+}
+
 let roomsCacheWriteTimer: number | null = null;
 let roomsCacheWritePayload: { rooms: ChatRoomItem[]; userId: string } | null = null;
+let roomsFetchPromise: Promise<void> | null = null;
 
 function scheduleRoomsCacheWrite(rooms: ChatRoomItem[], userId = currentUserId()) {
   if (typeof window === 'undefined') return;
@@ -236,7 +241,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   connect: () => {
     const token = useAuthStore.getState().accessToken;
-    if (!token || get().socket) return;
+    if (!token) return;
+    const existingSocket = get().socket;
+    if (existingSocket) {
+      if (!existingSocket.connected) existingSocket.connect();
+      return;
+    }
 
     // Vercel 의 NEXT_PUBLIC_API_URL/SOCKET_URL 미설정 시 그대로 freetiful.com 으로 붙으면
     // Vercel rewrites 가 socket.io 를 프록시 안 해서 연결 자체가 실패함.
@@ -264,7 +274,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       reconnection: true,
       reconnectionDelay: 300,
       reconnectionDelayMax: 2000,
-      timeout: 2500,
+      timeout: 1200,
       rememberUpgrade: true,
     });
 
@@ -376,7 +386,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         get().fetchRooms({ limit: ROOM_LIST_LIMIT, force: true }).catch(() => {});
         dispatchChatEvent('freetiful:chat-rooms-changed');
         refreshTimer = null;
-      }, 120);
+      }, 20);
     };
     socket.on('roomUpdated', refreshRoomIfMissing);
     socket.on('unreadUpdate', refreshRoomIfMissing);
@@ -510,12 +520,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
     set({ roomsLoading: true });
-    try {
-      const res = await chatApi.getRooms(requestParams);
-      applyServerRooms(res.data.data);
-    } finally {
-      set({ roomsLoading: false });
+    if (!force && !hasFilters && roomsFetchPromise) {
+      await roomsFetchPromise.finally(() => set({ roomsLoading: false }));
+      return;
     }
+    roomsFetchPromise = chatApi.getRooms(requestParams)
+      .then((res) => applyServerRooms(res.data.data))
+      .finally(() => {
+        roomsFetchPromise = null;
+        set({ roomsLoading: false });
+      });
+    await roomsFetchPromise;
   },
 
   joinRoom: (roomId) => {
@@ -544,7 +559,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   fetchMessages: async (roomId, loadMore = false) => {
-    set({ messagesLoading: true });
+    const cached = !loadMore ? get().messageCache.get(roomId) || [] : [];
+    if (!loadMore && cached.length > 0) {
+      set({ messages: cached, messagesLoading: false });
+    } else {
+      set({ messagesLoading: true });
+    }
     try {
       const cursor = loadMore ? get().messageCursor : undefined;
       const requestedAt = Date.now();
@@ -719,10 +739,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (ackMessage) {
       applyPersistedMessage(ackMessage);
       return ackMessage;
-    }
-
-    if (socket.connected) {
-      return optimisticMessage;
     }
 
     const myId = currentUserId();
