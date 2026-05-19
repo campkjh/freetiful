@@ -474,6 +474,7 @@ export default function MyPage() {
             }
 
             const displayBadge = badge;
+            const resolvedHref = label === '프로필 설정' && authUser?.role === 'pro' ? '/my/pro-edit' : href;
             const inner = (
               <>
                 <Icon />
@@ -499,7 +500,7 @@ export default function MyPage() {
               );
             }
             return (
-              <Link key={label} href={href} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition-colors">
+              <Link key={label} href={resolvedHref} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition-colors">
                 {inner}
               </Link>
             );

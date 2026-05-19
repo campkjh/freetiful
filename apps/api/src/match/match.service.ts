@@ -416,6 +416,24 @@ export class MatchService {
             },
           },
         },
+        chatRooms: {
+          include: {
+            proProfile: {
+              include: {
+                user: {
+                  select: { id: true, name: true, profileImageUrl: true },
+                },
+                images: { where: { isPrimary: true }, take: 1 },
+              },
+            },
+            quotations: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              include: { payment: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

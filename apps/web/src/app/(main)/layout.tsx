@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -48,6 +48,7 @@ const MyNavIcon = ({ className }: NavIconProps) => (
 const USER_NAV_ITEMS = [
   { href: '/main',      icon: HomeNavIcon,      label: '홈' },
   { href: '/biz',       icon: BizNavIcon,       label: 'Biz' },
+  { href: '/inquiries', icon: NewRequestNavIcon, label: '문의목록' },
   { href: '/chat',      icon: ChatNavIcon,      label: '채팅' },
   { href: '/my',        icon: MyNavIcon,        label: '마이' },
 ];
@@ -108,7 +109,7 @@ function queueIdleTask(callback: () => void, delay = 0, timeout = 3000) {
   };
 }
 
-export default function MainLayout({ children }: { children: React.ReactNode }) {
+export default function MainLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
@@ -142,7 +143,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [newRequestCount, setNewRequestCount] = useState(0);
 
   // 로그인이 필요한 ��이지 패턴
-  const AUTH_REQUIRED = [/^\/chat/, /^\/my/, /^\/pro-/];
+  const AUTH_REQUIRED = [/^\/chat/, /^\/my/, /^\/pro-/, /^\/inquiries/];
   const needsAuth = AUTH_REQUIRED.some(p => p.test(pathname));
 
   useEffect(() => {
@@ -266,6 +267,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = '/main';
+  const activeNavIndex = Math.max(
+    0,
+    NAV_ITEMS.findIndex(({ href }) => pathname === href || (href !== homeHref && pathname.startsWith(href))),
+  );
 
   // pathname 변경 시 collapsing 리셋
   useEffect(() => {
@@ -401,13 +406,22 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
               }}
             >
-              <div className="flex items-center h-full overflow-hidden p-[3px]">
+              <div className="relative flex items-center h-full overflow-hidden p-[3px]">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-[6px] bottom-[6px] rounded-full bg-white/85 shadow-[0_8px_22px_rgba(15,23,42,0.08)]"
+                  style={{
+                    left: `calc(3px + ${activeNavIndex} * ((100% - 6px) / ${NAV_ITEMS.length}))`,
+                    width: `calc((100% - 6px) / ${NAV_ITEMS.length})`,
+                    transition: 'left 0.34s cubic-bezier(0.16, 1, 0.3, 1), width 0.34s cubic-bezier(0.16, 1, 0.3, 1)',
+                  }}
+                />
                 <div className="flex-1 flex items-center justify-around">
                 {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
                   const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
                   const isBiz = href === '/biz';
                   const badge = label === '새요청' ? newRequestCount : 0;
-                  const itemStyle: React.CSSProperties = {
+                  const itemStyle: CSSProperties = {
                     opacity: bizCollapsing ? 0 : 1,
                     transform: bizCollapsing ? 'scale(0.5)' : 'scale(1)',
                     transition: bizCollapsing
@@ -420,7 +434,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       key={href}
                       href={href}
                       data-nav={label}
-                      className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
+                      className={`relative z-10 flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
                         active ? 'text-gray-900' : 'text-gray-400'
                       }`}
                       style={itemStyle}

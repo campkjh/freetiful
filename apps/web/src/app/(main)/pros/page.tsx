@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -9,14 +9,12 @@ import {
   Star,
   ChevronDown,
   Search,
-  SlidersHorizontal,
   X,
   ChevronUp,
   Grid2X2,
-  Zap,
 } from 'lucide-react';
 import { Suspense } from 'react';
-import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
+import { LayoutGroup, motion } from 'framer-motion';
 import { discoveryApi, getCachedProList, type ProListItem } from '@/lib/api/discovery.api';
 
 interface ProItem {
@@ -35,37 +33,18 @@ interface ProItem {
   experience: number;
 }
 
-const REGIONS = ['전체', '서울/경기', '강원', '충청', '전라', '경상', '제주'];
 const SORT_OPTIONS = [
-  { value: 'popular', label: '인기순' },
+  { value: 'popular', label: '추천순' },
   { value: 'avg_rating', label: '평점순' },
   { value: 'review_count', label: '리뷰순' },
-  { value: 'price_low', label: '가격 낮은순' },
-  { value: 'price_high', label: '가격 높은순' },
   { value: 'experience', label: '경력순' },
 ];
 
-const PRICE_RANGES = [
-  { label: '전체', min: 0, max: Infinity },
-  { label: '30만원 이하', min: 0, max: 300000 },
-  { label: '30~50만원', min: 300000, max: 500000 },
-  { label: '50만원 이상', min: 500000, max: Infinity },
-];
-
-const LANGUAGES = ['전체', '영어', '일본어', '중국어'];
-const MC_TYPES = ['전체', '사회자', '쇼호스트', '축가/연주', '외국어사회자'];
 const PC_NAV_ITEMS = ['결혼식 사회자', '행사 사회자', '외국어 사회자', '쇼호스트'];
-const PC_SIDEBAR_GROUPS = [
-  { title: '사회자', items: ['전체', '사회자', '외국어사회자'] },
-  { title: '행사 진행', items: ['쇼호스트', '축가/연주'] },
-  { title: '지역', items: REGIONS },
-  { title: '외국어', items: LANGUAGES },
-];
 
 const PAGE_SIZE = 10;
 const INITIAL_PRO_LIST_PARAMS = { limit: 80, sort: 'reviews' as const, withTotal: true };
 const FULL_PRO_LIST_PARAMS = { limit: 500, sort: 'reviews' as const, withTotal: true };
-const TAB_SPRING = { type: 'spring' as const, stiffness: 520, damping: 36, mass: 0.75 };
 const PANEL_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 function runListIdle(cb: () => void, timeout = 900) {
@@ -98,40 +77,6 @@ function matchesRegion(pro: ProItem, region: string) {
   if (pro.isNationwide) return true;
   const aliases = getRegionAliases(region);
   return (pro.regions || []).some((r) => aliases.includes(r));
-}
-
-function FilterPill({
-  active,
-  children,
-  onClick,
-  layoutId,
-  className = '',
-}: {
-  active: boolean;
-  children: ReactNode;
-  onClick: () => void;
-  layoutId: string;
-  className?: string;
-}) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={{ scale: 0.95 }}
-      className={`relative isolate shrink-0 overflow-hidden rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
-        active ? 'border-transparent text-white' : 'border-gray-200 bg-white text-gray-600'
-      } ${className}`}
-    >
-      {active && (
-        <motion.span
-          layoutId={layoutId}
-          className="absolute inset-0 rounded-full bg-[#2B313D]"
-          transition={TAB_SPRING}
-        />
-      )}
-      <span className="relative">{children}</span>
-    </motion.button>
-  );
 }
 
 function ProListCard({
@@ -213,9 +158,6 @@ function ProListCard({
               <span className="text-[13px] text-gray-400">({pro.reviews})</span>
             </div>
           </div>
-          <p className="text-[15px] font-bold text-gray-900 mt-1">
-            {pro.price > 0 ? `${pro.price.toLocaleString()}원~` : '문의시 제공'}
-          </p>
           <p className="text-[13px] text-gray-500 mt-2 line-clamp-2 leading-snug">
             &ldquo;{pro.intro || '프리티풀 인증 사회자입니다'}&rdquo;
           </p>
@@ -316,59 +258,6 @@ function DesktopProsHeader({
   );
 }
 
-function DesktopProsSidebar({
-  selectedRegion,
-  selectedLang,
-  selectedType,
-  setSelectedRegion,
-  setSelectedLang,
-  setSelectedType,
-}: {
-  selectedRegion: string;
-  selectedLang: string;
-  selectedType: string;
-  setSelectedRegion: (value: string) => void;
-  setSelectedLang: (value: string) => void;
-  setSelectedType: (value: string) => void;
-}) {
-  const handleClick = (groupTitle: string, item: string) => {
-    if (groupTitle === '지역') setSelectedRegion(item);
-    else if (groupTitle === '외국어') setSelectedLang(item);
-    else setSelectedType(item);
-  };
-  const isActive = (groupTitle: string, item: string) => {
-    if (groupTitle === '지역') return selectedRegion === item;
-    if (groupTitle === '외국어') return selectedLang === item;
-    return selectedType === item;
-  };
-
-  return (
-    <aside className="sticky top-8 self-start">
-      <div className="space-y-9">
-        {PC_SIDEBAR_GROUPS.map((group) => (
-          <div key={group.title}>
-            <p className="mb-4 text-[17px] font-extrabold text-gray-950">{group.title}</p>
-            <div className="space-y-3">
-              {group.items.map((item) => (
-                <button
-                  key={`${group.title}-${item}`}
-                  type="button"
-                  onClick={() => handleClick(group.title, item)}
-                  className={`block text-left text-[16px] font-semibold leading-6 transition ${
-                    isActive(group.title, item) ? 'text-[#3180F7]' : 'text-[#5B6270] hover:text-[#3180F7]'
-                  }`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </aside>
-  );
-}
-
 function DesktopProMarketCard({
   pro,
   index,
@@ -409,9 +298,6 @@ function DesktopProMarketCard({
           <span className="font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
           <span className="font-medium text-gray-400">({pro.reviews.toLocaleString()})</span>
         </div>
-        <p className="mt-2 text-[20px] font-extrabold tracking-[-0.03em] text-gray-950">
-          {pro.price > 0 ? `${pro.price.toLocaleString()}원~` : '문의시 제공'}
-        </p>
         <p className="mt-3 text-[15px] font-semibold text-[#6B7280]">{displayCategory} {pro.name}</p>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {tagItems.slice(0, 3).map((tag) => (
@@ -512,8 +398,6 @@ function ProsListContent() {
 
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('popular');
-  const [showFilter, setShowFilter] = useState(false);
-  const [selectedPrice, setSelectedPrice] = useState(0);
   const [selectedLang, setSelectedLang] = useState(isForeignFilter ? '영어' : '전체');
   const [selectedType, setSelectedType] = useState(initialType);
   const [page, setPage] = useState(1);
@@ -521,14 +405,14 @@ function ProsListContent() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [listSettled, setListSettled] = useState(true);
-  const tabSignature = `${selectedRegion}|${sortBy}|${selectedPrice}|${selectedLang}|${selectedType}`;
+  const tabSignature = `${selectedRegion}|${sortBy}|${selectedLang}|${selectedType}`;
   const didMountTabMotion = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const desktopLoadMoreRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setPage(1); }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType]);
+  useEffect(() => { setPage(1); }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType]);
 
   useLayoutEffect(() => {
     if (!didMountTabMotion.current) {
@@ -562,7 +446,6 @@ function ProsListContent() {
   }, []);
 
   const filtered = useMemo(() => {
-    const priceRange = PRICE_RANGES[selectedPrice];
     const q = searchQuery.trim().toLowerCase();
     let results = ALL_PROS.filter((p) => {
       if (selectedLang !== '전체' && !(p.languages || []).includes(selectedLang)) return false;
@@ -570,7 +453,6 @@ function ProsListContent() {
       if (selectedType !== '전체' && selectedType !== '외국어사회자' && !(p.categories || []).includes(selectedType)) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !(p.categories || []).some((c) => c.toLowerCase().includes(q))) return false;
       if (!matchesRegion(p, selectedRegion)) return false;
-      if (p.price < priceRange.min || p.price > priceRange.max) return false;
       return true;
     });
 
@@ -581,12 +463,6 @@ function ProsListContent() {
       case 'review_count':
         results = [...results].sort((a, b) => b.reviews - a.reviews);
         break;
-      case 'price_low':
-        results = [...results].sort((a, b) => a.price - b.price);
-        break;
-      case 'price_high':
-        results = [...results].sort((a, b) => b.price - a.price);
-        break;
       case 'experience':
         results = [...results].sort((a, b) => b.experience - a.experience);
         break;
@@ -596,13 +472,11 @@ function ProsListContent() {
     }
 
     return results;
-  }, [selectedRegion, sortBy, selectedPrice, searchQuery, selectedLang, selectedType, ALL_PROS]);
+  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType, ALL_PROS]);
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;
   const maxPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const hasActiveFilters = selectedRegion !== '전체' || selectedPrice !== 0 || selectedLang !== '전체' || selectedType !== '전체';
-  const activeFilterCount = (selectedRegion !== '전체' ? 1 : 0) + (selectedPrice !== 0 ? 1 : 0) + (selectedLang !== '전체' ? 1 : 0) + (selectedType !== '전체' ? 1 : 0);
   useEffect(() => {
     if (!hasMore) return;
     const el = loadMoreRef.current;
@@ -666,7 +540,7 @@ function ProsListContent() {
   return (
     <LayoutGroup id="pros-list-tabs">
     <>
-    <div className="relative left-1/2 hidden min-h-screen w-screen -translate-x-1/2 bg-white lg:block" style={{ letterSpacing: '-0.02em' }}>
+      <div className="relative left-1/2 hidden min-h-screen w-screen -translate-x-1/2 bg-white lg:block" style={{ letterSpacing: '-0.02em' }}>
       <DesktopProsHeader
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -674,51 +548,10 @@ function ProsListContent() {
         setSelectedType={setSelectedType}
       />
 
-      <div className="mx-auto grid max-w-[1540px] grid-cols-[230px_minmax(0,1fr)] gap-16 px-8 py-14">
-        <DesktopProsSidebar
-          selectedRegion={selectedRegion}
-          selectedLang={selectedLang}
-          selectedType={selectedType}
-          setSelectedRegion={setSelectedRegion}
-          setSelectedLang={setSelectedLang}
-          setSelectedType={setSelectedType}
-        />
-
+      <div className="mx-auto max-w-[1540px] px-8 py-14">
         <section className="min-w-0">
           <div className="mb-10 flex flex-wrap items-center justify-between gap-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                value={selectedType}
-                onChange={(event) => setSelectedType(event.target.value)}
-                className="h-[46px] rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 outline-none transition focus:border-[#3180F7]"
-              >
-                {MC_TYPES.map((type) => (
-                  <option key={type} value={type}>{type === '전체' ? '카테고리 선택' : type}</option>
-                ))}
-              </select>
-              <select
-                value={selectedPrice}
-                onChange={(event) => setSelectedPrice(Number(event.target.value))}
-                className="h-[46px] rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 outline-none transition focus:border-[#3180F7]"
-              >
-                {PRICE_RANGES.map((range, index) => (
-                  <option key={range.label} value={index}>{range.label === '전체' ? '예산' : range.label}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="inline-flex h-[46px] items-center gap-2 rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-extrabold italic text-[#6B7280] transition hover:border-[#3180F7] hover:text-[#3180F7]"
-              >
-                verified
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-[46px] items-center gap-2 rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 transition hover:border-[#3180F7] hover:text-[#3180F7]"
-              >
-                <Zap className="h-4 w-4 fill-[#3180F7] text-[#3180F7]" />
-                빠른 응답
-              </button>
-            </div>
+            <div />
 
             <div className="flex items-center gap-5">
               <p className="text-[16px] font-semibold text-[#4B5563]">
@@ -765,7 +598,7 @@ function ProsListContent() {
                 <Search size={38} className="text-gray-300" />
                 <p className="mt-5 text-[18px] font-bold text-gray-500">해당 조건의 사회자가 없습니다</p>
                 <button
-                  onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
+                  onClick={() => { setSelectedRegion('전체'); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
                   className="mt-5 rounded-full bg-[#3180F7] px-5 py-3 text-[15px] font-bold text-white"
                 >
                   필터 초기화
@@ -823,154 +656,6 @@ function ProsListContent() {
           )}
         </div>
 
-        {/* Region filter chips + Filter button */}
-        <div className="border-b border-gray-100">
-          <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide items-center">
-            {/* Filter toggle */}
-            <motion.button
-              type="button"
-              onClick={() => setShowFilter(!showFilter)}
-              whileTap={{ scale: 0.95 }}
-              className={`shrink-0 flex items-center gap-1 px-3 py-1.5 text-[13px] font-medium rounded-full border transition-all active:scale-95 ${
-                hasActiveFilters
-                  ? 'bg-[#2B313D] text-white border-[#2B313D]'
-                  : 'bg-white text-gray-600 border-gray-200'
-              }`}
-            >
-              <SlidersHorizontal size={13} />
-              필터
-              {activeFilterCount > 0 && (
-                <span className="ml-0.5 w-4 h-4 rounded-full bg-white/20 text-[10px] font-bold flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-              <span
-                className={`transition-transform duration-300 ${showFilter ? 'rotate-180' : ''}`}
-              >
-                <ChevronDown size={12} />
-              </span>
-            </motion.button>
-
-            <div className="w-px h-5 bg-gray-200 shrink-0" />
-
-            {/* Region chips with animation */}
-            {REGIONS.map((region) => (
-              <FilterPill
-                key={region}
-                active={selectedRegion === region}
-                onClick={() => setSelectedRegion(region)}
-                layoutId="pros-region-active-pill"
-              >
-                {region}
-              </FilterPill>
-            ))}
-          </div>
-
-          {/* Expandable filter panel */}
-          <AnimatePresence initial={false}>
-            {showFilter && (
-              <motion.div
-                key="pros-filter-panel"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.24, ease: PANEL_EASE }}
-                className="overflow-hidden"
-              >
-                <motion.div
-                  initial={{ y: -6 }}
-                  animate={{ y: 0 }}
-                  exit={{ y: -4 }}
-                  transition={{ duration: 0.2, ease: PANEL_EASE }}
-                  className="px-4 pt-2 pb-4 space-y-4 bg-gray-50/50"
-                >
-                  {/* Price range */}
-                  <div>
-                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">가격대</p>
-                    <div className="flex flex-wrap gap-2">
-                      {PRICE_RANGES.map((range, i) => (
-                        <FilterPill
-                          key={range.label}
-                          active={selectedPrice === i}
-                          onClick={() => setSelectedPrice(i)}
-                          layoutId="pros-price-active-pill"
-                          className="text-[12px]"
-                        >
-                          {range.label}
-                        </FilterPill>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Sort */}
-                  <div>
-                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">정렬</p>
-                    <div className="flex flex-wrap gap-2">
-                      {SORT_OPTIONS.map(opt => (
-                        <FilterPill
-                          key={opt.value}
-                          active={sortBy === opt.value}
-                          onClick={() => setSortBy(opt.value)}
-                          layoutId="pros-sort-active-pill"
-                          className="text-[12px]"
-                        >
-                          {opt.label}
-                        </FilterPill>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* MC Type */}
-                  <div>
-                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">사회자 유형</p>
-                    <div className="flex flex-wrap gap-2">
-                      {MC_TYPES.map(t => (
-                        <FilterPill
-                          key={t}
-                          active={selectedType === t}
-                          onClick={() => setSelectedType(t)}
-                          layoutId="pros-type-active-pill"
-                          className="text-[12px]"
-                        >
-                          {t}
-                        </FilterPill>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Language */}
-                  <div>
-                    <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">외국어</p>
-                    <div className="flex flex-wrap gap-2">
-                      {LANGUAGES.map(lang => (
-                        <FilterPill
-                          key={lang}
-                          active={selectedLang === lang}
-                          onClick={() => setSelectedLang(lang)}
-                          layoutId="pros-lang-active-pill"
-                          className="text-[12px]"
-                        >
-                          {lang}
-                        </FilterPill>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Reset + Apply */}
-                  {hasActiveFilters && (
-                    <button
-                      onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
-                      className="text-[12px] text-red-500 font-medium flex items-center gap-1"
-                    >
-                      <X size={12} />
-                      필터 초기화
-                    </button>
-                  )}
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div>
 
       {/* Result count + sort dropdown */}
@@ -1045,7 +730,7 @@ function ProsListContent() {
             </div>
             <p className="text-gray-400 text-[14px] mb-1">해당 조건의 사회자가 없습니다</p>
             <button
-              onClick={() => { setSelectedRegion('전체'); setSelectedPrice(0); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
+              onClick={() => { setSelectedRegion('전체'); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
               className="text-primary-500 text-[13px] font-semibold mt-2"
             >
               필터 초기화

@@ -408,6 +408,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     ...(Array.isArray(p.regions) ? p.regions : []),
   ].filter(Boolean);
   const previewTags = (previewApiTags.length > 0 ? previewApiTags : previewFallbackTags).slice(0, 5);
+  const previewYoutubeId = extractYoutubeId(p.youtubeUrl);
   const plans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
     id: t.planKey,
     label: t.label,
@@ -431,8 +432,8 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     tags: previewTags,
     career: p.mainExperience || '',
     isPrime: p.isFeatured || false,
-    youtubeId: extractYoutubeId(p.youtubeUrl),
-    youtubeVideos: [],
+    youtubeId: previewYoutubeId,
+    youtubeVideos: previewYoutubeId ? [{ id: previewYoutubeId, title: `${p.name} ${proCategory} 진행 영상` }] : [],
     faqs: [],
     rating: p.avgRating || 0,
     reviewCount: p.reviewCount || 0,
@@ -1522,6 +1523,44 @@ export default function ProDetailPage() {
                       </div>
                     </div>
                   </div>
+
+                  {pro.youtubeVideos.length > 0 && (
+                    <div className="mt-5 rounded-lg border border-gray-200 p-5">
+                      <h3 className="mb-4 text-[17px] font-bold text-gray-950">영상 리스트</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {pro.youtubeVideos.map((video) => (
+                          <div key={`info-${video.id}`}>
+                            <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+                              {playingVideos.has(video.id) ? (
+                                <iframe
+                                  className="h-full w-full"
+                                  src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&modestbranding=1&rel=0&playsinline=1`}
+                                  title={video.title}
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
+                                  className="relative block h-full w-full"
+                                  aria-label={`${video.title} 재생`}
+                                >
+                                  <img src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                                  <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
+                                      <Play size={19} className="ml-0.5 fill-gray-950 text-gray-950" />
+                                    </span>
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+                            <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-gray-700">{video.title}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </section>
 
                 <section className="mb-9 rounded-lg border border-gray-200 p-6">
@@ -2040,6 +2079,44 @@ export default function ProDetailPage() {
             <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
           </div>
         </div>
+
+        {pro.youtubeVideos.length > 0 && (
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 text-[15px] font-bold text-gray-900">영상 리스트</h3>
+            <div className="space-y-3">
+              {pro.youtubeVideos.map((video) => (
+                <div key={`mobile-info-${video.id}`}>
+                  <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
+                    {playingVideos.has(video.id) ? (
+                      <iframe
+                        className="h-full w-full"
+                        src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&modestbranding=1&rel=0&playsinline=1`}
+                        title={video.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
+                        className="relative block h-full w-full"
+                        aria-label={`${video.title} 재생`}
+                      >
+                        <img src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
+                            <Play size={17} className="ml-0.5 fill-gray-950 text-gray-950" />
+                          </span>
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-2 line-clamp-1 text-[12px] font-semibold text-gray-700">{video.title}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
 

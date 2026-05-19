@@ -46,6 +46,11 @@ export default function SettingsPage() {
   const setUser = useAuthStore((s) => s.setUser);
   const fileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    if (authUser?.role === 'pro') {
+      router.replace('/my/pro-edit');
+    }
+  }, [authUser?.role, router]);
 
   const [name, setName] = useState(() => authUser?.name || '');
   const [phone, setPhone] = useState(() => authUser?.phone || '');
