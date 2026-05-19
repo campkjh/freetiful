@@ -143,25 +143,6 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
   );
 }
 
-// ─── CountUp ────────────────────────────────────────────────
-function CountUp({ value, suffix = '' }: { value: number; suffix?: string }) {
-  const { ref, visible } = useReveal(0.3);
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    if (!visible) return;
-    const dur = 1200;
-    const start = Date.now();
-    const tick = () => {
-      const p = Math.min(1, (Date.now() - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setN(Math.round(value * eased));
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    tick();
-  }, [visible, value]);
-  return <span ref={ref}>{n.toLocaleString()}{suffix}</span>;
-}
-
 // ─── Helper: extract YouTube ID from URL ────────────────────
 function extractYoutubeId(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
@@ -387,16 +368,6 @@ function buildAiReviewSummary(pro: ProDetailData, reviews: ProDetailData['review
   };
 }
 
-function sanitizePlanDisplayText(value: string) {
-  return value
-    .replace(/1\s*\+\s*2부\s*예식/g, '맞춤 예식')
-    .replace(/1부\s*예식/g, '맞춤 예식')
-    .replace(/본식\s*1부\s*\+\s*2부\s*진행/g, '맞춤 예식 진행')
-    .replace(/본식\s*1부\s*진행/g, '맞춤 예식 진행')
-    .replace(/본식\s*1부\s*사회/g, '맞춤 예식 사회')
-    .replace(/2부\s*피로연\s*진행/g, '피로연 진행');
-}
-
 function mapRecommendedPros(items: any[] = [], currentId: string) {
   return items
     .filter((p: any) => p.id !== currentId)
@@ -412,6 +383,19 @@ function mapRecommendedPros(items: any[] = [], currentId: string) {
       tags: p.shortIntro ? p.shortIntro.split(' ').slice(0, 3) : [],
       isPartner: p.isFeatured,
     }));
+}
+
+function mapRecommendedProsToAlsoViewed(items: ProDetailData['recommendedPros']): ProDetailData['alsoViewed'] {
+  return items.map((item) => ({
+    id: item.id,
+    title: `${item.role} ${item.name}`,
+    price: 0,
+    rating: item.rating,
+    reviewCount: item.reviews,
+    author: item.name,
+    image: item.image || '/images/default-profile.png',
+    category: item.role,
+  }));
 }
 
 function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDetailData {
@@ -736,131 +720,6 @@ function ScoreBars({ items }: { items: { label: string; value: number }[] }) {
   );
 }
 
-function DesktopMetricCard({
-  label,
-  value,
-  caption,
-  kind,
-  percent = 100,
-}: {
-  label: string;
-  value: React.ReactNode;
-  caption: string;
-  kind: 'bars' | 'gauge' | 'badge' | 'check' | 'score';
-  percent?: number;
-}) {
-  const { ref, visible } = useReveal(0.25);
-  const safePercent = Math.max(0, Math.min(100, percent));
-  const bars = [34, 48, 62, 74, 86, safePercent || 58];
-  const dash = 2 * Math.PI * 17;
-
-  return (
-    <div ref={ref} className="min-h-[150px] rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[12px] font-semibold text-gray-500">{label}</p>
-          <p className="mt-1 text-[20px] font-bold leading-tight text-gray-950">{value}</p>
-        </div>
-        <span className="rounded-full bg-[#EAF3FF] px-2.5 py-1 text-[11px] font-bold text-[#3180F7]">{caption}</span>
-      </div>
-
-      {kind === 'bars' && (
-        <div className="flex h-12 items-end gap-1.5">
-          {bars.map((height, index) => (
-            <span
-              key={index}
-              className="flex-1 rounded-sm"
-              style={{
-                height: visible ? `${height}%` : '14%',
-                background: index === bars.length - 1 ? '#3180F7' : '#E5E7EB',
-                transition: `height 700ms cubic-bezier(0.22, 1, 0.36, 1) ${index * 70}ms`,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {kind === 'gauge' && (
-        <div className="flex items-center gap-3">
-          <svg width="54" height="54" viewBox="0 0 44 44">
-            <circle cx="22" cy="22" r="17" fill="none" stroke="#E5E7EB" strokeWidth="5" />
-            <circle
-              cx="22"
-              cy="22"
-              r="17"
-              fill="none"
-              stroke="#3180F7"
-              strokeWidth="5"
-              strokeLinecap="round"
-              strokeDasharray={dash}
-              strokeDashoffset={visible ? dash * (1 - safePercent / 100) : dash}
-              transform="rotate(-90 22 22)"
-              style={{ transition: 'stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1)' }}
-            />
-          </svg>
-          <div className="flex-1">
-            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-[#3180F7]"
-                style={{
-                  width: visible ? `${safePercent}%` : '0%',
-                  transition: 'width 900ms cubic-bezier(0.22, 1, 0.36, 1)',
-                }}
-              />
-            </div>
-            <p className="mt-2 text-[12px] text-gray-500">최근 리뷰 기준 만족 지표</p>
-          </div>
-        </div>
-      )}
-
-      {kind === 'badge' && (
-        <div className="grid grid-cols-3 gap-1.5">
-          {['기본', '인증', '기업'].map((item) => {
-            const active = String(value).includes(item);
-            return (
-              <span key={item} className={`flex h-9 items-center justify-center rounded-md text-[12px] font-bold ${active ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-400'}`}>
-                {item}
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      {kind === 'check' && (
-        <div className="space-y-2">
-          {['거래 증빙', '기업 행사', '정산 가능'].map((item) => (
-            <div key={item} className="flex items-center gap-2 text-[12px] font-semibold text-gray-700">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EAF3FF] text-[#3180F7]">
-                <Check size={13} strokeWidth={3} />
-              </span>
-              {item}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {kind === 'score' && (
-        <div className="space-y-2.5">
-          <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#3180F7] to-[#6BA5FA]"
-              style={{
-                width: visible ? `${safePercent}%` : '0%',
-                transition: 'width 900ms cubic-bezier(0.22, 1, 0.36, 1)',
-              }}
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {['경력', '발성', '구성력'].map((item) => (
-              <span key={item} className="rounded-md bg-gray-50 py-1.5 text-center text-[11px] font-bold text-gray-500">{item}</span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // 기존 사회자별 기업로고 매핑 (각 사회자가 함께한 기업)
 const PRO_COMPANY_LOGOS: Record<string, string[]> = {
   '1': ['/images/company-logos/ARxaH4OpVaUc1UjpOv2UhQ8hgPGt-JH64gkcWcIAGz4XfVyiy1LAog-99r2v_a3zax4EEZzaMKE5l2tFcQ7i7A.svg', '/images/company-logos/D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg', '/images/company-logos/BRqtD2yZxxRP08TEpNXXNlHvXxtA9Dck7kO4rNAiyud7WyX1EudEU0Y7XpRaIi0eGipOIqU1iZRx06TjD87Bu_8PuSHC-vYi2expOi_ie9INQgZ_8lkfsq7WCiYGssRZvARyM-hmOKkZEOhr4vxl6Q.svg'],
@@ -1093,8 +952,13 @@ export default function ProDetailPage() {
             discoveryApi.getProList({ limit: 9, sort: 'rating', withTotal: false })
               .then((proListRes: any) => {
                 if (cancelled) return;
+                const recommended = mapRecommendedPros(proListRes?.data || [], res.id);
                 setPro((current) => current
-                  ? { ...current, recommendedPros: mapRecommendedPros(proListRes?.data || [], res.id) }
+                  ? {
+                      ...current,
+                      recommendedPros: recommended,
+                      alsoViewed: mapRecommendedProsToAlsoViewed(recommended),
+                    }
                   : current);
               })
               .catch(() => {});
@@ -1152,8 +1016,6 @@ export default function ProDetailPage() {
   }, [pro?.id]);
 
   const [activeImage, setActiveImage] = useState(0);
-  const [activePlan, setActivePlan] = useState(0);
-  const activePlanAutoSelectedRef = useRef<string | null>(null);
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -1179,23 +1041,8 @@ export default function ProDetailPage() {
   const infoRef = useRef<HTMLDivElement>(null);
   const reviewsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!pro?.id || activePlanAutoSelectedRef.current === pro.id) return;
-    activePlanAutoSelectedRef.current = pro.id;
-    setActivePlan(0);
-  }, [pro?.id, pro?.plans.length]);
   const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
-
-  const plan = pro?.plans?.[activePlan] ?? { id: 'base', label: '기본', price: 0, duration: '-', title: '문의시 제공', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
-
-  useEffect(() => {
-    if (!pro?.plans?.length) return;
-    setActivePlan((current) => {
-      if (current >= pro.plans.length) return 0;
-      return current;
-    });
-  }, [pro?.id, pro?.plans?.length]);
 
   // 방문 기록 저장
   useEffect(() => {
@@ -1430,16 +1277,15 @@ export default function ProDetailPage() {
       answer: '행사 개요, 식순, 요청 멘트, 참고 대본이 있다면 전달해 주세요. 결혼식은 보통 본식 한 달 전후로 사전 질문지를 기반으로 대본을 맞춰갑니다.',
     },
     {
-      question: '세금계산서 발행이 가능한가요?',
-      answer: `${pro.expertStats.taxInvoice} 상태입니다. 기업 행사나 기관 행사의 증빙 방식은 문의 단계에서 함께 확인할 수 있습니다.`,
-    },
-    {
       question: '진행 영상이나 포트폴리오는 어디에서 볼 수 있나요?',
       answer: pro.youtubeVideos.length > 0
         ? '상세페이지의 영상 섹션에서 대표 진행 영상을 확인할 수 있습니다.'
       : '등록된 영상이 없는 경우 문의하기로 참고 포트폴리오를 요청할 수 있습니다.',
     },
   ];
+  const displayAlsoViewed = pro.alsoViewed.length > 0
+    ? pro.alsoViewed
+    : mapRecommendedProsToAlsoViewed(pro.recommendedPros);
   const hasReviewMetricOnly = displayReviewCount > 0 && displayReviews.length === 0;
   const metricOnlyReviewMessage = '상세 후기 본문은 아직 등록되지 않았습니다. 등록된 평점과 리뷰 수를 기준으로 표시합니다.';
   const aiReviewSummary = displayReviews.length > 0 ? buildAiReviewSummary(pro, displayReviews) : null;
@@ -1650,48 +1496,7 @@ export default function ProDetailPage() {
 
                 <section id="desktop-info" className="mb-9">
                   <h2 className="mb-6 text-[22px] font-bold text-gray-950">사회자 정보</h2>
-                  <div className="grid grid-cols-3 gap-5">
-                    {[
-                      {
-                        label: '총 거래 건수',
-                        value: <CountUp value={pro.expertStats.totalDeals} suffix="건" />,
-                        caption: '거래',
-                        kind: 'bars' as const,
-                        percent: Math.min(100, Math.max(18, pro.expertStats.totalDeals * 12)),
-                      },
-                      {
-                        label: '만족도',
-                        value: `${pro.expertStats.satisfaction}%`,
-                        caption: '만족',
-                        kind: 'gauge' as const,
-                        percent: pro.expertStats.satisfaction,
-                      },
-                      {
-                        label: '회원구분',
-                        value: pro.expertStats.memberType,
-                        caption: '인증',
-                        kind: 'badge' as const,
-                        percent: 100,
-                      },
-                      {
-                        label: '세금계산서',
-                        value: pro.expertStats.taxInvoice,
-                        caption: '증빙',
-                        kind: 'check' as const,
-                        percent: 100,
-                      },
-                      {
-                        label: '포텐셜 점수',
-                        value: hasAnyScore ? `${potentialScore}점` : '평가 대기',
-                        caption: '평가',
-                        kind: 'score' as const,
-                        percent: hasAnyScore ? Math.min(100, potentialScore / 6) : 0,
-                      },
-                    ].map((item) => (
-                      <DesktopMetricCard key={item.label} {...item} />
-                    ))}
-                  </div>
-                  <div className="mt-5 grid grid-cols-[minmax(0,1fr)_280px] gap-5">
+                  <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-5">
                     <div className="rounded-lg border border-gray-200 p-5">
                       <div className="mb-3 flex items-center justify-between">
                         <h3 className="text-[17px] font-bold text-gray-950">포텐셜 점수</h3>
@@ -1727,17 +1532,6 @@ export default function ProDetailPage() {
                         <li key={item} className="flex items-start gap-3"><Check size={18} className="mt-0.5 text-gray-500" />{item}</li>
                       ))}
                     </ul>
-                  </div>
-                </section>
-
-                <section className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
-                    <h3 className="text-[19px] font-bold text-gray-950">서비스 내용</h3>
-                    <div className="text-[14px] leading-relaxed text-gray-800">
-                      {plan.desc.slice(0, 3).map((line, idx) => (
-                        <p key={idx} className="mb-2 flex gap-3"><Check size={18} className="mt-0.5 shrink-0 text-gray-500" />{line}</p>
-                      ))}
-                    </div>
                   </div>
                 </section>
 
@@ -1826,38 +1620,6 @@ export default function ProDetailPage() {
                   )}
                 </section>
 
-                {pro.recommendedPros.length > 0 && (
-                  <section className="mb-9">
-                    <div className="mb-5 flex items-end justify-between">
-                      <h2 className="text-[22px] font-bold leading-tight text-gray-950">인기 사회자 어때요?</h2>
-                      <Link href="/pros" className="text-[13px] font-bold text-gray-600">더보기</Link>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      {pro.recommendedPros.slice(0, 6).map((item) => (
-                        <Link key={item.id} href={`/pros/${item.id}`} className="group overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md">
-                          <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
-                            <Image src={item.image || '/images/default-profile.png'} alt={item.name} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="230px" />
-                            {item.isPartner && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-[#3180F7] shadow-sm">Partners</span>}
-                          </div>
-                          <div className="p-4">
-                            <p className="line-clamp-1 text-[15px] font-bold text-gray-950">{item.role} {item.name}</p>
-                            <div className="mt-2 flex items-center gap-1.5">
-                              <StarRating value={parseFloat(item.rating.toFixed(1))} size={12} />
-                              <span className="text-[12px] font-bold text-gray-950">{item.rating.toFixed(1)}</span>
-                              <span className="text-[12px] text-gray-400">({item.reviews})</span>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                              <span className="rounded bg-[#EAF3FF] px-2 py-1 text-[11px] font-bold text-[#3180F7]">경력 {item.experience}년</span>
-                              {item.tags.slice(0, 1).map((tag) => (
-                                <span key={tag} className="rounded bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-500">{tag}</span>
-                              ))}
-                            </div>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </section>
-                )}
               </div>
             </div>
 
@@ -1873,31 +1635,10 @@ export default function ProDetailPage() {
 
               <div className="sticky top-[132px] rounded-lg border border-gray-200 bg-white shadow-sm">
                 <div className="p-5">
-                  <div className="flex items-end gap-1">
-                    {plan.price > 0 ? (
-                      <>
-                        <span className="text-[24px] font-bold text-gray-950">{plan.price.toLocaleString()}원</span>
-                        <span className="pb-1 text-[12px] text-gray-500">(VAT 별도)</span>
-                      </>
-                    ) : (
-                      <span className="text-[22px] font-bold text-gray-500">문의시 제공</span>
-                    )}
-                  </div>
-                  <p className="mt-3 text-[15px] font-bold text-gray-950">{sanitizePlanDisplayText(plan.title)}</p>
-                  <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-gray-700">
-                    {plan.desc.slice(0, 4).map((item, idx) => (
-                      <li key={idx}>{sanitizePlanDisplayText(item)}</li>
-                    ))}
-                  </ul>
-                  <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 text-[13px] text-gray-700">
-                    <div className="flex items-center justify-between"><span>작업일</span><strong>{plan.workDays}일</strong></div>
-                    <div className="flex items-center justify-between"><span>수정 횟수</span><strong>{plan.revisions >= 3 ? '제한 없음' : `${plan.revisions}회`}</strong></div>
-                    <div className="flex items-center justify-between"><span>자료 제공</span><Check size={18} className="text-gray-900" /></div>
-                  </div>
                   <button
                     onClick={handleInquiry}
                     disabled={openingChat}
-                    className="mt-6 h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 transition hover:bg-gray-50 disabled:opacity-60"
+                    className="h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 transition hover:bg-gray-50 disabled:opacity-60"
                   >
                     {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
                   </button>
@@ -1926,7 +1667,7 @@ export default function ProDetailPage() {
           <ChevronLeft size={22} className="text-gray-900" />
         </button>
 
-        {/* Scrolled state: Thumbnail + Title + Price */}
+        {/* Scrolled state: Thumbnail + Title */}
         <div
           className={`flex-1 min-w-0 flex items-center gap-2.5 transition-all duration-300 ${
             headerSolid ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -1943,10 +1684,6 @@ export default function ProDetailPage() {
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-bold text-gray-900 truncate leading-tight">
               {pro.title}
-            </p>
-            <p className="text-[12px] leading-tight mt-0.5">
-              <span className="font-bold text-gray-900">{((pro.plans[activePlan] || pro.plans[0])?.price || 0).toLocaleString()}원</span>
-              <span className="text-gray-400 ml-1">(VAT 별도)</span>
             </p>
           </div>
         </div>
@@ -2115,38 +1852,6 @@ export default function ProDetailPage() {
         {/* ─── 기업 로고 캐러셀 ─── */}
         <CompanyLogoCarousel proId={pro.id} />
 
-        {/* ─── Plan Content ─── */}
-        <div className="py-5">
-          {/* Price */}
-          <div className="flex items-baseline gap-1.5">
-            {plan.price > 0 ? (
-              <>
-                <span className="text-[28px] font-bold text-gray-900 tabular-nums">
-                  {plan.price.toLocaleString()}원
-                </span>
-                <span className="text-[14px] text-gray-400">(VAT 별도)</span>
-              </>
-            ) : (
-              <span className="text-[22px] font-bold text-gray-400">문의시 제공</span>
-            )}
-          </div>
-          {plan.price > 0 && (
-            <p className="text-[12px] text-gray-400 mt-1">결제 시 VAT가 별도로 추가돼요.</p>
-          )}
-
-          {/* Service title */}
-          <div className="mt-6 mb-3">
-            <h3 className="text-[17px] font-bold text-gray-900">{sanitizePlanDisplayText(plan.title)}</h3>
-          </div>
-
-          {/* Description */}
-          <ul className="space-y-1 text-[14px] text-gray-700 leading-relaxed">
-            {plan.desc.map((line, i) => (
-              <li key={i} className="whitespace-pre-line">{i === 0 ? '- ' : '* '}{sanitizePlanDisplayText(line)}</li>
-            ))}
-          </ul>
-
-        </div>
       </div>
 
       {/* ─── Divider ─── */}
@@ -2284,36 +1989,37 @@ export default function ProDetailPage() {
       )}
 
       {/* ─── 프리티풀의 다른 검증된 사회자 ─── */}
-      <div className="px-4 pt-10">
-        <Reveal>
-          <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4"><span className="text-[#3180F7]">프리티풀</span>의 다른<br />검증된 사회자를 살펴보세요</h3>
-        </Reveal>
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x pr-4">
-          {pro.alsoViewed.map((item) => (
-            <Link
-              key={item.id}
-              href={`/pros/${item.id}`}
-              className="shrink-0 w-[130px] snap-start group"
-            >
-              <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3/4' }}>
-                <Image src={item.image} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
-	              </div>
-              <div className="mt-1.5">
-                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-[2px] rounded-full mb-0.5"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
-                <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.category || '사회자'} {item.author}</p>
-                {item.rating && (
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <StarRating value={parseFloat(item.rating.toFixed(1))} size={10} />
-                    <span className="text-[11px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
-                    <span className="text-[10px] text-gray-400">({item.reviewCount})</span>
-                  </div>
-                )}
-                <p className="text-[13px] font-bold text-gray-900 mt-0.5">{item.price > 0 ? `${item.price.toLocaleString()}원~` : '문의시 제공'}</p>
-              </div>
-            </Link>
-          ))}
+      {displayAlsoViewed.length > 0 && (
+        <div className="px-4 pt-10">
+          <Reveal>
+            <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4"><span className="text-[#3180F7]">프리티풀</span>의 다른<br />검증된 사회자를 살펴보세요</h3>
+          </Reveal>
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x pr-4">
+            {displayAlsoViewed.map((item) => (
+              <Link
+                key={item.id}
+                href={`/pros/${item.id}`}
+                className="shrink-0 w-[130px] snap-start group"
+              >
+                <div className="relative rounded-xl overflow-hidden bg-gray-100" style={{ aspectRatio: '3/4' }}>
+                  <Image src={item.image || '/images/default-profile.png'} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                </div>
+                <div className="mt-1.5">
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-[2px] rounded-full mb-0.5"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
+                  <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.category || '사회자'} {item.author}</p>
+                  {item.rating && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <StarRating value={parseFloat(item.rating.toFixed(1))} size={10} />
+                      <span className="text-[11px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
+                      <span className="text-[10px] text-gray-400">({item.reviewCount})</span>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ─── Divider ─── */}
       <div className="h-2 bg-gray-50 mt-8" />
@@ -2332,42 +2038,6 @@ export default function ProDetailPage() {
 	            </div>
             <p className="text-[11px] text-gray-400 mt-1">연락 가능 시간: {pro.expertStats.contactTime}</p>
             <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
-          </div>
-        </div>
-
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {/* 총 거래 건수 */}
-          <div className="bg-gray-50 rounded-xl px-3 py-3">
-            <p className="text-[11px] text-gray-400 mb-2">총 거래 건수</p>
-            <div className="flex items-end gap-1 h-[32px] mb-1.5">
-              {[35, 52, 68, 75, 82, 89].map((v, i) => (
-                <div key={i} className="flex-1 rounded-sm" style={{ height: `${(v / 89) * 100}%`, background: i === 5 ? '#3180F7' : '#E5E7EB' }} />
-              ))}
-            </div>
-            <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.totalDeals}건</p>
-          </div>
-          {/* 만족도 */}
-          <div className="bg-gray-50 rounded-xl px-3 py-3">
-            <p className="text-[11px] text-gray-400 mb-2">만족도</p>
-            <div className="relative w-full h-[32px] flex items-center justify-center mb-1.5">
-              <svg width="48" height="32" viewBox="0 0 48 32">
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#E5E7EB" strokeWidth="5" strokeDasharray="94.2 125.7" transform="rotate(-210 24 24)" />
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#3180F7" strokeWidth="5" strokeDasharray={`${94.2 * (pro.expertStats.satisfaction / 100)} 125.7`} strokeLinecap="round" transform="rotate(-210 24 24)" />
-              </svg>
-            </div>
-            <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.satisfaction}%</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-gray-50 rounded-xl px-3 py-3">
-            <p className="text-[11px] text-gray-400 mb-1">회원구분</p>
-            <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.memberType}</p>
-          </div>
-          <div className="bg-gray-50 rounded-xl px-3 py-3">
-            <p className="text-[11px] text-gray-400 mb-1">세금계산서</p>
-            <p className="text-[16px] font-bold text-gray-900">{pro.expertStats.taxInvoice}</p>
           </div>
         </div>
 
@@ -2525,38 +2195,6 @@ export default function ProDetailPage() {
             </div>
           );
         })}
-      </div>
-
-      {/* ─── Divider ─── */}
-      <div className="h-2 bg-gray-50 mt-2" />
-
-      {/* ─── 추천 사회자 ─── */}
-      <div className="px-2.5 pt-8 pb-10">
-        <h2 className="text-[17px] font-bold text-gray-900 leading-tight mb-4">사회자<br />인기 사회자 어때요?</h2>
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-2.5 px-2.5">
-          {pro.recommendedPros.map((item) => (
-            <Link key={item.id} href={`/pros/${item.id}`} className="shrink-0 w-[130px] group">
-              <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '3/4' }}>
-                <Image src={item.image} alt={item.name} fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
-	              </div>
-              <div className="mt-1.5">
-                {item.isPartner && <img src="/images/partners-badge.svg" alt="Partners" className="h-[18px] mb-0.5" />}
-                <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.role} {item.name}</p>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <StarRating value={parseFloat(item.rating.toFixed(1))} size={10} />
-                  <span className="text-[11px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
-                  <span className="text-[10px] text-gray-400">({item.reviews})</span>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  <span className="text-[9px] font-bold px-1.5 rounded-[4px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 18 }}>경력{item.experience}년</span>
-                  {item.tags.slice(0, 1).map((tag) => (
-                    <span key={tag} className="text-[9px] font-medium px-1.5 rounded-[4px] bg-gray-100 text-gray-500 flex items-center" style={{ height: 18 }}>{tag}</span>
-                  ))}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
       </div>
 
       {/* ─── Bottom Fixed Bar ─── */}
