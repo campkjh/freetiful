@@ -8,7 +8,11 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
 import { matchApi } from '@/lib/api/match.api';
-import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
+import {
+  WEDDING_PARTNER_CATEGORIES,
+  WEDDING_PARTNER_CATEGORY_ICONS,
+  WEDDING_PARTNER_CATEGORY_TABS,
+} from '@/lib/business-categories';
 import {
   getBusinessDisplayTags,
   isPopularBusinessPartner,
@@ -834,6 +838,210 @@ function ProCard({ pro, index }: {
   );
 }
 
+function ApplianceIconSwap() {
+  const icons = ['/images/category-icons/appliance.png', '/images/category-icons/appliance-2.png'];
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <img
+        key={tick}
+        src={icons[tick % icons.length]}
+        alt="가전"
+        className="absolute inset-0 h-full w-full object-contain"
+        style={{ animation: 'applianceSwoosh 0.55s cubic-bezier(0.22, 1, 0.36, 1) both' }}
+      />
+    </div>
+  );
+}
+
+function LanguageBadge() {
+  const languages = ['English', '中文', '日本語', 'ภาษาไทย', 'العربية', 'Español'];
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setIdx((i) => (i + 1) % languages.length), 2000);
+    return () => clearInterval(timer);
+  }, [languages.length]);
+
+  return (
+    <span className="home-category-language-badge absolute bottom-0 left-1/2 z-20 -translate-x-1/2 overflow-hidden rounded-full">
+      <span
+        className="home-category-language-badge-track"
+        style={{ transform: `translateY(-${idx * 16}px)` }}
+      >
+        {languages.map((lang) => (
+          <span key={lang} className="home-category-language-badge-item">
+            {lang}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+type HomeCategoryItem = { name: string; img: string; href: string };
+const HOME_CATEGORY_ICON_DIR = '/images/category-icons';
+
+function getHomeCategoryItems(): HomeCategoryItem[] {
+  const weddingPartnerCats = WEDDING_PARTNER_CATEGORIES
+    .filter((name) => name !== '가전')
+    .map((name) => ({
+      name,
+      img: `${HOME_CATEGORY_ICON_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS[name]}`,
+      href: `/businesses?category=${encodeURIComponent(name)}`,
+    }));
+  const applianceCat = WEDDING_PARTNER_CATEGORIES.includes('가전')
+    ? [{
+        name: '가전',
+        img: `${HOME_CATEGORY_ICON_DIR}/${WEDDING_PARTNER_CATEGORY_ICONS['가전']}`,
+        href: `/businesses?category=${encodeURIComponent('가전')}`,
+      }]
+    : [];
+
+  return [
+    { name: '결혼식사회자', img: `${HOME_CATEGORY_ICON_DIR}/wedding-mc.png`, href: proCategoryHref('결혼식사회자') },
+    { name: '행사사회자', img: `${HOME_CATEGORY_ICON_DIR}/event-mc.png`, href: proCategoryHref('전문행사사회자') },
+    { name: '외국어사회자', img: `${HOME_CATEGORY_ICON_DIR}/foreign-mc.png`, href: proCategoryHref('외국어사회자') },
+    ...weddingPartnerCats,
+    ...applianceCat,
+  ];
+}
+
+function HomeCategoryIcon({ item }: { item: HomeCategoryItem }) {
+  if (item.name === '웨딩홀') {
+    return (
+      <video
+        src="/images/wedding-hall-video.mp4"
+        autoPlay
+        muted
+        playsInline
+        preload="metadata"
+        className="h-full w-full rounded-full object-cover"
+        ref={(video) => {
+          if (video) video.playbackRate = 0.5;
+        }}
+        onEnded={(event) => {
+          const video = event.currentTarget;
+          setTimeout(() => {
+            video.currentTime = 0;
+            video.play().catch(() => {});
+          }, 1500);
+        }}
+      />
+    );
+  }
+
+  if (item.name === '가전') return <ApplianceIconSwap />;
+
+  return (
+    <img
+      src={item.img}
+      alt={item.name}
+      className="h-full w-full object-contain"
+      onError={(event) => {
+        (event.currentTarget as HTMLImageElement).src = '/images/category-icons/wedding-hall.png';
+      }}
+    />
+  );
+}
+
+function CategorySwiper() {
+  const skipAnim = useHomeAnimationSkip();
+  const allCats = getHomeCategoryItems();
+  const pageSize = 10;
+  const pages: HomeCategoryItem[][] = [];
+  for (let i = 0; i < allCats.length; i += pageSize) pages.push(allCats.slice(i, i + pageSize));
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activePage, setActivePage] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handler = () => {
+      setActivePage(Math.round(el.scrollLeft / Math.max(el.clientWidth, 1)));
+    };
+    el.addEventListener('scroll', handler, { passive: true });
+    return () => el.removeEventListener('scroll', handler);
+  }, []);
+
+  const scrollToPage = (pageIdx: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ left: el.clientWidth * pageIdx, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="relative pb-2 pt-1">
+      <div ref={scrollRef} className="flex snap-x snap-mandatory overflow-x-auto scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
+        {pages.map((pageCats, pageIndex) => (
+          <div key={pageIndex} className="w-full shrink-0 snap-start">
+            <div className="grid grid-cols-5 gap-x-1 gap-y-3 py-2 pl-[18px] pr-[10px] lg:gap-x-3 lg:px-2 lg:py-3">
+              {pageCats.map((item, index) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
+                  style={skipAnim ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + index * 0.04}s forwards` }}
+                >
+                  <div className="relative flex h-[60px] w-[60px] items-center justify-center lg:h-16 lg:w-16">
+                    <HomeCategoryIcon item={item} />
+                    {item.name === '외국어사회자' && <LanguageBadge />}
+                  </div>
+                  <span className="mt-1 text-center text-[12px] font-medium leading-tight text-[#51535C] lg:text-[13px]">
+                    {item.name}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {activePage < pages.length - 1 && (
+        <button
+          type="button"
+          onClick={() => scrollToPage(activePage + 1)}
+          className="absolute right-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition-all active:scale-90"
+          style={{
+            background: 'rgba(255, 255, 255, 0.55)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.6)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+          }}
+          aria-label="다음 카테고리"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+        </button>
+      )}
+
+      <div className="mt-2 flex items-center justify-center gap-1.5">
+        {pages.map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            onClick={() => scrollToPage(index)}
+            className="block rounded-full transition-all duration-300"
+            style={{
+              width: index === activePage ? 28 : 4,
+              height: 3,
+              backgroundColor: index === activePage ? '#111111' : '#D1D5DB',
+            }}
+            aria-label={`페이지 ${index + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SimpleMatchRequestModal({
   open,
   requestType,
@@ -1443,11 +1651,6 @@ export default function HomePage() {
     setSimpleRequestType(type);
     setSimpleRequestOpen(true);
   };
-  const homeQuickLinks = [
-    { label: '결혼식사회자', href: proCategoryHref('결혼식사회자') },
-    { label: '행사사회자', href: proCategoryHref('전문행사사회자') },
-    { label: '웨딩파트너', href: '/businesses' },
-  ];
 
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1761,20 +1964,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="px-[10px] pb-1 pt-2">
-          <div className="grid grid-cols-3 gap-2">
-            {homeQuickLinks.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onTouchStart={item.href.startsWith('/pros') ? warmProsList : undefined}
-                className="flex h-10 items-center justify-center rounded-full border border-[#F1F3F7] bg-white text-[13px] font-semibold text-[#2B313D] shadow-[0_4px_14px_rgba(43,49,61,0.04)] active:scale-[0.98]"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </div>
+        <CategorySwiper />
 
         {/* 5. Slide Banner */}
         <div className="px-[10px] pt-2 pb-1 lg:px-0 lg:pt-3 lg:pb-2">
@@ -2021,19 +2211,8 @@ export default function HomePage() {
             </div>
           </Reveal>
 
-          <Reveal delay={220}>
-            <div className="mx-auto mb-8 flex max-w-xl items-center justify-center gap-2">
-              {homeQuickLinks.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onMouseEnter={item.href.startsWith('/pros') ? warmProsList : undefined}
-                  className="rounded-full border border-gray-200 bg-white px-4 py-2 text-[14px] font-semibold text-[#2B313D] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#3180F7]/30 hover:text-[#3180F7] hover:shadow-md"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
+          <Reveal delay={220} className="mx-auto mb-8 max-w-4xl">
+            <CategorySwiper />
           </Reveal>
         </div>
       </div>
