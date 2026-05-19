@@ -214,12 +214,6 @@ export default function MyPage() {
   const animOrNone = (base: React.CSSProperties) => skipAnim ? undefined : base;
 
   useEffect(() => {
-    if (authHydrated && authUser?.role === 'pro') {
-      router.replace('/pro-dashboard/inquiries');
-    }
-  }, [authHydrated, authUser?.role, router]);
-
-  useEffect(() => {
     let cancelled = false;
     const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);

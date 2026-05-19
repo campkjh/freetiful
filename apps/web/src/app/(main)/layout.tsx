@@ -418,21 +418,22 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     ...(navExpanding ? { animation: `platformIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.06}s both` } : {}),
                   };
                   return isBiz ? (
-                    <button
+                    <Link
                       key={href}
+                      href={href}
                       data-nav={label}
-                      className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl text-gray-400"
+                      className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
+                        active ? 'text-gray-900' : 'text-gray-400'
+                      }`}
                       style={itemStyle}
-                      onClick={(e) => {
-                        e.preventDefault();
+                      onClick={() => {
                         sessionStorage.setItem('nav-transition', 'from-platform');
-                        setBizCollapsing(true);
-                        setTimeout(() => router.push('/biz'), 500);
+                        setBizCollapsing(false);
                       }}
                     >
-                      <Icon className="h-5 w-5 shrink-0 opacity-60" />
-                      <span className="text-[9px] font-medium">{label}</span>
-                    </button>
+                      <Icon className={`h-5 w-5 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
+                      <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+                    </Link>
                   ) : (
                     <Link
                       key={href}
