@@ -18,8 +18,7 @@ import {
   getWeddingPlanTemplate,
   normalizeWeddingPlanKey,
 } from '@/lib/wedding-plans';
-import { chatApi } from '@/lib/api/chat.api';
-import { getPreWarmByProId } from '@/lib/chat-prewarm';
+import { matchApi } from '@/lib/api/match.api';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 
@@ -386,6 +385,16 @@ function buildAiReviewSummary(pro: ProDetailData, reviews: ProDetailData['review
     text: `AI가 ${reviewCount.toLocaleString()}개 고객 리뷰를 읽고 요약했어요. ${pro.name} 사회자는 ${topKeywords.join(', ')}에서 좋은 평가가 많고, 전체 평점은 ${ratingText}이에요.`,
     keywords: topKeywords,
   };
+}
+
+function sanitizePlanDisplayText(value: string) {
+  return value
+    .replace(/1\s*\+\s*2부\s*예식/g, '맞춤 예식')
+    .replace(/1부\s*예식/g, '맞춤 예식')
+    .replace(/본식\s*1부\s*\+\s*2부\s*진행/g, '맞춤 예식 진행')
+    .replace(/본식\s*1부\s*진행/g, '맞춤 예식 진행')
+    .replace(/본식\s*1부\s*사회/g, '맞춤 예식 사회')
+    .replace(/2부\s*피로연\s*진행/g, '피로연 진행');
 }
 
 function mapRecommendedPros(items: any[] = [], currentId: string) {
@@ -1149,17 +1158,10 @@ export default function ProDetailPage() {
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const authUser = useAuthStore((s) => s.user);
-  // 채팅 번들만 prefetch (실제 createRoom 은 사용자가 "문의하기" 버튼 클릭 시점에 실행)
-  // 이전 버전은 여기서 preWarmChat(id) 을 호출해 방문만 해도 유령 방이 생기는 버그가 있었음
-  useEffect(() => {
-    if (!authUser || !id || id === 'my-pro') return;
-    const handle = runWhenIdle(() => router.prefetch('/chat'), 1800);
-    return () => cancelIdleRun(handle);
-  }, [authUser, id, router]);
 
   const [openingChat, setOpeningChat] = useState(false);
+  const [confirmInquiryOpen, setConfirmInquiryOpen] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(true);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
   const [shareModal, setShareModal] = useState(false);
@@ -1185,7 +1187,7 @@ export default function ProDetailPage() {
   const galleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
-  const plan = pro?.plans?.[activePlan] ?? { id: 'wedding_part1', label: '1부 예식', price: 0, duration: '-', title: '문의시 제공', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
+  const plan = pro?.plans?.[activePlan] ?? { id: 'base', label: '기본', price: 0, duration: '-', title: '문의시 제공', desc: ['프로에게 문의하세요'], workDays: 14, revisions: 1 };
 
   useEffect(() => {
     if (!pro?.plans?.length) return;
@@ -1249,11 +1251,11 @@ export default function ProDetailPage() {
 
   // Body scroll lock when modals open
   useEffect(() => {
-    const anyModal = imageModal || shareModal || reviewsModal || phoneModal;
+    const anyModal = imageModal || shareModal || reviewsModal || phoneModal || confirmInquiryOpen;
     if (anyModal) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
     return () => { document.body.style.overflow = ''; };
-  }, [imageModal, shareModal, reviewsModal, phoneModal]);
+  }, [imageModal, shareModal, reviewsModal, phoneModal, confirmInquiryOpen]);
 
   // Handlers
   const handleShare = async () => {
@@ -1276,7 +1278,7 @@ export default function ProDetailPage() {
     }
   };
 
-  const handleInquiry = async () => {
+  const handleInquiry = () => {
     if (!pro) return;
     if (!authUser) {
       rememberAuthReturnTo();
@@ -1291,29 +1293,39 @@ export default function ProDetailPage() {
       toast('본인 프로필에는 문의할 수 없어요');
       return;
     }
-    const nameParam = encodeURIComponent(pro.name || '');
-    const imgParam = encodeURIComponent(pro.profileImage || '');
-    const preWarmed = getPreWarmByProId(pro.id);
-    if (preWarmed?.roomId) {
-      router.push(`/chat/${preWarmed.roomId}?name=${nameParam}&img=${imgParam}`);
-      return;
-    }
+    setConfirmInquiryOpen(true);
+  };
+
+  const submitInquiryRequest = async () => {
+    if (!pro || !authUser || openingChat) return;
     setOpeningChat(true);
     try {
-      const roomRes = await chatApi.createRoom(pro.id);
-      const roomData = (roomRes as any)?.data || roomRes;
-      const resolvedId: string | undefined = roomData?.id || roomData?.roomId;
-      if (resolvedId) {
-        router.push(`/chat/${resolvedId}?name=${nameParam}&img=${imgParam}`);
-      } else {
-        toast.error('채팅방을 열 수 없습니다. 잠시 후 다시 시도해주세요.');
-      }
+      const categoryName = pro.categoryName || '사회자';
+      await matchApi.createRequest({
+        categoryId: categoryName,
+        type: 'single',
+        selectedProProfileIds: [pro.id],
+        rawUserInput: {
+          source: 'pro_detail_inquiry',
+          categoryName,
+          eventType: `${categoryName} 문의`,
+          eventName: `${categoryName} 문의`,
+          targetScope: 'single',
+          requestKind: 'single',
+          note: '사회자 상세페이지에서 보낸 문의 요청입니다.',
+          targetProProfileId: pro.id,
+          targetProName: pro.name,
+        },
+      });
+      setConfirmInquiryOpen(false);
+      toast.success('문의요청이 완료되었습니다.');
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
     } catch (error: any) {
       if (error?.response?.status === 401) {
         rememberAuthReturnTo();
-        if (!requestNativeLoginSheet({ reason: 'pro-detail-chat' })) setLoginModal(true);
+        if (!requestNativeLoginSheet({ reason: 'pro-detail-inquiry' })) setLoginModal(true);
       } else {
-        toast.error('문의하기 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        toast.error(error?.response?.data?.message || '문의요청에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
     } finally {
       setOpeningChat(false);
@@ -1860,18 +1872,6 @@ export default function ProDetailPage() {
               </button>
 
               <div className="sticky top-[132px] rounded-lg border border-gray-200 bg-white shadow-sm">
-                <div className="grid border-b border-gray-200" style={{ gridTemplateColumns: `repeat(${Math.max(1, pro.plans.length)}, minmax(0, 1fr))` }}>
-                  {pro.plans.map((p, i) => (
-                    <button
-                      key={p.id}
-                      onClick={() => setActivePlan(i)}
-                      className={`relative h-12 text-[14px] font-bold ${activePlan === i ? 'text-gray-950' : 'text-gray-500'}`}
-                    >
-                      {p.label}
-                      {activePlan === i && <span className="absolute bottom-[-1px] left-5 right-5 h-[3px] bg-gray-950" />}
-                    </button>
-                  ))}
-                </div>
                 <div className="p-5">
                   <div className="flex items-end gap-1">
                     {plan.price > 0 ? (
@@ -1883,10 +1883,10 @@ export default function ProDetailPage() {
                       <span className="text-[22px] font-bold text-gray-500">문의시 제공</span>
                     )}
                   </div>
-                  <p className="mt-3 text-[15px] font-bold text-gray-950">{plan.title}</p>
+                  <p className="mt-3 text-[15px] font-bold text-gray-950">{sanitizePlanDisplayText(plan.title)}</p>
                   <ul className="mt-3 space-y-2 text-[13px] leading-relaxed text-gray-700">
                     {plan.desc.slice(0, 4).map((item, idx) => (
-                      <li key={idx}>{item}</li>
+                      <li key={idx}>{sanitizePlanDisplayText(item)}</li>
                     ))}
                   </ul>
                   <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 text-[13px] text-gray-700">
@@ -1894,8 +1894,12 @@ export default function ProDetailPage() {
                     <div className="flex items-center justify-between"><span>수정 횟수</span><strong>{plan.revisions >= 3 ? '제한 없음' : `${plan.revisions}회`}</strong></div>
                     <div className="flex items-center justify-between"><span>자료 제공</span><Check size={18} className="text-gray-900" /></div>
                   </div>
-                  <button onClick={handleInquiry} className="mt-6 h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 hover:bg-gray-50">
-                    사회자에게 문의하기
+                  <button
+                    onClick={handleInquiry}
+                    disabled={openingChat}
+                    className="mt-6 h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
                   </button>
                 </div>
               </div>
@@ -1938,7 +1942,7 @@ export default function ProDetailPage() {
           />
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-bold text-gray-900 truncate leading-tight">
-              <span className="text-[#3180F7]">{(pro.plans[activePlan] || pro.plans[0])?.label}</span> {pro.title}
+              {pro.title}
             </p>
             <p className="text-[12px] leading-tight mt-0.5">
               <span className="font-bold text-gray-900">{((pro.plans[activePlan] || pro.plans[0])?.price || 0).toLocaleString()}원</span>
@@ -2111,30 +2115,6 @@ export default function ProDetailPage() {
         {/* ─── 기업 로고 캐러셀 ─── */}
         <CompanyLogoCarousel proId={pro.id} />
 
-        {/* ─── Plan Tabs ─── */}
-        <div className="flex border-b border-gray-200 -mx-2.5 relative">
-          {pro.plans.map((p, i) => (
-            <button
-              key={p.id}
-              onClick={() => setActivePlan(i)}
-              className={`flex-1 py-3 text-[14px] font-bold relative transition-colors duration-300 ${
-                activePlan === i ? 'text-[#3180F7]' : 'text-gray-300 hover:text-gray-500'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-          {/* Animated indicator */}
-          <span
-            className="absolute bottom-[-1px] h-[2px] bg-[#3180F7] transition-all duration-500"
-            style={{
-              left: `${(activePlan * 100) / pro.plans.length}%`,
-              width: `${100 / pro.plans.length}%`,
-              transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
-            }}
-          />
-        </div>
-
         {/* ─── Plan Content ─── */}
         <div className="py-5">
           {/* Price */}
@@ -2156,13 +2136,13 @@ export default function ProDetailPage() {
 
           {/* Service title */}
           <div className="mt-6 mb-3">
-            <h3 className="text-[17px] font-bold text-gray-900">{plan.title}</h3>
+            <h3 className="text-[17px] font-bold text-gray-900">{sanitizePlanDisplayText(plan.title)}</h3>
           </div>
 
           {/* Description */}
           <ul className="space-y-1 text-[14px] text-gray-700 leading-relaxed">
             {plan.desc.map((line, i) => (
-              <li key={i} className="whitespace-pre-line">{i === 0 ? '- ' : '* '}{line}</li>
+              <li key={i} className="whitespace-pre-line">{i === 0 ? '- ' : '* '}{sanitizePlanDisplayText(line)}</li>
             ))}
           </ul>
 
@@ -2599,34 +2579,19 @@ export default function ProDetailPage() {
         <div className="flex items-center gap-3 max-w-[680px] mx-auto">
 		          {/* 문의하기 */}
           <div className="relative flex-1">
-            {/* 말풍선 — overflow-hidden 바깥 */}
-            {showTooltip && (
-              <div
-                className="absolute -top-8 left-[25%] -translate-x-1/2 z-10"
-                style={{ animation: 'tooltipBounce 2s ease-in-out infinite' }}
-              >
-                <div className="bg-[#3180F7] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap relative shadow-[0_4px_16px_rgba(49,128,247,0.4)]">
-                  평균 응답 1시간 이내
-                  <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-[#3180F7] rotate-45" />
-                </div>
-              </div>
-            )}
             <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
               <button
                 disabled={openingChat}
-                onClick={() => {
-                  setShowTooltip(false);
-                  handleInquiry();
-                }}
+                onClick={handleInquiry}
                 className="flex-1 rounded-full border border-gray-200 bg-white text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {openingChat ? (
                   <>
                     <div className="w-4 h-4 border-2 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
-                    열리는 중
+                    요청 중
                   </>
                 ) : (
-                  '문의하기'
+                  '이 사회자에게 문의하기'
                 )}
               </button>
             </div>
@@ -2635,6 +2600,45 @@ export default function ProDetailPage() {
       </div>
       </div>
       </div>
+
+      {confirmInquiryOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0"
+          onClick={() => {
+            if (!openingChat) setConfirmInquiryOpen(false);
+          }}
+          style={{ animation: 'modalFade 0.25s ease-out' }}
+        >
+          <div
+            className="w-full max-w-[360px] rounded-[28px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.24)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-[20px] font-bold text-[#2B313D]">정말로 문의하시겠습니까?</h3>
+            <p className="mt-2 text-[14px] leading-relaxed text-[#6B7280]">
+              {pro.name} 사회자에게 문의 요청을 보내면 사회자 새요청에 바로 전달됩니다.
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={openingChat}
+                onClick={() => setConfirmInquiryOpen(false)}
+                className="h-[48px] rounded-2xl bg-[#F2F4F6] text-[15px] font-bold text-[#4E5968] transition active:scale-[0.98] disabled:opacity-60"
+              >
+                아니요
+              </button>
+              <button
+                type="button"
+                disabled={openingChat}
+                onClick={submitInquiryRequest}
+                className="flex h-[48px] items-center justify-center gap-2 rounded-2xl bg-[#3180F7] text-[15px] font-bold text-white shadow-[0_12px_24px_rgba(49,128,247,0.24)] transition active:scale-[0.98] disabled:opacity-70"
+              >
+                {openingChat && <span className="h-4 w-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />}
+                네
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Image Modal (확대) ─── */}
       {imageModal && (

@@ -1147,22 +1147,32 @@ function SimpleMatchRequestModal({
           <div>
             <span className="mb-1.5 block text-[13px] font-semibold text-[#4E5968]">행사일시</span>
             <div className="grid min-w-0 grid-cols-1 gap-2 min-[390px]:grid-cols-2">
-              <label className="min-w-0">
+              <label className="relative min-w-0">
                 <span className="sr-only">행사 날짜</span>
+                {!eventDate && (
+                  <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[15px] font-medium text-[#A4ABBA]">
+                    일자선택
+                  </span>
+                )}
                 <input
                   type="date"
                   value={eventDate}
                   onChange={(event) => setEventDate(event.target.value)}
-                  className="h-[52px] w-full min-w-0 appearance-none rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[15px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
+                  className={`h-[52px] w-full min-w-0 appearance-none rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[15px] font-medium outline-none transition [color-scheme:light] focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10 ${eventDate ? 'text-[#2B313D]' : 'text-transparent'}`}
                 />
               </label>
-              <label className="min-w-0">
+              <label className="relative min-w-0">
                 <span className="sr-only">행사 시간</span>
+                {!eventTime && (
+                  <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[15px] font-medium text-[#A4ABBA]">
+                    시간선택
+                  </span>
+                )}
                 <input
                   type="time"
                   value={eventTime}
                   onChange={(event) => setEventTime(event.target.value)}
-                  className="h-[52px] w-full min-w-0 appearance-none rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[15px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
+                  className={`h-[52px] w-full min-w-0 appearance-none rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[15px] font-medium outline-none transition [color-scheme:light] focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10 ${eventTime ? 'text-[#2B313D]' : 'text-transparent'}`}
                 />
               </label>
             </div>
