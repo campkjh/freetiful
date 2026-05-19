@@ -90,13 +90,14 @@ export class ChatController {
   @ApiOperation({ summary: '메시지 전송' })
   async sendMessage(@Req() req, @Param('roomId') roomId: string, @Body() dto: SendMessageDto) {
     const message = await this.chatService.sendMessage(roomId, req.user.id, dto);
-    const memberIds = await this.chatService.getRoomMemberIds(roomId).catch(() => []);
-    this.chatRealtimeService.emitPersistedMessage(roomId, message.id, {
-      notifyUserIds: memberIds,
-      roomUpdatedUserIds: memberIds,
-      unreadUserIds: memberIds.filter((id) => id !== req.user.id),
-      dashboardUserIds: memberIds,
-    }).catch(() => undefined);
+    this.chatService.getRoomMemberIds(roomId)
+      .then((memberIds) => this.chatRealtimeService.emitPersistedMessage(roomId, message.id, {
+        notifyUserIds: memberIds,
+        roomUpdatedUserIds: memberIds,
+        unreadUserIds: memberIds.filter((id) => id !== req.user.id),
+        dashboardUserIds: memberIds,
+      }))
+      .catch(() => undefined);
     return message;
   }
 

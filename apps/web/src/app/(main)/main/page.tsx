@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Search, Bell, ChevronRight, MapPin, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -847,13 +846,15 @@ function SimpleMatchRequestModal({
   authUser: { id?: string; role?: string | null } | null;
 }) {
   const [location, setLocation] = useState('');
-  const [dateTime, setDateTime] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [eventTime, setEventTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setLocation('');
-    setDateTime('');
+    setEventDate('');
+    setEventTime('');
     setSubmitting(false);
   }, [open, requestType]);
 
@@ -872,13 +873,11 @@ function SimpleMatchRequestModal({
       toast.error('장소를 입력해주세요.');
       return;
     }
-    if (!dateTime) {
+    if (!eventDate || !eventTime) {
       toast.error('일시를 선택해주세요.');
       return;
     }
 
-    const [eventDate, eventTimeWithSeconds] = dateTime.split('T');
-    const eventTime = eventTimeWithSeconds?.slice(0, 5);
     setSubmitting(true);
     try {
       await matchApi.createRequest({
@@ -937,15 +936,29 @@ function SimpleMatchRequestModal({
               className="h-[52px] w-full rounded-2xl border border-[#E5E8EF] bg-white px-4 text-[16px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
             />
           </label>
-          <label className="block">
-            <span className="mb-1.5 block text-[13px] font-semibold text-[#4E5968]">일시</span>
-            <input
-              type="datetime-local"
-              value={dateTime}
-              onChange={(event) => setDateTime(event.target.value)}
-              className="h-[52px] w-full rounded-2xl border border-[#E5E8EF] bg-white px-4 text-[16px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
-            />
-          </label>
+          <div>
+            <span className="mb-1.5 block text-[13px] font-semibold text-[#4E5968]">행사일시</span>
+            <div className="grid min-w-0 grid-cols-1 gap-2 min-[390px]:grid-cols-2">
+              <label className="min-w-0">
+                <span className="sr-only">행사 날짜</span>
+                <input
+                  type="date"
+                  value={eventDate}
+                  onChange={(event) => setEventDate(event.target.value)}
+                  className="h-[52px] w-full min-w-0 appearance-none rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[15px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
+                />
+              </label>
+              <label className="min-w-0">
+                <span className="sr-only">행사 시간</span>
+                <input
+                  type="time"
+                  value={eventTime}
+                  onChange={(event) => setEventTime(event.target.value)}
+                  className="h-[52px] w-full min-w-0 appearance-none rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[15px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
+                />
+              </label>
+            </div>
+          </div>
         </div>
 
         <button
@@ -1105,15 +1118,6 @@ export default function HomePage() {
     };
   }, []);
 
-  // 프로 유저는 /pro-dashboard 로 자동 리다이렉트 (앱 재진입 시)
-  // 권한 판단은 localStorage가 아니라 서버에서 내려온 현재 계정 role만 사용한다.
-  const router = useRouter();
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (authUser?.role === 'pro') {
-      router.replace('/pro-dashboard/inquiries');
-    }
-  }, [authUser, router]);
 
   // Fetch pro list from API
   useEffect(() => {
@@ -1439,6 +1443,11 @@ export default function HomePage() {
     setSimpleRequestType(type);
     setSimpleRequestOpen(true);
   };
+  const homeQuickLinks = [
+    { label: '결혼식사회자', href: proCategoryHref('결혼식사회자') },
+    { label: '행사사회자', href: proCategoryHref('전문행사사회자') },
+    { label: '웨딩파트너', href: '/businesses' },
+  ];
 
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1752,6 +1761,21 @@ export default function HomePage() {
           </div>
         </div>
 
+        <div className="px-[10px] pb-1 pt-2">
+          <div className="grid grid-cols-3 gap-2">
+            {homeQuickLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onTouchStart={item.href.startsWith('/pros') ? warmProsList : undefined}
+                className="flex h-10 items-center justify-center rounded-full border border-[#F1F3F7] bg-white text-[13px] font-semibold text-[#2B313D] shadow-[0_4px_14px_rgba(43,49,61,0.04)] active:scale-[0.98]"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {/* 5. Slide Banner */}
         <div className="px-[10px] pt-2 pb-1 lg:px-0 lg:pt-3 lg:pb-2">
           <div
@@ -1994,6 +2018,21 @@ export default function HomePage() {
                   <span className="block whitespace-nowrap text-[20px] font-bold leading-tight text-[#2B313D]">사회자 찾기</span>
                 </div>
               </button>
+            </div>
+          </Reveal>
+
+          <Reveal delay={220}>
+            <div className="mx-auto mb-8 flex max-w-xl items-center justify-center gap-2">
+              {homeQuickLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onMouseEnter={item.href.startsWith('/pros') ? warmProsList : undefined}
+                  className="rounded-full border border-gray-200 bg-white px-4 py-2 text-[14px] font-semibold text-[#2B313D] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#3180F7]/30 hover:text-[#3180F7] hover:shadow-md"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </Reveal>
         </div>

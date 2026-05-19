@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
-import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
+import { chatApi } from '@/lib/api/chat.api';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { getProfileImageUrl } from '@/lib/default-profile';
 
@@ -82,6 +82,7 @@ export default function ChatListPage() {
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
   const initialRoomsRef = useRef<ChatRoom[] | null>(null);
   const lastRefreshAtRef = useRef(0);
+  const messagePrewarmRef = useRef(new Map<string, number>());
   if (initialRoomsRef.current === null) initialRoomsRef.current = getInitialRoomsForCurrentUser();
   const [roomsLoading, setRoomsLoading] = useState(() => initialRoomsRef.current?.length === 0);
   const authUser = useAuthStore((s) => s.user);
@@ -105,11 +106,10 @@ export default function ChatListPage() {
       return;
     }
 
-    if (apiRooms.length > 0) setRoomsLoading(false);
     connect();
     fetchRooms({ limit: 30 }).catch(() => {}).finally(() => setRoomsLoading(false));
     return undefined;
-  }, [authHydrated, authUser?.id, apiRooms.length, connect, disconnect, fetchRooms]);
+  }, [authHydrated, authUser?.id, connect, disconnect, fetchRooms]);
 
   useEffect(() => {
     if (!authHydrated || !authUser) return;
@@ -304,9 +304,23 @@ export default function ChatListPage() {
     }
   };
 
-  const handlePrewarmRoom = (roomId: string) => {
+  const handlePrewarmRoom = (roomId: string, withMessages = false) => {
     const room = useChatStore.getState().rooms.find((r) => r.id === roomId);
     if (room) preWarmExistingRoom(room);
+    if (!withMessages) return;
+    const store = useChatStore.getState();
+    if (store.messageCache.get(roomId)?.length) return;
+    const last = messagePrewarmRef.current.get(roomId) || 0;
+    if (Date.now() - last < 5000) return;
+    messagePrewarmRef.current.set(roomId, Date.now());
+    chatApi.getMessages(roomId, { limit: 30 })
+      .then((res) => {
+        const messages = res.data?.data;
+        if (Array.isArray(messages) && messages.length > 0) {
+          useChatStore.getState().messageCache.set(roomId, messages);
+        }
+      })
+      .catch(() => {});
   };
 
   const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관'];
@@ -345,10 +359,10 @@ export default function ChatListPage() {
                   onMouseEnter={() => handlePrewarmRoom(room.id)}
                   onFocus={() => handlePrewarmRoom(room.id)}
                   onPointerDown={(e) => {
-                    handlePrewarmRoom(room.id);
+                    handlePrewarmRoom(room.id, true);
                     if (!isPC) handleLongPressStart(e, room);
                   }}
-                  onTouchStart={() => handlePrewarmRoom(room.id)}
+                  onTouchStart={() => handlePrewarmRoom(room.id, true)}
                   onPointerUp={handleLongPressEnd}
                   onPointerLeave={handleLongPressEnd}
                   onPointerCancel={handleLongPressEnd}
@@ -462,33 +476,22 @@ export default function ChatListPage() {
         <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
           <div className="px-5 pt-6 pb-3">
             <h1 className="text-[20px] font-extrabold text-gray-900 mb-3">{isPro ? '고객 문의' : '채팅'}</h1>
-            <LayoutGroup id="chat-tabs-desktop">
-              <div className="flex gap-1.5 flex-wrap">
-                {(isPro ? PRO_TABS : TABS).map((tab) => {
-                  const active = isPro ? proActiveTab === tab : activeTab === tab;
-                  return (
-                    <button
-                      key={tab}
-                      onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
-                      className={`relative px-3 py-1.5 rounded-full text-[12px] font-medium isolate ${
-                        active ? 'text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
-                      style={{ transition: 'color 0.25s ease' }}
-                    >
-                      {active && (
-                        <motion.span
-                          layoutId="chat-tab-pill-desktop"
-                          className="absolute inset-0 bg-gray-900 rounded-full"
-                          style={{ zIndex: -1 }}
-                          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                        />
-                      )}
-                      <span className="relative">{tab}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </LayoutGroup>
+            <div className="flex gap-1.5 flex-wrap">
+              {(isPro ? PRO_TABS : TABS).map((tab) => {
+                const active = isPro ? proActiveTab === tab : activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
+                    className={`relative rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                      active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             {sorted.length === 0 ? (
@@ -523,39 +526,28 @@ export default function ChatListPage() {
           <div className="flex items-center justify-between h-[52px]">
             <h1 className="text-[18px] font-bold text-gray-900">{isPro ? '고객 문의' : '채팅'}</h1>
           </div>
-          <LayoutGroup id="chat-tabs-mobile">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
-              {(isPro ? PRO_TABS : TABS).map((tab) => {
-                const active = isPro ? proActiveTab === tab : activeTab === tab;
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => {
-                      if (isPro) {
-                        setProActiveTab(tab as ProFilterTab);
-                      } else {
-                        setActiveTab(tab as FilterTab);
-                      }
-                      setEditMode(false);
-                      setSelectedIds(new Set());
-                    }}
-                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
-                    style={{ transition: 'color 0.25s ease, transform 0.15s ease' }}
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="chat-tab-pill-mobile"
-                        className="absolute inset-0 bg-gray-900 rounded-full"
-                        style={{ zIndex: -1 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                      />
-                    )}
-                    <span className="relative">{tab}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </LayoutGroup>
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+            {(isPro ? PRO_TABS : TABS).map((tab) => {
+              const active = isPro ? proActiveTab === tab : activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    if (isPro) {
+                      setProActiveTab(tab as ProFilterTab);
+                    } else {
+                      setActiveTab(tab as FilterTab);
+                    }
+                    setEditMode(false);
+                    setSelectedIds(new Set());
+                  }}
+                  className={`shrink-0 rounded-full px-4 py-2 text-[14px] font-medium transition-colors active:scale-95 ${active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <p

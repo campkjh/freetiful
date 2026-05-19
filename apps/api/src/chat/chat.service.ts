@@ -40,6 +40,8 @@ export class ChatService implements OnModuleInit {
   private PARTICIPANT_CACHE_TTL = 10 * 60_000;
   private roomParticipantCache = new Map<string, { ids: string[]; ts: number }>();
   private ROOM_PARTICIPANT_CACHE_TTL = 10 * 60_000;
+  private membershipCache = new Map<string, number>();
+  private MEMBERSHIP_CACHE_TTL = 5 * 60_000;
   private recentClientMessageCache = new Map<string, { data: any; ts: number }>();
   private RECENT_CLIENT_MESSAGE_TTL = 2 * 60_000;
 
@@ -114,8 +116,29 @@ export class ChatService implements OnModuleInit {
     const ids = Array.from(new Set(userIds.filter(Boolean) as string[]));
     if (ids.length > 0) {
       this.roomParticipantCache.set(roomId, { ids, ts: Date.now() });
+      for (const userId of ids) this.cacheMembership(roomId, userId);
     }
     return ids;
+  }
+
+  private cacheMembership(roomId: string, userId: string) {
+    const key = `${roomId}:${userId}`;
+    this.membershipCache.set(key, Date.now());
+    if (this.membershipCache.size > 2000) {
+      const oldest = this.membershipCache.keys().next().value;
+      if (oldest) this.membershipCache.delete(oldest);
+    }
+  }
+
+  private hasCachedMembership(roomId: string, userId: string) {
+    const key = `${roomId}:${userId}`;
+    const ts = this.membershipCache.get(key);
+    if (!ts) return false;
+    if (Date.now() - ts > this.MEMBERSHIP_CACHE_TTL) {
+      this.membershipCache.delete(key);
+      return false;
+    }
+    return true;
   }
 
   private getRecentClientMessage(cacheKey: string) {
@@ -1054,6 +1077,9 @@ export class ChatService implements OnModuleInit {
     this.invalidateRoomsCache(room.userId);
     this.invalidateRoomsCache(room.proProfile.userId);
     this.roomParticipantCache.delete(roomId);
+    for (const key of this.membershipCache.keys()) {
+      if (key.startsWith(`${roomId}:`)) this.membershipCache.delete(key);
+    }
   }
 
   // ─── Messages ────────────────────────────────────────────────────────────
@@ -1203,7 +1229,7 @@ export class ChatService implements OnModuleInit {
     const participantIds = await participantIdsPromise;
     const receiverIds = participantIds.filter((participantId) => participantId !== userId);
 
-    await Promise.all([
+    Promise.all([
       this.prisma.chatRoom.update({
         where: { id: roomId },
         data: {
@@ -1225,10 +1251,7 @@ export class ChatService implements OnModuleInit {
             data: { unreadCount: { increment: 1 } },
           })
         : Promise.resolve(),
-    ]);
-
-    // 룸 목록 캐시 무효화 (발신자 + 수신자 모두) + 메시지 알림
-    try {
+    ]).then(() => {
       for (const participantId of participantIds) {
         this.invalidateRoomsCache(participantId);
       }
@@ -1243,7 +1266,7 @@ export class ChatService implements OnModuleInit {
           { roomId, messageId: message.id },
         ).catch(() => {});
       }
-    } catch {}
+    }).catch(() => undefined);
 
     const payload = { ...message, reactions: [], isRead: false };
     if (clientMessageId) {
@@ -1464,11 +1487,18 @@ export class ChatService implements OnModuleInit {
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private async verifyMembership(roomId: string, userId: string) {
+    if (this.hasCachedMembership(roomId, userId)) {
+      return { roomId, userId };
+    }
+
     const member = await this.prisma.chatRoomMember.findUnique({
       where: { roomId_userId: { roomId, userId } },
       select: { roomId: true, userId: true },
     });
-    if (member) return member;
+    if (member) {
+      this.cacheMembership(roomId, userId);
+      return member;
+    }
 
     const participantUserIds = await this.getChatParticipantUserIds(userId);
     let room = await this.prisma.chatRoom.findFirst({
@@ -1500,6 +1530,7 @@ export class ChatService implements OnModuleInit {
       select: { roomId: true, userId: true },
     });
     if (!repairedMember) throw new ForbiddenException('채팅방에 접근할 수 없습니다');
+    this.cacheMembership(roomId, userId);
     return repairedMember;
   }
 

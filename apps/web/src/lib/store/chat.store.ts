@@ -66,6 +66,22 @@ function writeRoomsCache(rooms: ChatRoomItem[], userId = currentUserId()) {
   } catch {}
 }
 
+let roomsCacheWriteTimer: number | null = null;
+let roomsCacheWritePayload: { rooms: ChatRoomItem[]; userId: string } | null = null;
+
+function scheduleRoomsCacheWrite(rooms: ChatRoomItem[], userId = currentUserId()) {
+  if (typeof window === 'undefined') return;
+  if (!userId) return;
+  roomsCacheWritePayload = { rooms, userId };
+  if (roomsCacheWriteTimer != null) window.clearTimeout(roomsCacheWriteTimer);
+  roomsCacheWriteTimer = window.setTimeout(() => {
+    const payload = roomsCacheWritePayload;
+    roomsCacheWriteTimer = null;
+    roomsCacheWritePayload = null;
+    if (payload) writeRoomsCache(payload.rooms, payload.userId);
+  }, 180);
+}
+
 function dispatchChatEvent(name: string, detail?: Record<string, unknown>) {
   if (typeof window === 'undefined') return;
   try {
@@ -241,12 +257,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const socket = io(baseUrl + '/chat', {
       auth: { token },
-      transports: ['websocket'],
-      upgrade: false,
+      transports: ['websocket', 'polling'],
+      upgrade: true,
       reconnection: true,
       reconnectionDelay: 300,
       reconnectionDelayMax: 2000,
-      timeout: 1800,
+      timeout: 2500,
       rememberUpgrade: true,
     });
 
@@ -291,7 +307,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
         });
-        writeRoomsCache(nextRooms);
+        scheduleRoomsCacheWrite(nextRooms);
         return { rooms: nextRooms };
       });
       dispatchChatEvent('freetiful:chat-room-activity', {
@@ -344,7 +360,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               : message
           )));
         }
-        writeRoomsCache(nextRooms);
+        scheduleRoomsCacheWrite(nextRooms);
         return { rooms: nextRooms, messages: nextMessages };
       });
       dispatchChatEvent('freetiful:chat-profile-updated', data);
@@ -470,7 +486,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return;
       }
       set({ rooms: nextRooms, roomsUserId: userId, lastRoomsFetchAt: Date.now() });
-      if (!hasFilters && nextRooms.length > 0) writeRoomsCache(nextRooms, userId);
+      if (!hasFilters && nextRooms.length > 0) scheduleRoomsCacheWrite(nextRooms, userId);
     };
 
     if (!force && !hasFilters && rooms.length === 0) {
@@ -509,7 +525,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Reset unread in room list
     set((s) => {
       const nextRooms = s.rooms.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r));
-      writeRoomsCache(nextRooms);
+      scheduleRoomsCacheWrite(nextRooms);
       return { rooms: nextRooms };
     });
   },
@@ -615,7 +631,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
         });
-        writeRoomsCache(nextRooms);
+        scheduleRoomsCacheWrite(nextRooms);
         return { rooms: nextRooms };
       });
       dispatchChatEvent('freetiful:chat-room-activity', {
@@ -654,7 +670,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
         });
-        writeRoomsCache(nextRooms);
+        scheduleRoomsCacheWrite(nextRooms);
         return { messages: nextMessages, rooms: nextRooms };
       });
       dispatchChatEvent('freetiful:chat-room-activity', {
@@ -688,7 +704,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (settled) return;
         settled = true;
         resolve(null);
-      }, 1200);
+      }, 700);
 
       socket.emit('sendMessage', { roomId, ...payload }, (ack?: SendMessageAck) => {
         if (settled) return;
@@ -701,6 +717,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (ackMessage) {
       applyPersistedMessage(ackMessage);
       return ackMessage;
+    }
+
+    if (socket.connected) {
+      return optimisticMessage;
     }
 
     const myId = currentUserId();
@@ -761,7 +781,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     await chatApi.deleteRoom(roomId);
     set((s) => {
       const nextRooms = s.rooms.filter((r) => r.id !== roomId);
-      writeRoomsCache(nextRooms);
+      scheduleRoomsCacheWrite(nextRooms);
       return { rooms: nextRooms };
     });
   },

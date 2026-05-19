@@ -74,7 +74,7 @@ function messageTime(message: Pick<Message, 'createdAt'>) {
 }
 
 function hasFetchedEquivalent(message: Message, fetched: Message[]) {
-  if (!message.id.startsWith('opt-') && !message.id.startsWith('tmp-')) return false;
+  if (!message.id.startsWith('opt-') && !message.id.startsWith('tmp-') && !message.id.startsWith('pending-')) return false;
   const sentAt = messageTime(message);
   return fetched.some((item) => {
     if (message.clientMessageId && item.clientMessageId && message.clientMessageId === item.clientMessageId) {
@@ -412,7 +412,7 @@ export default function ChatRoomPage() {
       }
       // 낙관적 메시지(opt-/tmp-) 중 서버 확정 메시지와 대응되는 것 제거
       const withoutOptimistic = prev.filter((m) => {
-        if (!m.id.startsWith('opt-') && !m.id.startsWith('tmp-')) return true;
+        if (!m.id.startsWith('opt-') && !m.id.startsWith('tmp-') && !m.id.startsWith('pending-')) return true;
         return !unique.some((u) => {
           if (m.clientMessageId && u.clientMessageId && m.clientMessageId === u.clientMessageId) return true;
           if (u.senderId !== m.senderId || u.type !== m.type) return false;

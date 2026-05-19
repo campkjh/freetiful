@@ -53,7 +53,11 @@ const USER_NAV_ITEMS = [
 ];
 
 const PRO_NAV_ITEMS = [
+  { href: '/main',      icon: HomeNavIcon,       label: '홈' },
+  { href: '/biz',       icon: BizNavIcon,        label: 'Biz' },
   { href: '/pro-dashboard/inquiries', icon: NewRequestNavIcon, label: '새요청' },
+  { href: '/chat',      icon: ChatNavIcon,       label: '채팅' },
+  { href: '/my',        icon: MyNavIcon,         label: '마이' },
 ];
 
 const HIDE_NAV_PATTERNS = [
@@ -214,11 +218,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     };
   }, [authHydrated, authUser?.id, authUser?.role]);
 
-  useEffect(() => {
-    if (!authHydrated || authUser?.role !== 'pro' || !pathname.startsWith('/biz')) return;
-    router.replace('/pro-dashboard/inquiries');
-  }, [authHydrated, authUser?.role, pathname, router]);
-
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
     const handler = () => {
@@ -238,6 +237,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
     let cancelled = false;
     const onChatRoute = pathname.startsWith('/chat');
+    const onRealtimeRoute = onChatRoute || pathname.startsWith('/pro-dashboard');
 
     const loadChatStore = async (withRooms: boolean) => {
       const { useChatStore } = await import('@/lib/store/chat.store');
@@ -249,9 +249,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       }
     };
 
-    const cancelChat = onChatRoute
-      ? queueIdleTask(() => { loadChatStore(true); }, 0, 1500)
-      : queueIdleTask(() => { loadChatStore(false); }, pathname.startsWith('/pro-dashboard') ? 5000 : 2500, 8000);
+    const cancelChat = onRealtimeRoute
+      ? queueIdleTask(() => { loadChatStore(onChatRoute); }, 0, 1500)
+      : queueIdleTask(() => { loadChatStore(false); }, 2500, 8000);
 
     const cancelNotifications = queueIdleTask(() => {
       import('@/lib/api/notification.api').then(({ notificationApi }) => {
@@ -267,7 +267,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   }, [authUser?.id, pathname]);
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
-  const homeHref = isPro ? '/pro-dashboard/inquiries' : '/main';
+  const homeHref = '/main';
 
   // pathname 변경 시 collapsing 리셋
   useEffect(() => {
