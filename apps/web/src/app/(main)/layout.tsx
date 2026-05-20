@@ -249,7 +249,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     if (onRealtimeRoute) {
       loadChatStore(onChatRoute);
     } else {
-      cancelChat = queueIdleTask(() => { loadChatStore(false); }, 1800, 5000);
+      // Android WebView는 socket handshake가 늦게 시작되면 채팅 진입 후 첫 수신이 크게 밀린다.
+      // 룸 조회는 채팅 화면에서만 하고, 소켓 연결만 아주 일찍 열어둔다.
+      const isAndroid = document.documentElement.dataset.platform === 'android';
+      cancelChat = queueIdleTask(() => { loadChatStore(false); }, isAndroid ? 120 : 900, isAndroid ? 1500 : 4000);
     }
 
     const cancelNotifications = queueIdleTask(() => {

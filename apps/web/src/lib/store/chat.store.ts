@@ -6,6 +6,7 @@ import { chatApi, type ChatRoomItem, type MessageItem } from '../api/chat.api';
 import { useAuthStore } from './auth.store';
 
 const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
+const MESSAGE_CACHE_PREFIX = 'freetiful-chat-messages-cache-v1:';
 // 30분 — 채팅 리스트가 단기간 캐시 만료로 사라지는 문제 방지.
 // (예: 다른 페이지에 5분 머무르고 돌아오면 빈 화면이 깜빡 → 다시 채워지던 현상)
 const ROOM_CACHE_TTL = 30 * 60_000;
@@ -50,11 +51,24 @@ function readRoomsCache(userId = currentUserId()): { rooms: ChatRoomItem[]; ts: 
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed?.rooms) || !parsed?.ts) return null;
     if (parsed.userId !== userId) return null;
-    if (Date.now() - parsed.ts > ROOM_CACHE_TTL) {
-      localStorage.removeItem(ROOM_CACHE_KEY);
-      return null;
-    }
-    return parsed;
+    const expired = Date.now() - parsed.ts > ROOM_CACHE_TTL;
+    // 안드로이드 저사양 기기에서는 빈 화면에서 네트워크를 기다리는 비용이 크다.
+    // 만료된 캐시도 즉시 그려주고, ts=0 으로 표시해 백그라운드 재검증만 유도한다.
+    return expired ? { ...parsed, ts: 0 } : parsed;
+  } catch {
+    return null;
+  }
+}
+
+function readAnyRoomsCache(): { rooms: ChatRoomItem[]; ts: number; userId: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(ROOM_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.rooms) || !parsed?.userId || !parsed?.ts) return null;
+    const expired = Date.now() - parsed.ts > ROOM_CACHE_TTL;
+    return expired ? { ...parsed, ts: 0 } : parsed;
   } catch {
     return null;
   }
@@ -70,6 +84,34 @@ function writeRoomsCache(rooms: ChatRoomItem[], userId = currentUserId()) {
 
 export function getCachedChatRoomsForCurrentUser(): ChatRoomItem[] {
   return readRoomsCache()?.rooms || [];
+}
+
+export function getCachedChatRoomsFast(): ChatRoomItem[] {
+  return readAnyRoomsCache()?.rooms || [];
+}
+
+export function getCachedChatMessagesForRoom(roomId: string): MessageItem[] {
+  if (typeof window === 'undefined' || !roomId) return [];
+  try {
+    const raw = sessionStorage.getItem(`${MESSAGE_CACHE_PREFIX}${roomId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.messages) || !parsed?.ts) return [];
+    if (Date.now() - parsed.ts > ROOM_CACHE_TTL) return parsed.messages.slice(-30);
+    return parsed.messages;
+  } catch {
+    return [];
+  }
+}
+
+export function cacheChatMessagesForRoom(roomId: string, messages: MessageItem[]) {
+  if (typeof window === 'undefined' || !roomId || messages.length === 0) return;
+  try {
+    sessionStorage.setItem(
+      `${MESSAGE_CACHE_PREFIX}${roomId}`,
+      JSON.stringify({ ts: Date.now(), messages: messages.slice(-30) }),
+    );
+  } catch {}
 }
 
 let roomsCacheWriteTimer: number | null = null;
@@ -292,7 +334,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const myId = currentUserId();
       const isMine = !!myId && message.senderId === myId;
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
+      const nextCachedMessages = replaceOrAppendMessage(cachedForRoom, message).slice(-80);
+      messageCache.set(message.roomId, nextCachedMessages);
+      cacheChatMessagesForRoom(message.roomId, nextCachedMessages);
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       if (message.roomId === currentRoomId) {
         set((s) => ({
@@ -559,8 +603,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   fetchMessages: async (roomId, loadMore = false) => {
-    const cached = !loadMore ? get().messageCache.get(roomId) || [] : [];
+    const memoryCached = get().messageCache.get(roomId) || [];
+    const cached = !loadMore
+      ? memoryCached.length > 0 ? memoryCached : getCachedChatMessagesForRoom(roomId)
+      : [];
     if (!loadMore && cached.length > 0) {
+      if (memoryCached.length === 0) get().messageCache.set(roomId, cached);
       set({ messages: cached, messagesLoading: false });
     } else {
       set({ messagesLoading: true });
@@ -575,6 +623,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         : mergeFetchedMessageItems(get().messages, newMsgs, requestedAt);
       if (nextMessages.length > 0 || newMsgs.length > 0) {
         get().messageCache.set(roomId, nextMessages);
+        cacheChatMessagesForRoom(roomId, nextMessages);
       }
       set((s) => ({
         messages: loadMore ? [...newMsgs, ...s.messages] : mergeFetchedMessageItems(s.messages, newMsgs, requestedAt),
@@ -626,7 +675,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ? replaceOrAppendMessage(s.messages, optimisticMessage)
           : s.messages;
         const cached = s.messageCache.get(roomId) || [];
-        s.messageCache.set(roomId, replaceOrAppendMessage(cached, optimisticMessage).slice(-80));
+        const nextCachedMessages = replaceOrAppendMessage(cached, optimisticMessage).slice(-80);
+        s.messageCache.set(roomId, nextCachedMessages);
+        cacheChatMessagesForRoom(roomId, nextCachedMessages);
         return { messages: nextMessages };
       });
     }
@@ -671,7 +722,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const applyPersistedMessage = (message: MessageItem) => {
       const { messageCache } = get();
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
+      const nextCachedMessages = replaceOrAppendMessage(cachedForRoom, message).slice(-80);
+      messageCache.set(message.roomId, nextCachedMessages);
+      cacheChatMessagesForRoom(message.roomId, nextCachedMessages);
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       set((s) => {
         const nextMessages = s.currentRoomId === message.roomId

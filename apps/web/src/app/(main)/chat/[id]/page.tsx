@@ -6,7 +6,7 @@ import {
   ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { useChatStore } from '@/lib/store/chat.store';
+import { cacheChatMessagesForRoom, getCachedChatMessagesForRoom, useChatStore } from '@/lib/store/chat.store';
 import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-prewarm';
 import { getProfileImageUrl } from '@/lib/default-profile';
@@ -50,6 +50,7 @@ function mapCachedMessage(m: MessageItem | Message): Message {
 function writeMessageCacheIfPresent(roomId: string, messages: MessageItem[]) {
   if (messages.length === 0) return;
   useChatStore.getState().messageCache.set(roomId, messages);
+  cacheChatMessagesForRoom(roomId, messages);
 }
 
 function formatDateDivider(dateStr: string) {
@@ -173,7 +174,7 @@ export default function ChatRoomPage() {
   const initialPartner: ChatPartner | null = initialRoom ? mapRoomToPartner(initialRoom) : null;
   const initialCachedMessages = (() => {
     if (typeof window === 'undefined' || roomId.startsWith('pending-')) return [];
-    return useChatStore.getState().messageCache.get(roomId) || [];
+    return useChatStore.getState().messageCache.get(roomId) || getCachedChatMessagesForRoom(roomId);
   })();
   const initialMessages: Message[] = initialPreWarmed?.messages
     ? initialPreWarmed.messages.map(mapApiMessage)

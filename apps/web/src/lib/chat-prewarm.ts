@@ -1,4 +1,5 @@
 import { chatApi, type ChatRoomItem, type MessageItem } from './api/chat.api';
+import { cacheChatMessagesForRoom } from './store/chat.store';
 
 const PREWARM_MESSAGE_LIMIT = 15;
 
@@ -41,6 +42,7 @@ export function preWarmChat(proProfileId: string) {
         .then((res) => {
           const messages = res.data.data || [];
           data.messages = messages;
+          cacheChatMessagesForRoom(roomId, messages);
           return messages;
         })
         .catch(() => []);
@@ -67,6 +69,7 @@ export function preWarmExistingRoom(room: ChatRoomItem) {
     .then((res) => {
       const messages = res.data.data || [];
       data.messages = messages;
+      cacheChatMessagesForRoom(room.id, messages);
       return messages;
     })
     .catch(() => []);

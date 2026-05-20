@@ -125,7 +125,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       ack?.({ ok: true, message });
 
       // Notify connected room-list screens without forcing a room-list refetch.
-      const memberIds = await this.chatService.getRoomMemberIds(roomId);
+      const memberIds =
+        Array.isArray((message as any).__participantIds)
+          ? (message as any).__participantIds
+          : await this.chatService.getRoomMemberIds(roomId);
       for (const memberId of memberIds) {
         this.chatRealtimeService.emitToUser(memberId, 'newMessage', message);
       }

@@ -1293,6 +1293,10 @@ export class ChatService implements OnModuleInit {
     }).catch(() => undefined);
 
     const payload = { ...message, reactions: [], isRead: false };
+    Object.defineProperty(payload, '__participantIds', {
+      value: participantIds,
+      enumerable: false,
+    });
     if (clientMessageId) {
       this.setRecentClientMessage(`${roomId}:${userId}:${clientMessageId}`, payload);
     }

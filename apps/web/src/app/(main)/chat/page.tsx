@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { getCachedChatRoomsForCurrentUser, useChatStore } from '@/lib/store/chat.store';
+import { getCachedChatRoomsFast, getCachedChatRoomsForCurrentUser, useChatStore } from '@/lib/store/chat.store';
 import { chatApi } from '@/lib/api/chat.api';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { getProfileImageUrl } from '@/lib/default-profile';
@@ -76,7 +76,7 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
 function getInitialRoomsForCurrentUser() {
   const auth = useAuthStore.getState();
   const chat = useChatStore.getState();
-  if (!auth.hasHydrated || !auth.user) return [];
+  if (!auth.hasHydrated || !auth.user) return getCachedChatRoomsFast().map(mapApiRoomToChatRoom);
   if (chat.roomsUserId === auth.user.id && chat.rooms.length > 0) {
     return chat.rooms.map(mapApiRoomToChatRoom);
   }
@@ -345,6 +345,10 @@ export default function ChatListPage() {
     if (!topRoomIdsKey) return;
     const topRoomIds = topRoomIdsKey.split('|').filter(Boolean);
     const run = () => topRoomIds.forEach((roomId) => handlePrewarmRoom(roomId, true));
+    if (document.documentElement.dataset.platform === 'android') {
+      const timer = window.setTimeout(run, 80);
+      return () => window.clearTimeout(timer);
+    }
     const win = window as Window & {
       requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
       cancelIdleCallback?: (id: number) => void;
