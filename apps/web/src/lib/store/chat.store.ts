@@ -209,19 +209,40 @@ function sameClientMessageId(a: MessageItem, b: MessageItem) {
   return typeof aId === 'string' && aId.length > 0 && aId === bId;
 }
 
+function isTemporaryMessageItem(message: MessageItem) {
+  return message.id.startsWith('pending-') || message.id.startsWith('opt-') || message.id.startsWith('tmp-');
+}
+
 function replaceOrAppendMessage(messages: MessageItem[], message: MessageItem) {
   const filtered = messages.filter((item) => item.id !== message.id && !sameClientMessageId(item, message));
   return sortMessagesAsc([...filtered, message]);
 }
 
-function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[], requestedAt: number) {
+function hasFetchedEquivalent(message: MessageItem, fetched: MessageItem[]) {
+  if (!isTemporaryMessageItem(message)) return false;
+  const sentAt = messageTime(message);
+  return fetched.some((item) => {
+    if (sameClientMessageId(message, item)) return true;
+    if (item.senderId !== message.senderId || item.type !== message.type) return false;
+    if (message.type === 'text') {
+      return (
+        item.content === message.content &&
+        messageTime(item) >= sentAt - 2_000 &&
+        Math.abs(messageTime(item) - sentAt) < 60_000
+      );
+    }
+    return Math.abs(messageTime(item) - sentAt) < 20_000;
+  });
+}
+
+function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[], _requestedAt: number) {
   if (fetched.length === 0 && current.length > 0) return current;
 
   const fetchedIds = new Set(fetched.map((message) => message.id));
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
-    if (fetched.some((item) => sameClientMessageId(message, item))) return false;
-    return messageTime(message) >= requestedAt - 2_000;
+    if (hasFetchedEquivalent(message, fetched)) return false;
+    return true;
   });
 
   return sortMessagesAsc([...fetched, ...preserved]);

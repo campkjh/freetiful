@@ -77,8 +77,12 @@ function messageTime(message: Pick<Message, 'createdAt'>) {
   return Number.isFinite(time) ? time : 0;
 }
 
+function isTemporaryMessage(message: Message) {
+  return message.id.startsWith('opt-') || message.id.startsWith('tmp-') || message.id.startsWith('pending-');
+}
+
 function hasFetchedEquivalent(message: Message, fetched: Message[]) {
-  if (!message.id.startsWith('opt-') && !message.id.startsWith('tmp-') && !message.id.startsWith('pending-')) return false;
+  if (!isTemporaryMessage(message)) return false;
   const sentAt = messageTime(message);
   return fetched.some((item) => {
     if (message.clientMessageId && item.clientMessageId && message.clientMessageId === item.clientMessageId) {
@@ -94,15 +98,14 @@ function hasFetchedEquivalent(message: Message, fetched: Message[]) {
   });
 }
 
-function mergeFetchedMessages(current: Message[], fetched: Message[], requestedAt: number) {
+function mergeFetchedMessages(current: Message[], fetched: Message[], _requestedAt: number) {
   if (fetched.length === 0 && current.length > 0) return current;
 
   const fetchedIds = new Set(fetched.map((message) => message.id));
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
     if (hasFetchedEquivalent(message, fetched)) return false;
-    if (message.id.startsWith('opt-')) return true;
-    return messageTime(message) >= requestedAt - 2_000;
+    return true;
   });
 
   return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
@@ -422,14 +425,19 @@ export default function ChatRoomPage() {
     if (wsMessages.length === 0) return;
     const mapped: Message[] = wsMessages.map(mapApiMessage);
     setMessages((prev) => {
+      const incoming = mapped.filter((m) => {
+        if (!isTemporaryMessage(m) || !m.clientMessageId) return true;
+        return !prev.some((p) => isTemporaryMessage(p) && p.clientMessageId === m.clientMessageId);
+      });
+      if (incoming.length === 0) return prev;
       const existingIds = new Set(prev.map((m) => m.id));
-      const unique = mapped.filter((m) => !existingIds.has(m.id));
+      const unique = incoming.filter((m) => !existingIds.has(m.id));
       if (unique.length === 0) {
-        return mergeFetchedMessages(prev, mapped, Date.now());
+        return mergeFetchedMessages(prev, incoming, Date.now());
       }
       // 낙관적 메시지(opt-/tmp-) 중 서버 확정 메시지와 대응되는 것 제거
       const withoutOptimistic = prev.filter((m) => {
-        if (!m.id.startsWith('opt-') && !m.id.startsWith('tmp-') && !m.id.startsWith('pending-')) return true;
+        if (!isTemporaryMessage(m)) return true;
         return !unique.some((u) => {
           if (m.clientMessageId && u.clientMessageId && m.clientMessageId === u.clientMessageId) return true;
           if (u.senderId !== m.senderId || u.type !== m.type) return false;
@@ -618,12 +626,14 @@ export default function ChatRoomPage() {
 
     if (authUser) {
       // 낙관적 업데이트: 즉시 화면에 표시
+      const clientMessageId = `cm-${now}-${Math.random().toString(36).slice(2, 10)}`;
       const optimistic: Message = {
-        id: `opt-${Date.now()}`,
+        id: `opt-${clientMessageId}`,
         senderId: authUser.id,
         content: text,
         type: 'text',
         createdAt: new Date().toISOString(),
+        clientMessageId,
         isRead: false,
         replyTo: replyTo ? { id: replyTo.id, name: replyTo.name, content: replyTo.content } : null,
         isNew: true,
@@ -633,17 +643,22 @@ export default function ChatRoomPage() {
         type: 'text',
         content: text,
         replyToId: replyTo?.id,
+        metadata: { clientMessageId },
       }).then((saved) => {
         if (!saved) return;
         const persisted = { ...mapApiMessage(saved), isNew: false };
         setMessages((prev) => {
-          const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
+          const withoutOptimistic = prev.filter((m) => {
+            if (m.id === persisted.id) return false;
+            if (m.id === optimistic.id) return false;
+            return !(isTemporaryMessage(m) && m.clientMessageId === clientMessageId);
+          });
           if (withoutOptimistic.some((m) => m.id === persisted.id)) return withoutOptimistic;
           return sortMessagesAsc([...withoutOptimistic, persisted]);
         });
       }).catch(() => {
         setMessages((prev) => prev.map((m) => (
-          m.id === optimistic.id ? { ...m, isNew: false } : m
+          m.id === optimistic.id || m.clientMessageId === clientMessageId ? { ...m, isNew: false } : m
         )));
       });
       setInput('');
@@ -651,7 +666,9 @@ export default function ChatRoomPage() {
       setMentionQuery(null);
       inputRef.current?.focus();
       setTimeout(() => {
-        setMessages((prev) => prev.map((m) => m.id === optimistic.id ? { ...m, isNew: false } : m));
+        setMessages((prev) => prev.map((m) => (
+          m.id === optimistic.id || m.clientMessageId === clientMessageId ? { ...m, isNew: false } : m
+        )));
       }, 500);
       return;
     }
