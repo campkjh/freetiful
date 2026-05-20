@@ -189,6 +189,8 @@ interface ProDetailData {
   tags?: string[];
   career?: string;
   isPrime: boolean;
+  showPartnersLogo?: boolean;
+  companyLogos?: string[];
   youtubeId?: string;
   youtubeVideos: { id: string; title: string }[];
   faqs: { question: string; answer: string }[];
@@ -431,7 +433,9 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     categoryName: proCategory,
     tags: previewTags,
     career: p.mainExperience || '',
-    isPrime: p.isFeatured || false,
+    isPrime: p.isFeatured || p.showPartnersLogo || false,
+    showPartnersLogo: Boolean(p.showPartnersLogo),
+    companyLogos: [],
     youtubeId: previewYoutubeId,
     youtubeVideos: previewYoutubeId ? [{ id: previewYoutubeId, title: `${p.name} ${proCategory} 진행 영상` }] : [],
     faqs: [],
@@ -541,6 +545,8 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     tags: detailTags,
     career: res.mainExperience || '',
     isPrime: res.isFeatured || res.showPartnersLogo || false,
+    showPartnersLogo: Boolean(res.showPartnersLogo),
+    companyLogos: Array.isArray(res.companyLogos) ? res.companyLogos.filter(Boolean) : [],
     youtubeId: ytId,
     youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
     faqs,
@@ -742,9 +748,44 @@ const PRO_COMPANY_LOGOS: Record<string, string[]> = {
   '38': ['/images/company-logos/D8d0CAJYg56wMGb2nqUnU5thBBSBSisClhYH5WA_KfgBzdgzgn4Tb-Wd8VtH17Nsal4NkSk9XZ2SwUgLUuhVVg.svg', '/images/company-logos/GwHvDSCNafSHnRiZNqDMJOvThTG4_8QJgEFMZC3jlpTg_e_IMR2WWQcB4W641zxOwU219ER8opVMfaK8uhdrl-F69hJn02bChdq-cAheQjLEjDthTLEr4gaXwc4V8ZDNYdfj319zkwONKucgD_G05w.svg', '/images/company-logos/Kl7O19oIwFHCfL2QV05oLVVoL684vmbcbpFHyQCiQRiYr7Dgb18bXQM9qY__l0rm0dlPJKRTqAcwaqRcmvg_m0mVOvVfkrcdjER-1QOvtudPOP8len_6uFgfriIGYpYVBjmCyJ0RAHKe7JjZ1soeWw.svg'],
 };
 
-function CompanyLogoCarousel({ proId }: { proId?: string }) {
+const DEFAULT_COMPANY_LOGOS = Array.from(new Set(Object.values(PRO_COMPANY_LOGOS).flat()));
+
+function simpleHash(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function fallbackCompanyLogos(proId?: string) {
+  const seed = simpleHash(proId || 'freetiful-company-logos');
+  return [...DEFAULT_COMPANY_LOGOS]
+    .sort((a, b) => simpleHash(`${seed}:${a}`) - simpleHash(`${seed}:${b}`))
+    .slice(0, 8);
+}
+
+function cleanLogoUrls(items?: string[]) {
+  return Array.from(new Set((items || []).filter((logo) => typeof logo === 'string' && logo.startsWith('/images/'))));
+}
+
+function CompanyLogoCarousel({
+  proId,
+  logos: providedLogos,
+  showFallback = false,
+}: {
+  proId?: string;
+  logos?: string[];
+  showFallback?: boolean;
+}) {
   const [logos, setLogos] = useState<string[]>([]);
   useEffect(() => {
+    const explicitLogos = cleanLogoUrls(providedLogos);
+    if (explicitLogos.length > 0) {
+      setLogos(explicitLogos);
+      return;
+    }
     // 1. 해당 프로의 매핑된 로고 확인
     if (proId && PRO_COMPANY_LOGOS[proId]) {
       setLogos(PRO_COMPANY_LOGOS[proId]);
@@ -762,10 +803,16 @@ function CompanyLogoCarousel({ proId }: { proId?: string }) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string' && parsed[0].startsWith('/images/')) {
           setLogos(parsed);
+          return;
         }
       }
     } catch {}
-  }, [proId]);
+    if (showFallback) {
+      setLogos(fallbackCompanyLogos(proId));
+      return;
+    }
+    setLogos([]);
+  }, [proId, providedLogos, showFallback]);
 
   if (logos.length === 0) return null;
 
@@ -860,6 +907,13 @@ export default function ProDetailPage() {
           const rs = JSON.parse(localStorage.getItem('proRegister_regions') || '[]');
           if (Array.isArray(rs)) registeredRegions = rs.filter(Boolean);
         } catch {}
+        let localCompanyLogos: string[] = [];
+        try {
+          const savedLogos = JSON.parse(localStorage.getItem('proRegister_companyLogos') || '[]');
+          if (Array.isArray(savedLogos)) {
+            localCompanyLogos = savedLogos.filter((logo) => typeof logo === 'string' && logo.startsWith('/images/'));
+          }
+        } catch {}
         const myProTags = ['사회자', ...registeredRegions].slice(0, 5);
         const localPlanServices = buildWeddingServicesFromStorage();
         const localPlans = localPlanServices.map((service, idx) => {
@@ -890,6 +944,8 @@ export default function ProDetailPage() {
           tags: myProTags,
           career,
           isPrime: true,
+          showPartnersLogo: localCompanyLogos.length > 0,
+          companyLogos: localCompanyLogos,
           youtubeId: ytId,
           youtubeVideos: ytIds.map((id, i) => ({ id, title: `${name} 사회자 진행 영상 ${i + 1}` })),
           faqs: localFaqs,
@@ -1024,6 +1080,9 @@ export default function ProDetailPage() {
 
   const [openingChat, setOpeningChat] = useState(false);
   const [confirmInquiryOpen, setConfirmInquiryOpen] = useState(false);
+  const [inquiryLocation, setInquiryLocation] = useState('');
+  const [inquiryDate, setInquiryDate] = useState('');
+  const [inquiryTime, setInquiryTime] = useState('');
   const [descExpanded, setDescExpanded] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
@@ -1037,6 +1096,13 @@ export default function ProDetailPage() {
   useEffect(() => {
     if (authUser) setLoginModal(false);
   }, [authUser]);
+
+  useEffect(() => {
+    if (!confirmInquiryOpen) return;
+    setInquiryLocation('');
+    setInquiryDate('');
+    setInquiryTime('');
+  }, [confirmInquiryOpen, pro?.id]);
 
   const descRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
@@ -1146,11 +1212,19 @@ export default function ProDetailPage() {
 
   const submitInquiryRequest = async () => {
     if (!pro || !authUser || openingChat) return;
+    const trimmedLocation = inquiryLocation.trim();
+    if (!trimmedLocation || !inquiryDate || !inquiryTime) {
+      toast.error('행사 장소와 일시를 입력해주세요.');
+      return;
+    }
     setOpeningChat(true);
     try {
       const categoryName = pro.categoryName || '사회자';
       await matchApi.createRequest({
         categoryId: categoryName,
+        eventDate: inquiryDate,
+        eventTime: inquiryTime,
+        eventLocation: trimmedLocation,
         type: 'single',
         selectedProProfileIds: [pro.id],
         rawUserInput: {
@@ -1158,6 +1232,9 @@ export default function ProDetailPage() {
           categoryName,
           eventType: `${categoryName} 문의`,
           eventName: `${categoryName} 문의`,
+          location: trimmedLocation,
+          date: inquiryDate,
+          timeStart: inquiryTime,
           targetScope: 'single',
           requestKind: 'single',
           note: '사회자 상세페이지에서 보낸 문의 요청입니다.',
@@ -1889,7 +1966,7 @@ export default function ProDetailPage() {
         )}
 
         {/* ─── 기업 로고 캐러셀 ─── */}
-        <CompanyLogoCarousel proId={pro.id} />
+        <CompanyLogoCarousel proId={pro.id} logos={pro.companyLogos} showFallback={pro.showPartnersLogo} />
 
       </div>
 
@@ -2325,13 +2402,59 @@ export default function ProDetailPage() {
           style={{ animation: 'modalFade 0.25s ease-out' }}
         >
           <div
-            className="w-full max-w-[360px] rounded-[28px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.24)]"
+            className="w-full max-w-[420px] rounded-[28px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.24)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="text-[20px] font-bold text-[#2B313D]">정말로 문의하시겠습니까?</h3>
-            <p className="mt-2 text-[14px] leading-relaxed text-[#6B7280]">
-              {pro.name} 사회자에게 문의 요청을 보내면 사회자 새요청에 바로 전달됩니다.
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[20px] font-bold text-[#2B313D]">문의 요청하기</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-[#6B7280]">
+                  {pro.name} 사회자에게 전달할 행사 장소와 일시를 입력해주세요.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={openingChat}
+                onClick={() => setConfirmInquiryOpen(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F2F4F6] text-[#8B95A1] transition active:scale-95 disabled:opacity-60"
+                aria-label="닫기"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <label className="block">
+                <span className="mb-1.5 block text-[12px] font-bold text-[#6B7684]">행사 장소</span>
+                <input
+                  value={inquiryLocation}
+                  onChange={(event) => setInquiryLocation(event.target.value)}
+                  placeholder="예: 서울 중구 퇴계로"
+                  disabled={openingChat}
+                  className="h-[52px] w-full rounded-2xl border border-[#E5E8EF] bg-white px-4 text-[15px] font-semibold text-[#2B313D] outline-none transition placeholder:text-[#A4ABBA] focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
+                />
+              </label>
+              <div>
+                <span className="mb-1.5 block text-[12px] font-bold text-[#6B7684]">행사일시</span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <input
+                    type="date"
+                    value={inquiryDate}
+                    onChange={(event) => setInquiryDate(event.target.value)}
+                    disabled={openingChat}
+                    className="h-[52px] min-w-0 rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[14px] font-semibold text-[#2B313D] outline-none transition focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
+                  />
+                  <input
+                    type="time"
+                    value={inquiryTime}
+                    onChange={(event) => setInquiryTime(event.target.value)}
+                    disabled={openingChat}
+                    className="h-[52px] min-w-0 rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[14px] font-semibold text-[#2B313D] outline-none transition focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="mt-5 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
@@ -2339,7 +2462,7 @@ export default function ProDetailPage() {
                 onClick={() => setConfirmInquiryOpen(false)}
                 className="h-[48px] rounded-2xl bg-[#F2F4F6] text-[15px] font-bold text-[#4E5968] transition active:scale-[0.98] disabled:opacity-60"
               >
-                아니요
+                취소
               </button>
               <button
                 type="button"
@@ -2348,7 +2471,7 @@ export default function ProDetailPage() {
                 className="flex h-[48px] items-center justify-center gap-2 rounded-2xl bg-[#3180F7] text-[15px] font-bold text-white shadow-[0_12px_24px_rgba(49,128,247,0.24)] transition active:scale-[0.98] disabled:opacity-70"
               >
                 {openingChat && <span className="h-4 w-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />}
-                네
+                요청하기
               </button>
             </div>
           </div>

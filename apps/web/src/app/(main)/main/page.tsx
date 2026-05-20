@@ -1430,7 +1430,10 @@ export default function HomePage() {
   );
   const eventPros = useMemo(() => {
     const filtered = prosData.filter(isEventMcPro);
-    return shuffleProsBySeed(filtered.length > 0 ? filtered : prosData, `${moreProsSeedRef.current}:event`);
+    const filteredIds = new Set(filtered.map((pro) => pro.id));
+    const fallback = prosData.filter((pro) => !filteredIds.has(pro.id));
+    const filled = filtered.length > 0 ? [...filtered, ...fallback] : prosData;
+    return shuffleProsBySeed(filled, `${moreProsSeedRef.current}:event`);
   }, [prosData]);
   const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
 
@@ -2309,18 +2312,18 @@ export default function HomePage() {
               </Link>
             </div>
           </Reveal>
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-3 lg:gap-x-4 lg:gap-y-7">
             {apiPros === null ? (
               [1,2,3,4,5,6,7,8,9].map((i) => (
-                <div key={i} className={i >= 9 ? 'hidden lg:block' : ''}>
+                <div key={i}>
                   <div className="skeleton mb-2" style={{ width: '100%', aspectRatio: '3/4', borderRadius: 12 }} />
                   <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
                   <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
                   <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
                 </div>
               ))
-            ) : eventPros.slice(0, 10).map((pro, i) => (
-              <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
+            ) : eventPros.slice(0, 9).map((pro, i) => (
+              <div key={pro.id}>
                 <ProCard pro={pro} index={i} />
               </div>
             ))}

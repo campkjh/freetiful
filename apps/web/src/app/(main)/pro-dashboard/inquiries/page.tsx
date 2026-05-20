@@ -8,7 +8,6 @@ import { chatApi } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
-import { ProCardListSkeleton } from '../_components/ProSkeletons';
 
 type Filter = 'all' | 'multi' | 'single';
 type RequestKind = 'multi' | 'single';
@@ -17,6 +16,7 @@ const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-simple-requests-cache-v1';
 const MATCH_DELIVERIES_CACHE_TTL = 10 * 60_000;
 const MATCH_REQUEST_LIMIT = 20;
 const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
+let memoryDeliveriesCache: { userId?: string | null; data: MatchDeliveryView[]; ts: number } | null = null;
 
 interface MatchDeliveryView {
   id: string;
@@ -40,6 +40,13 @@ function cacheKey(userId?: string | null) {
 
 function readCache(userId?: string | null): MatchDeliveryView[] | null {
   if (typeof window === 'undefined') return null;
+  if (
+    memoryDeliveriesCache
+    && Date.now() - memoryDeliveriesCache.ts <= MATCH_DELIVERIES_CACHE_TTL
+    && (!userId || memoryDeliveriesCache.userId === userId)
+  ) {
+    return memoryDeliveriesCache.data;
+  }
   try {
     const raw = localStorage.getItem(cacheKey(userId)) || sessionStorage.getItem(MATCH_DELIVERIES_CACHE_KEY);
     if (!raw) return null;
@@ -59,6 +66,14 @@ function readCache(userId?: string | null): MatchDeliveryView[] | null {
 function readLatestCache(): MatchDeliveryView[] | null {
   if (typeof window === 'undefined') return null;
   const currentUserId = useAuthStore.getState().user?.id;
+  if (
+    currentUserId
+    && memoryDeliveriesCache
+    && memoryDeliveriesCache.userId === currentUserId
+    && Date.now() - memoryDeliveriesCache.ts <= MATCH_DELIVERIES_CACHE_TTL
+  ) {
+    return memoryDeliveriesCache.data;
+  }
   const direct = readCache(currentUserId) || readCache(null);
   if (direct) return direct;
   try {
@@ -82,6 +97,7 @@ function readLatestCache(): MatchDeliveryView[] | null {
 }
 
 function writeCache(data: MatchDeliveryView[], userId?: string | null) {
+  memoryDeliveriesCache = { data, userId, ts: Date.now() };
   if (typeof window === 'undefined') return;
   try {
     const payload = JSON.stringify({ data, ts: Date.now() });
@@ -160,7 +176,8 @@ export default function ProRequestsPage() {
   const cached = useMemo(() => readLatestCache(), []);
   const [filter, setFilter] = useState<Filter>('all');
   const [requests, setRequests] = useState<MatchDeliveryView[]>(cached ?? []);
-  const [loading, setLoading] = useState(cached === null);
+  const [loading, setLoading] = useState(false);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(cached !== null);
   const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
   const requestsCountRef = useRef(cached?.length ?? 0);
 
@@ -171,9 +188,10 @@ export default function ProRequestsPage() {
   const refreshRequests = useCallback((showLoading = false) => {
     if (!authUser) {
       setLoading(false);
+      setHasFetchedOnce(true);
       return;
     }
-    if (showLoading && requestsCountRef.current === 0) setLoading(true);
+    if (showLoading && requestsCountRef.current === 0 && !hasFetchedOnce) setLoading(true);
     matchApi.getProRequests({ limit: MATCH_REQUEST_LIMIT })
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
@@ -182,8 +200,11 @@ export default function ProRequestsPage() {
         writeCache(mapped, authUser.id);
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [authUser]);
+      .finally(() => {
+        setLoading(false);
+        setHasFetchedOnce(true);
+      });
+  }, [authUser, hasFetchedOnce]);
 
   useEffect(() => {
     if (!authUser || requests.length > 0) return;
@@ -191,6 +212,7 @@ export default function ProRequestsPage() {
     if (!cachedForUser) return;
     setRequests(cachedForUser);
     setLoading(false);
+    setHasFetchedOnce(true);
   }, [authUser?.id, requests.length]);
 
   useEffect(() => {
@@ -296,8 +318,10 @@ export default function ProRequestsPage() {
       </div>
 
       <div className="space-y-3 px-4 pt-3">
-        {loading ? (
-          <ProCardListSkeleton count={4} actions className="space-y-3" />
+        {loading && filtered.length === 0 && !hasFetchedOnce ? (
+          <div className="py-24 text-center">
+            <p className="text-[15px] font-semibold text-[#8B95A1]">새 요청을 확인 중입니다</p>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-24 text-center">
             <p className="text-[15px] font-semibold text-[#8B95A1]">새 요청이 없습니다</p>
