@@ -759,7 +759,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             }
           }
           .quote-card-root .quote-card-body {
-            animation: quoteCardFly 1.0s cubic-bezier(0.22, 1, 0.36, 1);
+            animation: none;
           }
           /* 기본 (중앙 아님) — 모든 3D/애니메이션 OFF, 평면 + 그림자 없음.
              전환은 천천히 부드럽게 (뚝딱거리지 않게) */
@@ -806,8 +806,8 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             animation: quoteCardDim 4.5s ease-in-out 0.1s infinite alternate;
           }
           .quote-card-root[data-near-center="true"] .quote-card-shimmer {
-            animation: quoteCardShimmer 7s cubic-bezier(0.45, 0, 0.55, 1) 0.6s infinite;
-            opacity: 1;
+            animation: none;
+            opacity: 0;
           }
           .quote-card-root[data-near-center="true"] .quote-card-shadow {
             animation: quoteCardShadow 5s ease-in-out 0.1s infinite alternate;
@@ -1788,8 +1788,24 @@ export default function ChatExtras(props: ChatExtrasProps) {
         } as any,
       };
       setMessages(prev => {
-        const withoutOptimistic = prev.filter((m) => m.id !== optimisticId && m.id !== targetId);
-        return [...withoutOptimistic, quoteMsg];
+        let patchedOptimistic = false;
+        const next = prev.map((m) => {
+          if (m.id !== optimisticId) return m;
+          patchedOptimistic = true;
+          return {
+            ...m,
+            content: quoteMsg.content,
+            createdAt: quoteMsg.createdAt || m.createdAt,
+            isRead: quoteMsg.isRead,
+            system: {
+              ...quoteMsg.system,
+              serverMessageId: savedQuoteMessage?.id,
+            } as any,
+          };
+        });
+        if (patchedOptimistic) return sortChatMessages(next);
+        if (prev.some((m) => m.id === targetId)) return prev;
+        return sortChatMessages([...prev, quoteMsg]);
       });
       toast.success('견적서가 발송되었습니다');
     } catch (e: any) {
