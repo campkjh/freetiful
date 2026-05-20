@@ -512,11 +512,38 @@ function sortByHomeRank(items: ProData[]) {
   );
 }
 
+function seededHash(input: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function shuffleProsBySeed(items: ProData[], seed: string) {
+  return [...items].sort((a, b) =>
+    seededHash(`${seed}:${a.id}:${a.name}`) - seededHash(`${seed}:${b.id}:${b.name}`)
+  );
+}
+
 function isWeddingMcPro(pro: ProData) {
   return pro.categories.some((category) => {
     const value = category.toLowerCase();
     return value.includes('결혼식') || value.includes('사회자') || value.includes('mc');
   });
+}
+
+function isEventMcPro(pro: ProData) {
+  const values = [...pro.categories, ...pro.tags].map((value) => value.toLowerCase());
+  return values.some((value) =>
+    value.includes('행사')
+    || value.includes('기업')
+    || value.includes('컨퍼런스')
+    || value.includes('컨벤션')
+    || value.includes('쇼호스트')
+    || value.includes('event')
+  );
 }
 
 const HOME_HERO_PROFILE_FALLBACK_IMAGES = [
@@ -745,23 +772,6 @@ const BANNERS = [
   { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png', linkUrl: null },
 ];
 
-const HOME_REGIONS = ['전국', '서울/경기', '충청', '경상', '전라', '강원', '제주'];
-
-function getRegionAliases(region: string) {
-  if (region === '서울/경기') return ['서울/경기', '서울', '경기', '인천', '수도권'];
-  if (region === '충청') return ['충청', '충북', '충남', '대전', '세종'];
-  if (region === '경상') return ['경상', '경북', '경남', '부산', '대구', '울산'];
-  if (region === '전라') return ['전라', '전북', '전남', '광주'];
-  return [region];
-}
-
-function matchesRegion(pro: ProData, region: string) {
-  if (region === '전국') return true;
-  if (pro.isNationwide) return true;
-  const aliases = getRegionAliases(region);
-  return Array.isArray(pro.regions) && pro.regions.some((r) => aliases.includes(r));
-}
-
 function ProCard({ pro, index }: {
   pro: ProData;
   index: number;
@@ -953,7 +963,7 @@ function HomeCategoryIcon({ item }: { item: HomeCategoryItem }) {
 
 function CategorySwiper() {
   const skipAnim = useHomeAnimationSkip();
-  const allCats = getHomeCategoryItems();
+  const allCats = getHomeCategoryItems().slice(0, 10);
   const pageSize = 10;
   const pages: HomeCategoryItem[][] = [];
   for (let i = 0; i < allCats.length; i += pageSize) pages.push(allCats.slice(i, i + pageSize));
@@ -990,7 +1000,7 @@ function CategorySwiper() {
                   className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
                   style={skipAnim ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + index * 0.04}s forwards` }}
                 >
-                  <div className="relative flex h-[60px] w-[60px] items-center justify-center lg:h-16 lg:w-16">
+                  <div className="relative flex h-[60px] w-[60px] items-center justify-center lg:h-16 lg:w-16 lg:overflow-hidden lg:rounded-full lg:bg-white lg:shadow-[0_8px_22px_rgba(15,23,42,0.08)] lg:ring-1 lg:ring-black/5">
                     <HomeCategoryIcon item={item} />
                     {item.name === '외국어사회자' && <LanguageBadge />}
                   </div>
@@ -1022,22 +1032,24 @@ function CategorySwiper() {
         </button>
       )}
 
-      <div className="mt-2 flex items-center justify-center gap-1.5">
-        {pages.map((_, index) => (
-          <button
-            key={index}
-            type="button"
-            onClick={() => scrollToPage(index)}
-            className="block rounded-full transition-all duration-300"
-            style={{
-              width: index === activePage ? 28 : 4,
-              height: 3,
-              backgroundColor: index === activePage ? '#111111' : '#D1D5DB',
-            }}
-            aria-label={`페이지 ${index + 1}`}
-          />
-        ))}
-      </div>
+      {pages.length > 1 && (
+        <div className="mt-2 flex items-center justify-center gap-1.5">
+          {pages.map((_, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => scrollToPage(index)}
+              className="block rounded-full transition-all duration-300"
+              style={{
+                width: index === activePage ? 28 : 4,
+                height: 3,
+                backgroundColor: index === activePage ? '#111111' : '#D1D5DB',
+              }}
+              aria-label={`페이지 ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1411,6 +1423,15 @@ export default function HomePage() {
     const weddingPros = prosData.filter(isWeddingMcPro);
     return weddingPros.length > 0 ? weddingPros : prosData;
   }, [prosData]);
+  const moreProsSeedRef = useRef(`${Date.now()}-${Math.random()}`);
+  const morePros = useMemo(
+    () => shuffleProsBySeed(prosData, moreProsSeedRef.current),
+    [prosData],
+  );
+  const eventPros = useMemo(() => {
+    const filtered = prosData.filter(isEventMcPro);
+    return shuffleProsBySeed(filtered.length > 0 ? filtered : prosData, `${moreProsSeedRef.current}:event`);
+  }, [prosData]);
   const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
 
   useEffect(() => {
@@ -1484,108 +1505,6 @@ export default function HomePage() {
 
     return () => { cancelled = true; };
   }, []);
-
-  // 현재 위치 기반 지역 감지 (지역별 사회자 섹션에서 사용)
-  const [myRegion, setMyRegion] = useState<string | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState<string>('전국');
-  const [regionalPros, setRegionalPros] = useState<ProData[]>([]);
-  const [regionalLoading, setRegionalLoading] = useState(false);
-  const [geoLoading, setGeoLoading] = useState(false);
-
-  useEffect(() => {
-    if (selectedRegion === '전국') {
-      setRegionalPros([]);
-      setRegionalLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setRegionalLoading(true);
-    discoveryApi.getProList({ limit: 12, sort: 'reviews', region: selectedRegion, withTotal: false })
-      .then((res) => {
-        if (cancelled) return;
-        const mapped = (res.data || []).map(mapDiscoveryProToHomePro);
-        setRegionalPros(mapped);
-      })
-      .catch(() => {
-        if (!cancelled) setRegionalPros(prosData.filter((p) => matchesRegion(p, selectedRegion)));
-      })
-      .finally(() => {
-        if (!cancelled) setRegionalLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [selectedRegion, prosData]);
-
-  const detectMyRegion = () => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      toast.error('이 브라우저는 위치 정보를 지원하지 않습니다');
-      return;
-    }
-    setGeoLoading(true);
-    // 광역 지역 박스 (위경도 대략 경계) — 포함 판정이 중심거리 계산보다 정확
-    const regionBoxes: { name: string; minLat: number; maxLat: number; minLng: number; maxLng: number }[] = [
-      { name: '제주',     minLat: 33.0, maxLat: 33.6, minLng: 126.0, maxLng: 127.0 },
-      { name: '서울/경기', minLat: 36.9, maxLat: 38.3, minLng: 126.4, maxLng: 127.9 },
-      { name: '강원',     minLat: 37.0, maxLat: 38.7, minLng: 127.7, maxLng: 129.4 },
-      { name: '충청',     minLat: 35.9, maxLat: 37.2, minLng: 126.0, maxLng: 128.0 },
-      { name: '전라',     minLat: 34.2, maxLat: 36.2, minLng: 125.5, maxLng: 127.9 },
-      { name: '경상',     minLat: 34.5, maxLat: 37.1, minLng: 127.6, maxLng: 129.6 },
-    ];
-    const centers: Record<string, { lat: number; lng: number }> = {
-      '서울/경기': { lat: 37.55, lng: 127.0 },
-      '강원':     { lat: 37.82, lng: 128.16 },
-      '충청':     { lat: 36.50, lng: 127.25 },
-      '전라':     { lat: 35.30, lng: 126.90 },
-      '경상':     { lat: 35.80, lng: 128.60 },
-      '제주':     { lat: 33.40, lng: 126.55 },
-    };
-
-    const matchRegion = (lat: number, lng: number): string => {
-      const box = regionBoxes.find((b) => lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng);
-      if (box) return box.name;
-      let best = '서울/경기';
-      let minDist = Infinity;
-      for (const [name, c] of Object.entries(centers)) {
-        const d = Math.hypot(c.lat - lat, c.lng - lng);
-        if (d < minDist) { minDist = d; best = name; }
-      }
-      return best;
-    };
-
-    let settled = false;
-    const finish = (cb: () => void) => {
-      if (settled) return;
-      settled = true;
-      cb();
-      setGeoLoading(false);
-    };
-
-    // 일부 iOS WebView/Android 브라우저에서는 timeout 옵션이 무시되거나 권한 다이얼로그가 뜨지 않아
-    // 콜백이 영영 안 오는 케이스가 있음 → 외부 벽시계 타임아웃으로 강제 종료
-    const wallTimer = setTimeout(() => {
-      finish(() => toast.error('위치 확인이 지연됩니다. 권한 설정을 확인해주세요'));
-    }, 6000);
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        clearTimeout(wallTimer);
-        finish(() => {
-          const matched = matchRegion(pos.coords.latitude, pos.coords.longitude);
-          setMyRegion(matched);
-          setSelectedRegion(matched);
-          toast.success(`${matched} 기준으로 표시합니다`);
-        });
-      },
-      (err) => {
-        clearTimeout(wallTimer);
-        finish(() => {
-          if (err.code === err.PERMISSION_DENIED) toast.error('위치 권한이 거부되었습니다');
-          else if (err.code === err.TIMEOUT) toast.error('위치 확인 시간 초과');
-          else toast.error('위치를 확인할 수 없습니다');
-        });
-      },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 10 * 60 * 1000 },
-    );
-  };
 
   const [bannerIdx, setBannerIdx] = useState(0);
   const [bannerDragOffset, setBannerDragOffset] = useState(0);
@@ -1977,7 +1896,7 @@ export default function HomePage() {
         <CategorySwiper />
 
         {/* 5. Slide Banner */}
-        <div className="px-[10px] pt-2 pb-1 lg:px-0 lg:pt-3 lg:pb-2">
+        <div className="px-[10px] pt-2 pb-0 lg:px-0 lg:pt-3 lg:pb-2">
           <div
             className="relative w-full overflow-hidden rounded-2xl lg:rounded-[22px] select-none"
             style={{ aspectRatio: '1170/300', touchAction: 'pan-y' }}
@@ -2233,7 +2152,7 @@ export default function HomePage() {
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 2. 이달의 TOP 사회자                                        */}
         {/* ══════════════════════════════════════════════��════════════ */}
-        <section>
+        <section className="mt-4 lg:mt-2">
           <div className="flex items-end justify-between mb-1 lg:mb-4">
             <div className="flex items-center gap-2">
               <img src="/images/trophy.png" alt="" className="w-10 h-10 object-contain shrink-0" />
@@ -2329,108 +2248,13 @@ export default function HomePage() {
         <div className="my-6 border-t border-gray-100" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 지역별 사회자                                              */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {prosData.length > 0 && (() => {
-          const localFiltered = prosData.filter((p) => matchesRegion(p, selectedRegion));
-          const regionFiltered = selectedRegion === '전국'
-            ? prosData
-            : regionalPros.length > 0 ? regionalPros : localFiltered;
-          return (
-            <section>
-              <Reveal>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="section-title">지역별 사회자</h3>
-                    <p className="section-subtitle mt-1">
-                      {selectedRegion !== '전국'
-                        ? `${selectedRegion} 지역에서 활동 가능한 사회자`
-                        : '원하는 지역의 사회자를 찾아보세요'}
-                    </p>
-                  </div>
-                  {selectedRegion !== '전국' && (
-                    <button
-                      onClick={() => {
-                        setMyRegion(null);
-                        setSelectedRegion('전국');
-                      }}
-                      className="text-[12px] text-gray-400 font-medium shrink-0"
-                    >
-                      해제
-                    </button>
-                  )}
-                </div>
-              </Reveal>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] mb-4">
-                <button
-                  onClick={detectMyRegion}
-                  disabled={geoLoading}
-                  className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-bold overflow-hidden ${
-                    myRegion ? 'bg-gray-900 text-white' : 'bg-[#3180F7] text-white'
-                  } disabled:opacity-80 transition-colors`}
-                  style={{ borderRadius: 20 }}
-                >
-                  <MapPin
-                    size={13}
-                    fill="currentColor"
-                    className={geoLoading ? 'animate-[geoPulse_1s_ease-in-out_infinite]' : ''}
-                  />
-                  <span
-                    key={geoLoading ? 'loading' : myRegion ? `region-${myRegion}` : 'idle'}
-                    className="animate-[geoLabelIn_0.35s_cubic-bezier(0.22,1,0.36,1)] inline-block"
-                  >
-                    {geoLoading ? '위치 확인 중...' : myRegion ? myRegion : '내 위치'}
-                  </span>
-                </button>
-                {HOME_REGIONS.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setSelectedRegion(r)}
-                    className={`shrink-0 px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
-                      selectedRegion === r ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'
-                    }`}
-                    style={{ borderRadius: 20 }}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-              {regionalLoading ? (
-                <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
-                  {[1,2,3,4,5,6].map((i) => (
-                    <div key={i}>
-                      <div className="skeleton mb-2" style={{ width: '100%', aspectRatio: '3/4', borderRadius: 12 }} />
-                      <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
-                      <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
-                    </div>
-                  ))}
-                </div>
-              ) : regionFiltered.length === 0 ? (
-                <div className="py-10 text-center text-[13px] text-gray-400">
-                  {selectedRegion} 지역에서 활동 가능한 사회자가 아직 없습니다
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
-                  {regionFiltered.slice(0, 6).map((pro, i) => (
-                    <div key={pro.id} className={i >= 6 ? 'hidden lg:block' : ''}>
-                      <ProCard pro={pro} index={i} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          );
-        })()}
-        {prosData.length > 0 && <div className="my-6 border-t border-gray-100" />}
-
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 3. 인기 사회자 — PC 5×2, Mobile 2×3                        */}
+        {/* 3. 더 많은 사회자 — PC 5×2, Mobile 2×3                     */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <section>
           <Reveal>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="section-title">인기 사회자</h3>
+                <h3 className="section-title">프리티풀의 더 많은 사회자</h3>
                 <p className="section-subtitle mt-1">고객 만족도가 높은 사회자를 만나보세요</p>
               </div>
               <Link
@@ -2455,7 +2279,47 @@ export default function HomePage() {
                   <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
                 </div>
               ))
-            ) : prosData.slice(0, 10).map((pro, i) => (
+            ) : morePros.slice(0, 10).map((pro, i) => (
+              <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
+                <ProCard pro={pro} index={i} />
+              </div>
+            ))}
+          </div>
+        </section>
+        <div className="my-6 border-t border-gray-100" />
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 4. 프리티풀의 행사 사회자                                  */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <section>
+          <Reveal>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="section-title">프리티풀의 행사 사회자</h3>
+                <p className="section-subtitle mt-1">기업행사와 컨퍼런스에 어울리는 사회자를 만나보세요</p>
+              </div>
+              <Link
+                href={proCategoryHref('전문행사사회자')}
+                onMouseEnter={warmProsList}
+                onTouchStart={warmProsList}
+                className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600"
+                style={{ transition: 'color 0.3s' }}
+              >
+                전체보기 <ChevronRight size={16} />
+              </Link>
+            </div>
+          </Reveal>
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
+            {apiPros === null ? (
+              [1,2,3,4,5,6,7,8,9].map((i) => (
+                <div key={i} className={i >= 9 ? 'hidden lg:block' : ''}>
+                  <div className="skeleton mb-2" style={{ width: '100%', aspectRatio: '3/4', borderRadius: 12 }} />
+                  <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
+                  <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
+                  <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
+                </div>
+              ))
+            ) : eventPros.slice(0, 10).map((pro, i) => (
               <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
                 <ProCard pro={pro} index={i} />
               </div>
