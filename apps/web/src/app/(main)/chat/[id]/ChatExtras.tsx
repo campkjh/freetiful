@@ -15,8 +15,6 @@ import { quotationApi } from '@/lib/api/quotation.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
-import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
-import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
 import { CHAT_STICKERS, type ChatSticker } from '@/lib/chat-stickers';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
@@ -26,42 +24,8 @@ export type { Message, ChatPartner, SystemPayload };
 
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
 
-// 옵션명 AI 추천 (키워드 기반) — 입력 단어에 매칭되는 추천 태그를 보여줌
-const OPTION_SUGGESTIONS: { name: string; price: number; keywords: string[] }[] = [
-  { name: '전문 사회 비용', price: 150000, keywords: ['사회', '진행', 'mc'] },
-  { name: '공식 행사 MC', price: 300000, keywords: ['공식', 'mc', '행사'] },
-  { name: '리허설 참여', price: 50000, keywords: ['리허설', '연습'] },
-  { name: '대본 작성', price: 80000, keywords: ['대본', '스크립트', '원고'] },
-  { name: '사전 미팅', price: 30000, keywords: ['미팅', '사전', '상담'] },
-  { name: '포토타임 진행', price: 50000, keywords: ['포토', '사진'] },
-  { name: '축사/건배사 코디', price: 70000, keywords: ['축사', '건배', '코디'] },
-  { name: '2차 진행', price: 150000, keywords: ['2차', '뒷풀이', '피로연'] },
-  { name: '하객 응대', price: 80000, keywords: ['하객', '응대', '안내'] },
-  { name: '전담 코디네이터', price: 200000, keywords: ['코디', '전담', '매니저'] },
-  { name: '음향/사운드 체크', price: 50000, keywords: ['음향', '사운드', '마이크'] },
-  { name: '교통비', price: 30000, keywords: ['교통', '출장', '이동'] },
-  { name: '출장비 (장거리)', price: 100000, keywords: ['출장', '장거리', '지방', '교통'] },
-  { name: '의상 (턱시도/드레스)', price: 100000, keywords: ['의상', '턱시도', '드레스'] },
-  { name: '조기 도착', price: 30000, keywords: ['조기', '일찍', '리허설'] },
-  { name: '영상 큐시트', price: 50000, keywords: ['큐시트', '영상', '진행표'] },
-  { name: '세팅 지원', price: 50000, keywords: ['세팅', '준비', '셋업'] },
-];
-
-function suggestOptionNames(input: string): { name: string; price: number }[] {
-  const q = input.toLowerCase().trim();
-  if (!q) return [];
-  const scored = OPTION_SUGGESTIONS.map((s) => {
-    let score = 0;
-    if (s.name.toLowerCase().includes(q)) score += 10;
-    for (const kw of s.keywords) {
-      if (kw.toLowerCase().includes(q) || q.includes(kw.toLowerCase())) score += 5;
-    }
-    return { ...s, score };
-  }).filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
-  return scored.map(({ name, price }) => ({ name, price }));
-}
-
 const formatKRW = (n: number) => n.toLocaleString('ko-KR') + '원';
+const MIN_QUOTE_AMOUNT = 300000;
 
 function sortChatMessages(messages: Message[]) {
   return [...messages].sort((a, b) => {
@@ -558,8 +522,6 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
       window.removeEventListener('focus', onFocus);
     };
   }, [msg.system, isPaid, refreshTick]);
-  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
-  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
   const quoteRef = useNearestQuoteCard<HTMLDivElement>();
 
   const sys = msg.system;
@@ -578,11 +540,9 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
   const wrapperClass = 'max-w-[280px] my-2 ml-14 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
 
   if (sys.kind === 'quote') {
-    const planKey = String(sys.plan || '').toLowerCase();
-    const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === planKey);
-    const weddingTpl = getWeddingPlanTemplate(normalizeWeddingPlanKey(planKey));
-    const planLabel = tpl?.label || weddingTpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : '1부 예식');
-    const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' || planKey === 'wedding_part12' ? '#8B5CF6' : '#3180F7';
+    const totalAmount = Number(sys.amount || quoteDetail?.amount || 0);
+    const estimateAmount = Number((sys as any).estimateAmount || sys.basePrice || 0) || Math.round(totalAmount / 1.1);
+    const vatAmount = Number((sys as any).vatAmount || 0) || Math.max(0, totalAmount - estimateAmount);
 
     return (
       <>
@@ -692,25 +652,8 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                   border: '1px solid rgba(255,255,255,0.5)',
                 }}
               >
-                {planLabel}
+                견적서
               </span>
-              {Array.isArray(sys.options) && sys.options.length > 0 && (
-                <span
-                  className="inline-block py-1 rounded-full leading-none"
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 500,
-                    paddingLeft: 6,
-                    paddingRight: 6,
-                    color: '#B45309',
-                    background: 'rgba(245, 158, 11, 0.12)',
-                    border: '1px solid rgba(245, 158, 11, 0.2)',
-                  }}
-                  title={sys.options.map((o) => `${o.name} +${o.price.toLocaleString()}원`).join(', ')}
-                >
-                  +{sys.options.length}
-                </span>
-              )}
             </div>
             {/* 상품명 16pt weight 500 */}
             <p
@@ -733,7 +676,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                 animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.66s both',
               }}
             >
-              {formatKRW(sys.amount || 0)}
+              {formatKRW(totalAmount)}
             </p>
             {!isPro && sys.quotationId && (
               isPaid ? (
@@ -967,27 +910,24 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                   <p className="text-[14px] text-gray-700 whitespace-pre-wrap">{quoteDetail.description}</p>
                 </div>
               )}
-              {Array.isArray(sys.options) && sys.options.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">추가 옵션</p>
-                  <div className="space-y-1">
-                    {sys.options.map((o: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between text-[13px] text-gray-700">
-                        <span>+ {o.name}</span>
-                        <span className="font-semibold">+{Number(o.price || 0).toLocaleString()}원</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* 금액 요약 */}
-            <div className="bg-gray-50 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
-              <span className="text-[13px] text-gray-500">총 견적 금액</span>
-              <span className="text-[20px] font-bold text-[#3180F7] tabular-nums">
-                {Number(sys.amount || 0).toLocaleString()}원
-              </span>
+            <div className="bg-gray-50 rounded-xl px-4 py-3 mb-4 space-y-2">
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-gray-500">견적금액</span>
+                <span className="font-semibold text-gray-900 tabular-nums">{formatKRW(estimateAmount)}</span>
+              </div>
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-gray-500">부가세</span>
+                <span className="font-semibold text-gray-900 tabular-nums">{formatKRW(vatAmount)}</span>
+              </div>
+              <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                <span className="text-[14px] font-bold text-gray-900">총액</span>
+                <span className="text-[20px] font-bold text-[#3180F7] tabular-nums">
+                  {formatKRW(totalAmount)}
+                </span>
+              </div>
             </div>
 
             {/* 액션: 미결제 + 최신 + 고객 측이면 결제하기 노출 */}
@@ -1311,12 +1251,10 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
   // ─── Quote modal state ───
-  const [quotePlan, setQuotePlan] = useState<string>('premium');
   const [quoteEventName, setQuoteEventName] = useState('');
   const [quoteEventDate, setQuoteEventDate] = useState('');
   const [quoteEventTime, setQuoteEventTime] = useState('');
   const [quoteEventLocation, setQuoteEventLocation] = useState('');
-  const [quoteMemo, setQuoteMemo] = useState('');
   const [quoteCustomAmount, setQuoteCustomAmount] = useState('');
   const [showStickerPicker, setShowStickerPicker] = useState(false);
 
@@ -1349,35 +1287,14 @@ export default function ChatExtras(props: ChatExtrasProps) {
     setQuoteEventTime((cur) => cur || toTimeInput(mr?.eventTime || lq?.eventTime || raw.timeStart));
     setQuoteEventLocation((cur) => cur || mr?.eventLocation || lq?.eventLocation || raw.location || '');
     setQuoteEventName((cur) => cur || lq?.title || raw.eventName || mr?.eventCategory?.name || '');
-    // 플랜 자동 선택 — rawUserInput 의 planKey 또는 wedding_part1 / wedding_part12 같은 라벨 힌트
-    const planHint = raw.planKey || raw.plan;
-    if (planHint && typeof planHint === 'string') {
-      setQuotePlan((cur) => (PLAN_KEYS.includes(planHint) ? planHint : cur));
-    }
   }, [showQuoteModal, roomMeta]);
-  // 추가 옵션 (프로가 견적 보낼 때 옵션을 추가해 총액을 올릴 수 있음)
-  const [quoteOptions, setQuoteOptions] = useState<{ name: string; price: number }[]>([]);
   const [quoteSending, setQuoteSending] = useState(false);
-  const [newOptName, setNewOptName] = useState('');
-  const [newOptPrice, setNewOptPrice] = useState('');
 
-  // 어드민 플랜 템플릿 — 가격/이름/포함항목의 단일 소스
-  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
-  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
-  const PLAN_DATA: Record<string, { label: string; price: number; items: string[] }> = Object.fromEntries(
-    planTemplates.filter((t) => t.isActive).map((t) => [t.planKey, { label: t.label, price: t.defaultPrice, items: t.includedItems }])
-  );
-  const PLAN_KEYS = planTemplates.filter((t) => t.isActive).map((t) => t.planKey);
-  useEffect(() => {
-    if (PLAN_KEYS.length > 0 && !PLAN_KEYS.includes(quotePlan)) setQuotePlan(PLAN_KEYS[0]);
-  }, [planTemplates]);
-
-  const selectedPlan = PLAN_DATA[quotePlan];
-  const quoteOptionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
-  const quoteBaseAmount = quoteCustomAmount.trim()
+  const quoteEstimateAmount = quoteCustomAmount.trim()
     ? Math.max(0, parseInt(quoteCustomAmount.replace(/[^\d]/g, ''), 10) || 0)
-    : (selectedPlan?.price || 0);
-  const quoteTotalAmount = quoteBaseAmount + quoteOptionsTotal;
+    : 0;
+  const quoteVatAmount = Math.round(quoteEstimateAmount * 0.1);
+  const quoteTotalAmount = quoteEstimateAmount + quoteVatAmount;
 
   // ─── Handlers ───
 
@@ -1793,19 +1710,18 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
   const handleSendQuote = async () => {
     if (quoteSending) return;
-    const plan = PLAN_DATA[quotePlan];
-    if (!plan) { toast.error('플랜 정보를 불러오는 중입니다'); return; }
     if (!chatPartner?.id) {
       toast.error('상대방 정보를 찾을 수 없습니다');
       return;
     }
+    if (quoteEstimateAmount < MIN_QUOTE_AMOUNT) {
+      toast.error('견적금액은 최소 30만원부터 발송할 수 있습니다');
+      return;
+    }
     setQuoteSending(true);
-    // 옵션 총액 + 전체 합계
-    const optionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
-    const baseAmount = quoteCustomAmount.trim()
-      ? Math.max(0, parseInt(quoteCustomAmount.replace(/[^\d]/g, ''), 10) || 0)
-      : plan.price;
-    const totalAmount = baseAmount + optionsTotal;
+    const estimateAmount = quoteEstimateAmount;
+    const vatAmount = quoteVatAmount;
+    const totalAmount = quoteTotalAmount;
     try {
       const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       // 1) 백엔드에 실제 Quotation 생성
@@ -1814,11 +1730,10 @@ export default function ChatExtras(props: ChatExtrasProps) {
         amount: totalAmount,
         title: quoteEventName || '행사 진행',
         description: [
-          quoteMemo,
-          quoteOptions.length > 0
-            ? `\n[추가 옵션]\n${quoteOptions.map((o) => `- ${o.name}: +${o.price.toLocaleString()}원`).join('\n')}`
-            : '',
-        ].filter(Boolean).join(''),
+          `견적금액 ${estimateAmount.toLocaleString('ko-KR')}원`,
+          `부가세 ${vatAmount.toLocaleString('ko-KR')}원`,
+          `총액 ${totalAmount.toLocaleString('ko-KR')}원`,
+        ].join('\n'),
         eventDate: quoteEventDate || undefined,
         eventTime: quoteEventTime || undefined,
         eventLocation: quoteEventLocation || undefined,
@@ -1836,15 +1751,16 @@ export default function ChatExtras(props: ChatExtrasProps) {
           metadata: {
             system: {
               kind: 'quote',
-              plan: quotePlan,
               eventName: quoteEventName || '행사 진행',
               amount: totalAmount,
-              basePrice: baseAmount,
-              options: quoteOptions,
+              basePrice: estimateAmount,
+              estimateAmount,
+              vatAmount,
+              options: [],
               eventDate: quoteEventDate,
               eventTime: quoteEventTime,
               eventLocation: quoteEventLocation,
-              items: plan.items,
+              items: [],
               quotationId,
               proImage: myProImage,
             },
@@ -1869,15 +1785,16 @@ export default function ChatExtras(props: ChatExtrasProps) {
         isRead: false,
         system: {
           kind: 'quote',
-          plan: quotePlan,
           eventName: quoteEventName || '행사 진행',
           amount: totalAmount,
-          basePrice: baseAmount,
-          options: quoteOptions,
+          basePrice: estimateAmount,
+          estimateAmount,
+          vatAmount,
+          options: [],
           eventDate: quoteEventDate,
           eventTime: quoteEventTime,
           eventLocation: quoteEventLocation,
-          items: plan.items,
+          items: [],
           quotationId,
           proImage: myProImage,
         } as any,
@@ -1888,11 +1805,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       setQuoteEventDate('');
       setQuoteEventTime('');
       setQuoteEventLocation('');
-      setQuoteMemo('');
       setQuoteCustomAmount('');
-      setQuoteOptions([]);
-      setNewOptName('');
-      setNewOptPrice('');
       toast.success('견적서가 발송되었습니다');
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '발송 실패';
@@ -2132,66 +2045,38 @@ export default function ChatExtras(props: ChatExtrasProps) {
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <h2 className="text-[18px] font-bold text-gray-900 mb-4">견적서 작성</h2>
 
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">견적 금액</p>
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">견적금액</p>
             <input
               type="text"
               inputMode="numeric"
               value={quoteCustomAmount}
               onChange={(e) => setQuoteCustomAmount(e.target.value.replace(/[^\d]/g, ''))}
-              placeholder="직접 입력하지 않으면 선택 플랜 금액이 적용됩니다"
-              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-4"
+              placeholder="최소 300,000원"
+              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-2"
             />
-
-            {/* ─── 행사 정보 ─── */}
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">행사 정보</p>
-            <div className="space-y-2 mb-4">
-              <input
-                type="text"
-                value={quoteEventName}
-                onChange={(e) => setQuoteEventName(e.target.value)}
-                placeholder="행사명 (예: 김철수·이영희 결혼식)"
-                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={quoteEventDate}
-                  onChange={(e) => setQuoteEventDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
-                />
-                <input
-                  type="time"
-                  value={quoteEventTime}
-                  onChange={(e) => setQuoteEventTime(e.target.value)}
-                  className="w-[130px] h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
-                />
-              </div>
-              <input
-                type="text"
-                value={quoteEventLocation}
-                onChange={(e) => setQuoteEventLocation(e.target.value)}
-                placeholder="행사 장소 (예: 그랜드 워커힐 서울)"
-                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
-              />
-            </div>
+            <p className="text-[12px] text-gray-400 mb-4">입력한 금액에 부가세 10%가 자동으로 더해져 고객에게 총액으로 표시됩니다.</p>
 
             {/* 총액 표시 */}
-            <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-4">
-              <div>
-                <p className="text-[11px] text-gray-400">
-                  기본 견적 {quoteBaseAmount.toLocaleString()}원
-                  {quoteCustomAmount.trim() ? ' · 직접 입력' : ` · ${PLAN_DATA[quotePlan]?.label || ''}`}
-                </p>
+            <div className="bg-gray-50 rounded-xl px-4 py-3 mb-4 space-y-2">
+              <div className="flex items-center justify-between text-[14px]">
+                <span className="text-gray-500">견적금액</span>
+                <span className="font-semibold text-gray-900 tabular-nums">{formatKRW(quoteEstimateAmount)}</span>
               </div>
-              <p className="text-[18px] font-bold text-[#3180F7]">
-                {quoteTotalAmount.toLocaleString()}원
-              </p>
+              <div className="flex items-center justify-between text-[14px]">
+                <span className="text-gray-500">부가세</span>
+                <span className="font-semibold text-gray-900 tabular-nums">{formatKRW(quoteVatAmount)}</span>
+              </div>
+              <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                <span className="text-[15px] font-bold text-gray-900">총액</span>
+                <span className="text-[20px] font-bold text-[#3180F7] tabular-nums">
+                  {formatKRW(quoteTotalAmount)}
+                </span>
+              </div>
             </div>
 
             <button
               onClick={handleSendQuote}
-              disabled={quoteSending}
+              disabled={quoteSending || quoteEstimateAmount < MIN_QUOTE_AMOUNT}
               className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
             >
               {quoteSending ? (

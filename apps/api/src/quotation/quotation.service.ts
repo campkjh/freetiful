@@ -8,6 +8,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 
+const MIN_QUOTATION_TOTAL_AMOUNT = 330000;
+
 @Injectable()
 export class QuotationService {
   constructor(
@@ -100,6 +102,10 @@ export class QuotationService {
       matchDeliveryId?: string;
     },
   ) {
+    if (!Number.isFinite(Number(data.amount)) || Number(data.amount) < MIN_QUOTATION_TOTAL_AMOUNT) {
+      throw new BadRequestException('견적금액은 최소 30만원부터 발송할 수 있습니다.');
+    }
+
     // 전문가 프로필 확인
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { id: proProfileId },
