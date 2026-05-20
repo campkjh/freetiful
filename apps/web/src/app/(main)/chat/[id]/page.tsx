@@ -833,7 +833,7 @@ export default function ChatRoomPage() {
             </div>
             <div className="flex-1 min-w-0 leading-tight">
               <div className="flex items-center gap-1.5">
-                <p className="text-[14px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
+                <p className="text-[17px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
                 {chatPartner && partnerRoleKnown && (
                   <span
                     className="text-[9px] font-bold px-1.5 py-[1px] rounded shrink-0"
@@ -846,9 +846,6 @@ export default function ChatRoomPage() {
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-gray-400">
-                {chatPartner?.isActive ? '온라인' : chatPartner?.lastSeen ? `${chatPartner.lastSeen} 활동` : '오프라인'}
-              </p>
             </div>
           </button>
 
@@ -878,42 +875,6 @@ export default function ChatRoomPage() {
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="mx-auto w-full max-w-[680px]">
-          {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
-            const mr = roomMeta?.matchRequest;
-            const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-            const eventLocation = mr?.eventLocation || (roomMeta.latestQuotation as any)?.eventLocation || raw.location;
-            const eventName = roomMeta.latestQuotation?.title || raw.eventName || mr?.eventCategory?.name || '행사 정보 확인 필요';
-            const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
-            return (
-            <div className="mb-4 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(49,128,247,0.08)]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-bold text-[#3180F7]">고객 견적 정보</p>
-                  <p className="mt-1 text-[14px] font-semibold text-gray-900 truncate">
-                    {eventName}
-                  </p>
-                  {eventLocation && (
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-gray-500">
-                      <MapPin size={13} className="shrink-0 text-[#A4ABBA]" />
-                      <p className="truncate">{eventLocation}</p>
-                    </div>
-                  )}
-                  {planLabel && (
-                    <span className="mt-1 inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7]/10 text-[#3180F7]">
-                      {planLabel}
-                    </span>
-                  )}
-                </div>
-                {roomMeta.latestQuotation?.amount != null && (
-                  <div className="shrink-0 rounded-xl bg-blue-50 px-3 py-2 text-right">
-                    <p className="text-[11px] text-blue-500">최근 견적</p>
-                    <p className="text-[14px] font-bold text-[#3180F7]">{Number(roomMeta.latestQuotation.amount).toLocaleString('ko-KR')}원</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            );
-          })()}
           {messagesLoading && messages.length === 0 && (
             <div className="space-y-4 pt-4">
               {[1,2,3,4,5].map((i) => (

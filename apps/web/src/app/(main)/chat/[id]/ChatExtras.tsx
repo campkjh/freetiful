@@ -4,9 +4,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   X, Copy, Reply, Trash2, MoreVertical,
-  MapPin, FileText, Music, Smile, Plus, Search, Bell, BellOff,
+  MapPin, FileText, Smile, Plus, Search, Bell, BellOff,
   Flag, Pin, TextSelect, PinOff,
-  Camera, Mic, Image as ImageIcon,
+  Mic, Image as ImageIcon,
   FileSignature, CreditCard, CheckCircle2, CalendarCheck,
   AlarmClock, Sparkles, Star, RefreshCw, XCircle, Clock,
 } from 'lucide-react';
@@ -853,11 +853,11 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
       </div>
       {showQuoteDetail && (
         <div
-          className="fixed inset-0 z-[120] flex items-end bg-black/40"
+          className="fixed inset-0 z-[1000] flex items-end bg-black/45"
           onClick={() => setShowQuoteDetail(false)}
         >
           <div
-            className="bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto"
+            className="relative z-[1001] bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto shadow-[0_-20px_60px_rgba(0,0,0,0.18)]"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: 'sheetUp 0.3s ease' }}
           >
@@ -888,26 +888,6 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 text-[12px] font-bold rounded-full">
                   <Clock size={12} />
                   결제 대기 중
-                </div>
-              )}
-            </div>
-
-            {/* 행사 정보 */}
-            <div className="space-y-3 mb-5">
-              <div>
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">행사명</p>
-                <p className="text-[16px] font-semibold text-gray-900">{sys.eventName || quoteDetail?.title || '행사 진행'}</p>
-              </div>
-              {quoteDetail?.eventLocation && (
-                <div>
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">장소</p>
-                  <p className="text-[15px] text-gray-800">{quoteDetail.eventLocation}</p>
-                </div>
-              )}
-              {quoteDetail?.description && (
-                <div>
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">메모</p>
-                  <p className="text-[14px] text-gray-700 whitespace-pre-wrap">{quoteDetail.description}</p>
                 </div>
               )}
             </div>
@@ -1722,8 +1702,41 @@ export default function ChatExtras(props: ChatExtrasProps) {
     const estimateAmount = quoteEstimateAmount;
     const vatAmount = quoteVatAmount;
     const totalAmount = quoteTotalAmount;
+    const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+    const myProImage = useAuthStore.getState().user?.profileImageUrl || null;
+    const optimisticId = `opt-quote-${Date.now()}`;
+    const quoteSystemPayload = {
+      kind: 'quote',
+      eventName: quoteEventName || '행사 진행',
+      amount: totalAmount,
+      basePrice: estimateAmount,
+      estimateAmount,
+      vatAmount,
+      options: [],
+      eventDate: quoteEventDate,
+      eventTime: quoteEventTime,
+      eventLocation: quoteEventLocation,
+      items: [],
+      proImage: myProImage,
+    };
+
+    setShowQuoteModal(false);
+    setQuoteEventName('');
+    setQuoteEventDate('');
+    setQuoteEventTime('');
+    setQuoteEventLocation('');
+    setQuoteCustomAmount('');
+    setMessages((prev) => [...prev, {
+      id: optimisticId,
+      senderId: MY_ID,
+      content: '견적서 발송',
+      type: 'system',
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      system: quoteSystemPayload as any,
+    }]);
+
     try {
-      const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       // 1) 백엔드에 실제 Quotation 생성
       const created = await quotationApi.create({
         userId: chatPartner.id,
@@ -1742,7 +1755,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
       const quotationId = (created as any)?.id;
 
       // 2) 채팅방에 견적 카드 메시지 전송 (상대가 결제 버튼 누를 수 있게 metadata 포함)
-      const myProImage = useAuthStore.getState().user?.profileImageUrl || null;
       let savedQuoteMessage: any = null;
       if (roomId && !roomId.startsWith('pending-')) {
         const quoteMessagePayload = {
@@ -1750,19 +1762,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
           content: `견적서 발송: ${totalAmount.toLocaleString()}원`,
           metadata: {
             system: {
-              kind: 'quote',
-              eventName: quoteEventName || '행사 진행',
-              amount: totalAmount,
-              basePrice: estimateAmount,
-              estimateAmount,
-              vatAmount,
-              options: [],
-              eventDate: quoteEventDate,
-              eventTime: quoteEventTime,
-              eventLocation: quoteEventLocation,
-              items: [],
+              ...quoteSystemPayload,
               quotationId,
-              proImage: myProImage,
             },
           },
         };
@@ -1773,8 +1774,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
         }
       }
 
-      // 3) 로컬 UI에도 즉시 반영 — 단, store.sendMessage 경로가 이미 wsMessages 에
-      //    추가했을 수 있으므로 같은 id 가 있으면 스킵해 중복 카드 방지.
       const targetId = savedQuoteMessage?.id || `opt-quote-${Date.now()}`;
       const quoteMsg: Message = {
         id: targetId,
@@ -1784,31 +1783,18 @@ export default function ChatExtras(props: ChatExtrasProps) {
         createdAt: savedQuoteMessage?.createdAt || new Date().toISOString(),
         isRead: false,
         system: {
-          kind: 'quote',
-          eventName: quoteEventName || '행사 진행',
-          amount: totalAmount,
-          basePrice: estimateAmount,
-          estimateAmount,
-          vatAmount,
-          options: [],
-          eventDate: quoteEventDate,
-          eventTime: quoteEventTime,
-          eventLocation: quoteEventLocation,
-          items: [],
+          ...quoteSystemPayload,
           quotationId,
-          proImage: myProImage,
         } as any,
       };
-      setMessages(prev => prev.some((m) => m.id === targetId) ? prev : [...prev, quoteMsg]);
-      setShowQuoteModal(false);
-      setQuoteEventName('');
-      setQuoteEventDate('');
-      setQuoteEventTime('');
-      setQuoteEventLocation('');
-      setQuoteCustomAmount('');
+      setMessages(prev => {
+        const withoutOptimistic = prev.filter((m) => m.id !== optimisticId && m.id !== targetId);
+        return [...withoutOptimistic, quoteMsg];
+      });
       toast.success('견적서가 발송되었습니다');
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '발송 실패';
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       toast.error(`견적서 발송 실패: ${msg}`);
     } finally {
       setQuoteSending(false);
@@ -1818,12 +1804,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const ATTACH_ITEMS = [
     // 견적서 발송을 최상단으로 (프로에게 가장 중요한 액션)
     ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
-    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => cameraInputRef.current?.click() },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
     { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); setShowStickerPicker(true); } },
-    { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
-    { icon: <MapPin size={24} className="text-white" />, bg: 'bg-slate-700', label: '위치', action: handleLocationSend },
-    { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
   ];
 
   const mentionList = chatPartner
@@ -1850,24 +1832,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
             <button onClick={() => { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
               {muted ? <Bell size={16} className="text-gray-500" /> : <BellOff size={16} className="text-gray-500" />}
               {muted ? '알림 켜기' : '알림 끄기'}
-            </button>
-            {isPro ? (
-              <button
-                onClick={() => {
-                  setShowHeaderMenu(false);
-                  toast(`${chatPartner?.name || '고객'} 정보는 대화 상단 카드에서 확인할 수 있습니다`);
-                }}
-                className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
-              >
-                <Smile size={16} className="text-gray-500" /> 고객 정보 보기
-              </button>
-            ) : (
-              <Link href={`/pros/${chatPartner?.proProfileId || chatPartner?.id || ''}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
-                <Smile size={16} className="text-gray-500" /> 프로필 보기
-              </Link>
-            )}
-            <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-red-500 hover:bg-red-50 w-full border-t border-gray-100">
-              <Trash2 size={16} /> 대화 삭제
             </button>
           </div>
         </>

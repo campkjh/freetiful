@@ -25,9 +25,9 @@ interface ChatRoom {
   latestQuotationStatus?: string | null;
 }
 
-type FilterTab = '전체' | '읽음' | '안 읽음' | '보관';
+type FilterTab = '전체' | '안읽음' | '보관';
 
-type ProFilterTab = '전체' | '읽음' | '안 읽음' | '보관';
+type ProFilterTab = '전체' | '안읽음' | '보관';
 
 const CHAT_LIST_LIMIT = 24;
 const MESSAGE_PREWARM_LIMIT = 15;
@@ -187,15 +187,13 @@ export default function ChatListPage() {
   const filtered = useMemo(() => rooms.filter((r) => {
     if (isPro) {
       switch (proActiveTab) {
-        case '읽음': return r.unreadCount === 0;
-        case '안 읽음': return r.unreadCount > 0;
+        case '안읽음': return r.unreadCount > 0;
         case '보관': return r.isArchived;
         default: return !r.isArchived;
       }
     }
     switch (activeTab) {
-      case '읽음': return r.unreadCount === 0 && !r.isArchived;
-      case '안 읽음': return r.unreadCount > 0 && !r.isArchived;
+      case '안읽음': return r.unreadCount > 0 && !r.isArchived;
       case '보관': return r.isArchived;
       default: return !r.isArchived;
     }
@@ -361,8 +359,8 @@ export default function ChatListPage() {
     return () => window.clearTimeout(timer);
   }, [topRoomIdsKey]);
 
-  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관'];
-  const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '보관'];
+  const TABS: FilterTab[] = ['전체', '안읽음', '보관'];
+  const PRO_TABS: ProFilterTab[] = ['전체', '안읽음', '보관'];
 
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
@@ -656,7 +654,6 @@ export default function ChatListPage() {
               { label: '미리보기', icon: <Eye size={18} className="text-gray-500" />, onClick: () => handleOpenPreview(actionMenu.room), className: 'text-gray-800' },
               { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-gray-800' },
               { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-gray-800' },
-              { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => promptDeleteRoom(actionMenu.room), className: 'text-red-500' },
             ].map((item, idx) => (
               <button
                 key={item.label}
