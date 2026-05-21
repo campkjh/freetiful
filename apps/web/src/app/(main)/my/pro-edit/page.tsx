@@ -73,6 +73,7 @@ function compactProfileForCache(profile: any) {
     user: profile.user,
     isProfileHidden: Boolean(profile.isProfileHidden),
     shortIntro: profile.shortIntro,
+    phone: profile.phone,
     careerYears: profile.careerYears,
     awards: profile.awards,
     tags: profile.tags,
@@ -484,7 +485,7 @@ export default function ProEditPage() {
       setVideos((prev) => prev.includes(p.youtubeUrl) ? prev : [p.youtubeUrl, ...prev]);
     }
     if (p.user?.name) setName(p.user.name);
-    if (p.user?.phone) setPhone(p.user.phone);
+    if (p.phone || p.user?.phone) setPhone(p.phone || p.user.phone);
     if (Array.isArray(p.images) && p.images.length > 0) {
       const loadedPhotos = p.images
         .map((img: any) => ({
@@ -560,8 +561,13 @@ export default function ProEditPage() {
     setMainPhotoIndex(parseInt(ls('proRegister_mainPhotoIndex', '0')) || 0);
     setSelectedCompanyLogos(lsJson('proRegister_companyLogos', []));
     setLanguages(lsJson('proRegister_languages', []));
-    const savedAwards = lsJson('proRegister_awards', []);
-    setAwards(Array.isArray(savedAwards) ? savedAwards.map((a: any) => typeof a === 'string' ? a : a.text || '').join('\n') : ls('proRegister_awards'));
+    const savedAwardsRaw = ls('proRegister_awards');
+    try {
+      const savedAwards = savedAwardsRaw ? JSON.parse(savedAwardsRaw) : [];
+      setAwards(Array.isArray(savedAwards) ? savedAwards.map((a: any) => typeof a === 'string' ? a : a.text || '').join('\n') : savedAwardsRaw);
+    } catch {
+      setAwards(savedAwardsRaw);
+    }
     const savedVideos = lsJson<string[] | null>('proRegister_videos', null);
     if (Array.isArray(savedVideos)) setVideos(savedVideos);
     setFaqItems(lsJson('proRegister_faq', []));
@@ -692,6 +698,8 @@ export default function ProEditPage() {
     setMainPhotoIndex(nextPrimaryIndex);
     lastSyncedPhotoIdsRef.current = nextPhotos.map((img) => img.id).filter(Boolean) as string[];
     lastSyncedMainIndexRef.current = nextPrimaryIndex;
+    safeSetLocalStorage('proRegister_photos', JSON.stringify(nextPhotos.map((img) => img.url).filter(Boolean)));
+    safeSetLocalStorage('proRegister_mainPhotoIndex', String(nextPrimaryIndex));
 
     return {
       images: normalizedImages,
@@ -892,12 +900,35 @@ export default function ProEditPage() {
       // 저장 완료 후 불필요한 상세/목록 재호출을 기다리지 않고 즉시 반영한다.
       const myProId: string | null = editResponse?.id || editResponse?.profile?.id || null;
       if (syncedImages) editResponse.images = syncedImages;
+      const optimisticSavedProfile = {
+        ...editResponse,
+        id: myProId || editResponse?.id,
+        userId: authUser?.id || editResponse?.userId || editResponse?.user?.id,
+        user: editResponse?.user || authUser,
+        phone,
+        gender,
+        shortIntro: intro,
+        mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : '',
+        careerYears: careerYears || undefined,
+        awards,
+        detailHtml,
+        youtubeUrl: videos[0] || '',
+        isProfileHidden,
+        tags: mergedTags,
+        images: syncedImages || editResponse?.images,
+        faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
+        languages: languages.map((languageCode) => ({ languageCode })),
+        categories: category ? [{ category: { name: category } }] : [],
+        regions: selectedRegions.map((regionName) => ({ region: { name: regionName } })),
+        isNationwide: selectedRegions.includes('전국가능') || selectedRegions.length === 0,
+        services: servicesPayload,
+      };
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
         invalidateProCache(); // 클라 메모리 캐시 전체 삭제
         try { localStorage.removeItem('freetiful-pros-cache'); } catch {}
         if (myProId) safeSetLocalStorage('freetiful-my-pro-id', myProId);
-        writeProEditProfileCache(authUser?.id || editResponse?.userId || editResponse?.user?.id, editResponse);
+        writeProEditProfileCache(authUser?.id || editResponse?.userId || editResponse?.user?.id, optimisticSavedProfile);
       } catch {}
       setToast('저장되었습니다');
       // 상세 페이지로 이동 (타임스탬프로 HTTP 캐시 버스트)

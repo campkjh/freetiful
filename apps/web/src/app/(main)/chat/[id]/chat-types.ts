@@ -54,6 +54,8 @@ export interface Message {
   replyTo?: { id: string; name: string; content: string } | null;
   reaction?: string | null;
   isNew?: boolean;
+  uploading?: boolean;
+  uploadProgress?: number;
   system?: SystemPayload;
 }
 

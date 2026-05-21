@@ -828,12 +828,12 @@ export default function ChatRoomPage() {
   return (
     <div className="fixed inset-0 flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[#F2F2F7]">
       {/* ─── Header (Floating Pill) ─── */}
-      <div className="relative z-30 px-safe pb-2 pt-3 pt-safe">
+      <div className="pointer-events-none absolute left-0 right-0 top-0 z-30 px-safe pb-2 pt-3 pt-safe">
         <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-center gap-2">
           {/* 뒤로가기 */}
           <button
             onClick={() => router.back()}
-            className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
+            className="pointer-events-auto w-12 h-12 rounded-full bg-white/75 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-white/70 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
           >
             <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
           </button>
@@ -842,7 +842,7 @@ export default function ChatRoomPage() {
           <button
             type="button"
             onClick={openPartnerProfile}
-            className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
+            className="pointer-events-auto flex-1 flex items-center gap-3 bg-white/75 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-white/70 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
           >
             <div className="relative shrink-0">
               <img src={getProfileImageUrl(chatPartner?.profileImageUrl, chatPartner?.id || chatPartner?.name)} alt="" className="w-9 h-9 rounded-full object-cover" />
@@ -870,7 +870,7 @@ export default function ChatRoomPage() {
           <div className="relative shrink-0">
             <button
               onClick={() => setShowHeaderMenu(!showHeaderMenu)}
-              className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center active:scale-[0.88] transition-all hover:bg-white"
+              className="pointer-events-auto w-12 h-12 rounded-full bg-white/75 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-white/70 flex items-center justify-center active:scale-[0.88] transition-all hover:bg-white"
             >
               <MoreVertical size={20} className="text-gray-600" />
             </button>
@@ -887,7 +887,7 @@ export default function ChatRoomPage() {
           overscrollBehaviorY: 'contain',
           WebkitOverflowScrolling: 'touch',
           paddingBottom: '6px',
-          paddingTop: 8,
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 78px)',
         }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
@@ -939,6 +939,8 @@ export default function ChatRoomPage() {
             }
 
             const mine = isMine(msg);
+            const uploadProgress = Math.max(0, Math.min(100, Math.round(msg.uploadProgress ?? (msg.uploading ? 8 : 100))));
+            const showUploadProgress = mine && msg.type === 'image' && (msg.uploading || uploadProgress < 100);
 
             return (
               <div key={msg.id} id={`msg-${msg.id}`}>
@@ -964,14 +966,28 @@ export default function ChatRoomPage() {
                         onPointerLeave={handleLongPressCancel}
                         onContextMenu={(e) => e.preventDefault()}
                       >
-                        <img
-                          src={msg.content}
-                          alt=""
-                          draggable={false}
-                          className="rounded-2xl max-w-[260px] max-h-[340px] object-cover cursor-pointer select-none"
-                          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
-                          onClick={(e) => { e.stopPropagation(); setImagePreview(msg.content); }}
-                        />
+                        <div className="relative inline-block overflow-hidden rounded-2xl">
+                          <img
+                            src={msg.content}
+                            alt=""
+                            draggable={false}
+                            className="block rounded-2xl max-w-[260px] max-h-[340px] object-cover cursor-pointer select-none"
+                            style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
+                            onClick={(e) => { e.stopPropagation(); if (!showUploadProgress) setImagePreview(msg.content); }}
+                          />
+                          {showUploadProgress && (
+                            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/35 backdrop-blur-[1px]">
+                              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/25">
+                                <div
+                                  className="absolute inset-0 rounded-full"
+                                  style={{ background: `conic-gradient(#FFFFFF ${uploadProgress * 3.6}deg, rgba(255,255,255,0.24) 0deg)` }}
+                                />
+                                <div className="absolute inset-[4px] rounded-full bg-black/45" />
+                                <span className="relative text-[12px] font-bold tabular-nums text-white">{uploadProgress}%</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : msg.type === 'sticker' ? (
                       <div
@@ -1115,7 +1131,8 @@ export default function ChatRoomPage() {
       </div>
 
       {/* ─── Input Bar (Floating Pill) ─── */}
-      <div className="px-safe bg-[#F2F2F7] pb-3 pt-2">
+      <div className="relative px-safe bg-transparent pb-3 pt-2">
+        <div className="pointer-events-none absolute inset-x-0 -top-10 h-12 bg-gradient-to-t from-[#F2F2F7] via-[#F2F2F7]/85 to-transparent" />
         <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-end gap-1.5 sm:gap-2">
           {isRecording ? (
             // Recording UI

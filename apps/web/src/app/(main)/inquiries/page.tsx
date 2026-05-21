@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Clock, MessageCircle, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -23,6 +23,42 @@ type InquiryCard = {
   createdAt: string;
   status: InquiryStatus;
 };
+
+const CUSTOMER_INQUIRIES_CACHE_PREFIX = 'freetiful-customer-inquiries-cache-v1';
+const CUSTOMER_INQUIRIES_CACHE_TTL = 10 * 60_000;
+let memoryCustomerInquiriesCache: { userId?: string | null; ts: number; data: any[] } | null = null;
+
+function getCustomerInquiriesCacheKey(userId?: string | null) {
+  return `${CUSTOMER_INQUIRIES_CACHE_PREFIX}:${userId || 'anonymous'}`;
+}
+
+function readCustomerInquiriesCache(userId?: string | null) {
+  if (memoryCustomerInquiriesCache && memoryCustomerInquiriesCache.userId === userId && Date.now() - memoryCustomerInquiriesCache.ts < CUSTOMER_INQUIRIES_CACHE_TTL) {
+    return memoryCustomerInquiriesCache.data;
+  }
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(getCustomerInquiriesCacheKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.ts || Date.now() - parsed.ts > CUSTOMER_INQUIRIES_CACHE_TTL) return null;
+    if (parsed.userId !== userId) return null;
+    const data = Array.isArray(parsed.data) ? parsed.data : [];
+    memoryCustomerInquiriesCache = { userId, ts: parsed.ts, data };
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function writeCustomerInquiriesCache(userId: string | undefined | null, data: any[]) {
+  const normalized = Array.isArray(data) ? data : [];
+  memoryCustomerInquiriesCache = { userId, ts: Date.now(), data: normalized };
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(getCustomerInquiriesCacheKey(userId), JSON.stringify({ userId, ts: Date.now(), data: normalized }));
+  } catch {}
+}
 
 function formatDate(value?: string | null) {
   if (!value) return '일자 미정';
@@ -100,15 +136,27 @@ function buildCards(requests: any[]): InquiryCard[] {
 export default function CustomerInquiriesPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
-  const [requests, setRequests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialCachedRequests = readCustomerInquiriesCache(authUser?.id);
+  const [requests, setRequests] = useState<any[]>(() => initialCachedRequests || []);
+  const [loading, setLoading] = useState(() => !initialCachedRequests);
+  const [visibleCount, setVisibleCount] = useState(5);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const cached = readCustomerInquiriesCache(authUser?.id);
+    if (cached) {
+      setRequests(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     matchApi.getMyRequests()
       .then((data) => {
-        if (!cancelled) setRequests(Array.isArray(data) ? data : []);
+        if (cancelled) return;
+        const nextRequests = Array.isArray(data) ? data : [];
+        setRequests(nextRequests);
+        writeCustomerInquiriesCache(authUser?.id, nextRequests);
       })
       .catch(() => {
         if (!cancelled) toast.error('문의목록을 불러오지 못했습니다');
@@ -120,6 +168,23 @@ export default function CustomerInquiriesPage() {
   }, [authUser?.id]);
 
   const cards = useMemo(() => buildCards(requests), [requests]);
+  const visibleCards = useMemo(() => cards.slice(0, visibleCount), [cards, visibleCount]);
+
+  useEffect(() => {
+    setVisibleCount(5);
+  }, [cards.length]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || visibleCount >= cards.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setVisibleCount((count) => Math.min(count + 5, cards.length));
+      }
+    }, { rootMargin: '180px 0px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [cards.length, visibleCount]);
 
   const openInquiry = (item: InquiryCard) => {
     if (item.roomId) {
@@ -155,7 +220,7 @@ export default function CustomerInquiriesPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {cards.map((item) => {
+            {visibleCards.map((item) => {
               const StatusIcon = getStatusIcon(item.status);
               return (
                 <button
@@ -192,6 +257,7 @@ export default function CustomerInquiriesPage() {
                 </button>
               );
             })}
+            {visibleCount < cards.length && <div ref={loadMoreRef} className="h-10" />}
           </div>
         )}
       </main>

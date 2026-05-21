@@ -2399,11 +2399,12 @@ export default function ProDetailPage() {
           onClick={() => {
             if (!openingChat) setConfirmInquiryOpen(false);
           }}
-          style={{ animation: 'modalFade 0.25s ease-out' }}
+          style={{ animation: 'inquiryBackdropIn 0.24s ease-out' }}
         >
           <div
             className="w-full max-w-[420px] rounded-[28px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.24)]"
             onClick={(event) => event.stopPropagation()}
+            style={{ animation: 'inquirySheetIn 0.38s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -2633,6 +2634,15 @@ export default function ProDetailPage() {
         @keyframes modalFade {
           0% { opacity: 0; }
           100% { opacity: 1; }
+        }
+        @keyframes inquiryBackdropIn {
+          0% { opacity: 0; backdrop-filter: blur(0); }
+          100% { opacity: 1; backdrop-filter: blur(4px); }
+        }
+        @keyframes inquirySheetIn {
+          0% { opacity: 0; transform: translateY(26px) scale(0.96); filter: blur(8px); }
+          62% { opacity: 1; transform: translateY(-3px) scale(1.01); filter: blur(0); }
+          100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
         }
         @keyframes sheetUp {
           0% { transform: translateY(100%); }

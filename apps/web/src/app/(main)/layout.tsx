@@ -409,13 +409,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                 ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
               }}
             >
-              <div className="relative flex items-center h-full overflow-hidden p-[3px]">
+              <div className="relative flex items-center h-full overflow-hidden px-[8px] py-[3px]">
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute top-[6px] bottom-[6px] rounded-full bg-white/85 shadow-[0_8px_22px_rgba(15,23,42,0.08)]"
                   style={{
-                    left: `calc(3px + ${activeNavIndex} * ((100% - 6px) / ${NAV_ITEMS.length}))`,
-                    width: `calc((100% - 6px) / ${NAV_ITEMS.length})`,
+                    left: `calc(8px + ${activeNavIndex} * ((100% - 16px) / ${NAV_ITEMS.length}))`,
+                    width: `calc((100% - 16px) / ${NAV_ITEMS.length})`,
                     transition: 'left 0.34s cubic-bezier(0.16, 1, 0.3, 1), width 0.34s cubic-bezier(0.16, 1, 0.3, 1)',
                   }}
                 />

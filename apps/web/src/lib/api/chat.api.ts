@@ -100,13 +100,13 @@ export const chatApi = {
   sendMessage: (roomId: string, data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string }) =>
     apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data),
 
-  uploadImage: (roomId: string, file: File) => {
+  uploadImage: (roomId: string, file: File, onUploadProgress?: (event: any) => void) => {
     const form = new FormData();
     form.append('file', file);
     return apiClient.post<{ imageUrl: string; originalUrl?: string; width?: number; height?: number; size?: number; mimeType?: string }>(
       `${BASE}/rooms/${roomId}/images`,
       form,
-      { headers: { 'Content-Type': 'multipart/form-data' } },
+      { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress },
     );
   },
 

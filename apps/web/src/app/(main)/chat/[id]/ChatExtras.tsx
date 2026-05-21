@@ -1436,15 +1436,32 @@ export default function ChatExtras(props: ChatExtrasProps) {
       clientMessageId,
       isRead: false,
       isNew: true,
+      uploading: true,
+      uploadProgress: 3,
     }]);
 
     try {
       const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       if (!roomId || roomId.startsWith('pending-')) return;
+      setMessages((prev) => prev.map((m) => (
+        m.id === tempId ? { ...m, uploading: true, uploadProgress: 10 } : m
+      )));
       const normalizedFile = await normalizeChatImageFile(file);
-      const upload = await chatApi.uploadImage(roomId, normalizedFile);
+      setMessages((prev) => prev.map((m) => (
+        m.id === tempId ? { ...m, uploading: true, uploadProgress: 14 } : m
+      )));
+      const upload = await chatApi.uploadImage(roomId, normalizedFile, (event) => {
+        const total = event.total || normalizedFile.size || 1;
+        const nextProgress = Math.max(15, Math.min(88, Math.round((event.loaded / total) * 74) + 14));
+        setMessages((prev) => prev.map((m) => (
+          m.id === tempId ? { ...m, uploading: true, uploadProgress: nextProgress } : m
+        )));
+      });
       const imageUrl = upload.data?.imageUrl;
       if (!imageUrl) throw new Error('업로드된 이미지 URL을 확인할 수 없습니다.');
+      setMessages((prev) => prev.map((m) => (
+        m.id === tempId ? { ...m, uploading: true, uploadProgress: 92 } : m
+      )));
 
       const saved = (
         await useChatStore.getState().sendMessage({
@@ -1453,6 +1470,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
           metadata: { clientMessageId },
         }).catch(() => null)
       ) || ((await chatApi.sendMessage(roomId, { type: 'image', content: imageUrl, metadata: { clientMessageId } })).data as any);
+      setMessages((prev) => prev.map((m) => (
+        m.id === tempId ? { ...m, uploading: true, uploadProgress: 98 } : m
+      )));
       // 임시 메시지를 서버 응답으로 교체 (senderId, content 는 서버 값)
       setMessages((prev) => {
         const withoutPersisted = prev.filter((m) => m.id !== saved.id);
@@ -1461,17 +1481,21 @@ export default function ChatExtras(props: ChatExtrasProps) {
             ? {
                 ...m,
                 id: saved.id,
-                content: saved.content || localUrl,
+                content: saved.content || imageUrl || localUrl,
                 clientMessageId,
                 isNew: false,
+                uploading: false,
+                uploadProgress: 100,
               }
             : m
         ));
       });
+      window.setTimeout(() => URL.revokeObjectURL(localUrl), 2000);
     } catch (e: any) {
       toast.error(`이미지 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
       // 실패한 임시 메시지 제거
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      URL.revokeObjectURL(localUrl);
     }
   };
 
