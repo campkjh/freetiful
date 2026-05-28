@@ -325,8 +325,8 @@ export default function CeoPage() {
               },
               {
                 name: t({ ko: '신동혁', en: 'Donghyuk Shin', ja: '申東赫', zh: '申东赫' }),
-                role: t({ ko: '최고운영책임자', en: 'Chief Operating Officer', ja: '最高執行責任者', zh: '首席运营官' }),
-                badge: 'COO',
+                role: t({ ko: '최고전략책임자', en: 'Chief Strategy Officer', ja: '最高戦略責任者', zh: '首席战略官' }),
+                badge: 'CSO',
                 image: '/images/director-shin-dh.png',
               },
               {
@@ -358,6 +358,12 @@ export default function CeoPage() {
                 role: t({ ko: '마케팅본부장', en: 'Head of Marketing', ja: 'マーケティング本部長', zh: '营销部门负责人' }),
                 badge: 'HB',
                 image: '/images/director-park-sy.png',
+              },
+              {
+                name: t({ ko: '황지애', en: 'Jiae Hwang', ja: '黃志愛', zh: '黄志爱' }),
+                role: t({ ko: '마케팅팀장', en: 'Marketing Team Lead', ja: 'マーケティングチームリーダー', zh: '营销团队负责人' }),
+                badge: 'TL',
+                image: '/images/tl-hwang-ja.png',
               },
             ].map((person, i) => (
               <Reveal key={person.name} delay={i * 80}>
@@ -429,10 +435,10 @@ export default function CeoPage() {
             <div className="mt-0 md:mt-0 grid grid-cols-2 md:grid-cols-6 gap-6 md:gap-3">
               {[
                 {
-                  badge: 'COO',
+                  badge: 'CSO',
                   name: t({ ko: '신동혁', en: 'Donghyuk Shin', ja: '申東赫', zh: '申东赫' }),
-                  role: t({ ko: '최고운영책임자', en: 'COO', ja: '最高執行責任者', zh: '首席运营官' }),
-                  teams: [t({ ko: '운영전략팀', en: 'Ops Strategy', ja: '運営戦略チーム', zh: '运营战略' }), t({ ko: '사업개발팀', en: 'Biz Development', ja: '事業開発チーム', zh: '业务开发' })],
+                  role: t({ ko: '최고전략책임자', en: 'CSO', ja: '最高戦略責任者', zh: '首席战略官' }),
+                  teams: [t({ ko: '전략기획팀', en: 'Strategy Planning', ja: '戦略企画チーム', zh: '战略规划' }), t({ ko: '사업개발팀', en: 'Biz Development', ja: '事業開発チーム', zh: '业务开发' })],
                 },
                 {
                   badge: 'CFO',
