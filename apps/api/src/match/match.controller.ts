@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   Request,
+  Headers,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MatchService } from './match.service';
@@ -20,6 +21,27 @@ export class MatchController {
     private matchService: MatchService,
     private prisma: PrismaService,
   ) {}
+
+  /** 랜딩 페이지 익명 제출 — 전화번호로 간이 회원가입 + 다수견적 */
+  @Post('quick-request')
+  @ApiOperation({ summary: '간이 회원가입 + 다수견적 (랜딩페이지용)' })
+  quickRequest(
+    @Headers('authorization') authorization: string | undefined,
+    @Body()
+    body: {
+      name?: string;
+      phone: string;
+      categoryId: string;
+      eventCategoryId?: string;
+      eventDate?: string;
+      eventTime?: string;
+      eventLocation?: string;
+      type?: 'multi' | 'single';
+      rawUserInput?: any;
+    },
+  ) {
+    return this.matchService.createQuickRequest(authorization, body);
+  }
 
   /** 매칭 요청 생성 */
   @Post('request')

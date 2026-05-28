@@ -1861,9 +1861,8 @@ export default function HomePage() {
         {/* Category cards (결혼식사회자 영상 + 행사사회자) */}
         <div className="px-[10px] pt-3 pb-1 lg:px-0 lg:pt-0 lg:pb-2">
           <div className="grid grid-cols-2 gap-3 lg:gap-4">
-            <button
-              type="button"
-              onClick={() => openSimpleRequest('wedding')}
+            <Link
+              href="/wedding-mc"
               className="group block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 hover:scale-[1.02] active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
             >
@@ -1878,7 +1877,7 @@ export default function HomePage() {
                 </div>
                 <ChevronRight size={20} className="text-[#2B313D]/80 shrink-0 lg:w-7 lg:h-7" />
               </div>
-            </button>
+            </Link>
             <button
               type="button"
               onClick={() => openSimpleRequest('event')}
@@ -2074,9 +2073,8 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => openSimpleRequest('wedding')}
+              <Link
+                href="/wedding-mc"
                 className="group relative h-[140px] flex-1 overflow-hidden rounded-2xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
               >
                 <video
@@ -2101,7 +2099,7 @@ export default function HomePage() {
                   </div>
                   <ChevronRight size={22} className="shrink-0 text-[#2B313D]/80" />
                 </div>
-              </button>
+              </Link>
 
               <button
                 type="button"

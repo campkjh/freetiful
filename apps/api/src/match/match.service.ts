@@ -4,9 +4,15 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
+import { v4 as uuid } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
+
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const CATEGORY_ALIASES: Record<string, string[]> = {
   mc: ['사회자', 'MC', '전문 사회자', '전문사회자', '결혼식 사회자', '결혼식사회자'],
@@ -53,6 +59,8 @@ export class MatchService {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private chatRealtimeService: ChatRealtimeService,
+    private jwt: JwtService,
+    private config: ConfigService,
   ) {}
 
   /** 사용자가 매칭 요청 생성 */
@@ -606,5 +614,122 @@ export class MatchService {
 
       return result;
     }
+  }
+
+  /**
+   * 랜딩 페이지 익명 제출 — 전화번호로 User upsert + 토큰 발급 + 다수견적 생성.
+   * Bearer 토큰이 있으면 그 user 재사용 (소셜 로그인된 케이스).
+   */
+  async createQuickRequest(
+    authorizationHeader: string | undefined,
+    body: {
+      name?: string;
+      phone: string;
+      categoryId: string;
+      eventCategoryId?: string;
+      eventDate?: string;
+      eventTime?: string;
+      eventLocation?: string;
+      type?: 'multi' | 'single';
+      rawUserInput?: any;
+    },
+  ) {
+    const phone = (body.phone || '').replace(/[^0-9]/g, '');
+    if (phone.length < 9 || phone.length > 13) {
+      throw new BadRequestException('유효한 전화번호를 입력해주세요.');
+    }
+    if (!body.categoryId) {
+      throw new BadRequestException('카테고리를 선택해주세요.');
+    }
+
+    let userId = await this.resolveUserIdFromAuthHeader(authorizationHeader);
+
+    if (userId) {
+      // 로그인 상태 — 전화번호가 비어있으면 채워주기만 함
+      const existing = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (existing && !existing.phone) {
+        await this.prisma.user
+          .update({ where: { id: userId }, data: { phone } })
+          .catch(() => {});
+      }
+    } else {
+      const name = (body.name || '').trim();
+      if (!name) {
+        throw new BadRequestException('이름을 입력해주세요.');
+      }
+      const byPhone = await this.prisma.user.findUnique({ where: { phone } });
+      if (byPhone) {
+        userId = byPhone.mergedToUserId || byPhone.id;
+        if (!byPhone.name || byPhone.name.startsWith('[merged]')) {
+          await this.prisma.user
+            .update({ where: { id: userId }, data: { name } })
+            .catch(() => {});
+        }
+      } else {
+        const created = await this.prisma.user.create({
+          data: {
+            role: 'general',
+            name,
+            phone,
+            referralCode: `FT${uuid().replace(/-/g, '').slice(0, 8).toUpperCase()}`,
+          },
+        });
+        userId = created.id;
+      }
+    }
+
+    const matchRequest = await this.createMatchRequest(userId, {
+      categoryId: body.categoryId,
+      eventCategoryId: body.eventCategoryId,
+      eventDate: body.eventDate,
+      eventTime: body.eventTime,
+      eventLocation: body.eventLocation,
+      type: body.type || 'multi',
+      rawUserInput: body.rawUserInput,
+    });
+
+    const tokens = await this.issueTokensForUser(userId);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      user,
+      matchRequest,
+    };
+  }
+
+  private async resolveUserIdFromAuthHeader(header: string | undefined): Promise<string | null> {
+    if (!header) return null;
+    const m = header.match(/^Bearer\s+(.+)$/i);
+    if (!m) return null;
+    try {
+      const payload = this.jwt.verify(m[1]) as { sub?: string };
+      if (!payload?.sub) return null;
+      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+      if (!user || !user.isActive || user.isBanned) return null;
+      return user.mergedToUserId || user.id;
+    } catch {
+      return null;
+    }
+  }
+
+  private async issueTokensForUser(userId: string) {
+    const accessToken = this.jwt.sign(
+      { sub: userId },
+      { expiresIn: this.config.get('JWT_EXPIRES_IN', '7d') },
+    );
+    const refreshToken = uuid();
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    await this.prisma.session.create({
+      data: {
+        userId,
+        refreshTokenHash,
+        deviceInfo: { platform: 'web', source: 'landing_wedding_mc', userAgent: null },
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+      },
+    });
+    return { accessToken, refreshToken, expiresIn: 900 };
   }
 }

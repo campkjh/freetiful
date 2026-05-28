@@ -18,6 +18,18 @@ export const matchApi = {
     rawUserInput?: Record<string, unknown>;
   }) => apiClient.post(`${BASE}/request`, data).then((r) => r.data),
 
+  quickRequest: (data: {
+    name?: string;
+    phone: string;
+    categoryId: string;
+    eventCategoryId?: string;
+    eventDate?: string;
+    eventTime?: string;
+    eventLocation?: string;
+    type?: 'multi' | 'single';
+    rawUserInput?: Record<string, unknown>;
+  }) => apiClient.post(`${BASE}/quick-request`, data).then((r) => r.data),
+
   getMyRequests: () =>
     apiClient.get(`${BASE}/requests`).then((r) => r.data),
 
