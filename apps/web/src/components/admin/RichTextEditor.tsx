@@ -1,7 +1,8 @@
 'use client';
 
-import { forwardRef, useCallback, useImperativeHandle } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
@@ -155,12 +156,34 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function RichText
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   }, [editor]);
 
-  const insertImage = useCallback(() => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const openImagePicker = useCallback(() => {
     if (!editor) return;
-    const url = window.prompt('이미지 URL', 'https://');
-    if (!url) return;
-    editor.chain().focus().setImage({ src: url }).run();
+    fileInputRef.current?.click();
   }, [editor]);
+
+  const handleImageFiles = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0 || !editor) {
+        if (e.target) e.target.value = '';
+        return;
+      }
+      const list = Array.from(files).filter((f) => f.type.startsWith('image/'));
+      try {
+        for (const file of list) {
+          // 1200px·품질 0.78 로 클라이언트 압축 → data URL → 본문 inline 삽입
+          const dataUrl = await readImageAsCompressedDataUrl(file, 1200, 0.78);
+          editor.chain().focus().setImage({ src: dataUrl }).run();
+        }
+      } catch {
+        window.alert('이미지를 불러오지 못했습니다.');
+      } finally {
+        if (e.target) e.target.value = '';
+      }
+    },
+    [editor],
+  );
 
   if (!editor) {
     return (
@@ -324,9 +347,17 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function RichText
         <ToolbarButton title="링크" active={editor.isActive('link')} onClick={setLink}>
           <LinkIcon size={16} />
         </ToolbarButton>
-        <ToolbarButton title="이미지" onClick={insertImage}>
+        <ToolbarButton title="이미지 첨부" onClick={openImagePicker}>
           <ImageIcon size={16} />
         </ToolbarButton>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleImageFiles}
+          className="hidden"
+        />
 
         <Divider />
 
