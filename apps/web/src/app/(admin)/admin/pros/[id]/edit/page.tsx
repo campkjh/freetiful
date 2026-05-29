@@ -7,18 +7,7 @@ import toast from 'react-hot-toast';
 import { AdminSwitch } from '../../../_components/AdminSwitch';
 import { adminFetch, clearAdminFetchCache } from '../../../_components/adminFetch';
 import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
-import dynamic from 'next/dynamic';
-import type { RichTextEditorHandle } from '@/components/admin/RichTextEditor';
-
-// TipTap 번들(~150KB)을 초기 페이지 JS 에서 분리 — 어드민 진입 속도 개선
-const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full rounded-xl border border-gray-200 bg-white px-4 py-6 text-[13px] text-gray-400">
-      에디터 불러오는 중...
-    </div>
-  ),
-});
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/admin/RichTextEditor';
 
 /* ─── Constants (pro-edit와 동일) ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
