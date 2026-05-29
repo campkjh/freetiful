@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { AdminSwitch } from '../../../_components/AdminSwitch';
 import { adminFetch, clearAdminFetchCache } from '../../../_components/adminFetch';
 import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
-import RichTextEditor from '@/components/admin/RichTextEditor';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/admin/RichTextEditor';
 
 /* ─── Constants (pro-edit와 동일) ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
@@ -86,6 +86,9 @@ export default function AdminProEditPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialPhotosRef = useRef<string[]>([]);
   const initialMainPhotoIndexRef = useRef(0);
+  const editorRef = useRef<RichTextEditorHandle>(null);
+  // 초기 마운트 시점에 detailHtml 을 한 번만 RichTextEditor 에 주입 — 폼 전체 리렌더에 영향 없음
+  const initialDetailHtmlRef = useRef<string>('');
 
   /* ── Loading / error ── */
   const [loading, setLoading] = useState(true);
@@ -116,7 +119,7 @@ export default function AdminProEditPage() {
   const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>([]);
   const [services, setServices] = useState<{ title: string; description: string; basePrice: number }[]>([]);
   const [mainExperience, setMainExperience] = useState('');
-  const [detailHtml, setDetailHtml] = useState('');
+  // detailHtml 은 RichTextEditor 내부에서 관리 (uncontrolled) — 부모 리렌더 폭주 방지
 
   // 어드민 전용
   const [status, setStatus] = useState<string>('pending');
@@ -138,7 +141,9 @@ export default function AdminProEditPage() {
     setCareerYears(d.careerYears || 1);
     setMainExperience(d.mainExperience || '');
     setAwards(d.awards || '');
-    setDetailHtml(d.detailHtml || '');
+    initialDetailHtmlRef.current = d.detailHtml || '';
+    // 에디터가 이미 마운트되어 있으면 본문 강제 갱신 (저장 후 백엔드 응답 반영)
+    editorRef.current?.setHTML(d.detailHtml || '');
     const imageUrls = (d.images || []).map((img: any) => img.imageUrl).filter(Boolean);
     setPhotos(imageUrls);
     initialPhotosRef.current = imageUrls;
@@ -305,7 +310,7 @@ export default function AdminProEditPage() {
         careerYears: careerYears || undefined,
         awards,
         youtubeUrl: videos[0] || '',
-        detailHtml,
+        detailHtml: editorRef.current?.getHTML() ?? initialDetailHtmlRef.current,
         photos: photosChanged ? photos : undefined,
         mainPhotoIndex: photosChanged ? mainPhotoIndex : undefined,
         services: normalizedServices,
@@ -839,8 +844,8 @@ export default function AdminProEditPage() {
       {/* ─── 13. 상세 페이지 본문 (Rich HTML) ─── */}
       <Section title="상세 페이지 본문">
         <RichTextEditor
-          value={detailHtml}
-          onChange={setDetailHtml}
+          ref={editorRef}
+          defaultValue={initialDetailHtmlRef.current}
           placeholder="사회자 상세페이지에 노출될 본문을 입력하세요. 제목·굵게·이미지·정렬 등 자유롭게 편집할 수 있습니다."
           minHeight={360}
         />

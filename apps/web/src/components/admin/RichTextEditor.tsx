@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { forwardRef, useCallback, useImperativeHandle } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -32,9 +32,16 @@ import {
   Code,
 } from 'lucide-react';
 
+export interface RichTextEditorHandle {
+  /** 현재 에디터 HTML 가져오기 (저장 시 호출) */
+  getHTML: () => string;
+  /** 외부에서 HTML 강제 주입 (저장 후 백엔드 응답 반영, 폼 재로드) */
+  setHTML: (html: string) => void;
+}
+
 interface Props {
-  value: string;
-  onChange: (html: string) => void;
+  /** 초기 본문. 마운트 후에는 prop 변경을 무시 — uncontrolled 패턴 */
+  defaultValue?: string;
   placeholder?: string;
   minHeight?: number;
 }
@@ -68,6 +75,7 @@ function ToolbarButton({
       type="button"
       title={title}
       disabled={disabled}
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
         active
@@ -84,12 +92,10 @@ function Divider() {
   return <div className="mx-1 h-6 w-px bg-gray-200" />;
 }
 
-export default function RichTextEditor({
-  value,
-  onChange,
-  placeholder = '본문을 입력하세요',
-  minHeight = 320,
-}: Props) {
+const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
+  { defaultValue = '', placeholder = '본문을 입력하세요', minHeight = 320 },
+  ref,
+) {
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -108,27 +114,34 @@ export default function RichTextEditor({
       Color,
       Placeholder.configure({ placeholder }),
     ],
-    content: value || '',
+    content: defaultValue,
     editorProps: {
       attributes: {
-        class:
-          'prose prose-sm max-w-none focus:outline-none px-5 py-4 min-h-[200px]',
+        class: 'tiptap-content focus:outline-none px-5 py-4 min-h-[200px]',
       },
     },
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      onChange(html === '<p></p>' ? '' : html);
-    },
+    // onUpdate 제거 — uncontrolled. 부모 폼 리렌더 폭주 방지
   });
 
-  useEffect(() => {
-    if (!editor) return;
-    const current = editor.getHTML();
-    const incoming = value || '';
-    if (current === incoming) return;
-    if (current === '<p></p>' && incoming === '') return;
-    editor.commands.setContent(incoming, false);
-  }, [value, editor]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      getHTML: () => {
+        if (!editor) return defaultValue || '';
+        const html = editor.getHTML();
+        return html === '<p></p>' ? '' : html;
+      },
+      setHTML: (html: string) => {
+        if (!editor) return;
+        const current = editor.getHTML();
+        const incoming = html || '';
+        if (current === incoming) return;
+        if (current === '<p></p>' && incoming === '') return;
+        editor.commands.setContent(incoming, false);
+      },
+    }),
+    [editor, defaultValue],
+  );
 
   const setLink = useCallback(() => {
     if (!editor) return;
@@ -228,6 +241,7 @@ export default function RichTextEditor({
               key={c}
               type="button"
               title={`색상 ${c}`}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => editor.chain().focus().setColor(c).run()}
               className="h-5 w-5 rounded-sm border border-gray-200 transition-transform hover:scale-110"
               style={{ backgroundColor: c }}
@@ -236,6 +250,7 @@ export default function RichTextEditor({
           <button
             type="button"
             title="색상 해제"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => editor.chain().focus().unsetColor().run()}
             className="ml-1 flex h-6 items-center rounded-sm px-1.5 text-[10px] text-gray-500 hover:bg-gray-100"
           >
@@ -336,85 +351,11 @@ export default function RichTextEditor({
         <EditorContent editor={editor} />
       </div>
 
-      {/* 푸터 — 글자수 + HTML 미리보기 토글 */}
-      <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2 text-[11px] text-gray-400">
-        <span>{editor.storage.characterCount?.characters?.() ?? editor.getText().length}자</span>
-        <span>HTML 자동 저장</span>
+      <div className="border-t border-gray-100 px-4 py-2 text-[11px] text-gray-400">
+        HTML 자동 저장 — 저장 버튼을 누르면 본문이 전송됩니다
       </div>
-
-      <style jsx global>{`
-        .ProseMirror {
-          font-family: inherit;
-          font-size: 14px;
-          line-height: 1.75;
-          color: #1f2937;
-        }
-        .ProseMirror p.is-editor-empty:first-child::before {
-          content: attr(data-placeholder);
-          float: left;
-          color: #9ca3af;
-          pointer-events: none;
-          height: 0;
-        }
-        .ProseMirror h1 {
-          font-size: 22px;
-          font-weight: 800;
-          margin: 14px 0 8px;
-          line-height: 1.3;
-        }
-        .ProseMirror h2 {
-          font-size: 18px;
-          font-weight: 700;
-          margin: 12px 0 6px;
-          line-height: 1.3;
-        }
-        .ProseMirror h3 {
-          font-size: 16px;
-          font-weight: 700;
-          margin: 10px 0 6px;
-          line-height: 1.3;
-        }
-        .ProseMirror p {
-          margin: 6px 0;
-        }
-        .ProseMirror ul,
-        .ProseMirror ol {
-          padding-left: 22px;
-          margin: 6px 0;
-        }
-        .ProseMirror ul {
-          list-style: disc;
-        }
-        .ProseMirror ol {
-          list-style: decimal;
-        }
-        .ProseMirror blockquote {
-          border-left: 3px solid #3180f7;
-          padding: 4px 12px;
-          margin: 8px 0;
-          color: #4b5563;
-          background: #f8faff;
-        }
-        .ProseMirror code {
-          background: #f3f4f6;
-          padding: 1px 6px;
-          border-radius: 4px;
-          font-size: 12.5px;
-        }
-        .ProseMirror hr {
-          border: none;
-          border-top: 1px solid #e5e7eb;
-          margin: 14px 0;
-        }
-        .ProseMirror a {
-          color: #3180f7;
-          text-decoration: underline;
-        }
-        .ProseMirror img {
-          max-width: 100%;
-          height: auto;
-        }
-      `}</style>
     </div>
   );
-}
+});
+
+export default RichTextEditor;
