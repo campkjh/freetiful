@@ -5,8 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminSwitch } from '../../../_components/AdminSwitch';
-import { adminFetch } from '../../../_components/adminFetch';
+import { adminFetch, clearAdminFetchCache } from '../../../_components/adminFetch';
 import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
+import RichTextEditor from '@/components/admin/RichTextEditor';
 
 /* ─── Constants (pro-edit와 동일) ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
@@ -128,6 +129,46 @@ export default function AdminProEditPage() {
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showCareerSheet, setShowCareerSheet] = useState(false);
 
+  /* ── Apply fetched detail to local state (재사용: 로드 / 저장 후 리프레시) ── */
+  const applyDetailToState = (d: any) => {
+    setName(d.user?.name || '');
+    setPhone(d.user?.phone || '');
+    setGender(d.gender || '');
+    setIntro(d.shortIntro || '');
+    setCareerYears(d.careerYears || 1);
+    setMainExperience(d.mainExperience || '');
+    setAwards(d.awards || '');
+    setDetailHtml(d.detailHtml || '');
+    const imageUrls = (d.images || []).map((img: any) => img.imageUrl).filter(Boolean);
+    setPhotos(imageUrls);
+    initialPhotosRef.current = imageUrls;
+    const primaryIdx = (d.images || []).findIndex((img: any) => img.isPrimary);
+    const nextMainPhotoIndex = primaryIdx >= 0 ? primaryIdx : 0;
+    setMainPhotoIndex(nextMainPhotoIndex);
+    initialMainPhotoIndexRef.current = nextMainPhotoIndex;
+    setLanguages((d.languages || []).map((l: any) => l.languageCode));
+    setServices((d.services || []).map((s: any) => ({
+      title: s.title || '',
+      description: s.description || '',
+      basePrice: s.basePrice || 0,
+    })));
+    setFaqItems((d.faqs || []).map((f: any) => ({ q: f.question || '', a: f.answer || '' })));
+    const categoryNames = (d.categories || []).map((c: any) => c.category?.name).filter(Boolean);
+    const profileTags = Array.isArray(d.tags) ? d.tags.filter(Boolean) : [];
+    const specialtyTags = profileTags.filter((tag: string) => ALL_CATEGORIES.includes(tag));
+    setSelectedCategories(specialtyTags.length > 0 ? specialtyTags : categoryNames.filter((tag: string) => ALL_CATEGORIES.includes(tag)));
+    setExtraTagsInput(profileTags.filter((tag: string) => !ALL_CATEGORIES.includes(tag)).join(', '));
+    setCategory(categoryNames[0] || '');
+    setSelectedRegions((d.regions || []).map((r: any) => normalizeRegionForUi(r.region?.name || '')).filter(Boolean));
+    setVideos(d.youtubeUrl ? [d.youtubeUrl] : []);
+    setStatus(d.status || 'pending');
+    setIsFeatured(!!d.isFeatured);
+    setShowPartnersLogo(!!d.showPartnersLogo);
+    setIsProfileHidden(!!d.isProfileHidden);
+    setBasePrice(d.services?.[0]?.basePrice || 0);
+    setAdminRelations(d.adminRelations || null);
+  };
+
   /* ── Load from admin API ── */
   useEffect(() => {
     if (!proId) return;
@@ -135,43 +176,8 @@ export default function AdminProEditPage() {
       setLoading(true);
       setErr(null);
       try {
-        const d = await adminFetch('GET', `/api/v1/admin/pros/${proId}`);
-        setName(d.user?.name || '');
-        setPhone(d.user?.phone || '');
-        setGender(d.gender || '');
-        setIntro(d.shortIntro || '');
-        setCareerYears(d.careerYears || 1);
-        setMainExperience(d.mainExperience || '');
-        setAwards(d.awards || '');
-        setDetailHtml(d.detailHtml || '');
-        const imageUrls = (d.images || []).map((img: any) => img.imageUrl).filter(Boolean);
-        setPhotos(imageUrls);
-        initialPhotosRef.current = imageUrls;
-        const primaryIdx = (d.images || []).findIndex((img: any) => img.isPrimary);
-        const nextMainPhotoIndex = primaryIdx >= 0 ? primaryIdx : 0;
-        setMainPhotoIndex(nextMainPhotoIndex);
-        initialMainPhotoIndexRef.current = nextMainPhotoIndex;
-        setLanguages((d.languages || []).map((l: any) => l.languageCode));
-        setServices((d.services || []).map((s: any) => ({
-          title: s.title || '',
-          description: s.description || '',
-          basePrice: s.basePrice || 0,
-        })));
-        setFaqItems((d.faqs || []).map((f: any) => ({ q: f.question || '', a: f.answer || '' })));
-        const categoryNames = (d.categories || []).map((c: any) => c.category?.name).filter(Boolean);
-        const profileTags = Array.isArray(d.tags) ? d.tags.filter(Boolean) : [];
-        const specialtyTags = profileTags.filter((tag: string) => ALL_CATEGORIES.includes(tag));
-        setSelectedCategories(specialtyTags.length > 0 ? specialtyTags : categoryNames.filter((tag: string) => ALL_CATEGORIES.includes(tag)));
-        setExtraTagsInput(profileTags.filter((tag: string) => !ALL_CATEGORIES.includes(tag)).join(', '));
-        setCategory(categoryNames[0] || '');
-        setSelectedRegions((d.regions || []).map((r: any) => normalizeRegionForUi(r.region?.name || '')).filter(Boolean));
-        setVideos(d.youtubeUrl ? [d.youtubeUrl] : []);
-        setStatus(d.status || 'pending');
-        setIsFeatured(!!d.isFeatured);
-        setShowPartnersLogo(!!d.showPartnersLogo);
-        setIsProfileHidden(!!d.isProfileHidden);
-        setBasePrice(d.services?.[0]?.basePrice || 0);
-        setAdminRelations(d.adminRelations || null);
+        const d = await adminFetch('GET', `/api/v1/admin/pros/${proId}`, undefined, { cache: false });
+        applyDetailToState(d);
       } catch (e: any) {
         setErr(e?.response?.data?.message || e?.message || '로드 실패');
       } finally {
@@ -320,11 +326,18 @@ export default function AdminProEditPage() {
         setSaving(false);
         return;
       }
-      await adminFetch('PATCH', `/api/v1/admin/pros/${proId}/full`, payload);
-      toast.success('저장되었습니다');
-      setTimeout(() => router.push('/admin/pros'), 600);
+      const updated = await adminFetch('PATCH', `/api/v1/admin/pros/${proId}/full`, payload);
+      // 백엔드가 getProDetail 결과를 반환 — 폼에 즉시 반영해 무엇이 실제로 저장됐는지 보여줌
+      clearAdminFetchCache();
+      if (updated && typeof updated === 'object') {
+        applyDetailToState(updated);
+      } else {
+        const fresh = await adminFetch('GET', `/api/v1/admin/pros/${proId}`, undefined, { cache: false });
+        applyDetailToState(fresh);
+      }
+      toast.success('저장되었습니다', { duration: 2500 });
     } catch (e: any) {
-      toast.error(`저장 실패: ${e?.response?.data?.message || e?.message || ''}`, { duration: 6000 });
+      toast.error(`저장 실패: ${e?.response?.data?.message || e?.message || ''}`, { duration: 8000 });
     } finally {
       setSaving(false);
     }
@@ -823,14 +836,13 @@ export default function AdminProEditPage() {
         </div>
       </Section>
 
-      {/* ─── 13. 상세 HTML ─── */}
-      <Section title="상세 HTML (detailHtml)">
-        <textarea
+      {/* ─── 13. 상세 페이지 본문 (Rich HTML) ─── */}
+      <Section title="상세 페이지 본문">
+        <RichTextEditor
           value={detailHtml}
-          onChange={(e) => setDetailHtml(e.target.value)}
-          placeholder="상세 설명 HTML"
-          rows={6}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-[#3180F7] resize-none font-mono"
+          onChange={setDetailHtml}
+          placeholder="사회자 상세페이지에 노출될 본문을 입력하세요. 제목·굵게·이미지·정렬 등 자유롭게 편집할 수 있습니다."
+          minHeight={360}
         />
       </Section>
 
