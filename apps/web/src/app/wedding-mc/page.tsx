@@ -432,7 +432,11 @@ export default function WeddingMcLandingPage() {
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-[#181C24]/10">
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
-          <span className="text-[11px] tracking-[0.28em] uppercase text-[#6B6F78]">FREETIFUL · WEDDING MC</span>
+          <img
+            src="/images/logo-freetiful-wordmark.svg"
+            alt="Freetiful"
+            className="h-6 md:h-7 w-auto"
+          />
           <a href="#register" className="text-sm font-semibold text-[#181C24] hover:text-[#2A5BFF] transition">
             할인쿠폰 받기 →
           </a>
