@@ -338,6 +338,9 @@ function buildDescriptionHtml(html: string | null | undefined, fallbackText: str
 
 function hasRichTextContent(html: string | null | undefined) {
   const cleaned = stripUnsafeHtml(html || '');
+  // 1) 이미지/비디오/임베드/SVG/HR 등 텍스트가 아닌 시각 콘텐츠가 있으면 본문 있음
+  if (/<(img|video|picture|svg|figure|hr|embed)\b/i.test(cleaned)) return true;
+  // 2) 그 외엔 태그를 모두 벗긴 뒤 남은 텍스트 길이로 판단
   return cleaned
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
