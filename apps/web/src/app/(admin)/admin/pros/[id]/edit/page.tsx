@@ -7,7 +7,18 @@ import toast from 'react-hot-toast';
 import { AdminSwitch } from '../../../_components/AdminSwitch';
 import { adminFetch, clearAdminFetchCache } from '../../../_components/adminFetch';
 import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
-import RichTextEditor, { type RichTextEditorHandle } from '@/components/admin/RichTextEditor';
+import dynamic from 'next/dynamic';
+import type { RichTextEditorHandle } from '@/components/admin/RichTextEditor';
+
+// TipTap 번들(~150KB)을 초기 페이지 JS 에서 분리 — 어드민 진입 속도 개선
+const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full rounded-xl border border-gray-200 bg-white px-4 py-6 text-[13px] text-gray-400">
+      에디터 불러오는 중...
+    </div>
+  ),
+});
 
 /* ─── Constants (pro-edit와 동일) ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
@@ -42,7 +53,18 @@ function parseExtraTagsInput(value: string) {
 }
 
 /* ─── Section wrapper (pro-edit 동일) ─── */
-function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+function Section({
+  title,
+  defaultOpen = false,
+  keepMounted = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  /** true 면 닫혀있어도 children 을 unmount 하지 않고 CSS 로 숨김. 무거운 컴포넌트(에디터 등)용 */
+  keepMounted?: boolean;
+  children: React.ReactNode;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-gray-100">
@@ -53,10 +75,16 @@ function Section({ title, defaultOpen = false, children }: { title: string; defa
         <span className="text-[15px] font-bold text-gray-900">{title}</span>
         {open ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
       </button>
-      {open && (
-        <div className="overflow-hidden">
+      {keepMounted ? (
+        <div className="overflow-hidden" style={open ? undefined : { display: 'none' }}>
           <div className="px-5 pb-5">{children}</div>
         </div>
+      ) : (
+        open && (
+          <div className="overflow-hidden">
+            <div className="px-5 pb-5">{children}</div>
+          </div>
+        )
       )}
     </div>
   );
@@ -842,7 +870,8 @@ export default function AdminProEditPage() {
       </Section>
 
       {/* ─── 13. 상세 페이지 본문 (Rich HTML) ─── */}
-      <Section title="상세 페이지 본문">
+      {/* keepMounted: 아코디언 닫혀있어도 에디터 마운트 유지 — 펼칠 때 페이지 멈춤 방지 */}
+      <Section title="상세 페이지 본문" keepMounted>
         <RichTextEditor
           ref={editorRef}
           defaultValue={initialDetailHtmlRef.current}
