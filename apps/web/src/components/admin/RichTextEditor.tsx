@@ -127,7 +127,7 @@ export default function RichTextEditor({
     const incoming = value || '';
     if (current === incoming) return;
     if (current === '<p></p>' && incoming === '') return;
-    editor.commands.setContent(incoming, { emitUpdate: false });
+    editor.commands.setContent(incoming, false);
   }, [value, editor]);
 
   const setLink = useCallback(() => {
