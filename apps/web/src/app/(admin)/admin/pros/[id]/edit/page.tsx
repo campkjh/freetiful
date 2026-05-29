@@ -348,7 +348,12 @@ export default function AdminProEditPage() {
         setSaving(false);
         return;
       }
+      // 디버그: 어떤 detailHtml 이 전송되는지 콘솔에 노출 (저장 미반영 진단용)
+      // eslint-disable-next-line no-console
+      console.log('[admin/pro save] sending detailHtml length=', payload.detailHtml?.length, payload.detailHtml?.slice(0, 200));
       const updated = await adminFetch('PATCH', `/api/v1/admin/pros/${proId}/full`, payload);
+      // eslint-disable-next-line no-console
+      console.log('[admin/pro save] response detailHtml length=', updated?.detailHtml?.length, updated?.detailHtml?.slice(0, 200));
       // 백엔드가 getProDetail 결과를 반환 — 폼에 즉시 반영해 무엇이 실제로 저장됐는지 보여줌
       clearAdminFetchCache();
       if (updated && typeof updated === 'object') {
