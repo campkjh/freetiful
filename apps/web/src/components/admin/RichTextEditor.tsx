@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
-import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
+import { useAuthStore } from '@/lib/store/auth.store';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
@@ -157,8 +157,9 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function RichText
   }, [editor]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadingRef = useRef(false);
   const openImagePicker = useCallback(() => {
-    if (!editor) return;
+    if (!editor || uploadingRef.current) return;
     fileInputRef.current?.click();
   }, [editor]);
 
@@ -170,15 +171,40 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(function RichText
         return;
       }
       const list = Array.from(files).filter((f) => f.type.startsWith('image/'));
+      if (list.length === 0) {
+        if (e.target) e.target.value = '';
+        return;
+      }
+      uploadingRef.current = true;
       try {
+        // 백엔드에 multipart 업로드 → URL 반환 → <img src="<url>"/> 삽입
+        // 본문(detailHtml) 에 base64 를 박지 않아야 저장 시 요청 본문이 작아짐
+        const token = useAuthStore.getState().accessToken;
+        const adminKey =
+          typeof window !== 'undefined' ? localStorage.getItem('admin-key') || '' : '';
         for (const file of list) {
-          // 1200px·품질 0.78 로 클라이언트 압축 → data URL → 본문 inline 삽입
-          const dataUrl = await readImageAsCompressedDataUrl(file, 1200, 0.78);
-          editor.chain().focus().setImage({ src: dataUrl }).run();
+          const fd = new FormData();
+          fd.append('file', file);
+          const res = await fetch('/api/v1/admin/editor-images', {
+            method: 'POST',
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              ...(adminKey ? { 'x-admin-key': adminKey } : {}),
+            },
+            body: fd,
+          });
+          if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            throw new Error(text || `업로드 실패 (${res.status})`);
+          }
+          const json = (await res.json()) as { url?: string };
+          if (!json?.url) throw new Error('서버가 이미지 URL을 반환하지 않았습니다');
+          editor.chain().focus().setImage({ src: json.url }).run();
         }
-      } catch {
-        window.alert('이미지를 불러오지 못했습니다.');
+      } catch (err: any) {
+        window.alert(`이미지 업로드에 실패했어요. ${err?.message || ''}`);
       } finally {
+        uploadingRef.current = false;
         if (e.target) e.target.value = '';
       }
     },
