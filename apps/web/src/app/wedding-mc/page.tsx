@@ -394,12 +394,12 @@ export default function WeddingMcLandingPage() {
             <section className="wmc-reveal px-5 pb-12">
               <div className="grid grid-cols-2 gap-2.5">
                 {['지인의 사회가\n괜찮을지 고민되는\n예비부부', '결혼식장 연계 사회\n진행 방식이\n걱정되는 예비부부', '웃음과 감동이 있는\n특별한 예식을\n원하는 분'].map((t, i) => (
-                  <div key={i} className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#F2F5F9] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45] text-[#4A5160]">
-                    {t}
+                  <div key={i} className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#F2F5F9] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
+                    <span className="wmc-write" style={{ animationDelay: `${i * 0.18}s` }}>{t}</span>
                   </div>
                 ))}
-                <div className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#333D4B] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45] text-white">
-                  하객들에게 오래{'\n'}기억될 결혼식을{'\n'}꿈꾸는 분
+                <div className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#333D4B] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
+                  <span className="wmc-write-w" style={{ animationDelay: '0.54s' }}>하객들에게 오래{'\n'}기억될 결혼식을{'\n'}꿈꾸는 분</span>
                 </div>
               </div>
             </section>
@@ -412,7 +412,7 @@ export default function WeddingMcLandingPage() {
               </h2>
               <p className="mt-2 text-[13px] text-[#9AA4B2]">방송 3사 및 JTBC YTN등 공인</p>
               <div className="mt-5 grid grid-cols-2 gap-2.5">
-                <img src="/images/wedding-mc/redesign/proof-beta.jpg" alt="BETA FESTIVAL 행사 진행" className="aspect-square w-full rounded-[30px] object-cover" />
+                <img src="/images/wedding-mc/redesign/proof-kbs-gangwon.png" alt="KBS 강원 날씨 캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
                 <img src="/images/wedding-mc/redesign/proof-yonhap.jpg" alt="연합뉴스TV 함현지 캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
               </div>
               <div className="my-4 rounded-2xl bg-[#F9FAFB] px-4 py-6">
@@ -736,6 +736,22 @@ export default function WeddingMcLandingPage() {
           100% { opacity: 1; transform: translateY(0); }
         }
         .wmc-char { display: inline-block; opacity: 0; animation: wmcCharBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        @keyframes wmcWrite {
+          from { background-position: 100% 0; }
+          to { background-position: 0% 0; }
+        }
+        .wmc-write, .wmc-write-w {
+          display: inline-block;
+          background-size: 300% 100%;
+          background-position: 100% 0;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: transparent;
+        }
+        .wmc-write { background-image: linear-gradient(90deg, #191F28 0%, #191F28 35%, #3182F6 47%, #7FB0FF 50%, #3182F6 53%, #B0B8C1 64%, #B0B8C1 100%); }
+        .wmc-write-w { background-image: linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 35%, #7FB0FF 47%, #BBD9FF 50%, #7FB0FF 53%, #5C6678 64%, #5C6678 100%); }
+        .wmc-in .wmc-write, .wmc-in .wmc-write-w { animation: wmcWrite 1.3s cubic-bezier(0.5, 0, 0.2, 1) forwards; }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -763,6 +779,8 @@ export default function WeddingMcLandingPage() {
           .wmc-grad-text { animation: none; -webkit-text-fill-color: #7A828F; color: #7A828F; }
           .wmc-money-grad { animation: none; -webkit-text-fill-color: #F5871F; color: #F5871F; }
           .wmc-char { animation: none; opacity: 1; transform: none; }
+          .wmc-write { animation: none; -webkit-text-fill-color: #191F28; color: #191F28; }
+          .wmc-write-w { animation: none; -webkit-text-fill-color: #FFFFFF; color: #FFFFFF; }
           .wmc-float { animation: none; }
           .wmc-cta-bounce { animation: none; }
           .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
