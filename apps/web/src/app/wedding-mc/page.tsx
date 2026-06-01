@@ -221,7 +221,19 @@ export default function WeddingMcLandingPage() {
       { threshold: 0.12, rootMargin: '0px 0px -7% 0px' },
     );
     els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    // 고민 카드: 화면에 충분히 들어왔을 때만 한 줄씩 써지기 시작
+    const cards = document.querySelector('.wmc-cards');
+    let io2: IntersectionObserver | null = null;
+    if (cards) {
+      io2 = new IntersectionObserver(
+        (entries) => entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add('wmc-cards-in'); io2?.unobserve(e.target); }
+        }),
+        { threshold: 0.4 },
+      );
+      io2.observe(cards);
+    }
+    return () => { io.disconnect(); io2?.disconnect(); };
   }, [stage]);
 
   const fireFormStart = useCallback(() => {
@@ -391,7 +403,7 @@ export default function WeddingMcLandingPage() {
             </section>
 
             {/* ───────── 추천 대상 ───────── */}
-            <section className="wmc-reveal px-5 pb-12">
+            <section className="wmc-reveal wmc-cards px-5 pb-12">
               <div className="grid grid-cols-2 gap-2.5">
                 {['지인의 사회가\n괜찮을지 고민되는\n예비부부', '결혼식장 연계 사회\n진행 방식이\n걱정되는 예비부부', '웃음과 감동이 있는\n특별한 예식을\n원하는 분'].map((t, i) => (
                   <div key={i} className="flex aspect-square flex-col items-center justify-center rounded-[30px] bg-[#F2F5F9] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
@@ -755,7 +767,7 @@ export default function WeddingMcLandingPage() {
         }
         .wmc-writeline { background-image: linear-gradient(90deg, #191F28 0%, #191F28 38%, #3182F6 48%, #7FB0FF 50%, #3182F6 52%, #B0B8C1 62%, #B0B8C1 100%); }
         .wmc-writeline-w { background-image: linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 38%, #7FB0FF 48%, #BBD9FF 50%, #7FB0FF 52%, #5C6678 62%, #5C6678 100%); }
-        .wmc-in .wmc-writeline, .wmc-in .wmc-writeline-w { animation: wmcWrite 1.15s cubic-bezier(0.45, 0, 0.25, 1) forwards; }
+        .wmc-cards-in .wmc-writeline, .wmc-cards-in .wmc-writeline-w { animation: wmcWrite 1.15s cubic-bezier(0.45, 0, 0.25, 1) forwards; }
         @keyframes wmcBreathe {
           0% { background-position: 175% 0; }
           100% { background-position: -75% 0; }
