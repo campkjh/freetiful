@@ -361,9 +361,7 @@ export default function WeddingMcLandingPage() {
                 <ChevronLeft size={24} strokeWidth={2.2} />
               </button>
               <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 md:h-7 w-auto" />
-              <a href="#register" className="text-sm font-semibold text-[#181C24] hover:text-[#2A5BFF] transition">
-                무료 견적 →
-              </a>
+              <div className="w-10" />
             </div>
           </header>
 
