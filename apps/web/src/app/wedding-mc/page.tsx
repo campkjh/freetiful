@@ -793,6 +793,14 @@ export default function WeddingMcLandingPage() {
           animation: wmcMsgFade 0.55s ease both, wmcBreathe 3.6s ease-in-out infinite;
         }
         .wmc-msgfade { display: inline-block; animation: wmcMsgFade 0.5s ease both; }
+        @keyframes wmcAvatarPop {
+          0% { opacity: 0; transform: scale(0.3); }
+          10% { opacity: 1; transform: scale(1); }
+          55% { opacity: 1; transform: scale(1); }
+          66% { opacity: 0; transform: scale(0.3); }
+          100% { opacity: 0; transform: scale(0.3); }
+        }
+        .wmc-avatar-pop { opacity: 0; animation: wmcAvatarPop 3.6s ease-in-out infinite; will-change: opacity, transform; }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -823,6 +831,7 @@ export default function WeddingMcLandingPage() {
           .wmc-writeline { animation: none; -webkit-text-fill-color: #191F28; color: #191F28; }
           .wmc-writeline-w { animation: none; -webkit-text-fill-color: #FFFFFF; color: #FFFFFF; }
           .wmc-breathe { animation: none; -webkit-text-fill-color: #2A5BFF; color: #2A5BFF; }
+          .wmc-avatar-pop { animation: none; opacity: 1; transform: none; }
           .wmc-float { animation: none; }
           .wmc-cta-bounce { animation: none; }
           .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
@@ -938,8 +947,6 @@ function MatchingScreen({
   };
 
   /* ── 사회자가 요청 확인했다는 메시지 표시용 ── */
-  const totalCount = deliveries.length;
-  const viewedCount = deliveries.filter((d) => d.status === 'viewed' || d.viewedAt).length;
 
   return (
     <div className="h-[100dvh] flex flex-col bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
@@ -970,14 +977,19 @@ function MatchingScreen({
         <h1 className="text-2xl md:text-3xl font-bold mt-2 text-[#191F28]" style={{ letterSpacing: '-0.035em' }}>
           <span key={msgIdx} className="wmc-msgfade inline-block">{MATCHING_HEADLINES[msgIdx]}</span>
         </h1>
-        <p className="text-[#6B6F78] mt-3 text-sm md:text-base">
-          잠시만 기다려주세요. 검증된 사회자분들에게 동시에 견적 요청이 전달되고 있어요.
-        </p>
-
-
-        <p className="mt-6 text-[12px] text-[#9DA1AA]">
-          {totalCount > 0 ? `${viewedCount} / ${totalCount} 명 확인` : '사회자분들 알림 발송 중'}
-        </p>
+        {/* 사회자 프로필 — 하나씩 떴다 사라지는 앰비언트 */}
+        <div className="mt-5 flex items-center justify-center gap-2 h-8">
+          {MC_IMAGES.slice(0, 6).map((src, i) => (
+            <img
+              key={i}
+              src={src}
+              alt=""
+              className="wmc-avatar-pop h-8 w-8 rounded-full object-cover bg-[#E9EEF6]"
+              style={{ animationDelay: `${i * 0.45}s` }}
+              onError={(e) => { const t = e.currentTarget as HTMLImageElement; if (!t.dataset.fb) { t.dataset.fb = '1'; t.src = '/images/default-profile.png'; } }}
+            />
+          ))}
+        </div>
 
         {/* OX 퀴즈 */}
         <div className="mt-8 bg-white rounded-[30px] p-5 text-center shadow-[0_0_18px_0_rgba(127,174,255,0.16)]">
