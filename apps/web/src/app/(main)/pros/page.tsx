@@ -412,7 +412,71 @@ function ProsListContent() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const desktopLoadMoreRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setPage(1); }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType]);
+  // 필터/검색 변경 시 1페이지로 + 저장된 스크롤 위치 무효화
+  useEffect(() => {
+    setPage(1);
+    try {
+      sessionStorage.removeItem('pros-list-scroll-v1');
+    } catch {}
+  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType]);
+
+  // 스크롤 위치/페이지 상태를 sessionStorage 에 저장 — 상세 다녀온 후 복원
+  const scrollSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const save = () => {
+      try {
+        sessionStorage.setItem(
+          'pros-list-scroll-v1',
+          JSON.stringify({ page, scrollY: window.scrollY, t: Date.now() }),
+        );
+      } catch {}
+    };
+    const onScroll = () => {
+      if (scrollSaveTimerRef.current) return;
+      scrollSaveTimerRef.current = setTimeout(() => {
+        save();
+        scrollSaveTimerRef.current = null;
+      }, 250);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('pagehide', save);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('pagehide', save);
+      if (scrollSaveTimerRef.current) clearTimeout(scrollSaveTimerRef.current);
+      save();
+    };
+  }, [page]);
+
+  // 상세 페이지에서 복귀 시 저장된 page/scrollY 로 복원
+  // — pros-list-scroll-v1 가 있고 30분 이내면 적용
+  const scrollRestoredRef = useRef(false);
+  useEffect(() => {
+    if (scrollRestoredRef.current) return;
+    let saved: { page?: number; scrollY?: number; t?: number } | null = null;
+    try {
+      const raw = sessionStorage.getItem('pros-list-scroll-v1');
+      if (raw) saved = JSON.parse(raw);
+    } catch {}
+    if (!saved || typeof saved.scrollY !== 'number') return;
+    if (saved.t && Date.now() - saved.t > 30 * 60 * 1000) {
+      sessionStorage.removeItem('pros-list-scroll-v1');
+      return;
+    }
+    scrollRestoredRef.current = true;
+    if (saved.page && saved.page > 1) setPage(saved.page);
+    const target = saved.scrollY;
+    // 무한스크롤 + 이미지 lazy load 때문에 여러 번 시도
+    const stamps = [50, 200, 500, 900];
+    const timers = stamps.map((ms) =>
+      setTimeout(() => {
+        if (Math.abs(window.scrollY - target) > 8) {
+          window.scrollTo({ top: target, behavior: 'auto' });
+        }
+      }, ms),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   useLayoutEffect(() => {
     if (!didMountTabMotion.current) {

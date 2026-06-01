@@ -123,7 +123,18 @@ export default function BusinessDetailPage() {
 
       <div className="pt-12">
         <div className="relative aspect-[3/2] bg-gray-100 overflow-hidden">
-          <img src={images[activeImage]} alt={biz.businessName} className="w-full h-full object-cover" />
+          <img
+            src={images[activeImage]}
+            alt={biz.businessName}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.currentTarget as HTMLImageElement;
+              if (!target.dataset.fallback) {
+                target.dataset.fallback = '1';
+                target.src = '/images/default-profile.png';
+              }
+            }}
+          />
           <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full">
             {activeImage + 1} / {images.length}
           </div>
@@ -208,6 +219,8 @@ export default function BusinessDetailPage() {
         </div>
       )}
 
+      {/* 전화 문의 버튼 — 일시 비활성화 (오류 이슈로 잠시 숨김) */}
+      {/*
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg bg-white border-t border-gray-100 px-4 py-3 z-40">
         <div className="flex items-center gap-3">
           {biz.phone && (
@@ -219,6 +232,7 @@ export default function BusinessDetailPage() {
           )}
         </div>
       </div>
+      */}
     </div>
   );
 }
