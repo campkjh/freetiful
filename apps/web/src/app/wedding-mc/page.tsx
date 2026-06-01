@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
+import { ChevronLeft } from 'lucide-react';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 
@@ -357,9 +358,7 @@ export default function WeddingMcLandingPage() {
                 aria-label="뒤로 가기"
                 className="flex h-10 w-10 items-center justify-center -ml-1 rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10"
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
+                <ChevronLeft size={24} strokeWidth={2.2} />
               </button>
               <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 md:h-7 w-auto" />
               <a href="#register" className="text-sm font-semibold text-[#181C24] hover:text-[#2A5BFF] transition">
@@ -750,9 +749,7 @@ function MatchingScreen({
             aria-label="홈으로"
             className="flex h-10 w-10 items-center justify-center -ml-1 rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
+            <ChevronLeft size={24} strokeWidth={2.2} />
           </button>
           <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 w-auto" />
           <div className="w-10" />
