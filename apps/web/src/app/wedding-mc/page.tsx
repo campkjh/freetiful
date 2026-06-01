@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { Check, ChevronLeft, Star } from 'lucide-react';
 import { matchApi } from '@/lib/api/match.api';
+import { discoveryApi } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { startOAuth } from '@/lib/auth/oauth';
 
@@ -873,6 +874,14 @@ type ChatRoomItem = {
   };
 };
 
+/* 실제 사회자 프로필 폴백(목록 API 실패 시) */
+const FALLBACK_PRO_IMAGES = [
+  '/images/pro-15/IMG_0196.avif',
+  '/images/pro-23/IMG_46511771924269213.avif',
+  '/images/pro-12/IMG_27221772621229571.avif',
+  '/images/pro-31/025209A2-09A8-4777-9A6A-DF4751F560A71772850104015.avif',
+];
+
 const MATCHING_HEADLINES = [
   '사회자를 찾는 중입니다…',
   '예식 톤에 맞는 사회자를 고르고 있어요',
@@ -896,6 +905,7 @@ function MatchingScreen({
   const [quizPicked, setQuizPicked] = useState<null | 'O' | 'X'>(null);
   const [msgIdx, setMsgIdx] = useState(0);
   const [centerIdx, setCenterIdx] = useState(0);
+  const [proImages, setProImages] = useState<string[]>(FALLBACK_PRO_IMAGES);
   const router = useRouter();
 
   /* ── 헤드라인 문구 10초마다 순환 ── */
@@ -908,6 +918,22 @@ function MatchingScreen({
   useEffect(() => {
     const id = setInterval(() => setCenterIdx((i) => i + 1), 2600);
     return () => clearInterval(id);
+  }, []);
+
+  /* ── 실제 사회자 프로필 목록 로드(폴백: 실제 사회자) ── */
+  useEffect(() => {
+    let stop = false;
+    discoveryApi.getProList()
+      .then((res: any) => {
+        const list = Array.isArray(res) ? res : res?.data;
+        if (stop || !Array.isArray(list)) return;
+        const imgs = list
+          .map((p: any) => p.profileImageUrl || (Array.isArray(p.images) ? p.images[0] : undefined))
+          .filter(Boolean) as string[];
+        if (imgs.length > 0) setProImages(imgs.slice(0, 12));
+      })
+      .catch(() => {});
+    return () => { stop = true; };
   }, []);
 
   /* ── 매칭 상태 폴링 (5초마다) ── */
@@ -966,7 +992,7 @@ function MatchingScreen({
     .filter((d) => d.status === 'viewed' || d.viewedAt)
     .map((d) => d.proProfile?.user?.profileImageUrl || d.proProfile?.images?.[0]?.imageUrl)
     .filter(Boolean) as string[];
-  const centerAvatars = viewerAvatars.length > 0 ? viewerAvatars : MC_IMAGES.slice(0, 8);
+  const centerAvatars = viewerAvatars.length > 0 ? viewerAvatars : proImages;
 
   return (
     <div className="h-[100dvh] flex flex-col bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
