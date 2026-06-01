@@ -801,6 +801,12 @@ export default function WeddingMcLandingPage() {
           100% { opacity: 0; transform: scale(0.3); }
         }
         .wmc-avatar-pop { opacity: 0; animation: wmcAvatarPop 3.6s ease-in-out infinite; will-change: opacity, transform; }
+        @keyframes wmcCenterReveal {
+          0% { opacity: 0; transform: scale(0.55); }
+          55% { opacity: 1; transform: scale(1.08); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .wmc-center-reveal { animation: wmcCenterReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -832,6 +838,7 @@ export default function WeddingMcLandingPage() {
           .wmc-writeline-w { animation: none; -webkit-text-fill-color: #FFFFFF; color: #FFFFFF; }
           .wmc-breathe { animation: none; -webkit-text-fill-color: #2A5BFF; color: #2A5BFF; }
           .wmc-avatar-pop { animation: none; opacity: 1; transform: none; }
+          .wmc-center-reveal { animation: none; }
           .wmc-float { animation: none; }
           .wmc-cta-bounce { animation: none; }
           .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
@@ -888,11 +895,18 @@ function MatchingScreen({
   const [quizIdx, setQuizIdx] = useState(0);
   const [quizPicked, setQuizPicked] = useState<null | 'O' | 'X'>(null);
   const [msgIdx, setMsgIdx] = useState(0);
+  const [centerIdx, setCenterIdx] = useState(0);
   const router = useRouter();
 
   /* ── 헤드라인 문구 10초마다 순환 ── */
   useEffect(() => {
     const id = setInterval(() => setMsgIdx((i) => (i + 1) % MATCHING_HEADLINES.length), 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ── 중앙 사회자 프로필 2.6초마다 교체(팝업) ── */
+  useEffect(() => {
+    const id = setInterval(() => setCenterIdx((i) => i + 1), 2600);
     return () => clearInterval(id);
   }, []);
 
@@ -948,6 +962,12 @@ function MatchingScreen({
 
   /* ── 사회자가 요청 확인했다는 메시지 표시용 ── */
 
+  const viewerAvatars = deliveries
+    .filter((d) => d.status === 'viewed' || d.viewedAt)
+    .map((d) => d.proProfile?.user?.profileImageUrl || d.proProfile?.images?.[0]?.imageUrl)
+    .filter(Boolean) as string[];
+  const centerAvatars = viewerAvatars.length > 0 ? viewerAvatars : MC_IMAGES.slice(0, 8);
+
   return (
     <div className="h-[100dvh] flex flex-col bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
       {/* 상단 헤더 */}
@@ -967,28 +987,23 @@ function MatchingScreen({
       </header>
 
       <div className="flex-1 min-h-0 flex flex-col justify-center max-w-2xl w-full mx-auto px-5 py-3 text-center">
-        {/* 파장 애니메이션 */}
-        <div className="relative h-[clamp(130px,20vh,200px)] flex items-center justify-center shrink-0">
+        <h1 className="text-2xl md:text-3xl font-bold text-[#191F28]" style={{ letterSpacing: '-0.035em' }}>
+          <span key={msgIdx} className="wmc-msgfade inline-block">{MATCHING_HEADLINES[msgIdx]}</span>
+        </h1>
+        {/* 파장 + 중앙 사회자 프로필 (견적 본 사회자가 팝업) */}
+        <div className="relative mt-6 flex items-center justify-center shrink-0" style={{ height: 'clamp(150px, 26vh, 230px)' }}>
           <span className="wmc-ripple wmc-ripple-1" />
           <span className="wmc-ripple wmc-ripple-2" />
           <span className="wmc-ripple wmc-ripple-3" />
-        </div>
-
-        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-[#191F28]" style={{ letterSpacing: '-0.035em' }}>
-          <span key={msgIdx} className="wmc-msgfade inline-block">{MATCHING_HEADLINES[msgIdx]}</span>
-        </h1>
-        {/* 사회자 프로필 — 하나씩 떴다 사라지는 앰비언트 */}
-        <div className="mt-5 flex items-center justify-center gap-2 h-8">
-          {MC_IMAGES.slice(0, 6).map((src, i) => (
+          <div className="relative z-10 h-[92px] w-[92px] rounded-full bg-white p-1.5 shadow-[0_12px_30px_rgba(34,114,235,0.22)]">
             <img
-              key={i}
-              src={src}
-              alt=""
-              className="wmc-avatar-pop h-8 w-8 rounded-full object-cover bg-[#E9EEF6]"
-              style={{ animationDelay: `${i * 0.45}s` }}
+              key={centerIdx}
+              src={centerAvatars[centerIdx % centerAvatars.length]}
+              alt="사회자 프로필"
+              className="wmc-center-reveal h-full w-full rounded-full object-cover bg-[#E9EEF6]"
               onError={(e) => { const t = e.currentTarget as HTMLImageElement; if (!t.dataset.fb) { t.dataset.fb = '1'; t.src = '/images/default-profile.png'; } }}
             />
-          ))}
+          </div>
         </div>
 
         {/* OX 퀴즈 */}
