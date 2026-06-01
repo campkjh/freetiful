@@ -303,13 +303,52 @@ class ViewController: UIViewController,
       window.addEventListener('popstate', notify);
       window.addEventListener('storage', notify);
       window.addEventListener('freetiful:view-mode-changed', notify);
-      document.addEventListener('click', function() { setTimeout(notify, 80); }, true);
+      // 이전에 모든 click 마다 notify 를 걸어 매 탭마다 getBoundingClientRect/getComputedStyle 폭주 → 채팅 리스트 등에서 큰 lag.
+      // 클릭으로 인한 nav 상태 변화는 pushState/replaceState/popstate 가 이미 알린다. click 리스너 제거.
 
+      // MutationObserver 가 document.documentElement 전체를 childList+subtree 로 관찰하면서 hideWebBottomNav 를 매 변경마다 호출하던 게 iOS 앱 전용 큰 lag 의 진짜 원인.
+      // hideWebBottomNav 가 nav/footer/div 전부 순회하며 getBoundingClientRect+getComputedStyle 을 강제해 React 렌더마다 reflow 수십 ms ~ 수백 ms 가 누적.
+      // 해법: 디바운스(idle) + body 만 관찰 + nav element 가 새로 attach 될 때만 발화하게 좁힌다.
       if (window.MutationObserver) {
-        new MutationObserver(hideWebBottomNav).observe(document.documentElement, {
-          childList: true,
-          subtree: true
+        var moScheduled = false;
+        var moRun = function() {
+          moScheduled = false;
+          hideWebBottomNav();
+        };
+        var schedule = function() {
+          if (moScheduled) return;
+          moScheduled = true;
+          if (window.requestIdleCallback) {
+            window.requestIdleCallback(moRun, { timeout: 400 });
+          } else {
+            setTimeout(moRun, 200);
+          }
+        };
+        var observer = new MutationObserver(function(mutations) {
+          for (var i = 0; i < mutations.length; i++) {
+            var added = mutations[i].addedNodes;
+            for (var j = 0; j < added.length; j++) {
+              var n = added[j];
+              if (n && n.nodeType === 1) {
+                var tag = n.tagName;
+                if (tag === 'NAV' || tag === 'FOOTER' || (n.querySelector && (n.querySelector('[data-nav-pill]') || n.querySelector('[data-ios-mobile-bottom-nav]')))) {
+                  schedule();
+                  return;
+                }
+              }
+            }
+          }
         });
+        // body 만, childList 만 (subtree 제거하면 매 텍스트노드 변경마다 발화 안 함)
+        // body 가 아직 없을 수도 있으니 안전하게 documentElement 의 직속 child(body) 로 attach 될 때까지 기다림.
+        var attach = function() {
+          if (document.body) {
+            observer.observe(document.body, { childList: true, subtree: true });
+          } else {
+            setTimeout(attach, 50);
+          }
+        };
+        attach();
       }
 
       notify();
