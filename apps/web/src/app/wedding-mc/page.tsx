@@ -394,12 +394,16 @@ export default function WeddingMcLandingPage() {
             <section className="wmc-reveal px-5 pb-12">
               <div className="grid grid-cols-2 gap-2.5">
                 {['지인의 사회가\n괜찮을지 고민되는\n예비부부', '결혼식장 연계 사회\n진행 방식이\n걱정되는 예비부부', '웃음과 감동이 있는\n특별한 예식을\n원하는 분'].map((t, i) => (
-                  <div key={i} className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#F2F5F9] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
-                    <span className="wmc-write" style={{ animationDelay: `${i * 0.18}s` }}>{t}</span>
+                  <div key={i} className="flex aspect-square flex-col items-center justify-center rounded-[30px] bg-[#F2F5F9] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
+                    {t.split('\n').map((line, li) => (
+                      <span key={li} className="wmc-writeline" style={{ animationDelay: `${li * 0.62}s` }}>{line}</span>
+                    ))}
                   </div>
                 ))}
-                <div className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#333D4B] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
-                  <span className="wmc-write-w" style={{ animationDelay: '0.54s' }}>하객들에게 오래{'\n'}기억될 결혼식을{'\n'}꿈꾸는 분</span>
+                <div className="flex aspect-square flex-col items-center justify-center rounded-[30px] bg-[#333D4B] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
+                  {['하객들에게 오래', '기억될 결혼식을', '꿈꾸는 분'].map((line, li) => (
+                    <span key={li} className="wmc-writeline-w" style={{ animationDelay: `${li * 0.62}s` }}>{line}</span>
+                  ))}
                 </div>
               </div>
             </section>
@@ -740,8 +744,8 @@ export default function WeddingMcLandingPage() {
           from { background-position: 100% 0; }
           to { background-position: 0% 0; }
         }
-        .wmc-write, .wmc-write-w {
-          display: inline-block;
+        .wmc-writeline, .wmc-writeline-w {
+          display: block;
           background-size: 300% 100%;
           background-position: 100% 0;
           -webkit-background-clip: text;
@@ -749,9 +753,9 @@ export default function WeddingMcLandingPage() {
           -webkit-text-fill-color: transparent;
           color: transparent;
         }
-        .wmc-write { background-image: linear-gradient(90deg, #191F28 0%, #191F28 35%, #3182F6 47%, #7FB0FF 50%, #3182F6 53%, #B0B8C1 64%, #B0B8C1 100%); }
-        .wmc-write-w { background-image: linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 35%, #7FB0FF 47%, #BBD9FF 50%, #7FB0FF 53%, #5C6678 64%, #5C6678 100%); }
-        .wmc-in .wmc-write, .wmc-in .wmc-write-w { animation: wmcWrite 1.3s cubic-bezier(0.5, 0, 0.2, 1) forwards; }
+        .wmc-writeline { background-image: linear-gradient(90deg, #191F28 0%, #191F28 38%, #3182F6 48%, #7FB0FF 50%, #3182F6 52%, #B0B8C1 62%, #B0B8C1 100%); }
+        .wmc-writeline-w { background-image: linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 38%, #7FB0FF 48%, #BBD9FF 50%, #7FB0FF 52%, #5C6678 62%, #5C6678 100%); }
+        .wmc-in .wmc-writeline, .wmc-in .wmc-writeline-w { animation: wmcWrite 1.15s cubic-bezier(0.45, 0, 0.25, 1) forwards; }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -779,8 +783,8 @@ export default function WeddingMcLandingPage() {
           .wmc-grad-text { animation: none; -webkit-text-fill-color: #7A828F; color: #7A828F; }
           .wmc-money-grad { animation: none; -webkit-text-fill-color: #F5871F; color: #F5871F; }
           .wmc-char { animation: none; opacity: 1; transform: none; }
-          .wmc-write { animation: none; -webkit-text-fill-color: #191F28; color: #191F28; }
-          .wmc-write-w { animation: none; -webkit-text-fill-color: #FFFFFF; color: #FFFFFF; }
+          .wmc-writeline { animation: none; -webkit-text-fill-color: #191F28; color: #191F28; }
+          .wmc-writeline-w { animation: none; -webkit-text-fill-color: #FFFFFF; color: #FFFFFF; }
           .wmc-float { animation: none; }
           .wmc-cta-bounce { animation: none; }
           .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
