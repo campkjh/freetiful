@@ -906,6 +906,7 @@ function MatchingScreen({
   const [msgIdx, setMsgIdx] = useState(0);
   const [centerIdx, setCenterIdx] = useState(0);
   const [proImages, setProImages] = useState<string[]>(FALLBACK_PRO_IMAGES);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
   const router = useRouter();
 
   /* ── 헤드라인 문구 10초마다 순환 ── */
@@ -996,12 +997,44 @@ function MatchingScreen({
 
   return (
     <div className="h-[100dvh] flex flex-col bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
+      {/* 그만 찾기 확인 — window.confirm은 iOS WKWebView(WKUIDelegate 미구현)에서 표시되지 않아 인페이지 모달로 대체 */}
+      {showStopConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-8"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setShowStopConfirm(false)}
+        >
+          <div
+            className="w-full max-w-[320px] rounded-2xl bg-white p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[17px] font-bold text-[#191F28]">정말로 그만 찾으시겠습니까?</p>
+            <p className="mt-2 text-[14px] leading-[1.5] text-[#8B95A1]">지금 그만두면 진행 중인 매칭이 중단됩니다.</p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowStopConfirm(false)}
+                className="flex-1 rounded-xl bg-[#F2F4F6] py-3 text-[15px] font-semibold text-[#4E5968] active:bg-[#E5E8EB]"
+              >
+                계속 찾기
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowStopConfirm(false); onStop(); }}
+                className="flex-1 rounded-xl bg-[#2272EB] py-3 text-[15px] font-semibold text-white active:bg-[#1b5fd0]"
+              >
+                그만 찾기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 상단 헤더 */}
       <header className="shrink-0 bg-white">
         <div className="max-w-2xl mx-auto px-3 h-14 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => { if (window.confirm('정말로 그만 찾으시겠습니까?')) onStop(); }}
+            onClick={() => setShowStopConfirm(true)}
             aria-label="그만 찾기"
             className="flex h-10 w-10 items-center justify-center -ml-1 rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10"
           >
