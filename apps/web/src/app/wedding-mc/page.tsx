@@ -616,10 +616,20 @@ export default function WeddingMcLandingPage() {
                   {submitting ? '전송 중...' : '비회원 의뢰하기'}
                 </button>
 
+                {/* 가입 유도 말풍선 — 카카오 로그인 위로 플로팅 (z 위로, 살짝 겹침) */}
+                <div className="relative z-10 mt-4 -mb-[10px] flex justify-center">
+                  <div className="wmc-bob relative w-fit">
+                    <div className="rounded-[14px] bg-white px-4 py-2 text-[14px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
+                      가입만 해도 <span className="wmc-money-grad">5,000원</span> 지급
+                    </div>
+                    <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid white' }} />
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => startOAuth('kakao')}
-                  className="mt-3 flex w-full h-[56px] items-center justify-center gap-2 rounded-[16px] bg-[#FEE500] text-[17px] font-bold text-[#191600] transition active:scale-[0.98]"
+                  className="flex w-full h-[56px] items-center justify-center gap-2 rounded-[16px] bg-[#FEE500] text-[17px] font-bold text-[#191600] transition active:scale-[0.98]"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#191600" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.9 1.9 5.4 4.7 6.8-.2.7-.7 2.6-.8 3-.1.5.2.5.4.3.2-.1 2.6-1.8 3.6-2.5.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z" /></svg>
                   카카오 로그인
@@ -642,10 +652,10 @@ export default function WeddingMcLandingPage() {
             className="wmc-sticky-cta fixed inset-x-0 bottom-0 z-40"
             style={{ transition: 'transform .35s ease, opacity .35s ease' }}
           >
-            {/* 이미지 + 말풍선 — 투명 영역 위에 둥둥 (흰 배경 없음) */}
-            <div className="px-5">
+            {/* 이미지 + 말풍선 — 버튼 위로 내려서 겹치게 (z 높여 버튼 위에 표시) */}
+            <div className="relative z-20 -mb-[50px] px-5">
               <div className="mx-auto max-w-md">
-                <div className="wmc-bob mx-auto mb-2 w-fit">
+                <div className="wmc-bob mx-auto w-fit">
                   <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 해도 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
                   <div className="relative mx-auto w-fit">
                     <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
