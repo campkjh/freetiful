@@ -980,7 +980,7 @@ function MatchingScreen({
         </p>
 
         {/* OX 퀴즈 */}
-        <div className="mt-8 bg-white rounded-2xl border border-[#181C24]/10 p-5 text-center shadow-[0_8px_22px_rgba(24,28,36,0.04)]">
+        <div className="mt-8 bg-white rounded-[30px] p-5 text-center shadow-[0_0_18px_0_rgba(127,174,255,0.16)]">
           <p className="text-[16px] font-medium tracking-normal text-[#8B95A1] mb-2">기다리는 동안 OX 퀴즈</p>
           <p className="text-[20px] font-bold text-[#191F28] leading-snug min-h-[2.6em]">
             {quiz.q}
@@ -1007,7 +1007,7 @@ function MatchingScreen({
                       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
                     )}
                   </span>
-                  <span className={`text-[18px] font-bold ${isO ? 'text-[#3787FF]' : 'text-[#FF6767]'}`}>{mark}</span>
+                  <span className={`text-[18px] font-bold ${isO ? 'text-[#3787FF]' : 'text-[#FF6767]'}`}>{isO ? '그렇다' : '아니다'}</span>
                 </button>
               );
             })}
