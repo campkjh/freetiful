@@ -756,6 +756,23 @@ export default function WeddingMcLandingPage() {
         .wmc-writeline { background-image: linear-gradient(90deg, #191F28 0%, #191F28 38%, #3182F6 48%, #7FB0FF 50%, #3182F6 52%, #B0B8C1 62%, #B0B8C1 100%); }
         .wmc-writeline-w { background-image: linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 38%, #7FB0FF 48%, #BBD9FF 50%, #7FB0FF 52%, #5C6678 62%, #5C6678 100%); }
         .wmc-in .wmc-writeline, .wmc-in .wmc-writeline-w { animation: wmcWrite 1.15s cubic-bezier(0.45, 0, 0.25, 1) forwards; }
+        @keyframes wmcBreathe {
+          0% { background-position: 175% 0; }
+          100% { background-position: -75% 0; }
+        }
+        @keyframes wmcMsgFade {
+          from { opacity: 0; transform: translateY(7px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .wmc-breathe {
+          background-image: linear-gradient(90deg, #2A5BFF 0%, #2A5BFF 36%, #8FB8FF 48%, #D5E4FF 50%, #8FB8FF 52%, #2A5BFF 64%, #2A5BFF 100%);
+          background-size: 250% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: transparent;
+          animation: wmcMsgFade 0.55s ease both, wmcBreathe 3.6s ease-in-out infinite;
+        }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -785,6 +802,7 @@ export default function WeddingMcLandingPage() {
           .wmc-char { animation: none; opacity: 1; transform: none; }
           .wmc-writeline { animation: none; -webkit-text-fill-color: #191F28; color: #191F28; }
           .wmc-writeline-w { animation: none; -webkit-text-fill-color: #FFFFFF; color: #FFFFFF; }
+          .wmc-breathe { animation: none; -webkit-text-fill-color: #2A5BFF; color: #2A5BFF; }
           .wmc-float { animation: none; }
           .wmc-cta-bounce { animation: none; }
           .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
@@ -819,6 +837,13 @@ type ChatRoomItem = {
   };
 };
 
+const MATCHING_HEADLINES = [
+  '사회자를 찾는 중입니다…',
+  '예식 톤에 맞는 사회자를 고르고 있어요',
+  '방송 경력 사회자에게 견적을 보내고 있어요',
+  '검증된 사회자들을 매칭하는 중이에요',
+];
+
 function MatchingScreen({
   matchRequestId,
   onResolved,
@@ -831,7 +856,14 @@ function MatchingScreen({
   const [showProSheet, setShowProSheet] = useState(false);
   const [quizIdx, setQuizIdx] = useState(0);
   const [quizPicked, setQuizPicked] = useState<null | 'O' | 'X'>(null);
+  const [msgIdx, setMsgIdx] = useState(0);
   const router = useRouter();
+
+  /* ── 헤드라인 문구 10초마다 순환 ── */
+  useEffect(() => {
+    const id = setInterval(() => setMsgIdx((i) => (i + 1) % MATCHING_HEADLINES.length), 10000);
+    return () => clearInterval(id);
+  }, []);
 
   /* ── 매칭 상태 폴링 (5초마다) ── */
   useEffect(() => {
@@ -923,7 +955,7 @@ function MatchingScreen({
         </div>
 
         <h1 className="text-2xl md:text-3xl font-bold mt-2" style={{ letterSpacing: '-0.035em' }}>
-          사회자를 찾는 중입니다…
+          <span key={msgIdx} className="wmc-breathe inline-block">{MATCHING_HEADLINES[msgIdx]}</span>
         </h1>
         <p className="text-[#6B6F78] mt-3 text-sm md:text-base">
           잠시만 기다려주세요. 검증된 사회자분들에게 동시에 견적 요청이 전달되고 있어요.
