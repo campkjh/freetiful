@@ -646,10 +646,10 @@ export default function WeddingMcLandingPage() {
             <div className="bg-white px-5 pt-0.5" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
               <div className="mx-auto max-w-md">
                 <div className="wmc-bob mx-auto mb-2.5 w-fit">
-                  <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 하면 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
+                  <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 해도 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
                   <div className="relative mx-auto w-fit">
                     <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
-                      가입만 하면 <span className="wmc-money-grad">5,000원</span> 지급
+                      가입만 해도 <span className="wmc-money-grad">5,000원</span> 지급
                     </div>
                     <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
                   </div>
