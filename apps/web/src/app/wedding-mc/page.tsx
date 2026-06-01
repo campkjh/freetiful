@@ -3,27 +3,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { ChevronLeft } from 'lucide-react';
+import { Check, ChevronLeft, Star } from 'lucide-react';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 
-/* ─── Assets ─── */
+/* 전문사회자 프로필 카드 (방송사 출신 아나운서 시안 카드) */
 const MC_IMAGES = Array.from({ length: 18 }, (_, i) => {
   const suffix = i === 0 ? '' : `_${String(i).padStart(2, '0')}`;
   return `/images/wedding-mc/mc/KakaoTalk_20260508_171140870${suffix}.jpg`;
 });
+
+/* 실제 결혼식 후기 스크린샷 */
 const COMMENT_IMAGES = Array.from({ length: 8 }, (_, i) => {
   const suffix = i === 0 ? '' : `_${String(i).padStart(2, '0')}`;
   return `/images/wedding-mc/comment/KakaoTalk_20260508_175607251${suffix}.jpg`;
 });
-const WED_IMAGES = [
-  '/images/wedding-mc/wed/KakaoTalk_20260508_181443595.jpg',
+
+/* 히어로 슬라이드쇼 (2초마다 페이드 전환) */
+const HERO_SLIDES = [
   '/images/wedding-mc/wed/KakaoTalk_20260508_181443595_01.jpg',
   '/images/wedding-mc/wed/KakaoTalk_20260508_181443595_02.jpg',
   '/images/wedding-mc/wed/KakaoTalk_20260508_181443595_04.jpg',
   '/images/wedding-mc/wed/KakaoTalk_20260508_181443595_05.jpg',
+  '/images/wedding-mc/wed/KakaoTalk_20260508_181443595.jpg',
 ];
-const HERO_IMG = '/images/wedding-mc/wed/KakaoTalk_20260508_181443595.jpg';
 
 const GOOGLE_SHEET_URL =
   'https://script.google.com/macros/s/AKfycbwGOi4e1J2Q1w8x-5UEe-czB3uy6mET90xBhP9OG82fl4jRPEyYdBfqJkmDZuYJMFuc/exec';
@@ -39,61 +42,6 @@ const OX_QUIZ_BANK: { q: string; answer: 'O' | 'X'; reveal: string }[] = [
 ];
 
 /* ─── Small helpers ─── */
-function CountUp({ target, decimals = 0, suffix }: { target: number; decimals?: number; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  const [shown, setShown] = useState(target === 0);
-  useEffect(() => {
-    if (!ref.current) return;
-    const el = ref.current;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) { setShown(true); io.unobserve(el); } });
-    }, { threshold: 0.5 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (!shown) return;
-    const start = performance.now();
-    const duration = 1400;
-    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
-    let raf = 0;
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1);
-      setVal(target * ease(t));
-      if (t < 1) raf = requestAnimationFrame(tick);
-      else setVal(target);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [shown, target]);
-  return (
-    <>
-      <span ref={ref}>{val.toFixed(decimals)}</span>
-      {suffix && <span className="text-[#2A5BFF]/70">{suffix}</span>}
-    </>
-  );
-}
-
-function FadeUp({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    if (!ref.current) return;
-    const el = ref.current;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) { setShown(true); io.unobserve(el); } });
-    }, { threshold: 0.12 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  return (
-    <div ref={ref} className={className} style={{ opacity: shown ? 1 : 0, transform: shown ? 'translateY(0)' : 'translateY(20px)', transition: 'opacity 0.9s ease, transform 0.9s ease' }}>
-      {children}
-    </div>
-  );
-}
-
 function formatPhoneInput(raw: string) {
   const d = raw.replace(/\D/g, '').slice(0, 11);
   if (d.length < 4) return d;
@@ -111,6 +59,71 @@ function normalizePhone(raw: string): string | null {
     return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
   }
   return null;
+}
+
+/* 스크롤 진입 시 0→target 카운트업 */
+function CountUp({ target, decimals = 0, suffix = '' }: { target: number; decimals?: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const [val, setVal] = useState(0);
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) { setStarted(true); io.unobserve(el); } }),
+      { threshold: 0.6 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!started) return;
+    const duration = 1700;
+    const t0 = performance.now();
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min((now - t0) / duration, 1);
+      setVal(target * ease(t));
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else setVal(target);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [started, target]);
+  return <span ref={ref}>{val.toFixed(decimals)}{suffix}</span>;
+}
+
+/* 히어로 1:1 슬라이드쇼 — 2초마다 크로스페이드 */
+function HeroSlides() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % HERO_SLIDES.length), 2000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="relative mt-7 aspect-square overflow-hidden rounded-[30px] bg-[#EEF1F6]">
+      {HERO_SLIDES.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt="프리티풀 전문 사회자"
+          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-in-out"
+          style={{ opacity: i === idx ? 1 : 0 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* 계속 올라가는 카운터 (말풍선용) */
+function CountTicker({ start, suffix = '' }: { start: number; suffix?: string }) {
+  const [n, setN] = useState(start);
+  useEffect(() => {
+    const t = setInterval(() => setN((v) => v + 1), 2500);
+    return () => clearInterval(t);
+  }, []);
+  return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}{suffix}</span>;
 }
 
 declare global {
@@ -197,6 +210,20 @@ export default function WeddingMcLandingPage() {
     io.observe(register);
     return () => io.disconnect();
   }, []);
+
+  /* ── 스크롤 진입 시 섹션 등장(고급 fade-up) ── */
+  useEffect(() => {
+    if (stage !== 'form') return;
+    const els = Array.from(document.querySelectorAll<HTMLElement>('.wmc-reveal'));
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) { e.target.classList.add('wmc-in'); io.unobserve(e.target); }
+      }),
+      { threshold: 0.12, rootMargin: '0px 0px -7% 0px' },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [stage]);
 
   const fireFormStart = useCallback(() => {
     if (formStartFiredRef.current) return;
@@ -319,7 +346,7 @@ export default function WeddingMcLandingPage() {
   };
 
   return (
-    <main className="bg-white text-[#181C24]" style={{ paddingBottom: stage === 'form' ? 'calc(96px + env(safe-area-inset-bottom))' : 0 }}>
+    <main className="bg-white text-[#181C24]" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'SF Pro', 'Apple SD Gothic Neo', Pretendard, system-ui, sans-serif", paddingBottom: stage === 'form' ? 'calc(210px + env(safe-area-inset-bottom))' : 0 }}>
       <Script id="meta-pixel" strategy="afterInteractive">{`
         !function(f,b,e,v,n,t,s)
         {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -333,6 +360,7 @@ export default function WeddingMcLandingPage() {
         fbq('track', 'PageView');
       `}</Script>
       <Script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" strategy="lazyOnload" />
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Allura&display=swap" />
 
       {stage === 'matching' && activeMatch ? (
         <MatchingScreen
@@ -348,7 +376,7 @@ export default function WeddingMcLandingPage() {
         <>
           {/* Header */}
           <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-[#181C24]/10">
-            <div className="max-w-6xl mx-auto px-3 md:px-5 h-14 flex items-center justify-between">
+            <div className="max-w-md mx-auto px-3 h-14 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => {
@@ -360,162 +388,188 @@ export default function WeddingMcLandingPage() {
               >
                 <ChevronLeft size={24} strokeWidth={2.2} />
               </button>
-              <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 md:h-7 w-auto" />
+              <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 w-auto" />
               <div className="w-10" />
             </div>
           </header>
 
-          {/* §1 HERO */}
-          <section className="relative overflow-hidden">
-            <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(60% 40% at 50% 0%, rgba(42,91,255,0.10), transparent 70%)' }} />
-            <FadeUp className="relative max-w-6xl mx-auto px-5 pt-16 pb-14 md:pt-24 md:pb-20">
-              <div className="grid md:grid-cols-2 gap-8 md:gap-12 md:items-center text-center md:text-left">
-                <div className="md:row-start-1 md:col-start-1">
-                  <p className="text-[11px] tracking-[0.28em] uppercase text-[#2A5BFF] mb-6">Wedding MC</p>
-                  <h1 className="text-[36px] md:text-[60px] font-extrabold mb-6" style={{ letterSpacing: '-0.035em', lineHeight: 1.25 }}>
-                    결혼식 사회자,<br />
-                    <span className="text-[#2A5BFF]">아무나 구하세요?</span>
-                  </h1>
-                  <p className="text-[#181C24] text-xl md:text-3xl font-extrabold mb-6" style={{ lineHeight: 1.4 }}>
-                    사회자 한 명이,<br />
-                    <span className="text-[#2A5BFF]">평생의 장면</span>을 결정합니다.
-                  </p>
-                  <p className="text-[#6B6F78] text-sm md:text-base leading-relaxed">
-                    KBS · SBS · MBC 출신 아나운서 중심,<br />
-                    우리 예식에 맞는 검증된 사회자를 안내해드립니다.
-                  </p>
-                </div>
-                <div className="md:row-start-1 md:col-start-2 md:row-span-2">
-                  <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-                    <img src={HERO_IMG} alt="결혼식 진행 중인 프리티풀 전문 사회자" className="w-full h-full object-cover" />
-                  </div>
-                </div>
-                <div className="md:row-start-2 md:col-start-1">
-                  <a href="#register" className="inline-block bg-[#2A5BFF] hover:bg-[#5478FF] text-white font-extrabold px-8 py-4 rounded-full transition shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-                    무료 견적 받기 →
-                  </a>
-                  <p className="mt-4 text-xs md:text-sm text-[#6B6F78]">⚡ 1분이면 신청 끝 · 검증된 사회자들에게 동시 견적</p>
-                </div>
-              </div>
-              <div className="mt-14 md:mt-20 grid grid-cols-3 gap-3 max-w-3xl mx-auto">
-                <div className="bg-[#F5F6FA] border border-[#181C24]/10 rounded-2xl p-4 md:p-6 text-center">
-                  <p className="text-2xl md:text-4xl font-extrabold text-[#181C24]" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    <CountUp target={120} suffix="+" />
-                  </p>
-                  <p className="text-[#6B6F78] text-[11px] md:text-xs mt-2 tracking-wider">아나운서 출신 사회자</p>
-                </div>
-                <div className="bg-[#F5F6FA] border border-[#181C24]/10 rounded-2xl p-4 md:p-6 text-center">
-                  <p className="text-2xl md:text-4xl font-extrabold text-[#181C24]" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    <CountUp target={99.7} decimals={1} suffix="%" />
-                  </p>
-                  <p className="text-[#6B6F78] text-[11px] md:text-xs mt-2 tracking-wider">예식 만족도</p>
-                </div>
-                <div className="bg-[#F5F6FA] border border-[#181C24]/10 rounded-2xl p-4 md:p-6 text-center">
-                  <p className="text-2xl md:text-4xl font-extrabold text-[#181C24]" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    <CountUp target={0} />
-                  </p>
-                  <p className="text-[#6B6F78] text-[11px] md:text-xs mt-2 tracking-wider">노쇼 · 당일사고</p>
-                </div>
-              </div>
-            </FadeUp>
-          </section>
+          <div className="max-w-md mx-auto">
+            {/* ───────── 히어로 ───────── */}
+            <section className="wmc-reveal px-5 pt-6 pb-10 text-center">
+              <h1 className="text-[32px] leading-[1.2] font-extrabold tracking-[-0.03em] text-[#1A1A1A]">
+                결혼식 사회자<br />
+                <span className="text-[#3182F6]">아무나 구하세요?</span>
+              </h1>
+              <p className="wmc-grad-text mt-4 text-[18px] leading-[1.45] font-bold">
+                사회자 한 명이,<br />평생의 장면을 결정합니다.
+              </p>
+              <HeroSlides />
+            </section>
 
-          {/* §2 ROSTER (compact) */}
-          <section className="border-y border-[#181C24]/10 py-12 md:py-16 bg-[#F5F6FA]">
-            <FadeUp className="max-w-6xl mx-auto">
-              <div className="text-center px-5 mb-6">
-                <p className="text-[11px] tracking-[0.28em] uppercase text-[#2A5BFF] mb-3">Verified MCs</p>
-                <h2 className="text-2xl md:text-4xl font-extrabold" style={{ letterSpacing: '-0.035em', lineHeight: 1.3 }}>
-                  방송 진행 경력 <span className="text-[#2A5BFF]">전문 사회자</span>
+            {/* ───────── 추천 대상 ───────── */}
+            <section className="wmc-reveal px-5 pb-12">
+              <div className="grid grid-cols-2 gap-2.5">
+                {['지인의 사회가\n괜찮을지 고민되는\n예비부부', '결혼식장 연계 사회\n진행 방식이\n걱정되는 예비부부', '웃음과 감동이 있는\n특별한 예식을\n원하는 분'].map((t, i) => (
+                  <div key={i} className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#F2F5F9] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45] text-[#4A5160]">
+                    {t}
+                  </div>
+                ))}
+                <div className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#333D4B] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45] text-white">
+                  하객들에게 오래{'\n'}기억될 결혼식을{'\n'}꿈꾸는 분
+                </div>
+              </div>
+            </section>
+
+            {/* ───────── Certificate / 방송사 인증 ───────── */}
+            <section className="wmc-reveal px-5 pb-12 text-center">
+              <p className="-mb-3 text-[40px] leading-none text-[#D7DEE8]" style={{ fontFamily: "'Allura', cursive" }}>Certificate</p>
+              <h2 className="text-[32px] font-extrabold leading-[1.25] text-[#1A1A1A]">
+                검증된 <span className="text-[#3182F6]">프리티풀</span>의<br />사회자들!
+              </h2>
+              <p className="mt-2 text-[13px] text-[#9AA4B2]">방송 3사 및 JTBC YTN등 공인</p>
+              <div className="mt-5 grid grid-cols-2 gap-2.5">
+                <img src="/images/wedding-mc/redesign/proof-beta.jpg" alt="BETA FESTIVAL 행사 진행" className="aspect-square w-full rounded-[30px] object-cover" />
+                <img src="/images/wedding-mc/redesign/proof-yonhap.jpg" alt="연합뉴스TV 함현지 캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
+              </div>
+              <div className="my-4 rounded-2xl bg-[#F9FAFB] px-4 py-6">
+                <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-4">
+                  <img src="/images/wedding-mc/redesign/logos/kbs.svg" alt="KBS" style={{ height: 26, width: 'auto' }} />
+                  <img src="/images/wedding-mc/redesign/logos/sbs.svg" alt="SBS" style={{ height: 28, width: 'auto' }} />
+                  <img src="/images/wedding-mc/redesign/logos/mbc.svg" alt="MBC" style={{ height: 20, width: 'auto' }} />
+                </div>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-4">
+                  <img src="/images/wedding-mc/redesign/logos/ytn.svg" alt="YTN" style={{ height: 16, width: 'auto' }} />
+                  <img src="/images/wedding-mc/redesign/logos/jtbc.svg" alt="JTBC" style={{ height: 30, width: 'auto' }} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <img src="/images/wedding-mc/redesign/proof-mbc.jpg" alt="MBC 정미정 아나운서" className="aspect-square w-full rounded-[30px] object-cover" />
+                <img src="/images/wedding-mc/redesign/proof-kbs.jpg" alt="KBS 이원영 기상캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
+              </div>
+              <a href="#register" className="mt-6 inline-flex min-h-[32px] min-w-[52px] items-center justify-center gap-2.5 rounded-full px-[18px] py-3 text-[17px] font-semibold transition active:scale-[0.98]" style={{ color: 'rgba(3,18,40,0.70)', backgroundColor: 'rgba(7,25,76,0.05)' }}>
+                더 많은 사회자 프로필 보기
+              </a>
+            </section>
+
+            {/* ───────── satisfaction (다크) ───────── */}
+            <section className="wmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 text-center text-white">
+              <img src="/images/wedding-mc/redesign/rings.png" alt="" className="wmc-float pointer-events-none absolute right-3 top-4 w-32" style={{ filter: 'drop-shadow(0 16px 22px rgba(0,0,0,0.45))' }} />
+              <p className="-mb-2 text-[38px] leading-none text-white/15" style={{ fontFamily: "'Allura', cursive" }}>satisfaction</p>
+              <h2 className="relative text-[32px] font-extrabold leading-[1.25]">예식에서도<br />전문성있는 만족도</h2>
+              <div className="mt-5 flex items-center justify-center gap-1.5">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Star key={i} size={32} className="wmc-star fill-[#FFC42E] text-[#FFC42E]" style={{ animationDelay: `${0.2 + i * 0.13}s` }} />
+                ))}
+                <span className="ml-2 text-[18px] font-bold">5</span>
+              </div>
+              <p className="mt-2 text-[14px] text-white/70">실제 결혼식 후기</p>
+              <div className="mt-8 grid grid-cols-2 gap-3">
+                <div><p className="text-[30px] font-bold">0건</p><p className="mt-1 text-[12px] text-white/60">노쇼 당일사고</p></div>
+                <div><p className="text-[30px] font-bold" style={{ fontVariantNumeric: 'tabular-nums' }}><CountUp target={99.7} decimals={1} suffix="%" /></p><p className="mt-1 text-[12px] text-white/60">아나운서 출신 사회자</p></div>
+              </div>
+              <div className="mt-8 -mx-5 overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%)', WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%)' }}>
+                <div className="flex gap-3 px-5" style={{ width: 'max-content', animation: 'wmcScrollX 45s linear infinite' }}>
+                  {[...COMMENT_IMAGES, ...COMMENT_IMAGES].map((src, i) => (
+                    <div key={i} className="w-[176px] flex-none overflow-hidden rounded-2xl shadow-[0_10px_28px_rgba(0,0,0,0.3)]">
+                      <img src={src} alt="실제 결혼식 후기" loading="lazy" className="h-full w-full object-cover" style={{ aspectRatio: '9/16' }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* 텍스트 리뷰 카드 (반대 방향 흐름) */}
+              <div className="mt-3 -mx-5 overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%)', WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%)' }}>
+                <div className="flex gap-3 px-5" style={{ width: 'max-content', animation: 'wmcScrollX 36s linear infinite reverse' }}>
+                  {[1, 2, 3, 4, 5, 1, 2, 3, 4, 5].map((n, i) => (
+                    <div key={i} className="w-[270px] flex-none overflow-hidden rounded-[20px] bg-white shadow-[0_10px_28px_rgba(0,0,0,0.28)]">
+                      <img src={`/images/wedding-mc/redesign/rev-${n}.png`} alt="실제 고객 리뷰" loading="lazy" className="block w-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* ───────── 2000쌍 ───────── */}
+            <section className="wmc-reveal px-5 py-14 text-center">
+              <p className="-mb-1 text-[30px] leading-none text-[#BFD6FF]" style={{ fontFamily: "'Allura', cursive" }}>With Freetiful</p>
+              <p className="text-[64px] font-bold leading-none tracking-[-0.03em] text-[#3182F6]" style={{ fontVariantNumeric: 'tabular-nums' }}><CountUp target={2000} suffix="쌍+" /></p>
+              <h2 className="mt-4 text-[18px] font-bold leading-[1.5] text-[#1A1A1A]">
+                이미 <span className="text-[#3182F6]">2,000쌍</span>의 결혼식이<br />프리티풀의 사회자와 함께였습니다.
+              </h2>
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                <img src="/images/wedding-mc/redesign/mc-1.jpg" alt="프리티풀 전문 사회자" className="w-full rounded-2xl object-cover" style={{ aspectRatio: '3/4' }} />
+                <img src="/images/wedding-mc/redesign/mc-2.jpg" alt="프리티풀 전문 사회자" className="w-full rounded-2xl object-cover" style={{ aspectRatio: '3/4' }} />
+              </div>
+            </section>
+
+            {/* ───────── 1위 Instagram (시안 + 릴스 원 주위 배치) ───────── */}
+            <section className="wmc-reveal relative overflow-hidden">
+              <img
+                src="/images/wedding-mc/redesign/insta-section.jpg"
+                alt="프리티풀 — Instagram 결혼식 컨텐츠 부문 조회수 1위 · 1억뷰 돌파, 프리티풀이 인기있는 이유"
+                className="block w-full select-none"
+                draggable={false}
+                style={{ filter: 'saturate(1.18) contrast(1.04)' }}
+              />
+              {/* 인기 릴스 — 1위 원 주위 흩뿌려 배치 */}
+              {[
+                { n: 1, left: '43%', top: '2%', w: '40%', r: 2 },
+                { n: 6, left: '6%', top: '12%', w: '24%', r: -5 },
+                { n: 2, left: '0%', top: '31%', w: '29%', r: 3 },
+                { n: 5, left: '70%', top: '34%', w: '30%', r: 5 },
+                { n: 4, left: '11%', top: '55%', w: '23%', r: -3 },
+                { n: 3, left: '61%', top: '53%', w: '25%', r: 3 },
+              ].map((r) => (
+                <img
+                  key={r.n}
+                  src={`/images/wedding-mc/redesign/reel-${r.n}.jpg`}
+                  alt=""
+                  loading="lazy"
+                  className="absolute rounded-[14px] shadow-[0_12px_26px_rgba(0,18,55,0.3)]"
+                  style={{ left: r.left, top: r.top, width: r.w, transform: `rotate(${r.r}deg)` }}
+                />
+              ))}
+            </section>
+
+            {/* ───────── 방송 진행 경력 전문 사회자 (캐러셀) ───────── */}
+            <section className="wmc-reveal bg-white py-12">
+              <div className="mb-6 px-5 text-center">
+                <h2 className="text-[32px] font-extrabold leading-[1.25] text-[#1A1A1A]">
+                  방송 진행 경력 <span className="text-[#3182F6]">전문 사회자</span>
                 </h2>
               </div>
               <div className="overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent 0%, #000 6%, #000 94%, transparent 100%)', WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, #000 6%, #000 94%, transparent 100%)' }}>
                 <div className="flex gap-3" style={{ width: 'max-content', animation: 'wmcScrollX 60s linear infinite' }}>
                   {[...MC_IMAGES, ...MC_IMAGES].map((src, i) => (
-                    <div key={i} className="w-[160px] md:w-[200px] flex-none rounded-[14px] overflow-hidden">
-                      <img src={src} alt="" className="w-full h-full object-cover" style={{ aspectRatio: '9/16' }} loading="lazy" />
+                    <div key={i} className="w-[168px] flex-none overflow-hidden rounded-2xl shadow-[0_8px_24px_rgba(24,40,80,0.12)]">
+                      <img src={src} alt="프리티풀 전문 사회자" loading="lazy" className="h-full w-full object-cover" style={{ aspectRatio: '9/16' }} />
                     </div>
                   ))}
                 </div>
               </div>
-            </FadeUp>
-          </section>
+            </section>
+          </div>
 
-          {/* §3 Reviews (compact) */}
-          <section>
-            <FadeUp className="max-w-6xl mx-auto px-5 py-14 md:py-20">
-              <p className="text-[11px] tracking-[0.28em] uppercase text-[#2A5BFF] text-center mb-3">Reviews</p>
-              <h2 className="text-2xl md:text-4xl font-extrabold text-center mb-8" style={{ letterSpacing: '-0.035em', lineHeight: 1.3 }}>
-                실제 결혼식 후기
-              </h2>
-              <div className="overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%)', WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%)' }}>
-                <div className="flex gap-3" style={{ width: 'max-content', animation: 'wmcScrollX 50s linear infinite' }}>
-                  {[...COMMENT_IMAGES, ...COMMENT_IMAGES].map((src, i) => (
-                    <div key={i} className="w-[200px] md:w-[260px] flex-none rounded-[14px] overflow-hidden shadow-[0_8px_24px_rgba(24,28,36,0.08)]">
-                      <img src={src} alt="" className="w-full h-full object-cover" style={{ aspectRatio: '9/16' }} loading="lazy" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </FadeUp>
-          </section>
-
-          {/* §4 Social proof */}
-          <section className="bg-[#F5F6FA] border-y border-[#181C24]/10">
-            <FadeUp className="relative max-w-5xl mx-auto px-5 py-14 md:py-20 text-center">
-              <p className="text-[11px] tracking-[0.28em] uppercase text-[#2A5BFF] mb-4">Together</p>
-              <p className="font-extrabold text-[#2A5BFF] leading-none mb-4" style={{ fontSize: 'clamp(56px, 11vw, 120px)', letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' }}>
-                <CountUp target={2000} suffix="쌍+" />
-              </p>
-              <h2 className="text-xl md:text-3xl font-extrabold mb-4" style={{ letterSpacing: '-0.035em', lineHeight: 1.3 }}>
-                이미 <span className="text-[#2A5BFF]">2,000쌍</span>의 결혼식이<br />
-                프리티풀의 사회자와 함께였습니다.
-              </h2>
-              <div className="mt-10 overflow-hidden" style={{ maskImage: 'linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%)', WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%)' }}>
-                <div className="flex gap-3" style={{ width: 'max-content', animation: 'wmcScrollX 55s linear infinite' }}>
-                  {[...WED_IMAGES, ...WED_IMAGES].map((src, i) => (
-                    <div key={i} className="w-[180px] md:w-[220px] flex-none rounded-[12px] overflow-hidden">
-                      <img src={src} alt="" className="w-full h-full object-cover" style={{ aspectRatio: '4/5' }} loading="lazy" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </FadeUp>
-          </section>
-
-          {/* §5 FORM */}
-          <section id="register" ref={registerRef} className="bg-[#F5F6FA] border-t border-[#181C24]/10">
-            <FadeUp className="max-w-2xl mx-auto px-5 py-16 md:py-24">
-              <p className="text-[11px] tracking-[0.28em] uppercase text-[#2A5BFF] text-center mb-3">무료 견적 신청</p>
-              <h2 className="text-2xl md:text-4xl font-extrabold text-center mb-3" style={{ letterSpacing: '-0.035em', lineHeight: 1.3 }}>
-                1분이면 끝.<br />
-                <span className="text-[#2A5BFF]">검증된 사회자들</span>에게 동시에 견적 요청
-              </h2>
-              <p className="text-[#6B6F78] text-center text-sm md:text-base mt-3 mb-10">
-                4개 정보만 입력하면 사회자들이 직접 연락드려요.
-              </p>
-
-              <form
-                onSubmit={submit}
-                onInput={fireFormStart}
-                className="bg-white border border-[#181C24]/10 rounded-2xl p-6 md:p-8 space-y-5"
-              >
-                {/* 이름 */}
+          {/* 신청 폼 — 시안 디자인 */}
+          <section id="register" ref={registerRef} className="wmc-reveal bg-white">
+            <div className="max-w-md mx-auto px-5 pt-1 pb-14">
+              <form onSubmit={submit} onInput={fireFormStart} className="space-y-6">
+                {/* 성함 — 언더라인 */}
                 <div>
-                  <label className="text-sm font-semibold text-[#181C24] block mb-2">성함 *</label>
+                  <label className="block text-[15px] font-bold text-[#1A1A1A]">성함</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="홍길동"
                     autoComplete="name"
-                    className="w-full px-4 py-3.5 border-[1.5px] border-[#181C24]/10 rounded-xl text-[15px] bg-white text-[#181C24] focus:border-[#2A5BFF] outline-none"
+                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
                   />
+                  <p className="mt-2.5 text-[14px] text-[#9AA3B0]">예비 신랑 신부 둘 중 한분의 성함</p>
                 </div>
 
-                {/* 전화 */}
+                {/* 연락처 — 언더라인 */}
                 <div>
-                  <label className="text-sm font-semibold text-[#181C24] block mb-2">연락처 *</label>
+                  <label className="block text-[15px] font-bold text-[#1A1A1A]">연락처</label>
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -523,86 +577,62 @@ export default function WeddingMcLandingPage() {
                     onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
                     placeholder="010-0000-0000"
                     autoComplete="tel"
-                    className="w-full px-4 py-3.5 border-[1.5px] border-[#181C24]/10 rounded-xl text-[15px] bg-white text-[#181C24] focus:border-[#2A5BFF] outline-none"
+                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
                   />
+                  <p className="mt-2.5 text-[14px] text-[#9AA3B0]">예비 신랑 신부 둘 중 한분의 연락처</p>
                 </div>
 
-                {/* 행사 위치 (Daum 우편번호) */}
-                <div>
-                  <label className="text-sm font-semibold text-[#181C24] block mb-2">행사 위치 *</label>
-                  <div className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={zonecode}
-                      readOnly
-                      placeholder="우편번호"
-                      className="w-[120px] px-4 py-3.5 border-[1.5px] border-[#181C24]/10 rounded-xl text-[14px] bg-[#F5F6FA] text-[#181C24]"
-                    />
-                    <button
-                      type="button"
-                      onClick={openPostcode}
-                      className="flex-1 px-4 py-3.5 border-[1.5px] border-[#2A5BFF]/30 rounded-xl text-[14px] font-semibold bg-white text-[#2A5BFF] hover:bg-[#2A5BFF]/5 active:bg-[#2A5BFF]/10"
-                    >
-                      📍 주소 검색
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={address}
-                    readOnly
-                    placeholder="주소를 검색해주세요"
-                    className="w-full px-4 py-3.5 border-[1.5px] border-[#181C24]/10 rounded-xl text-[15px] bg-[#F5F6FA] text-[#181C24] mb-2"
-                  />
+                {/* 주소 — 박스 (Daum 우편번호) */}
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={openPostcode}
+                    className="flex h-[54px] w-full items-center justify-between rounded-[16px] border-2 border-[#ECEEF2] bg-white px-[18px] text-left text-[20px] active:bg-[#F6F8FC]"
+                  >
+                    <span className={address ? 'text-[#1A1A1A]' : 'text-[#9AA3B0]'}>
+                      {address ? `${address}${zonecode ? ` (${zonecode})` : ''}` : '도로명 주소'}
+                    </span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9AA3B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg>
+                  </button>
                   <input
                     type="text"
                     value={addressDetail}
                     onChange={(e) => setAddressDetail(e.target.value)}
-                    placeholder="상세 위치 (웨딩홀명, 층, 홀 이름 등)"
-                    className="w-full px-4 py-3.5 border-[1.5px] border-[#181C24]/10 rounded-xl text-[15px] bg-white text-[#181C24] focus:border-[#2A5BFF] outline-none"
+                    placeholder="예식장 상세위치"
+                    className="w-full h-[54px] rounded-[16px] border-2 border-[#ECEEF2] bg-white px-[18px] text-[20px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
                   />
                 </div>
 
-                {/* 행사 일시 */}
+                {/* 행사일시 — 언더라인 */}
                 <div>
-                  <label className="text-sm font-semibold text-[#181C24] block mb-2">행사 일시 *</label>
+                  <label className="block text-[15px] font-bold text-[#1A1A1A]">행사일시</label>
                   <input
                     type="datetime-local"
                     value={eventDateTime}
                     onChange={(e) => setEventDateTime(e.target.value)}
-                    className="w-full px-4 py-3.5 border-[1.5px] border-[#181C24]/10 rounded-xl text-[15px] bg-white text-[#181C24] focus:border-[#2A5BFF] outline-none"
+                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] focus:border-[#3182F6] outline-none"
                     style={{ colorScheme: 'light' }}
                   />
                 </div>
 
-                {/* 동의 */}
-                <label
-                  className="flex items-center gap-3 px-4 py-3.5 border-[1.5px] rounded-xl cursor-pointer text-sm transition-all"
-                  style={{ borderColor: agree ? '#2A5BFF' : 'rgba(24,28,36,0.12)', background: agree ? 'rgba(42,91,255,0.06)' : '#fff' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={agree}
-                    onChange={(e) => setAgree(e.target.checked)}
-                    style={{ accentColor: '#2A5BFF', width: 18, height: 18 }}
-                  />
-                  <span>
-                    개인정보 수집·이용에 동의합니다 <a href="#" className="text-[#2A5BFF] underline">자세히</a>
+                {/* 동의 — 파란 체크 동그라미 */}
+                <label className="flex cursor-pointer items-center justify-center gap-3 pt-1">
+                  <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="sr-only" />
+                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 transition-colors" style={{ borderColor: agree ? '#3182F6' : '#D5DAE2', backgroundColor: agree ? '#3182F6' : 'transparent' }}>
+                    {agree && <Check size={16} strokeWidth={3} className="text-white" />}
                   </span>
+                  <span className="text-[16px] text-[#3A3F49]">개인정보 수집 및 이용에 동의합니다.</span>
                 </label>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full h-[56px] bg-[#2A5BFF] hover:bg-[#5478FF] text-white text-[16px] font-extrabold rounded-full transition shadow-[0_14px_30px_rgba(42,91,255,0.28)] active:scale-[0.98] disabled:opacity-60"
+                  className="w-full h-[56px] bg-[#3182F6] hover:bg-[#4E83F6] text-white text-[17px] font-bold rounded-[16px] transition active:scale-[0.98] disabled:opacity-60"
                 >
-                  {submitting ? '전송 중...' : '무료 견적 요청하기 →'}
+                  {submitting ? '전송 중...' : '무료견적 요청'}
                 </button>
-
-                <p className="text-center text-xs text-[#6B6F78]">
-                  접수 즉시 검증된 사회자들이 직접 견적을 보내드려요.
-                </p>
               </form>
-            </FadeUp>
+            </div>
           </section>
 
           {/* Footer */}
@@ -613,16 +643,28 @@ export default function WeddingMcLandingPage() {
             </div>
           </footer>
 
-          {/* Sticky CTA */}
+          {/* 플로팅 푸터 (Bottom CTA 시안) */}
           <div
             ref={stickyCtaRef}
-            className="wmc-sticky-cta fixed left-0 right-0 bottom-0 z-40 px-4 py-3 bg-white/90 backdrop-blur border-t border-[#181C24]/10"
-            style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))', transition: 'transform .35s ease, opacity .35s ease' }}
+            className="wmc-sticky-cta fixed inset-x-0 bottom-0 z-40"
+            style={{ transition: 'transform .35s ease, opacity .35s ease' }}
           >
-            <div className="max-w-[720px] mx-auto">
-              <a href="#register" className="block bg-[#2A5BFF] hover:bg-[#5478FF] text-white text-center font-extrabold py-3.5 md:py-4 rounded-full text-sm md:text-base">
-                ⚡ 1분이면 끝 — 무료 견적 받기
-              </a>
+            <div className="h-9 bg-gradient-to-b from-white/0 to-white" />
+            <div className="bg-white px-5 pt-0.5" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+              <div className="mx-auto max-w-md">
+                <div className="wmc-bob relative mx-auto mb-2.5 w-fit">
+                  <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
+                    <CountTicker start={2000} suffix="명이 예약했어요" />
+                  </div>
+                  <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
+                </div>
+                <a href="#register" className="wmc-cta-bounce flex h-[56px] items-center justify-center rounded-[16px] bg-[#3182F6] hover:bg-[#4E83F6] text-[17px] font-bold text-white">
+                  30초 무료견적 받기
+                </a>
+                <p className="mt-3 text-center text-[13px] leading-[1.5] text-[#00132B]/[0.58]">
+                  이미 13000명의 예신예랑이<br />프리티풀 사회자와 함께 했어요
+                </p>
+              </div>
             </div>
           </div>
         </>
@@ -637,6 +679,59 @@ export default function WeddingMcLandingPage() {
           transform: translateY(110%);
           opacity: 0;
           pointer-events: none;
+        }
+        .wmc-reveal {
+          opacity: 0;
+          transform: translateY(24px);
+          transition: opacity 0.95s cubic-bezier(0.22, 1, 0.36, 1), transform 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: opacity, transform;
+        }
+        .wmc-reveal.wmc-in {
+          opacity: 1;
+          transform: none;
+        }
+        @keyframes wmcGradFlow {
+          0% { background-position: 0% center; }
+          100% { background-position: -200% center; }
+        }
+        .wmc-grad-text {
+          background-image: linear-gradient(90deg, #8B95A1 0%, #3182F6 25%, #8B95A1 50%, #3182F6 75%, #8B95A1 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: transparent;
+          animation: wmcGradFlow 5s linear infinite;
+        }
+        @keyframes wmcFloat {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-13px) rotate(-4deg); }
+        }
+        .wmc-float { animation: wmcFloat 4.5s ease-in-out infinite; will-change: transform; }
+        @keyframes wmcBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .wmc-bob { animation: wmcBob 3s ease-in-out infinite; }
+        @keyframes wmcCtaBounce {
+          0%, 70%, 100% { transform: translateY(0); }
+          80% { transform: translateY(-7px); }
+          88% { transform: translateY(0); }
+          93% { transform: translateY(-3px); }
+          98% { transform: translateY(0); }
+        }
+        .wmc-cta-bounce { animation: wmcCtaBounce 2.6s ease-in-out infinite; }
+        @keyframes wmcStarPop {
+          0% { opacity: 0; transform: scale(0.2); }
+          70% { opacity: 1; transform: scale(1.28); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .wmc-star { opacity: 0; transform: scale(0.2); transform-origin: center; }
+        .wmc-in .wmc-star { animation: wmcStarPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        @media (prefers-reduced-motion: reduce) {
+          .wmc-reveal { opacity: 1 !important; transform: none !important; }
+          .wmc-grad-text { animation: none; -webkit-text-fill-color: #7A828F; color: #7A828F; }
+          .wmc-float { animation: none; }
+          .wmc-cta-bounce { animation: none; }
+          .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
+          .wmc-bob { animation: none; }
         }
       `}</style>
     </main>
@@ -770,7 +865,7 @@ function MatchingScreen({
           </div>
         </div>
 
-        <h1 className="text-2xl md:text-3xl font-extrabold mt-2" style={{ letterSpacing: '-0.035em' }}>
+        <h1 className="text-2xl md:text-3xl font-bold mt-2" style={{ letterSpacing: '-0.035em' }}>
           사회자를 찾는 중입니다…
         </h1>
         <p className="text-[#6B6F78] mt-3 text-sm md:text-base">
@@ -838,7 +933,7 @@ function MatchingScreen({
                   type="button"
                   onClick={() => onPickQuiz(mark)}
                   disabled={!!quizPicked}
-                  className={`h-16 rounded-2xl text-2xl font-extrabold border-2 transition-all ${
+                  className={`h-16 rounded-2xl text-2xl font-bold border-2 transition-all ${
                     correct
                       ? 'bg-[#22C55E] text-white border-[#22C55E]'
                       : wrong
@@ -914,7 +1009,7 @@ function MatchingScreen({
           >
             <div className="w-12 h-1 bg-[#D1D5DB] rounded-full mx-auto my-3" />
             <div className="px-5 pb-3 flex items-center justify-between">
-              <h3 className="text-lg font-extrabold">사회자 미리보기</h3>
+              <h3 className="text-lg font-bold">사회자 미리보기</h3>
               <button
                 type="button"
                 onClick={() => setShowProSheet(false)}
@@ -984,7 +1079,7 @@ function MatchingScreen({
         <div className="fixed inset-0 z-[60] bg-black/55 flex items-center justify-center p-5" style={{ animation: 'wmcFadeIn 0.25s' }}>
           <div className="bg-white rounded-3xl p-8 text-center max-w-sm w-full">
             <div className="text-5xl mb-3">🎉</div>
-            <p className="text-xl font-extrabold text-[#181C24]">사회자가 답장했어요!</p>
+            <p className="text-xl font-bold text-[#181C24]">사회자가 답장했어요!</p>
             <p className="text-sm text-[#6B6F78] mt-2">채팅으로 이동합니다…</p>
           </div>
         </div>
