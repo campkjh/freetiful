@@ -87,7 +87,7 @@ export default function BusinessDetailPage() {
 
   const partnerImageSet = getWeddingPartnerImageSet(biz.businessName);
   const apiImages = Array.isArray(biz.images) ? biz.images.map((i) => i.imageUrl).filter(Boolean) : [];
-  const mergedImages = sanitizeBusinessImageUrls(mergeWeddingPartnerImages(apiImages, partnerImageSet?.images));
+  const mergedImages = sanitizeBusinessImageUrls(mergeWeddingPartnerImages(partnerImageSet?.images, apiImages));
   const images = mergedImages.length > 0 ? mergedImages : ['/images/default-profile.png'];
   const categoryNames = Array.from(new Set([
     ...getRelevantBusinessCategories(biz),
