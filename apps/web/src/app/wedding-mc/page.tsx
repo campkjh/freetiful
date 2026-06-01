@@ -183,22 +183,7 @@ export default function WeddingMcLandingPage() {
     } catch {}
   }, []);
 
-  /* ── 뒤로가기 차단 — /wedding-mc 진입 후 폼 완료 전까지 ── */
-  useEffect(() => {
-    if (stage !== 'form') return;
-    // 처음 진입 시 dummy state 푸시 → popstate 가 발생해도 같은 페이지에 머무름
-    try {
-      window.history.pushState({ wmcGuard: true }, '');
-    } catch {}
-    const onPop = (e: PopStateEvent) => {
-      // 다시 dummy state 푸시해서 항상 같은 페이지에 있도록 유지
-      try {
-        window.history.pushState({ wmcGuard: true }, '');
-      } catch {}
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, [stage]);
+  /* ── 뒤로가기는 헤더 버튼으로 — 브라우저 뒤로가기 차단 제거 ── */
 
   /* ── Sticky CTA: 폼 진입 시 자동 숨김 ── */
   useEffect(() => {
@@ -362,10 +347,23 @@ export default function WeddingMcLandingPage() {
         <>
           {/* Header */}
           <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-[#181C24]/10">
-            <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
+            <div className="max-w-6xl mx-auto px-3 md:px-5 h-14 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.history.length > 1) router.back();
+                  else router.push('/main');
+                }}
+                aria-label="뒤로 가기"
+                className="flex h-10 w-10 items-center justify-center -ml-1 rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
               <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 md:h-7 w-auto" />
               <a href="#register" className="text-sm font-semibold text-[#181C24] hover:text-[#2A5BFF] transition">
-                무료 견적 받기 →
+                무료 견적 →
               </a>
             </div>
           </header>
@@ -743,10 +741,21 @@ function MatchingScreen({
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
-      {/* 상단 헤더 (뒤로가기 버튼 없음 — 의도된 차단) */}
+      {/* 상단 헤더 */}
       <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-[#181C24]/10">
-        <div className="max-w-2xl mx-auto px-5 h-14 flex items-center justify-center">
+        <div className="max-w-2xl mx-auto px-3 h-14 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => router.push('/main')}
+            aria-label="홈으로"
+            className="flex h-10 w-10 items-center justify-center -ml-1 rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
           <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 w-auto" />
+          <div className="w-10" />
         </div>
       </header>
 
