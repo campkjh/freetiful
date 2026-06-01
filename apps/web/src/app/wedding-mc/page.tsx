@@ -376,8 +376,13 @@ export default function WeddingMcLandingPage() {
             {/* ───────── 히어로 ───────── */}
             <section className="wmc-reveal px-5 pt-6 pb-10 text-center">
               <h1 className="text-[32px] leading-[1.2] font-extrabold tracking-[-0.03em] text-[#1A1A1A]">
-                결혼식 사회자<br />
-                <span className="text-[#3182F6]">아무나 구하세요?</span>
+                {Array.from('결혼식 사회자').map((ch, i) => (
+                  <span key={i} className="wmc-char" style={{ animationDelay: `${i * 0.05}s` }}>{ch === ' ' ? ' ' : ch}</span>
+                ))}
+                <br />
+                {Array.from('아무나 구하세요?').map((ch, i) => (
+                  <span key={`b${i}`} className="wmc-char text-[#3182F6]" style={{ animationDelay: `${(7 + i) * 0.05}s` }}>{ch === ' ' ? ' ' : ch}</span>
+                ))}
               </h1>
               <p className="wmc-grad-text mt-4 text-[18px] leading-[1.45] font-bold">
                 사회자 한 명이,<br />평생의 장면을 결정합니다.
@@ -629,6 +634,7 @@ export default function WeddingMcLandingPage() {
                 <button
                   type="button"
                   onClick={() => startOAuth('kakao')}
+                  style={{ marginTop: '36px' }}
                   className="flex w-full h-[56px] items-center justify-center gap-2 rounded-[16px] bg-[#FEE500] text-[17px] font-bold text-[#191600] transition active:scale-[0.98]"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#191600" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.9 1.9 5.4 4.7 6.8-.2.7-.7 2.6-.8 3-.1.5.2.5.4.3.2-.1 2.6-1.8 3.6-2.5.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z" /></svg>
@@ -653,7 +659,7 @@ export default function WeddingMcLandingPage() {
             style={{ transition: 'transform .35s ease, opacity .35s ease' }}
           >
             {/* 이미지 + 말풍선 — 버튼 위로 내려서 겹치게 (z 높여 버튼 위에 표시) */}
-            <div className="relative z-20 -mb-[50px] px-5">
+            <div className="relative z-20 -mb-[44px] px-5">
               <div className="mx-auto max-w-md">
                 <div className="wmc-bob mx-auto w-fit">
                   <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 해도 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
@@ -724,6 +730,12 @@ export default function WeddingMcLandingPage() {
           color: transparent;
           animation: wmcGradFlow 4.5s linear infinite;
         }
+        @keyframes wmcCharBounce {
+          0% { opacity: 0; transform: translateY(0.55em); }
+          55% { opacity: 1; transform: translateY(-0.2em); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .wmc-char { display: inline-block; opacity: 0; animation: wmcCharBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -750,6 +762,7 @@ export default function WeddingMcLandingPage() {
           .wmc-reveal { opacity: 1 !important; transform: none !important; }
           .wmc-grad-text { animation: none; -webkit-text-fill-color: #7A828F; color: #7A828F; }
           .wmc-money-grad { animation: none; -webkit-text-fill-color: #F5871F; color: #F5871F; }
+          .wmc-char { animation: none; opacity: 1; transform: none; }
           .wmc-float { animation: none; }
           .wmc-cta-bounce { animation: none; }
           .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
