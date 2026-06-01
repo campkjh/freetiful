@@ -362,6 +362,13 @@ export default function WeddingMcLandingPage() {
             } catch {}
             router.push('/chat');
           }}
+          onStop={() => {
+            try {
+              localStorage.removeItem(ACTIVE_MATCH_STORAGE_KEY);
+            } catch {}
+            setActiveMatch(null);
+            setStage('form');
+          }}
         />
       ) : (
         <>
@@ -785,6 +792,7 @@ export default function WeddingMcLandingPage() {
           color: transparent;
           animation: wmcMsgFade 0.55s ease both, wmcBreathe 3.6s ease-in-out infinite;
         }
+        .wmc-msgfade { display: inline-block; animation: wmcMsgFade 0.5s ease both; }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -859,9 +867,11 @@ const MATCHING_HEADLINES = [
 function MatchingScreen({
   matchRequestId,
   onResolved,
+  onStop,
 }: {
   matchRequestId: string;
   onResolved: () => void;
+  onStop: () => void;
 }) {
   const [deliveries, setDeliveries] = useState<DeliveryItem[]>([]);
   const [hasReply, setHasReply] = useState(false);
@@ -938,8 +948,8 @@ function MatchingScreen({
         <div className="max-w-2xl mx-auto px-3 h-14 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => router.push('/main')}
-            aria-label="홈으로"
+            onClick={() => { if (window.confirm('정말로 그만 찾으시겠습니까?')) onStop(); }}
+            aria-label="그만 찾기"
             className="flex h-10 w-10 items-center justify-center -ml-1 rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10"
           >
             <ChevronLeft size={24} strokeWidth={2.2} />
@@ -955,18 +965,10 @@ function MatchingScreen({
           <span className="wmc-ripple wmc-ripple-1" />
           <span className="wmc-ripple wmc-ripple-2" />
           <span className="wmc-ripple wmc-ripple-3" />
-          <div className="relative z-10 flex flex-col items-center">
-            <div className="w-20 h-20 rounded-full bg-[#2A5BFF] text-white flex items-center justify-center shadow-[0_18px_40px_rgba(42,91,255,0.32)]">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 21l-4.35-4.35" />
-                <circle cx="11" cy="11" r="7" />
-              </svg>
-            </div>
-          </div>
         </div>
 
-        <h1 className="text-2xl md:text-3xl font-bold mt-2" style={{ letterSpacing: '-0.035em' }}>
-          <span key={msgIdx} className="wmc-breathe inline-block">{MATCHING_HEADLINES[msgIdx]}</span>
+        <h1 className="text-2xl md:text-3xl font-bold mt-2 text-[#191F28]" style={{ letterSpacing: '-0.035em' }}>
+          <span key={msgIdx} className="wmc-msgfade inline-block">{MATCHING_HEADLINES[msgIdx]}</span>
         </h1>
         <p className="text-[#6B6F78] mt-3 text-sm md:text-base">
           잠시만 기다려주세요. 검증된 사회자분들에게 동시에 견적 요청이 전달되고 있어요.
@@ -978,9 +980,9 @@ function MatchingScreen({
         </p>
 
         {/* OX 퀴즈 */}
-        <div className="mt-10 bg-white rounded-2xl border border-[#181C24]/10 p-6 text-left shadow-[0_8px_22px_rgba(24,28,36,0.04)]">
-          <p className="text-[11px] tracking-[0.28em] uppercase text-[#2A5BFF] mb-2">기다리는 동안 OX 퀴즈</p>
-          <p className="text-[15px] md:text-[16px] font-bold text-[#181C24] leading-snug min-h-[3.2em]">
+        <div className="mt-8 bg-white rounded-2xl border border-[#181C24]/10 p-5 text-center shadow-[0_8px_22px_rgba(24,28,36,0.04)]">
+          <p className="text-[16px] font-medium tracking-normal text-[#8B95A1] mb-2">기다리는 동안 OX 퀴즈</p>
+          <p className="text-[20px] font-bold text-[#191F28] leading-snug min-h-[2.6em]">
             {quiz.q}
           </p>
           <div className="grid grid-cols-2 gap-3 mt-5">
@@ -1107,9 +1109,9 @@ function MatchingScreen({
 
       <style jsx global>{`
         @keyframes wmcRipple {
-          0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.6; }
-          80% { opacity: 0; }
-          100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+          0% { transform: translate(-50%, -50%) scale(0.45); opacity: 0; }
+          12% { opacity: 0.5; }
+          100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
         }
         @keyframes wmcSlideUp {
           from { opacity: 0; transform: translateY(8px); }
@@ -1130,12 +1132,12 @@ function MatchingScreen({
           width: 200px;
           height: 200px;
           border-radius: 50%;
-          background: rgba(42, 91, 255, 0.18);
-          animation: wmcRipple 2.6s ease-out infinite;
+          background: rgba(34, 114, 235, 0.20);
+          animation: wmcRipple 3.4s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
           pointer-events: none;
         }
-        .wmc-ripple-2 { animation-delay: 0.8s; background: rgba(42, 91, 255, 0.14); }
-        .wmc-ripple-3 { animation-delay: 1.6s; background: rgba(42, 91, 255, 0.1); }
+        .wmc-ripple-2 { animation-delay: 1.13s; background: rgba(34, 114, 235, 0.15); }
+        .wmc-ripple-3 { animation-delay: 2.26s; background: rgba(34, 114, 235, 0.1); }
       `}</style>
     </div>
   );
