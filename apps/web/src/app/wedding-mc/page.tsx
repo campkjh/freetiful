@@ -928,14 +928,13 @@ function MatchingScreen({
   };
 
   /* ── 사회자가 요청 확인했다는 메시지 표시용 ── */
-  const recentlyViewed = deliveries.filter((d) => d.status === 'viewed' || d.viewedAt).slice(0, 6);
   const totalCount = deliveries.length;
   const viewedCount = deliveries.filter((d) => d.status === 'viewed' || d.viewedAt).length;
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
       {/* 상단 헤더 */}
-      <header className="sticky top-0 z-30 bg-white">
+      <header className="shrink-0 bg-white">
         <div className="max-w-2xl mx-auto px-3 h-14 flex items-center justify-between">
           <button
             type="button"
@@ -950,9 +949,9 @@ function MatchingScreen({
         </div>
       </header>
 
-      <div className="relative max-w-2xl mx-auto px-5 pt-10 pb-40 text-center">
+      <div className="flex-1 min-h-0 flex flex-col justify-center max-w-2xl w-full mx-auto px-5 py-3 text-center">
         {/* 파장 애니메이션 */}
-        <div className="relative h-[280px] flex items-center justify-center">
+        <div className="relative h-[clamp(130px,20vh,200px)] flex items-center justify-center shrink-0">
           <span className="wmc-ripple wmc-ripple-1" />
           <span className="wmc-ripple wmc-ripple-2" />
           <span className="wmc-ripple wmc-ripple-3" />
@@ -973,45 +972,6 @@ function MatchingScreen({
           잠시만 기다려주세요. 검증된 사회자분들에게 동시에 견적 요청이 전달되고 있어요.
         </p>
 
-        {/* 사회자 확인 메시지 */}
-        <div className="mt-8 space-y-2 min-h-[120px]">
-          {recentlyViewed.length === 0 ? (
-            <p className="text-[#9DA1AA] text-sm">
-              곧 사회자분들이 요청을 확인할 거예요…
-            </p>
-          ) : (
-            recentlyViewed.map((d) => {
-              const proName = d.proProfile?.user?.name || '사회자';
-              const avatar =
-                d.proProfile?.user?.profileImageUrl ||
-                d.proProfile?.images?.[0]?.imageUrl ||
-                '/images/default-profile.png';
-              return (
-                <div
-                  key={d.id}
-                  className="flex items-center justify-center gap-3 bg-white border border-[#181C24]/10 rounded-full pl-1 pr-4 py-1 mx-auto w-fit shadow-[0_4px_14px_rgba(24,28,36,0.06)]"
-                  style={{ animation: 'wmcSlideUp 0.5s ease-out both' }}
-                >
-                  <img
-                    src={avatar}
-                    alt={proName}
-                    className="w-7 h-7 rounded-full object-cover bg-gray-100"
-                    onError={(e) => {
-                      const t = e.currentTarget as HTMLImageElement;
-                      if (!t.dataset.fb) {
-                        t.dataset.fb = '1';
-                        t.src = '/images/default-profile.png';
-                      }
-                    }}
-                  />
-                  <span className="text-sm font-semibold text-[#181C24]">
-                    <b>{proName}</b> 사회자가 요청을 확인했어요
-                  </span>
-                </div>
-              );
-            })
-          )}
-        </div>
 
         <p className="mt-6 text-[12px] text-[#9DA1AA]">
           {totalCount > 0 ? `${viewedCount} / ${totalCount} 명 확인` : '사회자분들 알림 발송 중'}
@@ -1025,26 +985,27 @@ function MatchingScreen({
           </p>
           <div className="grid grid-cols-2 gap-3 mt-5">
             {(['O', 'X'] as const).map((mark) => {
+              const isO = mark === 'O';
               const picked = quizPicked === mark;
               const correct = quizPicked && mark === quiz.answer;
               const wrong = quizPicked === mark && mark !== quiz.answer;
+              const dim = quizPicked && !picked && !correct;
               return (
                 <button
                   key={mark}
                   type="button"
                   onClick={() => onPickQuiz(mark)}
                   disabled={!!quizPicked}
-                  className={`h-16 rounded-2xl text-2xl font-bold border-2 transition-all ${
-                    correct
-                      ? 'bg-[#22C55E] text-white border-[#22C55E]'
-                      : wrong
-                        ? 'bg-[#EF4444] text-white border-[#EF4444]'
-                        : picked
-                          ? 'bg-[#181C24] text-white border-[#181C24]'
-                          : 'bg-white text-[#181C24] border-[#181C24]/15 active:scale-[0.98]'
-                  } disabled:opacity-90`}
+                  className={`flex flex-col items-center justify-center gap-2.5 rounded-[24px] py-5 transition-all active:scale-[0.98] disabled:cursor-default ${isO ? 'bg-[#E9F3FF]' : 'bg-[#FED4D6]'} ${dim ? 'opacity-40' : ''} ${correct ? 'ring-2 ring-offset-2 ring-[#3787FF]' : ''} ${wrong ? 'ring-2 ring-offset-2 ring-[#FF6767]' : ''}`}
                 >
-                  {mark}
+                  <span className={`flex h-[68px] w-[68px] items-center justify-center rounded-full text-white ${isO ? 'bg-[#6EA0FF]' : 'bg-[#FF6767]'}`}>
+                    {isO ? (
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="8" /></svg>
+                    ) : (
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                    )}
+                  </span>
+                  <span className={`text-[18px] font-bold ${isO ? 'text-[#3787FF]' : 'text-[#FF6767]'}`}>{mark}</span>
                 </button>
               );
             })}
@@ -1057,48 +1018,6 @@ function MatchingScreen({
         </div>
       </div>
 
-      {/* 하단 사회자 프로필 미리보기 핸들 */}
-      <button
-        type="button"
-        onClick={() => setShowProSheet(true)}
-        className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 w-full max-w-2xl bg-white border-t border-[#181C24]/10 px-5 pt-3 pb-4"
-        style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}
-      >
-        <div className="w-10 h-1 bg-[#D1D5DB] rounded-full mx-auto mb-3" />
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {deliveries.slice(0, 4).map((d) => {
-                const src =
-                  d.proProfile?.user?.profileImageUrl ||
-                  d.proProfile?.images?.[0]?.imageUrl ||
-                  '/images/default-profile.png';
-                return (
-                  <img
-                    key={d.id}
-                    src={src}
-                    alt=""
-                    className="w-7 h-7 rounded-full border-2 border-white object-cover bg-gray-100"
-                    onError={(e) => {
-                      const t = e.currentTarget as HTMLImageElement;
-                      if (!t.dataset.fb) {
-                        t.dataset.fb = '1';
-                        t.src = '/images/default-profile.png';
-                      }
-                    }}
-                  />
-                );
-              })}
-            </div>
-            <span className="text-sm font-semibold text-[#181C24]">
-              요청 받은 사회자 미리보기 <b className="text-[#2A5BFF]">{totalCount}</b>명
-            </span>
-          </div>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2A5BFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 15l-6-6-6 6" />
-          </svg>
-        </div>
-      </button>
 
       {/* 사회자 리스트 모달 (위로 슬라이드 업) */}
       {showProSheet && (
