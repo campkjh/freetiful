@@ -6,6 +6,7 @@ import Script from 'next/script';
 import { Check, ChevronLeft, Star } from 'lucide-react';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { startOAuth } from '@/lib/auth/oauth';
 
 /* 전문사회자 프로필 카드 (방송사 출신 아나운서 시안 카드) */
 const MC_IMAGES = Array.from({ length: 18 }, (_, i) => {
@@ -129,7 +130,6 @@ function CountTicker({ start, suffix = '' }: { start: number; suffix?: string })
 declare global {
   interface Window {
     fbq?: (...args: any[]) => void;
-    daum?: { Postcode: new (opts: { oncomplete: (data: any) => void; onclose?: () => void }) => { open: () => void } };
   }
 }
 
@@ -149,11 +149,10 @@ export default function WeddingMcLandingPage() {
   const [stage, setStage] = useState<Stage>('form');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [zonecode, setZonecode] = useState('');
-  const [address, setAddress] = useState('');
   const [addressDetail, setAddressDetail] = useState('');
   const [eventDateTime, setEventDateTime] = useState('');
   const [agree, setAgree] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeMatch, setActiveMatch] = useState<ActiveMatchSnapshot | null>(null);
 
@@ -231,30 +230,14 @@ export default function WeddingMcLandingPage() {
     if (typeof window.fbq === 'function') window.fbq('track', 'InitiateCheckout', { content_name: 'Wedding MC Form Start' });
   }, []);
 
-  /* ── Daum 우편번호 ── */
-  const openPostcode = useCallback(() => {
-    if (!window.daum?.Postcode) {
-      window.alert('주소 검색을 불러오는 중입니다. 잠시 후 다시 눌러주세요.');
-      return;
-    }
-    new window.daum.Postcode({
-      oncomplete: (data: any) => {
-        setZonecode(data.zonecode || '');
-        // roadAddress 우선, 없으면 jibunAddress
-        setAddress(data.roadAddress || data.jibunAddress || data.address || '');
-      },
-    }).open();
-  }, []);
-
   /* ── 폼 제출 ── */
   const submit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!agree) return window.alert('개인정보 수집·이용에 동의해주세요.');
-    if (!name.trim()) return window.alert('성함을 입력해주세요.');
     const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone) return window.alert('연락처 형식을 확인해주세요. (예: 010-1234-1234)');
-    if (!address.trim()) return window.alert('행사 위치를 입력해주세요.');
-    if (!eventDateTime) return window.alert('행사 일시를 선택해주세요.');
+    if (!name.trim() || !normalizedPhone || !addressDetail.trim() || !eventDateTime || !agree) {
+      setShowErrors(true);
+      return;
+    }
 
     setPhone(normalizedPhone);
 
@@ -271,7 +254,7 @@ export default function WeddingMcLandingPage() {
 
     // datetime-local 값: "2026-08-15T14:30" 형식. 분리해서 백엔드로
     const [datePart, timePart] = eventDateTime.split('T');
-    const fullLocation = `${address}${addressDetail ? ' ' + addressDetail.trim() : ''}${zonecode ? ` (${zonecode})` : ''}`.trim();
+    const fullLocation = addressDetail.trim();
 
     // 1) Google Sheets (기존 리드 시트) — fire-and-forget
     fetch(GOOGLE_SHEET_URL, {
@@ -284,7 +267,6 @@ export default function WeddingMcLandingPage() {
         region: fullLocation,
         weddingDate: datePart || '',
         weddingTime: timePart || '',
-        zonecode,
         addressDetail,
         source: 'freetiful-mc-wedding-v3',
         ...utm,
@@ -307,8 +289,6 @@ export default function WeddingMcLandingPage() {
           source: 'landing_wedding_mc_v3',
           name: name.trim(),
           phone: normalizedPhone,
-          zonecode,
-          address,
           addressDetail,
           eventDateTime,
           ...utm,
@@ -359,7 +339,6 @@ export default function WeddingMcLandingPage() {
         fbq('init', '4542157089361204');
         fbq('track', 'PageView');
       `}</Script>
-      <Script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" strategy="lazyOnload" />
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Allura&display=swap" />
 
       {stage === 'matching' && activeMatch ? (
@@ -375,7 +354,7 @@ export default function WeddingMcLandingPage() {
       ) : (
         <>
           {/* Header */}
-          <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-[#181C24]/10">
+          <header className="sticky top-0 z-30 bg-white border-b border-[#181C24]/10">
             <div className="max-w-md mx-auto px-3 h-14 flex items-center justify-between">
               <button
                 type="button"
@@ -562,9 +541,11 @@ export default function WeddingMcLandingPage() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="홍길동"
                     autoComplete="name"
-                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
+                    className={`mt-2 w-full border-b-2 bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none ${showErrors && !name.trim() ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#E5E8EE] focus:border-[#3182F6]'}`}
                   />
-                  <p className="mt-2.5 text-[14px] text-[#9AA3B0]">예비 신랑 신부 둘 중 한분의 성함</p>
+                  <p className={`mt-2.5 text-[14px] ${showErrors && !name.trim() ? 'text-[#FF4D4F]' : 'text-[#9AA3B0]'}`}>
+                    {showErrors && !name.trim() ? '예비 신랑 신부 둘 중 한 분의 성함을 입력해주세요' : '예비 신랑 신부 둘 중 한분의 성함'}
+                  </p>
                 </div>
 
                 {/* 연락처 — 언더라인 */}
@@ -577,30 +558,25 @@ export default function WeddingMcLandingPage() {
                     onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
                     placeholder="010-0000-0000"
                     autoComplete="tel"
-                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
+                    className={`mt-2 w-full border-b-2 bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none ${showErrors && !normalizePhone(phone) ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#E5E8EE] focus:border-[#3182F6]'}`}
                   />
-                  <p className="mt-2.5 text-[14px] text-[#9AA3B0]">예비 신랑 신부 둘 중 한분의 연락처</p>
+                  <p className={`mt-2.5 text-[14px] ${showErrors && !normalizePhone(phone) ? 'text-[#FF4D4F]' : 'text-[#9AA3B0]'}`}>
+                    {showErrors && !normalizePhone(phone) ? '예비 신랑 신부 둘 중 한 분의 연락처를 입력해주세요' : '예비 신랑 신부 둘 중 한분의 연락처'}
+                  </p>
                 </div>
 
-                {/* 주소 — 박스 (Daum 우편번호) */}
+                {/* 행사 위치 */}
                 <div className="space-y-2.5">
-                  <button
-                    type="button"
-                    onClick={openPostcode}
-                    className="flex h-[54px] w-full items-center justify-between rounded-[16px] border-2 border-[#ECEEF2] bg-white px-[18px] text-left text-[20px] active:bg-[#F6F8FC]"
-                  >
-                    <span className={address ? 'text-[#1A1A1A]' : 'text-[#9AA3B0]'}>
-                      {address ? `${address}${zonecode ? ` (${zonecode})` : ''}` : '도로명 주소'}
-                    </span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9AA3B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg>
-                  </button>
                   <input
                     type="text"
                     value={addressDetail}
                     onChange={(e) => setAddressDetail(e.target.value)}
                     placeholder="예식장 상세위치"
-                    className="w-full h-[54px] rounded-[16px] border-2 border-[#ECEEF2] bg-white px-[18px] text-[20px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
+                    className={`w-full h-[54px] rounded-[16px] border-2 bg-white px-[18px] text-[20px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none ${showErrors && !addressDetail.trim() ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#ECEEF2] focus:border-[#3182F6]'}`}
                   />
+                  {showErrors && !addressDetail.trim() && (
+                    <p className="text-[14px] text-[#FF4D4F]">예식장 위치를 입력해주세요</p>
+                  )}
                 </div>
 
                 {/* 행사일시 — 언더라인 */}
@@ -610,26 +586,43 @@ export default function WeddingMcLandingPage() {
                     type="datetime-local"
                     value={eventDateTime}
                     onChange={(e) => setEventDateTime(e.target.value)}
-                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] focus:border-[#3182F6] outline-none"
+                    className={`mt-2 w-full border-b-2 bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] outline-none ${showErrors && !eventDateTime ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#E5E8EE] focus:border-[#3182F6]'}`}
                     style={{ colorScheme: 'light' }}
                   />
+                  {showErrors && !eventDateTime && (
+                    <p className="mt-2.5 text-[14px] text-[#FF4D4F]">행사 일시를 선택해주세요</p>
+                  )}
                 </div>
 
                 {/* 동의 — 파란 체크 동그라미 */}
-                <label className="flex cursor-pointer items-center justify-center gap-3 pt-1">
-                  <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="sr-only" />
-                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 transition-colors" style={{ borderColor: agree ? '#3182F6' : '#D5DAE2', backgroundColor: agree ? '#3182F6' : 'transparent' }}>
-                    {agree && <Check size={16} strokeWidth={3} className="text-white" />}
-                  </span>
-                  <span className="text-[16px] text-[#3A3F49]">개인정보 수집 및 이용에 동의합니다.</span>
-                </label>
+                <div>
+                  <label className="flex cursor-pointer items-center justify-center gap-3 pt-1">
+                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="sr-only" />
+                    <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 transition-colors" style={{ borderColor: agree ? '#3182F6' : (showErrors ? '#FF4D4F' : '#D5DAE2'), backgroundColor: agree ? '#3182F6' : 'transparent' }}>
+                      {agree && <Check size={16} strokeWidth={3} className="text-white" />}
+                    </span>
+                    <span className={`text-[16px] ${showErrors && !agree ? 'text-[#FF4D4F]' : 'text-[#3A3F49]'}`}>개인정보 수집 및 이용에 동의합니다.</span>
+                  </label>
+                  {showErrors && !agree && (
+                    <p className="mt-1.5 text-center text-[14px] text-[#FF4D4F]">개인정보 수집·이용에 동의해주세요</p>
+                  )}
+                </div>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full h-[56px] bg-[#3182F6] hover:bg-[#4E83F6] text-white text-[17px] font-bold rounded-[16px] transition active:scale-[0.98] disabled:opacity-60"
+                  className={`w-full h-[56px] text-[17px] font-bold rounded-[16px] transition active:scale-[0.98] disabled:opacity-60 ${name.trim() && normalizePhone(phone) && addressDetail.trim() && eventDateTime && agree ? 'bg-[#3182F6] hover:bg-[#4E83F6] text-white' : 'bg-[#F2F4F6] text-[#333D4B]'}`}
                 >
-                  {submitting ? '전송 중...' : '무료견적 요청'}
+                  {submitting ? '전송 중...' : '비회원 의뢰하기'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => startOAuth('kakao')}
+                  className="mt-3 flex w-full h-[56px] items-center justify-center gap-2 rounded-[16px] bg-[#FEE500] text-[17px] font-bold text-[#191600] transition active:scale-[0.98]"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#191600" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.9 1.9 5.4 4.7 6.8-.2.7-.7 2.6-.8 3-.1.5.2.5.4.3.2-.1 2.6-1.8 3.6-2.5.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z" /></svg>
+                  카카오 로그인
                 </button>
               </form>
             </div>
@@ -652,11 +645,14 @@ export default function WeddingMcLandingPage() {
             <div className="h-9 bg-gradient-to-b from-white/0 to-white" />
             <div className="bg-white px-5 pt-0.5" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
               <div className="mx-auto max-w-md">
-                <div className="wmc-bob relative mx-auto mb-2.5 w-fit">
-                  <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
-                    <CountTicker start={2000} suffix="명이 예약했어요" />
+                <div className="wmc-bob mx-auto mb-2.5 w-fit">
+                  <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 하면 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
+                  <div className="relative mx-auto w-fit">
+                    <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
+                      가입만 하면 <span className="wmc-money-grad">5,000원</span> 지급
+                    </div>
+                    <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
                   </div>
-                  <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
                 </div>
                 <a href="#register" className="wmc-cta-bounce flex h-[56px] items-center justify-center rounded-[16px] bg-[#3182F6] hover:bg-[#4E83F6] text-[17px] font-bold text-white">
                   30초 무료견적 받기
@@ -703,6 +699,15 @@ export default function WeddingMcLandingPage() {
           color: transparent;
           animation: wmcGradFlow 5s linear infinite;
         }
+        .wmc-money-grad {
+          background-image: linear-gradient(90deg, #1A1A1A 0%, #F5871F 25%, #1A1A1A 50%, #F5871F 75%, #1A1A1A 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: transparent;
+          animation: wmcGradFlow 4.5s linear infinite;
+        }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -728,6 +733,7 @@ export default function WeddingMcLandingPage() {
         @media (prefers-reduced-motion: reduce) {
           .wmc-reveal { opacity: 1 !important; transform: none !important; }
           .wmc-grad-text { animation: none; -webkit-text-fill-color: #7A828F; color: #7A828F; }
+          .wmc-money-grad { animation: none; -webkit-text-fill-color: #F5871F; color: #F5871F; }
           .wmc-float { animation: none; }
           .wmc-cta-bounce { animation: none; }
           .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
@@ -834,7 +840,7 @@ function MatchingScreen({
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
       {/* 상단 헤더 */}
-      <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-[#181C24]/10">
+      <header className="sticky top-0 z-30 bg-white border-b border-[#181C24]/10">
         <div className="max-w-2xl mx-auto px-3 h-14 flex items-center justify-between">
           <button
             type="button"
