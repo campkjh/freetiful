@@ -354,7 +354,7 @@ export default function WeddingMcLandingPage() {
       ) : (
         <>
           {/* Header */}
-          <header className="sticky top-0 z-30 bg-white border-b border-[#181C24]/10">
+          <header className="sticky top-0 z-30 bg-white">
             <div className="max-w-md mx-auto px-3 h-14 flex items-center justify-between">
               <button
                 type="button"
@@ -642,10 +642,10 @@ export default function WeddingMcLandingPage() {
             className="wmc-sticky-cta fixed inset-x-0 bottom-0 z-40"
             style={{ transition: 'transform .35s ease, opacity .35s ease' }}
           >
-            <div className="h-9 bg-gradient-to-b from-white/0 to-white" />
-            <div className="bg-white px-5 pt-0.5" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+            {/* 이미지 + 말풍선 — 투명 영역 위에 둥둥 (흰 배경 없음) */}
+            <div className="px-5">
               <div className="mx-auto max-w-md">
-                <div className="wmc-bob mx-auto mb-2.5 w-fit">
+                <div className="wmc-bob mx-auto mb-2 w-fit">
                   <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 해도 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
                   <div className="relative mx-auto w-fit">
                     <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
@@ -654,6 +654,12 @@ export default function WeddingMcLandingPage() {
                     <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
                   </div>
                 </div>
+              </div>
+            </div>
+            {/* 그라데이션 페이드 — 무료견적 받기 버튼 직전부터 흰색 시작 */}
+            <div className="h-9 bg-gradient-to-b from-white/0 to-white" />
+            <div className="bg-white px-5" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+              <div className="mx-auto max-w-md">
                 <a href="#register" className="wmc-cta-bounce flex h-[56px] items-center justify-center rounded-[16px] bg-[#3182F6] hover:bg-[#4E83F6] text-[17px] font-bold text-white">
                   30초 무료견적 받기
                 </a>
@@ -840,7 +846,7 @@ function MatchingScreen({
   return (
     <div className="min-h-[100dvh] bg-gradient-to-b from-[#EEF2FF] via-white to-white relative overflow-hidden">
       {/* 상단 헤더 */}
-      <header className="sticky top-0 z-30 bg-white border-b border-[#181C24]/10">
+      <header className="sticky top-0 z-30 bg-white">
         <div className="max-w-2xl mx-auto px-3 h-14 flex items-center justify-between">
           <button
             type="button"
