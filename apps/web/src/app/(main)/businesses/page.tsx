@@ -332,6 +332,7 @@ function BusinessRankList({
                 alt={item.title}
                 loading={!muted && index < 2 ? 'eager' : 'lazy'}
                 decoding="async"
+                referrerPolicy="no-referrer"
                 className="h-full w-full object-cover"
                 onError={(event) => {
                   event.currentTarget.style.display = 'none';

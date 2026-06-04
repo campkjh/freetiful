@@ -6,14 +6,24 @@ import { chatApi, type ChatRoomItem, type MessageItem } from '../api/chat.api';
 import { useAuthStore } from './auth.store';
 
 const ROOM_CACHE_KEY = 'freetiful-chat-rooms-cache-v2';
-const MESSAGE_CACHE_PREFIX = 'freetiful-chat-messages-cache-v1:';
+const HAS_ROOMS_ONCE_KEY = 'freetiful-chat-has-rooms-once';
+
+function markHasRoomsOnce(userId: string) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(HAS_ROOMS_ONCE_KEY, userId); } catch {}
+}
+
+function checkHasRoomsOnce(userId: string | null) {
+  if (typeof window === 'undefined' || !userId) return false;
+  try { return localStorage.getItem(HAS_ROOMS_ONCE_KEY) === userId; } catch { return false; }
+}
 // 30분 — 채팅 리스트가 단기간 캐시 만료로 사라지는 문제 방지.
 // (예: 다른 페이지에 5분 머무르고 돌아오면 빈 화면이 깜빡 → 다시 채워지던 현상)
 const ROOM_CACHE_TTL = 30 * 60_000;
-const ROOM_REVALIDATE_MS = 15_000;
-const ROOM_LIST_LIMIT = 24;
-const MESSAGE_PAGE_LIMIT = 20;
+const ROOM_REVALIDATE_MS = 5_000;
 const DEFAULT_SOCKET_URL = 'https://affectionate-smile-production-6535.up.railway.app';
+let roomsFetchInFlight: Promise<void> | null = null;
+let roomsFetchInFlightKey = '';
 
 type FetchRoomsParams = {
   search?: string;
@@ -51,24 +61,12 @@ function readRoomsCache(userId = currentUserId()): { rooms: ChatRoomItem[]; ts: 
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed?.rooms) || !parsed?.ts) return null;
     if (parsed.userId !== userId) return null;
-    const expired = Date.now() - parsed.ts > ROOM_CACHE_TTL;
-    // 안드로이드 저사양 기기에서는 빈 화면에서 네트워크를 기다리는 비용이 크다.
-    // 만료된 캐시도 즉시 그려주고, ts=0 으로 표시해 백그라운드 재검증만 유도한다.
-    return expired ? { ...parsed, ts: 0 } : parsed;
-  } catch {
-    return null;
-  }
-}
-
-function readAnyRoomsCache(): { rooms: ChatRoomItem[]; ts: number; userId: string } | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(ROOM_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed?.rooms) || !parsed?.userId || !parsed?.ts) return null;
-    const expired = Date.now() - parsed.ts > ROOM_CACHE_TTL;
-    return expired ? { ...parsed, ts: 0 } : parsed;
+    // 만료돼도 삭제하지 않고 반환 — stale-while-revalidate
+    // ts: 0으로 반환하면 호출부에서 만료된 캐시임을 인식해 즉시 API 재조회
+    if (Date.now() - parsed.ts > ROOM_CACHE_TTL) {
+      return { ...parsed, ts: 0 };
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -80,55 +78,6 @@ function writeRoomsCache(rooms: ChatRoomItem[], userId = currentUserId()) {
   try {
     localStorage.setItem(ROOM_CACHE_KEY, JSON.stringify({ userId, rooms, ts: Date.now() }));
   } catch {}
-}
-
-export function getCachedChatRoomsForCurrentUser(): ChatRoomItem[] {
-  return readRoomsCache()?.rooms || [];
-}
-
-export function getCachedChatRoomsFast(): ChatRoomItem[] {
-  return readAnyRoomsCache()?.rooms || [];
-}
-
-export function getCachedChatMessagesForRoom(roomId: string): MessageItem[] {
-  if (typeof window === 'undefined' || !roomId) return [];
-  try {
-    const raw = sessionStorage.getItem(`${MESSAGE_CACHE_PREFIX}${roomId}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed?.messages) || !parsed?.ts) return [];
-    if (Date.now() - parsed.ts > ROOM_CACHE_TTL) return parsed.messages.slice(-30);
-    return parsed.messages;
-  } catch {
-    return [];
-  }
-}
-
-export function cacheChatMessagesForRoom(roomId: string, messages: MessageItem[]) {
-  if (typeof window === 'undefined' || !roomId || messages.length === 0) return;
-  try {
-    sessionStorage.setItem(
-      `${MESSAGE_CACHE_PREFIX}${roomId}`,
-      JSON.stringify({ ts: Date.now(), messages: messages.slice(-30) }),
-    );
-  } catch {}
-}
-
-let roomsCacheWriteTimer: number | null = null;
-let roomsCacheWritePayload: { rooms: ChatRoomItem[]; userId: string } | null = null;
-let roomsFetchPromise: Promise<void> | null = null;
-
-function scheduleRoomsCacheWrite(rooms: ChatRoomItem[], userId = currentUserId()) {
-  if (typeof window === 'undefined') return;
-  if (!userId) return;
-  roomsCacheWritePayload = { rooms, userId };
-  if (roomsCacheWriteTimer != null) window.clearTimeout(roomsCacheWriteTimer);
-  roomsCacheWriteTimer = window.setTimeout(() => {
-    const payload = roomsCacheWritePayload;
-    roomsCacheWriteTimer = null;
-    roomsCacheWritePayload = null;
-    if (payload) writeRoomsCache(payload.rooms, payload.userId);
-  }, 180);
 }
 
 function dispatchChatEvent(name: string, detail?: Record<string, unknown>) {
@@ -156,11 +105,29 @@ function isSameBrowserHost(url: string) {
   }
 }
 
-function getRoomFlagsFromMessage(_message: MessageItem): Partial<ChatRoomItem> {
+function getRoomFlagsFromMessage(message: MessageItem): Partial<ChatRoomItem> {
+  const system = (message.metadata as any)?.system;
+  if (system?.kind === 'quote') return { hasQuoteInquiry: true };
+  if (system?.kind === 'payment_pending_acceptance') return { hasQuoteInquiry: true };
+  if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
+    return { hasQuoteInquiry: true, hasConfirmedBooking: true };
+  }
+  const content = message.content || '';
+  if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
+  if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
   return {};
 }
 
-function getRoomFlagsFromPayload(_data: SendMessagePayload): Partial<ChatRoomItem> {
+function getRoomFlagsFromPayload(data: SendMessagePayload): Partial<ChatRoomItem> {
+  const system = (data.metadata as Record<string, any> | null)?.system;
+  if (system?.kind === 'quote') return { hasQuoteInquiry: true };
+  if (system?.kind === 'payment_pending_acceptance') return { hasQuoteInquiry: true };
+  if (system?.kind === 'booking_confirmed' || system?.kind === 'payment_paid') {
+    return { hasQuoteInquiry: true, hasConfirmedBooking: true };
+  }
+  const content = data.content || '';
+  if (/예약확정|확정|결제 완료|진행/.test(content)) return { hasConfirmedBooking: true };
+  if (/견적|문의/.test(content)) return { hasQuoteInquiry: true };
   return {};
 }
 
@@ -171,8 +138,6 @@ function getPreviewContent(data: SendMessagePayload) {
       return '사진을 보냈습니다';
     case 'file':
       return '파일을 보냈습니다';
-    case 'sticker':
-      return '이모티콘을 보냈습니다';
     case 'location':
       return '위치를 공유했습니다';
     case 'system':
@@ -209,40 +174,19 @@ function sameClientMessageId(a: MessageItem, b: MessageItem) {
   return typeof aId === 'string' && aId.length > 0 && aId === bId;
 }
 
-function isTemporaryMessageItem(message: MessageItem) {
-  return message.id.startsWith('pending-') || message.id.startsWith('opt-') || message.id.startsWith('tmp-');
-}
-
 function replaceOrAppendMessage(messages: MessageItem[], message: MessageItem) {
   const filtered = messages.filter((item) => item.id !== message.id && !sameClientMessageId(item, message));
   return sortMessagesAsc([...filtered, message]);
 }
 
-function hasFetchedEquivalent(message: MessageItem, fetched: MessageItem[]) {
-  if (!isTemporaryMessageItem(message)) return false;
-  const sentAt = messageTime(message);
-  return fetched.some((item) => {
-    if (sameClientMessageId(message, item)) return true;
-    if (item.senderId !== message.senderId || item.type !== message.type) return false;
-    if (message.type === 'text') {
-      return (
-        item.content === message.content &&
-        messageTime(item) >= sentAt - 2_000 &&
-        Math.abs(messageTime(item) - sentAt) < 60_000
-      );
-    }
-    return Math.abs(messageTime(item) - sentAt) < 20_000;
-  });
-}
-
-function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[], _requestedAt: number) {
+function mergeFetchedMessageItems(current: MessageItem[], fetched: MessageItem[], requestedAt: number) {
   if (fetched.length === 0 && current.length > 0) return current;
 
   const fetchedIds = new Set(fetched.map((message) => message.id));
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
-    if (hasFetchedEquivalent(message, fetched)) return false;
-    return true;
+    if (fetched.some((item) => sameClientMessageId(message, item))) return false;
+    return messageTime(message) >= requestedAt - 2_000;
   });
 
   return sortMessagesAsc([...fetched, ...preserved]);
@@ -284,16 +228,50 @@ interface ChatState {
   deleteMessage: (messageId: string) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
   setTyping: (isTyping: boolean) => void;
+  toggleFavorite: (roomId: string) => Promise<void>;
   deleteRoom: (roomId: string) => Promise<void>;
 }
+
+// 모듈 로드 즉시 localStorage 캐시를 동기로 읽어 초기 rooms 를 채운다.
+// 이러면 페이지가 마운트되기 전에 이미 store.rooms 가 있어 컴포넌트의 초기 render 부터
+// 채팅 리스트가 보인다 — auth.hasHydrated / 첫 fetchRooms 까지 기다리지 않음.
+// 잘못된 user 의 캐시가 보일 위험은 freetiful-auth-user-id 와 대조해 차단.
+function readInitialRoomsCache(): { rooms: ChatRoomItem[]; userId: string | null; ts: number } {
+  if (typeof window === 'undefined') return { rooms: [], userId: null, ts: 0 };
+  try {
+    const lastUserId = localStorage.getItem('freetiful-auth-user-id');
+    const raw = localStorage.getItem(ROOM_CACHE_KEY);
+    if (!raw) return { rooms: [], userId: null, ts: 0 };
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.rooms) || !parsed?.ts || !parsed?.userId) {
+      return { rooms: [], userId: null, ts: 0 };
+    }
+    // 만료돼도 즉시 삭제하지 않고 스켈레톤 없이 보여준다 — stale-while-revalidate
+    // ts: 0을 반환하면 fetchRooms에서 만료 캐시임을 인식해 즉시 API 재조회
+    const isExpired = Date.now() - parsed.ts > ROOM_CACHE_TTL;
+    // 마지막 로그인 user 와 캐시의 userId 가 다르면 다른 사람의 채팅을 보여주지 않는다.
+    if (lastUserId && parsed.userId !== lastUserId) {
+      return { rooms: [], userId: null, ts: 0 };
+    }
+    return {
+      rooms: parsed.rooms as ChatRoomItem[],
+      userId: parsed.userId,
+      ts: isExpired ? 0 : parsed.ts,
+    };
+  } catch {
+    return { rooms: [], userId: null, ts: 0 };
+  }
+}
+
+const __initialRoomsCache = readInitialRoomsCache();
 
 export const useChatStore = create<ChatState>((set, get) => ({
   socket: null,
   isConnected: false,
-  rooms: [],
-  roomsUserId: null,
+  rooms: __initialRoomsCache.rooms,
+  roomsUserId: __initialRoomsCache.userId,
   roomsLoading: false,
-  lastRoomsFetchAt: 0,
+  lastRoomsFetchAt: __initialRoomsCache.ts,
   currentRoomId: null,
   messages: [],
   messagesLoading: false,
@@ -304,12 +282,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   connect: () => {
     const token = useAuthStore.getState().accessToken;
-    if (!token) return;
-    const existingSocket = get().socket;
-    if (existingSocket) {
-      if (!existingSocket.connected) existingSocket.connect();
-      return;
-    }
+    if (!token || get().socket) return;
 
     // Vercel 의 NEXT_PUBLIC_API_URL/SOCKET_URL 미설정 시 그대로 freetiful.com 으로 붙으면
     // Vercel rewrites 가 socket.io 를 프록시 안 해서 연결 자체가 실패함.
@@ -333,11 +306,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const socket = io(baseUrl + '/chat', {
       auth: { token },
       transports: ['websocket', 'polling'],
-      upgrade: true,
       reconnection: true,
       reconnectionDelay: 300,
       reconnectionDelayMax: 2000,
-      timeout: 1200,
+      timeout: 2500,
       rememberUpgrade: true,
     });
 
@@ -355,9 +327,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const myId = currentUserId();
       const isMine = !!myId && message.senderId === myId;
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      const nextCachedMessages = replaceOrAppendMessage(cachedForRoom, message).slice(-80);
-      messageCache.set(message.roomId, nextCachedMessages);
-      cacheChatMessagesForRoom(message.roomId, nextCachedMessages);
+      messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       if (message.roomId === currentRoomId) {
         set((s) => ({
@@ -384,7 +354,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
         });
-        scheduleRoomsCacheWrite(nextRooms);
+        writeRoomsCache(nextRooms);
         return { rooms: nextRooms };
       });
       dispatchChatEvent('freetiful:chat-room-activity', {
@@ -394,7 +364,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         systemKind: (message.metadata as any)?.system?.kind || null,
       });
       if (!hasRoomInList) {
-        get().fetchRooms({ limit: ROOM_LIST_LIMIT, force: true }).catch(() => {});
+        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
       }
     });
 
@@ -437,25 +407,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
               : message
           )));
         }
-        scheduleRoomsCacheWrite(nextRooms);
+        writeRoomsCache(nextRooms);
         return { rooms: nextRooms, messages: nextMessages };
       });
       dispatchChatEvent('freetiful:chat-profile-updated', data);
     });
 
     let refreshTimer: number | null = null;
-    const refreshRoomIfMissing = (payload?: { roomId?: string }) => {
-      if (payload?.roomId && get().rooms.some((room) => room.id === payload.roomId)) return;
+    const refreshRooms = () => {
       if (refreshTimer) window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => {
-        get().fetchRooms({ limit: ROOM_LIST_LIMIT, force: true }).catch(() => {});
+        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
         dispatchChatEvent('freetiful:chat-rooms-changed');
         refreshTimer = null;
-      }, 20);
+      }, 120);
     };
-    socket.on('roomUpdated', refreshRoomIfMissing);
-    socket.on('unreadUpdate', refreshRoomIfMissing);
+    socket.on('roomUpdated', refreshRooms);
+    socket.on('unreadUpdate', refreshRooms);
     socket.on('dashboardUpdated', (data: Record<string, unknown>) => {
+      refreshRooms();
       dispatchChatEvent('freetiful:dashboard-updated', data);
     });
     socket.on('matchUpdated', (data: Record<string, unknown>) => {
@@ -545,11 +515,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const hasFilters = !!(apiParams.search || apiParams.dateFrom || apiParams.dateTo);
-    const requestParams = { limit: ROOM_LIST_LIMIT, withTotal: false, ...apiParams };
+    const requestParams = { limit: 30, withTotal: false, ...apiParams };
+    const requestKey = JSON.stringify({ userId, ...requestParams });
     if (!force && !hasFilters && roomsLoading) return;
     if (!force && !hasFilters && rooms.length > 0 && Date.now() - lastRoomsFetchAt < ROOM_REVALIDATE_MS) {
       set({ roomsLoading: false });
       return;
+    }
+    if (!force && roomsFetchInFlight && roomsFetchInFlightKey === requestKey) {
+      return roomsFetchInFlight;
     }
 
     // 빈 응답이 와도 기존 캐시/상태를 절대 비우지 않는다.
@@ -562,40 +536,70 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // 빈 응답인데 우리 손엔 데이터가 있다 — 무시. 기존 캐시도 유지.
         return;
       }
+      // 한 번이라도 채팅을 가진 적이 있는 사용자에게 빈 응답이 오면 무시한다.
+      // 백엔드 cold response/legacy id 누락 등으로 일시적 0 결과가 와도 "채팅 없음" 이 깜빡 뜨지 않음.
+      if (nextRooms.length === 0 && checkHasRoomsOnce(userId)) {
+        return;
+      }
       set({ rooms: nextRooms, roomsUserId: userId, lastRoomsFetchAt: Date.now() });
-      if (!hasFilters && nextRooms.length > 0) scheduleRoomsCacheWrite(nextRooms, userId);
+      if (!hasFilters && nextRooms.length > 0) {
+        writeRoomsCache(nextRooms, userId);
+        markHasRoomsOnce(userId);
+      }
     };
 
     if (!force && !hasFilters && rooms.length === 0) {
       const cached = readRoomsCache(userId);
       if (cached) {
         set({ rooms: cached.rooms, roomsUserId: userId, lastRoomsFetchAt: cached.ts, roomsLoading: false });
-        chatApi.getRooms(requestParams)
+        roomsFetchInFlightKey = requestKey;
+        roomsFetchInFlight = chatApi.getRooms(requestParams)
           .then((res) => applyServerRooms(res.data.data))
-          .catch(() => {});
-        return;
+          .catch(() => {})
+          .finally(() => {
+            if (roomsFetchInFlightKey === requestKey) {
+              roomsFetchInFlight = null;
+              roomsFetchInFlightKey = '';
+            }
+          });
+        return roomsFetchInFlight;
       }
     }
 
     if (rooms.length > 0) {
       set({ roomsLoading: false });
-      chatApi.getRooms(requestParams)
+      roomsFetchInFlightKey = requestKey;
+      roomsFetchInFlight = chatApi.getRooms(requestParams)
         .then((res) => applyServerRooms(res.data.data))
-        .catch(() => {});
-      return;
+        .catch(() => {})
+        .finally(() => {
+          if (roomsFetchInFlightKey === requestKey) {
+            roomsFetchInFlight = null;
+            roomsFetchInFlightKey = '';
+          }
+        });
+      return roomsFetchInFlight;
     }
     set({ roomsLoading: true });
-    if (!force && !hasFilters && roomsFetchPromise) {
-      await roomsFetchPromise.finally(() => set({ roomsLoading: false }));
-      return;
-    }
-    roomsFetchPromise = chatApi.getRooms(requestParams)
-      .then((res) => applyServerRooms(res.data.data))
+    roomsFetchInFlightKey = requestKey;
+    roomsFetchInFlight = chatApi.getRooms(requestParams)
+      .then((res) => {
+        applyServerRooms(res.data.data || []);
+      })
+      .catch(() => {
+        // 실패 시 재시도 루프를 만들지 않는다. 기존 데이터는 유지하고 로딩만 종료한다.
+        if (get().rooms.length === 0) {
+          set({ roomsUserId: userId, lastRoomsFetchAt: Date.now() });
+        }
+      })
       .finally(() => {
-        roomsFetchPromise = null;
+        if (roomsFetchInFlightKey === requestKey) {
+          roomsFetchInFlight = null;
+          roomsFetchInFlightKey = '';
+        }
         set({ roomsLoading: false });
       });
-    await roomsFetchPromise;
+    return roomsFetchInFlight;
   },
 
   joinRoom: (roomId) => {
@@ -603,11 +607,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const cached = messageCache.get(roomId) || [];
     set({ currentRoomId: roomId, messages: cached, messageCursor: null, hasMoreMessages: false });
     socket?.emit('joinRoom', { roomId });
+    chatApi.markAsRead(roomId).catch(() => {});
 
     // Reset unread in room list
     set((s) => {
       const nextRooms = s.rooms.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r));
-      scheduleRoomsCacheWrite(nextRooms);
+      writeRoomsCache(nextRooms);
       return { rooms: nextRooms };
     });
   },
@@ -624,27 +629,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   fetchMessages: async (roomId, loadMore = false) => {
-    const memoryCached = get().messageCache.get(roomId) || [];
-    const cached = !loadMore
-      ? memoryCached.length > 0 ? memoryCached : getCachedChatMessagesForRoom(roomId)
-      : [];
-    if (!loadMore && cached.length > 0) {
-      if (memoryCached.length === 0) get().messageCache.set(roomId, cached);
-      set({ messages: cached, messagesLoading: false });
-    } else {
-      set({ messagesLoading: true });
-    }
+    set({ messagesLoading: true });
     try {
       const cursor = loadMore ? get().messageCursor : undefined;
       const requestedAt = Date.now();
-      const res = await chatApi.getMessages(roomId, { cursor: cursor ?? undefined, limit: MESSAGE_PAGE_LIMIT });
+      const res = await chatApi.getMessages(roomId, { cursor: cursor ?? undefined, limit: 50 });
       const newMsgs = res.data.data;
       const nextMessages = loadMore
         ? [...newMsgs, ...get().messages]
         : mergeFetchedMessageItems(get().messages, newMsgs, requestedAt);
       if (nextMessages.length > 0 || newMsgs.length > 0) {
         get().messageCache.set(roomId, nextMessages);
-        cacheChatMessagesForRoom(roomId, nextMessages);
       }
       set((s) => ({
         messages: loadMore ? [...newMsgs, ...s.messages] : mergeFetchedMessageItems(s.messages, newMsgs, requestedAt),
@@ -696,9 +691,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ? replaceOrAppendMessage(s.messages, optimisticMessage)
           : s.messages;
         const cached = s.messageCache.get(roomId) || [];
-        const nextCachedMessages = replaceOrAppendMessage(cached, optimisticMessage).slice(-80);
-        s.messageCache.set(roomId, nextCachedMessages);
-        cacheChatMessagesForRoom(roomId, nextCachedMessages);
+        s.messageCache.set(roomId, replaceOrAppendMessage(cached, optimisticMessage).slice(-80));
         return { messages: nextMessages };
       });
     }
@@ -725,7 +718,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
         });
-        scheduleRoomsCacheWrite(nextRooms);
+        writeRoomsCache(nextRooms);
         return { rooms: nextRooms };
       });
       dispatchChatEvent('freetiful:chat-room-activity', {
@@ -743,9 +736,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const applyPersistedMessage = (message: MessageItem) => {
       const { messageCache } = get();
       const cachedForRoom = messageCache.get(message.roomId) || [];
-      const nextCachedMessages = replaceOrAppendMessage(cachedForRoom, message).slice(-80);
-      messageCache.set(message.roomId, nextCachedMessages);
-      cacheChatMessagesForRoom(message.roomId, nextCachedMessages);
+      messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
       set((s) => {
         const nextMessages = s.currentRoomId === message.roomId
@@ -766,7 +757,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const db = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
           return db - da;
         });
-        scheduleRoomsCacheWrite(nextRooms);
+        writeRoomsCache(nextRooms);
         return { messages: nextMessages, rooms: nextRooms };
       });
       dispatchChatEvent('freetiful:chat-room-activity', {
@@ -779,9 +770,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         roomId: message.roomId,
         messageId: message.id,
       });
-      if (!hasRoomInList) {
-        get().fetchRooms({ limit: ROOM_LIST_LIMIT, force: true }).catch(() => {});
-      }
+      window.setTimeout(() => {
+        get().fetchRooms({ limit: 50, force: true }).catch(() => {});
+      }, hasRoomInList ? 250 : 0);
     };
 
     const sendViaRest = async () => {
@@ -800,7 +791,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (settled) return;
         settled = true;
         resolve(null);
-      }, 700);
+      }, 1200);
 
       socket.emit('sendMessage', { roomId, ...payload }, (ack?: SendMessageAck) => {
         if (settled) return;
@@ -869,11 +860,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     socket.emit('typing', { roomId: currentRoomId, isTyping });
   },
 
+  toggleFavorite: async (roomId) => {
+    const res = await chatApi.toggleFavorite(roomId);
+    set((s) => ({
+      rooms: s.rooms.map((r) => (r.id === roomId ? { ...r, isFavorited: res.data.isFavorited } : r)),
+    }));
+  },
+
   deleteRoom: async (roomId) => {
     await chatApi.deleteRoom(roomId);
     set((s) => {
       const nextRooms = s.rooms.filter((r) => r.id !== roomId);
-      scheduleRoomsCacheWrite(nextRooms);
+      writeRoomsCache(nextRooms);
       return { rooms: nextRooms };
     });
   },

@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pin, PinOff, Trash2, Archive, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { getCachedChatRoomsFast, getCachedChatRoomsForCurrentUser, useChatStore } from '@/lib/store/chat.store';
-import { chatApi } from '@/lib/api/chat.api';
+import { useChatStore } from '@/lib/store/chat.store';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
-import { getProfileImageUrl } from '@/lib/default-profile';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -21,36 +20,25 @@ interface ChatRoom {
   unreadCount: number;
   isPinned: boolean;
   isArchived: boolean;
+  isHidden?: boolean;
   matchRequestId?: string | null;
   latestQuotationStatus?: string | null;
+  hasQuoteInquiry?: boolean;
+  hasConfirmedBooking?: boolean;
 }
 
-type FilterTab = '전체' | '안읽음' | '보관';
+type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 
-type ProFilterTab = '전체' | '안읽음' | '보관';
+type ProFilterTab = '전체' | '읽음' | '안 읽음' | '견적문의' | '예약확정' | '숨김';
 
-const CHAT_LIST_LIMIT = 24;
-const MESSAGE_PREWARM_LIMIT = 15;
-
-const ClientAvatar = ({ name, id }: { name: string; id?: string }) => (
-  <img
-    src={getProfileImageUrl(null, id || name)}
-    alt={name}
-    draggable={false}
-    className="w-[48px] h-[48px] rounded-[20px] object-cover shrink-0 bg-gray-100"
-    onError={(e) => { e.currentTarget.src = getProfileImageUrl(null, name); }}
-  />
+const ClientAvatar = ({ name }: { name: string }) => (
+  <div className="w-[48px] h-[48px] rounded-[20px] bg-gray-200 flex items-center justify-center shrink-0">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
+      <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" />
+    </svg>
+  </div>
 );
-
-function getLastMessagePreview(message?: { type?: string; content?: string | null } | null) {
-  if (!message) return '';
-  if (message.type === 'image') return '사진을 보냈습니다';
-  if (message.type === 'file') return '파일을 보냈습니다';
-  if (message.type === 'location') return '위치를 공유했습니다';
-  if (message.type === 'sticker') return '이모티콘을 보냈습니다';
-  if (message.type === 'system') return message.content || '안내 메시지를 보냈습니다';
-  return message.content || '';
-}
 
 function mapApiRoomToChatRoom(r: any): ChatRoom {
   return {
@@ -61,26 +49,27 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
       name: r.otherUser.name,
       // 룸 기준 역할을 사용한다. 내가 프로 측이면 상대는 고객, 아니면 상대 프로의 카테고리.
       role: r.iAmPro ? '고객' : (r.otherUser.category || '사회자'),
-      profileImageUrl: getProfileImageUrl(r.otherUser.profileImageUrl, r.otherUser.id || r.otherUser.name),
+      profileImageUrl: r.otherUser.profileImageUrl || '',
     },
-    lastMessage: getLastMessagePreview(r.lastMessage),
+    lastMessage: r.lastMessage?.content || '',
     lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
     unreadCount: r.unreadCount,
     isPinned: false,
     isArchived: false,
+    isHidden: false,
     matchRequestId: r.matchRequestId ?? null,
     latestQuotationStatus: r.latestQuotationStatus ?? null,
+    hasQuoteInquiry: !!r.hasQuoteInquiry,
+    hasConfirmedBooking: !!r.hasConfirmedBooking,
   };
 }
 
 function getInitialRoomsForCurrentUser() {
-  const auth = useAuthStore.getState();
+  // chat.store 가 모듈 로드 시점에 localStorage 캐시를 hydrate 하므로
+  // auth.hasHydrated 를 기다리지 않고 즉시 보여줄 수 있다.
+  // userId 일치 여부는 store 내부에서 lastUserId 와 대조해 이미 차단됨.
   const chat = useChatStore.getState();
-  if (!auth.hasHydrated || !auth.user) return getCachedChatRoomsFast().map(mapApiRoomToChatRoom);
-  if (chat.roomsUserId === auth.user.id && chat.rooms.length > 0) {
-    return chat.rooms.map(mapApiRoomToChatRoom);
-  }
-  return getCachedChatRoomsForCurrentUser().map(mapApiRoomToChatRoom);
+  return chat.rooms.map(mapApiRoomToChatRoom);
 }
 
 export default function ChatListPage() {
@@ -88,7 +77,6 @@ export default function ChatListPage() {
   const [proActiveTab, setProActiveTab] = useState<ProFilterTab>('전체');
   const initialRoomsRef = useRef<ChatRoom[] | null>(null);
   const lastRefreshAtRef = useRef(0);
-  const messagePrewarmRef = useRef(new Map<string, number>());
   if (initialRoomsRef.current === null) initialRoomsRef.current = getInitialRoomsForCurrentUser();
   const [roomsLoading, setRoomsLoading] = useState(() => initialRoomsRef.current?.length === 0);
   const authUser = useAuthStore((s) => s.user);
@@ -99,7 +87,18 @@ export default function ChatListPage() {
   const deleteRoomFromStore = useChatStore((s) => s.deleteRoom);
   const apiRooms = useChatStore((s) => s.rooms);
   const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
+  const lastRoomsFetchAt = useChatStore((s) => s.lastRoomsFetchAt);
+  // 한 번도 successful fetch 가 없었으면 + 과거에 채팅을 가진 적 없으면 → skeleton.
+  // 한 번이라도 채팅이 있었던 사용자라면 빈 응답이 와도 절대 "채팅 없음" 띄우지 않음.
+  const hasRoomsOnceFlag = (() => {
+    if (typeof window === 'undefined' || !authUser?.id) return false;
+    try { return localStorage.getItem('freetiful-chat-has-rooms-once') === authUser.id; } catch { return false; }
+  })();
+  const hasEverLoaded = lastRoomsFetchAt > 0 && !hasRoomsOnceFlag;
   const [rooms, setRooms] = useState<ChatRoom[]>(() => initialRoomsRef.current || []);
+  // 앱에서 캐시 없을 때 Railway cold start로 로딩이 오래 걸리면 스켈레톤이 영원히 유지되는 문제.
+  // 8초 후에도 rooms가 비어 있으면 재시도 버튼을 표시.
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
   const isLoggedIn = authHydrated && authUser !== null;
   const isPro = authUser?.role === 'pro';
 
@@ -111,18 +110,30 @@ export default function ChatListPage() {
       setRoomsLoading(false);
       return;
     }
-
     connect();
-    fetchRooms({ limit: CHAT_LIST_LIMIT }).catch(() => {}).finally(() => setRoomsLoading(false));
+    if (useChatStore.getState().rooms.length === 0) setRoomsLoading(true);
+    fetchRooms({ limit: 50 }).catch(() => {});
+    return undefined;
   }, [authHydrated, authUser?.id, connect, disconnect, fetchRooms]);
+
+  // 로딩 타임아웃 — 8초 후 rooms가 비어 있으면 재시도 버튼 표시
+  useEffect(() => {
+    if (!isLoggedIn || rooms.length > 0) { setLoadTimedOut(false); return; }
+    const t = window.setTimeout(() => {
+      if (useChatStore.getState().rooms.length === 0) setLoadTimedOut(true);
+    }, 8000);
+    return () => window.clearTimeout(t);
+  }, [isLoggedIn, rooms.length]);
 
   useEffect(() => {
     if (!authHydrated || !authUser) return;
     const refreshRooms = () => {
       const now = Date.now();
-      if (now - lastRefreshAtRef.current < 10_000) return;
+      if (now - lastRefreshAtRef.current < 2_500) return;
       lastRefreshAtRef.current = now;
-      fetchRooms({ limit: CHAT_LIST_LIMIT, force: true }).catch(() => {});
+      // force 를 쓰지 않는다 — store 의 revalidate 쓰로틀(5s) + inflight 가드가 중복 호출 차단.
+      // socket newMessage / roomUpdated 가 실시간 업데이트 담당. 여기서는 안전망 fetch.
+      fetchRooms({ limit: 50 }).catch(() => {});
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refreshRooms();
@@ -132,14 +143,16 @@ export default function ChatListPage() {
     }, 15000);
     window.addEventListener('focus', refreshRooms);
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
     window.addEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
-    window.addEventListener('freetiful:chat-socket-connected', refreshRooms as EventListener);
+    window.addEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('focus', refreshRooms);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('freetiful:chat-room-activity', refreshRooms as EventListener);
       window.removeEventListener('freetiful:chat-rooms-changed', refreshRooms as EventListener);
-      window.removeEventListener('freetiful:chat-socket-connected', refreshRooms as EventListener);
+      window.removeEventListener('freetiful:dashboard-updated', refreshRooms as EventListener);
     };
   }, [authHydrated, authUser?.id, fetchRooms]);
 
@@ -152,10 +165,11 @@ export default function ChatListPage() {
       // 방어적 처리: apiRooms 가 일시적으로 [] 가 되는 동안 (백그라운드 리프레시 실패,
       // 토큰 재발급 중 등) 기존 채팅 리스트가 깜빡 사라지지 않게 유지한다.
       // store 가 명시적으로 로딩 종료 상태에서 0 개를 반환했을 때만 비운다.
-      if (apiRooms.length === 0 && prev.length > 0 && storeRoomsLoading) return prev;
+      if (apiRooms.length === 0 && storeRoomsLoading) return prev;
       const localState = new Map(prev.map((room) => [room.id, {
         isPinned: room.isPinned,
         isArchived: room.isArchived,
+        isHidden: room.isHidden,
       }]));
       return apiRooms.map((apiRoom) => {
         const mapped = mapApiRoomToChatRoom(apiRoom);
@@ -168,6 +182,8 @@ export default function ChatListPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>('전체');
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showSearch, setShowSearch] = useState(false);
+  const [search, setSearch] = useState('');
   const [deleteConfirmRooms, setDeleteConfirmRooms] = useState<ChatRoom[]>([]);
   const [deletingRooms, setDeletingRooms] = useState(false);
 
@@ -182,29 +198,44 @@ export default function ChatListPage() {
 
   useEffect(() => {
     setRoomsLoading(storeRoomsLoading && rooms.length === 0);
+    if (rooms.length > 0) setLoadTimedOut(false);
   }, [storeRoomsLoading, rooms.length]);
 
   const filtered = useMemo(() => rooms.filter((r) => {
+    // 숨김 탭에서는 숨겨진 채팅만, 다른 탭에서는 숨겨진 채팅 제외
+    if (currentTab === '숨김') {
+      if (!r.isHidden) return false;
+    } else {
+      if (r.isHidden) return false;
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      if (!r.otherUser.name.toLowerCase().includes(q) && !r.lastMessage.toLowerCase().includes(q)) return false;
+    }
     if (isPro) {
       switch (proActiveTab) {
-        case '안읽음': return r.unreadCount > 0;
-        case '보관': return r.isArchived;
-        default: return !r.isArchived;
+        case '읽음': return r.unreadCount === 0;
+        case '안 읽음': return r.unreadCount > 0;
+        case '견적문의': return !!r.hasQuoteInquiry;
+        case '예약확정': return !!r.hasConfirmedBooking;
+        case '숨김': return true;
+        default: return true;
       }
     }
     switch (activeTab) {
-      case '안읽음': return r.unreadCount > 0 && !r.isArchived;
+      case '읽음': return r.unreadCount === 0 && !r.isArchived;
+      case '안 읽음': return r.unreadCount > 0 && !r.isArchived;
       case '보관': return r.isArchived;
+      case '숨김': return true;
       default: return !r.isArchived;
     }
-  }), [rooms, isPro, proActiveTab, activeTab]);
+  }), [rooms, currentTab, search, isPro, proActiveTab, activeTab]);
 
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
     return 0;
   }), [filtered]);
-  const topRoomIdsKey = useMemo(() => sorted.slice(0, 3).map((room) => room.id).join('|'), [sorted]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -256,10 +287,15 @@ export default function ChatListPage() {
       window.dispatchEvent(new Event('freetiful:chat-rooms-changed'));
     } catch {
       alert('채팅방 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
-      fetchRooms({ limit: CHAT_LIST_LIMIT, force: true }).catch(() => {});
+      fetchRooms({ limit: 50, force: true }).catch(() => {});
     } finally {
       setDeletingRooms(false);
     }
+  };
+
+  const handleHideRoom = (id: string) => {
+    setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isHidden: !r.isHidden } : r));
+    setActionMenu(null);
   };
 
   const handleArchiveRoom = (id: string) => {
@@ -310,57 +346,13 @@ export default function ChatListPage() {
     }
   };
 
-  const handlePrewarmRoom = (roomId: string, withMessages = false) => {
+  const handlePrewarmRoom = (roomId: string) => {
     const room = useChatStore.getState().rooms.find((r) => r.id === roomId);
-    const warmed = room ? preWarmExistingRoom(room) : null;
-    if (!withMessages) return;
-    const store = useChatStore.getState();
-    if (store.messageCache.get(roomId)?.length) return;
-    if (warmed?.messages?.length) {
-      store.messageCache.set(roomId, warmed.messages);
-      return;
-    }
-    if (warmed?.messagesPromise) {
-      warmed.messagesPromise.then((messages) => {
-        if (messages.length > 0) useChatStore.getState().messageCache.set(roomId, messages);
-      }).catch(() => {});
-      return;
-    }
-    const last = messagePrewarmRef.current.get(roomId) || 0;
-    if (Date.now() - last < 5000) return;
-    messagePrewarmRef.current.set(roomId, Date.now());
-    chatApi.getMessages(roomId, { limit: MESSAGE_PREWARM_LIMIT })
-      .then((res) => {
-        const messages = res.data?.data;
-        if (Array.isArray(messages) && messages.length > 0) {
-          useChatStore.getState().messageCache.set(roomId, messages);
-        }
-      })
-      .catch(() => {});
+    if (room) preWarmExistingRoom(room);
   };
 
-  useEffect(() => {
-    if (!topRoomIdsKey) return;
-    const topRoomIds = topRoomIdsKey.split('|').filter(Boolean);
-    const run = () => topRoomIds.forEach((roomId) => handlePrewarmRoom(roomId, true));
-    if (document.documentElement.dataset.platform === 'android') {
-      const timer = window.setTimeout(run, 80);
-      return () => window.clearTimeout(timer);
-    }
-    const win = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    if (win.requestIdleCallback) {
-      const id = win.requestIdleCallback(run, { timeout: 1200 });
-      return () => win.cancelIdleCallback?.(id);
-    }
-    const timer = window.setTimeout(run, 350);
-    return () => window.clearTimeout(timer);
-  }, [topRoomIdsKey]);
-
-  const TABS: FilterTab[] = ['전체', '안읽음', '보관'];
-  const PRO_TABS: ProFilterTab[] = ['전체', '안읽음', '보관'];
+  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관', '숨김'];
+  const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '견적문의', '예약확정', '숨김'];
 
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
@@ -395,10 +387,10 @@ export default function ChatListPage() {
                   onMouseEnter={() => handlePrewarmRoom(room.id)}
                   onFocus={() => handlePrewarmRoom(room.id)}
                   onPointerDown={(e) => {
-                    handlePrewarmRoom(room.id, true);
+                    handlePrewarmRoom(room.id);
                     if (!isPC) handleLongPressStart(e, room);
                   }}
-                  onTouchStart={() => handlePrewarmRoom(room.id, true)}
+                  onTouchStart={() => handlePrewarmRoom(room.id)}
                   onPointerUp={handleLongPressEnd}
                   onPointerLeave={handleLongPressEnd}
                   onPointerCancel={handleLongPressEnd}
@@ -432,12 +424,12 @@ export default function ChatListPage() {
                   {isPC ? (
                     room.otherUser.profileImageUrl
                       ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-[20px] object-cover shrink-0" />
-                      : <ClientAvatar name={room.otherUser.name} id={room.otherUser.id} />
+                      : <ClientAvatar name={room.otherUser.name} />
                   ) : (
                     <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
                       {room.otherUser.profileImageUrl
                         ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-[20px] object-cover" />
-                        : <ClientAvatar name={room.otherUser.name} id={room.otherUser.id} />
+                        : <ClientAvatar name={room.otherUser.name} />
                       }
                     </Link>
                   )}
@@ -507,30 +499,80 @@ export default function ChatListPage() {
   return (
     <>
       {/* ═══ PC: 2-Panel Layout ═══ */}
-      <div className="hidden lg:flex h-screen bg-gray-100">
+      <div className="hidden h-full min-h-0 bg-gray-100 lg:flex">
         {/* 좌측: 채팅 목록 */}
         <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
           <div className="px-5 pt-6 pb-3">
             <h1 className="text-[20px] font-extrabold text-gray-900 mb-3">{isPro ? '고객 문의' : '채팅'}</h1>
-            <div className="flex gap-1.5 flex-wrap">
-              {(isPro ? PRO_TABS : TABS).map((tab) => {
-                const active = isPro ? proActiveTab === tab : activeTab === tab;
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
-                    className={`relative rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                      active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                );
-              })}
+            <div className="relative mb-3">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="검색"
+                className="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-gray-300"
+              />
             </div>
+            <LayoutGroup id="chat-tabs-desktop">
+              <div className="flex gap-1.5 flex-wrap">
+                {(isPro ? PRO_TABS : TABS).map((tab) => {
+                  const active = isPro ? proActiveTab === tab : activeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
+                      className={`relative px-3 py-1.5 rounded-full text-[12px] font-medium isolate ${
+                        active ? 'text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                      style={{ transition: 'color 0.25s ease' }}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="chat-tab-pill-desktop"
+                          className="absolute inset-0 bg-gray-900 rounded-full"
+                          style={{ zIndex: -1 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        />
+                      )}
+                      <span className="relative">{tab}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </LayoutGroup>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {sorted.length === 0 ? (
+            {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
+              loadTimedOut ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <p className="text-[13px] text-gray-400">채팅방을 불러오지 못했어요</p>
+                  <button
+                    onClick={() => {
+                      setLoadTimedOut(false);
+                      setRoomsLoading(true);
+                      fetchRooms({ limit: 50, force: true }).catch(() => {});
+                    }}
+                    className="px-4 py-2 bg-gray-900 text-white text-[13px] font-semibold rounded-xl active:scale-95 transition-transform"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  {[1,2,3,4,5].map((i) => (
+                    <div key={i} className="flex items-center gap-3 px-5 py-4">
+                      <div className="w-12 h-12 rounded-[20px] bg-gray-100 animate-pulse shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="h-4 w-28 bg-gray-100 rounded animate-pulse mb-2" />
+                        <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${46 + i * 8}%` }} />
+                      </div>
+                      <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : sorted.length === 0 ? (
               <div className="text-center py-16">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto">
                   <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
@@ -561,29 +603,74 @@ export default function ChatListPage() {
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between h-[52px]">
             <h1 className="text-[18px] font-bold text-gray-900">{isPro ? '고객 문의' : '채팅'}</h1>
+            <button
+              onClick={() => setShowSearch(!showSearch)}
+              className={`p-2 rounded-full transition-colors active:scale-90 ${showSearch ? 'bg-gray-100' : ''}`}
+            >
+              <>
+                {showSearch ? (
+                  <span
+                    key="x"
+                    className="block"
+                  >
+                    <X size={20} className="text-gray-500" />
+                  </span>
+                ) : (
+                  <span
+                    key="search"
+                    className="block"
+                  >
+                    <Search size={20} className="text-gray-500" />
+                  </span>
+                )}
+              </>
+            </button>
           </div>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
-            {(isPro ? PRO_TABS : TABS).map((tab) => {
-              const active = isPro ? proActiveTab === tab : activeTab === tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    if (isPro) {
-                      setProActiveTab(tab as ProFilterTab);
-                    } else {
-                      setActiveTab(tab as FilterTab);
-                    }
-                    setEditMode(false);
-                    setSelectedIds(new Set());
-                  }}
-                  className={`shrink-0 rounded-full px-4 py-2 text-[14px] font-medium transition-colors active:scale-95 ${active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}
-                >
-                  {tab}
-                </button>
-              );
-            })}
-          </div>
+          <>
+            {showSearch && (
+              <div
+                key="search-input"
+                className="relative"
+              >
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 대화 내용 검색" className="w-full bg-gray-100 rounded-2xl pl-9 pr-9 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-gray-300" autoFocus />
+                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-gray-400" /></button>}
+              </div>
+            )}
+          </>
+          <LayoutGroup id="chat-tabs-mobile">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+              {(isPro ? PRO_TABS : TABS).map((tab) => {
+                const active = isPro ? proActiveTab === tab : activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      if (isPro) {
+                        setProActiveTab(tab as ProFilterTab);
+                      } else {
+                        setActiveTab(tab as FilterTab);
+                      }
+                      setEditMode(false);
+                      setSelectedIds(new Set());
+                    }}
+                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
+                    style={{ transition: 'color 0.25s ease, transform 0.15s ease' }}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="chat-tab-pill-mobile"
+                        className="absolute inset-0 bg-gray-900 rounded-full"
+                        style={{ zIndex: -1 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                      />
+                    )}
+                    <span className="relative">{tab}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </LayoutGroup>
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <p
@@ -607,27 +694,43 @@ export default function ChatListPage() {
             </div>
           )}
         </>
-        {roomsLoading && rooms.length === 0 ? (
-          <div className="space-y-0">
-            {[1,2,3,4,5].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="w-12 h-12 rounded-full bg-gray-100 animate-pulse shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
-                  <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + i * 10}%` }} />
+        {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
+          loadTimedOut ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <p className="text-[14px] text-gray-400 text-center">채팅방을 불러오지 못했어요</p>
+              <button
+                onClick={() => {
+                  setLoadTimedOut(false);
+                  setRoomsLoading(true);
+                  fetchRooms({ limit: 50, force: true }).catch(() => {});
+                }}
+                className="px-5 py-2.5 bg-gray-900 text-white text-[14px] font-semibold rounded-2xl active:scale-95 transition-transform"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-0">
+              {[1,2,3,4,5].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 animate-pulse shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
+                    <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + i * 10}%` }} />
+                  </div>
+                  <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
                 </div>
-                <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
         ) : sorted.length === 0 ? (
           <div className="text-center py-20">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto mb-4">
               <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
               <circle cx="8.5" cy="12" r="1.2" fill="white"/><circle cx="11.5" cy="12" r="1.2" fill="white"/><circle cx="14.5" cy="12" r="1.2" fill="white"/>
             </svg>
-            <p className="text-gray-400 text-[14px]">{!isLoggedIn ? '로그인 후 채팅을 시작하세요' : currentTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
-            {currentTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">사회자 찾아보기</Link>}
+            <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
+            {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">사회자 찾아보기</Link>}
           </div>
         ) : renderChatList(false)}
       </div>
@@ -654,6 +757,8 @@ export default function ChatListPage() {
               { label: '미리보기', icon: <Eye size={18} className="text-gray-500" />, onClick: () => handleOpenPreview(actionMenu.room), className: 'text-gray-800' },
               { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-gray-800' },
               { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-gray-800' },
+              { label: actionMenu.room.isHidden ? '숨김 해제' : '채팅 숨기기', icon: actionMenu.room.isHidden ? <Eye size={18} className="text-gray-500" /> : <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-gray-800' },
+              { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => promptDeleteRoom(actionMenu.room), className: 'text-red-500' },
             ].map((item, idx) => (
               <button
                 key={item.label}

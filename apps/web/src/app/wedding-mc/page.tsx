@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { Check, ChevronLeft, Star } from 'lucide-react';
 import { matchApi } from '@/lib/api/match.api';
-import { discoveryApi } from '@/lib/api/discovery.api';
+import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { startOAuth } from '@/lib/auth/oauth';
 
 /* 전문사회자 프로필 카드 (방송사 출신 아나운서 시안 카드) */
 const MC_IMAGES = Array.from({ length: 18 }, (_, i) => {
@@ -33,6 +34,59 @@ const GOOGLE_SHEET_URL =
   'https://script.google.com/macros/s/AKfycbwGOi4e1J2Q1w8x-5UEe-czB3uy6mET90xBhP9OG82fl4jRPEyYdBfqJkmDZuYJMFuc/exec';
 
 const ACTIVE_MATCH_STORAGE_KEY = 'wmc-active-match-v1';
+
+/* 폼 제출 후 설문(혜택 안내) 항목 */
+const SURVEY_BENEFITS = ['웨딩홀 할인', '스튜디오 할인', '본식스냅 DVD 할인', '피부샵 할인', '신혼여행', '예복 한복'];
+
+/* 개인정보 수집·이용 동의 전문 (모달 '내용 보기') */
+const PRIVACY_CONSENT_TEXT = `개인정보 수집·이용 동의
+
+1. 수집하는 개인정보 항목
+수집 항목: 이메일, 성명, 연락처, 희망 행사일정
+
+2. 개인정보 수집·이용 목적
+프리티풀 서비스 제공 및 회원 관리
+견적 제공 및 관리 담당자 연락
+서비스 이용 관련 공지사항 전달
+
+3. 개인정보 보유·이용 기간
+회원 탈퇴 시 또는 서비스 종료 시까지 보유하며, 관련 법령에 따라 일정 기간 보관될 수 있습니다.
+
+4. 동의 거부 권리 및 불이익
+개인정보 수집·이용에 동의하지 않을 권리가 있으나, 동의를 거부하실 경우 서비스 이용이 제한될 수 있습니다.
+
+5. 서비스 제공을 위한 개인정보 제3자 제공 동의
+수집된 회원정보는 원칙적으로 외부에 제공하지 않습니다. 다만, 회원이 프리티풀을 통해 견적 요청, 섭외 상담, 매칭, 계약 진행, 일정 조율, 사후관리 등 서비스 이용을 요청한 경우, 해당 서비스 제공에 필요한 최소한의 범위 내에서 아래와 같이 개인정보를 제3자에게 제공할 수 있습니다.
+
+가. 제공받는 자
+프리티풀에 등록된 행사 전문가, 전문사회자, 아나운서, MC, 통번역사, 축가·공연자 등 서비스 제공 후보자 또는 확정 제공자, 제휴 웨딩홀, 행사대행사, 기업·기관 행사 담당자, 기타 회원이 요청한 서비스 제공을 위해 필요한 프리티풀 제휴·협력업체
+
+나. 제공 목적
+회원의 견적 산정, 전문가 추천 및 매칭, 가능 일정 확인, 상담 진행, 계약 및 예약 진행, 행사 준비를 위한 사전 조율, 서비스 제공 및 사후관리
+
+다. 제공 항목
+성명, 연락처, 이메일, 희망 행사일정, 행사 유형, 행사 지역, 요청사항, 예산 범위 등 회원이 견적 요청 또는 상담 과정에서 직접 입력하거나 제공한 정보 중 서비스 제공에 필요한 최소한의 정보
+
+라. 보유 및 이용 기간
+제공받는 자는 위 목적 달성 시까지 개인정보를 보유·이용하며, 관련 법령에 따라 보존이 필요한 경우에는 해당 법령에서 정한 기간 동안 보관할 수 있습니다.
+
+마. 동의 거부 권리 및 불이익
+회원은 개인정보 제3자 제공에 대한 동의를 거부할 권리가 있습니다. 다만, 동의를 거부할 경우 전문가 추천, 견적 제공, 일정 확인, 섭외 상담, 계약 진행 등 프리티풀의 일부 또는 전부 서비스 이용이 제한될 수 있습니다.
+
+회사는 서비스 제공 목적과 무관하게 회원의 개인정보를 제3자에게 판매하거나 임의로 제공하지 않습니다.`;
+
+/* 사회자 목록(API) 로드 실패 시 폴백 — 결혼식사회자 리스트페이지 카드와 동일한 데이터 형태 */
+const FALLBACK_PROS = [
+  { id: 'fb-1', name: '김도현', categories: ['결혼식사회자'], regions: ['서울', '경기'], isNationwide: false, rating: 5.0, reviews: 132, rank: 1, image: '/images/pro-01/10000133881772850005043.avif', intro: '신랑신부의 톤에 맞춘 따뜻하고 단정한 예식 진행을 약속드립니다.', experience: 9 },
+  { id: 'fb-2', name: '이서연', categories: ['결혼식사회자'], regions: ['서울'], isNationwide: false, rating: 4.9, reviews: 98, rank: 2, image: '/images/pro-02/10000365351773046135169.avif', intro: '방송 아나운서 출신, 또렷한 전달력과 감성적인 멘트로 진행합니다.', experience: 7 },
+  { id: 'fb-3', name: '박지훈', categories: ['결혼식사회자'], regions: [], isNationwide: true, rating: 4.9, reviews: 87, rank: 3, image: '/images/pro-03/IMG_06781773894450803.avif', intro: '전국 어디든 가능합니다. 유쾌하면서도 품격 있는 진행이 강점이에요.', experience: 11 },
+  { id: 'fb-4', name: '최유나', categories: ['결혼식사회자'], regions: ['서울', '인천'], isNationwide: false, rating: 5.0, reviews: 76, rank: 4, image: '/images/pro-05/10000029811773033474612.avif', intro: '하객 모두가 편안한 분위기 속에서 몰입하는 예식을 만들어 드립니다.', experience: 6 },
+  { id: 'fb-5', name: '정민석', categories: ['결혼식사회자'], regions: ['경기', '서울'], isNationwide: false, rating: 4.8, reviews: 64, rank: 5, image: '/images/pro-07/IMG_53011772965035335.avif', intro: '차분하고 안정적인 진행을 원하시는 신랑신부님께 추천드립니다.', experience: 8 },
+  { id: 'fb-6', name: '한예진', categories: ['결혼식사회자'], regions: ['서울'], isNationwide: false, rating: 4.9, reviews: 120, rank: 6, image: '/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif', intro: '감동과 위트의 밸런스, 예식의 흐름을 섬세하게 이끌어 드려요.', experience: 5 },
+  { id: 'fb-7', name: '오세훈', categories: ['결혼식사회자'], regions: [], isNationwide: true, rating: 4.8, reviews: 53, rank: 7, image: '/images/pro-15/IMG_0196.avif', intro: '베테랑 사회자. 어떤 돌발상황도 자연스럽게 리드합니다.', experience: 12 },
+  { id: 'fb-8', name: '윤지아', categories: ['결혼식사회자'], regions: ['서울', '경기'], isNationwide: false, rating: 5.0, reviews: 91, rank: 8, image: '/images/pro-20/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif', intro: '결혼식 톤앤매너에 맞춘 맞춤형 대본으로 진행해 드립니다.', experience: 6 },
+  { id: 'fb-9', name: '강태우', categories: ['결혼식사회자'], regions: ['인천', '서울'], isNationwide: false, rating: 4.9, reviews: 70, rank: 9, image: '/images/pro-23/IMG_46511771924269213.avif', intro: '신뢰감 있는 목소리로 예식의 격을 한층 높여 드립니다.', experience: 7 },
+];
 
 const OX_QUIZ_BANK: { q: string; answer: 'O' | 'X'; reveal: string }[] = [
   { q: '프리티풀의 사회자는 모두 방송사 출신 또는 검증된 경력자다.', answer: 'O', reveal: 'KBS·SBS·MBC·YTN 등 방송 출신 사회자만 등록되어 있어요.' },
@@ -130,11 +184,10 @@ function CountTicker({ start, suffix = '' }: { start: number; suffix?: string })
 declare global {
   interface Window {
     fbq?: (...args: any[]) => void;
-    daum?: { Postcode: new (opts: { oncomplete: (data: any) => void; onclose?: () => void }) => { open: () => void } };
   }
 }
 
-type Stage = 'form' | 'matching';
+type Stage = 'form' | 'survey' | 'matching';
 
 type ActiveMatchSnapshot = {
   matchRequestId: string;
@@ -150,13 +203,49 @@ export default function WeddingMcLandingPage() {
   const [stage, setStage] = useState<Stage>('form');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [zonecode, setZonecode] = useState('');
-  const [address, setAddress] = useState('');
   const [addressDetail, setAddressDetail] = useState('');
   const [eventDateTime, setEventDateTime] = useState('');
   const [agree, setAgree] = useState(false);
+  const [eventPartChoice, setEventPartChoice] = useState<'1부예식' | '2부예식' | ''>('');
+  const [showErrors, setShowErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeMatch, setActiveMatch] = useState<ActiveMatchSnapshot | null>(null);
+  const [showProModal, setShowProModal] = useState(false);
+  const [proList, setProList] = useState<ProListItem[]>([]);
+  const [proLoading, setProLoading] = useState(false);
+  const proLoadedRef = useRef(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [privacyExpanded, setPrivacyExpanded] = useState(false);
+
+  /* ── 사회자 프로필 모달: 열릴 때 1회 실제 사회자 목록 로드 ── */
+  useEffect(() => {
+    if (!showProModal || proLoadedRef.current) return;
+    proLoadedRef.current = true;
+    setProLoading(true);
+    discoveryApi
+      .getProList({ limit: 30, sort: 'rating' })
+      .then((res: any) => {
+        const list: ProListItem[] = Array.isArray(res) ? res : res?.data ?? [];
+        setProList(list.filter((p) => p && (p.profileImageUrl || (Array.isArray(p.images) && p.images[0]))));
+      })
+      .catch(() => {})
+      .finally(() => setProLoading(false));
+  }, [showProModal]);
+
+  /* ── 모달 열림: 바디 스크롤 잠금 + ESC 닫기 ── */
+  useEffect(() => {
+    if (!showProModal && !showPrivacyModal) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setShowProModal(false); setShowPrivacyModal(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [showProModal, showPrivacyModal]);
 
   const stickyCtaRef = useRef<HTMLDivElement | null>(null);
   const registerRef = useRef<HTMLDivElement | null>(null);
@@ -223,7 +312,19 @@ export default function WeddingMcLandingPage() {
       { threshold: 0.12, rootMargin: '0px 0px -7% 0px' },
     );
     els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    // 고민 카드: 화면에 충분히 들어왔을 때만 한 줄씩 써지기 시작
+    const cards = document.querySelector('.wmc-cards');
+    let io2: IntersectionObserver | null = null;
+    if (cards) {
+      io2 = new IntersectionObserver(
+        (entries) => entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add('wmc-cards-in'); io2?.unobserve(e.target); }
+        }),
+        { threshold: 0.4 },
+      );
+      io2.observe(cards);
+    }
+    return () => { io.disconnect(); io2?.disconnect(); };
   }, [stage]);
 
   const fireFormStart = useCallback(() => {
@@ -232,30 +333,14 @@ export default function WeddingMcLandingPage() {
     if (typeof window.fbq === 'function') window.fbq('track', 'InitiateCheckout', { content_name: 'Wedding MC Form Start' });
   }, []);
 
-  /* ── Daum 우편번호 ── */
-  const openPostcode = useCallback(() => {
-    if (!window.daum?.Postcode) {
-      window.alert('주소 검색을 불러오는 중입니다. 잠시 후 다시 눌러주세요.');
-      return;
-    }
-    new window.daum.Postcode({
-      oncomplete: (data: any) => {
-        setZonecode(data.zonecode || '');
-        // roadAddress 우선, 없으면 jibunAddress
-        setAddress(data.roadAddress || data.jibunAddress || data.address || '');
-      },
-    }).open();
-  }, []);
-
   /* ── 폼 제출 ── */
   const submit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!agree) return window.alert('개인정보 수집·이용에 동의해주세요.');
-    if (!name.trim()) return window.alert('성함을 입력해주세요.');
     const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone) return window.alert('연락처 형식을 확인해주세요. (예: 010-1234-1234)');
-    if (!address.trim()) return window.alert('행사 위치를 입력해주세요.');
-    if (!eventDateTime) return window.alert('행사 일시를 선택해주세요.');
+    if (!name.trim() || !normalizedPhone || !addressDetail.trim() || !eventDateTime || !agree) {
+      setShowErrors(true);
+      return;
+    }
 
     setPhone(normalizedPhone);
 
@@ -272,27 +357,12 @@ export default function WeddingMcLandingPage() {
 
     // datetime-local 값: "2026-08-15T14:30" 형식. 분리해서 백엔드로
     const [datePart, timePart] = eventDateTime.split('T');
-    const fullLocation = `${address}${addressDetail ? ' ' + addressDetail.trim() : ''}${zonecode ? ` (${zonecode})` : ''}`.trim();
+    const fullLocation = addressDetail.trim();
+    const eventPart = eventPartChoice;
 
-    // 1) Google Sheets (기존 리드 시트) — fire-and-forget
-    fetch(GOOGLE_SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        name: name.trim(),
-        phone: normalizedPhone,
-        region: fullLocation,
-        weddingDate: datePart || '',
-        weddingTime: timePart || '',
-        zonecode,
-        addressDetail,
-        source: 'freetiful-mc-wedding-v3',
-        ...utm,
-      }),
-    }).catch(() => undefined);
+    // 시트 기록은 설문(관심혜택)까지 받은 뒤 proceedFromSurvey에서 폼+혜택을 한 행으로 전송
 
-    // 2) Freetiful 백엔드 — 다수견적 + 간이 회원가입 + 토큰
+    // Freetiful 백엔드 — 다수견적 + 간이 회원가입 + 토큰
     let createdMatchRequestId: string | null = null;
     try {
       const digits = normalizedPhone.replace(/\D/g, '');
@@ -308,9 +378,8 @@ export default function WeddingMcLandingPage() {
           source: 'landing_wedding_mc_v3',
           name: name.trim(),
           phone: normalizedPhone,
-          zonecode,
-          address,
           addressDetail,
+          eventPart,
           eventDateTime,
           ...utm,
         },
@@ -342,9 +411,62 @@ export default function WeddingMcLandingPage() {
       localStorage.setItem(ACTIVE_MATCH_STORAGE_KEY, JSON.stringify(snapshot));
     } catch {}
     setActiveMatch(snapshot);
-    setStage('matching');
+    setStage('survey');
     setSubmitting(false);
   };
+
+  /* ── 설문(관심혜택) 선택 → 폼+혜택을 한 행으로 시트 기록 후 OX 매칭 화면으로 ── */
+  const proceedFromSurvey = (benefit: string) => {
+    const np = normalizePhone(phone) || phone;
+    const [datePart, timePart] = eventDateTime.split('T');
+    const utm = {
+      utm_source: sessionStorage.getItem('utm_source') || '',
+      utm_medium: sessionStorage.getItem('utm_medium') || '',
+      utm_campaign: sessionStorage.getItem('utm_campaign') || '',
+      utm_term: sessionStorage.getItem('utm_term') || '',
+      utm_content: sessionStorage.getItem('utm_content') || '',
+      referrer: sessionStorage.getItem('referrer') || '',
+      landing_url: sessionStorage.getItem('landing_url') || window.location.href,
+    };
+    // 폼 데이터 + 선택한 관심혜택을 한 행으로 구글 시트에 기록 — fire-and-forget
+    fetch(GOOGLE_SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        name: name.trim(),
+        phone: np,
+        region: addressDetail.trim(),
+        weddingDate: datePart || '',
+        weddingTime: timePart || '',
+        addressDetail,
+        eventPart: eventPartChoice,
+        benefit,
+        source: 'freetiful-mc-wedding-v3',
+        ...utm,
+      }),
+    }).catch(() => undefined);
+    setStage('matching');
+  };
+
+  const proCards =
+    proList.length > 0
+      ? proList
+          .map((p, idx) => ({
+            id: p.id,
+            name: p.name || '',
+            categories: p.categories || [],
+            regions: p.regions || [],
+            isNationwide: p.isNationwide ?? false,
+            rating: p.avgRating || 0,
+            reviews: p.reviewCount || 0,
+            rank: idx + 1,
+            image: p.profileImageUrl || (Array.isArray(p.images) ? p.images[0] : '') || '',
+            intro: p.shortIntro || '',
+            experience: p.careerYears || 1,
+          }))
+          .filter((c) => c.image)
+      : FALLBACK_PROS;
 
   return (
     <main className="bg-white text-[#181C24]" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'SF Pro', 'Apple SD Gothic Neo', Pretendard, system-ui, sans-serif", paddingBottom: stage === 'form' ? 'calc(210px + env(safe-area-inset-bottom))' : 0 }}>
@@ -360,17 +482,18 @@ export default function WeddingMcLandingPage() {
         fbq('init', '4542157089361204');
         fbq('track', 'PageView');
       `}</Script>
-      <Script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" strategy="lazyOnload" />
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Allura&display=swap" />
 
-      {stage === 'matching' && activeMatch ? (
+      {stage === 'survey' ? (
+        <SurveyScreen onSelect={proceedFromSurvey} onBack={() => setStage('form')} />
+      ) : stage === 'matching' && activeMatch ? (
         <MatchingScreen
           matchRequestId={activeMatch.matchRequestId}
-          onResolved={() => {
+          onResolved={(roomId) => {
             try {
               localStorage.removeItem(ACTIVE_MATCH_STORAGE_KEY);
             } catch {}
-            router.push('/chat');
+            router.push(roomId ? `/chat/${roomId}` : '/chat');
           }}
           onStop={() => {
             try {
@@ -383,7 +506,7 @@ export default function WeddingMcLandingPage() {
       ) : (
         <>
           {/* Header */}
-          <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-[#181C24]/10">
+          <header className="sticky top-0 z-30 bg-white">
             <div className="max-w-md mx-auto px-3 h-14 flex items-center justify-between">
               <button
                 type="button"
@@ -405,8 +528,13 @@ export default function WeddingMcLandingPage() {
             {/* ───────── 히어로 ───────── */}
             <section className="wmc-reveal px-5 pt-6 pb-10 text-center">
               <h1 className="text-[32px] leading-[1.2] font-extrabold tracking-[-0.03em] text-[#1A1A1A]">
-                결혼식 사회자<br />
-                <span className="text-[#3182F6]">아무나 구하세요?</span>
+                {Array.from('결혼식 사회자').map((ch, i) => (
+                  <span key={i} className="wmc-char" style={{ animationDelay: `${i * 0.05}s` }}>{ch === ' ' ? ' ' : ch}</span>
+                ))}
+                <br />
+                {Array.from('아무나 구하세요?').map((ch, i) => (
+                  <span key={`b${i}`} className="wmc-char text-[#3182F6]" style={{ animationDelay: `${(7 + i) * 0.05}s` }}>{ch === ' ' ? ' ' : ch}</span>
+                ))}
               </h1>
               <p className="wmc-grad-text mt-4 text-[18px] leading-[1.45] font-bold">
                 사회자 한 명이,<br />평생의 장면을 결정합니다.
@@ -415,15 +543,19 @@ export default function WeddingMcLandingPage() {
             </section>
 
             {/* ───────── 추천 대상 ───────── */}
-            <section className="wmc-reveal px-5 pb-12">
+            <section className="wmc-reveal wmc-cards px-5 pb-12">
               <div className="grid grid-cols-2 gap-2.5">
                 {['지인의 사회가\n괜찮을지 고민되는\n예비부부', '결혼식장 연계 사회\n진행 방식이\n걱정되는 예비부부', '웃음과 감동이 있는\n특별한 예식을\n원하는 분'].map((t, i) => (
-                  <div key={i} className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#F2F5F9] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45] text-[#4A5160]">
-                    {t}
+                  <div key={i} className="flex aspect-square flex-col items-center justify-center rounded-[30px] bg-[#F2F5F9] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
+                    {t.split('\n').map((line, li) => (
+                      <span key={li} className="wmc-writeline" style={{ animationDelay: `${li * 0.62}s` }}>{line}</span>
+                    ))}
                   </div>
                 ))}
-                <div className="flex aspect-square items-center justify-center whitespace-pre-line rounded-[30px] bg-[#333D4B] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45] text-white">
-                  하객들에게 오래{'\n'}기억될 결혼식을{'\n'}꿈꾸는 분
+                <div className="flex aspect-square flex-col items-center justify-center rounded-[30px] bg-[#333D4B] px-3 py-5 text-center text-[17px] font-semibold leading-[1.45]">
+                  {['하객들에게 오래', '기억될 결혼식을', '꿈꾸는 분'].map((line, li) => (
+                    <span key={li} className="wmc-writeline-w" style={{ animationDelay: `${li * 0.62}s` }}>{line}</span>
+                  ))}
                 </div>
               </div>
             </section>
@@ -436,7 +568,7 @@ export default function WeddingMcLandingPage() {
               </h2>
               <p className="mt-2 text-[13px] text-[#9AA4B2]">방송 3사 및 JTBC YTN등 공인</p>
               <div className="mt-5 grid grid-cols-2 gap-2.5">
-                <img src="/images/wedding-mc/redesign/proof-beta.jpg" alt="BETA FESTIVAL 행사 진행" className="aspect-square w-full rounded-[30px] object-cover" />
+                <img src="/images/wedding-mc/redesign/proof-kbs-gangwon.png" alt="KBS 강원 날씨 캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
                 <img src="/images/wedding-mc/redesign/proof-yonhap.jpg" alt="연합뉴스TV 함현지 캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
               </div>
               <div className="my-4 rounded-2xl bg-[#F9FAFB] px-4 py-6">
@@ -454,9 +586,9 @@ export default function WeddingMcLandingPage() {
                 <img src="/images/wedding-mc/redesign/proof-mbc.jpg" alt="MBC 정미정 아나운서" className="aspect-square w-full rounded-[30px] object-cover" />
                 <img src="/images/wedding-mc/redesign/proof-kbs.jpg" alt="KBS 이원영 기상캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
               </div>
-              <a href="#register" className="mt-6 inline-flex min-h-[32px] min-w-[52px] items-center justify-center gap-2.5 rounded-full px-[18px] py-3 text-[17px] font-semibold transition active:scale-[0.98]" style={{ color: 'rgba(3,18,40,0.70)', backgroundColor: 'rgba(7,25,76,0.05)' }}>
+              <button type="button" onClick={() => setShowProModal(true)} className="mt-6 inline-flex min-h-[32px] min-w-[52px] items-center justify-center gap-2.5 rounded-full px-[18px] py-3 text-[17px] font-semibold transition active:scale-[0.98]" style={{ color: 'rgba(3,18,40,0.70)', backgroundColor: 'rgba(7,25,76,0.05)' }}>
                 더 많은 사회자 프로필 보기
-              </a>
+              </button>
             </section>
 
             {/* ───────── satisfaction (다크) ───────── */}
@@ -570,9 +702,11 @@ export default function WeddingMcLandingPage() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="홍길동"
                     autoComplete="name"
-                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
+                    className={`mt-2 w-full border-b-2 bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none ${showErrors && !name.trim() ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#E5E8EE] focus:border-[#3182F6]'}`}
                   />
-                  <p className="mt-2.5 text-[14px] text-[#9AA3B0]">예비 신랑 신부 둘 중 한분의 성함</p>
+                  <p className={`mt-2.5 text-[14px] ${showErrors && !name.trim() ? 'text-[#FF4D4F]' : 'text-[#9AA3B0]'}`}>
+                    {showErrors && !name.trim() ? '예비 신랑 신부 둘 중 한 분의 성함을 입력해주세요' : '예비 신랑 신부 둘 중 한분의 성함'}
+                  </p>
                 </div>
 
                 {/* 연락처 — 언더라인 */}
@@ -585,30 +719,25 @@ export default function WeddingMcLandingPage() {
                     onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
                     placeholder="010-0000-0000"
                     autoComplete="tel"
-                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
+                    className={`mt-2 w-full border-b-2 bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none ${showErrors && !normalizePhone(phone) ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#E5E8EE] focus:border-[#3182F6]'}`}
                   />
-                  <p className="mt-2.5 text-[14px] text-[#9AA3B0]">예비 신랑 신부 둘 중 한분의 연락처</p>
+                  <p className={`mt-2.5 text-[14px] ${showErrors && !normalizePhone(phone) ? 'text-[#FF4D4F]' : 'text-[#9AA3B0]'}`}>
+                    {showErrors && !normalizePhone(phone) ? '예비 신랑 신부 둘 중 한 분의 연락처를 입력해주세요' : '예비 신랑 신부 둘 중 한분의 연락처'}
+                  </p>
                 </div>
 
-                {/* 주소 — 박스 (Daum 우편번호) */}
+                {/* 행사 위치 */}
                 <div className="space-y-2.5">
-                  <button
-                    type="button"
-                    onClick={openPostcode}
-                    className="flex h-[54px] w-full items-center justify-between rounded-[16px] border-2 border-[#ECEEF2] bg-white px-[18px] text-left text-[20px] active:bg-[#F6F8FC]"
-                  >
-                    <span className={address ? 'text-[#1A1A1A]' : 'text-[#9AA3B0]'}>
-                      {address ? `${address}${zonecode ? ` (${zonecode})` : ''}` : '도로명 주소'}
-                    </span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9AA3B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg>
-                  </button>
                   <input
                     type="text"
                     value={addressDetail}
                     onChange={(e) => setAddressDetail(e.target.value)}
                     placeholder="예식장 상세위치"
-                    className="w-full h-[54px] rounded-[16px] border-2 border-[#ECEEF2] bg-white px-[18px] text-[20px] text-[#1A1A1A] placeholder:text-[#9AA3B0] focus:border-[#3182F6] outline-none"
+                    className={`w-full h-[54px] rounded-[16px] border-2 bg-white px-[18px] text-[20px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none ${showErrors && !addressDetail.trim() ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#ECEEF2] focus:border-[#3182F6]'}`}
                   />
+                  {showErrors && !addressDetail.trim() && (
+                    <p className="text-[14px] text-[#FF4D4F]">예식장 위치를 입력해주세요</p>
+                  )}
                 </div>
 
                 {/* 행사일시 — 언더라인 */}
@@ -618,26 +747,82 @@ export default function WeddingMcLandingPage() {
                     type="datetime-local"
                     value={eventDateTime}
                     onChange={(e) => setEventDateTime(e.target.value)}
-                    className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] focus:border-[#3182F6] outline-none"
+                    className={`mt-2 w-full border-b-2 bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] outline-none ${showErrors && !eventDateTime ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#E5E8EE] focus:border-[#3182F6]'}`}
                     style={{ colorScheme: 'light' }}
                   />
+                  {showErrors && !eventDateTime && (
+                    <p className="mt-2.5 text-[14px] text-[#FF4D4F]">행사 일시를 선택해주세요</p>
+                  )}
+                </div>
+
+                {/* 예식 구분 — 1부/2부 (단일 선택) */}
+                <div>
+                  <label className="block text-[15px] font-bold text-[#1A1A1A]">예식 구분</label>
+                  <div className="mt-2 grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setEventPartChoice((v) => (v === '1부예식' ? '' : '1부예식'))}
+                      className="flex h-[54px] items-center justify-center gap-2 rounded-[16px] border-2 text-[17px] font-semibold transition active:scale-[0.98]"
+                      style={{ borderColor: eventPartChoice === '1부예식' ? '#3182F6' : '#ECEEF2', backgroundColor: eventPartChoice === '1부예식' ? 'rgba(49,130,246,0.06)' : '#fff', color: eventPartChoice === '1부예식' ? '#3182F6' : '#4E5968' }}
+                    >
+                      {eventPartChoice === '1부예식' && <Check size={18} strokeWidth={3} />}
+                      1부예식
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventPartChoice((v) => (v === '2부예식' ? '' : '2부예식'))}
+                      className="flex h-[54px] items-center justify-center gap-2 rounded-[16px] border-2 text-[17px] font-semibold transition active:scale-[0.98]"
+                      style={{ borderColor: eventPartChoice === '2부예식' ? '#3182F6' : '#ECEEF2', backgroundColor: eventPartChoice === '2부예식' ? 'rgba(49,130,246,0.06)' : '#fff', color: eventPartChoice === '2부예식' ? '#3182F6' : '#4E5968' }}
+                    >
+                      {eventPartChoice === '2부예식' && <Check size={18} strokeWidth={3} />}
+                      2부예식
+                    </button>
+                  </div>
+                  <p className="mt-2.5 text-[14px] text-[#9AA3B0]">예식 형태를 선택해주세요</p>
                 </div>
 
                 {/* 동의 — 파란 체크 동그라미 */}
-                <label className="flex cursor-pointer items-center justify-center gap-3 pt-1">
-                  <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="sr-only" />
-                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 transition-colors" style={{ borderColor: agree ? '#3182F6' : '#D5DAE2', backgroundColor: agree ? '#3182F6' : 'transparent' }}>
-                    {agree && <Check size={16} strokeWidth={3} className="text-white" />}
-                  </span>
-                  <span className="text-[16px] text-[#3A3F49]">개인정보 수집 및 이용에 동의합니다.</span>
-                </label>
+                <div>
+                  <label className="flex cursor-pointer items-center justify-center gap-3 pt-1">
+                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="sr-only" />
+                    <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 transition-colors" style={{ borderColor: agree ? '#3182F6' : (showErrors ? '#FF4D4F' : '#D5DAE2'), backgroundColor: agree ? '#3182F6' : 'transparent' }}>
+                      {agree && <Check size={16} strokeWidth={3} className="text-white" />}
+                    </span>
+                    <span className={`text-[16px] ${showErrors && !agree ? 'text-[#FF4D4F]' : 'text-[#3A3F49]'}`}>
+                      <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPrivacyModal(true); }} className="underline underline-offset-2 font-semibold text-[#3182F6]">개인정보 수집 및 이용</button>에 동의합니다.
+                    </span>
+                  </label>
+                  {showErrors && !agree && (
+                    <p className="mt-1.5 text-center text-[14px] text-[#FF4D4F]">개인정보 수집·이용에 동의해주세요</p>
+                  )}
+                </div>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full h-[56px] bg-[#3182F6] hover:bg-[#4E83F6] text-white text-[17px] font-bold rounded-[16px] transition active:scale-[0.98] disabled:opacity-60"
+                  className={`w-full h-[56px] text-[17px] font-bold rounded-[16px] transition active:scale-[0.98] disabled:opacity-60 ${name.trim() && normalizePhone(phone) && addressDetail.trim() && eventDateTime && agree ? 'bg-[#3182F6] hover:bg-[#4E83F6] text-white' : 'bg-[#F2F4F6] text-[#333D4B]'}`}
                 >
-                  {submitting ? '전송 중...' : '무료견적 요청'}
+                  {submitting ? '전송 중...' : '비회원 의뢰하기'}
+                </button>
+
+                {/* 가입 유도 말풍선 — 카카오 로그인 위로 플로팅 (z 위로, 살짝 겹침) */}
+                <div className="relative z-10 mt-4 -mb-[10px] flex justify-center">
+                  <div className="wmc-bob relative w-fit">
+                    <div className="rounded-[14px] bg-white px-4 py-2 text-[14px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
+                      가입만 해도 <span className="wmc-money-grad">5,000원</span> 지급
+                    </div>
+                    <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid white' }} />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => startOAuth('kakao')}
+                  style={{ marginTop: '36px' }}
+                  className="flex w-full h-[56px] items-center justify-center gap-2 rounded-[16px] bg-[#FEE500] text-[17px] font-bold text-[#191600] transition active:scale-[0.98]"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#191600" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.9 1.9 5.4 4.7 6.8-.2.7-.7 2.6-.8 3-.1.5.2.5.4.3.2-.1 2.6-1.8 3.6-2.5.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z" /></svg>
+                  카카오 로그인
                 </button>
               </form>
             </div>
@@ -657,15 +842,24 @@ export default function WeddingMcLandingPage() {
             className="wmc-sticky-cta fixed inset-x-0 bottom-0 z-40"
             style={{ transition: 'transform .35s ease, opacity .35s ease' }}
           >
-            <div className="h-9 bg-gradient-to-b from-white/0 to-white" />
-            <div className="bg-white px-5 pt-0.5" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+            {/* 이미지 + 말풍선 — 버튼 위로 내려서 겹치게 (z 높여 버튼 위에 표시) */}
+            <div className="relative z-20 -mb-[44px] px-5">
               <div className="mx-auto max-w-md">
-                <div className="wmc-bob relative mx-auto mb-2.5 w-fit">
-                  <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
-                    <CountTicker start={2000} suffix="명이 예약했어요" />
+                <div className="wmc-bob mx-auto w-fit">
+                  <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 해도 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
+                  <div className="relative mx-auto w-fit">
+                    <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
+                      가입만 해도 <span className="wmc-money-grad">5,000원</span> 지급
+                    </div>
+                    <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
                   </div>
-                  <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
                 </div>
+              </div>
+            </div>
+            {/* 그라데이션 페이드 — 무료견적 받기 버튼 직전부터 흰색 시작 */}
+            <div className="h-9 bg-gradient-to-b from-white/0 to-white" />
+            <div className="bg-white px-5" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+              <div className="mx-auto max-w-md">
                 <a href="#register" className="wmc-cta-bounce flex h-[56px] items-center justify-center rounded-[16px] bg-[#3182F6] hover:bg-[#4E83F6] text-[17px] font-bold text-white">
                   30초 무료견적 받기
                 </a>
@@ -676,6 +870,136 @@ export default function WeddingMcLandingPage() {
             </div>
           </div>
         </>
+      )}
+
+      {showProModal && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center" role="dialog" aria-modal="true" aria-label="전문 사회자 프로필">
+          <div className="wmc-overlay-in absolute inset-0 bg-black/50" onClick={() => setShowProModal(false)} />
+          <div className="wmc-sheet-up relative z-10 flex w-full max-w-lg flex-col rounded-t-[28px] bg-white shadow-[0_-12px_40px_rgba(0,0,0,0.18)]" style={{ height: '86dvh', maxHeight: '86dvh' }}>
+            <div className="flex justify-center pb-1 pt-3"><span className="h-1.5 w-10 rounded-full bg-[#E1E5EC]" /></div>
+            <div className="flex items-start justify-between px-5 pb-3 pt-1">
+              <div>
+                <h3 className="text-[21px] font-extrabold leading-tight text-[#191F28]">검증된 전문 사회자</h3>
+                <p className="mt-1 text-[13px] text-[#8A94A6]">방송 경력 · 프리티풀 인증 사회자</p>
+              </div>
+              <button type="button" onClick={() => setShowProModal(false)} aria-label="닫기" className="-mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#F2F4F7] text-[18px] leading-none text-[#5A6473] transition active:scale-95">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {proLoading && proList.length === 0 ? (
+                <div className="divide-y divide-[#F2F4F7]">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex gap-3 px-4 py-3">
+                      <div className="h-[140px] w-[105px] shrink-0 animate-pulse rounded-lg bg-[#EEF1F6]" />
+                      <div className="flex-1 space-y-2 py-1">
+                        <div className="h-4 w-2/3 animate-pulse rounded bg-[#EEF1F6]" />
+                        <div className="h-3 w-1/3 animate-pulse rounded bg-[#EEF1F6]" />
+                        <div className="h-3 w-full animate-pulse rounded bg-[#EEF1F6]" />
+                        <div className="h-3 w-1/2 animate-pulse rounded bg-[#EEF1F6]" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="divide-y divide-[#F2F4F7]">
+                  {proCards.map((pro) => (
+                    <div key={pro.id} className="px-4 py-3">
+                      <div className="relative flex gap-3 rounded-xl">
+                        <div className="relative h-[140px] w-[105px] shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                          <img
+                            src={pro.image || '/images/default-profile.png'}
+                            alt={pro.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="h-full w-full object-cover"
+                          />
+                          {pro.isNationwide && (
+                            <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-[#3180F7] shadow-sm">
+                              전국
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex min-w-0 flex-1 flex-col py-0.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-[16px] font-bold leading-tight text-gray-900">
+                              {pro.categories[0] || '사회자'} {pro.name}
+                            </p>
+                            {pro.rank > 0 && pro.rank <= 10 && (
+                              <span className="shrink-0 rounded-full bg-[#EAF3FF] px-2 py-0.5 text-[10px] font-bold text-[#3180F7]">
+                                TOP {pro.rank}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <div className="flex items-center gap-0.5">
+                              <Star size={13} className="fill-yellow-400 text-yellow-400" />
+                              <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
+                              <span className="text-[13px] text-gray-400">({pro.reviews})</span>
+                            </div>
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-[13px] leading-snug text-gray-500">
+                            &ldquo;{pro.intro || '프리티풀 인증 사회자입니다'}&rdquo;
+                          </p>
+                          <div className="mt-auto flex flex-wrap gap-1 pt-2">
+                            {pro.experience > 0 && (
+                              <span className="rounded-[5px] bg-gray-100 px-1.5 py-1 text-[10px] font-semibold text-gray-600">
+                                경력 {pro.experience}년
+                              </span>
+                            )}
+                            {(pro.isNationwide ? ['전국가능'] : pro.regions.slice(0, 2)).map((tag) => (
+                              <span key={tag} className="rounded-[5px] bg-gray-100 px-1.5 py-1 text-[10px] font-medium text-gray-500">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="border-t border-[#F0F2F5] px-5 pt-3" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))' }}>
+              <button type="button" onClick={() => { setShowProModal(false); setTimeout(() => registerRef.current?.scrollIntoView({ behavior: 'smooth' }), 80); }} className="w-full rounded-2xl bg-[#3182F6] py-4 text-[16px] font-bold text-white transition active:scale-[0.99]">
+                30초 무료견적 받기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPrivacyModal && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center" role="dialog" aria-modal="true" aria-label="개인정보 수집·이용 동의">
+          <div className="wmc-overlay-in absolute inset-0 bg-black/50" onClick={() => { setShowPrivacyModal(false); setPrivacyExpanded(false); }} />
+          <div className="wmc-sheet-up relative z-10 flex w-full max-w-lg flex-col rounded-t-[28px] bg-white" style={{ maxHeight: '88dvh' }}>
+            <div className="flex justify-center pb-1 pt-3"><span className="h-1.5 w-10 rounded-full bg-[#E1E5EC]" /></div>
+            <div className="flex items-center justify-between px-5 pb-2 pt-1">
+              <h3 className="text-[18px] font-extrabold text-[#191F28]">약관 동의</h3>
+              <button type="button" onClick={() => { setShowPrivacyModal(false); setPrivacyExpanded(false); }} aria-label="닫기" className="-mr-1 grid h-9 w-9 place-items-center rounded-full bg-[#F2F4F7] text-[18px] leading-none text-[#5A6473] transition active:scale-95">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="rounded-2xl border border-[#EEF1F6] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-[14px] font-bold leading-snug text-[#333D4B]">
+                    <span className="text-[#3182F6]">[필수]</span> 개인정보 수집·이용 및 서비스 제공을 위한 제3자 제공 동의
+                  </p>
+                  <button type="button" onClick={() => setPrivacyExpanded((v) => !v)} className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-[#8B95A1] underline underline-offset-2">
+                    {privacyExpanded ? '접기' : '내용 보기'}
+                  </button>
+                </div>
+                {privacyExpanded && (
+                  <p className="mt-3 whitespace-pre-line border-t border-[#F2F4F6] pt-3 text-[12.5px] leading-relaxed text-[#5A6473]">
+                    {PRIVACY_CONSENT_TEXT}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="border-t border-[#F0F2F5] px-5 pt-3" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))' }}>
+              <button type="button" onClick={() => { setAgree(true); setShowPrivacyModal(false); setPrivacyExpanded(false); }} className="w-full rounded-2xl bg-[#3182F6] py-4 text-[16px] font-bold text-white transition active:scale-[0.99]">
+                동의합니다
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style jsx global>{`
@@ -711,6 +1035,69 @@ export default function WeddingMcLandingPage() {
           color: transparent;
           animation: wmcGradFlow 5s linear infinite;
         }
+        .wmc-money-grad {
+          background-image: linear-gradient(90deg, #1A1A1A 0%, #F5871F 25%, #1A1A1A 50%, #F5871F 75%, #1A1A1A 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: transparent;
+          animation: wmcGradFlow 4.5s linear infinite;
+        }
+        @keyframes wmcCharBounce {
+          0% { opacity: 0; transform: translateY(0.55em); }
+          55% { opacity: 1; transform: translateY(-0.2em); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .wmc-char { display: inline-block; opacity: 0; animation: wmcCharBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        @keyframes wmcWrite {
+          from { background-position: 100% 0; }
+          to { background-position: 0% 0; }
+        }
+        .wmc-writeline, .wmc-writeline-w {
+          display: block;
+          background-size: 300% 100%;
+          background-position: 100% 0;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: transparent;
+        }
+        .wmc-writeline { background-image: linear-gradient(90deg, #191F28 0%, #191F28 38%, #3182F6 48%, #7FB0FF 50%, #3182F6 52%, #B0B8C1 62%, #B0B8C1 100%); }
+        .wmc-writeline-w { background-image: linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 38%, #7FB0FF 48%, #BBD9FF 50%, #7FB0FF 52%, #5C6678 62%, #5C6678 100%); }
+        .wmc-cards-in .wmc-writeline, .wmc-cards-in .wmc-writeline-w { animation: wmcWrite 1.15s cubic-bezier(0.45, 0, 0.25, 1) forwards; }
+        @keyframes wmcBreathe {
+          0% { background-position: 175% 0; }
+          100% { background-position: -75% 0; }
+        }
+        @keyframes wmcMsgFade {
+          from { opacity: 0; transform: translateY(7px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .wmc-breathe {
+          background-image: linear-gradient(90deg, #2A5BFF 0%, #2A5BFF 36%, #8FB8FF 48%, #D5E4FF 50%, #8FB8FF 52%, #2A5BFF 64%, #2A5BFF 100%);
+          background-size: 250% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: transparent;
+          animation: wmcMsgFade 0.55s ease both, wmcBreathe 3.6s ease-in-out infinite;
+        }
+        .wmc-msgfade { display: inline-block; animation: wmcMsgFade 0.5s ease both; }
+        @keyframes wmcAvatarPop {
+          0% { opacity: 0; transform: scale(0.3); }
+          10% { opacity: 1; transform: scale(1); }
+          55% { opacity: 1; transform: scale(1); }
+          66% { opacity: 0; transform: scale(0.3); }
+          100% { opacity: 0; transform: scale(0.3); }
+        }
+        .wmc-avatar-pop { opacity: 0; animation: wmcAvatarPop 3.6s ease-in-out infinite; will-change: opacity, transform; }
+        @keyframes wmcCenterReveal {
+          0% { opacity: 0; transform: scale(0.55); }
+          55% { opacity: 1; transform: scale(1.08); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .wmc-center-reveal { animation: wmcCenterReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
         @keyframes wmcFloat {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-13px) rotate(-4deg); }
@@ -718,6 +1105,10 @@ export default function WeddingMcLandingPage() {
         .wmc-float { animation: wmcFloat 4.5s ease-in-out infinite; will-change: transform; }
         @keyframes wmcBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         .wmc-bob { animation: wmcBob 3s ease-in-out infinite; }
+        @keyframes wmcOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+        .wmc-overlay-in { animation: wmcOverlayIn 0.25s ease both; }
+        @keyframes wmcSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .wmc-sheet-up { animation: wmcSheetUp 0.34s cubic-bezier(0.32, 0.72, 0, 1) both; will-change: transform; }
         @keyframes wmcCtaBounce {
           0%, 70%, 100% { transform: translateY(0); }
           80% { transform: translateY(-7px); }
@@ -736,13 +1127,114 @@ export default function WeddingMcLandingPage() {
         @media (prefers-reduced-motion: reduce) {
           .wmc-reveal { opacity: 1 !important; transform: none !important; }
           .wmc-grad-text { animation: none; -webkit-text-fill-color: #7A828F; color: #7A828F; }
+          .wmc-money-grad { animation: none; -webkit-text-fill-color: #F5871F; color: #F5871F; }
+          .wmc-char { animation: none; opacity: 1; transform: none; }
+          .wmc-writeline { animation: none; -webkit-text-fill-color: #191F28; color: #191F28; }
+          .wmc-writeline-w { animation: none; -webkit-text-fill-color: #FFFFFF; color: #FFFFFF; }
+          .wmc-breathe { animation: none; -webkit-text-fill-color: #2A5BFF; color: #2A5BFF; }
+          .wmc-avatar-pop { animation: none; opacity: 1; transform: none; }
+          .wmc-center-reveal { animation: none; }
           .wmc-float { animation: none; }
           .wmc-cta-bounce { animation: none; }
           .wmc-star { opacity: 1 !important; transform: none !important; animation: none !important; }
           .wmc-bob { animation: none; }
+          .wmc-overlay-in { animation: none; }
+          .wmc-sheet-up { animation: none; }
         }
       `}</style>
     </main>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   설문 화면 — 폼 제출 후 혜택 선택 (고급 선택 애니메이션) → OX 매칭
+   ═══════════════════════════════════════════════════════════════════ */
+function SurveyScreen({ onSelect, onBack }: { onSelect: (benefit: string) => void; onBack: () => void }) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [going, setGoing] = useState(false);
+  const toggle = (benefit: string) => {
+    if (going) return;
+    setSelected((prev) => (prev.includes(benefit) ? prev.filter((x) => x !== benefit) : [...prev, benefit]));
+  };
+  const proceed = () => {
+    if (going) return;
+    setGoing(true);
+    setTimeout(() => onSelect(selected.join(', ')), 350);
+  };
+  return (
+    <div className="min-h-[100dvh] bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'SF Pro', 'Apple SD Gothic Neo', Pretendard, system-ui, sans-serif" }}>
+      <header className="sticky top-0 z-30 bg-white">
+        <div className="mx-auto flex h-14 max-w-md items-center justify-between px-3">
+          <button type="button" onClick={onBack} aria-label="뒤로 가기" className="-ml-1 flex h-10 w-10 items-center justify-center rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10">
+            <ChevronLeft size={24} strokeWidth={2.2} />
+          </button>
+          <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 w-auto" />
+          <div className="w-10" />
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-md px-6 pt-16 text-center">
+        <h1 className="text-[28px] font-extrabold leading-[1.3] text-[#1A1A1A]">이런 혜택도<br />무료로 받아보실래요?</h1>
+        <p className="mt-3 text-[15px] text-[#9AA3B0]">선택하신 항목의 할인정보를 안내드려요!</p>
+        <p className="mt-1 text-[13px] text-[#B0B8C1]">여러 개 선택할 수 있어요</p>
+      </div>
+
+      <div className="mx-auto mt-9 max-w-md px-5 pb-40">
+        {SURVEY_BENEFITS.map((b) => {
+          const on = selected.includes(b);
+          return (
+            <button
+              key={b}
+              type="button"
+              onClick={() => toggle(b)}
+              className={`wmc-survey-row relative flex h-[58px] w-full items-center justify-center overflow-hidden border-b border-[#EEF1F6] text-[17px] font-semibold transition-all duration-300 ${on ? 'wmc-survey-on' : ''}`}
+              style={{ color: on ? '#3182F6' : '#333D4B' }}
+            >
+              <span className="relative z-10 inline-flex items-center gap-1.5">
+                {on && <Check size={18} strokeWidth={3} className="wmc-survey-check" />}
+                {b}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 px-5 pb-[calc(18px+env(safe-area-inset-bottom))] pt-6" style={{ background: 'linear-gradient(to top, #fff 70%, rgba(255,255,255,0))' }}>
+        <button type="button" onClick={proceed} disabled={going} className="h-[56px] w-full rounded-[16px] bg-[#3182F6] text-[17px] font-bold text-white transition active:scale-[0.98] disabled:opacity-70">
+          {selected.length > 0 ? `다음 · ${selected.length}개 선택` : '건너뛰고 시작하기'}
+        </button>
+      </div>
+
+      <style jsx global>{`
+        .wmc-survey-row::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, rgba(49,130,246,0) 0%, rgba(49,130,246,0.16) 50%, rgba(49,130,246,0) 100%);
+          transform: translateX(-120%);
+          opacity: 0;
+          pointer-events: none;
+        }
+        .wmc-survey-on::before { animation: wmcSurveySweep 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        @keyframes wmcSurveySweep {
+          0% { transform: translateX(-120%); opacity: 0; }
+          35% { opacity: 1; }
+          100% { transform: translateX(120%); opacity: 0; }
+        }
+        .wmc-survey-on {
+          background: linear-gradient(180deg, rgba(49,130,246,0.10), rgba(49,130,246,0.03));
+          box-shadow: 0 6px 18px rgba(49,130,246,0.13);
+          border-radius: 14px;
+          border-bottom-color: transparent !important;
+        }
+        .wmc-survey-check { display: inline-block; animation: wmcSurveyCheck 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        @keyframes wmcSurveyCheck { 0% { opacity: 0; transform: scale(0.2); } 100% { opacity: 1; transform: scale(1); } }
+        @media (prefers-reduced-motion: reduce) {
+          .wmc-survey-row, .wmc-survey-on { transition: none !important; }
+          .wmc-survey-on::before, .wmc-survey-check { animation: none; }
+        }
+      `}</style>
+    </div>
   );
 }
 
@@ -791,7 +1283,7 @@ function MatchingScreen({
   onStop,
 }: {
   matchRequestId: string;
-  onResolved: () => void;
+  onResolved: (roomId?: string) => void;
   onStop: () => void;
 }) {
   const [deliveries, setDeliveries] = useState<DeliveryItem[]>([]);
@@ -804,6 +1296,26 @@ function MatchingScreen({
   const [proImages, setProImages] = useState<string[]>(FALLBACK_PRO_IMAGES);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const router = useRouter();
+  const resolvedRoomIdRef = useRef<string | null>(null);
+  const onResolvedRef = useRef(onResolved);
+  useEffect(() => { onResolvedRef.current = onResolved; }, [onResolved]);
+  const onStopRef = useRef(onStop);
+  useEffect(() => { onStopRef.current = onStop; }, [onStop]);
+  const [timedOut, setTimedOut] = useState(false);
+
+  /* ── 매칭 3분 초과 시 자동 종료 ── */
+  useEffect(() => {
+    if (hasReply) return;
+    const t = setTimeout(() => setTimedOut(true), 180000);
+    return () => clearTimeout(t);
+  }, [hasReply]);
+
+  /* ── 타임아웃 안내 후 5초 뒤 자동으로 폼으로 복귀 ── */
+  useEffect(() => {
+    if (!timedOut) return;
+    const t = setTimeout(() => onStopRef.current(), 5000);
+    return () => clearTimeout(t);
+  }, [timedOut]);
 
   /* ── 헤드라인 문구 10초마다 순환 ── */
   useEffect(() => {
@@ -851,6 +1363,9 @@ function MatchingScreen({
           const replied = (target.deliveries || []).some(
             (d: any) => d.status === 'replied' || d.repliedAt,
           );
+          if (chatRooms.length > 0 && chatRooms[0]?.id) {
+            resolvedRoomIdRef.current = chatRooms[0].id;
+          }
           if (chatRooms.length > 0 || replied) {
             setHasReply(true);
           }
@@ -865,12 +1380,12 @@ function MatchingScreen({
     };
   }, [matchRequestId]);
 
-  /* ── 답장 감지 시 채팅으로 이동 ── */
+  /* ── 채팅 연결(방 생성) 감지 시 해당 채팅방으로 이동 ── */
   useEffect(() => {
     if (!hasReply) return;
-    const t = setTimeout(onResolved, 1200);
+    const t = setTimeout(() => onResolvedRef.current(resolvedRoomIdRef.current || undefined), 1200);
     return () => clearTimeout(t);
-  }, [hasReply, onResolved]);
+  }, [hasReply]);
 
   /* ── OX 퀴즈 진행 ── */
   const quiz = OX_QUIZ_BANK[quizIdx % OX_QUIZ_BANK.length];
@@ -922,6 +1437,30 @@ function MatchingScreen({
                 그만 찾기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 매칭 3분 초과 — 자동 종료 안내 */}
+      {timedOut && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center px-8"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => onStopRef.current()}
+        >
+          <div
+            className="w-full max-w-[320px] rounded-2xl bg-white p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[17px] font-bold text-[#191F28]">매칭 시간이 초과되었어요</p>
+            <p className="mt-2 text-[14px] leading-[1.5] text-[#8B95A1]">3분 안에 연결되지 않아 매칭을 자동 종료했어요. 등록하신 연락처로 사회자가 곧 연락드릴 수 있어요.</p>
+            <button
+              type="button"
+              onClick={() => onStopRef.current()}
+              className="mt-5 w-full rounded-xl bg-[#2272EB] py-3 text-[15px] font-semibold text-white active:bg-[#1b5fd0]"
+            >
+              확인
+            </button>
           </div>
         </div>
       )}
@@ -1091,9 +1630,9 @@ function MatchingScreen({
 
       <style jsx global>{`
         @keyframes wmcRipple {
-          0% { transform: translate(-50%, -50%) scale(0.45); opacity: 0; }
-          12% { opacity: 0.5; }
-          100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+          0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+          22% { opacity: 0.5; }
+          100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
         }
         @keyframes wmcSlideUp {
           from { opacity: 0; transform: translateY(8px); }
@@ -1111,15 +1650,20 @@ function MatchingScreen({
           position: absolute;
           left: 50%;
           top: 50%;
-          width: 200px;
-          height: 200px;
+          width: 220px;
+          height: 220px;
           border-radius: 50%;
-          background: rgba(34, 114, 235, 0.20);
-          animation: wmcRipple 3.4s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+          background: radial-gradient(circle, rgba(34, 114, 235, 0.30) 0%, rgba(34, 114, 235, 0.14) 52%, rgba(34, 114, 235, 0) 74%);
+          filter: blur(9px);
+          animation: wmcRipple 4.2s cubic-bezier(0.16, 0.6, 0.3, 1) infinite;
+          will-change: transform, opacity;
           pointer-events: none;
         }
-        .wmc-ripple-2 { animation-delay: 1.13s; background: rgba(34, 114, 235, 0.15); }
-        .wmc-ripple-3 { animation-delay: 2.26s; background: rgba(34, 114, 235, 0.1); }
+        .wmc-ripple-2 { animation-delay: 1.4s; }
+        .wmc-ripple-3 { animation-delay: 2.8s; }
+        @media (prefers-reduced-motion: reduce) {
+          .wmc-ripple { animation-duration: 6s; }
+        }
       `}</style>
     </div>
   );

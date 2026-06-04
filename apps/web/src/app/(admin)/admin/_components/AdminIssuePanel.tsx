@@ -203,7 +203,8 @@ export function AdminIssuePanel() {
 
       if (paymentRes.status === 'fulfilled') {
         successfulIssueTypes.add('payment');
-        const rows = Array.isArray(paymentRes.value?.data) ? paymentRes.value.data : [];
+        // 0원 결제는 실제 결제가 아니라 '관리자 리뷰 등록' 더미 결제이므로 로그에서 제외
+        const rows = (Array.isArray(paymentRes.value?.data) ? paymentRes.value.data : []).filter((r: any) => Number(r?.amount) > 0);
         nextStats.completedPayments = toNumber(paymentRes.value?.total ?? nextStats.completedPayments);
         rows.forEach((row: any) => {
           nextIssues.push({

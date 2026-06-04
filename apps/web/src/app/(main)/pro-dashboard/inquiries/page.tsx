@@ -30,6 +30,7 @@ interface MatchDeliveryView {
   eventDate: string | null;
   eventTime: string | null;
   eventLocation: string | null;
+  eventPart: string | null;
   note: string;
   deliveredAt: string;
 }
@@ -158,6 +159,7 @@ function mapMatchDeliveries(items: any[]): MatchDeliveryView[] {
         eventDate: d.matchRequest?.eventDate || raw.date || null,
         eventTime: raw.timeStart || d.matchRequest?.eventTime || null,
         eventLocation: d.matchRequest?.eventLocation || raw.location || null,
+        eventPart: raw.eventPart || null,
         note: raw.note || '',
         deliveredAt: d.deliveredAt,
       };
@@ -265,7 +267,7 @@ export default function ProRequestsPage() {
     if (initiatingChat) return;
     setInitiatingChat(request.id);
     try {
-      const res = await chatApi.createRoomAsPro(request.customerId, request.matchRequestId, request.id);
+      const res = await chatApi.createRoomAsPro(request.customerId, request.matchRequestId);
       const roomId = (res as any)?.data?.id || (res as any)?.id;
       if (!roomId) {
         toast.error('채팅방 생성에 실패했습니다');
@@ -353,6 +355,13 @@ export default function ProRequestsPage() {
                   <p className="text-[14px] font-semibold text-[#4E5968]">
                     {[request.categoryName, request.eventCategoryName].filter(Boolean).join(' · ')}
                   </p>
+                  {request.eventPart && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {request.eventPart.split(', ').map((part) => (
+                        <span key={part} className="rounded-full bg-[#EAF3FF] px-2.5 py-0.5 text-[12px] font-bold text-[#3180F7]">{part}</span>
+                      ))}
+                    </div>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[13px] font-medium text-[#6B7684]">
                     <span className="inline-flex items-center gap-1">
                       <Calendar size={13} />

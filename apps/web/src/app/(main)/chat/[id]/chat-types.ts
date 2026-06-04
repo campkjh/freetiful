@@ -4,7 +4,6 @@ export type SystemKind =
   | 'session_start'
   | 'quote'
   | 'payment_request'
-  | 'payment_pending_acceptance'
   | 'payment_paid'
   | 'booking_confirmed'
   | 'reminder'
@@ -28,8 +27,6 @@ export interface SystemPayload {
   paymentType?: 'deposit' | 'balance';
   plan?: string; // 어드민이 자유롭게 planKey 추가 가능 (premium/superior/enterprise + 기타)
   basePrice?: number;
-  estimateAmount?: number;
-  vatAmount?: number;
   options?: { name: string; price: number }[];
   reviewUrl?: string;
   rating?: number;
@@ -42,9 +39,8 @@ export interface Message {
   id: string;
   senderId: string;
   content: string;
-  type: 'text' | 'image' | 'file' | 'location' | 'sticker' | 'system' | 'voice';
+  type: 'text' | 'image' | 'file' | 'location' | 'system' | 'voice';
   createdAt: string;
-  clientMessageId?: string;
   isRead: boolean;
   fileName?: string;
   duration?: number;
@@ -54,8 +50,6 @@ export interface Message {
   replyTo?: { id: string; name: string; content: string } | null;
   reaction?: string | null;
   isNew?: boolean;
-  uploading?: boolean;
-  uploadProgress?: number;
   system?: SystemPayload;
 }
 

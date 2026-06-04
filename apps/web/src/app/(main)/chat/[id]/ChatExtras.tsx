@@ -4,9 +4,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   X, Copy, Reply, Trash2, MoreVertical,
-  MapPin, FileText, Smile, Plus, Search, Bell, BellOff,
+  MapPin, FileText, Music, Smile, Plus, Search, Bell, BellOff,
   Flag, Pin, TextSelect, PinOff,
-  Mic, Image as ImageIcon,
+  Camera, Mic, Image as ImageIcon,
   FileSignature, CreditCard, CheckCircle2, CalendarCheck,
   AlarmClock, Sparkles, Star, RefreshCw, XCircle, Clock,
 } from 'lucide-react';
@@ -15,7 +15,8 @@ import { quotationApi } from '@/lib/api/quotation.api';
 import { chatApi } from '@/lib/api/chat.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
-import { CHAT_STICKERS, type ChatSticker } from '@/lib/chat-stickers';
+import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
+import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 export type { Message, ChatPartner, SystemPayload };
@@ -24,86 +25,52 @@ export type { Message, ChatPartner, SystemPayload };
 
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
 
-const formatKRW = (n: number) => n.toLocaleString('ko-KR') + '원';
-const MIN_QUOTE_AMOUNT = 300000;
+// 옵션명 AI 추천 (키워드 기반) — 입력 단어에 매칭되는 추천 태그를 보여줌
+const OPTION_SUGGESTIONS: { name: string; price: number; keywords: string[] }[] = [
+  { name: '전문 사회 비용', price: 150000, keywords: ['사회', '진행', 'mc'] },
+  { name: '공식 행사 MC', price: 300000, keywords: ['공식', 'mc', '행사'] },
+  { name: '리허설 참여', price: 50000, keywords: ['리허설', '연습'] },
+  { name: '대본 작성', price: 80000, keywords: ['대본', '스크립트', '원고'] },
+  { name: '사전 미팅', price: 30000, keywords: ['미팅', '사전', '상담'] },
+  { name: '포토타임 진행', price: 50000, keywords: ['포토', '사진'] },
+  { name: '축사/건배사 코디', price: 70000, keywords: ['축사', '건배', '코디'] },
+  { name: '2차 진행', price: 150000, keywords: ['2차', '뒷풀이', '피로연'] },
+  { name: '하객 응대', price: 80000, keywords: ['하객', '응대', '안내'] },
+  { name: '전담 코디네이터', price: 200000, keywords: ['코디', '전담', '매니저'] },
+  { name: '음향/사운드 체크', price: 50000, keywords: ['음향', '사운드', '마이크'] },
+  { name: '교통비', price: 30000, keywords: ['교통', '출장', '이동'] },
+  { name: '출장비 (장거리)', price: 100000, keywords: ['출장', '장거리', '지방', '교통'] },
+  { name: '의상 (턱시도/드레스)', price: 100000, keywords: ['의상', '턱시도', '드레스'] },
+  { name: '조기 도착', price: 30000, keywords: ['조기', '일찍', '리허설'] },
+  { name: '영상 큐시트', price: 50000, keywords: ['큐시트', '영상', '진행표'] },
+  { name: '세팅 지원', price: 50000, keywords: ['세팅', '준비', '셋업'] },
+];
 
-function sortChatMessages(messages: Message[]) {
-  return [...messages].sort((a, b) => {
-    const aTime = new Date(a.createdAt).getTime();
-    const bTime = new Date(b.createdAt).getTime();
-    return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
-  });
-}
-
-async function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error || new Error('이미지를 읽을 수 없습니다.'));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function loadImageElement(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('이미지 미리보기를 생성할 수 없습니다.'));
-    img.src = src;
-  });
-}
-
-async function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error('이미지를 압축할 수 없습니다.'));
-    }, type, quality);
-  });
-}
-
-async function normalizeChatImageFile(file: File): Promise<File> {
-  if (!file.type.startsWith('image/')) return file;
-  const originalUrl = await fileToDataUrl(file);
-  const img = await loadImageElement(originalUrl);
-  const longestSide = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
-  const scale = Math.min(1, 1440 / Math.max(1, longestSide));
-  const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
-  const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return file;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, width, height);
-  ctx.drawImage(img, 0, 0, width, height);
-
-  let quality = 0.82;
-  let blob = await canvasToBlob(canvas, 'image/webp', quality).catch(() => null);
-  while (blob && blob.size > 1.4 * 1024 * 1024 && quality > 0.5) {
-    quality -= 0.08;
-    blob = await canvasToBlob(canvas, 'image/webp', quality).catch(() => null);
-  }
-  if (!blob) {
-    quality = 0.82;
-    blob = await canvasToBlob(canvas, 'image/jpeg', quality);
-    while (blob.size > 1.4 * 1024 * 1024 && quality > 0.5) {
-      quality -= 0.08;
-      blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+function suggestOptionNames(input: string): { name: string; price: number }[] {
+  const q = input.toLowerCase().trim();
+  if (!q) return [];
+  const scored = OPTION_SUGGESTIONS.map((s) => {
+    let score = 0;
+    if (s.name.toLowerCase().includes(q)) score += 10;
+    for (const kw of s.keywords) {
+      if (kw.toLowerCase().includes(q) || q.includes(kw.toLowerCase())) score += 5;
     }
-  }
-
-  return new File([blob], (file.name.replace(/\.[^.]+$/, '') || 'chat-image') + '.webp', {
-    type: blob.type || 'image/webp',
-    lastModified: Date.now(),
-  });
+    return { ...s, score };
+  }).filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
+  return scored.map(({ name, price }) => ({ name, price }));
 }
 
+const formatKRW = (n: number) => n.toLocaleString('ko-KR') + '원';
 const formatDate = (iso: string) => {
   const d = new Date(iso);
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+};
+const normalizeDateParam = (value: any): string => {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
 };
 const normalizeTimeParam = (value: any): string => {
   if (!value) return '';
@@ -126,6 +93,12 @@ const buildQuoteCheckoutUrl = (chatPartner: ChatPartner | null, sys: SystemPaylo
     plan: sys.plan || 'premium',
     quotationId: sys.quotationId || quoteDetail?.id || '',
   });
+  const eventDate = normalizeDateParam(sys.eventDate || quoteDetail?.eventDate);
+  const eventTime = normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime);
+  const eventLocation = sys.eventLocation || quoteDetail?.eventLocation || '';
+  if (eventDate) params.set('eventDate', eventDate);
+  if (eventTime) params.set('slots', eventTime);
+  if (eventLocation) params.set('eventLocation', eventLocation);
   const qs = params.toString();
   return proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
 };
@@ -450,7 +423,7 @@ function KakaoMapEmbed({ venue }: { venue: string }) {
 // 여러 인스턴스가 렌더될 때 서로 비교하기 위해 간단한 글로벌 레지스트리 사용.
 const quoteCardRegistry = new Set<HTMLElement>();
 let quoteScrollRaf = 0;
-function queueQuoteCenterUpdate() {
+function scheduleQuoteCenterUpdate() {
   if (quoteScrollRaf) return;
   quoteScrollRaf = requestAnimationFrame(() => {
     quoteScrollRaf = 0;
@@ -475,9 +448,9 @@ function useNearestQuoteCard<T extends HTMLElement>() {
     const el = ref.current;
     if (!el) return;
     quoteCardRegistry.add(el);
-    queueQuoteCenterUpdate();
-    const onScroll = () => queueQuoteCenterUpdate();
-    const onResize = () => queueQuoteCenterUpdate();
+    scheduleQuoteCenterUpdate();
+    const onScroll = () => scheduleQuoteCenterUpdate();
+    const onResize = () => scheduleQuoteCenterUpdate();
     // 창 스크롤 + 채팅 컨테이너 스크롤(캡처) 모두 커버
     window.addEventListener('scroll', onScroll, { passive: true, capture: true });
     window.addEventListener('resize', onResize);
@@ -485,7 +458,7 @@ function useNearestQuoteCard<T extends HTMLElement>() {
       quoteCardRegistry.delete(el);
       window.removeEventListener('scroll', onScroll, { capture: true } as any);
       window.removeEventListener('resize', onResize);
-      queueQuoteCenterUpdate();
+      scheduleQuoteCenterUpdate();
     };
   }, []);
   return ref;
@@ -522,12 +495,14 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
       window.removeEventListener('focus', onFocus);
     };
   }, [msg.system, isPaid, refreshTick]);
+  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
+  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
   const quoteRef = useNearestQuoteCard<HTMLDivElement>();
 
   const sys = msg.system;
   if (!sys) return null;
 
-  if (sys.kind === 'session_start' || !['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid', 'review_request', 'refund', 'cancel'].includes(sys.kind)) {
+  if (sys.kind === 'session_start' || !['quote', 'payment_request', 'payment_paid', 'booking_confirmed', 'reminder', 'event_today', 'event_done', 'review_request', 'refund', 'cancel'].includes(sys.kind)) {
     return (
       <div className="text-center py-3">
         <span className="inline-block text-[12px] text-gray-500 bg-gray-100 px-3.5 py-1.5 rounded-full">
@@ -540,9 +515,11 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
   const wrapperClass = 'max-w-[280px] my-2 ml-14 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
 
   if (sys.kind === 'quote') {
-    const totalAmount = Number(sys.amount || quoteDetail?.amount || 0);
-    const estimateAmount = Number((sys as any).estimateAmount || sys.basePrice || 0) || Math.round(totalAmount / 1.1);
-    const vatAmount = Number((sys as any).vatAmount || 0) || Math.max(0, totalAmount - estimateAmount);
+    const planKey = String(sys.plan || '').toLowerCase();
+    const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === planKey);
+    const weddingTpl = getWeddingPlanTemplate(normalizeWeddingPlanKey(planKey));
+    const planLabel = tpl?.label || weddingTpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : '1부 예식');
+    const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' || planKey === 'wedding_part12' ? '#8B5CF6' : '#3180F7';
 
     return (
       <>
@@ -585,13 +562,13 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               {(() => {
                 const proImg = (sys as any)?.proImage
                   || (isPro ? myProfileImage : chatPartner?.profileImageUrl)
-                  || '/images/default-profile.png';
+                  || '/images/default-profile.svg';
                 return (
                   <img
                     src={proImg}
                     alt=""
                     className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.png'; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
                   />
                 );
               })()}
@@ -652,8 +629,25 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                   border: '1px solid rgba(255,255,255,0.5)',
                 }}
               >
-                견적서
+                {planLabel}
               </span>
+              {Array.isArray(sys.options) && sys.options.length > 0 && (
+                <span
+                  className="inline-block py-1 rounded-full leading-none"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    paddingLeft: 6,
+                    paddingRight: 6,
+                    color: '#B45309',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.2)',
+                  }}
+                  title={sys.options.map((o) => `${o.name} +${o.price.toLocaleString()}원`).join(', ')}
+                >
+                  +{sys.options.length}
+                </span>
+              )}
             </div>
             {/* 상품명 16pt weight 500 */}
             <p
@@ -676,7 +670,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
                 animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.66s both',
               }}
             >
-              {formatKRW(totalAmount)}
+              {formatKRW(sys.amount || 0)}
             </p>
             {!isPro && sys.quotationId && (
               isPaid ? (
@@ -759,7 +753,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             }
           }
           .quote-card-root .quote-card-body {
-            animation: none;
+            animation: quoteCardFly 1.0s cubic-bezier(0.22, 1, 0.36, 1);
           }
           /* 기본 (중앙 아님) — 모든 3D/애니메이션 OFF, 평면 + 그림자 없음.
              전환은 천천히 부드럽게 (뚝딱거리지 않게) */
@@ -806,8 +800,8 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             animation: quoteCardDim 4.5s ease-in-out 0.1s infinite alternate;
           }
           .quote-card-root[data-near-center="true"] .quote-card-shimmer {
-            animation: none;
-            opacity: 0;
+            animation: quoteCardShimmer 7s cubic-bezier(0.45, 0, 0.55, 1) 0.6s infinite;
+            opacity: 1;
           }
           .quote-card-root[data-near-center="true"] .quote-card-shadow {
             animation: quoteCardShadow 5s ease-in-out 0.1s infinite alternate;
@@ -853,11 +847,11 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
       </div>
       {showQuoteDetail && (
         <div
-          className="fixed inset-0 z-[1000] flex items-end bg-black/45"
+          className="fixed inset-0 z-[120] flex items-end bg-black/40"
           onClick={() => setShowQuoteDetail(false)}
         >
           <div
-            className="relative z-[1001] bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto shadow-[0_-20px_60px_rgba(0,0,0,0.18)]"
+            className="bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: 'sheetUp 0.3s ease' }}
           >
@@ -892,22 +886,60 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               )}
             </div>
 
+            {/* 행사 정보 */}
+            <div className="space-y-3 mb-5">
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">행사명</p>
+                <p className="text-[16px] font-semibold text-gray-900">{sys.eventName || quoteDetail?.title || '행사 진행'}</p>
+              </div>
+              {(sys.eventDate || quoteDetail?.eventDate) && (
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">행사 일정</p>
+                  <p className="text-[15px] text-gray-800">
+                    {(() => {
+                      const d = sys.eventDate || quoteDetail?.eventDate;
+                      if (!d) return '미정';
+                      try {
+                        return new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+                      } catch { return String(d); }
+                    })()}
+                    {normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime) ? ` · ${normalizeTimeParam(sys.eventTime || quoteDetail?.eventTime)}` : ''}
+                  </p>
+                </div>
+              )}
+              {quoteDetail?.eventLocation && (
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">장소</p>
+                  <p className="text-[15px] text-gray-800">{quoteDetail.eventLocation}</p>
+                </div>
+              )}
+              {quoteDetail?.description && (
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">메모</p>
+                  <p className="text-[14px] text-gray-700 whitespace-pre-wrap">{quoteDetail.description}</p>
+                </div>
+              )}
+              {Array.isArray(sys.options) && sys.options.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">추가 옵션</p>
+                  <div className="space-y-1">
+                    {sys.options.map((o: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between text-[13px] text-gray-700">
+                        <span>+ {o.name}</span>
+                        <span className="font-semibold">+{Number(o.price || 0).toLocaleString()}원</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* 금액 요약 */}
-            <div className="bg-gray-50 rounded-xl px-4 py-3 mb-4 space-y-2">
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-gray-500">견적금액</span>
-                <span className="font-semibold text-gray-900 tabular-nums">{formatKRW(estimateAmount)}</span>
-              </div>
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-gray-500">부가세</span>
-                <span className="font-semibold text-gray-900 tabular-nums">{formatKRW(vatAmount)}</span>
-              </div>
-              <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                <span className="text-[14px] font-bold text-gray-900">총액</span>
-                <span className="text-[20px] font-bold text-[#3180F7] tabular-nums">
-                  {formatKRW(totalAmount)}
-                </span>
-              </div>
+            <div className="bg-gray-50 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+              <span className="text-[13px] text-gray-500">총 견적 금액</span>
+              <span className="text-[20px] font-bold text-[#3180F7] tabular-nums">
+                {Number(sys.amount || 0).toLocaleString()}원
+              </span>
             </div>
 
             {/* 액션: 미결제 + 최신 + 고객 측이면 결제하기 노출 */}
@@ -983,22 +1015,6 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
     );
   }
 
-  if (sys.kind === 'payment_pending_acceptance') {
-    return (
-      <div className={wrapperClass}>
-        <div className="bg-white rounded-2xl border border-blue-100 shadow-sm px-4 py-3.5">
-          <div className="flex items-center gap-3">
-            <Clock size={24} className="text-[#3180F7] shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold text-gray-900">결제 완료 · 수락 대기</p>
-              <p className="text-[12px] text-gray-500 whitespace-pre-line">{msg.content}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (sys.kind === 'payment_paid') {
     const isDeposit = sys.paymentType === 'deposit';
     return (
@@ -1009,6 +1025,40 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             <p className="text-[14px] font-bold text-gray-900">{isDeposit ? '예약금' : '잔금'} 결제 완료</p>
             <p className="text-[13px] text-gray-500 tabular-nums">{formatKRW(sys.amount || 0)}</p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (sys.kind === 'booking_confirmed') {
+    return (
+      <div className={wrapperClass}>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-[#3180F7] px-4 py-3.5 text-white">
+            <div className="flex items-center gap-2 mb-1.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="white" opacity="0.3"/><path d="M9 13l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <p className="text-[11px] font-semibold tracking-wider uppercase opacity-80">CONFIRMED</p>
+            </div>
+            <p className="text-[16px] font-semibold">예약이 확정되었습니다</p>
+            <p className="text-[12px] opacity-60 mt-0.5">내 스케줄에 자동 추가되었습니다</p>
+          </div>
+          {sys.venue && <KakaoMapEmbed venue={sys.venue} />}
+          {(sys.eventDate || sys.venue) && (
+            <div className="px-4 py-3 space-y-1.5">
+              {sys.eventDate && (
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E5E7EB"/><rect x="3" y="4" width="18" height="6" rx="2.5" fill="#9CA3AF"/></svg>
+                  <p className="text-[12px] text-gray-600">{formatDate(sys.eventDate)}{sys.eventTime ? ` · ${sys.eventTime}` : ''}</p>
+                </div>
+              )}
+              {sys.venue && (
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EF4444"/><circle cx="12" cy="9" r="2" fill="white"/></svg>
+                  <p className="text-[12px] text-gray-600">{sys.venue}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1168,6 +1218,7 @@ export interface ChatExtrasProps {
   setIsRecording: React.Dispatch<React.SetStateAction<boolean>>;
   recordingTime: number;
   setRecordingTime: React.Dispatch<React.SetStateAction<number>>;
+  onRegisterRecording?: (fns: { start: () => void; stop: (cancel: boolean) => void }) => void;
   // Voice playback
   playingVoice: string | null;
   setPlayingVoice: React.Dispatch<React.SetStateAction<string | null>>;
@@ -1216,6 +1267,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     partialCopyMsg, setPartialCopyMsg,
     isRecording, setIsRecording,
     recordingTime, setRecordingTime,
+    onRegisterRecording,
     playingVoice, setPlayingVoice,
     voicePlayProgress, setVoicePlayProgress,
     mentionQuery, setMentionQuery,
@@ -1231,12 +1283,13 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
   // ─── Quote modal state ───
+  const [quotePlan, setQuotePlan] = useState<string>('premium');
   const [quoteEventName, setQuoteEventName] = useState('');
   const [quoteEventDate, setQuoteEventDate] = useState('');
   const [quoteEventTime, setQuoteEventTime] = useState('');
   const [quoteEventLocation, setQuoteEventLocation] = useState('');
+  const [quoteMemo, setQuoteMemo] = useState('');
   const [quoteCustomAmount, setQuoteCustomAmount] = useState('');
-  const [showStickerPicker, setShowStickerPicker] = useState(false);
 
   // 견적 작성 모달이 열릴 때, 고객 매칭 요청/최신 견적 정보를 자동 채움.
   // 프로가 직접 다시 입력하지 않아도 행사일/시간/장소/이름이 들어가 있게.
@@ -1267,14 +1320,35 @@ export default function ChatExtras(props: ChatExtrasProps) {
     setQuoteEventTime((cur) => cur || toTimeInput(mr?.eventTime || lq?.eventTime || raw.timeStart));
     setQuoteEventLocation((cur) => cur || mr?.eventLocation || lq?.eventLocation || raw.location || '');
     setQuoteEventName((cur) => cur || lq?.title || raw.eventName || mr?.eventCategory?.name || '');
+    // 플랜 자동 선택 — rawUserInput 의 planKey 또는 wedding_part1 / wedding_part12 같은 라벨 힌트
+    const planHint = raw.planKey || raw.plan;
+    if (planHint && typeof planHint === 'string') {
+      setQuotePlan((cur) => (PLAN_KEYS.includes(planHint) ? planHint : cur));
+    }
   }, [showQuoteModal, roomMeta]);
+  // 추가 옵션 (프로가 견적 보낼 때 옵션을 추가해 총액을 올릴 수 있음)
+  const [quoteOptions, setQuoteOptions] = useState<{ name: string; price: number }[]>([]);
   const [quoteSending, setQuoteSending] = useState(false);
+  const [newOptName, setNewOptName] = useState('');
+  const [newOptPrice, setNewOptPrice] = useState('');
 
-  const quoteEstimateAmount = quoteCustomAmount.trim()
+  // 어드민 플랜 템플릿 — 가격/이름/포함항목의 단일 소스
+  const [planTemplates, setPlanTemplates] = useState<PlanTemplate[]>([]);
+  useEffect(() => { getPlanTemplates().then(setPlanTemplates).catch(() => {}); }, []);
+  const PLAN_DATA: Record<string, { label: string; price: number; items: string[] }> = Object.fromEntries(
+    planTemplates.filter((t) => t.isActive).map((t) => [t.planKey, { label: t.label, price: t.defaultPrice, items: t.includedItems }])
+  );
+  const PLAN_KEYS = planTemplates.filter((t) => t.isActive).map((t) => t.planKey);
+  useEffect(() => {
+    if (PLAN_KEYS.length > 0 && !PLAN_KEYS.includes(quotePlan)) setQuotePlan(PLAN_KEYS[0]);
+  }, [planTemplates]);
+
+  const selectedPlan = PLAN_DATA[quotePlan];
+  const quoteOptionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
+  const quoteBaseAmount = quoteCustomAmount.trim()
     ? Math.max(0, parseInt(quoteCustomAmount.replace(/[^\d]/g, ''), 10) || 0)
-    : 0;
-  const quoteVatAmount = Math.round(quoteEstimateAmount * 0.1);
-  const quoteTotalAmount = quoteEstimateAmount + quoteVatAmount;
+    : (selectedPlan?.price || 0);
+  const quoteTotalAmount = quoteBaseAmount + quoteOptionsTotal;
 
   // ─── Handlers ───
 
@@ -1325,19 +1399,91 @@ export default function ChatExtras(props: ChatExtrasProps) {
       };
       mr.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        const duration = Math.round((Date.now() - recordingStartRef.current) / 1000);
+        const duration = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
+        stream.getTracks().forEach((t) => t.stop());
+
+        // 녹음 데이터가 없으면 전송 불가 (iOS 오디오 권한 문제 등)
+        if (blob.size === 0) {
+          toast.error('녹음 데이터가 없습니다. 마이크 권한을 확인해주세요.');
+          return;
+        }
+
+        const localUrl = URL.createObjectURL(blob);
+        const optimisticId = `opt-voice-${Date.now()}`;
+
+        // 낙관적 UI
         setMessages((prev) => [...prev, {
-          id: Date.now().toString(),
+          id: optimisticId,
           senderId: MY_ID,
-          content: url,
+          content: localUrl,
           type: 'voice',
           createdAt: new Date().toISOString(),
           isRead: false,
-          duration: Math.max(1, duration),
+          duration,
           isNew: true,
         }]);
-        stream.getTracks().forEach((t) => t.stop());
+
+        // 서버 업로드 후 WebSocket 전송
+        const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+        if (!roomId || roomId.startsWith('pending-')) return;
+        import('@/lib/api/chat.api').then(({ chatApi }) => {
+          chatApi.uploadAudio(roomId, blob, mimeType || 'audio/webm')
+            .then(async (res) => {
+              const audioUrl = res.data.audioUrl || res.data.imageUrl;
+              if (!audioUrl) throw new Error('audioUrl missing');
+
+              // 업로드 완료 → 낙관적 메시지 content를 blob URL에서 실제 audioUrl로 교체
+              // 이렇게 하면 재생 중에도 실제 URL로 연속 재생 가능
+              setMessages((prev) => prev.map((m) =>
+                m.id === optimisticId ? { ...m, content: audioUrl } : m,
+              ));
+              // 재생 중이던 경우 progress 키도 audioUrl 기반으로 유지 (id는 그대로)
+
+              // store.sendMessage 시도 → null 반환(currentRoomId 없는 경우) 시 REST로 직접 전송
+              let saved = await useChatStore.getState().sendMessage({
+                type: 'voice',
+                content: audioUrl,
+                metadata: { duration },
+              });
+              if (!saved) {
+                const r = await chatApi.sendMessage(roomId, {
+                  type: 'voice',
+                  content: audioUrl,
+                  metadata: { duration },
+                });
+                saved = r.data as any;
+              }
+              return saved;
+            })
+            .then((saved) => {
+              if (!saved) {
+                setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+                toast.error('음성 메시지 전송에 실패했습니다.');
+                return;
+              }
+              const savedId = (saved as any).id;
+              const mappedType = ((saved as any).type === 'link' || (saved as any).type === 'sticker') ? 'text' : (saved as any).type as Message['type'];
+              setMessages((prev) => {
+                const withoutOpt = prev.filter((m) => m.id !== optimisticId);
+                if (withoutOpt.some((m) => m.id === savedId)) return withoutOpt;
+                return [...withoutOpt, { ...(saved as any), type: mappedType, duration, isNew: false } as unknown as Message];
+              });
+              // 낙관적 메시지가 재생 중이었다면 → 실제 메시지 ID로 재생 상태 이전
+              if (playingVoice === optimisticId) {
+                setPlayingVoice(savedId);
+                setVoicePlayProgress((prev) => {
+                  const progress = prev[optimisticId] ?? 0;
+                  const { [optimisticId]: _removed, ...rest } = prev;
+                  return { ...rest, [savedId]: progress };
+                });
+              }
+            })
+            .catch((err) => {
+              setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+              const detail = err?.message ? ` (${err.message})` : '';
+              toast.error(`음성 전송 실패${detail}`);
+            });
+        });
       };
       mr.onerror = (e) => {
         console.error('MediaRecorder error', e);
@@ -1354,6 +1500,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       }, 100);
     } catch (err: any) {
       console.error('startRecording error', err);
+      setIsRecording(false); // 실패 시 녹음 UI 원복
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
         toast.error('마이크 권한이 거부되었습니다');
       } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
@@ -1383,6 +1530,12 @@ export default function ChatExtras(props: ChatExtrasProps) {
     setIsRecording(false);
     setRecordingTime(0);
   };
+
+  // page.tsx Mic·취소·전송 버튼이 startRecording/stopRecording을 직접 호출할 수 있도록 등록
+  // (lazy load로 인해 isRecording prop이 이미 true인 채 마운트될 수 있어 useEffect 감시 방식 사용 불가)
+  useEffect(() => {
+    onRegisterRecording?.({ start: startRecording, stop: stopRecording });
+  }, []);
 
   const togglePlayVoice = (msgId: string, url: string) => {
     if (playingVoice && playingVoice !== msgId) {
@@ -1424,7 +1577,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const handleImageSend = async (file: File) => {
     setShowAttach(false);
     const tempId = `tmp-${Date.now()}`;
-    const clientMessageId = `cm-img-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const localUrl = URL.createObjectURL(file);
     // 낙관적 UI: 로컬 미리보기 먼저 표시
     setMessages((prev) => [...prev, {
@@ -1433,136 +1585,36 @@ export default function ChatExtras(props: ChatExtrasProps) {
       content: localUrl,
       type: 'image',
       createdAt: new Date().toISOString(),
-      clientMessageId,
       isRead: false,
       isNew: true,
-      uploading: true,
-      uploadProgress: 3,
     }]);
 
     try {
       const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       if (!roomId || roomId.startsWith('pending-')) return;
-      setMessages((prev) => prev.map((m) => (
-        m.id === tempId ? { ...m, uploading: true, uploadProgress: 10 } : m
-      )));
-      const normalizedFile = await normalizeChatImageFile(file);
-      setMessages((prev) => prev.map((m) => (
-        m.id === tempId ? { ...m, uploading: true, uploadProgress: 14 } : m
-      )));
-      const upload = await chatApi.uploadImage(roomId, normalizedFile, (event) => {
-        const total = event.total || normalizedFile.size || 1;
-        const nextProgress = Math.max(15, Math.min(88, Math.round((event.loaded / total) * 74) + 14));
-        setMessages((prev) => prev.map((m) => (
-          m.id === tempId ? { ...m, uploading: true, uploadProgress: nextProgress } : m
-        )));
+      // file → base64 data URL
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = rej;
+        r.readAsDataURL(file);
       });
-      const imageUrl = upload.data?.imageUrl;
-      if (!imageUrl) throw new Error('업로드된 이미지 URL을 확인할 수 없습니다.');
-      setMessages((prev) => prev.map((m) => (
-        m.id === tempId ? { ...m, uploading: true, uploadProgress: 92 } : m
-      )));
-
+      // 서버에 전송 → 서버가 디스크 저장 후 공개 URL 로 content 대체
       const saved = (
-        await useChatStore.getState().sendMessage({
-          type: 'image',
-          content: imageUrl,
-          metadata: { clientMessageId },
-        }).catch(() => null)
-      ) || ((await chatApi.sendMessage(roomId, { type: 'image', content: imageUrl, metadata: { clientMessageId } })).data as any);
-      setMessages((prev) => prev.map((m) => (
-        m.id === tempId ? { ...m, uploading: true, uploadProgress: 98 } : m
-      )));
+        await useChatStore.getState().sendMessage({ type: 'image', content: dataUrl }).catch(() => null)
+      ) || ((await chatApi.sendMessage(roomId, { type: 'image', content: dataUrl })).data as any);
       // 임시 메시지를 서버 응답으로 교체 (senderId, content 는 서버 값)
-      setMessages((prev) => {
-        const withoutPersisted = prev.filter((m) => m.id !== saved.id);
-        return withoutPersisted.map((m) => (
-          m.id === tempId || m.clientMessageId === clientMessageId
-            ? {
-                ...m,
-                id: saved.id,
-                content: saved.content || imageUrl || localUrl,
-                clientMessageId,
-                isNew: false,
-                uploading: false,
-                uploadProgress: 100,
-              }
-            : m
-        ));
-      });
-      window.setTimeout(() => URL.revokeObjectURL(localUrl), 2000);
+      setMessages((prev) => prev.map((m) => m.id === tempId ? {
+        ...m,
+        id: saved.id,
+        content: saved.content || localUrl,
+        isNew: false,
+      } : m));
     } catch (e: any) {
       toast.error(`이미지 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
       // 실패한 임시 메시지 제거
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      URL.revokeObjectURL(localUrl);
     }
-  };
-
-  const handleStickerSend = async (sticker: ChatSticker) => {
-    setShowAttach(false);
-    setShowStickerPicker(false);
-    if (!MY_ID) {
-      toast.error('로그인이 필요합니다');
-      return;
-    }
-
-    const clientMessageId = `cm-sticker-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const optimistic: Message = {
-      id: `opt-sticker-${clientMessageId}`,
-      senderId: MY_ID,
-      content: sticker.src,
-      type: 'sticker',
-      createdAt: new Date().toISOString(),
-      clientMessageId,
-      isRead: false,
-      isNew: true,
-    };
-    setMessages((prev) => sortChatMessages([...prev, optimistic]));
-
-    const saved = await useChatStore.getState().sendMessage({
-      type: 'sticker',
-      content: sticker.src,
-      metadata: {
-        clientMessageId,
-        stickerId: sticker.id,
-        stickerAlt: sticker.alt,
-      },
-      replyToId: replyTo?.id,
-    }).catch(() => null);
-
-    if (!saved) {
-      setMessages((prev) => prev.filter((message) => message.id !== optimistic.id));
-      toast.error('이모티콘 전송 실패');
-      return;
-    }
-
-    const persisted: Message = {
-      id: saved.id,
-      senderId: saved.senderId,
-      content: saved.content || sticker.src,
-      type: saved.type === 'sticker' ? 'sticker' : 'text',
-      createdAt: saved.createdAt,
-      clientMessageId,
-      isRead: saved.isRead,
-      replyTo: saved.replyTo ? {
-        id: saved.replyTo.id,
-        name: saved.replyTo.senderId,
-        content: saved.replyTo.content || '',
-      } : null,
-      reaction: saved.reactions?.[0]?.emoji ?? null,
-      isNew: false,
-    };
-
-    setMessages((prev) => {
-      const withoutOptimistic = prev.filter((message) => (
-        message.id !== optimistic.id &&
-        message.id !== persisted.id &&
-        message.clientMessageId !== clientMessageId
-      ));
-      return sortChatMessages([...withoutOptimistic, persisted]);
-    });
-    setReplyTo(null);
   };
 
   const handleFileSend = async (file: File) => {
@@ -1629,11 +1681,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
       (err) => {
         toast.dismiss(loadingToast);
         if (err.code === err.PERMISSION_DENIED) {
-          toast('지도에서 위치를 선택해주세요');
+          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
         } else if (err.code === err.POSITION_UNAVAILABLE) {
-          toast('지도에서 위치를 선택해주세요');
+          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
         } else if (err.code === err.TIMEOUT) {
-          toast('지도에서 위치를 선택해주세요');
+          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
         }
         setShowLocationPicker(true);
       },
@@ -1653,15 +1705,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
     inputRef.current?.focus();
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== id));
     setActionMenu(null);
-    try {
-      await useChatStore.getState().deleteMessage(id);
-      toast.success('메시지가 삭제되었습니다');
-    } catch {
-      toast.error('삭제에 실패했습니다. 잠시 후 다시 시도해주세요');
-    }
   };
 
   const handleReport = (msg: Message) => {
@@ -1714,63 +1760,32 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
   const handleSendQuote = async () => {
     if (quoteSending) return;
+    const plan = PLAN_DATA[quotePlan];
+    if (!plan) { toast.error('플랜 정보를 불러오는 중입니다'); return; }
     if (!chatPartner?.id) {
       toast.error('상대방 정보를 찾을 수 없습니다');
       return;
     }
-    if (quoteEstimateAmount < MIN_QUOTE_AMOUNT) {
-      toast.error('견적금액은 최소 30만원부터 발송할 수 있습니다');
-      return;
-    }
     setQuoteSending(true);
-    const estimateAmount = quoteEstimateAmount;
-    const vatAmount = quoteVatAmount;
-    const totalAmount = quoteTotalAmount;
-    const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
-    const myProImage = useAuthStore.getState().user?.profileImageUrl || null;
-    const optimisticId = `opt-quote-${Date.now()}`;
-    const quoteSystemPayload = {
-      kind: 'quote',
-      eventName: quoteEventName || '행사 진행',
-      amount: totalAmount,
-      basePrice: estimateAmount,
-      estimateAmount,
-      vatAmount,
-      options: [],
-      eventDate: quoteEventDate,
-      eventTime: quoteEventTime,
-      eventLocation: quoteEventLocation,
-      items: [],
-      proImage: myProImage,
-    };
-
-    setShowQuoteModal(false);
-    setQuoteEventName('');
-    setQuoteEventDate('');
-    setQuoteEventTime('');
-    setQuoteEventLocation('');
-    setQuoteCustomAmount('');
-    setMessages((prev) => [...prev, {
-      id: optimisticId,
-      senderId: MY_ID,
-      content: '견적서 발송',
-      type: 'system',
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      system: quoteSystemPayload as any,
-    }]);
-
+    // 옵션 총액 + 전체 합계
+    const optionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
+    const baseAmount = quoteCustomAmount.trim()
+      ? Math.max(0, parseInt(quoteCustomAmount.replace(/[^\d]/g, ''), 10) || 0)
+      : plan.price;
+    const totalAmount = baseAmount + optionsTotal;
     try {
+      const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       // 1) 백엔드에 실제 Quotation 생성
       const created = await quotationApi.create({
         userId: chatPartner.id,
         amount: totalAmount,
         title: quoteEventName || '행사 진행',
         description: [
-          `견적금액 ${estimateAmount.toLocaleString('ko-KR')}원`,
-          `부가세 ${vatAmount.toLocaleString('ko-KR')}원`,
-          `총액 ${totalAmount.toLocaleString('ko-KR')}원`,
-        ].join('\n'),
+          quoteMemo,
+          quoteOptions.length > 0
+            ? `\n[추가 옵션]\n${quoteOptions.map((o) => `- ${o.name}: +${o.price.toLocaleString()}원`).join('\n')}`
+            : '',
+        ].filter(Boolean).join(''),
         eventDate: quoteEventDate || undefined,
         eventTime: quoteEventTime || undefined,
         eventLocation: quoteEventLocation || undefined,
@@ -1779,15 +1794,26 @@ export default function ChatExtras(props: ChatExtrasProps) {
       const quotationId = (created as any)?.id;
 
       // 2) 채팅방에 견적 카드 메시지 전송 (상대가 결제 버튼 누를 수 있게 metadata 포함)
+      const myProImage = useAuthStore.getState().user?.profileImageUrl || null;
       let savedQuoteMessage: any = null;
       if (roomId && !roomId.startsWith('pending-')) {
         const quoteMessagePayload = {
           type: 'system' as any,
-          content: `견적서 발송: ${totalAmount.toLocaleString()}원`,
+          content: `💰 견적서 발송: ${totalAmount.toLocaleString()}원`,
           metadata: {
             system: {
-              ...quoteSystemPayload,
+              kind: 'quote',
+              plan: quotePlan,
+              eventName: quoteEventName || '행사 진행',
+              amount: totalAmount,
+              basePrice: baseAmount,
+              options: quoteOptions,
+              eventDate: quoteEventDate,
+              eventTime: quoteEventTime,
+              eventLocation: quoteEventLocation,
+              items: plan.items,
               quotationId,
+              proImage: myProImage,
             },
           },
         };
@@ -1798,6 +1824,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
         }
       }
 
+      // 3) 로컬 UI에도 즉시 반영 — 단, store.sendMessage 경로가 이미 wsMessages 에
+      //    추가했을 수 있으므로 같은 id 가 있으면 스킵해 중복 카드 방지.
       const targetId = savedQuoteMessage?.id || `opt-quote-${Date.now()}`;
       const quoteMsg: Message = {
         id: targetId,
@@ -1807,34 +1835,34 @@ export default function ChatExtras(props: ChatExtrasProps) {
         createdAt: savedQuoteMessage?.createdAt || new Date().toISOString(),
         isRead: false,
         system: {
-          ...quoteSystemPayload,
+          kind: 'quote',
+          plan: quotePlan,
+          eventName: quoteEventName || '행사 진행',
+          amount: totalAmount,
+          basePrice: baseAmount,
+          options: quoteOptions,
+          eventDate: quoteEventDate,
+          eventTime: quoteEventTime,
+          eventLocation: quoteEventLocation,
+          items: plan.items,
           quotationId,
+          proImage: myProImage,
         } as any,
       };
-      setMessages(prev => {
-        let patchedOptimistic = false;
-        const next = prev.map((m) => {
-          if (m.id !== optimisticId) return m;
-          patchedOptimistic = true;
-          return {
-            ...m,
-            content: quoteMsg.content,
-            createdAt: quoteMsg.createdAt || m.createdAt,
-            isRead: quoteMsg.isRead,
-            system: {
-              ...quoteMsg.system,
-              serverMessageId: savedQuoteMessage?.id,
-            } as any,
-          };
-        });
-        if (patchedOptimistic) return sortChatMessages(next);
-        if (prev.some((m) => m.id === targetId)) return prev;
-        return sortChatMessages([...prev, quoteMsg]);
-      });
+      setMessages(prev => prev.some((m) => m.id === targetId) ? prev : [...prev, quoteMsg]);
+      setShowQuoteModal(false);
+      setQuoteEventName('');
+      setQuoteEventDate('');
+      setQuoteEventTime('');
+      setQuoteEventLocation('');
+      setQuoteMemo('');
+      setQuoteCustomAmount('');
+      setQuoteOptions([]);
+      setNewOptName('');
+      setNewOptPrice('');
       toast.success('견적서가 발송되었습니다');
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '발송 실패';
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       toast.error(`견적서 발송 실패: ${msg}`);
     } finally {
       setQuoteSending(false);
@@ -1844,8 +1872,12 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const ATTACH_ITEMS = [
     // 견적서 발송을 최상단으로 (프로에게 가장 중요한 액션)
     ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
+    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => cameraInputRef.current?.click() },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
-    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); setShowStickerPicker(true); } },
+    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
+    { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
+    { icon: <MapPin size={24} className="text-white" />, bg: 'bg-slate-700', label: '위치', action: handleLocationSend },
+    { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
   ];
 
   const mentionList = chatPartner
@@ -1872,6 +1904,24 @@ export default function ChatExtras(props: ChatExtrasProps) {
             <button onClick={() => { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
               {muted ? <Bell size={16} className="text-gray-500" /> : <BellOff size={16} className="text-gray-500" />}
               {muted ? '알림 켜기' : '알림 끄기'}
+            </button>
+            {isPro ? (
+              <button
+                onClick={() => {
+                  setShowHeaderMenu(false);
+                  toast(`${chatPartner?.name || '고객'} 정보는 대화 상단 카드에서 확인할 수 있습니다`);
+                }}
+                className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
+              >
+                <Smile size={16} className="text-gray-500" /> 고객 정보 보기
+              </button>
+            ) : (
+              <Link href={`/pros/${chatPartner?.proProfileId || chatPartner?.id || ''}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
+                <Smile size={16} className="text-gray-500" /> 프로필 보기
+              </Link>
+            )}
+            <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-red-500 hover:bg-red-50 w-full border-t border-gray-100">
+              <Trash2 size={16} /> 대화 삭제
             </button>
           </div>
         </>
@@ -2049,38 +2099,71 @@ export default function ChatExtras(props: ChatExtrasProps) {
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <h2 className="text-[18px] font-bold text-gray-900 mb-4">견적서 작성</h2>
 
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">견적금액</p>
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">견적 금액</p>
             <input
               type="text"
               inputMode="numeric"
               value={quoteCustomAmount}
               onChange={(e) => setQuoteCustomAmount(e.target.value.replace(/[^\d]/g, ''))}
-              placeholder="최소 300,000원"
-              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-2"
+              placeholder="직접 입력하지 않으면 선택 플랜 금액이 적용됩니다"
+              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-4"
             />
-            <p className="text-[12px] text-gray-400 mb-4">입력한 금액에 부가세 10%가 자동으로 더해져 고객에게 총액으로 표시됩니다.</p>
+
+            {/* ─── 행사 정보 (행사일이 스케줄링에 사용됨) ─── */}
+            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">행사 정보</p>
+            <div className="space-y-2 mb-4">
+              <input
+                type="text"
+                value={quoteEventName}
+                onChange={(e) => setQuoteEventName(e.target.value)}
+                placeholder="행사명 (예: 김철수·이영희 결혼식)"
+                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={quoteEventDate}
+                  onChange={(e) => setQuoteEventDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
+                />
+                <input
+                  type="time"
+                  value={quoteEventTime}
+                  onChange={(e) => setQuoteEventTime(e.target.value)}
+                  className="w-[130px] h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
+                />
+              </div>
+              <input
+                type="text"
+                value={quoteEventLocation}
+                onChange={(e) => setQuoteEventLocation(e.target.value)}
+                placeholder="행사 장소 (예: 그랜드 워커힐 서울)"
+                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
+              />
+              {!quoteEventDate && (
+                <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                  ⚠️ 행사일을 설정해야 스케줄에 자동 등록됩니다
+                </p>
+              )}
+            </div>
 
             {/* 총액 표시 */}
-            <div className="bg-gray-50 rounded-xl px-4 py-3 mb-4 space-y-2">
-              <div className="flex items-center justify-between text-[14px]">
-                <span className="text-gray-500">견적금액</span>
-                <span className="font-semibold text-gray-900 tabular-nums">{formatKRW(quoteEstimateAmount)}</span>
+            <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-4">
+              <div>
+                <p className="text-[11px] text-gray-400">
+                  기본 견적 {quoteBaseAmount.toLocaleString()}원
+                  {quoteCustomAmount.trim() ? ' · 직접 입력' : ` · ${PLAN_DATA[quotePlan]?.label || ''}`}
+                </p>
               </div>
-              <div className="flex items-center justify-between text-[14px]">
-                <span className="text-gray-500">부가세</span>
-                <span className="font-semibold text-gray-900 tabular-nums">{formatKRW(quoteVatAmount)}</span>
-              </div>
-              <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                <span className="text-[15px] font-bold text-gray-900">총액</span>
-                <span className="text-[20px] font-bold text-[#3180F7] tabular-nums">
-                  {formatKRW(quoteTotalAmount)}
-                </span>
-              </div>
+              <p className="text-[18px] font-bold text-[#3180F7]">
+                {quoteTotalAmount.toLocaleString()}원
+              </p>
             </div>
 
             <button
               onClick={handleSendQuote}
-              disabled={quoteSending || quoteEstimateAmount < MIN_QUOTE_AMOUNT}
+              disabled={quoteSending}
               className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
             >
               {quoteSending ? (
@@ -2125,52 +2208,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   <span className="text-[17px] text-gray-900">{item.label}</span>
                 </button>
               ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ─── 이모티콘 선택 ─── */}
-      {showStickerPicker && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/10 animate-[fadeIn_0.25s_ease]"
-            style={{ backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
-            onClick={() => setShowStickerPicker(false)}
-          />
-          <div
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-2xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.12)] pb-safe"
-            style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3 mb-4" />
-            <div className="px-5 pb-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-bold tracking-wider text-[#3180F7]">FREETIFUL</p>
-                  <h3 className="text-[18px] font-black text-gray-900">이모티콘</h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowStickerPicker(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 active:scale-90 transition-transform"
-                >
-                  <X size={18} className="text-gray-500" />
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-                {CHAT_STICKERS.map((sticker, index) => (
-                  <button
-                    key={sticker.id}
-                    type="button"
-                    onClick={() => handleStickerSend(sticker)}
-                    className="aspect-square rounded-2xl bg-gray-50 p-1.5 active:scale-95 hover:bg-blue-50 transition-all"
-                    style={{ animation: `attachItemUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) ${index * 0.025}s both` }}
-                  >
-                    <img src={sticker.src} alt={sticker.alt} draggable={false} className="h-full w-full object-contain" />
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
         </>

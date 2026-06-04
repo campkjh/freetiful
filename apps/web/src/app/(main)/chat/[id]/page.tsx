@@ -3,20 +3,37 @@
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature,
+  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature, Play, Pause,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { cacheChatMessagesForRoom, getCachedChatMessagesForRoom, useChatStore } from '@/lib/store/chat.store';
+import { useChatStore } from '@/lib/store/chat.store';
 import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-prewarm';
-import { getProfileImageUrl } from '@/lib/default-profile';
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
 
-const INITIAL_MESSAGE_LIMIT = 18;
-const REFRESH_MESSAGE_LIMIT = 12;
+// ── 채팅 메시지 localStorage 캐시 (딥링크·앱 재시작 후 즉시 표시) ─────────────
+const MSG_CACHE_PREFIX = 'freetiful-chat-msg-cache-v1-';
+const MSG_CACHE_LIMIT = 30;
+
+function saveMsgCache(roomId: string, messages: Message[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    const recent = messages.slice(-MSG_CACHE_LIMIT);
+    localStorage.setItem(MSG_CACHE_PREFIX + roomId, JSON.stringify(recent));
+  } catch {}
+}
+
+function loadMsgCache(roomId: string): Message[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(MSG_CACHE_PREFIX + roomId);
+    if (!raw) return [];
+    return JSON.parse(raw) as Message[];
+  } catch { return []; }
+}
 
 /** Convert a MessageItem from the API into our local Message shape */
 function mapApiMessage(m: MessageItem): Message {
@@ -25,9 +42,8 @@ function mapApiMessage(m: MessageItem): Message {
     id: m.id,
     senderId: m.senderId,
     content: m.content || '',
-    type: m.type === 'link' ? 'text' : m.type as Message['type'],
+    type: (m.type === 'link' || m.type === 'sticker') ? 'text' : m.type as Message['type'],
     createdAt: m.createdAt,
-    clientMessageId: typeof meta?.clientMessageId === 'string' ? meta.clientMessageId : undefined,
     isRead: m.isRead,
     replyTo: m.replyTo ? { id: m.replyTo.id, name: m.replyTo.senderId, content: m.replyTo.content || '' } : null,
     reaction: m.reactions?.[0]?.emoji ?? null,
@@ -45,12 +61,6 @@ function mapCachedMessage(m: MessageItem | Message): Message {
     return mapApiMessage(m as MessageItem);
   }
   return m as Message;
-}
-
-function writeMessageCacheIfPresent(roomId: string, messages: MessageItem[]) {
-  if (messages.length === 0) return;
-  useChatStore.getState().messageCache.set(roomId, messages);
-  cacheChatMessagesForRoom(roomId, messages);
 }
 
 function formatDateDivider(dateStr: string) {
@@ -77,42 +87,29 @@ function messageTime(message: Pick<Message, 'createdAt'>) {
   return Number.isFinite(time) ? time : 0;
 }
 
-function isTemporaryMessage(message: Message) {
-  return message.id.startsWith('opt-') || message.id.startsWith('tmp-') || message.id.startsWith('pending-');
-}
-
 function hasFetchedEquivalent(message: Message, fetched: Message[]) {
-  if (!isTemporaryMessage(message)) return false;
+  if (!message.id.startsWith('opt-')) return false;
   const sentAt = messageTime(message);
-  return fetched.some((item) => {
-    if (message.clientMessageId && item.clientMessageId && message.clientMessageId === item.clientMessageId) {
-      return true;
-    }
-    if (item.senderId !== message.senderId || item.type !== message.type) return false;
-    if (message.type === 'text') {
-      return item.content === message.content &&
-        messageTime(item) >= sentAt - 2_000 &&
-        Math.abs(messageTime(item) - sentAt) < 60_000;
-    }
-    return Math.abs(messageTime(item) - sentAt) < 20_000;
-  });
+  return fetched.some((item) => (
+    item.senderId === message.senderId &&
+    item.content === message.content &&
+    messageTime(item) >= sentAt - 2_000 &&
+    Math.abs(messageTime(item) - sentAt) < 60_000
+  ));
 }
 
-function mergeFetchedMessages(current: Message[], fetched: Message[], _requestedAt: number) {
+function mergeFetchedMessages(current: Message[], fetched: Message[], requestedAt: number) {
+  // API가 빈 배열을 반환하면 기존 메시지를 지우지 않는다 (서버 이상/일시적 빈 응답 방어)
   if (fetched.length === 0 && current.length > 0) return current;
-
   const fetchedIds = new Set(fetched.map((message) => message.id));
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
     if (hasFetchedEquivalent(message, fetched)) return false;
-    return true;
+    if (message.id.startsWith('opt-')) return true;
+    return messageTime(message) >= requestedAt - 2_000;
   });
 
   return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
-}
-
-function sortMessagesAsc(messages: Message[]) {
-  return [...messages].sort((a, b) => messageTime(a) - messageTime(b));
 }
 
 // Simple inline text with @mention highlighting
@@ -137,14 +134,111 @@ function SystemMessageFallback({ msg }: { msg: Message }) {
   );
 }
 
-function mapRoomToPartner(room: ChatRoomItem & { proProfileId?: string }): ChatPartner {
-  return {
-    id: room.otherUser.id,
-    proProfileId: room.proProfileId,
-    name: room.otherUser.name,
-    profileImageUrl: getProfileImageUrl(room.otherUser.profileImageUrl, room.otherUser.id || room.otherUser.name),
-    isActive: room.otherUser.isActive ?? false,
-  };
+// eventTime 은 DB 에서 `1970-01-01T${HH:MM}` 형태 Date 로 저장돼 ISO 문자열로 직렬화되므로
+// 그대로 표시하면 "1970-01-01T..." 가 노출된다. 항상 HH:MM 만 추출해서 보여준다.
+function formatEventTimeShort(t: string | Date | null | undefined): string {
+  if (!t) return '';
+  if (typeof t === 'string' && /^\d{1,2}:\d{2}/.test(t)) {
+    const [hh, mm] = t.split(':');
+    return `${hh.padStart(2, '0')}:${mm.slice(0, 2)}`;
+  }
+  if (typeof t === 'string') {
+    const isoTime = t.match(/T(\d{2}:\d{2})/);
+    if (isoTime) return isoTime[1];
+  }
+  try {
+    const d = typeof t === 'string' ? new Date(t) : t;
+    if (Number.isNaN(d.getTime())) return '';
+    const h = d.getHours().toString().padStart(2, '0');
+    const m = d.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
+  } catch {
+    return '';
+  }
+}
+
+// 채팅 헤더 바로 아래 fixed 위치에 도킹되는 스케줄 공지 — 결제 완료 시 노출.
+// 톤앤매너: 흰 배경 + 블루(#3180F7) 액센트, 백드롭 블러로 헤더와 같은 결.
+function ScheduleBanner({
+  roomMeta,
+  isPro,
+  chatPartner,
+  collapsed,
+  onToggle,
+}: {
+  roomMeta: Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null;
+  isPro: boolean;
+  chatPartner: ChatPartner | null;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const q = roomMeta?.latestQuotation;
+  if (!q || q.status !== 'paid') return null;
+
+  const mr = roomMeta?.matchRequest as any;
+  const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+  const dateSource = mr?.eventDate || raw.date || q.eventDate;
+  const timeSource = mr?.eventTime || raw.timeStart || q.eventTime;
+  const location = mr?.eventLocation || raw.location || (q as any).eventLocation;
+  const eventTitle = raw.eventName || q.title || mr?.eventCategory?.name || '행사 진행';
+
+  const dateStr = dateSource
+    ? new Date(dateSource).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+    : '일정 미정';
+  const timeShort = formatEventTimeShort(timeSource);
+  const timeSuffix = timeShort ? ` · ${timeShort}` : '';
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: 'rgba(255,255,255,0.96)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+        border: '1px solid rgba(49,128,247,0.18)',
+        boxShadow: '0 8px 24px rgba(49,128,247,0.10), 0 1px 0 rgba(0,0,0,0.02)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-2.5 active:bg-[#3180F7]/[0.04] transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
+            <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="#3180F7" strokeWidth="1.8" />
+            <path d="M3 10h18" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
+            <path d="M8 3v4M16 3v4" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+          <p className="text-[12.5px] font-bold text-gray-900 truncate">
+            확정된 일정 · {dateStr}{timeSuffix}
+          </p>
+        </div>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          className="shrink-0 transition-transform"
+          style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
+        >
+          <path d="M6 9l6 6 6-6" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {!collapsed && (
+        <div className="px-4 pb-3 pt-2 border-t border-gray-100 space-y-1">
+          <p className="text-[13.5px] font-semibold text-gray-900">{eventTitle}</p>
+          {location && <p className="text-[12px] text-gray-500 truncate">장소 · {location}</p>}
+          {q.amount != null && (
+            <p className="text-[12px] text-gray-600 tabular-nums">결제 완료 · {Number(q.amount).toLocaleString('ko-KR')}원</p>
+          )}
+          <p className="text-[11px] text-gray-400 mt-1">
+            {isPro ? '고객과 세부 진행 사항을 채팅으로 논의해주세요' : '사회자와 세부 진행 사항을 채팅으로 논의해주세요'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ChatRoomPage() {
@@ -156,7 +250,6 @@ export default function ChatRoomPage() {
   const authUser = useAuthStore((s) => s.user);
   const MY_ID = authUser?.id || '';
   const { connect, joinRoom, leaveRoom, sendMessage: wsSendMessage, messages: wsMessages, setTyping } = useChatStore();
-  const isSocketConnected = useChatStore((s) => s.isConnected);
 
   // ─── Pre-warmed data 즉시 사용 (initial state만 계산) ───
   const initialPreWarmed = (() => {
@@ -166,24 +259,21 @@ export default function ChatRoomPage() {
     }
     return getPreWarmByRoomId(roomId);
   })();
-  const initialStoreRoom = (() => {
-    if (typeof window === 'undefined' || roomId.startsWith('pending-')) return null;
-    return useChatStore.getState().rooms.find((r) => r.id === roomId) || null;
-  })();
-  const initialRoom = initialPreWarmed?.room || initialStoreRoom;
-  const initialIAmProInRoom = typeof initialRoom?.iAmPro === 'boolean'
-    ? initialRoom.iAmPro
+  const initialIAmProInRoom = typeof initialPreWarmed?.room?.iAmPro === 'boolean'
+    ? initialPreWarmed.room.iAmPro
     : null;
-  const initialPartner: ChatPartner | null = initialRoom ? mapRoomToPartner(initialRoom) : null;
-  const initialCachedMessages = (() => {
-    if (typeof window === 'undefined' || roomId.startsWith('pending-')) return [];
-    return useChatStore.getState().messageCache.get(roomId) || getCachedChatMessagesForRoom(roomId);
-  })();
-  const initialMessages: Message[] = initialPreWarmed?.messages
-    ? initialPreWarmed.messages.map(mapApiMessage)
-    : initialCachedMessages.map(mapCachedMessage);
+  const initialPartner: ChatPartner | null = initialPreWarmed?.room ? {
+    id: initialPreWarmed.room.otherUser.id,
+    proProfileId: (initialPreWarmed.room as any).proProfileId,
+    name: initialPreWarmed.room.otherUser.name,
+    profileImageUrl: initialPreWarmed.room.otherUser.profileImageUrl || '/images/default-profile.svg',
+    isActive: initialPreWarmed.room.otherUser.isActive ?? false,
+  } : null;
+  const initialMessages: Message[] = initialPreWarmed?.messages ? initialPreWarmed.messages.map(mapApiMessage) : [];
 
-  // 채팅방 안에서는 결제 상태 판단에 필요한 최소 메타만 유지한다.
+  // 헤더 아래 스케줄 배너가 즉시 뜨도록, prewarm 또는 store rooms 에 들어있는
+  // matchRequest / latestQuotation 을 초기값으로 사용. (이전엔 chatApi.getRoom 응답을
+  // 기다려야 해서 채팅방 진입 후 한참 뒤에야 배너가 떴음)
   const initialRoomMeta = (() => {
     if (typeof window === 'undefined') return null;
     const fromPrewarm: any = initialPreWarmed?.room;
@@ -193,7 +283,7 @@ export default function ChatRoomPage() {
         latestQuotation: fromPrewarm.latestQuotation ?? null,
       };
     }
-    const fromStore: any = initialStoreRoom;
+    const fromStore: any = useChatStore.getState().rooms.find((r) => r.id === roomId);
     if (fromStore?.latestQuotation || fromStore?.matchRequest) {
       return {
         matchRequest: fromStore.matchRequest ?? null,
@@ -203,11 +293,32 @@ export default function ChatRoomPage() {
     return null;
   })();
 
+  // ─── Keyboard offset (Android WebView 키보드 감지) ───
+  // interactive-widget=resizes-content 지원 시: window.innerHeight 가 이미 줄어들어 vv.height ≈ innerHeight → offset≈0
+  // 미지원 시: innerHeight 유지, vv.height만 줄어 → offset = 키보드 높이
+  // iOS WKWebView: fixed 요소가 visual viewport 자동 추적하므로 스킵
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  useEffect(() => {
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      setKeyboardOffset(Math.max(0, window.innerHeight - vv.height));
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+
   // ─── Core state (needed for instant render) ───
   const [chatPartner, setChatPartner] = useState<ChatPartner | null>(initialPartner);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
-  const [hasAttemptedInitialLoad, setHasAttemptedInitialLoad] = useState(initialMessages.length > 0 || !!initialPartner);
+  const [messagesLoadFailed, setMessagesLoadFailed] = useState(false);
+  const [messagesLoadError, setMessagesLoadError] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
   const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(initialRoomMeta);
@@ -234,14 +345,18 @@ export default function ChatRoomPage() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const startRecordingRef = useRef<(() => void) | null>(null);
+  const stopRecordingRef = useRef<((cancel: boolean) => void) | null>(null);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [voicePlayProgress, setVoicePlayProgress] = useState<Record<string, number>>({});
   const [pinnedMessage, setPinnedMessage] = useState<{ id: string; name: string; content: string } | null>(null);
   const [partialCopyMsg, setPartialCopyMsg] = useState<Message | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [scheduleBannerCollapsed, setScheduleBannerCollapsed] = useState(true);
 
   // ─── Refs ───
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasInitialScrolledRef = useRef(false);
@@ -250,7 +365,6 @@ export default function ChatRoomPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const lastSendRef = useRef<{ text: string; at: number } | null>(null);
-  const lastRoomPollAtRef = useRef(0);
 
   // ─── Data fetching ───
   useEffect(() => {
@@ -260,6 +374,8 @@ export default function ChatRoomPage() {
       setIAmProInRoom(initialIAmProInRoom);
       if (initialPartner) {
         setChatPartner(initialPartner);
+      } else if (!roomId.startsWith('pending-')) {
+        setChatPartner(null);
       }
 
       // Handle pending-{proId}: createRoom만 기다리고 URL 즉시 교체
@@ -274,7 +390,7 @@ export default function ChatRoomPage() {
               id: pre.room.otherUser.id,
               proProfileId: proId,                  // pending-{proId} 의 proId 가 곧 pro profile ID
               name: pre.room.otherUser.name,
-              profileImageUrl: getProfileImageUrl(pre.room.otherUser.profileImageUrl, pre.room.otherUser.id || pre.room.otherUser.name),
+              profileImageUrl: pre.room.otherUser.profileImageUrl || '/images/default-profile.svg',
               isActive: pre.room.otherUser.isActive ?? false,
             });
             if (typeof pre.room.iAmPro === 'boolean') {
@@ -289,20 +405,22 @@ export default function ChatRoomPage() {
         return;
       }
 
-      // 캐시/프리웜 파트너가 있으면 먼저 즉시 렌더하고, 네트워크 메타는 뒤에서 보정한다.
+      // 이미 pre-warm에서 파트너를 받았으면 fetch 생략
       if (!initialPartner) {
         const storeRoom = useChatStore.getState().rooms.find((r) => r.id === roomId);
         if (storeRoom) {
-          setChatPartner(mapRoomToPartner(storeRoom));
+          setChatPartner({
+            id: storeRoom.otherUser.id,
+            proProfileId: (storeRoom as any).proProfileId,
+            name: storeRoom.otherUser.name,
+            profileImageUrl: storeRoom.otherUser.profileImageUrl || '/images/default-profile.svg',
+            isActive: (storeRoom.otherUser as any).isActive ?? true,
+          });
           if (typeof storeRoom.iAmPro === 'boolean') {
             setIAmProInRoom(storeRoom.iAmPro);
           }
-          setHasAttemptedInitialLoad(true);
         }
-      } else {
-        setHasAttemptedInitialLoad(true);
       }
-
       try {
         const res = await chatApi.getRoom(roomId);
         if (cancelled) return;
@@ -311,7 +429,7 @@ export default function ChatRoomPage() {
           id: room.otherUser.id,
           proProfileId: room.proProfileId,
           name: room.otherUser.name,
-          profileImageUrl: getProfileImageUrl(room.otherUser.profileImageUrl, room.otherUser.id || room.otherUser.name),
+          profileImageUrl: room.otherUser.profileImageUrl || '/images/default-profile.svg',
           isActive: room.otherUser.isActive ?? false,
         });
         // 현재 유저의 전역 role 이 아니라, 이 채팅방 안에서의 역할만 신뢰한다.
@@ -322,8 +440,6 @@ export default function ChatRoomPage() {
         });
       } catch (err) {
         console.error('Failed to load room info', err);
-      } finally {
-        if (!cancelled) setHasAttemptedInitialLoad(true);
       }
     }
 
@@ -333,11 +449,30 @@ export default function ChatRoomPage() {
       if (initialMessages.length > 0) {
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: REFRESH_MESSAGE_LIMIT }).then((res) => {
+        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
-            writeMessageCacheIfPresent(roomId, apiMessages);
+            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            saveMsgCache(roomId, mapped);
+            setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
+          }
+        }).catch(() => {});
+        return;
+      }
+      // ── localStorage 캐시 (딥링크·앱 재시작 후 즉시 표시) ──────────────────
+      const lsCache = loadMsgCache(roomId);
+      if (lsCache.length > 0) {
+        setMessages(lsCache);
+        setMessagesLoading(false);
+        // 백그라운드 갱신
+        const requestedAt = Date.now();
+        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
+          if (!cancelled) {
+            const apiMessages = res.data.data || [];
+            const mapped = apiMessages.map(mapApiMessage);
+            useChatStore.getState().messageCache.set(roomId, apiMessages);
+            saveMsgCache(roomId, mapped);
             setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
@@ -348,11 +483,11 @@ export default function ChatRoomPage() {
         setMessages(prewarmed.messages.map(mapApiMessage));
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: REFRESH_MESSAGE_LIMIT }).then((res) => {
+        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
-            writeMessageCacheIfPresent(roomId, apiMessages);
+            useChatStore.getState().messageCache.set(roomId, apiMessages);
             setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
@@ -364,7 +499,7 @@ export default function ChatRoomPage() {
         const warmMessages = await prewarmed.messagesPromise;
         if (cancelled) return;
         if (warmMessages?.length) {
-          writeMessageCacheIfPresent(roomId, warmMessages);
+          useChatStore.getState().messageCache.set(roomId, warmMessages);
           const mapped = warmMessages.map(mapApiMessage);
           setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           setMessagesLoading(false);
@@ -376,11 +511,11 @@ export default function ChatRoomPage() {
         setMessages(cachedMsgs.map(mapCachedMessage));
         setMessagesLoading(false);
         const requestedAt = Date.now();
-        chatApi.getMessages(roomId, { limit: REFRESH_MESSAGE_LIMIT }).then((res) => {
+        chatApi.getMessages(roomId, { limit: 50 }).then((res) => {
           if (!cancelled) {
             const apiMessages = res.data.data || [];
             const mapped = apiMessages.map(mapApiMessage);
-            writeMessageCacheIfPresent(roomId, apiMessages);
+            useChatStore.getState().messageCache.set(roomId, apiMessages);
             setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
           }
         }).catch(() => {});
@@ -389,19 +524,23 @@ export default function ChatRoomPage() {
       setMessagesLoading(true);
       try {
         const requestedAt = Date.now();
-        const res = await chatApi.getMessages(roomId, { limit: INITIAL_MESSAGE_LIMIT });
+        const res = await chatApi.getMessages(roomId, { limit: 50 });
         if (cancelled) return;
         const apiMessages = res.data.data || [];
         const mapped = apiMessages.map(mapApiMessage);
-        writeMessageCacheIfPresent(roomId, apiMessages);
+        useChatStore.getState().messageCache.set(roomId, apiMessages);
+        saveMsgCache(roomId, mapped);
         setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
-      } catch (err) {
+        setMessagesLoadFailed(false);
+      } catch (err: any) {
         console.error('Failed to load messages', err);
-      } finally {
         if (!cancelled) {
-          setMessagesLoading(false);
-          setHasAttemptedInitialLoad(true);
+          setMessagesLoadFailed(true);
+          const status = err?.response?.status;
+          setMessagesLoadError(status ? `${status}` : (err?.code || err?.message || '알 수 없음'));
         }
+      } finally {
+        if (!cancelled) setMessagesLoading(false);
       }
     }
 
@@ -421,155 +560,30 @@ export default function ChatRoomPage() {
   }, [authUser, roomId]);
 
   // Sync WebSocket messages
+  const prevWsCountRef = useRef(0);
   useEffect(() => {
     if (wsMessages.length === 0) return;
-    const mapped: Message[] = wsMessages.map(mapApiMessage);
+    const newCount = wsMessages.length - prevWsCountRef.current;
+    if (newCount <= 0) {
+      prevWsCountRef.current = wsMessages.length;
+      return;
+    }
+    const newWsMessages = wsMessages.slice(prevWsCountRef.current);
+    prevWsCountRef.current = wsMessages.length;
+
+    const mapped: Message[] = newWsMessages.map(mapApiMessage);
     setMessages((prev) => {
-      const incoming = mapped.filter((m) => {
-        if (!isTemporaryMessage(m) || !m.clientMessageId) return true;
-        return !prev.some((p) => isTemporaryMessage(p) && p.clientMessageId === m.clientMessageId);
-      });
-      if (incoming.length === 0) return prev;
       const existingIds = new Set(prev.map((m) => m.id));
-      const unique = incoming.filter((m) => !existingIds.has(m.id));
-      if (unique.length === 0) {
-        return mergeFetchedMessages(prev, incoming, Date.now());
-      }
-      // 낙관적 메시지(opt-/tmp-) 중 서버 확정 메시지와 대응되는 것 제거
+      const unique = mapped.filter((m) => !existingIds.has(m.id));
+      if (unique.length === 0) return prev;
+      // 낙관적 메시지(opt-) 중 같은 senderId+content인 것 제거
       const withoutOptimistic = prev.filter((m) => {
-        if (!isTemporaryMessage(m)) return true;
-        return !unique.some((u) => {
-          if (m.clientMessageId && u.clientMessageId && m.clientMessageId === u.clientMessageId) return true;
-          if (u.senderId !== m.senderId || u.type !== m.type) return false;
-          if (m.type === 'text') return u.content === m.content;
-          return Math.abs(messageTime(u) - messageTime(m)) < 20_000;
-        });
+        if (!m.id.startsWith('opt-')) return true;
+        return !unique.some((u) => u.senderId === m.senderId && u.content === m.content);
       });
-      return sortMessagesAsc([...withoutOptimistic, ...unique]);
+      return [...withoutOptimistic, ...unique];
     });
   }, [wsMessages]);
-
-  useEffect(() => {
-    if (wsMessages.length === 0 || roomId.startsWith('pending-')) return;
-    const latestSystem = [...wsMessages].reverse().find((m) => m.type === 'system');
-    const kind = (latestSystem?.metadata as Record<string, any> | null)?.system?.kind;
-    if (!kind || !['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid'].includes(kind)) return;
-    chatApi.getRoom(roomId)
-      .then((res) => {
-        const room = res.data as ChatRoomItem;
-        setRoomMeta({
-          matchRequest: room.matchRequest ?? null,
-          latestQuotation: room.latestQuotation ?? null,
-        });
-      })
-      .catch(() => {});
-  }, [wsMessages, roomId]);
-
-  useEffect(() => {
-    if (!authUser || roomId.startsWith('pending-')) return;
-    let cancelled = false;
-
-    const refreshRoomState = async (force = false) => {
-      const now = Date.now();
-      if (!force && now - lastRoomPollAtRef.current < 8_000) return;
-      lastRoomPollAtRef.current = now;
-      const requestedAt = Date.now();
-
-      const [roomRes, messagesRes] = await Promise.allSettled([
-        chatApi.getRoom(roomId),
-        chatApi.getMessages(roomId, { limit: REFRESH_MESSAGE_LIMIT }),
-      ]);
-
-      if (cancelled) return;
-
-      if (roomRes.status === 'fulfilled') {
-        const room = roomRes.value.data as ChatRoomItem & { iAmPro?: boolean; proProfileId?: string };
-        setChatPartner((prev) => ({
-          id: room.otherUser.id,
-          proProfileId: room.proProfileId,
-          name: room.otherUser.name,
-          profileImageUrl: getProfileImageUrl(room.otherUser.profileImageUrl || prev?.profileImageUrl, room.otherUser.id || room.otherUser.name || prev?.id || prev?.name),
-          isActive: room.otherUser.isActive ?? prev?.isActive ?? false,
-        }));
-        setIAmProInRoom(Boolean(room.iAmPro));
-        setRoomMeta({
-          matchRequest: room.matchRequest ?? null,
-          latestQuotation: room.latestQuotation ?? null,
-        });
-      }
-
-      if (messagesRes.status === 'fulfilled') {
-        const apiMessages = messagesRes.value.data.data || [];
-        const mapped = apiMessages.map(mapApiMessage);
-        writeMessageCacheIfPresent(roomId, apiMessages);
-        setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
-      }
-    };
-
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        void refreshRoomState(true);
-      }
-    };
-    const onChatActivity = (event: Event) => {
-      const detail = (event as CustomEvent<{ roomId?: string; systemKind?: string | null }>).detail;
-      const shouldRefreshMeta =
-        detail?.roomId === roomId &&
-        !!detail.systemKind &&
-        ['quote', 'payment_request', 'payment_pending_acceptance', 'payment_paid'].includes(detail.systemKind);
-      if (shouldRefreshMeta) {
-        void refreshRoomState(true);
-      }
-    };
-    const onProfileUpdated = (event: Event) => {
-      const detail = (event as CustomEvent<{ userId?: string; name?: string | null; profileImageUrl?: string | null }>).detail;
-      if (!detail?.userId) return;
-      setChatPartner((prev) => {
-        if (!prev || prev.id !== detail.userId) return prev;
-        return {
-          ...prev,
-          ...(detail.name !== undefined ? { name: detail.name || prev.name } : {}),
-          ...(detail.profileImageUrl !== undefined ? { profileImageUrl: getProfileImageUrl(detail.profileImageUrl, detail.userId || prev.name) } : {}),
-        };
-      });
-    };
-
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        void refreshRoomState();
-      }
-    }, isSocketConnected ? 30000 : 8000);
-
-    window.addEventListener('focus', onVisibility);
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('freetiful:chat-room-activity', onChatActivity as EventListener);
-    window.addEventListener('freetiful:chat-profile-updated', onProfileUpdated as EventListener);
-    window.addEventListener('freetiful:dashboard-updated', onVisibility as EventListener);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      window.removeEventListener('focus', onVisibility);
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('freetiful:chat-room-activity', onChatActivity as EventListener);
-      window.removeEventListener('freetiful:chat-profile-updated', onProfileUpdated as EventListener);
-      window.removeEventListener('freetiful:dashboard-updated', onVisibility as EventListener);
-    };
-  }, [authUser, roomId, isSocketConnected]);
-
-  useEffect(() => {
-    const latestPaid = [...messages].reverse().find((m) => m.type === 'system' && m.system?.kind === 'payment_paid');
-    if (!latestPaid?.system) return;
-    setRoomMeta((prev) => ({
-      matchRequest: prev?.matchRequest ?? null,
-      latestQuotation: {
-        id: prev?.latestQuotation?.id || latestPaid.system?.quotationId || `local-paid-${latestPaid.id}`,
-        amount: latestPaid.system?.amount ?? prev?.latestQuotation?.amount ?? 0,
-        title: prev?.latestQuotation?.title ?? latestPaid.system?.eventName ?? null,
-        status: 'paid',
-        createdAt: prev?.latestQuotation?.createdAt ?? latestPaid.createdAt,
-      },
-    }));
-  }, [messages]);
 
   // Auto-scroll — 최초 로드 시엔 instant 로 맨 밑으로, 이후엔 smooth
   useEffect(() => {
@@ -626,39 +640,32 @@ export default function ChatRoomPage() {
 
     if (authUser) {
       // 낙관적 업데이트: 즉시 화면에 표시
-      const clientMessageId = `cm-${now}-${Math.random().toString(36).slice(2, 10)}`;
       const optimistic: Message = {
-        id: `opt-${clientMessageId}`,
+        id: `opt-${Date.now()}`,
         senderId: authUser.id,
         content: text,
         type: 'text',
         createdAt: new Date().toISOString(),
-        clientMessageId,
         isRead: false,
         replyTo: replyTo ? { id: replyTo.id, name: replyTo.name, content: replyTo.content } : null,
         isNew: true,
       };
-      setMessages((prev) => sortMessagesAsc([...prev, optimistic]));
+      setMessages((prev) => [...prev, optimistic]);
       void wsSendMessage({
         type: 'text',
         content: text,
         replyToId: replyTo?.id,
-        metadata: { clientMessageId },
       }).then((saved) => {
         if (!saved) return;
         const persisted = { ...mapApiMessage(saved), isNew: false };
         setMessages((prev) => {
-          const withoutOptimistic = prev.filter((m) => {
-            if (m.id === persisted.id) return false;
-            if (m.id === optimistic.id) return false;
-            return !(isTemporaryMessage(m) && m.clientMessageId === clientMessageId);
-          });
+          const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
           if (withoutOptimistic.some((m) => m.id === persisted.id)) return withoutOptimistic;
-          return sortMessagesAsc([...withoutOptimistic, persisted]);
+          return [...withoutOptimistic, persisted];
         });
       }).catch(() => {
         setMessages((prev) => prev.map((m) => (
-          m.id === optimistic.id || m.clientMessageId === clientMessageId ? { ...m, isNew: false } : m
+          m.id === optimistic.id ? { ...m, isNew: false } : m
         )));
       });
       setInput('');
@@ -666,9 +673,7 @@ export default function ChatRoomPage() {
       setMentionQuery(null);
       inputRef.current?.focus();
       setTimeout(() => {
-        setMessages((prev) => prev.map((m) => (
-          m.id === optimistic.id || m.clientMessageId === clientMessageId ? { ...m, isNew: false } : m
-        )));
+        setMessages((prev) => prev.map((m) => m.id === optimistic.id ? { ...m, isNew: false } : m));
       }, 500);
       return;
     }
@@ -684,7 +689,7 @@ export default function ChatRoomPage() {
       replyTo: replyTo ? { id: replyTo.id, name: replyTo.name, content: replyTo.content } : null,
       isNew: true,
     };
-    setMessages((prev) => sortMessagesAsc([...prev, newMsg]));
+    setMessages((prev) => [...prev, newMsg]);
     setInput('');
     setReplyTo(null);
     setMentionQuery(null);
@@ -736,6 +741,27 @@ export default function ChatRoomPage() {
     }
   };
 
+  const handleVoicePlay = (msg: Message) => {
+    if (playingVoice === msg.id) {
+      voiceAudioRef.current?.pause();
+      setPlayingVoice(null);
+      return;
+    }
+    voiceAudioRef.current?.pause();
+    const audio = new Audio(msg.content);
+    voiceAudioRef.current = audio;
+    audio.addEventListener('timeupdate', () => {
+      if (!audio.duration) return;
+      setVoicePlayProgress((prev) => ({ ...prev, [msg.id]: audio.currentTime / audio.duration }));
+    });
+    audio.addEventListener('ended', () => {
+      setPlayingVoice(null);
+      setVoicePlayProgress((prev) => ({ ...prev, [msg.id]: 0 }));
+    });
+    audio.play().catch(() => {});
+    setPlayingVoice(msg.id);
+  };
+
   const scrollToMessage = (id: string) => {
     const el = document.getElementById(`msg-${id}`);
     if (el) {
@@ -755,25 +781,25 @@ export default function ChatRoomPage() {
 
   // Skeleton loading state — pre-warm 데이터가 이미 있으면 skip
   const hasData = !!chatPartner || messages.length > 0;
-  const showSkeleton = !hasData && !hasAttemptedInitialLoad && (roomId.startsWith('pending-') || (messagesLoading && messages.length === 0));
+  const showSkeleton = !hasData && (roomId.startsWith('pending-') || (messagesLoading && messages.length === 0));
   const skeletonName = chatPartner?.name || urlProName;
-  const skeletonImg = getProfileImageUrl(chatPartner?.profileImageUrl || urlProImg, chatPartner?.id || skeletonName);
+  const skeletonImg = chatPartner?.profileImageUrl || urlProImg || '/images/default-profile.svg';
 
   if (showSkeleton) {
     return (
-      <div className="fixed inset-0 flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[#F2F2F7]">
+      <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]">
         {/* Top shimmer bar */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-50 overflow-hidden bg-gray-100">
           <div className="h-full bg-[#3180F7]/40 animate-[shimmerBar_1.4s_ease-in-out_infinite]" style={{ width: '60%' }} />
         </div>
 
         {/* Header skeleton */}
-        <div className="relative z-30 px-3 pb-2 pt-3 pt-safe">
-          <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-center gap-2">
+        <div className="absolute left-0 right-0 top-0 z-30 px-3 pt-3 pb-2 pt-safe">
+          <div className="flex items-center gap-2 max-w-[680px] mx-auto">
             <button onClick={() => router.back()} className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0">
               <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
             </button>
-            <div className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-gray-200/60 bg-white/90 pl-1.5 pr-4 shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
+            <div className="flex-1 flex items-center gap-3 bg-white/90 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12">
               <img src={skeletonImg} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
               <div className="flex-1 min-w-0">
                 {skeletonName
@@ -788,7 +814,7 @@ export default function ChatRoomPage() {
         </div>
 
         {/* Message skeletons */}
-        <div className="flex min-h-0 flex-1 flex-col justify-end gap-5 overflow-hidden px-4 pb-6 pt-4">
+        <div className="flex-1 overflow-hidden pt-[80px] pb-[80px] px-4 flex flex-col gap-5 justify-end">
           {[
             { mine: false, w: 'w-[60%]', h: 'h-14' },
             { mine: true, w: 'w-[45%]', h: 'h-10' },
@@ -804,14 +830,11 @@ export default function ChatRoomPage() {
         </div>
 
         {/* Input skeleton */}
-        <div className="px-safe bg-[#F2F2F7] pb-4 pt-2">
-          <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-center gap-2">
-            <div className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 shrink-0" />
-            <div className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-200/60 bg-white px-4 shadow-sm">
+        <div className="px-3 pb-4 pb-safe pt-2 bg-[#F2F2F7]">
+          <div className="flex items-center gap-2 bg-white rounded-full px-4 h-12 shadow-sm border border-gray-200/60">
             <div className="w-5 h-5 rounded-full bg-gray-200 animate-pulse" />
             <div className="flex-1 h-3 bg-gray-100 rounded-full animate-pulse" />
             <div className="w-5 h-5 rounded-full bg-gray-200 animate-pulse" />
-            </div>
           </div>
         </div>
 
@@ -826,14 +849,32 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-[#F2F2F7]">
-      {/* ─── Header (Floating Pill) ─── */}
-      <div className="pointer-events-none absolute left-0 right-0 top-0 z-30 px-safe pb-2 pt-3 pt-safe">
-        <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-center gap-2">
-          {/* 뒤로가기 */}
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]">
+      {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
+      <div
+        className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
+          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%)',
+        }}
+      />
+
+      {/* ─── Header (Floating Pill) z-30 ─── */}
+      <div className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
+        <div className="mx-auto flex w-full max-w-[680px] items-center gap-2 px-3 pointer-events-auto sm:px-0">
+          {/* 뒤로가기 — 푸시 알림 cold start 시 history 없으면 채팅 목록으로 */}
           <button
-            onClick={() => router.back()}
-            className="pointer-events-auto w-12 h-12 rounded-full bg-white/75 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-white/70 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                router.back();
+              } else {
+                router.replace('/chat');
+              }
+            }}
+            className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
           >
             <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
           </button>
@@ -842,15 +883,15 @@ export default function ChatRoomPage() {
           <button
             type="button"
             onClick={openPartnerProfile}
-            className="pointer-events-auto flex-1 flex items-center gap-3 bg-white/75 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-white/70 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
+            className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
           >
             <div className="relative shrink-0">
-              <img src={getProfileImageUrl(chatPartner?.profileImageUrl, chatPartner?.id || chatPartner?.name)} alt="" className="w-9 h-9 rounded-full object-cover" />
+              <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-9 h-9 rounded-full object-cover" />
               {chatPartner?.isActive && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#34C759] border-2 border-white rounded-full" />}
             </div>
             <div className="flex-1 min-w-0 leading-tight">
               <div className="flex items-center gap-1.5">
-                <p className="text-[17px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
+                <p className="text-[14px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
                 {chatPartner && partnerRoleKnown && (
                   <span
                     className="text-[9px] font-bold px-1.5 py-[1px] rounded shrink-0"
@@ -863,6 +904,9 @@ export default function ChatRoomPage() {
                   </span>
                 )}
               </div>
+              <p className="text-[10px] text-gray-400">
+                {chatPartner?.isActive ? '온라인' : chatPartner?.lastSeen ? `${chatPartner.lastSeen} 활동` : '오프라인'}
+              </p>
             </div>
           </button>
 
@@ -870,7 +914,7 @@ export default function ChatRoomPage() {
           <div className="relative shrink-0">
             <button
               onClick={() => setShowHeaderMenu(!showHeaderMenu)}
-              className="pointer-events-auto w-12 h-12 rounded-full bg-white/75 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-white/70 flex items-center justify-center active:scale-[0.88] transition-all hover:bg-white"
+              className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center active:scale-[0.88] transition-all hover:bg-white"
             >
               <MoreVertical size={20} className="text-gray-600" />
             </button>
@@ -878,20 +922,85 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
+      {/* ─── 스케줄 공지 배너 (헤더 바로 아래 fixed) ─── */}
+      {roomMeta?.latestQuotation?.status === 'paid' && (
+        <div
+          className="absolute left-3 right-3 pointer-events-auto"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)', zIndex: 25 }}
+        >
+          <div className="mx-auto w-full max-w-[680px]">
+            <ScheduleBanner
+              roomMeta={roomMeta}
+              isPro={isPro}
+              chatPartner={chatPartner}
+              collapsed={scheduleBannerCollapsed}
+              onToggle={() => setScheduleBannerCollapsed((v) => !v)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ─── Messages ─── */}
       <div
         ref={scrollContainerRef}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
+          paddingBottom: 80,
           overscrollBehaviorX: 'contain',
-          overscrollBehaviorY: 'contain',
-          WebkitOverflowScrolling: 'touch',
-          paddingBottom: '6px',
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 78px)',
+          overscrollBehaviorY: 'none',
+          paddingTop: roomMeta?.latestQuotation?.status === 'paid'
+            ? (scheduleBannerCollapsed ? 134 : 220)
+            : 80,
         }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="mx-auto w-full max-w-[680px]">
+          {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
+            const mr = roomMeta?.matchRequest;
+            const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+            const fmtTime = (v: any) => {
+              if (!v) return '';
+              if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5);
+              try {
+                const d = new Date(v);
+                return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+              } catch { return ''; }
+            };
+            const eventDate = mr?.eventDate || roomMeta.latestQuotation?.eventDate || raw.date;
+            const eventTime = fmtTime(mr?.eventTime || roomMeta.latestQuotation?.eventTime || raw.timeStart);
+            const eventLocation = mr?.eventLocation || (roomMeta.latestQuotation as any)?.eventLocation || raw.location;
+            const eventName = roomMeta.latestQuotation?.title || raw.eventName || mr?.eventCategory?.name || '행사 정보 확인 필요';
+            const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
+            return (
+            <div className="mb-4 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(49,128,247,0.08)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-bold text-[#3180F7]">고객 견적 정보</p>
+                  <p className="mt-1 text-[14px] font-semibold text-gray-900 truncate">
+                    {eventName}
+                  </p>
+                  <p className="mt-1 text-[12px] text-gray-500">
+                    📅 {eventDate ? `${new Date(eventDate).toLocaleDateString('ko-KR')} ${eventTime}`.trim() : '일정 미입력'}
+                  </p>
+                  {eventLocation && (
+                    <p className="mt-0.5 text-[12px] text-gray-500 truncate">📍 {eventLocation}</p>
+                  )}
+                  {planLabel && (
+                    <span className="mt-1 inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7]/10 text-[#3180F7]">
+                      {planLabel}
+                    </span>
+                  )}
+                </div>
+                {roomMeta.latestQuotation?.amount != null && (
+                  <div className="shrink-0 rounded-xl bg-blue-50 px-3 py-2 text-right">
+                    <p className="text-[11px] text-blue-500">최근 견적</p>
+                    <p className="text-[14px] font-bold text-[#3180F7]">{Number(roomMeta.latestQuotation.amount).toLocaleString('ko-KR')}원</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            );
+          })()}
           {messagesLoading && messages.length === 0 && (
             <div className="space-y-4 pt-4">
               {[1,2,3,4,5].map((i) => (
@@ -904,7 +1013,37 @@ export default function ChatRoomPage() {
               ))}
             </div>
           )}
-          {!messagesLoading && messages.length === 0 && chatPartner && (
+          {!messagesLoading && messages.length === 0 && messagesLoadFailed && (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <p className="text-[14px] text-gray-400 text-center">메시지를 불러오지 못했어요{messagesLoadError ? ` (${messagesLoadError})` : ''}</p>
+              <button
+                onClick={() => {
+                  setMessagesLoadFailed(false);
+                  setMessagesLoading(true);
+                  const requestedAt = Date.now();
+                  chatApi.getMessages(roomId, { limit: 50 })
+                    .then((res) => {
+                      const apiMessages = res.data.data || [];
+                      const mapped = apiMessages.map(mapApiMessage);
+                      useChatStore.getState().messageCache.set(roomId, apiMessages);
+                      saveMsgCache(roomId, mapped);
+                      setMessages((prev) => mergeFetchedMessages(prev, mapped, requestedAt));
+                      setMessagesLoadFailed(false);
+                    })
+                    .catch((e: any) => {
+                      setMessagesLoadFailed(true);
+                      const s = e?.response?.status;
+                      setMessagesLoadError(s ? `${s}` : (e?.code || e?.message || '알 수 없음'));
+                    })
+                    .finally(() => setMessagesLoading(false));
+                }}
+                className="px-5 py-2.5 bg-gray-900 text-white text-[14px] font-semibold rounded-2xl active:scale-95 transition-transform"
+              >
+                다시 시도
+              </button>
+            </div>
+          )}
+          {!messagesLoading && messages.length === 0 && !messagesLoadFailed && chatPartner && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <img src={chatPartner.profileImageUrl} alt="" className="w-16 h-16 rounded-full object-cover mb-3" />
               <p className="text-[15px] font-bold text-gray-900">{chatPartner.name}</p>
@@ -939,8 +1078,6 @@ export default function ChatRoomPage() {
             }
 
             const mine = isMine(msg);
-            const uploadProgress = Math.max(0, Math.min(100, Math.round(msg.uploadProgress ?? (msg.uploading ? 8 : 100))));
-            const showUploadProgress = mine && msg.type === 'image' && (msg.uploading || uploadProgress < 100);
 
             return (
               <div key={msg.id} id={`msg-${msg.id}`}>
@@ -955,7 +1092,7 @@ export default function ChatRoomPage() {
                   style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  <div className="max-w-[78%] relative">
+                  <div className="relative min-w-0 max-w-[78%]">
                     {/* Message bubble */}
                     {msg.type === 'image' ? (
                       <div
@@ -966,50 +1103,18 @@ export default function ChatRoomPage() {
                         onPointerLeave={handleLongPressCancel}
                         onContextMenu={(e) => e.preventDefault()}
                       >
-                        <div className="relative inline-block overflow-hidden rounded-2xl">
-                          <img
-                            src={msg.content}
-                            alt=""
-                            draggable={false}
-                            className="block rounded-2xl max-w-[260px] max-h-[340px] object-cover cursor-pointer select-none"
-                            style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
-                            onClick={(e) => { e.stopPropagation(); if (!showUploadProgress) setImagePreview(msg.content); }}
-                          />
-                          {showUploadProgress && (
-                            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/35 backdrop-blur-[1px]">
-                              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/25">
-                                <div
-                                  className="absolute inset-0 rounded-full"
-                                  style={{ background: `conic-gradient(#FFFFFF ${uploadProgress * 3.6}deg, rgba(255,255,255,0.24) 0deg)` }}
-                                />
-                                <div className="absolute inset-[4px] rounded-full bg-black/45" />
-                                <span className="relative text-[12px] font-bold tabular-nums text-white">{uploadProgress}%</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : msg.type === 'sticker' ? (
-                      <div
-                        className={`select-none ${msg.isNew ? 'animate-[stickerPop_0.45s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
-                        style={{ WebkitTouchCallout: 'none', transformOrigin: mine ? 'right bottom' : 'left bottom' }}
-                        onPointerDown={(e) => handleLongPressStart(e, msg)}
-                        onPointerUp={handleLongPressCancel}
-                        onPointerLeave={handleLongPressCancel}
-                        onContextMenu={(e) => e.preventDefault()}
-                      >
                         <img
                           src={msg.content}
-                          alt="이모티콘"
+                          alt=""
                           draggable={false}
-                          className="h-[128px] w-[128px] object-contain sm:h-[148px] sm:w-[148px]"
-                          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          className="max-h-[340px] max-w-full rounded-2xl object-cover cursor-pointer select-none sm:max-w-[260px]"
+                          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
+                          onClick={(e) => { e.stopPropagation(); setImagePreview(msg.content); }}
                         />
                       </div>
                     ) : msg.type === 'file' ? (
                       <div
-                        className={`flex items-center gap-2 px-4 py-3 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1017,7 +1122,7 @@ export default function ChatRoomPage() {
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         <FileText size={18} />
-                        <span className="text-[15px]">{msg.fileName || msg.content}</span>
+                        <span className="min-w-0 break-all text-[15px]">{msg.fileName || msg.content}</span>
                       </div>
                     ) : msg.type === 'location' ? (
                       <div
@@ -1030,29 +1135,38 @@ export default function ChatRoomPage() {
                       >
                         {msg.latitude !== undefined && msg.longitude !== undefined ? (
                           // Simple fallback for location - just show coordinates until NaverMapPreview loads
-                          <div className={`flex items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
+                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
                             <MapPin size={18} />
-                            <span className="text-[15px]">{msg.content}</span>
+                            <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
                           </div>
                         ) : (
-                          <div className={`flex items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
+                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
                             <MapPin size={18} />
-                            <span className="text-[15px]">{msg.content}</span>
+                            <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
                           </div>
                         )}
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
-                        className={`flex items-center gap-3 pl-3 pr-4 py-2.5 rounded-[20px] min-w-[180px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-2 pr-4 py-2.5 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
                         onContextMenu={(e) => e.preventDefault()}
                       >
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${mine ? 'bg-white/20' : 'bg-[#007AFF]'}`}>
-                          <Mic size={16} className="text-white" />
-                        </div>
+                        {/* 재생/일시정지 버튼 */}
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); handleVoicePlay(msg); }}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform ${mine ? 'bg-white/20' : 'bg-[#007AFF]'}`}
+                        >
+                          {playingVoice === msg.id
+                            ? <Pause size={16} className="text-white" />
+                            : <Play size={16} className="text-white ml-0.5" />
+                          }
+                        </button>
                         <div className="flex-1 flex items-center gap-0.5 h-7 min-w-[80px]">
                           {Array.from({ length: 22 }).map((_, idx) => {
                             const progress = voicePlayProgress[msg.id] || 0;
@@ -1078,7 +1192,7 @@ export default function ChatRoomPage() {
                       </div>
                     ) : (
                       <div
-                        className={`whitespace-pre-wrap text-[16px] leading-[1.4] cursor-pointer select-none overflow-hidden ${
+                        className={`max-w-full whitespace-pre-wrap break-words text-[16px] leading-[1.4] cursor-pointer select-none overflow-hidden [overflow-wrap:anywhere] ${
                           mine
                             ? 'bg-[#007AFF] text-white rounded-[20px] rounded-br-[6px]'
                             : 'bg-white text-gray-900 rounded-[20px] rounded-bl-[6px] shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'
@@ -1130,21 +1244,29 @@ export default function ChatRoomPage() {
         </div>
       </div>
 
-      {/* ─── Input Bar (Floating Pill) ─── */}
-      <div className="relative px-safe bg-transparent pb-3 pt-2">
-        <div className="pointer-events-none absolute inset-x-0 -top-10 h-12 bg-gradient-to-t from-[#F2F2F7] via-[#F2F2F7]/85 to-transparent" />
-        <div className="mx-auto flex w-full min-w-0 max-w-[680px] items-end gap-1.5 sm:gap-2">
+      {/* ─── 그라데이션 — z-20 (푸터 z-30 뒤에 위치) ─── */}
+      <div
+        className="absolute inset-x-0 h-16 pointer-events-none z-20"
+        style={{
+          bottom: keyboardOffset,
+          background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0) 100%)',
+        }}
+      />
+
+      {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
+      <div className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: keyboardOffset }}>
+        <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pt-1 sm:px-0">
           {isRecording ? (
             // Recording UI
             <>
               <button
-                onClick={() => setIsRecording(false)}
+                onClick={() => stopRecordingRef.current?.(true)}
                 className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
                 title="취소"
               >
                 <X size={22} className="text-gray-500" />
               </button>
-              <div className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-red-200/80 bg-white/90 px-5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl animate-[slideUp_0.2s_ease]">
+              <div className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-red-200/80 px-5 h-12 animate-[slideUp_0.2s_ease]">
                 <span className="relative flex h-2.5 w-2.5 shrink-0">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping" />
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
@@ -1165,7 +1287,7 @@ export default function ChatRoomPage() {
                   ))}
                 </div>
                 <button
-                  onClick={() => setIsRecording(false)}
+                  onClick={() => stopRecordingRef.current?.(false)}
                   className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-800 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
                   title="전송"
                 >
@@ -1179,21 +1301,21 @@ export default function ChatRoomPage() {
               {isPro && (
                 <button
                   onClick={() => setShowQuoteModal(true)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-blue-400/30 bg-[#3180F7] text-white shadow-[0_4px_24px_rgba(49,128,247,0.25)] active:scale-[0.92] transition-all hover:bg-[#1f6fe5] sm:h-12 sm:w-auto sm:gap-1.5 sm:px-4"
+                  className="h-12 px-4 rounded-full bg-[#3180F7] text-white shadow-[0_4px_24px_rgba(49,128,247,0.25)] border border-blue-400/30 flex items-center justify-center gap-1.5 shrink-0 active:scale-[0.92] transition-all hover:bg-[#1f6fe5]"
                   title="견적서 보내기"
                 >
-                  <FileSignature size={17} />
-                  <span className="hidden text-[13px] font-bold sm:inline">견적</span>
+                  <FileSignature size={18} />
+                  <span className="hidden sm:inline text-[13px] font-bold">견적</span>
                 </button>
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
-                className="h-11 w-11 shrink-0 rounded-full border border-gray-200/60 bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-[0.88] transition-all hover:bg-white sm:h-12 sm:w-12"
+                className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
               >
-                <Plus size={22} className="text-gray-600" />
+                <Plus size={24} className="text-gray-600" />
               </button>
 
-              <div className="flex h-11 min-w-0 flex-1 items-center rounded-full border border-gray-200/60 bg-white/90 pl-3 pr-1 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:h-12 sm:pl-5 sm:pr-1.5">
+              <div className="flex h-12 min-w-0 flex-1 items-center rounded-full border border-gray-200/60 bg-white/90 pl-5 pr-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl">
                 <input
                   ref={inputRef}
                   type="text"
@@ -1208,7 +1330,7 @@ export default function ChatRoomPage() {
                     handleSend();
                   }}
                   placeholder="메시지 (@ 으로 멘션)"
-                  className="min-w-0 flex-1 bg-transparent text-[14px] leading-[1.25] focus:outline-none placeholder:text-gray-400 sm:text-[16px]"
+                  className="flex-1 min-w-0 bg-transparent text-[16px] focus:outline-none placeholder:text-gray-400 leading-[1.3]"
                 />
                 {input.trim() ? (
                   <button
@@ -1219,7 +1341,7 @@ export default function ChatRoomPage() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => setIsRecording(true)}
+                    onClick={() => startRecordingRef.current?.()}
                     className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all ml-1"
                     title="음성 메시지 녹음"
                   >
@@ -1264,6 +1386,7 @@ export default function ChatRoomPage() {
           setIsRecording={setIsRecording}
           recordingTime={recordingTime}
           setRecordingTime={setRecordingTime}
+          onRegisterRecording={({ start, stop }) => { startRecordingRef.current = start; stopRecordingRef.current = stop; }}
           playingVoice={playingVoice}
           setPlayingVoice={setPlayingVoice}
           voicePlayProgress={voicePlayProgress}
@@ -1280,6 +1403,9 @@ export default function ChatRoomPage() {
       {showCustomerInfo && (() => {
         const mr = roomMeta?.matchRequest as any;
         const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+        const eventDate = mr?.eventDate || raw.date || roomMeta?.latestQuotation?.eventDate;
+        const eventTime = formatEventTimeShort(mr?.eventTime || raw.timeStart || roomMeta?.latestQuotation?.eventTime);
+        const eventTimeEnd = formatEventTimeShort(raw.timeEnd);
         const eventLocation = mr?.eventLocation || raw.location || (roomMeta?.latestQuotation as any)?.eventLocation;
         const eventName = raw.eventName || roomMeta?.latestQuotation?.title || mr?.eventCategory?.name || '의뢰 정보';
         const moods = Array.isArray(raw.moods) ? raw.moods.filter(Boolean) : [];
@@ -1297,7 +1423,7 @@ export default function ChatRoomPage() {
               <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" />
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
-                  <img src={getProfileImageUrl(chatPartner?.profileImageUrl, chatPartner?.id || chatPartner?.name)} alt="" className="h-12 w-12 rounded-full object-cover" />
+                  <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="h-12 w-12 rounded-full object-cover" />
                   <div className="min-w-0">
                     <p className="truncate text-[17px] font-bold text-gray-900">{chatPartner?.name || '고객'}</p>
                     <p className="text-[12px] font-semibold text-[#3180F7]">고객 의뢰 정보</p>
@@ -1313,7 +1439,14 @@ export default function ChatRoomPage() {
                   <p className="text-[12px] font-bold text-[#3180F7]">행사</p>
                   <p className="mt-1 text-[15px] font-bold text-gray-900">{eventName}</p>
                 </div>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-gray-50 px-4 py-3">
+                    <p className="text-[11px] font-bold text-gray-400">일정</p>
+                    <p className="mt-1 text-[14px] font-semibold text-gray-900">
+                      {eventDate ? new Date(eventDate).toLocaleDateString('ko-KR') : '미정'}
+                      {eventTime ? ` ${eventTime}${eventTimeEnd ? ` ~ ${eventTimeEnd}` : ''}` : ''}
+                    </p>
+                  </div>
                   <div className="rounded-2xl bg-gray-50 px-4 py-3">
                     <p className="text-[11px] font-bold text-gray-400">예산</p>
                     <p className="mt-1 text-[14px] font-semibold text-gray-900">{budget || '협의'}</p>
@@ -1355,11 +1488,6 @@ export default function ChatRoomPage() {
           50% { transform: scale(1.08); opacity: 1; }
           70% { transform: scale(0.96); }
           100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes stickerPop {
-          0% { transform: translateY(10px) scale(0.55) rotate(-4deg); opacity: 0; }
-          62% { transform: translateY(-2px) scale(1.04) rotate(1.5deg); opacity: 1; }
-          100% { transform: translateY(0) scale(1) rotate(0); opacity: 1; }
         }
         @keyframes menuPop {
           0% { transform: scale(0.4); opacity: 0; }

@@ -32,7 +32,7 @@ const TOP_NAV = [
   { href: '/admin/users', label: '유저 센터', paths: ['/admin/users', '/admin/referral-event'] },
   { href: '/admin/pros', label: '사회자 센터', paths: ['/admin/pros', '/admin/partners', '/admin/businesses'] },
   { href: '/admin/bookings', label: '예약 센터', paths: ['/admin/bookings'] },
-  { href: '/admin/inquiries', label: '문의 센터', paths: ['/admin/inquiries'] },
+  { href: '/admin/inquiries', label: '문의 센터', paths: ['/admin/inquiries', '/admin/wedding-mc-leads'] },
   { href: '/admin/payments', label: '페이먼츠 센터', paths: ['/admin/payments', '/admin/settlements'] },
   { href: '/admin/banners', label: '콘텐츠 센터', paths: ['/admin/banners', '/admin/reviews', '/admin/announcements', '/admin/faqs', '/admin/policies', '/admin/plan-templates'] },
 ];
@@ -66,6 +66,7 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
     label: '문의 센터',
     items: [
       { href: '/admin/inquiries', label: 'Biz 문의' },
+      { href: '/admin/wedding-mc-leads', label: '웨딩MC 설문/리드' },
     ],
   },
   {

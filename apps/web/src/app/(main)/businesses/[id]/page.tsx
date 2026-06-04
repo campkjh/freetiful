@@ -127,6 +127,7 @@ export default function BusinessDetailPage() {
             src={images[activeImage]}
             alt={biz.businessName}
             className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
             onError={(e) => {
               const target = e.currentTarget as HTMLImageElement;
               if (!target.dataset.fallback) {
@@ -149,7 +150,19 @@ export default function BusinessDetailPage() {
                   i === activeImage ? 'border-primary-500' : 'border-transparent'
                 }`}
               >
-                <img src={img} alt="" className="w-full h-full object-cover" />
+                <img
+                  src={img}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (!target.dataset.fallback) {
+                      target.dataset.fallback = '1';
+                      target.src = '/images/default-profile.png';
+                    }
+                  }}
+                />
               </button>
             ))}
           </div>
