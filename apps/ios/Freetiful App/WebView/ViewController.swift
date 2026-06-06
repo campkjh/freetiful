@@ -604,8 +604,7 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.openAttach && window.__freetifulChat.openAttach();", completionHandler: nil)
     }
     func chatBarsDidTapQuote() {
-        view.endEditing(true)
-        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.openQuote && window.__freetifulChat.openQuote();", completionHandler: nil)
+        presentNativeQuoteForm()
     }
     func chatBarsDidTapVoice() {
         view.endEditing(true)
@@ -613,7 +612,38 @@ class ViewController: UIViewController,
     }
     func chatBarsInvokeAttach(_ id: String) {
         view.endEditing(true)
+        if id == "quote" {
+            presentNativeQuoteForm()
+            return
+        }
         webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.invokeAttach(\(jsLiteral(id)));", completionHandler: nil)
+    }
+
+    private func presentNativeQuoteForm() {
+        view.endEditing(true)
+        let js = "(function(){ try { return JSON.stringify(window.__freetifulChatActions ? window.__freetifulChatActions.getQuoteDefaults() : {}); } catch(e){ return '{}'; } })();"
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            guard let self = self else { return }
+            var d = NativeQuoteFormViewController.Defaults()
+            if let s = result as? String, let data = s.data(using: .utf8),
+               let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                d.eventName = (obj["eventName"] as? String) ?? ""
+                d.eventDate = (obj["eventDate"] as? String) ?? ""
+                d.eventTime = (obj["eventTime"] as? String) ?? ""
+                d.eventLocation = (obj["eventLocation"] as? String) ?? ""
+                d.planLabel = (obj["planLabel"] as? String) ?? ""
+                d.planPrice = (obj["planPrice"] as? Int) ?? Int((obj["planPrice"] as? Double) ?? 0)
+            }
+            let form = NativeQuoteFormViewController(defaults: d)
+            form.onSubmit = { [weak self] payload in self?.submitNativeQuote(payload) }
+            self.present(form, animated: false)
+        }
+    }
+
+    private func submitNativeQuote(_ payload: [String: String]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.submitQuote && window.__freetifulChatActions.submitQuote(\(json));", completionHandler: nil)
     }
     func chatBarsInvokeMenu(_ id: String, label: String, destructive: Bool) {
         let js = "window.__freetifulChatActions && window.__freetifulChatActions.invokeMenu(\(jsLiteral(id)));"
