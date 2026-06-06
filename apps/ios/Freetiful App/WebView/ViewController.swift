@@ -39,11 +39,17 @@ class ViewController: UIViewController,
                       UIScrollViewDelegate,
                       WKScriptMessageHandler,
                       NaverThirdPartyLoginConnectionDelegate,
-                      LiquidGlassNavigationBarDelegate {
+                      LiquidGlassNavigationBarDelegate,
+                      NativeChatBarsDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
     private let nativeNavBar = LiquidGlassNavigationBar()
+    private let nativeChatHeader = NativeChatHeaderView()
+    private let nativeChatInputBar = NativeChatInputBar()
+    private var nativeChatInputBottom: NSLayoutConstraint?
+    private var nativeChatState = NativeChatState()
+    private var isOnChatDetail = false
     private var currentNativePath = "/"
     private var currentNativeActualIsPro = false
     private var currentNativeIsProMode = false
@@ -72,6 +78,8 @@ class ViewController: UIViewController,
         setupWebView()
         if nativeNavigationEnabled {
             setupNativeNavigationBar()
+            setupNativeChatBars()
+            observeKeyboardForChat()
         }
         setupLoading()
         observeGoHomeNotification()
@@ -105,7 +113,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -163,7 +171,10 @@ class ViewController: UIViewController,
           'html.freetiful-ios-native-nav [data-ios-mobile-bottom-nav-blur]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav nav:has([data-nav-pill]){display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-recommended-pro-bar]{display:none!important;pointer-events:none!important;}',
-          'html.freetiful-ios-native-nav [data-ios-native-nav-hidden]{display:none!important;pointer-events:none!important;}'
+          'html.freetiful-ios-native-nav [data-ios-native-nav-hidden]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-native-chat-header]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-native-chat-gradient]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-native-chat-footer]{display:none!important;pointer-events:none!important;}'
         ].join('\\n');
         document.head && document.head.appendChild(style);
       }
@@ -274,16 +285,32 @@ class ViewController: UIViewController,
         } catch (e) {}
       };
 
+      window.__freetifulChatPostState = function() {
+        try {
+          if (window.__freetifulChat &&
+              window.webkit && window.webkit.messageHandlers &&
+              window.webkit.messageHandlers.nativeChatState) {
+            window.webkit.messageHandlers.nativeChatState.postMessage(window.__freetifulChat.getState());
+          }
+        } catch (e) {}
+      };
+
       if (window.__freetifulNativeNavInstalled) {
         window.__freetifulNativeNavPostState();
+        window.__freetifulChatPostState();
         return;
       }
 
       window.__freetifulNativeNavInstalled = true;
+      window.addEventListener('freetiful:chat-state', window.__freetifulChatPostState);
       var notify = function() {
         hideWebBottomNav();
         setTimeout(window.__freetifulNativeNavPostState, 30);
         setTimeout(window.__freetifulNativeNavPostState, 260);
+        if (window.__freetifulChatPostState) {
+          setTimeout(window.__freetifulChatPostState, 60);
+          setTimeout(window.__freetifulChatPostState, 320);
+        }
       };
 
       var pushState = history.pushState;
@@ -402,6 +429,7 @@ class ViewController: UIViewController,
         nativeNavBar.setVisible(!hidden, animated: animated)
         webView.scrollView.contentInset.bottom = hidden ? 0 : 88
         webView.scrollView.verticalScrollIndicatorInsets.bottom = hidden ? 0 : 88
+        updateNativeChatVisibility()
     }
 
     private func shouldHideNativeNavigation(path: String) -> Bool {
@@ -416,6 +444,117 @@ class ViewController: UIViewController,
         if path.hasPrefix("/search") { return true }
         if path == "/pros" || path == "/businesses" || path == "/careers" { return true }
         return false
+    }
+
+    // MARK: - 네이티브 채팅 헤더/입력바
+    private func setupNativeChatBars() {
+        nativeChatHeader.delegate = self
+        nativeChatInputBar.delegate = self
+        nativeChatHeader.isHidden = true
+        nativeChatInputBar.isHidden = true
+        view.addSubview(nativeChatHeader)
+        view.addSubview(nativeChatInputBar)
+
+        nativeChatInputBottom = nativeChatInputBar.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        NSLayoutConstraint.activate([
+            nativeChatHeader.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeChatHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeChatHeader.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeChatHeader.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 52),
+
+            nativeChatInputBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeChatInputBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeChatInputBottom!,
+        ])
+    }
+
+    private func observeKeyboardForChat() {
+        NotificationCenter.default.addObserver(self, selector: #selector(chatKeyboardWillChange(_:)),
+                                               name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(chatKeyboardWillHide(_:)),
+                                               name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+
+    @objc private func chatKeyboardWillChange(_ note: Notification) {
+        guard isOnChatDetail,
+              let frame = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
+        let overlap = max(0, view.bounds.height - frame.origin.y)
+        let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+        nativeChatInputBottom?.constant = -overlap
+        UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
+    }
+
+    @objc private func chatKeyboardWillHide(_ note: Notification) {
+        let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+        nativeChatInputBottom?.constant = 0
+        UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
+    }
+
+    private func handleNativeChatState(_ body: Any) {
+        guard nativeNavigationEnabled, let dict = body as? [String: Any] else { return }
+        var s = NativeChatState()
+        s.name = (dict["name"] as? String) ?? ""
+        s.imageUrl = (dict["imageUrl"] as? String) ?? ""
+        s.online = (dict["online"] as? Bool) ?? false
+        s.statusText = (dict["statusText"] as? String) ?? ""
+        s.partnerIsPro = (dict["partnerIsPro"] as? Bool) ?? false
+        s.partnerRoleKnown = (dict["partnerRoleKnown"] as? Bool) ?? false
+        s.isPro = (dict["isPro"] as? Bool) ?? false
+        s.ready = (dict["ready"] as? Bool) ?? false
+        nativeChatState = s
+        nativeChatHeader.apply(s)
+        nativeChatInputBar.apply(s)
+    }
+
+    private func updateNativeChatVisibility() {
+        guard nativeNavigationEnabled else { return }
+        let onChat = currentNativePath.hasPrefix("/chat/")
+        if onChat == isOnChatDetail {
+            if onChat { requestNativeChatState() }
+            return
+        }
+        isOnChatDetail = onChat
+        nativeChatHeader.isHidden = !onChat
+        nativeChatInputBar.isHidden = !onChat
+        if onChat {
+            requestNativeChatState()
+        } else {
+            view.endEditing(true)
+            nativeChatInputBottom?.constant = 0
+        }
+    }
+
+    private func requestNativeChatState() {
+        webView.evaluateJavaScript("window.__freetifulChatPostState && window.__freetifulChatPostState();", completionHandler: nil)
+    }
+
+    // MARK: - NativeChatBarsDelegate
+    func chatBarsDidTapBack() {
+        view.endEditing(true)
+        webView.evaluateJavaScript("(window.__freetifulChat && window.__freetifulChat.back && window.__freetifulChat.back());") { [weak self] _, err in
+            if err != nil { self?.webView.goBack() }
+        }
+    }
+    func chatBarsDidTapProfile() {
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.openProfile && window.__freetifulChat.openProfile();", completionHandler: nil)
+    }
+    func chatBarsDidTapMenu() {
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.openMenu && window.__freetifulChat.openMenu();", completionHandler: nil)
+    }
+    func chatBarsDidSend(_ text: String) {
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.sendText(\(jsLiteral(text)));", completionHandler: nil)
+    }
+    func chatBarsDidTapAttach() {
+        view.endEditing(true)
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.openAttach && window.__freetifulChat.openAttach();", completionHandler: nil)
+    }
+    func chatBarsDidTapQuote() {
+        view.endEditing(true)
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.openQuote && window.__freetifulChat.openQuote();", completionHandler: nil)
+    }
+    func chatBarsDidTapVoice() {
+        view.endEditing(true)
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.startVoice && window.__freetifulChat.startVoice();", completionHandler: nil)
     }
 
     private func navigateNativeWeb(to path: String) {
@@ -675,6 +814,7 @@ class ViewController: UIViewController,
         case "appleLogin":  startAppleLogin()
         case "socialLogout": socialLogout()
         case "nativeNavState": handleNativeNavState(message.body)
+        case "nativeChatState": handleNativeChatState(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
