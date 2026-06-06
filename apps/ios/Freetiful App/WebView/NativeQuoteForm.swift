@@ -59,6 +59,19 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
         card.layer.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
         view.addSubview(card)
 
+        // 글래스 모달에 살짝 화이트 틴트 (가독성·질감)
+        let whiteTint = UIView()
+        whiteTint.translatesAutoresizingMaskIntoConstraints = false
+        whiteTint.backgroundColor = UIColor.white.withAlphaComponent(0.22)
+        whiteTint.isUserInteractionEnabled = false
+        card.contentView.addSubview(whiteTint)
+        NSLayoutConstraint.activate([
+            whiteTint.topAnchor.constraint(equalTo: card.contentView.topAnchor),
+            whiteTint.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
+            whiteTint.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor),
+            whiteTint.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor),
+        ])
+
         let grabber = UIView()
         grabber.translatesAutoresizingMaskIntoConstraints = false
         grabber.backgroundColor = UIColor(white: 0.6, alpha: 0.6)
