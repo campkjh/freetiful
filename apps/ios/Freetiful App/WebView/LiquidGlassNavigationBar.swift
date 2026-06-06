@@ -405,8 +405,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             )
             tabItem.tag = index
             tabItem.accessibilityLabel = item.title
-            tabItem.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: -1)
-            tabItem.imageInsets = UIEdgeInsets(top: 1, left: 0, bottom: -1, right: 0)
+            tabItem.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 2)
+            tabItem.imageInsets = UIEdgeInsets(top: -1, left: 0, bottom: 1, right: 0)
             return tabItem
         }
     }
@@ -495,14 +495,14 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             .foregroundColor: inactiveColor,
             .font: normalFont,
         ]
-        itemAppearance.normal.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: -1)
+        itemAppearance.normal.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 2)
 
         itemAppearance.selected.iconColor = activeColor
         itemAppearance.selected.titleTextAttributes = [
             .foregroundColor: activeColor,
             .font: selectedFont,
         ]
-        itemAppearance.selected.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: -1)
+        itemAppearance.selected.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 2)
     }
 
     private func navIcon(named assetName: String) -> UIImage? {
@@ -513,7 +513,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             return nil
         }
 
-        let size = CGSize(width: 30, height: 30)
+        let size = CGSize(width: 26, height: 26)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = UIScreen.main.scale
         let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in

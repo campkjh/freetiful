@@ -50,6 +50,11 @@ class ViewController: UIViewController,
     private var nativeChatInputBottom: NSLayoutConstraint?
     private var nativeChatState = NativeChatState()
     private var isOnChatDetail = false
+    // 채팅방에서 webView 를 화면 가장자리까지(상/하단 safe area 제거) 토글
+    private var webViewTopSafe: NSLayoutConstraint?
+    private var webViewBottomSafe: NSLayoutConstraint?
+    private var webViewTopFull: NSLayoutConstraint?
+    private var webViewBottomFull: NSLayoutConstraint?
     private var currentNativePath = "/"
     private var currentNativeActualIsPro = false
     private var currentNativeIsProMode = false
@@ -130,9 +135,13 @@ class ViewController: UIViewController,
         webView.translatesAutoresizingMaskIntoConstraints = false
 
         view.addSubview(webView)
+        webViewTopSafe = webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor)
+        webViewBottomSafe = webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        webViewTopFull = webView.topAnchor.constraint(equalTo: view.topAnchor)
+        webViewBottomFull = webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            webViewTopSafe!,
+            webViewBottomSafe!,
             webView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
         ])
@@ -516,6 +525,18 @@ class ViewController: UIViewController,
         isOnChatDetail = onChat
         nativeChatHeader.isHidden = !onChat
         nativeChatInputBar.isHidden = !onChat
+        // 채팅방: webView 를 화면 가장자리까지(상/하단 safe area 제거), 그 외: safe area 복귀
+        if onChat {
+            webViewTopSafe?.isActive = false
+            webViewBottomSafe?.isActive = false
+            webViewTopFull?.isActive = true
+            webViewBottomFull?.isActive = true
+        } else {
+            webViewTopFull?.isActive = false
+            webViewBottomFull?.isActive = false
+            webViewTopSafe?.isActive = true
+            webViewBottomSafe?.isActive = true
+        }
         if onChat {
             requestNativeChatState()
         } else {

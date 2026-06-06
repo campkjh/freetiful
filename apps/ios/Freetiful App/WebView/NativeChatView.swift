@@ -283,13 +283,10 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         attachButton.addTarget(self, action: #selector(tapAttach), for: .touchUpInside)
         attachPill.setContent(attachButton)
 
-        // 견적 (사회자) — 글래스 캡슐 안에 파란 문서 아이콘 + 라벨
+        // 견적 (사회자) — 글래스 캡슐 안에 파란 문서 아이콘 (아이콘 전용 = 폭 안정)
         var quoteCfg = UIButton.Configuration.plain()
-        quoteCfg.image = UIImage(systemName: "doc.text.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
-        quoteCfg.imagePadding = 4
-        quoteCfg.attributedTitle = AttributedString("견적", attributes: AttributeContainer([.font: UIFont.systemFont(ofSize: 13, weight: .bold)]))
+        quoteCfg.image = UIImage(systemName: "doc.text.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))
         quoteCfg.baseForegroundColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
-        quoteCfg.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 14)
         quoteButton.configuration = quoteCfg
         quoteButton.addTarget(self, action: #selector(tapQuote), for: .touchUpInside)
         quotePill.isHidden = true
@@ -347,6 +344,7 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
 
             attachPill.widthAnchor.constraint(equalToConstant: 46),
             attachPill.heightAnchor.constraint(equalToConstant: 46),
+            quotePill.widthAnchor.constraint(equalToConstant: 46),
             quotePill.heightAnchor.constraint(equalToConstant: 46),
             fieldPill.heightAnchor.constraint(equalToConstant: 46),
 
