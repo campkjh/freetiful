@@ -1743,11 +1743,26 @@ export default function ChatExtras(props: ChatExtrasProps) {
         case 'delete': setMessages([]); toast.success('대화 삭제됨'); break; // 확인은 네이티브에서
       }
     };
-    w.__freetifulChatActions = { attachItems, menuItems, invokeAttach, invokeMenu };
+    w.__freetifulChatActions = {
+      attachItems, menuItems, invokeAttach, invokeMenu,
+      getQuoteDefaults: () => computeQuoteDefaults(),
+      submitQuote: (data: any) => {
+        try {
+          if (data) {
+            setQuoteCustomAmount(String(data.customAmount || ''));
+            setQuoteEventName(String(data.eventName || ''));
+            setQuoteEventDate(String(data.eventDate || ''));
+            setQuoteEventTime(String(data.eventTime || ''));
+            setQuoteEventLocation(String(data.eventLocation || ''));
+          }
+        } catch (e) {}
+        setTimeout(() => { if (handleSendQuoteRef.current) handleSendQuoteRef.current(); }, 60);
+      },
+    };
     window.dispatchEvent(new Event('freetiful:chat-state'));
     return () => { try { if (w.__freetifulChatActions) delete w.__freetifulChatActions; } catch {} };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPro, muted, chatPartner]);
+  }, [isPro, muted, chatPartner, roomMeta, planTemplates]);
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
@@ -1923,6 +1938,26 @@ export default function ChatExtras(props: ChatExtrasProps) {
     } finally {
       setQuoteSending(false);
     }
+  };
+
+  // 네이티브 견적 폼(UIKit 글래스) 연동 — 검증된 웹 발송 로직 재사용
+  const handleSendQuoteRef = useRef(handleSendQuote);
+  handleSendQuoteRef.current = handleSendQuote;
+  const computeQuoteDefaults = () => {
+    const mr = roomMeta?.matchRequest;
+    const lq = roomMeta?.latestQuotation;
+    const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+    const toDate = (v: any): string => { if (!v) return ''; try { const d = new Date(v); return Number.isNaN(d.getTime()) ? (typeof v === 'string' ? v.slice(0, 10) : '') : d.toISOString().slice(0, 10); } catch { return ''; } };
+    const toTime = (v: any): string => { if (!v) return ''; if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5); try { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } catch { return ''; } };
+    const plan = PLAN_DATA[quotePlan] || Object.values(PLAN_DATA)[0];
+    return {
+      eventName: lq?.title || raw.eventName || mr?.eventCategory?.name || '',
+      eventDate: toDate(mr?.eventDate || lq?.eventDate || raw.date),
+      eventTime: toTime(mr?.eventTime || lq?.eventTime || raw.timeStart),
+      eventLocation: mr?.eventLocation || lq?.eventLocation || raw.location || '',
+      planLabel: (plan as any)?.label || '',
+      planPrice: (plan as any)?.price || 0,
+    };
   };
 
   const ATTACH_ITEMS = [
