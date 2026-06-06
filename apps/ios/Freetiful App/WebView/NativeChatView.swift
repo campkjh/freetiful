@@ -20,6 +20,16 @@ protocol NativeChatBarsDelegate: AnyObject {
     func chatBarsDidTapAttach()
     func chatBarsDidTapQuote()
     func chatBarsDidTapVoice()
+    func chatBarsInvokeAttach(_ id: String)
+    func chatBarsInvokeMenu(_ id: String, label: String, destructive: Bool)
+}
+
+// +/••• 네이티브 글래스 메뉴 항목 (웹 window.__freetifulChatActions 에서 전달)
+struct ChatMenuItem {
+    let id: String
+    let label: String
+    let sf: String
+    let destructive: Bool
 }
 
 // 간단한 원격 이미지 로더 (프로필 아바타용)
@@ -130,7 +140,6 @@ final class NativeChatHeaderView: UIView {
         menuCfg.image = UIImage(systemName: "ellipsis", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
         menuCfg.baseForegroundColor = UIColor(white: 0.13, alpha: 1)
         menuButton.configuration = menuCfg
-        menuButton.addTarget(self, action: #selector(tapMenu), for: .touchUpInside)
         addSubview(menuPill)
         menuPill.setContent(menuButton)
 
@@ -242,8 +251,25 @@ final class NativeChatHeaderView: UIView {
         }
     }
 
+    // ••• 네이티브 글래스 메뉴 (iOS 26 UIMenu = 글래스/그룹 포커스)
+    func setMenuItems(_ items: [ChatMenuItem]) {
+        guard !items.isEmpty else {
+            menuButton.menu = nil
+            menuButton.showsMenuAsPrimaryAction = false
+            return
+        }
+        let actions = items.map { item -> UIAction in
+            UIAction(title: item.label,
+                     image: UIImage(systemName: item.sf),
+                     attributes: item.destructive ? .destructive : []) { [weak self] _ in
+                self?.delegate?.chatBarsInvokeMenu(item.id, label: item.label, destructive: item.destructive)
+            }
+        }
+        menuButton.menu = UIMenu(title: "", children: actions)
+        menuButton.showsMenuAsPrimaryAction = true
+    }
+
     @objc private func tapBack() { delegate?.chatBarsDidTapBack() }
-    @objc private func tapMenu() { delegate?.chatBarsDidTapMenu() }
     @objc private func tapProfile() { delegate?.chatBarsDidTapProfile() }
 }
 
@@ -280,7 +306,6 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         attachCfg.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold))
         attachCfg.baseForegroundColor = UIColor(white: 0.25, alpha: 1)
         attachButton.configuration = attachCfg
-        attachButton.addTarget(self, action: #selector(tapAttach), for: .touchUpInside)
         attachPill.setContent(attachButton)
 
         // 견적 (사회자) — 글래스 캡슐 안에 파란 문서 아이콘 (아이콘 전용 = 폭 안정)
@@ -369,6 +394,22 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         quotePill.isHidden = !s.isPro
     }
 
+    // + 네이티브 글래스 메뉴 (iOS 26 UIMenu = 글래스/그룹 포커스)
+    func setAttachItems(_ items: [ChatMenuItem]) {
+        guard !items.isEmpty else {
+            attachButton.menu = nil
+            attachButton.showsMenuAsPrimaryAction = false
+            return
+        }
+        let actions = items.map { item -> UIAction in
+            UIAction(title: item.label, image: UIImage(systemName: item.sf)) { [weak self] _ in
+                self?.delegate?.chatBarsInvokeAttach(item.id)
+            }
+        }
+        attachButton.menu = UIMenu(title: "", children: actions)
+        attachButton.showsMenuAsPrimaryAction = true
+    }
+
     private func updateSendVoiceVisibility() {
         let hasText = !(textField.text ?? "").trimmingCharacters(in: .whitespaces).isEmpty
         sendButton.isHidden = !hasText
@@ -377,7 +418,6 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
 
     @objc private func textChanged() { updateSendVoiceVisibility() }
     @objc private func tapSend() { commitSend() }
-    @objc private func tapAttach() { delegate?.chatBarsDidTapAttach() }
     @objc private func tapQuote() { delegate?.chatBarsDidTapQuote() }
     @objc private func tapVoice() { delegate?.chatBarsDidTapVoice() }
 

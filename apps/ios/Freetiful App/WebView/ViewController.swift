@@ -299,7 +299,12 @@ class ViewController: UIViewController,
           if (window.__freetifulChat &&
               window.webkit && window.webkit.messageHandlers &&
               window.webkit.messageHandlers.nativeChatState) {
-            window.webkit.messageHandlers.nativeChatState.postMessage(window.__freetifulChat.getState());
+            var s = window.__freetifulChat.getState();
+            if (window.__freetifulChatActions) {
+              s.attachItems = window.__freetifulChatActions.attachItems || [];
+              s.menuItems = window.__freetifulChatActions.menuItems || [];
+            }
+            window.webkit.messageHandlers.nativeChatState.postMessage(s);
           }
         } catch (e) {}
       };
@@ -513,6 +518,21 @@ class ViewController: UIViewController,
         nativeChatState = s
         nativeChatHeader.apply(s)
         nativeChatInputBar.apply(s)
+        nativeChatHeader.setMenuItems(parseChatMenuItems(dict["menuItems"]))
+        nativeChatInputBar.setAttachItems(parseChatMenuItems(dict["attachItems"]))
+    }
+
+    private func parseChatMenuItems(_ raw: Any?) -> [ChatMenuItem] {
+        guard let arr = raw as? [[String: Any]] else { return [] }
+        return arr.compactMap { d in
+            guard let id = d["id"] as? String, let label = d["label"] as? String else { return nil }
+            return ChatMenuItem(
+                id: id,
+                label: label,
+                sf: (d["sf"] as? String) ?? "circle",
+                destructive: (d["destructive"] as? Bool) ?? false
+            )
+        }
     }
 
     private func updateNativeChatVisibility() {
@@ -576,6 +596,23 @@ class ViewController: UIViewController,
     func chatBarsDidTapVoice() {
         view.endEditing(true)
         webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.startVoice && window.__freetifulChat.startVoice();", completionHandler: nil)
+    }
+    func chatBarsInvokeAttach(_ id: String) {
+        view.endEditing(true)
+        webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.invokeAttach(\(jsLiteral(id)));", completionHandler: nil)
+    }
+    func chatBarsInvokeMenu(_ id: String, label: String, destructive: Bool) {
+        let js = "window.__freetifulChatActions && window.__freetifulChatActions.invokeMenu(\(jsLiteral(id)));"
+        if destructive {
+            let alert = UIAlertController(title: label, message: "되돌릴 수 없습니다. 계속할까요?", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+            alert.addAction(UIAlertAction(title: label, style: .destructive) { [weak self] _ in
+                self?.webView.evaluateJavaScript(js, completionHandler: nil)
+            })
+            present(alert, animated: true)
+        } else {
+            webView.evaluateJavaScript(js, completionHandler: nil)
+        }
     }
 
     private func navigateNativeWeb(to path: String) {
