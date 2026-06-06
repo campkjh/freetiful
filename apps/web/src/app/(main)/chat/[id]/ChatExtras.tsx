@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import {
   X, Copy, Reply, Trash2, MoreVertical,
@@ -1748,15 +1749,18 @@ export default function ChatExtras(props: ChatExtrasProps) {
       getQuoteDefaults: () => computeQuoteDefaults(),
       submitQuote: (data: any) => {
         try {
-          if (data) {
-            setQuoteCustomAmount(String(data.customAmount || ''));
-            setQuoteEventName(String(data.eventName || ''));
-            setQuoteEventDate(String(data.eventDate || ''));
-            setQuoteEventTime(String(data.eventTime || ''));
-            setQuoteEventLocation(String(data.eventLocation || ''));
-          }
+          flushSync(() => {
+            if (data) {
+              setQuoteCustomAmount(String(data.customAmount || ''));
+              setQuoteEventName(String(data.eventName || ''));
+              setQuoteEventDate(String(data.eventDate || ''));
+              setQuoteEventTime(String(data.eventTime || ''));
+              setQuoteEventLocation(String(data.eventLocation || ''));
+            }
+          });
         } catch (e) {}
-        setTimeout(() => { if (handleSendQuoteRef.current) handleSendQuoteRef.current(); }, 60);
+        // 상태가 동기 반영된 직후 발송 (타이밍 레이스 제거)
+        if (handleSendQuoteRef.current) handleSendQuoteRef.current();
       },
     };
     window.dispatchEvent(new Event('freetiful:chat-state'));
