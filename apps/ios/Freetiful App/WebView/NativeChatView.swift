@@ -28,14 +28,16 @@ enum NativeChatImageLoader {
 
     static func load(_ urlString: String, into imageView: UIImageView, fallback: UIImage?) {
         imageView.image = fallback
-        guard !urlString.isEmpty else { return }
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 빈 값이거나 SVG(기본 프로필 이미지)면 네이티브 플레이스홀더 유지 — UIImage 는 SVG 디코드 불가
+        guard !trimmed.isEmpty, !trimmed.lowercased().hasSuffix(".svg") else { return }
         let full: String
-        if urlString.hasPrefix("http") {
-            full = urlString
-        } else if urlString.hasPrefix("/") {
-            full = "https://freetiful.com\(urlString)"
+        if trimmed.hasPrefix("http") {
+            full = trimmed
+        } else if trimmed.hasPrefix("/") {
+            full = "https://freetiful.com\(trimmed)"
         } else {
-            full = "https://freetiful.com/\(urlString)"
+            full = "https://freetiful.com/\(trimmed)"
         }
         if let cached = cache[full] {
             imageView.image = cached
@@ -68,6 +70,11 @@ final class NativeChatHeaderView: UIView {
     private let hairline = UIView()
 
     private var currentImageURL = ""
+
+    static let avatarPlaceholder: UIImage? = UIImage(
+        systemName: "person.crop.circle.fill",
+        withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .regular)
+    )?.withTintColor(UIColor(white: 0.78, alpha: 1), renderingMode: .alwaysOriginal)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -118,6 +125,7 @@ final class NativeChatHeaderView: UIView {
         avatar.layer.cornerRadius = 18
         avatar.backgroundColor = UIColor(white: 0.92, alpha: 1)
         avatar.isUserInteractionEnabled = false
+        avatar.image = Self.avatarPlaceholder
         profileButton.addSubview(avatar)
 
         onlineDot.translatesAutoresizingMaskIntoConstraints = false
@@ -218,7 +226,7 @@ final class NativeChatHeaderView: UIView {
 
         if s.imageUrl != currentImageURL {
             currentImageURL = s.imageUrl
-            NativeChatImageLoader.load(s.imageUrl, into: avatar, fallback: UIImage(named: "default-profile"))
+            NativeChatImageLoader.load(s.imageUrl, into: avatar, fallback: Self.avatarPlaceholder)
         }
     }
 
@@ -275,8 +283,10 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         quoteButton.addTarget(self, action: #selector(tapQuote), for: .touchUpInside)
 
         fieldContainer.translatesAutoresizingMaskIntoConstraints = false
-        fieldContainer.backgroundColor = UIColor(white: 0.95, alpha: 1)
+        fieldContainer.backgroundColor = UIColor(white: 0.93, alpha: 1)
         fieldContainer.layer.cornerRadius = 21
+        fieldContainer.layer.borderWidth = 0.5
+        fieldContainer.layer.borderColor = UIColor(white: 0.84, alpha: 1).cgColor
 
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.placeholder = "메시지"
