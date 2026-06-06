@@ -515,24 +515,38 @@ class ViewController: UIViewController,
         s.partnerRoleKnown = (dict["partnerRoleKnown"] as? Bool) ?? false
         s.isPro = (dict["isPro"] as? Bool) ?? false
         s.ready = (dict["ready"] as? Bool) ?? false
+        s.muted = (dict["muted"] as? Bool) ?? false
         nativeChatState = s
         nativeChatHeader.apply(s)
         nativeChatInputBar.apply(s)
-        nativeChatHeader.setMenuItems(parseChatMenuItems(dict["menuItems"]))
-        nativeChatInputBar.setAttachItems(parseChatMenuItems(dict["attachItems"]))
+        // 메뉴 항목은 네이티브에서 직접 구성 — 웹 배포/캐시 타이밍과 무관하게 항상 표시
+        nativeChatInputBar.setAttachItems(buildAttachItems(isPro: s.isPro))
+        nativeChatHeader.setMenuItems(buildMenuItems(isPro: s.isPro, muted: s.muted))
     }
 
-    private func parseChatMenuItems(_ raw: Any?) -> [ChatMenuItem] {
-        guard let arr = raw as? [[String: Any]] else { return [] }
-        return arr.compactMap { d in
-            guard let id = d["id"] as? String, let label = d["label"] as? String else { return nil }
-            return ChatMenuItem(
-                id: id,
-                label: label,
-                sf: (d["sf"] as? String) ?? "circle",
-                destructive: (d["destructive"] as? Bool) ?? false
-            )
+    private func buildAttachItems(isPro: Bool) -> [ChatMenuItem] {
+        var items: [ChatMenuItem] = []
+        if isPro {
+            items.append(ChatMenuItem(id: "quote", label: "견적서 발송", sf: "doc.text.fill", destructive: false))
         }
+        items.append(contentsOf: [
+            ChatMenuItem(id: "camera", label: "카메라", sf: "camera.fill", destructive: false),
+            ChatMenuItem(id: "photo", label: "사진", sf: "photo.fill", destructive: false),
+            ChatMenuItem(id: "emoji", label: "이모티콘", sf: "face.smiling", destructive: false),
+            ChatMenuItem(id: "file", label: "파일", sf: "doc.fill", destructive: false),
+            ChatMenuItem(id: "location", label: "위치", sf: "mappin.and.ellipse", destructive: false),
+            ChatMenuItem(id: "audio", label: "오디오", sf: "music.note", destructive: false),
+        ])
+        return items
+    }
+
+    private func buildMenuItems(isPro: Bool, muted: Bool) -> [ChatMenuItem] {
+        return [
+            ChatMenuItem(id: "search", label: "대화 내용 검색", sf: "magnifyingglass", destructive: false),
+            ChatMenuItem(id: "mute", label: muted ? "알림 켜기" : "알림 끄기", sf: muted ? "bell.fill" : "bell.slash.fill", destructive: false),
+            ChatMenuItem(id: "profile", label: isPro ? "고객 정보 보기" : "프로필 보기", sf: "person.crop.circle", destructive: false),
+            ChatMenuItem(id: "delete", label: "대화 삭제", sf: "trash", destructive: true),
+        ]
     }
 
     private func updateNativeChatVisibility() {

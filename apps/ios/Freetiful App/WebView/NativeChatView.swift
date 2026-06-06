@@ -10,6 +10,7 @@ struct NativeChatState: Equatable {
     var partnerRoleKnown = false
     var isPro = false
     var ready = false
+    var muted = false
 }
 
 protocol NativeChatBarsDelegate: AnyObject {
