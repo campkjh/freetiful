@@ -12,7 +12,8 @@ import { v4 as uuid } from 'uuid';
 import axios from 'axios';
 import { AuthProvider, User } from '@prisma/client';
 
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// 리프레시 토큰 TTL 60일 — 액세스 토큰(30일)보다 길게 둬서 만료 역전 방지
+const REFRESH_TOKEN_TTL_MS = 60 * 24 * 60 * 60 * 1000;
 
 export interface SocialUserInfo {
   providerUserId: string;
@@ -169,9 +170,11 @@ export class AuthService {
   }
 
   private async issueTokens(userId: string, deviceInfo?: LoginDeviceInfo | null) {
+    // 액세스 토큰 30일 고정 — 프로덕션 env(JWT_EXPIRES_IN)가 짧게 설정돼 있어도
+    // 무시하고 항상 30일로 발급(모바일 앱 로그인 유지). 하루 만에 풀리는 문제 해결.
     const accessToken = this.jwt.sign(
       { sub: userId },
-      { expiresIn: this.config.get('JWT_EXPIRES_IN', '7d') },
+      { expiresIn: '30d' },
     );
     const refreshToken = uuid();
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);

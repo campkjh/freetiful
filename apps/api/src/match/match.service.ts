@@ -326,23 +326,20 @@ export class MatchService {
         userId: proProfile.userId,
       }));
     } else {
-      const proCategories = await this.prisma.proCategory.findMany({
+      // 다수견적: 카테고리와 무관하게 승인·활동·노출 중인 "모든 사회자"에게 발송.
+      // (이전엔 정확히 일치하는 ProCategory 연결이 있는 사회자에게만 가서, 카테고리
+      //  연결 누락/심사상태 등으로 일부 사회자에게 안 가는 문제가 있었음)
+      const allPros = await this.prisma.proProfile.findMany({
         where: {
-          categoryId,
-          proProfile: {
-            status: 'approved',
-            isProfileHidden: false,
-            user: { isActive: true },
-          },
+          status: 'approved',
+          isProfileHidden: false,
+          user: { isActive: true },
         },
-        select: {
-          proProfileId: true,
-          proProfile: { select: { userId: true } },
-        },
+        select: { id: true, userId: true },
       });
-      deliveryTargets = proCategories.map((pc) => ({
-        proProfileId: pc.proProfileId,
-        userId: pc.proProfile.userId,
+      deliveryTargets = allPros.map((proProfile) => ({
+        proProfileId: proProfile.id,
+        userId: proProfile.userId,
       }));
     }
 

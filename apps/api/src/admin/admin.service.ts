@@ -1968,8 +1968,52 @@ export class AdminService {
   }
 
   // ─── 유저 삭제 ───────────────────────────────────────────────────────────
+  /**
+   * 유저 완전삭제(회원탈퇴) — 연관 데이터까지 트랜잭션으로 모두 제거.
+   * FK에 onDelete:Cascade가 없는 관계(MatchRequest/ChatRoom/ChatRoomMember/Message/
+   * Review/Report, 그리고 사회자 프로필의 Quotation/MatchDelivery/Review/ChatRoom)를
+   * 순서대로 직접 삭제한 뒤 user.delete()로 나머지(ProProfile/BusinessProfile/Session/
+   * Notification/PushToken 등 cascade)를 정리한다. SettlementLog(정산 이력)·추천인 참조는
+   * 보존하되 참조만 끊는다(데이터 보존). 누락 FK가 있으면 트랜잭션이 롤백돼 안전.
+   */
   async deleteUser(userId: string) {
-    await this.prisma.user.delete({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, proProfile: { select: { id: true } } },
+    });
+    if (!user) return { success: true, alreadyDeleted: true };
+    const proProfileId = user.proProfile?.id;
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // 1) 사회자(pro) 프로필에 매달린 데이터 (cascade 없는 FK) 먼저 제거
+        if (proProfileId) {
+          await tx.matchDelivery.deleteMany({ where: { proProfileId } });
+          await tx.quotation.deleteMany({ where: { proProfileId } });
+          await tx.review.deleteMany({ where: { proProfileId } });
+          await tx.chatRoom.deleteMany({ where: { proProfileId } }); // room→Message/Member cascade
+        }
+        // 2) 이 유저가 만든/쓴 데이터 (cascade 없는 FK)
+        await tx.review.deleteMany({ where: { reviewerId: userId } });
+        await tx.report.deleteMany({ where: { reporterId: userId } });
+        await tx.matchRequest.deleteMany({ where: { userId } }); // →MatchDelivery/Style cascade
+        await tx.chatRoom.deleteMany({ where: { userId } });     // 고객으로 만든 방→cascade
+        await tx.chatRoomMember.deleteMany({ where: { userId } }); // 남은 방 멤버십
+        await tx.message.deleteMany({ where: { senderId: userId } }); // 살아남은 방의 메시지
+        // 3) 보존 레코드는 참조만 해제 (정산 이력 / 추천인 연결)
+        await tx.settlementLog.updateMany({
+          where: { settledByUserId: userId },
+          data: { settledByUserId: null },
+        });
+        await tx.user.updateMany({
+          where: { referredByUserId: userId },
+          data: { referredByUserId: null },
+        });
+        // 4) 마지막으로 유저 삭제 (ProProfile/BusinessProfile/Session/Notification 등 cascade)
+        await tx.user.delete({ where: { id: userId } });
+      },
+      { timeout: 30000, maxWait: 10000 },
+    );
     return { success: true };
   }
 
