@@ -400,21 +400,24 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                 width: bizCollapsing ? 60 : '100%',
                 height: 66,
                 borderRadius: 9999,
-                overflow: 'hidden',
+                // 평소엔 visible — press 시 fill 알약이 네비바보다 더 크게 넘쳐 보이도록.
+                // biz 접힘 애니메이션 때만 hidden(아이콘 클리핑).
+                overflow: bizCollapsing ? 'hidden' : 'visible',
                 transition: bizCollapsing
                   ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
                   : 'none',
                 ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
               }}
             >
-              <div className="relative flex items-center h-full overflow-hidden px-[8px] py-[3px]">
+              <div className={`relative flex items-center h-full ${bizCollapsing ? 'overflow-hidden' : 'overflow-visible'} px-[8px] py-[3px]`}>
                 <span
                   data-fill-pill
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-[6px] bottom-[6px] rounded-full bg-white/85 shadow-[0_8px_22px_rgba(15,23,42,0.08)]"
+                  className="pointer-events-none absolute top-[6px] bottom-[6px] rounded-full shadow-[0_8px_22px_rgba(15,23,42,0.08)]"
                   style={{
                     left: `calc(8px + ${activeNavIndex} * ((100% - 16px) / ${NAV_ITEMS.length}))`,
                     width: `calc((100% - 16px) / ${NAV_ITEMS.length})`,
+                    backgroundColor: 'rgba(15, 23, 42, 0.05)',
                     border: '0.4px solid transparent',
                     boxSizing: 'border-box',
                     transformOrigin: 'center',
@@ -490,9 +493,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             }
             /* press 시 fill 알약: 네비바보다 살짝 크게 스케일업 + 배경 5% + 0.4px 보더, 바운스 후 복귀 */
             @keyframes pillPress {
-              0%   { transform: scale(1);    background-color: rgba(255,255,255,0.85); border-color: rgba(15,23,42,0); }
-              45%  { transform: scale(1.24); background-color: rgba(255,255,255,0.05); border-color: rgba(15,23,42,0.16); }
-              100% { transform: scale(1);    background-color: rgba(255,255,255,0.85); border-color: rgba(15,23,42,0); }
+              0%   { transform: scale(1);   background-color: rgba(15,23,42,0.05); border-color: rgba(15,23,42,0); }
+              45%  { transform: scale(1.4); background-color: rgba(15,23,42,0.02); border-color: rgba(15,23,42,0.18); }
+              100% { transform: scale(1);   background-color: rgba(15,23,42,0.05); border-color: rgba(15,23,42,0); }
             }
           `}</style>
         </nav>
