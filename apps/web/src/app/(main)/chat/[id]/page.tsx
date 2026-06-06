@@ -717,6 +717,7 @@ export default function ChatRoomPage() {
         partnerRoleKnown: !!partnerRoleKnown,
         isPro: !!isPro,
         ready: !!chatPartner?.name,
+        muted: !!muted,
       }),
       sendText: (t: string) => { handleSendRef.current?.(t); },
       openAttach: () => setShowAttach(true),
@@ -734,7 +735,7 @@ export default function ChatRoomPage() {
     return () => {
       try { if ((window as any).__freetifulChat === api) delete (window as any).__freetifulChat; } catch {}
     };
-  }, [chatPartner, partnerIsPro, partnerRoleKnown, isPro, openPartnerProfile, router]);
+  }, [chatPartner, partnerIsPro, partnerRoleKnown, isPro, muted, openPartnerProfile, router]);
 
   // ─── Input change + mention detection ───
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
