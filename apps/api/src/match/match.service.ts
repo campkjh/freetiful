@@ -401,7 +401,7 @@ export class MatchService {
   }
 
   /** 사용자의 매칭 요청 목록 */
-  async getMatchRequests(userId: string) {
+  async getMatchRequests(userId: string, skip = 0, take = 8) {
     return this.prisma.matchRequest.findMany({
       where: { userId },
       include: {
@@ -441,11 +441,13 @@ export class MatchService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      skip: Math.max(0, Number(skip) || 0),
+      take: Math.min(Math.max(1, Number(take) || 8), 50),
     });
   }
 
   /** 전문가에게 전달된 매칭 요청 목록 */
-  async getMatchRequestsForPro(proProfileId: string, limit = 50) {
+  async getMatchRequestsForPro(proProfileId: string, limit = 50, skip = 0) {
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
     // 새 요청 섹션은 pending/viewed, 보관 탭은 archived 만 사용한다.
     // 거절/응답 이력은 DB 단계에서 제외해 전체 매칭 히스토리를 끌어오는 비용을 없앤다.
@@ -479,6 +481,7 @@ export class MatchService {
       },
       orderBy: { deliveredAt: 'desc' },
       take: safeLimit,
+      skip: Math.max(0, Number(skip) || 0),
     });
 
     return deliveries;

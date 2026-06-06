@@ -74,8 +74,8 @@ export class MatchController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '내 매칭 요청 목록 조회' })
-  getMatchRequests(@Request() req: any) {
-    return this.matchService.getMatchRequests(req.user.id);
+  getMatchRequests(@Request() req: any, @Query('skip') skip?: string, @Query('take') take?: string) {
+    return this.matchService.getMatchRequests(req.user.id, Number(skip) || 0, Number(take) || 8);
   }
 
   /** 전문가에게 전달된 매칭 요청 목록 */
@@ -83,7 +83,7 @@ export class MatchController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '전문가에게 전달된 매칭 요청 조회' })
-  async getMatchRequestsForPro(@Request() req: any, @Query('limit') limit?: string) {
+  async getMatchRequestsForPro(@Request() req: any, @Query('limit') limit?: string, @Query('skip') skip?: string) {
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { userId: req.user.id },
       select: { id: true },
@@ -91,7 +91,7 @@ export class MatchController {
     if (!proProfile) {
       throw new Error('전문가 프로필이 없습니다.');
     }
-    return this.matchService.getMatchRequestsForPro(proProfile.id, Number(limit) || 50);
+    return this.matchService.getMatchRequestsForPro(proProfile.id, Number(limit) || 50, Number(skip) || 0);
   }
 
   /** 전문가가 매칭에 응답 */
