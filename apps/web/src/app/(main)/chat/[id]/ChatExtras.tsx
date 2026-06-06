@@ -1693,6 +1693,62 @@ export default function ChatExtras(props: ChatExtrasProps) {
     );
   };
 
+  // ─── iOS 네이티브 글래스 메뉴(+/•••)용 액션 노출 ───
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const w = window as any;
+    const attachItems = [
+      ...(isPro ? [{ id: 'quote', label: '견적서 발송', sf: 'doc.text.fill', tint: 'blue' }] : []),
+      { id: 'camera', label: '카메라', sf: 'camera.fill' },
+      { id: 'photo', label: '사진', sf: 'photo.fill' },
+      { id: 'emoji', label: '이모티콘', sf: 'face.smiling' },
+      { id: 'file', label: '파일', sf: 'doc.fill' },
+      { id: 'location', label: '위치', sf: 'mappin.and.ellipse' },
+      { id: 'audio', label: '오디오', sf: 'music.note' },
+    ];
+    const menuItems = [
+      { id: 'search', label: '대화 내용 검색', sf: 'magnifyingglass' },
+      { id: 'mute', label: muted ? '알림 켜기' : '알림 끄기', sf: muted ? 'bell.fill' : 'bell.slash.fill' },
+      { id: 'profile', label: isPro ? '고객 정보 보기' : '프로필 보기', sf: 'person.crop.circle' },
+      { id: 'delete', label: '대화 삭제', sf: 'trash', destructive: true },
+    ];
+    const invokeAttach = (id: string) => {
+      switch (id) {
+        case 'quote': setShowAttach(false); setShowQuoteModal(true); break;
+        case 'camera': cameraInputRef.current?.click(); break;
+        case 'photo': fileInputRef.current?.click(); break;
+        case 'emoji': toast('곧 제공될 예정입니다', { icon: '😊' }); break;
+        case 'file': {
+          const inp = document.createElement('input');
+          inp.type = 'file';
+          inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); };
+          inp.click();
+          break;
+        }
+        case 'location': handleLocationSend(); break;
+        case 'audio': toast('곧 제공될 예정입니다', { icon: '🎵' }); break;
+      }
+    };
+    const invokeMenu = (id: string) => {
+      switch (id) {
+        case 'search': toast('곧 제공될 예정입니다', { icon: '🔍' }); break;
+        case 'mute': setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); break;
+        case 'profile':
+          if (isPro) {
+            toast(`${chatPartner?.name || '고객'} 정보는 대화 상단 카드에서 확인할 수 있습니다`);
+          } else if (chatPartner) {
+            window.location.href = `/pros/${chatPartner.proProfileId || chatPartner.id || ''}`;
+          }
+          break;
+        case 'delete': setMessages([]); toast.success('대화 삭제됨'); break; // 확인은 네이티브에서
+      }
+    };
+    w.__freetifulChatActions = { attachItems, menuItems, invokeAttach, invokeMenu };
+    window.dispatchEvent(new Event('freetiful:chat-state'));
+    return () => { try { if (w.__freetifulChatActions) delete w.__freetifulChatActions; } catch {} };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPro, muted, chatPartner]);
+
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
     toast.success('복사됨');
