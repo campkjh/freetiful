@@ -201,7 +201,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private let usesNativeLiquidGlass = LiquidGlassEffectFactory.supportsNativeLiquidGlass
     private let freetifulBlue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
     private lazy var activeColor = UIColor(white: 0.07, alpha: 1)
-    private lazy var inactiveColor = UIColor(white: 0.45, alpha: 1)
+    private lazy var inactiveColor = UIColor(white: 0, alpha: 0.4)
 
     private let tabBar = FreetifulNativeTabBar()
     private let toggleContainerView = UIView()

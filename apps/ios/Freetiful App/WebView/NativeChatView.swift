@@ -1,5 +1,11 @@
 import UIKit
 
+// 네이티브 버튼/탭 클릭 햅틱 (시뮬레이터는 진동 미표현, 실기기에서 동작)
+enum Haptics {
+    static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+    static func soft() { UIImpactFeedbackGenerator(style: .soft).impactOccurred() }
+}
+
 // 웹 채팅 상세(window.__freetifulChat.getState())에서 전달받는 상태
 struct NativeChatState: Equatable {
     var name = ""
@@ -270,8 +276,8 @@ final class NativeChatHeaderView: UIView {
         menuButton.showsMenuAsPrimaryAction = true
     }
 
-    @objc private func tapBack() { delegate?.chatBarsDidTapBack() }
-    @objc private func tapProfile() { delegate?.chatBarsDidTapProfile() }
+    @objc private func tapBack() { Haptics.tap(); delegate?.chatBarsDidTapBack() }
+    @objc private func tapProfile() { Haptics.tap(); delegate?.chatBarsDidTapProfile() }
 }
 
 // MARK: - 네이티브 채팅 입력바 (플로팅 글래스: 첨부 / 견적 / 입력+전송·음성)
@@ -419,12 +425,13 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
 
     @objc private func textChanged() { updateSendVoiceVisibility() }
     @objc private func tapSend() { commitSend() }
-    @objc private func tapQuote() { delegate?.chatBarsDidTapQuote() }
-    @objc private func tapVoice() { delegate?.chatBarsDidTapVoice() }
+    @objc private func tapQuote() { Haptics.tap(); delegate?.chatBarsDidTapQuote() }
+    @objc private func tapVoice() { Haptics.tap(); delegate?.chatBarsDidTapVoice() }
 
     private func commitSend() {
         let text = (textField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        Haptics.tap()
         delegate?.chatBarsDidSend(text)
         textField.text = ""
         updateSendVoiceVisibility()

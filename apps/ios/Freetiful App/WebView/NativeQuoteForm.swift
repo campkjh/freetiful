@@ -266,6 +266,7 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
     }
 
     @objc private func tapSend() {
+        Haptics.tap()
         view.endEditing(true)
         let payload: [String: String] = [
             "customAmount": (amountField.text ?? "").filter { $0.isNumber },

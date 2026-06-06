@@ -112,6 +112,9 @@ final class NativeChatListBar: UIView {
     // titleLabel 의 top 은 외부(safe area)에서 잡도록 노출
     var titleTopAnchorRef: NSLayoutYAxisAnchor { titleLabel.topAnchor }
 
+    func setTitle(_ t: String) { titleLabel.text = t }
+    func setSearchHidden(_ hidden: Bool) { searchPill.isHidden = hidden }
+
     func configure(tabs: [String], selected: String) {
         if tabCells.map({ $0.tab }) != tabs {
             tabsRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -167,5 +170,5 @@ final class NativeChatListBar: UIView {
         delegate?.chatListSelectTab(title)
     }
 
-    @objc private func tapSearch() { delegate?.chatListTapSearch() }
+    @objc private func tapSearch() { Haptics.tap(); delegate?.chatListTapSearch() }
 }

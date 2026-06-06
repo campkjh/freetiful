@@ -53,6 +53,7 @@ class ViewController: UIViewController,
     private var isOnChatDetail = false
     private let nativeChatListBar = NativeChatListBar()
     private var isOnChatList = false
+    private var lastListContext = "chat"
     // 채팅방에서 webView 를 화면 가장자리까지(상/하단 safe area 제거) 토글
     private var webViewTopSafe: NSLayoutConstraint?
     private var webViewBottomSafe: NSLayoutConstraint?
@@ -315,10 +316,12 @@ class ViewController: UIViewController,
 
       window.__freetifulChatListPostState = function() {
         try {
-          if (window.__freetifulChatList &&
-              window.webkit && window.webkit.messageHandlers &&
+          var src = window.__freetifulChatList || window.__freetifulInquiryList;
+          if (src && window.webkit && window.webkit.messageHandlers &&
               window.webkit.messageHandlers.nativeChatListState) {
-            window.webkit.messageHandlers.nativeChatListState.postMessage(window.__freetifulChatList.getState());
+            var st = src.getState();
+            st.context = window.__freetifulChatList ? 'chat' : 'inquiry';
+            window.webkit.messageHandlers.nativeChatListState.postMessage(st);
           }
         } catch (e) {}
       };
@@ -583,7 +586,7 @@ class ViewController: UIViewController,
     private func updateNativeChatVisibility() {
         guard nativeNavigationEnabled else { return }
         let onDetail = currentNativePath.hasPrefix("/chat/")
-        let onList = currentNativePath == "/chat"
+        let onList = currentNativePath == "/chat" || currentNativePath == "/pro-dashboard/inquiries"
 
         // ─── 채팅 상세 ───
         if onDetail != isOnChatDetail {
@@ -627,14 +630,19 @@ class ViewController: UIViewController,
 
     private func handleNativeChatListState(_ body: Any) {
         guard nativeNavigationEnabled, let dict = body as? [String: Any] else { return }
-        let tabs = (dict["tabs"] as? [String]) ?? ["전체", "읽음", "안 읽음", "숨김"]
-        let tab = (dict["tab"] as? String) ?? "전체"
-        nativeChatListBar.configure(tabs: tabs, selected: tab)
+        let context = (dict["context"] as? String) ?? "chat"
+        lastListContext = context
+        nativeChatListBar.setTitle(context == "inquiry" ? "새 요청" : "채팅")
+        nativeChatListBar.setSearchHidden(context == "inquiry")
+        let tabs = (dict["tabs"] as? [String]) ?? []
+        let tab = (dict["tab"] as? String) ?? ""
+        if !tabs.isEmpty { nativeChatListBar.configure(tabs: tabs, selected: tab) }
     }
 
     // MARK: - NativeChatListBarDelegate
     func chatListSelectTab(_ tab: String) {
-        webView.evaluateJavaScript("window.__freetifulChatList && window.__freetifulChatList.setTab(\(jsLiteral(tab)));", completionHandler: nil)
+        let hook = lastListContext == "inquiry" ? "__freetifulInquiryList" : "__freetifulChatList"
+        webView.evaluateJavaScript("window.\(hook) && window.\(hook).setTab(\(jsLiteral(tab)));", completionHandler: nil)
     }
     func chatListTapSearch() {
         webView.evaluateJavaScript("window.__freetifulChatList && window.__freetifulChatList.toggleSearch && window.__freetifulChatList.toggleSearch();", completionHandler: nil)
