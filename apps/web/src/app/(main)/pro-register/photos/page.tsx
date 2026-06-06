@@ -162,39 +162,26 @@ export default function PhotosPage() {
     const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imageFiles.length === 0) return;
 
-    if (imageFiles.length === 1) {
-      // 1장: 크롭 모달
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCropImage(reader.result as string);
-        setCropFor('new');
-        setCrop({ x: 0, y: 0 });
-        setZoom(1);
-        setAspect(1);
-        setFaceError('');
-      };
-      reader.readAsDataURL(imageFiles[0]);
-    } else {
-      // 여러 장: 순차적으로 읽어서 한번에 추가
-      const readFile = (file: File): Promise<string> =>
-        new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject();
-          reader.readAsDataURL(file);
-        });
+    // 다중 선택 업로드 — 선택한 모든 사진을 한 번에 추가(얼굴 인식 조건 없음).
+    // 개별 사진은 추가 후 탭하여 크롭/편집할 수 있음.
+    const readFile = (file: File): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject();
+        reader.readAsDataURL(file);
+      });
 
-      try {
-        const results: string[] = [];
-        for (const file of imageFiles) {
-          const data = await readFile(file);
-          const scaled = await downscaleDataUrl(data);
-          results.push(scaled);
-        }
-        setPhotos(prev => [...prev, ...results]);
-      } catch {
-        // 읽기 실패 무시
+    try {
+      const results: string[] = [];
+      for (const file of imageFiles) {
+        const data = await readFile(file);
+        const scaled = await downscaleDataUrl(data);
+        results.push(scaled);
       }
+      setPhotos(prev => [...prev, ...results]);
+    } catch {
+      // 읽기 실패 무시
     }
     e.target.value = '';
   };
@@ -202,18 +189,6 @@ export default function PhotosPage() {
   const handleCropSave = async () => {
     if (!cropImage || !croppedArea) return;
     const cropped = await getCroppedImg(cropImage, croppedArea);
-
-    // If this will be the main photo (index 0 or setting as main), check face
-    const willBeMain = cropFor === 'new' ? photos.length === 0 : cropFor === 0;
-    if (willBeMain) {
-      setChecking(true);
-      const hasFace = await detectFace(cropped);
-      setChecking(false);
-      if (!hasFace) {
-        setFaceError('대표 사진에는 얼굴이 포함된 사진을 등록해주세요');
-        return;
-      }
-    }
 
     if (cropFor === 'new') {
       setPhotos(prev => [...prev, cropped]);
@@ -224,16 +199,7 @@ export default function PhotosPage() {
     setFaceError('');
   };
 
-  const handleSetMain = async (index: number) => {
-    // Check face for new main photo
-    setChecking(true);
-    const hasFace = await detectFace(photos[index]);
-    setChecking(false);
-    if (!hasFace) {
-      setFaceError('대표 사진에는 얼굴이 포함된 사진만 설정할 수 있습니다');
-      setTimeout(() => setFaceError(''), 3000);
-      return;
-    }
+  const handleSetMain = (index: number) => {
     setMainPhotoIndex(index);
   };
 
@@ -281,7 +247,7 @@ export default function PhotosPage() {
           프로필사진 <span className="text-[11px] text-gray-400">4/6</span>
         </motion.h1>
         <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-sm text-gray-400">
-          대표 사진은 얼굴이 포함된 사진만 등록 가능합니다
+          마음에 드는 사진을 자유롭게 등록해주세요
         </motion.p>
         <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="text-sm text-gray-400">
           [필수] 4장 이상 등록 시 다음 버튼이 활성화됩니다
