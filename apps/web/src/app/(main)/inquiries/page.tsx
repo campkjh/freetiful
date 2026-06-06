@@ -137,14 +137,14 @@ export default function CustomerInquiriesPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const initialCachedRequests = readCustomerInquiriesCache(authUser?.id);
-  // 요청 단위로 페이지네이션(초기 4요청만) — 20개+ 한꺼번에 불러오던 느린 로딩 최적화
+  // 요청 단위 페이지네이션(초기 4요청) — 스크롤 시 다음 페이지를 추가 로드
   const REQUEST_PAGE = 4;
   const [requests, setRequests] = useState<any[]>(() => (initialCachedRequests || []).slice(0, REQUEST_PAGE));
   const [loading, setLoading] = useState(() => !initialCachedRequests);
-  const [visibleCount, setVisibleCount] = useState(6);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const requestSkipRef = useRef(0);
+  const seenIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -157,11 +157,13 @@ export default function CustomerInquiriesPage() {
       setLoading(true);
     }
     requestSkipRef.current = 0;
+    seenIdsRef.current = new Set();
     setHasMore(true);
     matchApi.getMyRequests({ skip: 0, take: REQUEST_PAGE })
       .then((data) => {
         if (cancelled) return;
         const page = Array.isArray(data) ? data : [];
+        seenIdsRef.current = new Set(page.map((r: any) => r?.id));
         setRequests(page);
         requestSkipRef.current = page.length;
         setHasMore(page.length >= REQUEST_PAGE);
@@ -182,32 +184,33 @@ export default function CustomerInquiriesPage() {
     matchApi.getMyRequests({ skip: requestSkipRef.current, take: REQUEST_PAGE })
       .then((data) => {
         const page = Array.isArray(data) ? data : [];
-        setRequests((prev) => [...prev, ...page]);
         requestSkipRef.current += page.length;
-        setHasMore(page.length >= REQUEST_PAGE);
+        // 중복 아닌 새 요청만 추가 — 백엔드가 skip을 무시해 같은 페이지를 줘도 무한루프 방지
+        const fresh = page.filter((r: any) => r && !seenIdsRef.current.has(r.id));
+        if (fresh.length === 0 || page.length < REQUEST_PAGE) setHasMore(false);
+        if (fresh.length > 0) {
+          fresh.forEach((r: any) => seenIdsRef.current.add(r.id));
+          setRequests((prev) => [...prev, ...fresh]);
+        }
       })
-      .catch(() => {})
+      .catch(() => setHasMore(false))
       .finally(() => setLoadingMore(false));
   }, [loadingMore, hasMore]);
 
   const cards = useMemo(() => buildCards(requests), [requests]);
-  const visibleCards = useMemo(() => cards.slice(0, visibleCount), [cards, visibleCount]);
 
-  // 스크롤 도달: 먼저 화면에 카드 더 보여주고(렌더), 다 보여줬으면 다음 요청 페이지를 fetch
+  // 바닥 도달 시 다음 요청 페이지 fetch
   useEffect(() => {
     const target = loadMoreRef.current;
     if (!target) return;
     const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      if (visibleCount < cards.length) {
-        setVisibleCount((count) => Math.min(count + 6, cards.length));
-      } else if (hasMore) {
+      if (entries.some((entry) => entry.isIntersecting) && hasMore && !loadingMore) {
         fetchMoreRequests();
       }
     }, { rootMargin: '200px 0px' });
     observer.observe(target);
     return () => observer.disconnect();
-  }, [cards.length, visibleCount, hasMore, fetchMoreRequests]);
+  }, [hasMore, loadingMore, fetchMoreRequests]);
 
   const openInquiry = (item: InquiryCard) => {
     if (item.roomId) {
@@ -243,7 +246,7 @@ export default function CustomerInquiriesPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {visibleCards.map((item) => {
+            {cards.map((item) => {
               const StatusIcon = getStatusIcon(item.status);
               return (
                 <button
@@ -280,7 +283,7 @@ export default function CustomerInquiriesPage() {
                 </button>
               );
             })}
-            {(visibleCount < cards.length || hasMore) && (
+            {hasMore && (
               <div ref={loadMoreRef} className="flex h-12 items-center justify-center">
                 {loadingMore && <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-gray-400" />}
               </div>

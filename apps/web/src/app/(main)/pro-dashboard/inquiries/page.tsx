@@ -185,6 +185,7 @@ export default function ProRequestsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const skipRef = useRef(0);
+  const seenIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -203,6 +204,7 @@ export default function ProRequestsPage() {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const mapped = mapMatchDeliveries(items);
         setRequests(mapped);
+        seenIdsRef.current = new Set(mapped.map((r) => r.id));
         skipRef.current = items.length;
         setHasMore(items.length >= MATCH_REQUEST_LIMIT);
         writeCache(mapped, authUser.id);
@@ -222,11 +224,16 @@ export default function ProRequestsPage() {
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const mapped = mapMatchDeliveries(items);
-        setRequests((prev) => [...prev, ...mapped]);
         skipRef.current += items.length;
-        setHasMore(items.length >= MATCH_REQUEST_LIMIT);
+        // 중복 아닌 새 항목만 추가 — 백엔드가 skip을 무시해 같은 페이지를 줘도 무한루프 방지
+        const fresh = mapped.filter((r) => r && !seenIdsRef.current.has(r.id));
+        if (fresh.length === 0 || items.length < MATCH_REQUEST_LIMIT) setHasMore(false);
+        if (fresh.length > 0) {
+          fresh.forEach((r) => seenIdsRef.current.add(r.id));
+          setRequests((prev) => [...prev, ...fresh]);
+        }
       })
-      .catch(() => {})
+      .catch(() => setHasMore(false))
       .finally(() => setLoadingMore(false));
   }, [authUser, loadingMore, hasMore]);
 
