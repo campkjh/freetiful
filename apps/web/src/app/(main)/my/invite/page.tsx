@@ -221,13 +221,11 @@ export default function InvitePage() {
   const isLoggedIn = hasAuthSession;
 
   const [loading, setLoading] = useState(true);
-  const [submittingCode, setSubmittingCode] = useState(false);
   const [submittingClaim, setSubmittingClaim] = useState(false);
   const [claimingStep, setClaimingStep] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [status, setStatus] = useState<ReferralEventStatus | null>(null);
-  const [referralInput, setReferralInput] = useState('');
   const [claimForm, setClaimForm] = useState({
     bankName: '',
     accountHolder: '',
@@ -267,7 +265,6 @@ export default function InvitePage() {
           accountNumber: data.claim.accountNumber || '',
         });
       }
-      if (data.enteredReferralCode) setReferralInput(data.enteredReferralCode);
     } catch (error: any) {
       if (isAuthExpiredError(error)) {
         toast.error('로그인이 만료됐어요. 다시 로그인 후 보상을 받을 수 있어요.');
@@ -281,15 +278,6 @@ export default function InvitePage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const prefetchedCode = String(params.get('ref') || params.get('code') || '')
-      .trim()
-      .toUpperCase();
-    if (prefetchedCode) setReferralInput(prefetchedCode);
   }, []);
 
   useEffect(() => {
@@ -344,32 +332,6 @@ export default function InvitePage() {
       }
     } finally {
       setClaimingStep(null);
-    }
-  };
-
-  const handleApplyCode = async () => {
-    if (!isLoggedIn) {
-      toast.error('로그인 후 초대코드를 등록할 수 있어요.');
-      return;
-    }
-    if (!referralInput.trim()) {
-      toast.error('초대코드를 입력해주세요.');
-      return;
-    }
-    setSubmittingCode(true);
-    try {
-      const next = await usersApi.applyReferralEventCode(referralInput.trim().toUpperCase());
-      setStatus(next);
-      setReferralInput(next.enteredReferralCode || referralInput.trim().toUpperCase());
-      toast.success('초대코드가 등록됐어요.');
-    } catch (error: any) {
-      if (isAuthExpiredError(error)) {
-        toast.error('로그인이 만료됐어요. 다시 로그인 후 등록할 수 있어요.');
-      } else {
-        toast.error(error?.response?.data?.message || '초대코드 등록에 실패했어요.');
-      }
-    } finally {
-      setSubmittingCode(false);
     }
   };
 
@@ -492,46 +454,6 @@ export default function InvitePage() {
           </div>
         </section>
 
-        <section className="space-y-[14px] px-[25px] pb-[42px]">
-          <div className="rounded-[26px] bg-[#FAFAFA] p-[18px]">
-            <h2 className="text-[20px] font-bold tracking-[-0.04em] text-[#2B313D]">초대코드 등록</h2>
-            {!authHydrated || loading ? (
-              <div className="mt-[14px] flex h-[58px] items-center justify-center rounded-[18px] bg-white text-[15px] font-medium text-[#A4ABBA]">
-                이벤트 정보를 불러오는 중...
-              </div>
-            ) : !isLoggedIn ? (
-              <div className="mt-[14px] rounded-[18px] bg-white px-4 py-4 text-[15px] font-medium leading-[1.5] text-[#8A93A5]">
-                로그인 후 초대코드를 등록할 수 있어요.
-              </div>
-            ) : status?.hasEnteredReferralCode ? (
-              <div className="mt-[14px] rounded-[18px] bg-white px-4 py-4">
-                <p className="text-[13px] font-semibold text-[#A4ABBA]">등록한 초대코드</p>
-                <p className="mt-1 text-[22px] font-bold tracking-[-0.04em] text-black">{status.enteredReferralCode}</p>
-                {status.inviterName && (
-                  <p className="mt-1 text-[14px] font-medium text-[#8A93A5]">{status.inviterName}님의 코드로 참여 중이에요.</p>
-                )}
-              </div>
-            ) : (
-              <div className="mt-[14px] space-y-[10px]">
-                <input
-                  value={referralInput}
-                  onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
-                  placeholder="친구 초대코드 입력"
-                  className="h-[54px] w-full rounded-[16px] border border-[#E4E9F0] bg-white px-4 text-[16px] font-semibold tracking-[-0.035em] text-[#111318] outline-none placeholder:text-[#B0B8C4] focus:border-[#4482FF]"
-                />
-                <button
-                  type="button"
-                  onClick={handleApplyCode}
-                  disabled={submittingCode}
-                  className="inline-flex h-[54px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#4482FF] text-[17px] font-bold tracking-[-0.035em] text-white disabled:opacity-60"
-                >
-                  {submittingCode && <Loader2 size={18} className="animate-spin" />}
-                  초대코드 등록
-                </button>
-              </div>
-            )}
-          </div>
-        </section>
       </main>
 
       <ClaimModal
