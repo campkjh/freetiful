@@ -188,6 +188,20 @@ export default function ProRequestsPage() {
   const seenIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
+  // ─── iOS 네이티브 새요청 헤더/탭 연동 ───
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const w = window as any;
+    const KEY_TO_LABEL: Record<string, string> = { all: '전체', multi: '다수요청', single: '개인요청' };
+    const LABEL_TO_KEY: Record<string, Filter> = { '전체': 'all', '다수요청': 'multi', '개인요청': 'single' };
+    w.__freetifulInquiryList = {
+      getState: () => ({ tab: KEY_TO_LABEL[filter] || '전체', tabs: ['전체', '다수요청', '개인요청'] }),
+      setTab: (label: string) => setFilter(LABEL_TO_KEY[label] || 'all'),
+    };
+    window.dispatchEvent(new Event('freetiful:chatlist-state'));
+    return () => { try { if (w.__freetifulInquiryList) delete w.__freetifulInquiryList; } catch {} };
+  }, [filter]);
+
   useEffect(() => {
     requestsCountRef.current = requests.length;
   }, [requests.length]);
@@ -331,7 +345,7 @@ export default function ProRequestsPage() {
 
   return (
     <div className="pro-toss-page pro-fast-render pb-24">
-      <div className="pro-toss-header sticky top-0 z-10 px-4 pb-3 pt-3">
+      <div data-native-chatlist-header className="pro-toss-header sticky top-0 z-10 px-4 pb-3 pt-3">
         <div className="flex h-[52px] items-center justify-between">
           <h1 className="text-[20px] font-bold text-[#2B313D]">새 요청</h1>
         </div>
