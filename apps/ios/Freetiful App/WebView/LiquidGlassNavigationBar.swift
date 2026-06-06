@@ -72,8 +72,8 @@ protocol LiquidGlassNavigationBarDelegate: AnyObject {
 }
 
 private final class FreetifulNativeTabBar: UITabBar {
-    private let preferredBarHeight: CGFloat = 66
-    private let selectionIndicatorInset: CGFloat = 3
+    private let preferredBarHeight: CGFloat = 80
+    private let selectionIndicatorInset: CGFloat = 12
     private var selectionIndicatorRenderSize: CGSize = .zero
 
     override init(frame: CGRect) {
@@ -144,10 +144,10 @@ private final class FreetifulNativeTabBar: UITabBar {
                 dx: selectionIndicatorInset,
                 dy: selectionIndicatorInset
             )
-            UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 0.12).setFill()
+            UIColor(white: 0, alpha: 0.06).setFill()
             UIBezierPath(
                 roundedRect: capsuleRect,
-                cornerRadius: capsuleRect.height / 2
+                cornerRadius: 22
             ).fill()
         }
 
@@ -160,7 +160,7 @@ private final class FreetifulNativeTabBar: UITabBar {
         view.alpha = 1
         view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.clipsToBounds = true
-        view.layer.cornerRadius = preferredBarHeight / 2
+        view.layer.cornerRadius = 28
         view.layer.cornerCurve = .continuous
         view.layer.borderWidth = 0.5
         view.layer.borderColor = UIColor.white.withAlphaComponent(0.24).cgColor
@@ -169,7 +169,7 @@ private final class FreetifulNativeTabBar: UITabBar {
             subview.frame = view.bounds
             subview.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             subview.clipsToBounds = true
-            subview.layer.cornerRadius = preferredBarHeight / 2
+            subview.layer.cornerRadius = 28
             subview.layer.cornerCurve = .continuous
             fillDescendants(of: subview)
         }
@@ -180,7 +180,7 @@ private final class FreetifulNativeTabBar: UITabBar {
             subview.frame = view.bounds
             subview.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             subview.clipsToBounds = true
-            subview.layer.cornerRadius = preferredBarHeight / 2
+            subview.layer.cornerRadius = 28
             subview.layer.cornerCurve = .continuous
             fillDescendants(of: subview)
         }
@@ -190,7 +190,7 @@ private final class FreetifulNativeTabBar: UITabBar {
         backgroundColor = .clear
         isTranslucent = true
         clipsToBounds = true
-        layer.cornerRadius = preferredBarHeight / 2
+        layer.cornerRadius = 28
         layer.cornerCurve = .continuous
     }
 }
@@ -200,8 +200,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     private let usesNativeLiquidGlass = LiquidGlassEffectFactory.supportsNativeLiquidGlass
     private let freetifulBlue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
-    private lazy var activeColor = freetifulBlue
-    private lazy var inactiveColor = freetifulBlue.withAlphaComponent(0.58)
+    private lazy var activeColor = UIColor(white: 0.07, alpha: 1)
+    private lazy var inactiveColor = UIColor(white: 0.45, alpha: 1)
 
     private let tabBar = FreetifulNativeTabBar()
     private let toggleContainerView = UIView()
@@ -259,8 +259,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor),
             contentStack.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            toggleContainerView.widthAnchor.constraint(equalToConstant: 66),
-            toggleContainerView.heightAnchor.constraint(equalToConstant: 66),
+            toggleContainerView.widthAnchor.constraint(equalToConstant: 80),
+            toggleContainerView.heightAnchor.constraint(equalToConstant: 80),
 
             tabBar.heightAnchor.constraint(equalTo: heightAnchor)
         ])
@@ -279,7 +279,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         tabBar.backgroundImage = nil
         tabBar.shadowImage = nil
         tabBar.clipsToBounds = true
-        tabBar.layer.cornerRadius = 33
+        tabBar.layer.cornerRadius = 28
         tabBar.layer.cornerCurve = .continuous
 
         let appearance = UITabBarAppearance()
@@ -297,7 +297,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     private func setupToggleButton() {
         toggleContainerView.translatesAutoresizingMaskIntoConstraints = false
-        toggleContainerView.layer.cornerRadius = 33
+        toggleContainerView.layer.cornerRadius = 28
         toggleContainerView.layer.cornerCurve = .continuous
         toggleContainerView.clipsToBounds = true
         toggleContainerView.isHidden = true
@@ -305,7 +305,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         toggleSurfaceView.translatesAutoresizingMaskIntoConstraints = false
         toggleSurfaceView.isUserInteractionEnabled = false
         toggleSurfaceView.clipsToBounds = true
-        toggleSurfaceView.layer.cornerRadius = 33
+        toggleSurfaceView.layer.cornerRadius = 28
         toggleSurfaceView.layer.cornerCurve = .continuous
         toggleSurfaceView.layer.borderWidth = 0.5
         toggleSurfaceView.layer.borderColor = UIColor.white.withAlphaComponent(0.24).cgColor
@@ -513,7 +513,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             return nil
         }
 
-        let size = CGSize(width: 16, height: 16)
+        let size = CGSize(width: 30, height: 30)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = UIScreen.main.scale
         let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in

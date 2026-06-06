@@ -136,17 +136,18 @@ class ViewController: UIViewController,
         nativeNavBar.transform = CGAffineTransform(translationX: 0, y: 22).scaledBy(x: 0.94, y: 0.94)
         view.addSubview(nativeNavBar)
 
-        let compactWidth = nativeNavBar.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -24)
+        let compactWidth = nativeNavBar.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -12)
         compactWidth.priority = .defaultHigh
 
         NSLayoutConstraint.activate([
             nativeNavBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            nativeNavBar.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 12),
-            nativeNavBar.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
+            nativeNavBar.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 6),
+            nativeNavBar.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -6),
             compactWidth,
-            nativeNavBar.widthAnchor.constraint(lessThanOrEqualToConstant: 480),
-            nativeNavBar.heightAnchor.constraint(equalToConstant: 66),
-            nativeNavBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
+            nativeNavBar.widthAnchor.constraint(lessThanOrEqualToConstant: 600),
+            nativeNavBar.heightAnchor.constraint(equalToConstant: 80),
+            // 하단 safe area 무시하고 화면 맨 아래에 붙임
+            nativeNavBar.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
@@ -399,8 +400,8 @@ class ViewController: UIViewController,
 
         let hidden = currentNativeHasBlockingOverlay || shouldHideNativeNavigation(path: currentNativePath)
         nativeNavBar.setVisible(!hidden, animated: animated)
-        webView.scrollView.contentInset.bottom = hidden ? 0 : 94
-        webView.scrollView.verticalScrollIndicatorInsets.bottom = hidden ? 0 : 94
+        webView.scrollView.contentInset.bottom = hidden ? 0 : 88
+        webView.scrollView.verticalScrollIndicatorInsets.bottom = hidden ? 0 : 88
     }
 
     private func shouldHideNativeNavigation(path: String) -> Bool {
