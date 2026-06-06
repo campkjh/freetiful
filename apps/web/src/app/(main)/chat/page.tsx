@@ -201,6 +201,19 @@ export default function ChatListPage() {
     if (rooms.length > 0) setLoadTimedOut(false);
   }, [storeRoomsLoading, rooms.length]);
 
+  // ─── iOS 네이티브 채팅 리스트 헤더/탭 연동 ───
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const w = window as any;
+    w.__freetifulChatList = {
+      getState: () => ({ tab: currentTab, tabs: ['전체', '읽음', '안 읽음', '숨김'] }),
+      setTab: (t: string) => { if (isPro) setProActiveTab(t as ProFilterTab); else setActiveTab(t as FilterTab); },
+      toggleSearch: () => setShowSearch((v) => !v),
+    };
+    window.dispatchEvent(new Event('freetiful:chatlist-state'));
+    return () => { try { if (w.__freetifulChatList) delete w.__freetifulChatList; } catch {} };
+  }, [currentTab, isPro]);
+
   const filtered = useMemo(() => rooms.filter((r) => {
     // 숨김 탭에서는 숨겨진 채팅만, 다른 탭에서는 숨겨진 채팅 제외
     if (currentTab === '숨김') {
@@ -351,8 +364,8 @@ export default function ChatListPage() {
     if (room) preWarmExistingRoom(room);
   };
 
-  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '보관', '숨김'];
-  const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '견적문의', '예약확정', '숨김'];
+  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '숨김'];
+  const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '숨김'];
 
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
@@ -599,8 +612,8 @@ export default function ChatListPage() {
       </div>
 
       {/* ═══ Mobile ═══ */}
-      <div className="lg:hidden bg-white min-h-screen pb-24">
-        <div className="px-4 pt-3 pb-2">
+      <div data-native-chatlist-root className="lg:hidden bg-white min-h-screen pb-24">
+        <div data-native-chatlist-header className="px-4 pt-3 pb-2">
           <div className="flex items-center justify-between h-[52px]">
             <h1 className="text-[18px] font-bold text-gray-900">{isPro ? '고객 문의' : '채팅'}</h1>
             <button
