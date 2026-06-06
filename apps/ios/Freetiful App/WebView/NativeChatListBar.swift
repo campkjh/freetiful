@@ -19,7 +19,7 @@ final class NativeChatListBar: UIView {
     private let searchButton = UIButton(type: .system)
     private let tabsRow = UIStackView()
 
-    private var tabButtons: [(tab: String, button: UIButton)] = []
+    private var tabCells: [(tab: String, button: UIButton, tint: UIView)] = []
     private var selectedTab = "전체"
     private let activeColor = UIColor(white: 0.1, alpha: 1)
 
@@ -113,20 +113,35 @@ final class NativeChatListBar: UIView {
     var titleTopAnchorRef: NSLayoutYAxisAnchor { titleLabel.topAnchor }
 
     func configure(tabs: [String], selected: String) {
-        if tabButtons.map({ $0.tab }) != tabs {
-            tabButtons.forEach { $0.button.removeFromSuperview() }
+        if tabCells.map({ $0.tab }) != tabs {
             tabsRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
-            tabButtons = tabs.map { tab in
+            tabCells = tabs.map { tab in
+                // 각 탭 = 네이티브 글래스 캡슐
+                let pill = GlassPill(corner: 16)
+                let tint = UIView()
+                tint.translatesAutoresizingMaskIntoConstraints = false
+                tint.backgroundColor = UIColor(white: 0.1, alpha: 1)
+                tint.alpha = 0
+                tint.isUserInteractionEnabled = false
                 let b = UIButton(type: .system)
                 b.translatesAutoresizingMaskIntoConstraints = false
                 b.setTitle(tab, for: .normal)
                 b.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-                b.layer.cornerRadius = 16
-                b.layer.cornerCurve = .continuous
-                b.contentEdgeInsets = UIEdgeInsets(top: 7, left: 15, bottom: 7, right: 15)
                 b.addTarget(self, action: #selector(tapTab(_:)), for: .touchUpInside)
-                tabsRow.addArrangedSubview(b)
-                return (tab, b)
+                pill.contentView.addSubview(tint)
+                pill.contentView.addSubview(b)
+                NSLayoutConstraint.activate([
+                    tint.topAnchor.constraint(equalTo: pill.contentView.topAnchor),
+                    tint.leadingAnchor.constraint(equalTo: pill.contentView.leadingAnchor),
+                    tint.trailingAnchor.constraint(equalTo: pill.contentView.trailingAnchor),
+                    tint.bottomAnchor.constraint(equalTo: pill.contentView.bottomAnchor),
+                    b.topAnchor.constraint(equalTo: pill.contentView.topAnchor, constant: 7),
+                    b.bottomAnchor.constraint(equalTo: pill.contentView.bottomAnchor, constant: -7),
+                    b.leadingAnchor.constraint(equalTo: pill.contentView.leadingAnchor, constant: 16),
+                    b.trailingAnchor.constraint(equalTo: pill.contentView.trailingAnchor, constant: -16),
+                ])
+                tabsRow.addArrangedSubview(pill)
+                return (tab, b, tint)
             }
         }
         selectedTab = selected
@@ -135,10 +150,10 @@ final class NativeChatListBar: UIView {
 
     private func updateTabStyles(animated: Bool) {
         let apply = {
-            for (tab, b) in self.tabButtons {
+            for (tab, b, tint) in self.tabCells {
                 let on = tab == self.selectedTab
-                b.backgroundColor = on ? UIColor(white: 0.1, alpha: 1) : UIColor(white: 0.55, alpha: 0.14)
-                b.setTitleColor(on ? .white : UIColor(white: 0.35, alpha: 1), for: .normal)
+                tint.alpha = on ? 1 : 0
+                b.setTitleColor(on ? .white : UIColor(white: 0.28, alpha: 1), for: .normal)
             }
         }
         if animated { UIView.animate(withDuration: 0.2, animations: apply) } else { apply() }
