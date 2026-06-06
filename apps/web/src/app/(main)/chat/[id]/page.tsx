@@ -631,8 +631,8 @@ export default function ChatRoomPage() {
   }, []);
 
   // ─── Send handler ───
-  const handleSend = useCallback(() => {
-    const text = input.trim();
+  const handleSend = useCallback((textArg?: unknown) => {
+    const text = (typeof textArg === 'string' ? textArg : input).trim();
     if (!text) return;
     const now = Date.now();
     if (lastSendRef.current?.text === text && now - lastSendRef.current.at < 1200) return;
@@ -699,6 +699,42 @@ export default function ChatRoomPage() {
       setMessages((prev) => prev.map((m) => m.id === newMsg.id ? { ...m, isNew: false } : m));
     }, 700);
   }, [input, replyTo, authUser, wsSendMessage, MY_ID]);
+
+  // ─── iOS 네이티브 채팅 헤더/푸터 연동 훅 ───
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const api = {
+      getState: () => ({
+        name: chatPartner?.name || '',
+        imageUrl: chatPartner?.profileImageUrl || '',
+        online: !!chatPartner?.isActive,
+        statusText: chatPartner?.isActive
+          ? '온라인'
+          : (chatPartner?.lastSeen ? `${chatPartner.lastSeen} 활동` : '오프라인'),
+        partnerIsPro: !!partnerIsPro,
+        partnerRoleKnown: !!partnerRoleKnown,
+        isPro: !!isPro,
+        ready: !!chatPartner?.name,
+      }),
+      sendText: (t: string) => { handleSendRef.current?.(t); },
+      openAttach: () => setShowAttach(true),
+      openQuote: () => { if (isPro) setShowQuoteModal(true); },
+      startVoice: () => { startRecordingRef.current?.(); },
+      openProfile: () => openPartnerProfile(),
+      openMenu: () => setShowHeaderMenu((v) => !v),
+      back: () => {
+        if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+        else router.replace('/chat');
+      },
+    };
+    (window as any).__freetifulChat = api;
+    window.dispatchEvent(new Event('freetiful:chat-state'));
+    return () => {
+      try { if ((window as any).__freetifulChat === api) delete (window as any).__freetifulChat; } catch {}
+    };
+  }, [chatPartner, partnerIsPro, partnerRoleKnown, isPro, openPartnerProfile, router]);
 
   // ─── Input change + mention detection ───
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -852,6 +888,7 @@ export default function ChatRoomPage() {
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]">
       {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
       <div
+        data-native-chat-gradient
         className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"
         style={{
           WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
@@ -863,7 +900,7 @@ export default function ChatRoomPage() {
       />
 
       {/* ─── Header (Floating Pill) z-30 ─── */}
-      <div className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
+      <div data-native-chat-header className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
         <div className="mx-auto flex w-full max-w-[680px] items-center gap-2 px-3 pointer-events-auto sm:px-0">
           {/* 뒤로가기 — 푸시 알림 cold start 시 history 없으면 채팅 목록으로 */}
           <button
@@ -1254,7 +1291,7 @@ export default function ChatRoomPage() {
       />
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
-      <div className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: keyboardOffset }}>
+      <div data-native-chat-footer className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: keyboardOffset }}>
         <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pt-1 sm:px-0">
           {isRecording ? (
             // Recording UI
