@@ -15,21 +15,20 @@ private let kAPIBase  = "https://freetiful.com/api/v1"   // 프리티풀 API
 private let kWebBase  = "https://freetiful.com"           // 프리티풀 웹앱
 // ──────────────────────────────────────────────────────────────────────────────
 
+// 웹 nav 와 동일하게 구성 (apps/web/src/app/(main)/layout.tsx 의 USER_NAV_ITEMS / PRO_NAV_ITEMS)
+// 문의목록·새요청은 웹에서 같은 아이콘(NewRequestNavIcon)을 쓰므로 nav-requests 에셋을 공유.
 private let nativeUserNavItems = [
     LiquidNavItem(id: "home", title: "홈", path: "/main", iconAssetName: "nav-home"),
-    LiquidNavItem(id: "schedule", title: "스케줄", path: "/schedule", iconAssetName: "nav-schedule"),
     LiquidNavItem(id: "biz", title: "Biz", path: "/biz", iconAssetName: "nav-biz"),
+    LiquidNavItem(id: "inquiries", title: "문의목록", path: "/inquiries", iconAssetName: "nav-requests"),
     LiquidNavItem(id: "chat", title: "채팅", path: "/chat", iconAssetName: "nav-chat"),
-    LiquidNavItem(id: "favorites", title: "찜", path: "/favorites", iconAssetName: "nav-favorites"),
     LiquidNavItem(id: "my", title: "마이", path: "/my", iconAssetName: "nav-my")
 ]
 
-private let nativeProUserNavItems = nativeUserNavItems.filter { $0.id != "biz" }
-
 private let nativeProNavItems = [
-    LiquidNavItem(id: "home", title: "홈", path: "/pro-dashboard", iconAssetName: "nav-home"),
+    LiquidNavItem(id: "home", title: "홈", path: "/main", iconAssetName: "nav-home"),
+    LiquidNavItem(id: "biz", title: "Biz", path: "/biz", iconAssetName: "nav-biz"),
     LiquidNavItem(id: "requests", title: "새요청", path: "/pro-dashboard/inquiries", iconAssetName: "nav-requests"),
-    LiquidNavItem(id: "schedule", title: "스케줄", path: "/schedule", iconAssetName: "nav-schedule"),
     LiquidNavItem(id: "chat", title: "채팅", path: "/chat", iconAssetName: "nav-chat"),
     LiquidNavItem(id: "my", title: "마이", path: "/my", iconAssetName: "nav-my")
 ]
@@ -52,7 +51,7 @@ class ViewController: UIViewController,
     private var currentNativeHasBlockingOverlay = false
     private var nativeToastView: UIVisualEffectView?
     private var pendingPushSubscriptionId: String?
-    private let nativeNavigationEnabled = false
+    private let nativeNavigationEnabled = true
 
     // Apple Sign In coordinator (retained during auth flow)
     private var appleCoordinator: AppleSignInCoordinator?
@@ -388,20 +387,14 @@ class ViewController: UIViewController,
     }
 
     private func renderNativeNavigation(animated: Bool) {
-        let items: [LiquidNavItem]
-        if currentNativeIsProMode {
-            items = nativeProNavItems
-        } else if currentNativeActualIsPro {
-            items = nativeProUserNavItems
-        } else {
-            items = nativeUserNavItems
-        }
+        // 웹과 동일: role === 'pro' 이면 PRO nav, 아니면 USER nav (viewAsUser 무관, nav 내 토글 없음)
+        let items = currentNativeActualIsPro ? nativeProNavItems : nativeUserNavItems
 
         nativeNavBar.configure(
             items: items,
             selectedPath: currentNativePath,
-            showsModeToggle: currentNativeActualIsPro,
-            isProMode: currentNativeIsProMode
+            showsModeToggle: false,
+            isProMode: false
         )
 
         let hidden = currentNativeHasBlockingOverlay || shouldHideNativeNavigation(path: currentNativePath)
@@ -411,20 +404,16 @@ class ViewController: UIViewController,
     }
 
     private func shouldHideNativeNavigation(path: String) -> Bool {
+        // 웹 layout.tsx 의 HIDE_NAV_PATTERNS 와 동일하게 nav 를 숨길 경로
         if path.hasPrefix("/chat/") { return true }
         if path.hasPrefix("/pros/") { return true }
-        if path.hasPrefix("/businesses") { return true }
+        if path.hasPrefix("/businesses/") { return true }
         if path.hasPrefix("/my/") { return true }
         if path.hasPrefix("/notifications") { return true }
         if path.hasPrefix("/pro-register") { return true }
         if path.hasPrefix("/biz") { return true }
-        if path.hasPrefix("/quote") { return true }
-        if path.hasPrefix("/schedule/") { return true }
         if path.hasPrefix("/search") { return true }
-        if path.hasPrefix("/match") { return true }
-        if path.hasPrefix("/payment") { return true }
-        if path.hasPrefix("/admin") { return true }
-        if path == "/pros" || path == "/careers" { return true }
+        if path == "/pros" || path == "/businesses" || path == "/careers" { return true }
         return false
     }
 
