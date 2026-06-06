@@ -54,33 +54,59 @@ enum NativeChatImageLoader {
     }
 }
 
-// MARK: - 네이티브 채팅 헤더 (뒤로가기 / 프로필 / 메뉴)
+// MARK: - 네이티브 Liquid Glass 캡슐
+final class GlassPill: UIVisualEffectView {
+    init(corner: CGFloat) {
+        super.init(effect: LiquidGlassEffectFactory.controlEffect())
+        translatesAutoresizingMaskIntoConstraints = false
+        clipsToBounds = true
+        layer.cornerRadius = corner
+        layer.cornerCurve = .continuous
+        layer.borderWidth = 0.5
+        layer.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func setContent(_ v: UIView, insets: UIEdgeInsets = .zero) {
+        v.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(v)
+        NSLayoutConstraint.activate([
+            v.topAnchor.constraint(equalTo: contentView.topAnchor, constant: insets.top),
+            v.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: insets.left),
+            v.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -insets.right),
+            v.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -insets.bottom),
+        ])
+    }
+}
+
+// MARK: - 네이티브 채팅 헤더 (플로팅 글래스: 뒤로 / 프로필 / 메뉴)
 final class NativeChatHeaderView: UIView {
     weak var delegate: NativeChatBarsDelegate?
 
-    private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+    private let backPill = GlassPill(corner: 21)
+    private let profilePill = GlassPill(corner: 21)
+    private let menuPill = GlassPill(corner: 21)
+
     private let backButton = UIButton(type: .system)
+    private let menuButton = UIButton(type: .system)
     private let profileButton = UIButton(type: .system)
     private let avatar = UIImageView()
     private let onlineDot = UIView()
     private let nameLabel = UILabel()
     private let roleBadge = UILabel()
     private let statusLabel = UILabel()
-    private let menuButton = UIButton(type: .system)
-    private let hairline = UIView()
 
     private var currentImageURL = ""
 
     static let avatarPlaceholder: UIImage? = UIImage(
         systemName: "person.crop.circle.fill",
-        withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .regular)
+        withConfiguration: UIImage.SymbolConfiguration(pointSize: 30, weight: .regular)
     )?.withTintColor(UIColor(white: 0.78, alpha: 1), renderingMode: .alwaysOriginal)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         setup()
     }
-
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setup()
@@ -90,47 +116,42 @@ final class NativeChatHeaderView: UIView {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .clear
 
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(blur)
-
-        hairline.translatesAutoresizingMaskIntoConstraints = false
-        hairline.backgroundColor = UIColor(white: 0, alpha: 0.08)
-        addSubview(hairline)
-
+        // 뒤로가기
         var backCfg = UIButton.Configuration.plain()
-        backCfg.image = UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))
+        backCfg.image = UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
         backCfg.baseForegroundColor = UIColor(white: 0.13, alpha: 1)
-        backCfg.contentInsets = .zero
         backButton.configuration = backCfg
-        backButton.translatesAutoresizingMaskIntoConstraints = false
         backButton.addTarget(self, action: #selector(tapBack), for: .touchUpInside)
-        addSubview(backButton)
+        addSubview(backPill)
+        backPill.setContent(backButton)
 
+        // 메뉴
         var menuCfg = UIButton.Configuration.plain()
-        menuCfg.image = UIImage(systemName: "ellipsis", withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))
+        menuCfg.image = UIImage(systemName: "ellipsis", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
         menuCfg.baseForegroundColor = UIColor(white: 0.13, alpha: 1)
-        menuCfg.contentInsets = .zero
         menuButton.configuration = menuCfg
-        menuButton.translatesAutoresizingMaskIntoConstraints = false
         menuButton.addTarget(self, action: #selector(tapMenu), for: .touchUpInside)
-        addSubview(menuButton)
+        addSubview(menuPill)
+        menuPill.setContent(menuButton)
 
-        profileButton.translatesAutoresizingMaskIntoConstraints = false
+        // 프로필(아바타+이름+역할+상태)
+        addSubview(profilePill)
         profileButton.addTarget(self, action: #selector(tapProfile), for: .touchUpInside)
-        addSubview(profileButton)
+        profileButton.translatesAutoresizingMaskIntoConstraints = false
+        profilePill.setContent(profileButton)
 
         avatar.translatesAutoresizingMaskIntoConstraints = false
         avatar.contentMode = .scaleAspectFill
         avatar.clipsToBounds = true
-        avatar.layer.cornerRadius = 18
-        avatar.backgroundColor = UIColor(white: 0.92, alpha: 1)
-        avatar.isUserInteractionEnabled = false
+        avatar.layer.cornerRadius = 15
+        avatar.backgroundColor = UIColor(white: 0.9, alpha: 1)
         avatar.image = Self.avatarPlaceholder
+        avatar.isUserInteractionEnabled = false
         profileButton.addSubview(avatar)
 
         onlineDot.translatesAutoresizingMaskIntoConstraints = false
         onlineDot.backgroundColor = UIColor(red: 0.20, green: 0.78, blue: 0.35, alpha: 1)
-        onlineDot.layer.cornerRadius = 5
+        onlineDot.layer.cornerRadius = 4.5
         onlineDot.layer.borderWidth = 2
         onlineDot.layer.borderColor = UIColor.white.cgColor
         onlineDot.isHidden = true
@@ -138,76 +159,67 @@ final class NativeChatHeaderView: UIView {
         profileButton.addSubview(onlineDot)
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.font = .systemFont(ofSize: 16, weight: .bold)
+        nameLabel.font = .systemFont(ofSize: 15, weight: .bold)
         nameLabel.textColor = UIColor(white: 0.1, alpha: 1)
         nameLabel.isUserInteractionEnabled = false
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         profileButton.addSubview(nameLabel)
 
         roleBadge.translatesAutoresizingMaskIntoConstraints = false
-        roleBadge.font = .systemFont(ofSize: 10, weight: .bold)
+        roleBadge.font = .systemFont(ofSize: 9, weight: .bold)
         roleBadge.textAlignment = .center
         roleBadge.layer.cornerRadius = 4
         roleBadge.clipsToBounds = true
         roleBadge.isHidden = true
         roleBadge.isUserInteractionEnabled = false
+        roleBadge.setContentCompressionResistancePriority(.required, for: .horizontal)
         profileButton.addSubview(roleBadge)
 
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        statusLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        statusLabel.textColor = UIColor(white: 0.55, alpha: 1)
+        statusLabel.font = .systemFont(ofSize: 10.5, weight: .regular)
+        statusLabel.textColor = UIColor(white: 0.5, alpha: 1)
         statusLabel.isUserInteractionEnabled = false
         profileButton.addSubview(statusLabel)
 
         NSLayoutConstraint.activate([
-            blur.topAnchor.constraint(equalTo: topAnchor),
-            blur.leadingAnchor.constraint(equalTo: leadingAnchor),
-            blur.trailingAnchor.constraint(equalTo: trailingAnchor),
-            blur.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // 펄들은 헤더 하단(상태바 아래)에 떠 있음
+            backPill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            backPill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6),
+            backPill.widthAnchor.constraint(equalToConstant: 42),
+            backPill.heightAnchor.constraint(equalToConstant: 42),
 
-            hairline.leadingAnchor.constraint(equalTo: leadingAnchor),
-            hairline.trailingAnchor.constraint(equalTo: trailingAnchor),
-            hairline.bottomAnchor.constraint(equalTo: bottomAnchor),
-            hairline.heightAnchor.constraint(equalToConstant: 0.5),
+            menuPill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            menuPill.centerYAnchor.constraint(equalTo: backPill.centerYAnchor),
+            menuPill.widthAnchor.constraint(equalToConstant: 42),
+            menuPill.heightAnchor.constraint(equalToConstant: 42),
 
-            backButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-            backButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-            backButton.widthAnchor.constraint(equalToConstant: 40),
-            backButton.heightAnchor.constraint(equalToConstant: 40),
+            profilePill.leadingAnchor.constraint(equalTo: backPill.trailingAnchor, constant: 8),
+            profilePill.trailingAnchor.constraint(equalTo: menuPill.leadingAnchor, constant: -8),
+            profilePill.centerYAnchor.constraint(equalTo: backPill.centerYAnchor),
+            profilePill.heightAnchor.constraint(equalToConstant: 42),
 
-            menuButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            menuButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            menuButton.widthAnchor.constraint(equalToConstant: 40),
-            menuButton.heightAnchor.constraint(equalToConstant: 40),
-
-            profileButton.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
-            profileButton.trailingAnchor.constraint(equalTo: menuButton.leadingAnchor, constant: -4),
-            profileButton.topAnchor.constraint(equalTo: backButton.topAnchor),
-            profileButton.bottomAnchor.constraint(equalTo: backButton.bottomAnchor),
-
-            avatar.leadingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: 2),
+            avatar.leadingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: 6),
             avatar.centerYAnchor.constraint(equalTo: profileButton.centerYAnchor),
-            avatar.widthAnchor.constraint(equalToConstant: 36),
-            avatar.heightAnchor.constraint(equalToConstant: 36),
+            avatar.widthAnchor.constraint(equalToConstant: 30),
+            avatar.heightAnchor.constraint(equalToConstant: 30),
 
             onlineDot.trailingAnchor.constraint(equalTo: avatar.trailingAnchor),
             onlineDot.bottomAnchor.constraint(equalTo: avatar.bottomAnchor),
-            onlineDot.widthAnchor.constraint(equalToConstant: 10),
-            onlineDot.heightAnchor.constraint(equalToConstant: 10),
+            onlineDot.widthAnchor.constraint(equalToConstant: 9),
+            onlineDot.heightAnchor.constraint(equalToConstant: 9),
 
-            nameLabel.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 10),
-            nameLabel.topAnchor.constraint(equalTo: avatar.topAnchor, constant: 1),
+            nameLabel.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 8),
+            nameLabel.topAnchor.constraint(equalTo: avatar.topAnchor, constant: 0),
 
             roleBadge.leadingAnchor.constraint(equalTo: nameLabel.trailingAnchor, constant: 5),
             roleBadge.centerYAnchor.constraint(equalTo: nameLabel.centerYAnchor),
-            roleBadge.heightAnchor.constraint(equalToConstant: 15),
-            roleBadge.trailingAnchor.constraint(lessThanOrEqualTo: profileButton.trailingAnchor),
+            roleBadge.heightAnchor.constraint(equalToConstant: 14),
+            roleBadge.trailingAnchor.constraint(lessThanOrEqualTo: profileButton.trailingAnchor, constant: -8),
 
-            statusLabel.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 10),
+            statusLabel.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 8),
             statusLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 1),
-            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: profileButton.trailingAnchor),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: profileButton.trailingAnchor, constant: -8),
         ])
-
-        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     }
 
     func apply(_ s: NativeChatState) {
@@ -217,9 +229,9 @@ final class NativeChatHeaderView: UIView {
 
         if s.partnerRoleKnown {
             roleBadge.isHidden = false
-            roleBadge.text = "  \(s.partnerIsPro ? "사회자" : "고객")  "
+            roleBadge.text = " \(s.partnerIsPro ? "사회자" : "고객") "
             roleBadge.textColor = s.partnerIsPro ? UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1) : UIColor(white: 0.42, alpha: 1)
-            roleBadge.backgroundColor = s.partnerIsPro ? UIColor(red: 0.92, green: 0.95, blue: 1.0, alpha: 1) : UIColor(white: 0.95, alpha: 1)
+            roleBadge.backgroundColor = s.partnerIsPro ? UIColor(red: 0.91, green: 0.95, blue: 1.0, alpha: 1) : UIColor(white: 0.93, alpha: 1)
         } else {
             roleBadge.isHidden = true
         }
@@ -235,15 +247,17 @@ final class NativeChatHeaderView: UIView {
     @objc private func tapProfile() { delegate?.chatBarsDidTapProfile() }
 }
 
-// MARK: - 네이티브 채팅 입력바 (첨부 / 견적 / 입력 / 전송·음성)
+// MARK: - 네이티브 채팅 입력바 (플로팅 글래스: 첨부 / 견적 / 입력+전송·음성)
 final class NativeChatInputBar: UIView, UITextFieldDelegate {
     weak var delegate: NativeChatBarsDelegate?
 
-    private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
     private let row = UIStackView()
+    private let attachPill = GlassPill(corner: 23)
+    private let quotePill = GlassPill(corner: 23)
+    private let fieldPill = GlassPill(corner: 23)
+
     private let attachButton = UIButton(type: .system)
     private let quoteButton = UIButton(type: .system)
-    private let fieldContainer = UIView()
     let textField = UITextField()
     private let sendButton = UIButton(type: .system)
     private let voiceButton = UIButton(type: .system)
@@ -252,7 +266,6 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         super.init(frame: frame)
         setup()
     }
-
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setup()
@@ -262,110 +275,100 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .clear
 
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(blur)
-
+        // 첨부 (+)
         var attachCfg = UIButton.Configuration.plain()
         attachCfg.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold))
-        attachCfg.baseForegroundColor = UIColor(white: 0.3, alpha: 1)
-        attachCfg.contentInsets = .zero
+        attachCfg.baseForegroundColor = UIColor(white: 0.25, alpha: 1)
         attachButton.configuration = attachCfg
         attachButton.addTarget(self, action: #selector(tapAttach), for: .touchUpInside)
+        attachPill.setContent(attachButton)
 
-        var quoteCfg = UIButton.Configuration.filled()
-        quoteCfg.image = UIImage(systemName: "doc.text", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
-        quoteCfg.baseBackgroundColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
-        quoteCfg.baseForegroundColor = .white
-        quoteCfg.cornerStyle = .capsule
-        quoteCfg.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12)
+        // 견적 (사회자) — 글래스 캡슐 안에 파란 문서 아이콘 + 라벨
+        var quoteCfg = UIButton.Configuration.plain()
+        quoteCfg.image = UIImage(systemName: "doc.text.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
+        quoteCfg.imagePadding = 4
+        quoteCfg.attributedTitle = AttributedString("견적", attributes: AttributeContainer([.font: UIFont.systemFont(ofSize: 13, weight: .bold)]))
+        quoteCfg.baseForegroundColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+        quoteCfg.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 14)
         quoteButton.configuration = quoteCfg
-        quoteButton.isHidden = true
         quoteButton.addTarget(self, action: #selector(tapQuote), for: .touchUpInside)
+        quotePill.isHidden = true
+        quotePill.setContent(quoteButton)
 
-        fieldContainer.translatesAutoresizingMaskIntoConstraints = false
-        fieldContainer.backgroundColor = UIColor(white: 0.93, alpha: 1)
-        fieldContainer.layer.cornerRadius = 21
-        fieldContainer.layer.borderWidth = 0.5
-        fieldContainer.layer.borderColor = UIColor(white: 0.84, alpha: 1).cgColor
-
+        // 입력 필드 (글래스 캡슐)
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.placeholder = "메시지"
         textField.font = .systemFont(ofSize: 16)
+        textField.textColor = UIColor(white: 0.1, alpha: 1)
+        textField.backgroundColor = .clear
         textField.returnKeyType = .send
         textField.delegate = self
         textField.enablesReturnKeyAutomatically = true
         textField.addTarget(self, action: #selector(textChanged), for: .editingChanged)
-        fieldContainer.addSubview(textField)
+        fieldPill.contentView.addSubview(textField)
 
         var sendCfg = UIButton.Configuration.filled()
-        sendCfg.image = UIImage(systemName: "paperplane.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
-        sendCfg.baseBackgroundColor = UIColor(white: 0.15, alpha: 1)
+        sendCfg.image = UIImage(systemName: "arrow.up", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold))
+        sendCfg.baseBackgroundColor = UIColor(white: 0.13, alpha: 1)
         sendCfg.baseForegroundColor = .white
         sendCfg.cornerStyle = .capsule
         sendButton.configuration = sendCfg
         sendButton.translatesAutoresizingMaskIntoConstraints = false
         sendButton.isHidden = true
         sendButton.addTarget(self, action: #selector(tapSend), for: .touchUpInside)
-        fieldContainer.addSubview(sendButton)
+        fieldPill.contentView.addSubview(sendButton)
 
         var voiceCfg = UIButton.Configuration.plain()
         voiceCfg.image = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .regular))
         voiceCfg.baseForegroundColor = UIColor(white: 0.4, alpha: 1)
-        voiceCfg.contentInsets = .zero
         voiceButton.configuration = voiceCfg
         voiceButton.translatesAutoresizingMaskIntoConstraints = false
         voiceButton.addTarget(self, action: #selector(tapVoice), for: .touchUpInside)
-        fieldContainer.addSubview(voiceButton)
+        fieldPill.contentView.addSubview(voiceButton)
 
+        // 행 구성
         row.translatesAutoresizingMaskIntoConstraints = false
         row.axis = .horizontal
         row.alignment = .center
-        row.spacing = 6
-        row.addArrangedSubview(attachButton)
-        row.addArrangedSubview(quoteButton)
-        row.addArrangedSubview(fieldContainer)
+        row.spacing = 8
+        row.addArrangedSubview(attachPill)
+        row.addArrangedSubview(quotePill)
+        row.addArrangedSubview(fieldPill)
         addSubview(row)
 
-        fieldContainer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        fieldContainer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        attachButton.setContentHuggingPriority(.required, for: .horizontal)
-        quoteButton.setContentHuggingPriority(.required, for: .horizontal)
+        fieldPill.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        fieldPill.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         NSLayoutConstraint.activate([
-            blur.topAnchor.constraint(equalTo: topAnchor),
-            blur.leadingAnchor.constraint(equalTo: leadingAnchor),
-            blur.trailingAnchor.constraint(equalTo: trailingAnchor),
-            blur.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            row.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            row.topAnchor.constraint(equalTo: topAnchor, constant: 6),
             row.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -6),
 
-            attachButton.widthAnchor.constraint(equalToConstant: 42),
-            attachButton.heightAnchor.constraint(equalToConstant: 42),
-            quoteButton.heightAnchor.constraint(equalToConstant: 42),
-            fieldContainer.heightAnchor.constraint(equalToConstant: 42),
+            attachPill.widthAnchor.constraint(equalToConstant: 46),
+            attachPill.heightAnchor.constraint(equalToConstant: 46),
+            quotePill.heightAnchor.constraint(equalToConstant: 46),
+            fieldPill.heightAnchor.constraint(equalToConstant: 46),
 
-            textField.leadingAnchor.constraint(equalTo: fieldContainer.leadingAnchor, constant: 16),
-            textField.topAnchor.constraint(equalTo: fieldContainer.topAnchor),
-            textField.bottomAnchor.constraint(equalTo: fieldContainer.bottomAnchor),
+            textField.leadingAnchor.constraint(equalTo: fieldPill.contentView.leadingAnchor, constant: 18),
+            textField.topAnchor.constraint(equalTo: fieldPill.contentView.topAnchor),
+            textField.bottomAnchor.constraint(equalTo: fieldPill.contentView.bottomAnchor),
             textField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -6),
 
-            sendButton.trailingAnchor.constraint(equalTo: fieldContainer.trailingAnchor, constant: -5),
-            sendButton.centerYAnchor.constraint(equalTo: fieldContainer.centerYAnchor),
-            sendButton.widthAnchor.constraint(equalToConstant: 32),
-            sendButton.heightAnchor.constraint(equalToConstant: 32),
+            sendButton.trailingAnchor.constraint(equalTo: fieldPill.contentView.trailingAnchor, constant: -5),
+            sendButton.centerYAnchor.constraint(equalTo: fieldPill.contentView.centerYAnchor),
+            sendButton.widthAnchor.constraint(equalToConstant: 36),
+            sendButton.heightAnchor.constraint(equalToConstant: 36),
 
-            voiceButton.trailingAnchor.constraint(equalTo: fieldContainer.trailingAnchor, constant: -6),
-            voiceButton.centerYAnchor.constraint(equalTo: fieldContainer.centerYAnchor),
-            voiceButton.widthAnchor.constraint(equalToConstant: 30),
-            voiceButton.heightAnchor.constraint(equalToConstant: 30),
+            voiceButton.trailingAnchor.constraint(equalTo: fieldPill.contentView.trailingAnchor, constant: -7),
+            voiceButton.centerYAnchor.constraint(equalTo: fieldPill.contentView.centerYAnchor),
+            voiceButton.widthAnchor.constraint(equalToConstant: 32),
+            voiceButton.heightAnchor.constraint(equalToConstant: 32),
         ])
     }
 
     func apply(_ s: NativeChatState) {
-        quoteButton.isHidden = !s.isPro
+        quotePill.isHidden = !s.isPro
     }
 
     private func updateSendVoiceVisibility() {
