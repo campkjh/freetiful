@@ -14,7 +14,7 @@ type RequestKind = 'multi' | 'single';
 
 const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-simple-requests-cache-v1';
 const MATCH_DELIVERIES_CACHE_TTL = 10 * 60_000;
-const MATCH_REQUEST_LIMIT = 20;
+const MATCH_REQUEST_LIMIT = 6; // 초기/페이지 당 로드 개수 — 스크롤 시 추가 로드
 const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
 let memoryDeliveriesCache: { userId?: string | null; data: MatchDeliveryView[]; ts: number } | null = null;
 
@@ -182,6 +182,10 @@ export default function ProRequestsPage() {
   const [hasFetchedOnce, setHasFetchedOnce] = useState(cached !== null);
   const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
   const requestsCountRef = useRef(cached?.length ?? 0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const skipRef = useRef(0);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     requestsCountRef.current = requests.length;
@@ -194,11 +198,13 @@ export default function ProRequestsPage() {
       return;
     }
     if (showLoading && requestsCountRef.current === 0 && !hasFetchedOnce) setLoading(true);
-    matchApi.getProRequests({ limit: MATCH_REQUEST_LIMIT })
+    matchApi.getProRequests({ limit: MATCH_REQUEST_LIMIT, skip: 0 })
       .then((data: any) => {
         const items = Array.isArray(data) ? data : (data?.data || []);
         const mapped = mapMatchDeliveries(items);
         setRequests(mapped);
+        skipRef.current = items.length;
+        setHasMore(items.length >= MATCH_REQUEST_LIMIT);
         writeCache(mapped, authUser.id);
       })
       .catch(() => {})
@@ -207,6 +213,32 @@ export default function ProRequestsPage() {
         setHasFetchedOnce(true);
       });
   }, [authUser, hasFetchedOnce]);
+
+  // 스크롤 도달 시 다음 페이지(6개) 추가 로드 — append
+  const fetchMoreRequests = useCallback(() => {
+    if (!authUser || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    matchApi.getProRequests({ limit: MATCH_REQUEST_LIMIT, skip: skipRef.current })
+      .then((data: any) => {
+        const items = Array.isArray(data) ? data : (data?.data || []);
+        const mapped = mapMatchDeliveries(items);
+        setRequests((prev) => [...prev, ...mapped]);
+        skipRef.current += items.length;
+        setHasMore(items.length >= MATCH_REQUEST_LIMIT);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
+  }, [authUser, loadingMore, hasMore]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting) && hasMore && !loadingMore) fetchMoreRequests();
+    }, { rootMargin: '200px 0px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, fetchMoreRequests]);
 
   useEffect(() => {
     if (!authUser || requests.length > 0) return;
@@ -402,6 +434,11 @@ export default function ProRequestsPage() {
               </div>
             </article>
           ))
+        )}
+        {(hasMore || loadingMore) && (
+          <div ref={loadMoreRef} className="flex h-12 items-center justify-center">
+            {loadingMore && <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-gray-400" />}
+          </div>
         )}
       </div>
     </div>

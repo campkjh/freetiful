@@ -30,10 +30,10 @@ export const matchApi = {
     rawUserInput?: Record<string, unknown>;
   }) => apiClient.post(`${BASE}/quick-request`, data).then((r) => r.data),
 
-  getMyRequests: () =>
-    apiClient.get(`${BASE}/requests`).then((r) => r.data),
+  getMyRequests: (params?: { skip?: number; take?: number }) =>
+    apiClient.get(`${BASE}/requests`, { params }).then((r) => r.data),
 
-  getProRequests: (params?: { limit?: number }) =>
+  getProRequests: (params?: { limit?: number; skip?: number }) =>
     apiClient.get(`${BASE}/pro/requests`, { params }).then((r) => r.data),
 
   respond: (deliveryId: string, action: 'accept' | 'reject' | 'archive') =>
