@@ -1215,19 +1215,9 @@ export default function HomePage() {
   const skipHomeAnim = useHomeAnimationSkip();
   useEffect(() => () => resetHomeAnimationDecision(), []);
 
+  // 정식 오픈(2026-05-06) 안내 팝업 비활성화 — 오픈일 경과로 제거
   useEffect(() => {
-    const isPhonePreview = new URLSearchParams(window.location.search).has('phonePreview');
-    if (isPhonePreview) return;
-    try {
-      const dismissedUntil = Number(localStorage.getItem(OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY) || '0');
-      if (dismissedUntil > Date.now()) return;
-      if (dismissedUntil > 0) localStorage.removeItem(OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY);
-      if (sessionStorage.getItem(OFFICIAL_OPEN_MODAL_SESSION_KEY) === '1') return;
-      sessionStorage.setItem(OFFICIAL_OPEN_MODAL_SESSION_KEY, '1');
-      setShowOfficialOpenModal(true);
-    } catch {
-      setShowOfficialOpenModal(true);
-    }
+    setShowOfficialOpenModal(false);
   }, []);
 
   const hideOfficialOpenModalFor3Days = () => {
