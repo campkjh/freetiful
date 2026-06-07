@@ -85,7 +85,7 @@ final class NativeHomeHeader: UIView {
         unreadDot.layer.borderWidth = 1.5
         unreadDot.layer.borderColor = UIColor.white.cgColor
         unreadDot.isHidden = true
-        bellPill.addSubview(unreadDot)
+        bellPill.contentView.addSubview(unreadDot)
 
         NSLayoutConstraint.activate([
             blur.topAnchor.constraint(equalTo: topAnchor),
@@ -114,8 +114,8 @@ final class NativeHomeHeader: UIView {
 
             unreadDot.widthAnchor.constraint(equalToConstant: 8),
             unreadDot.heightAnchor.constraint(equalToConstant: 8),
-            unreadDot.topAnchor.constraint(equalTo: bellPill.topAnchor, constant: 9),
-            unreadDot.trailingAnchor.constraint(equalTo: bellPill.trailingAnchor, constant: -10),
+            unreadDot.topAnchor.constraint(equalTo: bellPill.contentView.topAnchor, constant: 9),
+            unreadDot.trailingAnchor.constraint(equalTo: bellPill.contentView.trailingAnchor, constant: -10),
         ])
     }
 
