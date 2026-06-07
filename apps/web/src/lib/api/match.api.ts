@@ -36,6 +36,6 @@ export const matchApi = {
   getProRequests: (params?: { limit?: number; skip?: number }) =>
     apiClient.get(`${BASE}/pro/requests`, { params }).then((r) => r.data),
 
-  respond: (deliveryId: string, action: 'accept' | 'reject' | 'archive') =>
-    apiClient.post(`${BASE}/delivery/${deliveryId}/respond`, { action }).then((r) => r.data),
+  respond: (deliveryId: string, action: 'accept' | 'reject' | 'archive', message?: string) =>
+    apiClient.post(`${BASE}/delivery/${deliveryId}/respond`, { action, message }).then((r) => r.data),
 };
