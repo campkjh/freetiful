@@ -709,9 +709,26 @@ export default function ChatRoomPage() {
   // ─── iOS 네이티브 채팅 헤더/푸터 연동 훅 ───
   const handleSendRef = useRef(handleSend);
   handleSendRef.current = handleSend;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const myIdRef = useRef(MY_ID);
+  myIdRef.current = MY_ID;
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const api = {
+      getMessages: () => messagesRef.current.map((m) => ({
+        id: m.id,
+        mine: m.senderId === myIdRef.current,
+        content: m.content || '',
+        type: m.type,
+        createdAt: m.createdAt,
+        isRead: !!m.isRead,
+        replyName: m.replyTo?.name || '',
+        replyContent: m.replyTo?.content || '',
+        reaction: m.reaction || '',
+        fileName: m.fileName || '',
+        pending: m.id.startsWith('opt-') || m.id.startsWith('pending-'),
+      })),
       getState: () => ({
         name: chatPartner?.name || '',
         imageUrl: chatPartner?.profileImageUrl || '',
@@ -742,6 +759,12 @@ export default function ChatRoomPage() {
       try { if ((window as any).__freetifulChat === api) delete (window as any).__freetifulChat; } catch {}
     };
   }, [chatPartner, partnerIsPro, partnerRoleKnown, isPro, muted, openPartnerProfile, router]);
+
+  // 메시지 변화 → 네이티브 메시지 리스트 갱신 트리거 (B3 Phase1)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event('freetiful:chat-messages'));
+  }, [messages]);
 
   // ─── Input change + mention detection ───
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
