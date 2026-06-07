@@ -1284,6 +1284,31 @@ export default function HomePage() {
     };
   }, [authUser]);
 
+  // iOS 네이티브 홈 카테고리 사회자 데이터 브리지 (B6)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '').replace(/\/api\/v1$/, '').replace(/\/api$/, '');
+    const abs = (u?: string) => (u && ORIGIN && u.startsWith('/uploads/') ? `${ORIGIN}${u}` : (u || ''));
+    const CATS = ['', '결혼식사회자', '행사사회자', '외국어사회자'];
+    (window as any).__freetifulHomeRowsPost = async (index: number) => {
+      try {
+        const cat = CATS[index] || '';
+        const res: any = await discoveryApi.getProList(cat ? { search: cat, limit: 12 } : { limit: 12 });
+        const list: any[] = Array.isArray(res?.data) ? res.data : Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+        const items = list.map((p: any) => ({
+          id: p.id,
+          name: p.name || p.user?.name || '사회자',
+          image: abs(p.image || p.images?.[0]?.imageUrl || p.user?.profileImageUrl || ''),
+          rating: Number(p.avgRating) || 0,
+          reviewCount: p.reviewCount || 0,
+          intro: p.shortIntro || p.mainExperience || '',
+        }));
+        (window as any).webkit?.messageHandlers?.nativeHomeRows?.postMessage({ index, items });
+      } catch {}
+    };
+    return () => { try { delete (window as any).__freetifulHomeRowsPost; } catch {} };
+  }, []);
+
   /* hero 자동재생 영상 — iOS WebView는 autoPlay가 fullscreen 강제 트리거하므로
      PC/일반 브라우저에서만 안전하게 재생을 재시도한다. */
   const heroVideoRefs = useRef<HTMLVideoElement[]>([]);

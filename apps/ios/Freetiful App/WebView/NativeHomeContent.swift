@@ -160,6 +160,10 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
             pageLists.append(list)
             pageEmpties.append(empty)
         }
+    }
+
+    // 표시 시점에 호출 — 첫 카테고리 데이터 요청
+    func loadInitial() {
         requestPageIfNeeded(0)
     }
 

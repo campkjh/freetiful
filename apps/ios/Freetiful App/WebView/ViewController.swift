@@ -45,7 +45,8 @@ class ViewController: UIViewController,
                       NativeChatListContentDelegate,
                       NativeInquiryContentDelegate,
                       NativeChatMessagesDelegate,
-                      NativeHomeHeaderDelegate {
+                      NativeHomeHeaderDelegate,
+                      NativeHomeContentDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -60,6 +61,8 @@ class ViewController: UIViewController,
     private var isOnMy = false
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
+    private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
+    private var hasLoadedHome = false
     private var isOnChatList = false
     private var lastListContext = "chat"
     private let nativeChatListContent = NativeChatListContent()
@@ -137,7 +140,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -614,6 +617,18 @@ class ViewController: UIViewController,
             nativeHomeHeader.titleTopAnchorRef.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
         ])
 
+        // 네이티브 홈 본문 (웹 홈 위 풀스크린, 헤더 아래) — 완성 전엔 숨김
+        nativeHomeContent.delegate = self
+        nativeHomeContent.isHidden = true
+        view.insertSubview(nativeHomeContent, aboveSubview: webView)
+        NSLayoutConstraint.activate([
+            nativeHomeContent.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeHomeContent.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeHomeContent.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeHomeContent.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        view.bringSubviewToFront(nativeHomeHeader)
+
         // 네이티브 채팅 리스트 본문 (웹뷰 위, 글래스 바 아래)
         nativeChatListContent.delegate = self
         nativeChatListContent.isHidden = true
@@ -790,8 +805,14 @@ class ViewController: UIViewController,
         if onHome != isOnHome {
             isOnHome = onHome
             nativeHomeHeader.isHidden = !onHome
+            nativeHomeContent.isHidden = !onHome
         }
-        if onHome { view.bringSubviewToFront(nativeHomeHeader) }
+        if onHome {
+            view.bringSubviewToFront(nativeHomeHeader)
+            let top = view.safeAreaInsets.top + 56
+            nativeHomeContent.setInsets(top: top, bottom: 92)
+            if !hasLoadedHome { hasLoadedHome = true; nativeHomeContent.loadInitial() }
+        }
 
         // 네이티브 헤더(리스트/마이) 아래에서 웹 콘텐츠 시작하도록 상단 인셋
         let needsHeaderInset = onList || onMy
@@ -972,6 +993,41 @@ class ViewController: UIViewController,
     }
     func homeHeaderTapBell() {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/notifications'));", completionHandler: nil)
+    }
+
+    // MARK: - NativeHomeContentDelegate
+    func homeOpenWeddingFind() {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/wedding-mc'));", completionHandler: nil)
+    }
+    func homeOpenEventRequest() {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros?category=' + encodeURIComponent('전문행사사회자')));", completionHandler: nil)
+    }
+    func homeOpenCategory(_ category: String) {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros?category=' + encodeURIComponent(\(jsLiteral(category)))));", completionHandler: nil)
+    }
+    func homeOpenPro(_ proId: String) {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros/' + \(jsLiteral(proId))));", completionHandler: nil)
+    }
+    func homeRequestPros(_ categoryIndex: Int) {
+        webView.evaluateJavaScript("(window.__freetifulHomeRowsPost && window.__freetifulHomeRowsPost(\(categoryIndex)));", completionHandler: nil)
+    }
+
+    private func handleNativeHomeRows(_ body: Any) {
+        guard nativeNavigationEnabled, let dict = body as? [String: Any] else { return }
+        let index = (dict["index"] as? Int) ?? Int((dict["index"] as? Double) ?? 0)
+        let arr = (dict["items"] as? [[String: Any]]) ?? []
+        let items: [HomeProItem] = arr.compactMap { d in
+            guard let id = d["id"] as? String else { return nil }
+            return HomeProItem(
+                id: id,
+                name: (d["name"] as? String) ?? "사회자",
+                image: (d["image"] as? String) ?? "",
+                rating: (d["rating"] as? Double) ?? Double((d["rating"] as? Int) ?? 0),
+                reviewCount: (d["reviewCount"] as? Int) ?? Int((d["reviewCount"] as? Double) ?? 0),
+                intro: (d["intro"] as? String) ?? ""
+            )
+        }
+        nativeHomeContent.setPros(categoryIndex: index, items: items)
     }
 
     // MARK: - NativeChatBarsDelegate
@@ -1312,6 +1368,7 @@ class ViewController: UIViewController,
         case "nativeChatListRows": handleNativeChatListRows(message.body)
         case "nativeInquiryRows": handleNativeInquiryRows(message.body)
         case "nativeChatMessages": handleNativeChatMessages(message.body)
+        case "nativeHomeRows": handleNativeHomeRows(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
