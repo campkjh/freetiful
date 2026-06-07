@@ -5,6 +5,7 @@ struct NativeChatMessage {
     let id: String
     let mine: Bool
     let content: String
+    let imageUrl: String
     let type: String
     let createdAt: String
     let isRead: Bool
@@ -44,6 +45,7 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         tableView.contentInsetAdjustmentBehavior = .never
         tableView.showsVerticalScrollIndicator = true
         tableView.register(NativeChatBubbleCell.self, forCellReuseIdentifier: "bubble")
+        tableView.register(NativeChatImageCell.self, forCellReuseIdentifier: "image")
         addSubview(tableView)
 
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -108,8 +110,14 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { messages.count }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let m = messages[indexPath.row]
+        if m.type == "image" && !m.imageUrl.isEmpty {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "image", for: indexPath) as! NativeChatImageCell
+            cell.configure(m)
+            return cell
+        }
         let cell = tableView.dequeueReusableCell(withIdentifier: "bubble", for: indexPath) as! NativeChatBubbleCell
-        cell.configure(messages[indexPath.row])
+        cell.configure(m)
         return cell
     }
 }
@@ -127,14 +135,14 @@ final class NativeChatBubbleCell: UITableViewCell {
     private var timeLeadingC: NSLayoutConstraint!
     private var timeTrailingC: NSLayoutConstraint!
 
-    private static let timeFormatter: DateFormatter = {
+    fileprivate static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "ko_KR")
         f.dateFormat = "a h:mm"
         return f
     }()
-    private static let isoParser = ISO8601DateFormatter()
-    private static let isoParserFrac: ISO8601DateFormatter = {
+    fileprivate static let isoParser = ISO8601DateFormatter()
+    fileprivate static let isoParserFrac: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
@@ -252,6 +260,85 @@ final class NativeChatBubbleCell: UITableViewCell {
     }
 
     private func formatTime(_ iso: String) -> String {
+        guard !iso.isEmpty else { return "" }
+        let date = NativeChatBubbleCell.isoParserFrac.date(from: iso)
+            ?? NativeChatBubbleCell.isoParser.date(from: iso)
+        guard let date else { return "" }
+        return NativeChatBubbleCell.timeFormatter.string(from: date)
+    }
+}
+
+// MARK: - 이미지 말풍선 셀
+final class NativeChatImageCell: UITableViewCell {
+    private let photo = UIImageView()
+    private let timeLabel = UILabel()
+    private var leadingC: NSLayoutConstraint!
+    private var trailingC: NSLayoutConstraint!
+    private var timeLeadingC: NSLayoutConstraint!
+    private var timeTrailingC: NSLayoutConstraint!
+    private var currentURL = ""
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func setup() {
+        selectionStyle = .none
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+
+        photo.translatesAutoresizingMaskIntoConstraints = false
+        photo.contentMode = .scaleAspectFill
+        photo.clipsToBounds = true
+        photo.layer.cornerRadius = 16
+        photo.layer.cornerCurve = .continuous
+        photo.backgroundColor = UIColor(white: 0.90, alpha: 1)
+        contentView.addSubview(photo)
+
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
+        timeLabel.font = .systemFont(ofSize: 10.5)
+        timeLabel.textColor = UIColor(white: 0.6, alpha: 1)
+        contentView.addSubview(timeLabel)
+
+        leadingC = photo.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14)
+        trailingC = photo.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14)
+        timeLeadingC = timeLabel.leadingAnchor.constraint(equalTo: photo.leadingAnchor, constant: 2)
+        timeTrailingC = timeLabel.trailingAnchor.constraint(equalTo: photo.trailingAnchor, constant: -2)
+
+        NSLayoutConstraint.activate([
+            photo.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
+            photo.widthAnchor.constraint(equalToConstant: 220),
+            photo.heightAnchor.constraint(equalToConstant: 220),
+            timeLabel.topAnchor.constraint(equalTo: photo.bottomAnchor, constant: 2),
+            timeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
+        ])
+    }
+
+    func configure(_ m: NativeChatMessage) {
+        if m.imageUrl != currentURL {
+            currentURL = m.imageUrl
+            photo.image = nil
+            NativeChatImageLoader.load(m.imageUrl, into: photo, fallback: nil)
+        }
+        photo.alpha = m.pending ? 0.6 : 1.0
+        timeLabel.text = NativeChatImageCell.formatTime(m.createdAt)
+
+        leadingC.isActive = false
+        trailingC.isActive = false
+        timeLeadingC.isActive = false
+        timeTrailingC.isActive = false
+        if m.mine {
+            trailingC.isActive = true
+            timeTrailingC.isActive = true
+        } else {
+            leadingC.isActive = true
+            timeLeadingC.isActive = true
+        }
+    }
+
+    private static func formatTime(_ iso: String) -> String {
         guard !iso.isEmpty else { return "" }
         let date = NativeChatBubbleCell.isoParserFrac.date(from: iso)
             ?? NativeChatBubbleCell.isoParser.date(from: iso)
