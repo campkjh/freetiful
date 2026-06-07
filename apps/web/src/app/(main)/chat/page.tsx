@@ -201,7 +201,8 @@ export default function ChatListPage() {
     if (rooms.length > 0) setLoadTimedOut(false);
   }, [storeRoomsLoading, rooms.length]);
 
-  // ─── iOS 네이티브 채팅 리스트 헤더/탭 연동 ───
+  // ─── iOS 네이티브 채팅 리스트 연동 (헤더/탭 + 행 데이터) ───
+  const chatRowsRef = useRef<any[]>([]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const w = window as any;
@@ -209,9 +210,14 @@ export default function ChatListPage() {
       getState: () => ({ tab: currentTab, tabs: ['전체', '읽음', '안 읽음', '숨김'] }),
       setTab: (t: string) => { if (isPro) setProActiveTab(t as ProFilterTab); else setActiveTab(t as FilterTab); },
       toggleSearch: () => setShowSearch((v) => !v),
+      getRooms: () => chatRowsRef.current,
+      openRoom: (id: string) => router.push(`/chat/${id}`),
+      hideRoom: (id: string) => handleHideRoom(id),
     };
     window.dispatchEvent(new Event('freetiful:chatlist-state'));
+    window.dispatchEvent(new Event('freetiful:chatlist-rows'));
     return () => { try { if (w.__freetifulChatList) delete w.__freetifulChatList; } catch {} };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTab, isPro]);
 
   const filtered = useMemo(() => rooms.filter((r) => {
@@ -249,6 +255,19 @@ export default function ChatListPage() {
     if (!a.isPinned && b.isPinned) return 1;
     return 0;
   }), [filtered]);
+
+  // 네이티브 리스트용 행 데이터 갱신 + 통지
+  useEffect(() => {
+    chatRowsRef.current = sorted.map((r) => ({
+      id: r.id,
+      name: r.otherUser?.name || '',
+      image: r.otherUser?.profileImageUrl || '',
+      lastMessage: r.lastMessage || '',
+      time: r.lastMessageAt || '',
+      unread: r.unreadCount || 0,
+    }));
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('freetiful:chatlist-rows'));
+  }, [sorted]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
