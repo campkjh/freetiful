@@ -220,6 +220,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     (window as any).__freetifulNativeNavPostState?.();
   }, [newRequestCount, chatUnreadCount]);
 
+  // 네이티브 헤더/버튼에서 SPA 라우팅 (홈 검색/알림 등)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as any).__freetifulNavigate = (path: string) => { try { router.push(path); } catch {} };
+    return () => { try { delete (window as any).__freetifulNavigate; } catch {} };
+  }, [router]);
+
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
     const handler = () => {

@@ -1782,6 +1782,7 @@ export default function HomePage() {
       {/* ─── Mobile Header (Fixed, single row: logo + search + bell) ── */}
       <div
         ref={headerRef}
+        data-native-home-header
         className="lg:hidden fixed top-0 left-0 right-0 z-30 px-[10px] pt-[12px] pb-[10px]"
         style={{
           background: 'linear-gradient(to bottom, rgba(255,255,255,1) 60%, rgba(255,255,255,0) 100%)',

@@ -44,7 +44,8 @@ class ViewController: UIViewController,
                       NativeChatListBarDelegate,
                       NativeChatListContentDelegate,
                       NativeInquiryContentDelegate,
-                      NativeChatMessagesDelegate {
+                      NativeChatMessagesDelegate,
+                      NativeHomeHeaderDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -57,6 +58,8 @@ class ViewController: UIViewController,
     private let nativeChatListBar = NativeChatListBar()
     private let nativeMyHeader = NativeSimpleGlassHeader()
     private var isOnMy = false
+    private let nativeHomeHeader = NativeHomeHeader()
+    private var isOnHome = false
     private var isOnChatList = false
     private var lastListContext = "chat"
     private let nativeChatListContent = NativeChatListContent()
@@ -201,7 +204,8 @@ class ViewController: UIViewController,
           'html.freetiful-ios-native-nav [data-native-chat-gradient]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chat-footer]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chatlist-header]{display:none!important;pointer-events:none!important;}',
-          'html.freetiful-ios-native-nav [data-native-my-header]{display:none!important;pointer-events:none!important;}'
+          'html.freetiful-ios-native-nav [data-native-my-header]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-native-home-header]{display:none!important;pointer-events:none!important;}'
         ].join('\\n');
         document.head && document.head.appendChild(style);
       }
@@ -599,6 +603,17 @@ class ViewController: UIViewController,
             nativeMyHeader.titleTopAnchorRef.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
         ])
 
+        // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
+        nativeHomeHeader.delegate = self
+        nativeHomeHeader.isHidden = true
+        view.addSubview(nativeHomeHeader)
+        NSLayoutConstraint.activate([
+            nativeHomeHeader.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeHomeHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeHomeHeader.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeHomeHeader.titleTopAnchorRef.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
+        ])
+
         // 네이티브 채팅 리스트 본문 (웹뷰 위, 글래스 바 아래)
         nativeChatListContent.delegate = self
         nativeChatListContent.isHidden = true
@@ -769,6 +784,14 @@ class ViewController: UIViewController,
             nativeMyHeader.isHidden = !onMy
         }
         if onMy { view.bringSubviewToFront(nativeMyHeader) }
+
+        // 홈 글래스 헤더 (스페이서가 공간 확보하므로 콘텐츠 인셋은 변경 안 함)
+        let onHome = currentNativePath == "/main" || currentNativePath == "/"
+        if onHome != isOnHome {
+            isOnHome = onHome
+            nativeHomeHeader.isHidden = !onHome
+        }
+        if onHome { view.bringSubviewToFront(nativeHomeHeader) }
 
         // 네이티브 헤더(리스트/마이) 아래에서 웹 콘텐츠 시작하도록 상단 인셋
         let needsHeaderInset = onList || onMy
@@ -941,6 +964,14 @@ class ViewController: UIViewController,
     func chatMessagesImageTap(_ url: String) {
         guard !url.isEmpty else { return }
         present(NativeImageViewer(url: url), animated: true)
+    }
+
+    // MARK: - NativeHomeHeaderDelegate
+    func homeHeaderTapSearch() {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/search'));", completionHandler: nil)
+    }
+    func homeHeaderTapBell() {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/notifications'));", completionHandler: nil)
     }
 
     // MARK: - NativeChatBarsDelegate
