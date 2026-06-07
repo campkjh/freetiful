@@ -87,8 +87,14 @@ function messageTime(message: Pick<Message, 'createdAt'>) {
   return Number.isFinite(time) ? time : 0;
 }
 
+// 낙관적(옵티미스틱) 임시 메시지 식별 — 페이지(opt-)와 스토어(pending-) 두 컨벤션 모두.
+// 실제 서버 메시지는 UUID라 프리픽스가 없어 절대 매칭되지 않는다.
+function isOptimisticId(id: string) {
+  return id.startsWith('opt-') || id.startsWith('pending-');
+}
+
 function hasFetchedEquivalent(message: Message, fetched: Message[]) {
-  if (!message.id.startsWith('opt-')) return false;
+  if (!isOptimisticId(message.id)) return false;
   const sentAt = messageTime(message);
   return fetched.some((item) => (
     item.senderId === message.senderId &&
@@ -105,7 +111,7 @@ function mergeFetchedMessages(current: Message[], fetched: Message[], requestedA
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
     if (hasFetchedEquivalent(message, fetched)) return false;
-    if (message.id.startsWith('opt-')) return true;
+    if (isOptimisticId(message.id)) return true;
     return messageTime(message) >= requestedAt - 2_000;
   });
 
@@ -578,7 +584,7 @@ export default function ChatRoomPage() {
       if (unique.length === 0) return prev;
       // 낙관적 메시지(opt-) 중 같은 senderId+content인 것 제거
       const withoutOptimistic = prev.filter((m) => {
-        if (!m.id.startsWith('opt-')) return true;
+        if (!isOptimisticId(m.id)) return true;
         return !unique.some((u) => u.senderId === m.senderId && u.content === m.content);
       });
       return [...withoutOptimistic, ...unique];
