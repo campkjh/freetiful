@@ -215,6 +215,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private var selectedPath = "/main"
     private var isProMode = false
     private var showsModeToggle = false
+    private var badges: [String: Int] = [:]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -407,7 +408,25 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             tabItem.accessibilityLabel = item.title
             tabItem.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 2)
             tabItem.imageInsets = UIEdgeInsets(top: -1, left: 0, bottom: 1, right: 0)
+            tabItem.badgeColor = freetifulBlue
+            tabItem.setBadgeTextAttributes([.foregroundColor: UIColor.white], for: .normal)
             return tabItem
+        }
+        applyBadges()
+    }
+
+    /// 웹에서 전달된 미읽음 카운트를 nav 아이템 뱃지에 반영 (id 기준: "requests"=새요청, "chat"=채팅)
+    func setBadges(_ next: [String: Int]) {
+        guard badges != next else { return }
+        badges = next
+        applyBadges()
+    }
+
+    private func applyBadges() {
+        guard let tabItems = tabBar.items else { return }
+        for (index, item) in items.enumerated() where index < tabItems.count {
+            let count = badges[item.id] ?? 0
+            tabItems[index].badgeValue = count > 0 ? (count > 99 ? "99+" : String(count)) : nil
         }
     }
 

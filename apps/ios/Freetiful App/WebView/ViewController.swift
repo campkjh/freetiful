@@ -69,6 +69,7 @@ class ViewController: UIViewController,
     private var currentNativeIsProMode = false
     private var currentNativeViewAsUser = false
     private var currentNativeHasBlockingOverlay = false
+    private var currentNavBadges: [String: Int] = [:]
     private var nativeToastView: UIVisualEffectView?
     private var pendingPushSubscriptionId: String?
     private let nativeNavigationEnabled = true
@@ -285,12 +286,15 @@ class ViewController: UIViewController,
         var viewAsUser = localStorage.getItem('viewAsUser') === 'true';
         var actualIsPro = role === 'pro';
         var hasBlockingOverlay = !!document.querySelector('[aria-modal="true"], [role="dialog"]');
+        var badges = {};
+        try { badges = window.__freetifulNavBadges || {}; } catch (e) {}
         return {
           path: window.location.pathname || '/',
           actualIsPro: actualIsPro,
           isProMode: actualIsPro && !viewAsUser,
           viewAsUser: viewAsUser,
-          hasBlockingOverlay: hasBlockingOverlay
+          hasBlockingOverlay: hasBlockingOverlay,
+          badges: badges
         };
       }
 
@@ -475,6 +479,14 @@ class ViewController: UIViewController,
         if let hasBlockingOverlay = state["hasBlockingOverlay"] as? Bool {
             currentNativeHasBlockingOverlay = hasBlockingOverlay
         }
+        if let badges = state["badges"] as? [String: Any] {
+            var parsed: [String: Int] = [:]
+            for (key, value) in badges {
+                if let n = value as? Int { parsed[key] = n }
+                else if let d = value as? Double { parsed[key] = Int(d) }
+            }
+            currentNavBadges = parsed
+        }
         renderNativeNavigation(animated: true)
     }
 
@@ -498,6 +510,7 @@ class ViewController: UIViewController,
             showsModeToggle: false,
             isProMode: false
         )
+        nativeNavBar.setBadges(currentNavBadges)
 
         let hidden = currentNativeHasBlockingOverlay || shouldHideNativeNavigation(path: currentNativePath)
         nativeNavBar.setVisible(!hidden, animated: animated)

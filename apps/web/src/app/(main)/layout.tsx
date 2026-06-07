@@ -213,6 +213,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     };
   }, [authHydrated, authUser?.id, authUser?.role]);
 
+  // iOS 네이티브 하단 nav 뱃지 브리지 — 카운트 변화 시 노출 + 네이티브 갱신 트리거
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as any).__freetifulNavBadges = { requests: newRequestCount, chat: chatUnreadCount };
+    (window as any).__freetifulNativeNavPostState?.();
+  }, [newRequestCount, chatUnreadCount]);
+
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
     const handler = () => {
