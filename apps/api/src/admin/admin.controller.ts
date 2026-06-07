@@ -437,6 +437,14 @@ export class AdminController {
     return this.adminService.uploadBusinessImage(id, file);
   }
 
+  // 리치텍스트 에디터(상세페이지 HTML) 인라인 이미지 업로드
+  @Post('editor-images')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  async uploadEditorImage(@UploadedFile() file: Express.Multer.File) {
+    return this.adminService.uploadEditorImage(file);
+  }
+
   @Delete('businesses/:id/images/:imageId')
   async deleteBusinessImage(
     @Param('id') id: string,

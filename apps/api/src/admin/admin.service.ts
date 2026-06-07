@@ -484,6 +484,18 @@ export class AdminService {
     return img;
   }
 
+  /** 리치텍스트 에디터(상세페이지 HTML) 인라인 이미지 업로드 → URL 반환 */
+  async uploadEditorImage(file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('이미지 파일이 필요합니다.');
+    const processed = await this.imageService.processImage(file, {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 85,
+      requireFace: false,
+    });
+    return { url: processed.path };
+  }
+
   async deleteBusinessImage(businessId: string, imageId: string) {
     const img = await this.prisma.businessImage.findUnique({ where: { id: imageId } });
     if (!img || img.businessProfileId !== businessId) {

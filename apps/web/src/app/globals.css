@@ -1833,3 +1833,11 @@ body::after {
   max-width: 100%;
   height: auto;
 }
+/* 사회자 상세페이지 HTML 본문 이미지 — 모든 모바일(특히 안드로이드)에서 폭 맞춰 렌더 */
+.pro-detail-html img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 12px auto;
+  border-radius: 12px;
+}

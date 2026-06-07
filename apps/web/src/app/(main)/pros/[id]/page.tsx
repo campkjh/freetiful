@@ -330,9 +330,20 @@ function textToHtml(text: string) {
     .join('');
 }
 
+// 상대경로 /uploads 이미지를 API 절대경로로 바꿔 origin 의존성 제거(안드로이드 등 렌더 실패 방지)
+const UPLOADS_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '')
+  .replace(/\/+$/, '')
+  .replace(/\/api\/v1$/, '')
+  .replace(/\/api$/, '');
+
+function absolutizeUploads(html: string) {
+  if (!UPLOADS_ORIGIN) return html;
+  return html.replace(/(src=["'])\/uploads\//g, `$1${UPLOADS_ORIGIN}/uploads/`);
+}
+
 function buildDescriptionHtml(html: string | null | undefined, fallbackText: string) {
   const cleaned = stripUnsafeHtml(html || '');
-  if (cleaned.trim()) return cleaned;
+  if (cleaned.trim()) return absolutizeUploads(cleaned);
   return textToHtml(fallbackText);
 }
 
