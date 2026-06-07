@@ -42,7 +42,7 @@ final class NativeMyContent: UIView {
         ]),
         ("나의 활동", [
             MyMenuItem(asset: "my-purchase", sf: "bag", label: "구매 내역", path: "/my/purchase-history", badge: nil),
-            MyMenuItem(asset: nil, sf: "clock.arrow.circlepath", label: "결제/환불 내역", path: "/my/payment-history", badge: nil),
+            MyMenuItem(asset: "my-payment", sf: "clock.arrow.circlepath", label: "결제/환불 내역", path: "/my/payment-history", badge: nil),
         ]),
         ("고객지원", [
             MyMenuItem(asset: "my-support", sf: "headphones", label: "고객센터", path: "/my/support", badge: nil),
@@ -51,7 +51,7 @@ final class NativeMyContent: UIView {
         ]),
         ("기타", [
             MyMenuItem(asset: "my-invite", sf: "gift", label: "친구 초대", path: "/my/invite", badge: "5,000원 이벤트"),
-            MyMenuItem(asset: nil, sf: "doc.text", label: "약관 및 정책", path: "/my/terms", badge: nil),
+            MyMenuItem(asset: "my-terms", sf: "doc.text", label: "약관 및 정책", path: "/my/terms", badge: nil),
             MyMenuItem(asset: "my-partner", sf: "briefcase", label: "파트너 신청", path: "/pro-register/terms", badge: nil),
         ]),
     ]

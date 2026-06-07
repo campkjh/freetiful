@@ -418,12 +418,10 @@ final class HomeBestPodium: UIView {
         imgWrap.translatesAutoresizingMaskIntoConstraints = false
         imgWrap.isUserInteractionEnabled = false
 
-        let img = UIImageView()
+        let img = PillImageView()               // 짧은 변 절반으로 코너반경 자동 → 정확한 알약
         img.translatesAutoresizingMaskIntoConstraints = false
         img.contentMode = .scaleAspectFill
         img.clipsToBounds = true
-        img.layer.cornerRadius = 150           // 둥근/필 형태 (1·2·3 동일)
-        img.layer.cornerCurve = .circular      // .continuous 는 큰 r에서 마름모처럼 뾰족해짐 → .circular
         img.layer.borderWidth = 2              // 보더 얇게
         img.layer.borderColor = rankColor(rank).cgColor
         img.backgroundColor = UIColor(white: 0.93, alpha: 1)
@@ -718,23 +716,32 @@ final class HomeProGridCard: UIControl {
         ])
 
         if item.isPartner {
-            let partner = PaddingLabel()
-            partner.text = "✓ Partners"
-            partner.font = .systemFont(ofSize: 9.5, weight: .bold)
-            partner.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
-            partner.backgroundColor = .white
-            partner.layer.cornerRadius = 5
-            partner.clipsToBounds = true
-            partner.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(partner)
+            let partnerPill = GlassPill(corner: 8)
+            partnerPill.translatesAutoresizingMaskIntoConstraints = false
+            partnerPill.isUserInteractionEnabled = false
+            let partnerLabel = UILabel()
+            partnerLabel.text = "✓ Partners"
+            partnerLabel.font = .systemFont(ofSize: 9.5, weight: .bold)
+            partnerLabel.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+            partnerPill.setContent(partnerLabel, insets: UIEdgeInsets(top: 3, left: 8, bottom: 3, right: 8))
+            addSubview(partnerPill)
             NSLayoutConstraint.activate([
-                partner.topAnchor.constraint(equalTo: img.topAnchor, constant: 6),
-                partner.leadingAnchor.constraint(equalTo: img.leadingAnchor, constant: 6),
+                partnerPill.topAnchor.constraint(equalTo: img.topAnchor, constant: 6),
+                partnerPill.leadingAnchor.constraint(equalTo: img.leadingAnchor, constant: 6),
             ])
         }
         addAction(UIAction { [weak self] _ in Haptics.tap(); self?.onTap?(self?.proId ?? "") }, for: .touchUpInside)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+// MARK: - 알약(필) 이미지뷰 — 짧은 변의 절반으로 코너반경 자동 설정 (마름모 방지)
+final class PillImageView: UIImageView {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.cornerCurve = .circular
+        layer.cornerRadius = min(bounds.width, bounds.height) / 2
+    }
 }
 
 // MARK: - 패딩 라벨 (태그/배지용)
