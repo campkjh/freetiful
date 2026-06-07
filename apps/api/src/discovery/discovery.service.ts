@@ -153,13 +153,13 @@ export class DiscoveryService implements OnModuleInit {
     if (cached) return cached;
 
     // 공개 목록 조건:
-    // 1) 프로필 status = approved
-    // 2) User.isActive (archived 제외)
+    // 1) 프로필 status — 거절(rejected)/정지(suspended)만 제외, 나머지(approved/pending/draft)는 노출
+    // 2) isProfileHidden=false (직접 숨김 처리한 프로 제외)
+    // 3) User.isActive (archived 제외)
     // 사진 체크는 제거 — 기존 프로들의 ProProfileImage 저장이 누락돼 있을 수 있어
-    // 필터로 한꺼번에 숨기면 박테스터/김사회자 처럼 데이터 가진 프로도 사라짐.
-    // 대신 프론트에서 이미지 없으면 default-profile 폴백으로 표시.
+    // 필터로 한꺼번에 숨기면 데이터 가진 프로도 사라짐. 프론트에서 default-profile 폴백.
     const where: any = {
-      status: 'approved',
+      status: { notIn: ['rejected', 'suspended'] },
       isProfileHidden: false,
       user: { isActive: true },
     };
