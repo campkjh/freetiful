@@ -14,7 +14,7 @@ type RequestKind = 'multi' | 'single';
 
 const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-simple-requests-cache-v1';
 const MATCH_DELIVERIES_CACHE_TTL = 10 * 60_000;
-const MATCH_REQUEST_LIMIT = 6; // 초기/페이지 당 로드 개수 — 스크롤 시 추가 로드
+const MATCH_REQUEST_LIMIT = 100; // 한꺼번에 로드 (스크롤 추가 로드 제거)
 const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
 let memoryDeliveriesCache: { userId?: string | null; data: MatchDeliveryView[]; ts: number } | null = null;
 

@@ -638,15 +638,6 @@ export default function ProfilePage() {
           <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-gray-900">[선택]상세설명</p>
-              <button
-                type="button"
-                onClick={handleAiGenerate}
-                disabled={aiLoading}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#3180F7] to-[#8B5CF6] text-white text-[11px] font-bold shadow-sm active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-                title="사진·키워드로 상세페이지 자동 생성"
-              >
-                {aiLoading ? '생성 중...' : '✨ AI 자동 생성'}
-              </button>
             </div>
 
             {/* Toolbar */}
