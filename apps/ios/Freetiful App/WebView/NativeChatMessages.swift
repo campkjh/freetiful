@@ -16,8 +16,11 @@ struct NativeChatMessage {
 }
 
 protocol NativeChatMessagesDelegate: AnyObject {
-    // Phase 2: 꾹눌러 컨텍스트 메뉴
-    func chatMessagesLongPress(_ message: NativeChatMessage, sourceFrame: CGRect)
+    // 꾹눌러 글래스 컨텍스트 메뉴 액션
+    func chatMessagesReply(_ id: String)
+    func chatMessagesAnnounce(_ id: String)
+    func chatMessagesPartialCopy(_ id: String)
+    func chatMessagesReact(_ id: String, emoji: String)
 }
 
 // 네이티브 채팅 본문 (UITableView) — 글래스 헤더 아래 / 입력바 위
@@ -63,10 +66,6 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
             emptyLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
-
-        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
-        longPress.minimumPressDuration = 0.35
-        tableView.addGestureRecognizer(longPress)
     }
 
     func setInsets(top: CGFloat, bottom: CGFloat) {
@@ -97,14 +96,34 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         tableView.scrollToRow(at: last, at: .bottom, animated: animated)
     }
 
-    @objc private func handleLongPress(_ gr: UILongPressGestureRecognizer) {
-        guard gr.state == .began else { return }
-        let point = gr.location(in: tableView)
-        guard let indexPath = tableView.indexPathForRow(at: point), indexPath.row < messages.count else { return }
-        Haptics.soft()
-        let cellFrame = tableView.rectForRow(at: indexPath)
-        let inSelf = tableView.convert(cellFrame, to: self)
-        delegate?.chatMessagesLongPress(messages[indexPath.row], sourceFrame: inSelf)
+    // 꾹눌러 네이티브 글래스 컨텍스트 메뉴 (블러 + 리프트 프리뷰 자동)
+    func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        guard indexPath.row < messages.count else { return nil }
+        let m = messages[indexPath.row]
+        return UIContextMenuConfiguration(identifier: indexPath as NSIndexPath, previewProvider: nil) { [weak self] _ in
+            guard let self else { return nil }
+            let emojis = ["❤️", "👍", "😂", "😮", "😢", "🙏"].map { e in
+                UIAction(title: e) { _ in Haptics.tap(); self.delegate?.chatMessagesReact(m.id, emoji: e) }
+            }
+            let react = UIMenu(title: "이모지 답장", image: UIImage(systemName: "face.smiling"), children: emojis)
+            let reply = UIAction(title: "답장", image: UIImage(systemName: "arrowshape.turn.up.left")) { _ in
+                self.delegate?.chatMessagesReply(m.id)
+            }
+            var actions: [UIMenuElement] = [react, reply]
+            if m.type == "text" {
+                let copy = UIAction(title: "복사", image: UIImage(systemName: "doc.on.doc")) { _ in
+                    UIPasteboard.general.string = m.content
+                }
+                let partial = UIAction(title: "부분 복사", image: UIImage(systemName: "text.viewfinder")) { _ in
+                    self.delegate?.chatMessagesPartialCopy(m.id)
+                }
+                let announce = UIAction(title: "공지로 등록", image: UIImage(systemName: "megaphone")) { _ in
+                    self.delegate?.chatMessagesAnnounce(m.id)
+                }
+                actions.append(contentsOf: [copy, partial, announce])
+            }
+            return UIMenu(title: "", children: actions)
+        }
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { messages.count }
@@ -232,7 +251,8 @@ final class NativeChatBubbleCell: UITableViewCell {
             replyLabel.text = "\(name)\(m.replyContent)"
         }
 
-        timeLabel.text = formatTime(m.createdAt)
+        let reactionPrefix = m.reaction.isEmpty ? "" : "\(m.reaction) "
+        timeLabel.text = reactionPrefix + formatTime(m.createdAt)
 
         leadingC.isActive = false
         trailingC.isActive = false
@@ -323,7 +343,8 @@ final class NativeChatImageCell: UITableViewCell {
             NativeChatImageLoader.load(m.imageUrl, into: photo, fallback: nil)
         }
         photo.alpha = m.pending ? 0.6 : 1.0
-        timeLabel.text = NativeChatImageCell.formatTime(m.createdAt)
+        let reactionPrefix = m.reaction.isEmpty ? "" : "\(m.reaction) "
+        timeLabel.text = reactionPrefix + NativeChatImageCell.formatTime(m.createdAt)
 
         leadingC.isActive = false
         trailingC.isActive = false

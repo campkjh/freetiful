@@ -888,12 +888,21 @@ class ViewController: UIViewController,
         if isOnChatDetail { nativeChatMessages.isHidden = false }
     }
 
-    // MARK: - NativeChatMessagesDelegate
-    func chatMessagesLongPress(_ message: NativeChatMessage, sourceFrame: CGRect) {
-        // Phase 2 예정: 글래스 컨텍스트 메뉴(답장/복사/부분복사/공지등록/이모지)
-        // Phase 1: 텍스트 복사
-        if !message.content.isEmpty { UIPasteboard.general.string = message.content }
+    // MARK: - NativeChatMessagesDelegate (꾹눌러 글래스 메뉴 액션)
+    func chatMessagesReply(_ id: String) {
         Haptics.tap()
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.replyMessage && window.__freetifulChat.replyMessage(\(jsLiteral(id)));", completionHandler: nil)
+    }
+    func chatMessagesAnnounce(_ id: String) {
+        Haptics.tap()
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.announceMessage && window.__freetifulChat.announceMessage(\(jsLiteral(id)));", completionHandler: nil)
+    }
+    func chatMessagesPartialCopy(_ id: String) {
+        Haptics.tap()
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.partialCopyMessage && window.__freetifulChat.partialCopyMessage(\(jsLiteral(id)));", completionHandler: nil)
+    }
+    func chatMessagesReact(_ id: String, emoji: String) {
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.reactMessage && window.__freetifulChat.reactMessage(\(jsLiteral(id)), \(jsLiteral(emoji)));", completionHandler: nil)
     }
 
     // MARK: - NativeChatBarsDelegate

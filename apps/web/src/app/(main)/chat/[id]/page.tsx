@@ -741,6 +741,24 @@ export default function ChatRoomPage() {
         fileName: m.fileName || '',
         pending: m.id.startsWith('opt-') || m.id.startsWith('pending-'),
       })),
+      // ─── 네이티브 롱프레스 글래스 메뉴 액션 (B3 Phase2) ───
+      reactions: () => ['❤️', '👍', '😂', '😮', '😢', '🙏'],
+      replyMessage: (id: string) => {
+        const m = messagesRef.current.find((x) => x.id === id);
+        if (m) setReplyTo({ id: m.id, name: m.senderId === myIdRef.current ? '나' : (chatPartner?.name || '상대방'), content: m.content });
+      },
+      announceMessage: (id: string) => {
+        const m = messagesRef.current.find((x) => x.id === id);
+        if (m && m.type === 'text') setPinnedMessage({ id: m.id, name: m.senderId === myIdRef.current ? '나' : (chatPartner?.name || '상대방'), content: m.content });
+      },
+      partialCopyMessage: (id: string) => {
+        const m = messagesRef.current.find((x) => x.id === id);
+        if (m && m.type === 'text') setPartialCopyMsg(m);
+      },
+      reactMessage: (id: string, emoji: string) => {
+        try { useChatStore.getState().addReaction(id, emoji); } catch {}
+        setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, reaction: m.reaction === emoji ? null : emoji } : m)));
+      },
       getState: () => ({
         name: chatPartner?.name || '',
         imageUrl: chatPartner?.profileImageUrl || '',
