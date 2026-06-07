@@ -50,7 +50,8 @@ class ViewController: UIViewController,
                       NativeMyContentDelegate,
                       NativeBackHeaderDelegate,
                       NativeNotificationsDelegate,
-                      NativeSearchDelegate {
+                      NativeSearchDelegate,
+                      NativeCustomerInquiriesDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -70,6 +71,8 @@ class ViewController: UIViewController,
     private var isOnNotifications = false
     private let nativeSearch = NativeSearchContent()   // 검색 화면 네이티브
     private var isOnSearch = false
+    private let nativeCustomerInquiries = NativeCustomerInquiries()   // 고객 문의목록 네이티브
+    private var isOnCustomerInquiries = false
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -151,7 +154,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile", "nativeHomeBusiness", "nativeNotifications"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile", "nativeHomeBusiness", "nativeNotifications", "nativeCustomerInquiries"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -662,6 +665,17 @@ class ViewController: UIViewController,
             nativeSearch.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
+        // 고객 문의목록 네이티브 본문 (웹 위 덮음, 백헤더 아래)
+        nativeCustomerInquiries.isHidden = true
+        nativeCustomerInquiries.delegate = self
+        view.insertSubview(nativeCustomerInquiries, belowSubview: nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeCustomerInquiries.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeCustomerInquiries.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeCustomerInquiries.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeCustomerInquiries.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
         nativeHomeHeader.delegate = self
         nativeHomeHeader.isHidden = true
@@ -908,6 +922,23 @@ class ViewController: UIViewController,
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.nativeSearch.focus() }
             } else {
                 nativeSearch.resignSearch()
+            }
+        }
+
+        // 고객 문의목록 화면 (네이티브 상태 카드 + 문의내역/보관함 탭)
+        let onCustInq = currentNativePath == "/inquiries"
+        if onCustInq != isOnCustomerInquiries {
+            isOnCustomerInquiries = onCustInq
+            nativeCustomerInquiries.isHidden = !onCustInq
+        }
+        if onCustInq {
+            view.bringSubviewToFront(nativeCustomerInquiries)
+            view.bringSubviewToFront(nativeBackHeader)
+            nativeBackHeader.isHidden = false
+            nativeBackHeader.setTitle("문의목록")
+            nativeCustomerInquiries.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
+            for delay in [0.0, 0.4, 1.2, 2.5] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestCustomerInquiries() }
             }
         }
 
@@ -1191,6 +1222,61 @@ class ViewController: UIViewController,
     func searchDidCancel() {
         if webView.canGoBack { webView.goBack() }
         else { webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/main'));", completionHandler: nil) }
+    }
+
+    // MARK: - NativeCustomerInquiriesDelegate
+    func customerInquiryDidTap(_ link: String, hasRoom: Bool) {
+        if hasRoom, !link.isEmpty, let norm = normalizedInternalPath(from: link) { navigateNativeWeb(to: norm) }
+        else { showNativeToast("사회자가 문의를 승인하면 채팅방이 열립니다") }
+    }
+    func customerInquiryDidArchive(_ id: String) {
+        webView.evaluateJavaScript("(window.__freetifulInquiries && window.__freetifulInquiries.invokeArchive && window.__freetifulInquiries.invokeArchive(\(jsLiteral(id))));", completionHandler: nil)
+    }
+    func customerInquiryDidUnarchive(_ id: String) {
+        webView.evaluateJavaScript("(window.__freetifulInquiries && window.__freetifulInquiries.invokeUnarchive && window.__freetifulInquiries.invokeUnarchive(\(jsLiteral(id))));", completionHandler: nil)
+    }
+    func requestCustomerInquiries() {
+        webView.evaluateJavaScript("(window.__freetifulInquiries && window.__freetifulInquiries.post && window.__freetifulInquiries.post());", completionHandler: nil)
+    }
+    private func handleNativeCustomerInquiries(_ body: Any) {
+        guard let dict = body as? [String: Any] else { return }
+        func parse(_ key: String) -> [NativeInquiryCard] {
+            let arr = (dict[key] as? [[String: Any]]) ?? []
+            return arr.compactMap { d in
+                guard let id = d["id"] as? String else { return nil }
+                return NativeInquiryCard(id: id, proName: (d["proName"] as? String) ?? "사회자",
+                                         proImage: (d["proImage"] as? String) ?? "", status: (d["status"] as? String) ?? "요청중",
+                                         category: (d["category"] as? String) ?? "", date: (d["date"] as? String) ?? "",
+                                         location: (d["location"] as? String) ?? "", link: (d["link"] as? String) ?? "",
+                                         hasRoom: (d["hasRoom"] as? Bool) ?? false)
+            }
+        }
+        nativeCustomerInquiries.setData(active: parse("active"), archived: parse("archived"))
+    }
+
+    private func showNativeToast(_ text: String) {
+        let label = PaddingLabel2()
+        label.text = text
+        label.textInsets = UIEdgeInsets(top: 10, left: 16, bottom: 10, right: 16)
+        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.textColor = .white
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.82)
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.layer.cornerRadius = 18
+        label.clipsToBounds = true
+        label.alpha = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -90),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 40),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -40),
+        ])
+        UIView.animate(withDuration: 0.25, animations: { label.alpha = 1 }) { _ in
+            UIView.animate(withDuration: 0.3, delay: 1.8, options: [], animations: { label.alpha = 0 }) { _ in label.removeFromSuperview() }
+        }
     }
     func homeOpenPath(_ path: String) {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
@@ -1631,6 +1717,7 @@ class ViewController: UIViewController,
         case "nativeMyProfile": handleNativeMyProfile(message.body)
         case "nativeHomeBusiness": handleNativeHomeBusiness(message.body)
         case "nativeNotifications": handleNativeNotifications(message.body)
+        case "nativeCustomerInquiries": handleNativeCustomerInquiries(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {

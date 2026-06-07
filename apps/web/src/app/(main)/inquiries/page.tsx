@@ -133,6 +133,15 @@ function buildCards(requests: any[]): InquiryCard[] {
   });
 }
 
+const ARCHIVED_INQUIRIES_KEY = 'freetiful_archived_inquiries';
+function readArchivedInquiryIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try { const raw = localStorage.getItem(ARCHIVED_INQUIRIES_KEY); const arr = raw ? JSON.parse(raw) : []; return Array.isArray(arr) ? arr : []; } catch { return []; }
+}
+function writeArchivedInquiryIds(ids: string[]) {
+  try { localStorage.setItem(ARCHIVED_INQUIRIES_KEY, JSON.stringify(ids.slice(0, 500))); } catch {}
+}
+
 export default function CustomerInquiriesPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
@@ -198,6 +207,43 @@ export default function CustomerInquiriesPage() {
   }, [loadingMore, hasMore]);
 
   const cards = useMemo(() => buildCards(requests), [requests]);
+
+  const [archivedIds, setArchivedIds] = useState<Set<string>>(() => new Set(readArchivedInquiryIds()));
+  const activeCards = useMemo(() => cards.filter((c) => !archivedIds.has(c.id)), [cards, archivedIds]);
+  const archivedCards = useMemo(() => cards.filter((c) => archivedIds.has(c.id)), [cards, archivedIds]);
+
+  // 네이티브 고객 문의목록 브리지
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mapCard = (c: InquiryCard) => ({
+      id: c.id,
+      proName: c.proName,
+      proImage: getProfileImageUrl(c.proImage, c.proName),
+      status: c.status,
+      category: c.category,
+      date: c.createdAt || '',
+      location: c.location || '',
+      link: c.roomId ? `/chat/${c.roomId}` : '',
+      hasRoom: Boolean(c.roomId),
+    });
+    const post = () => {
+      (window as any).webkit?.messageHandlers?.nativeCustomerInquiries?.postMessage({
+        active: activeCards.map(mapCard),
+        archived: archivedCards.map(mapCard),
+      });
+    };
+    (window as any).__freetifulInquiries = {
+      post,
+      invokeArchive: (id: string) => {
+        setArchivedIds((prev) => { const next = new Set(prev); next.add(id); writeArchivedInquiryIds([...next]); return next; });
+      },
+      invokeUnarchive: (id: string) => {
+        setArchivedIds((prev) => { const next = new Set(prev); next.delete(id); writeArchivedInquiryIds([...next]); return next; });
+      },
+    };
+    post();
+    return () => { try { delete (window as any).__freetifulInquiries; } catch {} };
+  }, [activeCards, archivedCards]);
 
   // 바닥 도달 시 다음 요청 페이지 fetch
   useEffect(() => {
