@@ -2004,6 +2004,10 @@ export class AdminService {
           await tx.quotation.deleteMany({ where: { proProfileId } });
           await tx.review.deleteMany({ where: { proProfileId } });
           await tx.chatRoom.deleteMany({ where: { proProfileId } }); // room→Message/Member cascade
+          // 정산로그: proProfileId 가 필수 Restrict FK 라 남아있으면 proProfile 삭제가 막힘(서나영 케이스)
+          await tx.settlementLog.deleteMany({ where: { proProfileId } });
+          // 결제: User/ProProfile 에 relation 없는 스칼라 FK — 고아 방지로 함께 제거
+          await tx.payment.deleteMany({ where: { proProfileId } });
         }
         // 2) 이 유저가 만든/쓴 데이터 (cascade 없는 FK)
         await tx.review.deleteMany({ where: { reviewerId: userId } });
@@ -2012,6 +2016,7 @@ export class AdminService {
         await tx.chatRoom.deleteMany({ where: { userId } });     // 고객으로 만든 방→cascade
         await tx.chatRoomMember.deleteMany({ where: { userId } }); // 남은 방 멤버십
         await tx.message.deleteMany({ where: { senderId: userId } }); // 살아남은 방의 메시지
+        await tx.payment.deleteMany({ where: { userId } }); // 고객으로 결제한 내역
         // 3) 보존 레코드는 참조만 해제 (정산 이력 / 추천인 연결)
         await tx.settlementLog.updateMany({
           where: { settledByUserId: userId },
