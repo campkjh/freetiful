@@ -198,7 +198,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         list.arrangedSubviews.forEach { $0.removeFromSuperview() }
         catEmpties[idx].text = items.isEmpty ? "사회자가 없습니다" : ""
         catEmpties[idx].isHidden = !items.isEmpty
-        for item in items.prefix(12) {
+        for item in items.prefix(100) {
             let cell = HomeProCell(item: item)
             cell.onTap = { [weak self] id in self?.delegate?.homeOpenPro(id) }
             list.addArrangedSubview(cell)

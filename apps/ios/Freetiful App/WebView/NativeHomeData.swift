@@ -30,7 +30,7 @@ enum NativeHomeData {
 
     static func loadCategory(_ index: Int, _ done: @escaping ([HomeProItem]) -> Void) {
         fetchPros { pros in
-            let items = filterCategory(index, pros).prefix(12).map { proItem($0) }
+            let items = filterCategory(index, pros).prefix(100).map { proItem($0) }
             DispatchQueue.main.async { done(Array(items)) }
         }
     }
@@ -38,7 +38,7 @@ enum NativeHomeData {
     // MARK: - fetch
     private static func fetchPros(_ done: @escaping ([[String: Any]]) -> Void) {
         if let c = prosCache { done(c); return }
-        getJSON("\(base)/discovery/pros?limit=41&sort=reviews&withTotal=false") { obj in
+        getJSON("\(base)/discovery/pros?limit=100&sort=reviews&withTotal=false") { obj in
             let arr = asArray(obj, keys: ["data", "items"])
             if !arr.isEmpty { prosCache = arr }
             done(arr)
