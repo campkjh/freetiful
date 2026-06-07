@@ -953,7 +953,7 @@ export default function ProEditPage() {
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
 
       {/* ─── Header ─── */}
-      <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100/60">
+      <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100/60" data-native-back-header>
         <div className="flex items-center gap-3 px-4 h-[52px]">
           <button onClick={() => router.back()} className="p-1">
             <ChevronLeft size={24} className="text-gray-700" />

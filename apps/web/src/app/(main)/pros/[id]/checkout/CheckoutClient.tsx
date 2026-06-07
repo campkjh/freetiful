@@ -141,6 +141,7 @@ export default function CheckoutClient({
       <div className="mx-auto flex max-w-[480px] flex-col py-4">
         <button
           type="button"
+          data-native-back-header
           onClick={() => router.back()}
           className="mb-6 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 active:scale-95"
           aria-label="뒤로가기"

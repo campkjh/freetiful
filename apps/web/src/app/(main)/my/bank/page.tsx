@@ -51,7 +51,7 @@ export default function BankPage() {
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white">
+      <div className="sticky top-0 z-10 bg-white" data-native-back-header>
         <div className="flex items-center h-[52px] px-4">
           <button onClick={() => router.back()} className="p-1 -ml-1 active:scale-90 transition-transform">
             <ChevronLeft size={24} className="text-gray-900" />

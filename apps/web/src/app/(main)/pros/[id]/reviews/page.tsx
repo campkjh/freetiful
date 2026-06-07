@@ -211,7 +211,7 @@ export default function ReviewsPage() {
   return (
     <div className="bg-white min-h-screen pb-10" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-50">
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-50" data-native-back-header>
         <div className="flex items-center px-3 h-[52px]">
           <button onClick={() => router.back()} className="p-1.5 active:scale-90 transition-transform">
             <ChevronLeft size={26} className="text-gray-900" />
