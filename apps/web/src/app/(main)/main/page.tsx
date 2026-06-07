@@ -1306,7 +1306,11 @@ export default function HomePage() {
         (window as any).webkit?.messageHandlers?.nativeHomeRows?.postMessage({ index, items });
       } catch {}
     };
-    return () => { try { delete (window as any).__freetifulHomeRowsPost; } catch {} };
+    // 브리지 준비되면 전체(0) 능동 푸시 — 네이티브 초기 요청 레이스 해소
+    const push0 = () => { (window as any).__freetifulHomeRowsPost?.(0); };
+    const t1 = setTimeout(push0, 200);
+    const t2 = setTimeout(push0, 1200);
+    return () => { clearTimeout(t1); clearTimeout(t2); try { delete (window as any).__freetifulHomeRowsPost; } catch {} };
   }, []);
 
   /* hero 자동재생 영상 — iOS WebView는 autoPlay가 fullscreen 강제 트리거하므로
