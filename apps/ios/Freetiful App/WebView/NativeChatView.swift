@@ -315,7 +315,7 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
 
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = .clear
+        backgroundColor = UIColor(red: 0.969, green: 0.973, blue: 0.980, alpha: 1)  // 불투명 — 뒤 웹뷰 비침 방지 (iOS 네이티브만)
 
         // 첨부 (+)
         var attachCfg = UIButton.Configuration.plain()

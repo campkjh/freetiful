@@ -422,7 +422,7 @@ final class HomeBestPodium: UIView {
         img.translatesAutoresizingMaskIntoConstraints = false
         img.contentMode = .scaleAspectFill
         img.clipsToBounds = true
-        img.layer.cornerRadius = 20            // 1·2·3 동일 r값
+        img.layer.cornerRadius = 200           // 오벌/필 형태 (1·2·3 동일, min변 절반으로 클램프)
         img.layer.cornerCurve = .continuous
         img.layer.borderWidth = 2              // 보더 얇게
         img.layer.borderColor = rankColor(rank).cgColor
@@ -468,9 +468,9 @@ final class HomeBestPodium: UIView {
             img.trailingAnchor.constraint(equalTo: imgWrap.trailingAnchor),
             imgWrap.heightAnchor.constraint(equalToConstant: 150),   // 1·2·3 동일 높이
             medal.centerXAnchor.constraint(equalTo: imgWrap.centerXAnchor),
-            medal.bottomAnchor.constraint(equalTo: img.bottomAnchor, constant: -6),
-            medal.widthAnchor.constraint(equalToConstant: 42),
-            medal.heightAnchor.constraint(equalToConstant: 26),
+            medal.centerYAnchor.constraint(equalTo: img.bottomAnchor),   // 보더 위에 위치
+            medal.widthAnchor.constraint(equalToConstant: 22),           // 절반 크기
+            medal.heightAnchor.constraint(equalToConstant: 14),
         ])
         cell.addAction(UIAction { [weak self] _ in Haptics.tap(); self?.onSelect?(pro.id) }, for: .touchUpInside)
         return cell

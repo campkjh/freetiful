@@ -89,7 +89,24 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
     private var pendingAnimIds = Set<String>()
     private var animatedIds = Set<String>()
 
-    func setMessages(_ next: [NativeChatMessage], forceScroll: Bool) {
+    // 낙관(pending) 메시지가 동일 내용의 실제 메시지와 인접하면 제거 → 전송 시 2개 표시 방지
+    private static func dedupOptimistic(_ list: [NativeChatMessage]) -> [NativeChatMessage] {
+        var result: [NativeChatMessage] = []
+        for m in list {
+            if let last = result.last,
+               last.mine == m.mine, last.content == m.content, last.type == m.type, last.imageUrl == m.imageUrl,
+               last.pending != m.pending {
+                // 인접 낙관+실제 중복 — 실제(비pending) 유지
+                if last.pending && !m.pending { result[result.count - 1] = m }
+                continue
+            }
+            result.append(m)
+        }
+        return result
+    }
+
+    func setMessages(_ rawNext: [NativeChatMessage], forceScroll: Bool) {
+        let next = Self.dedupOptimistic(rawNext)
         let wasNearBottom = isNearBottom()
         let grew = next.count > messages.count
         // 새로 추가된 메시지만 등장 애니메이션 대상으로 표시 (첫 로드는 제외)
