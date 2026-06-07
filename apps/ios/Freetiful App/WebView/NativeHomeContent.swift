@@ -6,6 +6,12 @@ protocol NativeHomeContentDelegate: AnyObject {
     func homeOpenCategory(_ category: String)
     func homeOpenPro(_ proId: String)
     func homeRequestPros(_ categoryIndex: Int)
+    func homeOpenBanner(_ link: String)
+}
+
+struct HomeBanner {
+    let image: String
+    let link: String
 }
 
 // 홈 사회자 카드 한 행 (웹 브리지에서 카테고리별로 전달)
@@ -36,6 +42,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     private var pagerHeight: NSLayoutConstraint!
     private var currentPage = 0
     private var requestedPages = Set<Int>()
+    private let banner = NativeHomeBanner()
 
     init(imageBase: String) {
         self.imageBase = imageBase
@@ -77,7 +84,16 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
 
         buildHeroCards()
         buildCategorySection()
+        buildBannerSection()
     }
+
+    private func buildBannerSection() {
+        banner.onTap = { [weak self] link in self?.delegate?.homeOpenBanner(link) }
+        stack.addArrangedSubview(banner)
+        banner.heightAnchor.constraint(equalTo: banner.widthAnchor, multiplier: 300.0 / 1170.0).isActive = true
+    }
+
+    func setBanners(_ items: [HomeBanner]) { banner.setBanners(items) }
 
     // MARK: - 히어로 카드 (전문결혼식 / 전문행사 찾기)
     private func buildHeroCards() {
@@ -445,4 +461,113 @@ final class HomeProCell: UIControl {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     @objc private func fire() { Haptics.tap(); onTap?(proId) }
+}
+
+// MARK: - 홈 슬라이드 배너 (페이지 카루셀 + 인디케이터 + 자동전환)
+final class NativeHomeBanner: UIView, UIScrollViewDelegate {
+    var onTap: ((String) -> Void)?
+    private let scroll = UIScrollView()
+    private let row = UIStackView()
+    private let indicator = UILabel()
+    private var banners: [HomeBanner] = []
+    private var current = 0
+    private var timer: Timer?
+
+    override init(frame: CGRect) { super.init(frame: frame); setup() }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func setup() {
+        translatesAutoresizingMaskIntoConstraints = false
+        layer.cornerRadius = 16
+        layer.cornerCurve = .continuous
+        clipsToBounds = true
+        backgroundColor = UIColor(white: 0.95, alpha: 1)
+
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.isPagingEnabled = true
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.delegate = self
+        scroll.contentInsetAdjustmentBehavior = .never
+        addSubview(scroll)
+
+        row.axis = .horizontal
+        row.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(row)
+
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.font = .systemFont(ofSize: 11, weight: .medium)
+        indicator.textColor = .white
+        indicator.backgroundColor = UIColor(white: 0, alpha: 0.3)
+        indicator.textAlignment = .center
+        indicator.layer.cornerRadius = 10
+        indicator.clipsToBounds = true
+        indicator.isHidden = true
+        addSubview(indicator)
+
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
+            row.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+            row.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+            row.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+            row.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor),
+            indicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            indicator.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            indicator.heightAnchor.constraint(equalToConstant: 20),
+        ])
+
+        scroll.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
+    }
+
+    func setBanners(_ items: [HomeBanner]) {
+        row.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        banners = items
+        indicator.isHidden = items.count <= 1
+        for b in items {
+            let iv = UIImageView()
+            iv.translatesAutoresizingMaskIntoConstraints = false
+            iv.contentMode = .scaleAspectFill
+            iv.clipsToBounds = true
+            iv.backgroundColor = UIColor(white: 0.93, alpha: 1)
+            row.addArrangedSubview(iv)
+            iv.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor).isActive = true
+            NativeChatImageLoader.load(b.image, into: iv, fallback: nil)
+        }
+        current = 0
+        updateIndicator()
+        restartTimer()
+    }
+
+    private func updateIndicator() {
+        guard !banners.isEmpty else { return }
+        indicator.text = "  \(current + 1) / \(banners.count)  "
+    }
+
+    private func restartTimer() {
+        timer?.invalidate()
+        guard banners.count > 1 else { return }
+        timer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak self] _ in
+            guard let self, self.scroll.bounds.width > 0, self.banners.count > 1 else { return }
+            let next = (self.current + 1) % self.banners.count
+            self.scroll.setContentOffset(CGPoint(x: CGFloat(next) * self.scroll.bounds.width, y: 0), animated: true)
+        }
+    }
+
+    func scrollViewDidEndDecelerating(_ sv: UIScrollView) {
+        guard sv.bounds.width > 0 else { return }
+        current = Int(round(sv.contentOffset.x / sv.bounds.width))
+        updateIndicator()
+    }
+    func scrollViewWillBeginDragging(_ sv: UIScrollView) { restartTimer() }
+
+    @objc private func handleTap() {
+        guard current < banners.count else { return }
+        let link = banners[current].link
+        if !link.isEmpty { Haptics.tap(); onTap?(link) }
+    }
+
+    deinit { timer?.invalidate() }
 }

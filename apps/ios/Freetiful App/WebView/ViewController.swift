@@ -140,7 +140,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -1030,6 +1030,25 @@ class ViewController: UIViewController,
         nativeHomeContent.setPros(categoryIndex: index, items: items)
     }
 
+    func homeOpenBanner(_ link: String) {
+        guard !link.isEmpty else { return }
+        if link.hasPrefix("http"), let url = URL(string: link) {
+            UIApplication.shared.open(url)
+        } else {
+            webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(link))));", completionHandler: nil)
+        }
+    }
+
+    private func handleNativeHomeBanners(_ body: Any) {
+        guard nativeNavigationEnabled, let dict = body as? [String: Any] else { return }
+        let arr = (dict["items"] as? [[String: Any]]) ?? []
+        let items: [HomeBanner] = arr.compactMap { d in
+            guard let image = d["image"] as? String, !image.isEmpty else { return nil }
+            return HomeBanner(image: image, link: (d["link"] as? String) ?? "")
+        }
+        nativeHomeContent.setBanners(items)
+    }
+
     // MARK: - NativeChatBarsDelegate
     func chatBarsDidTapBack() {
         view.endEditing(true)
@@ -1369,6 +1388,7 @@ class ViewController: UIViewController,
         case "nativeInquiryRows": handleNativeInquiryRows(message.body)
         case "nativeChatMessages": handleNativeChatMessages(message.body)
         case "nativeHomeRows": handleNativeHomeRows(message.body)
+        case "nativeHomeBanners": handleNativeHomeBanners(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {

@@ -1559,6 +1559,20 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, [banners.length]);
 
+  // iOS 네이티브 홈 배너 데이터 브리지 (B6) — 배너 로드/변경 시 푸시
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '').replace(/\/api\/v1$/, '').replace(/\/api$/, '');
+    const abs = (u?: string) => (u && ORIGIN && u.startsWith('/uploads/') ? `${ORIGIN}${u}` : (u || ''));
+    const items = (banners || [])
+      .filter((b: any) => b?.image)
+      .map((b: any) => ({ image: abs(b.image), link: (b as any).linkUrl || '' }));
+    const post = () => { (window as any).webkit?.messageHandlers?.nativeHomeBanners?.postMessage({ items }); };
+    post();
+    const t = setTimeout(post, 400);
+    return () => clearTimeout(t);
+  }, [banners]);
+
   const moveBanner = (direction: 1 | -1, length = banners.length) => {
     if (length <= 1) return;
     setBannerIdx((current) => (current + direction + length) % length);
