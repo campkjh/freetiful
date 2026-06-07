@@ -103,6 +103,7 @@ export class MatchController {
     @Request() req: any,
     @Param('id') id: string,
     @Body('action') action: 'accept' | 'reject' | 'archive',
+    @Body('message') message?: string,
   ) {
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { userId: req.user.id },
@@ -110,6 +111,6 @@ export class MatchController {
     if (!proProfile) {
       throw new Error('전문가 프로필이 없습니다.');
     }
-    return this.matchService.respondToMatch(proProfile.id, id, action);
+    return this.matchService.respondToMatch(proProfile.id, id, action, message);
   }
 }

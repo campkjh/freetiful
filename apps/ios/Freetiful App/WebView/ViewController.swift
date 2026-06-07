@@ -985,7 +985,13 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeChat && window.__freetifulInquiryList.invokeChat(\(jsLiteral(id)));", completionHandler: nil)
     }
     func inquiryDidTapReject(_ id: String) {
-        webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeReject && window.__freetifulInquiryList.invokeReject(\(jsLiteral(id)));", completionHandler: nil)
+        // 거절 사유 글래스 모달 → 작성 후 전송해야 거절
+        let modal = NativeRejectModal()
+        modal.onSubmit = { [weak self] message in
+            guard let self = self else { return }
+            self.webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeReject && window.__freetifulInquiryList.invokeReject(\(self.jsLiteral(id)), \(self.jsLiteral(message)));", completionHandler: nil)
+        }
+        present(modal, animated: true)
     }
     func inquiryDidArchive(_ id: String) {
         webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeArchive && window.__freetifulInquiryList.invokeArchive(\(jsLiteral(id)));", completionHandler: nil)

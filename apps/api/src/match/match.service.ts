@@ -492,6 +492,7 @@ export class MatchService {
     proProfileId: string,
     matchDeliveryId: string,
     action: 'accept' | 'reject' | 'archive',
+    message?: string,
   ) {
     const delivery = await this.prisma.matchDelivery.findUnique({
       where: { id: matchDeliveryId },
@@ -596,7 +597,9 @@ export class MatchService {
           customerId,
           'system' as any,
           '다른 전문가를 추천드릴게요',
-          `${proDisplayName}의 일정 또는 조건이 맞지 않아요. 프리티풀에서 다른 전문가를 바로 확인해보세요.`,
+          message?.trim()
+            ? `${proDisplayName}: "${message.trim()}"`
+            : `${proDisplayName}의 일정 또는 조건이 맞지 않아요. 프리티풀에서 다른 전문가를 바로 확인해보세요.`,
           { matchDeliveryId, proProfileId },
         ).catch(() => {});
       }

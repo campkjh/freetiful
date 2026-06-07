@@ -203,7 +203,7 @@ export default function ProRequestsPage() {
       getState: () => ({ tab: KEY_TO_LABEL[filter] || '전체', tabs: ['전체', '다수요청', '개인요청', '보관'] }),
       setTab: (label: string) => setFilter(LABEL_TO_KEY[label] || 'all'),
       getItems: () => inquiryItemsRef.current,
-      invokeReject: (id: string) => { handleReject(id); },
+      invokeReject: (id: string, message?: string) => { handleReject(id, message); },
       invokeArchive: (id: string) => { handleArchive(id); },
       invokeChat: (id: string) => {
         const r = requestsRef.current.find((x) => x.id === id);
@@ -336,9 +336,9 @@ export default function ProRequestsPage() {
     window.dispatchEvent(new Event('freetiful:inquiry-rows'));
   }, [filtered, requests]);
 
-  async function handleReject(deliveryId: string) {
+  async function handleReject(deliveryId: string, message?: string) {
     try {
-      await matchApi.respond(deliveryId, 'reject');
+      await matchApi.respond(deliveryId, 'reject', message);
       setRequests((prev) => {
         const next = prev.filter((request) => request.id !== deliveryId);
         writeCache(next, authUser?.id);
