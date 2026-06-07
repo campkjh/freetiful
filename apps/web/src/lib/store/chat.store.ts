@@ -316,6 +316,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     socket.on('connect', () => {
       set({ isConnected: true });
       dispatchChatEvent('freetiful:chat-socket-connected');
+      // 입장 후 소켓이 (재)연결되면 현재 방을 재조인 — 라이브 수신 누락/지연 방지 (A3)
+      const activeRoomId = get().currentRoomId;
+      if (activeRoomId) socket.emit('joinRoom', { roomId: activeRoomId });
     });
     socket.on('disconnect', () => {
       set({ isConnected: false });
