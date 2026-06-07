@@ -133,6 +133,8 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         for _ in categories {
             let pageContainer = UIView()
             pageContainer.translatesAutoresizingMaskIntoConstraints = false
+            pageRow.addArrangedSubview(pageContainer)
+            // 계층에 추가한 뒤 제약 활성화 (frameLayoutGuide 와 공통 조상 필요)
             pageContainer.widthAnchor.constraint(equalTo: pager.frameLayoutGuide.widthAnchor).isActive = true
 
             let list = UIStackView()
@@ -156,7 +158,6 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
                 empty.centerXAnchor.constraint(equalTo: pageContainer.centerXAnchor),
                 empty.topAnchor.constraint(equalTo: pageContainer.topAnchor, constant: 44),
             ])
-            pageRow.addArrangedSubview(pageContainer)
             pageLists.append(list)
             pageEmpties.append(empty)
         }
