@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 
-const MIN_QUOTATION_TOTAL_AMOUNT = 330000;
+const MIN_QUOTATION_TOTAL_AMOUNT = 300000;
 
 @Injectable()
 export class QuotationService {
