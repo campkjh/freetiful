@@ -42,7 +42,8 @@ class ViewController: UIViewController,
                       LiquidGlassNavigationBarDelegate,
                       NativeChatBarsDelegate,
                       NativeChatListBarDelegate,
-                      NativeChatListContentDelegate {
+                      NativeChatListContentDelegate,
+                      NativeInquiryContentDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -56,6 +57,8 @@ class ViewController: UIViewController,
     private var isOnChatList = false
     private var lastListContext = "chat"
     private let nativeChatListContent = NativeChatListContent()
+    private let nativeInquiryContent = NativeInquiryContent()
+    private var isOnInquiry = false
     // 채팅방에서 webView 를 화면 가장자리까지(상/하단 safe area 제거) 토글
     private var webViewTopSafe: NSLayoutConstraint?
     private var webViewBottomSafe: NSLayoutConstraint?
@@ -124,7 +127,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -338,11 +341,22 @@ class ViewController: UIViewController,
         } catch (e) {}
       };
 
+      window.__freetifulInquiryRowsPost = function() {
+        try {
+          var isrc = window.__freetifulInquiryList;
+          if (isrc && isrc.getItems && window.webkit && window.webkit.messageHandlers &&
+              window.webkit.messageHandlers.nativeInquiryRows) {
+            window.webkit.messageHandlers.nativeInquiryRows.postMessage(isrc.getItems());
+          }
+        } catch (e) {}
+      };
+
       if (window.__freetifulNativeNavInstalled) {
         window.__freetifulNativeNavPostState();
         window.__freetifulChatPostState();
         window.__freetifulChatListPostState();
         window.__freetifulChatListRowsPost();
+        window.__freetifulInquiryRowsPost();
         return;
       }
 
@@ -350,6 +364,7 @@ class ViewController: UIViewController,
       window.addEventListener('freetiful:chat-state', window.__freetifulChatPostState);
       window.addEventListener('freetiful:chatlist-state', window.__freetifulChatListPostState);
       window.addEventListener('freetiful:chatlist-rows', window.__freetifulChatListRowsPost);
+      window.addEventListener('freetiful:inquiry-rows', window.__freetifulInquiryRowsPost);
       var notify = function() {
         hideWebBottomNav();
         setTimeout(window.__freetifulNativeNavPostState, 30);
@@ -365,6 +380,10 @@ class ViewController: UIViewController,
         if (window.__freetifulChatListRowsPost) {
           setTimeout(window.__freetifulChatListRowsPost, 60);
           setTimeout(window.__freetifulChatListRowsPost, 320);
+        }
+        if (window.__freetifulInquiryRowsPost) {
+          setTimeout(window.__freetifulInquiryRowsPost, 60);
+          setTimeout(window.__freetifulInquiryRowsPost, 320);
         }
       };
 
@@ -543,6 +562,19 @@ class ViewController: UIViewController,
             nativeChatListContent.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             nativeChatListContent.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+
+        // 네이티브 새요청 본문 (웹뷰 위, 글래스 바 아래)
+        nativeInquiryContent.delegate = self
+        nativeInquiryContent.isHidden = true
+        view.insertSubview(nativeInquiryContent, aboveSubview: webView)
+        NSLayoutConstraint.activate([
+            nativeInquiryContent.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeInquiryContent.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeInquiryContent.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeInquiryContent.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        // 글래스 바가 본문 위에 오도록
+        view.bringSubviewToFront(nativeChatListBar)
     }
 
     override func viewDidLayoutSubviews() {
@@ -550,6 +582,7 @@ class ViewController: UIViewController,
         if isOnChatList {
             let top = nativeChatListBar.frame.height > 0 ? nativeChatListBar.frame.height : (view.safeAreaInsets.top + 92)
             nativeChatListContent.setInsets(top: top, bottom: 92)
+            if isOnInquiry { nativeInquiryContent.setInsets(top: top, bottom: 92) }
         }
     }
 
@@ -656,13 +689,20 @@ class ViewController: UIViewController,
         }
         if onList { requestNativeChatListState() }
 
-        // 채팅 리스트 본문(네이티브 테이블) — /chat 에서만 (새요청은 추후)
+        // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"
+        let onInquiryNative = currentNativePath == "/pro-dashboard/inquiries"
+        isOnInquiry = onInquiryNative
         nativeChatListContent.isHidden = !onChatListNative
+        nativeInquiryContent.isHidden = !onInquiryNative
+        let listTop = nativeChatListBar.frame.height > 0 ? nativeChatListBar.frame.height : (view.safeAreaInsets.top + 92)
         if onChatListNative {
-            let top = nativeChatListBar.frame.height > 0 ? nativeChatListBar.frame.height : (view.safeAreaInsets.top + 92)
-            nativeChatListContent.setInsets(top: top, bottom: 92)
+            nativeChatListContent.setInsets(top: listTop, bottom: 92)
             requestNativeChatListRows()
+        }
+        if onInquiryNative {
+            nativeInquiryContent.setInsets(top: listTop, bottom: 92)
+            requestNativeInquiryRows()
         }
     }
 
@@ -720,6 +760,41 @@ class ViewController: UIViewController,
     }
     func chatListContentDidHide(_ id: String) {
         webView.evaluateJavaScript("window.__freetifulChatList && window.__freetifulChatList.hideRoom(\(jsLiteral(id)));", completionHandler: nil)
+    }
+
+    // MARK: - 새요청(새요청 리스트) 본문
+    private func requestNativeInquiryRows() {
+        webView.evaluateJavaScript("window.__freetifulInquiryRowsPost && window.__freetifulInquiryRowsPost();", completionHandler: nil)
+    }
+
+    private func handleNativeInquiryRows(_ body: Any) {
+        guard nativeNavigationEnabled, let arr = body as? [[String: Any]] else { return }
+        let items: [NativeInquiryItem] = arr.compactMap { d in
+            guard let id = d["id"] as? String else { return nil }
+            let parts = (d["parts"] as? [String]) ?? []
+            return NativeInquiryItem(
+                id: id,
+                name: (d["name"] as? String) ?? "고객",
+                image: (d["image"] as? String) ?? "",
+                kindLabel: (d["kindLabel"] as? String) ?? "",
+                isMulti: (d["isMulti"] as? Bool) ?? ((d["kind"] as? String) == "multi"),
+                timeAgo: (d["timeAgo"] as? String) ?? "",
+                category: (d["category"] as? String) ?? "",
+                parts: parts,
+                dateText: (d["dateText"] as? String) ?? "",
+                location: (d["location"] as? String) ?? "",
+                note: (d["note"] as? String) ?? ""
+            )
+        }
+        nativeInquiryContent.setRows(items)
+    }
+
+    // MARK: - NativeInquiryContentDelegate
+    func inquiryDidTapChat(_ id: String) {
+        webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeChat && window.__freetifulInquiryList.invokeChat(\(jsLiteral(id)));", completionHandler: nil)
+    }
+    func inquiryDidTapReject(_ id: String) {
+        webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeReject && window.__freetifulInquiryList.invokeReject(\(jsLiteral(id)));", completionHandler: nil)
     }
 
     // MARK: - NativeChatBarsDelegate
@@ -1058,6 +1133,7 @@ class ViewController: UIViewController,
         case "nativeChatState": handleNativeChatState(message.body)
         case "nativeChatListState": handleNativeChatListState(message.body)
         case "nativeChatListRows": handleNativeChatListRows(message.body)
+        case "nativeInquiryRows": handleNativeInquiryRows(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {

@@ -182,6 +182,8 @@ export default function ProRequestsPage() {
   const [hasFetchedOnce, setHasFetchedOnce] = useState(cached !== null);
   const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
   const requestsCountRef = useRef(cached?.length ?? 0);
+  const requestsRef = useRef<MatchDeliveryView[]>(cached ?? []);
+  const inquiryItemsRef = useRef<any[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const skipRef = useRef(0);
@@ -197,6 +199,12 @@ export default function ProRequestsPage() {
     w.__freetifulInquiryList = {
       getState: () => ({ tab: KEY_TO_LABEL[filter] || '전체', tabs: ['전체', '다수요청', '개인요청'] }),
       setTab: (label: string) => setFilter(LABEL_TO_KEY[label] || 'all'),
+      getItems: () => inquiryItemsRef.current,
+      invokeReject: (id: string) => { handleReject(id); },
+      invokeChat: (id: string) => {
+        const r = requestsRef.current.find((x) => x.id === id);
+        if (r) handleStartChat(r);
+      },
     };
     window.dispatchEvent(new Event('freetiful:chatlist-state'));
     return () => { try { if (w.__freetifulInquiryList) delete w.__freetifulInquiryList; } catch {} };
@@ -300,6 +308,27 @@ export default function ProRequestsPage() {
     if (filter === 'all') return requests;
     return requests.filter((request) => request.requestKind === filter);
   }, [filter, requests]);
+
+  // ─── iOS 네이티브 새요청 행 데이터 브리지 ───
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    requestsRef.current = requests;
+    inquiryItemsRef.current = filtered.map((r) => ({
+      id: r.id,
+      name: r.customerName,
+      image: r.customerImage,
+      kind: r.requestKind,
+      isMulti: r.requestKind === 'multi',
+      kindLabel: r.requestKind === 'multi' ? '다수요청' : '개인요청',
+      timeAgo: timeAgo(r.deliveredAt),
+      category: [r.categoryName, r.eventCategoryName].filter(Boolean).join(' · '),
+      parts: r.eventPart ? r.eventPart.split(', ').filter(Boolean) : [],
+      dateText: `${formatDate(r.eventDate)} ${formatTime(r.eventTime)}`.trim(),
+      location: r.eventLocation || '',
+      note: r.note || '',
+    }));
+    window.dispatchEvent(new Event('freetiful:inquiry-rows'));
+  }, [filtered, requests]);
 
   async function handleReject(deliveryId: string) {
     try {
