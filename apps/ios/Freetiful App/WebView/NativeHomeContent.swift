@@ -438,7 +438,7 @@ final class HomeProCell: UIControl {
 
         // 경력 태그
         let career = PaddingLabel()
-        career.text = item.careerYears > 0 ? "경력 \(item.careerYears)년" : "신규"
+        career.text = item.careerYears > 0 ? "경력 \(item.careerYears)년" : "경력 확인중"
         career.font = .systemFont(ofSize: 11, weight: .semibold)
         career.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
         career.backgroundColor = UIColor(red: 0.92, green: 0.95, blue: 1.0, alpha: 1)

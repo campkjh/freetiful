@@ -464,11 +464,11 @@ final class HomeBestPodium: UIView {
             img.bottomAnchor.constraint(equalTo: imgWrap.bottomAnchor),
             img.leadingAnchor.constraint(equalTo: imgWrap.leadingAnchor),
             img.trailingAnchor.constraint(equalTo: imgWrap.trailingAnchor),
-            imgWrap.heightAnchor.constraint(equalToConstant: 150),   // 1·2·3 동일 높이
+            imgWrap.heightAnchor.constraint(equalToConstant: 172),   // 알약 height 더 길게 (1·2·3 동일)
             medal.centerXAnchor.constraint(equalTo: imgWrap.centerXAnchor),
             medal.centerYAnchor.constraint(equalTo: img.bottomAnchor),   // 보더 위에 위치
-            medal.widthAnchor.constraint(equalToConstant: 22),           // 절반 크기
-            medal.heightAnchor.constraint(equalToConstant: 14),
+            medal.widthAnchor.constraint(equalToConstant: 30),           // 메달 조금 더 크게
+            medal.heightAnchor.constraint(equalToConstant: 19),
         ])
         cell.addAction(UIAction { [weak self] _ in Haptics.tap(); self?.onSelect?(pro.id) }, for: .touchUpInside)
         return cell
