@@ -62,7 +62,7 @@ export default function RevenuePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white/90 backdrop-blur-xl px-4 pt-12 pb-3">
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white/90 backdrop-blur-xl px-4 pt-12 pb-3" data-native-back-header>
         <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeft size={24} /></button>
         <h1 className="text-[18px] font-bold">매출 내역</h1>
       </header>

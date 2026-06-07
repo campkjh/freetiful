@@ -84,7 +84,7 @@ export default function NotificationsSettingsPage() {
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
       {/* ─── Header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100" data-native-back-header>
         <div className="flex items-center px-4 h-[52px]">
           <button onClick={() => router.back()} className="p-1"><ChevronLeft size={24} /></button>
           <h1 className="text-[18px] font-bold ml-3">알림 설정</h1>

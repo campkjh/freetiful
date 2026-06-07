@@ -55,7 +55,7 @@ export default function TermsListPage() {
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white flex items-center px-4 h-[52px]">
+      <div className="sticky top-0 z-10 bg-white flex items-center px-4 h-[52px]" data-native-back-header>
         <button onClick={() => router.back()} className="p-1">
           <ChevronLeft size={24} />
         </button>

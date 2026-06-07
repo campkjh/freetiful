@@ -369,6 +369,7 @@ export default function InvitePage() {
     <div className="min-h-screen bg-white">
       <button
         type="button"
+        data-native-back-header
         onClick={() => router.back()}
         aria-label="뒤로가기"
         className="fixed left-4 top-[calc(env(safe-area-inset-top)+14px)] z-30 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#2B313D] shadow-[0_10px_28px_rgba(15,23,42,0.12)] backdrop-blur-md active:scale-95"

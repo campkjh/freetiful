@@ -888,7 +888,9 @@ class ViewController: UIViewController,
         }
         if onDetailPage {
             view.bringSubviewToFront(nativeBackHeader)
-            webView.evaluateJavaScript("document.title") { [weak self] r, _ in
+            // document.title이 일반값이면 페이지 H1로 폴백
+            let titleJS = "(function(){var t=(document.title||'').trim();if(t===''||t==='프리티풀'||t==='Freetiful'){var h=document.querySelector('main h1, h1');if(h&&h.textContent)return h.textContent.trim();}return t;})()"
+            webView.evaluateJavaScript(titleJS) { [weak self] r, _ in
                 guard let self = self, let t = r as? String else { return }
                 self.nativeBackHeader.setTitle(self.cleanDetailTitle(t))
             }
@@ -1323,7 +1325,9 @@ class ViewController: UIViewController,
     // 상세화면(뒤로가기 헤더 적용 대상) 경로 판별 — 점진 확장
     private func isDetailPath(_ rawPath: String) -> Bool {
         let p = rawPath.split(separator: "?").first.map(String.init) ?? rawPath
-        let patterns = ["^/pros/[^/]+$", "^/businesses/[^/]+$"]
+        // 네이티브 전용 화면(이미 자체 헤더)은 제외
+        if p == "/notifications" || p == "/search" || p == "/inquiries" { return false }
+        let patterns = ["^/pros/[^/]+", "^/businesses/[^/]+", "^/my/.+"]
         for pat in patterns where p.range(of: pat, options: .regularExpression) != nil { return true }
         return false
     }

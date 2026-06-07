@@ -238,7 +238,7 @@ export default function WriteReviewPage() {
   return (
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
       {/* Header */}
-      <div className="shrink-0 sticky top-0 z-30 bg-white border-b border-gray-100">
+      <div className="shrink-0 sticky top-0 z-30 bg-white border-b border-gray-100" data-native-back-header>
         <div className="flex items-center px-3 h-[52px]">
           <button onClick={() => router.back()} className="p-1.5">
             <ChevronLeft size={24} className="text-gray-900" />
