@@ -23,12 +23,15 @@ struct HomeBusiness {
     let tags: [String]
     let isPopular: Bool
 }
+struct HomeBusinessSection {
+    let category: String
+    let items: [HomeBusiness]
+}
 struct HomeSectionsData {
     let best: [HomeBestPro]
     let morePros: [HomeProCard]
     let eventPros: [HomeProCard]
-    let weddingHalls: [HomeBusiness]
-    let dresses: [HomeBusiness]
+    let businessSections: [HomeBusinessSection]   // 웨딩홀,드레스,피부과,스튜디오,헤어,메이크업,스냅
 }
 
 // 홈 전체 탭에서 발생하는 액션
@@ -52,12 +55,9 @@ final class NativeHomeAllView: UIView {
     // 섹션 뷰
     private let banner = NativeHomeBanner()
     private let bestPodium = HomeBestPodium()
-    private let weddingCarousel = HomeBusinessCarousel()
-    private let dressCarousel = HomeBusinessCarousel()
     private let moreGrid = HomeProGrid()
     private let eventGrid = HomeProGrid()
-    private var weddingSection: UIView!
-    private var dressSection: UIView!
+    private let businessContainer = UIStackView()   // 웨딩파트너 섹션들(동적)
 
     init(imageBase: String) {
         self.imageBase = imageBase
@@ -117,33 +117,22 @@ final class NativeHomeAllView: UIView {
         bestPodium.onSelect = { [weak self] id in self?.delegate?.homeOpenPro(id) }
         stack.addArrangedSubview(padded(stackV([bestHeader, bestPodium], spacing: 14), h: 16))
 
-        // 5) 웨딩홀 (가로 캐러셀)
-        weddingCarousel.onSelect = { [weak self] id in self?.delegate?.homeOpenBusiness(id) }
-        weddingSection = buildCarouselSection(title: "웨딩홀", subtitle: "프리티풀이 엄선한 웨딩홀 업체를 만나보세요",
-                                              more: "/businesses?category=웨딩홀", carousel: weddingCarousel)
-        stack.addArrangedSubview(weddingSection)
-
-        // 6) 드레스 (가로 캐러셀)
-        dressCarousel.onSelect = { [weak self] id in self?.delegate?.homeOpenBusiness(id) }
-        dressSection = buildCarouselSection(title: "드레스", subtitle: "프리티풀이 엄선한 드레스 업체를 만나보세요",
-                                            more: "/businesses?category=드레스", carousel: dressCarousel)
-        stack.addArrangedSubview(dressSection)
-
-        // 7) 더 많은 사회자 (그리드)
+        // 5) 프리티풀의 더 많은 사회자 (3×3 그리드)
         let moreHeader = HomeSectionHeader(title: "프리티풀의 더 많은 사회자", subtitle: "고객 만족도가 높은 사회자를 만나보세요")
         moreHeader.onMore = { [weak self] in self?.delegate?.homeOpenPath("/pros") }
         moreGrid.onSelect = { [weak self] id in self?.delegate?.homeOpenPro(id) }
         stack.addArrangedSubview(padded(stackV([moreHeader, moreGrid], spacing: 14), h: 16))
 
-        // 8) 행사 사회자 (그리드)
+        // 6) 프리티풀의 행사 사회자 (그리드)
         let eventHeader = HomeSectionHeader(title: "프리티풀의 행사 사회자", subtitle: "기업행사와 컨퍼런스에 어울리는 사회자를 만나보세요")
         eventHeader.onMore = { [weak self] in self?.delegate?.homeOpenPath("/pros?category=전문행사사회자") }
         eventGrid.onSelect = { [weak self] id in self?.delegate?.homeOpenPro(id) }
         stack.addArrangedSubview(padded(stackV([eventHeader, eventGrid], spacing: 14), h: 16))
 
-        // 초기 로딩 상태 숨김(데이터 도착 전엔 빈 섹션 접힘)
-        weddingSection.isHidden = true
-        dressSection.isHidden = true
+        // 7) 웨딩파트너 섹션들 (웨딩홀·드레스·피부과·스튜디오·헤어·메이크업·스냅 — 동적)
+        businessContainer.axis = .vertical
+        businessContainer.spacing = 22
+        stack.addArrangedSubview(businessContainer)
     }
 
     // MARK: 데이터 주입
@@ -151,12 +140,22 @@ final class NativeHomeAllView: UIView {
 
     func setSections(_ data: HomeSectionsData) {
         bestPodium.setPros(Array(data.best.prefix(3)))
-        moreGrid.setItems(Array(data.morePros.prefix(6)))
+        moreGrid.setItems(Array(data.morePros.prefix(9)))
         eventGrid.setItems(Array(data.eventPros.prefix(9)))
-        weddingCarousel.setItems(Array(data.weddingHalls.prefix(8)))
-        dressCarousel.setItems(Array(data.dresses.prefix(8)))
-        weddingSection.isHidden = data.weddingHalls.isEmpty
-        dressSection.isHidden = data.dresses.isEmpty
+        // 웨딩파트너 섹션 동적 구성 (웨딩홀→드레스→피부과→스튜디오→헤어→메이크업→스냅)
+        businessContainer.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for sec in data.businessSections {
+            let carousel = HomeBusinessCarousel()
+            carousel.onSelect = { [weak self] id in self?.delegate?.homeOpenBusiness(id) }
+            carousel.setItems(sec.items)
+            let header = HomeSectionHeader(title: sec.category, subtitle: "프리티풀이 엄선한 \(sec.category) 업체를 만나보세요")
+            let cat = sec.category
+            header.onMore = { [weak self] in self?.delegate?.homeOpenPath("/businesses?category=\(cat)") }
+            let wrap = UIStackView(arrangedSubviews: [padded(header, h: 16), carousel])
+            wrap.axis = .vertical
+            wrap.spacing = 12
+            businessContainer.addArrangedSubview(wrap)
+        }
     }
 
     // MARK: 빌더 헬퍼
@@ -174,15 +173,6 @@ final class NativeHomeAllView: UIView {
         row.addArrangedSubview(wedding)
         row.addArrangedSubview(event)
         return row
-    }
-
-    private func buildCarouselSection(title: String, subtitle: String, more: String, carousel: HomeBusinessCarousel) -> UIView {
-        let header = HomeSectionHeader(title: title, subtitle: subtitle)
-        header.onMore = { [weak self] in self?.delegate?.homeOpenPath(more) }
-        let wrap = UIStackView(arrangedSubviews: [padded(header, h: 16), carousel])
-        wrap.axis = .vertical
-        wrap.spacing = 12
-        return wrap
     }
 
     private func stackV(_ views: [UIView], spacing: CGFloat) -> UIStackView {
@@ -432,27 +422,19 @@ final class HomeBestPodium: UIView {
         img.translatesAutoresizingMaskIntoConstraints = false
         img.contentMode = .scaleAspectFill
         img.clipsToBounds = true
-        img.layer.cornerRadius = rank == 1 ? 64 : 52
+        img.layer.cornerRadius = 20            // 1·2·3 동일 r값
         img.layer.cornerCurve = .continuous
-        img.layer.borderWidth = 3
+        img.layer.borderWidth = 2              // 보더 얇게
         img.layer.borderColor = rankColor(rank).cgColor
         img.backgroundColor = UIColor(white: 0.93, alpha: 1)
         imgWrap.addSubview(img)
         NativeChatImageLoader.load(pro.image, into: img, fallback: NativeChatHeaderView.avatarPlaceholder)
 
-        // 랭크 배지 (이미지 하단 중앙)
-        let badge = UILabel()
-        badge.text = "\(rank)"
-        badge.font = .systemFont(ofSize: 13, weight: .heavy)
-        badge.textColor = .white
-        badge.textAlignment = .center
-        badge.backgroundColor = rankColor(rank)
-        badge.layer.cornerRadius = 12
-        badge.layer.borderWidth = 2
-        badge.layer.borderColor = UIColor.white.cgColor
-        badge.clipsToBounds = true
-        badge.translatesAutoresizingMaskIntoConstraints = false
-        imgWrap.addSubview(badge)
+        // 순위 메달 (원본 SVG) — 이미지 하단 중앙
+        let medal = UIImageView(image: UIImage(named: "best-medal-\(rank)"))
+        medal.translatesAutoresizingMaskIntoConstraints = false
+        medal.contentMode = .scaleAspectFit
+        imgWrap.addSubview(medal)
 
         let name = UILabel()
         name.text = pro.name
@@ -468,14 +450,13 @@ final class HomeBestPodium: UIView {
 
         let col = UIStackView(arrangedSubviews: [imgWrap, name, career])
         col.axis = .vertical
-        col.spacing = 6
+        col.spacing = 8
         col.alignment = .fill
         col.translatesAutoresizingMaskIntoConstraints = false
         col.isUserInteractionEnabled = false
         cell.addSubview(col)
 
-        let imgH: CGFloat = rank == 1 ? 150 : 120
-        let topOffset: CGFloat = rank == 1 ? 0 : 22  // 1위 위로 솟음
+        let topOffset: CGFloat = rank == 1 ? 0 : 24  // 1등만 살짝 위로 (카드 크기는 동일)
         NSLayoutConstraint.activate([
             col.topAnchor.constraint(equalTo: cell.topAnchor, constant: topOffset),
             col.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
@@ -483,13 +464,13 @@ final class HomeBestPodium: UIView {
             col.bottomAnchor.constraint(equalTo: cell.bottomAnchor),
             img.topAnchor.constraint(equalTo: imgWrap.topAnchor),
             img.bottomAnchor.constraint(equalTo: imgWrap.bottomAnchor),
-            img.centerXAnchor.constraint(equalTo: imgWrap.centerXAnchor),
-            img.widthAnchor.constraint(equalTo: imgWrap.widthAnchor, multiplier: 0.84),
-            imgWrap.heightAnchor.constraint(equalToConstant: imgH),
-            badge.centerXAnchor.constraint(equalTo: imgWrap.centerXAnchor),
-            badge.bottomAnchor.constraint(equalTo: img.bottomAnchor, constant: 4),
-            badge.widthAnchor.constraint(equalToConstant: 24),
-            badge.heightAnchor.constraint(equalToConstant: 24),
+            img.leadingAnchor.constraint(equalTo: imgWrap.leadingAnchor),
+            img.trailingAnchor.constraint(equalTo: imgWrap.trailingAnchor),
+            imgWrap.heightAnchor.constraint(equalToConstant: 150),   // 1·2·3 동일 높이
+            medal.centerXAnchor.constraint(equalTo: imgWrap.centerXAnchor),
+            medal.bottomAnchor.constraint(equalTo: img.bottomAnchor, constant: -6),
+            medal.widthAnchor.constraint(equalToConstant: 42),
+            medal.heightAnchor.constraint(equalToConstant: 26),
         ])
         cell.addAction(UIAction { [weak self] _ in Haptics.tap(); self?.onSelect?(pro.id) }, for: .touchUpInside)
         return cell
@@ -554,7 +535,7 @@ final class HomeBusinessCard: UIControl {
         img.translatesAutoresizingMaskIntoConstraints = false
         img.contentMode = .scaleAspectFill
         img.clipsToBounds = true
-        img.layer.cornerRadius = 12
+        img.layer.cornerRadius = 20
         img.layer.cornerCurve = .continuous
         img.backgroundColor = UIColor(white: 0.93, alpha: 1)
         img.isUserInteractionEnabled = false
@@ -696,7 +677,7 @@ final class HomeProGridCard: UIControl {
         img.translatesAutoresizingMaskIntoConstraints = false
         img.contentMode = .scaleAspectFill
         img.clipsToBounds = true
-        img.layer.cornerRadius = 12
+        img.layer.cornerRadius = 20
         img.layer.cornerCurve = .continuous
         img.backgroundColor = UIColor(white: 0.93, alpha: 1)
         img.isUserInteractionEnabled = false

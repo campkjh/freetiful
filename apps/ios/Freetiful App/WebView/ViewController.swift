@@ -140,7 +140,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeHomeSections"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -1035,31 +1035,6 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("(window.__freetifulHomeSectionsPost && window.__freetifulHomeSectionsPost());", completionHandler: nil)
     }
 
-    private func handleNativeHomeSections(_ body: Any) {
-        guard nativeNavigationEnabled, let dict = body as? [String: Any] else { return }
-        func intOf(_ d: [String: Any], _ k: String) -> Int { (d[k] as? Int) ?? Int((d[k] as? Double) ?? 0) }
-        func best(_ key: String) -> [HomeBestPro] {
-            ((dict[key] as? [[String: Any]]) ?? []).compactMap { d in
-                guard let id = d["id"] as? String else { return nil }
-                return HomeBestPro(id: id, name: (d["name"] as? String) ?? "사회자", image: (d["image"] as? String) ?? "", careerYears: intOf(d, "careerYears"))
-            }
-        }
-        func cards(_ key: String) -> [HomeProCard] {
-            ((dict[key] as? [[String: Any]]) ?? []).compactMap { d in
-                guard let id = d["id"] as? String else { return nil }
-                return HomeProCard(id: id, name: (d["name"] as? String) ?? "사회자", image: (d["image"] as? String) ?? "", careerYears: intOf(d, "careerYears"), tags: (d["tags"] as? [String]) ?? [], isPartner: (d["isPartner"] as? Bool) ?? false)
-            }
-        }
-        func biz(_ key: String) -> [HomeBusiness] {
-            ((dict[key] as? [[String: Any]]) ?? []).compactMap { d in
-                guard let id = d["id"] as? String else { return nil }
-                return HomeBusiness(id: id, name: (d["name"] as? String) ?? "", location: (d["location"] as? String) ?? "", image: (d["image"] as? String) ?? "", tags: (d["tags"] as? [String]) ?? [], isPopular: (d["isPopular"] as? Bool) ?? false)
-            }
-        }
-        let data = HomeSectionsData(best: best("best"), morePros: cards("morePros"), eventPros: cards("eventPros"), weddingHalls: biz("weddingHalls"), dresses: biz("dresses"))
-        nativeHomeContent.setSections(data)
-    }
-
     private func handleNativeHomeRows(_ body: Any) {
         guard nativeNavigationEnabled, let dict = body as? [String: Any] else { return }
         let index = (dict["index"] as? Int) ?? Int((dict["index"] as? Double) ?? 0)
@@ -1437,7 +1412,6 @@ class ViewController: UIViewController,
         case "nativeChatMessages": handleNativeChatMessages(message.body)
         case "nativeHomeRows": handleNativeHomeRows(message.body)
         case "nativeHomeBanners": handleNativeHomeBanners(message.body)
-        case "nativeHomeSections": handleNativeHomeSections(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {

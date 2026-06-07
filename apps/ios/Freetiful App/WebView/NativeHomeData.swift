@@ -70,21 +70,23 @@ enum NativeHomeData {
     }
 
     // MARK: - 파생 (전체 홈 섹션)
+    private static let bizCategories = ["웨딩홀", "드레스", "피부과", "스튜디오", "헤어", "메이크업", "스냅"]
     private static func deriveSections(pros: [[String: Any]], biz: [[String: Any]]) -> HomeSectionsData {
         let best = pros.filter { isWedding($0) }
             .sorted { intVal($0["careerYears"]) > intVal($1["careerYears"]) }
             .prefix(3).map { bestPro($0) }
-        let morePros = pros.prefix(6).map { proCard($0) }
+        let morePros = pros.prefix(9).map { proCard($0) }
         var event = pros.filter { isEvent($0) }
         if event.count < 9 {
             let ids = Set(event.compactMap { $0["id"] as? String })
             event += pros.filter { !ids.contains(($0["id"] as? String) ?? "") }
         }
         let eventPros = event.prefix(9).map { proCard($0) }
-        let weddingHalls = biz.filter { bizMatches($0, "웨딩홀") }.prefix(8).enumerated().map { bizItem($1, popular: $0 < 2) }
-        let dresses = biz.filter { bizMatches($0, "드레스") }.prefix(8).enumerated().map { bizItem($1, popular: $0 < 2) }
-        return HomeSectionsData(best: Array(best), morePros: Array(morePros), eventPros: Array(eventPros),
-                                weddingHalls: Array(weddingHalls), dresses: Array(dresses))
+        let sections: [HomeBusinessSection] = bizCategories.compactMap { cat in
+            let items = biz.filter { bizMatches($0, cat) }.prefix(8).enumerated().map { bizItem($1, popular: $0 < 2) }
+            return items.isEmpty ? nil : HomeBusinessSection(category: cat, items: Array(items))
+        }
+        return HomeSectionsData(best: Array(best), morePros: Array(morePros), eventPros: Array(eventPros), businessSections: sections)
     }
 
     private static func filterCategory(_ index: Int, _ pros: [[String: Any]]) -> [[String: Any]] {
