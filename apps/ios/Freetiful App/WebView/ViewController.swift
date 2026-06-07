@@ -47,7 +47,8 @@ class ViewController: UIViewController,
                       NativeChatMessagesDelegate,
                       NativeHomeHeaderDelegate,
                       NativeHomeContentDelegate,
-                      NativeMyContentDelegate {
+                      NativeMyContentDelegate,
+                      NativeBackHeaderDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -61,6 +62,8 @@ class ViewController: UIViewController,
     private let nativeMyHeader = NativeSimpleGlassHeader()
     private let nativeMyContent = NativeMyContent()
     private var isOnMy = false
+    private let nativeBackHeader = NativeBackHeader()   // 상세화면 글래스 뒤로가기 헤더
+    private var isOnDetail = false
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -210,7 +213,8 @@ class ViewController: UIViewController,
           'html.freetiful-ios-native-nav [data-native-chat-footer]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chatlist-header]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-my-header]{display:none!important;pointer-events:none!important;}',
-          'html.freetiful-ios-native-nav [data-native-home-header]{display:none!important;pointer-events:none!important;}'
+          'html.freetiful-ios-native-nav [data-native-home-header]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-native-back-header]{display:none!important;pointer-events:none!important;}'
         ].join('\\n');
         document.head && document.head.appendChild(style);
       }
@@ -619,6 +623,17 @@ class ViewController: UIViewController,
             nativeMyContent.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
+        // 상세화면 글래스 백헤더 (뒤로가기)
+        nativeBackHeader.isHidden = true
+        nativeBackHeader.delegate = self
+        view.addSubview(nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeBackHeader.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeBackHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeBackHeader.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeBackHeader.titleTopAnchorRef.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
+        ])
+
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
         nativeHomeHeader.delegate = self
         nativeHomeHeader.isHidden = true
@@ -823,6 +838,20 @@ class ViewController: UIViewController,
             }
         }
 
+        // 상세화면 글래스 백헤더 (사회자/업체 상세 등 — 뒤로가기)
+        let onDetailPage = isDetailPath(currentNativePath)
+        if onDetailPage != isOnDetail {
+            isOnDetail = onDetailPage
+            nativeBackHeader.isHidden = !onDetailPage
+        }
+        if onDetailPage {
+            view.bringSubviewToFront(nativeBackHeader)
+            webView.evaluateJavaScript("document.title") { [weak self] r, _ in
+                guard let self = self, let t = r as? String else { return }
+                self.nativeBackHeader.setTitle(self.cleanDetailTitle(t))
+            }
+        }
+
         // 홈 글래스 헤더 (스페이서가 공간 확보하므로 콘텐츠 인셋은 변경 안 함)
         let onHome = currentNativePath == "/main" || currentNativePath == "/"
         if onHome != isOnHome {
@@ -850,8 +879,9 @@ class ViewController: UIViewController,
 
         // 네이티브 헤더(리스트/마이) 아래에서 웹 콘텐츠 시작하도록 상단 인셋 (홈은 네이티브가 덮음)
         let needsHeaderInset = onList || onMy
-        webView.scrollView.contentInset.top = needsHeaderInset ? 88 : 0
-        webView.scrollView.verticalScrollIndicatorInsets.top = needsHeaderInset ? 88 : 0
+        let webTopInset: CGFloat = needsHeaderInset ? 88 : (onDetailPage ? 50 : 0)
+        webView.scrollView.contentInset.top = webTopInset
+        webView.scrollView.verticalScrollIndicatorInsets.top = webTopInset
 
         // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"
@@ -1079,6 +1109,31 @@ class ViewController: UIViewController,
                           image: (d["image"] as? String) ?? "",
                           proPending: (d["proPending"] as? Bool) ?? false)
         nativeMyContent.setProfile(p)
+    }
+
+    // MARK: - NativeBackHeaderDelegate
+    func backHeaderTapBack() {
+        if webView.canGoBack {
+            webView.goBack()
+        } else {
+            webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/main'));", completionHandler: nil)
+        }
+    }
+
+    // 상세화면(뒤로가기 헤더 적용 대상) 경로 판별 — 점진 확장
+    private func isDetailPath(_ rawPath: String) -> Bool {
+        let p = rawPath.split(separator: "?").first.map(String.init) ?? rawPath
+        let patterns = ["^/pros/[^/]+$", "^/businesses/[^/]+$"]
+        for pat in patterns where p.range(of: pat, options: .regularExpression) != nil { return true }
+        return false
+    }
+    private func cleanDetailTitle(_ raw: String) -> String {
+        var t = raw
+        for suffix in [" | 프리티풀", " - 프리티풀", " | Freetiful", " - Freetiful"] {
+            if t.hasSuffix(suffix) { t = String(t.dropLast(suffix.count)) }
+        }
+        t = t.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (t == "프리티풀" || t == "Freetiful") ? "" : t
     }
 
     private func handleNativeHomeRows(_ body: Any) {
