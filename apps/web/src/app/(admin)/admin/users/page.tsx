@@ -131,10 +131,83 @@ export default function AdminUsersPage() {
       await adminFetch('DELETE', `/api/v1/admin/users/${id}`);
       toast.success('삭제되었습니다');
       setUsers((prev) => prev.filter((u) => u.id !== id));
+      setSelectedMap((prev) => { const n = new Map(prev); n.delete(id); return n; });
       setTotal((t) => t - 1);
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '';
       toast.error(`삭제 실패: ${msg} — 연관 데이터(채팅/결제/메시지 등)가 있으면 "보관처리" 를 사용해주세요`, { duration: 8000 });
+    }
+  };
+
+  // ─── 다중 선택 + 일괄 완전삭제 ───
+  const [selectedMap, setSelectedMap] = useState<Map<string, UserItem>>(new Map());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDone, setBulkDone] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
+
+  const toggleSelect = (user: UserItem) => {
+    if (bulkDeleting) return;
+    setSelectedMap((prev) => {
+      const next = new Map(prev);
+      if (next.has(user.id)) next.delete(user.id); else next.set(user.id, user);
+      return next;
+    });
+  };
+  const allLoadedSelected = users.length > 0 && users.every((u) => selectedMap.has(u.id));
+  const toggleSelectAllLoaded = () => {
+    if (bulkDeleting) return;
+    setSelectedMap((prev) => {
+      const next = new Map(prev);
+      if (users.length > 0 && users.every((u) => next.has(u.id))) {
+        users.forEach((u) => next.delete(u.id));
+      } else {
+        users.forEach((u) => next.set(u.id, u));
+      }
+      return next;
+    });
+  };
+  const clearSelection = () => { if (!bulkDeleting) setSelectedMap(new Map()); };
+
+  const handleBulkDelete = async () => {
+    const targets = Array.from(selectedMap.values());
+    if (targets.length === 0) return;
+    const preview = targets.slice(0, 15)
+      .map((u) => `· ${u.name} (${u.email || '이메일 없음'})${u.role === 'admin' ? ' ⚠️관리자' : ''}`)
+      .join('\n');
+    const more = targets.length > 15 ? `\n…외 ${targets.length - 15}명` : '';
+    const warn = `다음 ${targets.length}명을 완전삭제합니다.\n이 작업은 되돌릴 수 없으며, 각 계정의 채팅·견적·리뷰·매칭 등 연관 데이터도 함께 영구 삭제됩니다.\n\n${preview}${more}\n\n정말 진행하시겠습니까?`;
+    if (!confirm(warn)) return;
+    const adminTargets = targets.filter((u) => u.role === 'admin');
+    if (adminTargets.length > 0 && !confirm(`선택에 관리자 계정 ${adminTargets.length}건이 포함되어 있습니다. 그래도 삭제할까요?`)) return;
+
+    setBulkDeleting(true);
+    setBulkTotal(targets.length);
+    setBulkDone(0);
+    const failed: { name: string; reason: string }[] = [];
+    const failedMap = new Map<string, UserItem>();
+    for (const u of targets) {
+      try {
+        await adminFetch('DELETE', `/api/v1/admin/users/${u.id}`);
+        setUsers((prev) => prev.filter((x) => x.id !== u.id));
+        setTotal((t) => Math.max(0, t - 1));
+      } catch (e: any) {
+        const reason = e?.response?.data?.message || e?.message || '오류';
+        failed.push({ name: u.name, reason });
+        failedMap.set(u.id, u);
+      } finally {
+        setBulkDone((d) => d + 1);
+      }
+    }
+    setSelectedMap(failedMap); // 실패한 계정만 선택 유지 (재시도/보관처리용)
+    setBulkDeleting(false);
+    const okCount = targets.length - failed.length;
+    if (failed.length === 0) {
+      toast.success(`${okCount}명 완전삭제 완료`);
+    } else {
+      toast.error(
+        `성공 ${okCount}명 / 실패 ${failed.length}명 — 실패: ${failed.map((f) => f.name).join(', ')}. 연관데이터로 막힌 계정은 "보관처리"를 사용하세요`,
+        { duration: 10000 },
+      );
     }
   };
 
@@ -359,11 +432,47 @@ export default function AdminUsersPage() {
           }}
         />
 
+        {selectedMap.size > 0 && (
+          <div className="sticky top-2 z-10 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50/95 px-4 py-3 shadow-[0_8px_20px_rgba(220,38,38,0.10)] backdrop-blur">
+            <span className="text-sm font-bold text-red-700">{selectedMap.size}명 선택됨</span>
+            {bulkDeleting && (
+              <span className="text-xs font-semibold text-red-500">삭제 중… {bulkDone}/{bulkTotal}</span>
+            )}
+            <div className="ml-auto flex gap-2">
+              <button
+                onClick={clearSelection}
+                disabled={bulkDeleting}
+                className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              >
+                선택 해제
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                <Trash2 size={13} />
+                {bulkDeleting ? '삭제 중…' : `선택 ${selectedMap.size}명 완전삭제`}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="admin-list-card">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="w-10 px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={allLoadedSelected}
+                      onChange={toggleSelectAllLoaded}
+                      disabled={bulkDeleting || users.length === 0}
+                      className="h-4 w-4 cursor-pointer accent-red-600 align-middle"
+                      title="현재 목록 전체 선택/해제"
+                    />
+                  </th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이메일</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="가입기기">가입기기</AdminTerm></th>
@@ -378,7 +487,7 @@ export default function AdminUsersPage() {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      <td colSpan={8} className="px-4 py-3">
+                      <td colSpan={9} className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="skeleton h-9 w-9 rounded-full" />
                           <div className="flex-1 space-y-2">
@@ -391,9 +500,18 @@ export default function AdminUsersPage() {
                     </tr>
                   ))
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={8} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
+                  <tr><td colSpan={9} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
                 ) : users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={user.id} className={`transition-colors ${selectedMap.has(user.id) ? 'bg-red-50/60' : 'hover:bg-gray-50'}`}>
+                    <td className="w-10 px-3 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedMap.has(user.id)}
+                        onChange={() => toggleSelect(user)}
+                        disabled={bulkDeleting}
+                        className="h-4 w-4 cursor-pointer accent-red-600 align-middle"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {user.profileImageUrl
