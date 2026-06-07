@@ -55,6 +55,8 @@ class ViewController: UIViewController,
     private var nativeChatState = NativeChatState()
     private var isOnChatDetail = false
     private let nativeChatListBar = NativeChatListBar()
+    private let nativeMyHeader = NativeSimpleGlassHeader()
+    private var isOnMy = false
     private var isOnChatList = false
     private var lastListContext = "chat"
     private let nativeChatListContent = NativeChatListContent()
@@ -198,7 +200,8 @@ class ViewController: UIViewController,
           'html.freetiful-ios-native-nav [data-native-chat-header]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chat-gradient]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chat-footer]{display:none!important;pointer-events:none!important;}',
-          'html.freetiful-ios-native-nav [data-native-chatlist-header]{display:none!important;pointer-events:none!important;}'
+          'html.freetiful-ios-native-nav [data-native-chatlist-header]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-native-my-header]{display:none!important;pointer-events:none!important;}'
         ].join('\\n');
         document.head && document.head.appendChild(style);
       }
@@ -585,6 +588,17 @@ class ViewController: UIViewController,
             nativeChatListBar.titleTopAnchorRef.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
         ])
 
+        // 마이페이지 글래스 헤더 (그라데이션 블러)
+        nativeMyHeader.isHidden = true
+        nativeMyHeader.setTitle("마이페이지")
+        view.addSubview(nativeMyHeader)
+        NSLayoutConstraint.activate([
+            nativeMyHeader.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeMyHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeMyHeader.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeMyHeader.titleTopAnchorRef.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
+        ])
+
         // 네이티브 채팅 리스트 본문 (웹뷰 위, 글래스 바 아래)
         nativeChatListContent.delegate = self
         nativeChatListContent.isHidden = true
@@ -745,11 +759,21 @@ class ViewController: UIViewController,
         if onList != isOnChatList {
             isOnChatList = onList
             nativeChatListBar.isHidden = !onList
-            // 리스트 콘텐츠가 네이티브 바 아래에서 시작하도록 상단 인셋
-            webView.scrollView.contentInset.top = onList ? 88 : 0
-            webView.scrollView.verticalScrollIndicatorInsets.top = onList ? 88 : 0
         }
         if onList { requestNativeChatListState() }
+
+        // 마이페이지 글래스 헤더
+        let onMy = currentNativePath == "/my"
+        if onMy != isOnMy {
+            isOnMy = onMy
+            nativeMyHeader.isHidden = !onMy
+        }
+        if onMy { view.bringSubviewToFront(nativeMyHeader) }
+
+        // 네이티브 헤더(리스트/마이) 아래에서 웹 콘텐츠 시작하도록 상단 인셋
+        let needsHeaderInset = onList || onMy
+        webView.scrollView.contentInset.top = needsHeaderInset ? 88 : 0
+        webView.scrollView.verticalScrollIndicatorInsets.top = needsHeaderInset ? 88 : 0
 
         // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"
