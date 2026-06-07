@@ -330,15 +330,14 @@ function textToHtml(text: string) {
     .join('');
 }
 
-// 상대경로 /uploads 이미지를 API 절대경로로 바꿔 origin 의존성 제거(안드로이드 등 렌더 실패 방지)
-const UPLOADS_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '')
-  .replace(/\/+$/, '')
-  .replace(/\/api\/v1$/, '')
-  .replace(/\/api$/, '');
-
+// 상대경로 /uploads 이미지를 현재 웹 origin 절대경로로 변환 (freetiful.com/uploads 는 프록시되어 200)
+// API(Railway) origin 으로 절대화하면 iOS 등에서 로드 실패 → 웹 origin 사용
+function uploadsOrigin(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  return 'https://freetiful.com';
+}
 function absolutizeUploads(html: string) {
-  if (!UPLOADS_ORIGIN) return html;
-  return html.replace(/(src=["'])\/uploads\//g, `$1${UPLOADS_ORIGIN}/uploads/`);
+  return html.replace(/(src=["'])\/uploads\//g, `$1${uploadsOrigin()}/uploads/`);
 }
 
 function buildDescriptionHtml(html: string | null | undefined, fallbackText: string) {
