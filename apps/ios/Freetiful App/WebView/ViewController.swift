@@ -43,7 +43,8 @@ class ViewController: UIViewController,
                       NativeChatBarsDelegate,
                       NativeChatListBarDelegate,
                       NativeChatListContentDelegate,
-                      NativeInquiryContentDelegate {
+                      NativeInquiryContentDelegate,
+                      NativeChatMessagesDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -58,7 +59,10 @@ class ViewController: UIViewController,
     private var lastListContext = "chat"
     private let nativeChatListContent = NativeChatListContent()
     private let nativeInquiryContent = NativeInquiryContent()
+    private let nativeChatMessages = NativeChatMessagesView()
     private var isOnInquiry = false
+    private var hasLoadedChatMessagesOnce = false
+    private var lastChatDetailPath = ""
     // 채팅방에서 webView 를 화면 가장자리까지(상/하단 safe area 제거) 토글
     private var webViewTopSafe: NSLayoutConstraint?
     private var webViewBottomSafe: NSLayoutConstraint?
@@ -128,7 +132,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -355,12 +359,23 @@ class ViewController: UIViewController,
         } catch (e) {}
       };
 
+      window.__freetifulChatMessagesPost = function() {
+        try {
+          if (window.__freetifulChat && window.__freetifulChat.getMessages &&
+              window.webkit && window.webkit.messageHandlers &&
+              window.webkit.messageHandlers.nativeChatMessages) {
+            window.webkit.messageHandlers.nativeChatMessages.postMessage(window.__freetifulChat.getMessages());
+          }
+        } catch (e) {}
+      };
+
       if (window.__freetifulNativeNavInstalled) {
         window.__freetifulNativeNavPostState();
         window.__freetifulChatPostState();
         window.__freetifulChatListPostState();
         window.__freetifulChatListRowsPost();
         window.__freetifulInquiryRowsPost();
+        window.__freetifulChatMessagesPost();
         return;
       }
 
@@ -369,6 +384,7 @@ class ViewController: UIViewController,
       window.addEventListener('freetiful:chatlist-state', window.__freetifulChatListPostState);
       window.addEventListener('freetiful:chatlist-rows', window.__freetifulChatListRowsPost);
       window.addEventListener('freetiful:inquiry-rows', window.__freetifulInquiryRowsPost);
+      window.addEventListener('freetiful:chat-messages', window.__freetifulChatMessagesPost);
       var notify = function() {
         hideWebBottomNav();
         setTimeout(window.__freetifulNativeNavPostState, 30);
@@ -388,6 +404,10 @@ class ViewController: UIViewController,
         if (window.__freetifulInquiryRowsPost) {
           setTimeout(window.__freetifulInquiryRowsPost, 60);
           setTimeout(window.__freetifulInquiryRowsPost, 320);
+        }
+        if (window.__freetifulChatMessagesPost) {
+          setTimeout(window.__freetifulChatMessagesPost, 60);
+          setTimeout(window.__freetifulChatMessagesPost, 320);
         }
       };
 
@@ -588,6 +608,20 @@ class ViewController: UIViewController,
         ])
         // 글래스 바가 본문 위에 오도록
         view.bringSubviewToFront(nativeChatListBar)
+
+        // 네이티브 채팅 본문 (B3) — 글래스 헤더 아래에서 시작(인셋), 입력바 위까지
+        nativeChatMessages.delegate = self
+        nativeChatMessages.isHidden = true
+        view.insertSubview(nativeChatMessages, aboveSubview: webView)
+        NSLayoutConstraint.activate([
+            nativeChatMessages.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeChatMessages.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeChatMessages.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeChatMessages.bottomAnchor.constraint(equalTo: nativeChatInputBar.topAnchor),
+        ])
+        // 헤더/입력바가 메시지 위에 떠 있도록
+        view.bringSubviewToFront(nativeChatHeader)
+        view.bringSubviewToFront(nativeChatInputBar)
     }
 
     override func viewDidLayoutSubviews() {
@@ -613,6 +647,7 @@ class ViewController: UIViewController,
         let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
         nativeChatInputBottom?.constant = -overlap
         UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
+        if overlap > 0 { nativeChatMessages.scrollToBottom(animated: true) }
     }
 
     @objc private func chatKeyboardWillHide(_ note: Notification) {
@@ -691,6 +726,20 @@ class ViewController: UIViewController,
             }
         }
         if onDetail { requestNativeChatState() }
+
+        // 채팅 본문(네이티브 메시지 리스트) — 채팅 상세에서만 (B3)
+        // 웹이 getMessages 로 실제 응답할 때만 표시(handleNativeChatMessages) → 구버전 웹에선 웹 폴백
+        if !onDetail {
+            nativeChatMessages.isHidden = true
+        } else {
+            if currentNativePath != lastChatDetailPath {
+                hasLoadedChatMessagesOnce = false // 방 전환마다 첫 로드 시 맨 아래로
+                lastChatDetailPath = currentNativePath
+            }
+            let topInset = view.safeAreaInsets.top + 52 + 8 // 글래스 헤더 높이 + 여백
+            nativeChatMessages.setInsets(top: topInset, bottom: 10)
+            requestNativeChatMessages()
+        }
 
         // ─── 채팅 리스트 ───
         if onList != isOnChatList {
@@ -808,6 +857,42 @@ class ViewController: UIViewController,
     }
     func inquiryDidTapReject(_ id: String) {
         webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeReject && window.__freetifulInquiryList.invokeReject(\(jsLiteral(id)));", completionHandler: nil)
+    }
+
+    // MARK: - 채팅 본문(네이티브 메시지) (B3)
+    private func requestNativeChatMessages() {
+        webView.evaluateJavaScript("window.__freetifulChatMessagesPost && window.__freetifulChatMessagesPost();", completionHandler: nil)
+    }
+
+    private func handleNativeChatMessages(_ body: Any) {
+        guard nativeNavigationEnabled, let arr = body as? [[String: Any]] else { return }
+        let msgs: [NativeChatMessage] = arr.compactMap { d in
+            guard let id = d["id"] as? String else { return nil }
+            return NativeChatMessage(
+                id: id,
+                mine: (d["mine"] as? Bool) ?? false,
+                content: (d["content"] as? String) ?? "",
+                type: (d["type"] as? String) ?? "text",
+                createdAt: (d["createdAt"] as? String) ?? "",
+                isRead: (d["isRead"] as? Bool) ?? false,
+                replyName: (d["replyName"] as? String) ?? "",
+                replyContent: (d["replyContent"] as? String) ?? "",
+                reaction: (d["reaction"] as? String) ?? "",
+                pending: (d["pending"] as? Bool) ?? false
+            )
+        }
+        nativeChatMessages.setMessages(msgs, forceScroll: !hasLoadedChatMessagesOnce)
+        if !msgs.isEmpty { hasLoadedChatMessagesOnce = true }
+        // 웹이 실제 응답했으므로 이제 네이티브 본문을 표시 (채팅 상세인 동안)
+        if isOnChatDetail { nativeChatMessages.isHidden = false }
+    }
+
+    // MARK: - NativeChatMessagesDelegate
+    func chatMessagesLongPress(_ message: NativeChatMessage, sourceFrame: CGRect) {
+        // Phase 2 예정: 글래스 컨텍스트 메뉴(답장/복사/부분복사/공지등록/이모지)
+        // Phase 1: 텍스트 복사
+        if !message.content.isEmpty { UIPasteboard.general.string = message.content }
+        Haptics.tap()
     }
 
     // MARK: - NativeChatBarsDelegate
@@ -1147,6 +1232,7 @@ class ViewController: UIViewController,
         case "nativeChatListState": handleNativeChatListState(message.body)
         case "nativeChatListRows": handleNativeChatListRows(message.body)
         case "nativeInquiryRows": handleNativeInquiryRows(message.body)
+        case "nativeChatMessages": handleNativeChatMessages(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
