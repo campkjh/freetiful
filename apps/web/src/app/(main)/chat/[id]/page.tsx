@@ -740,6 +740,13 @@ export default function ChatRoomPage() {
         reaction: m.reaction || '',
         fileName: m.fileName || '',
         pending: m.id.startsWith('opt-') || m.id.startsWith('pending-'),
+        systemKind: m.system?.kind || '',
+        quoteAmount: m.system?.amount || 0,
+        quoteTitle: m.system?.title || '',
+        quoteDate: m.system?.eventDate || '',
+        quoteTime: m.system?.eventTime || '',
+        quoteLocation: m.system?.eventLocation || m.system?.venue || '',
+        quotationId: m.system?.quotationId || '',
       })),
       // ─── 네이티브 롱프레스 글래스 메뉴 액션 (B3 Phase2) ───
       reactions: () => ['❤️', '👍', '😂', '😮', '😢', '🙏'],
@@ -758,6 +765,22 @@ export default function ChatRoomPage() {
       reactMessage: (id: string, emoji: string) => {
         try { useChatStore.getState().addReaction(id, emoji); } catch {}
         setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, reaction: m.reaction === emoji ? null : emoji } : m)));
+      },
+      // 견적 카드 탭 → 결제 페이지로 (고객만; 사회자는 무시)
+      openQuotePayment: (quotationId: string) => {
+        if (isPro) return;
+        const m = messagesRef.current.find((x) => x.system?.quotationId === quotationId);
+        const sys = m?.system;
+        const proId = (chatPartner as any)?.proProfileId || chatPartner?.id;
+        const params = new URLSearchParams({
+          price: String(sys?.amount || 0),
+          plan: sys?.plan || 'premium',
+          quotationId,
+        });
+        if (sys?.eventDate) params.set('eventDate', sys.eventDate);
+        if (sys?.eventTime) params.set('slots', sys.eventTime);
+        if (sys?.eventLocation) params.set('eventLocation', sys.eventLocation);
+        router.push(proId ? `/pros/${proId}/checkout?${params.toString()}` : `/pros/checkout?${params.toString()}`);
       },
       getState: () => ({
         name: chatPartner?.name || '',
