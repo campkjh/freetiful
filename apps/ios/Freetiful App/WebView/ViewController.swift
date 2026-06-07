@@ -46,7 +46,8 @@ class ViewController: UIViewController,
                       NativeInquiryContentDelegate,
                       NativeChatMessagesDelegate,
                       NativeHomeHeaderDelegate,
-                      NativeHomeContentDelegate {
+                      NativeHomeContentDelegate,
+                      NativeMyContentDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -58,6 +59,7 @@ class ViewController: UIViewController,
     private var isOnChatDetail = false
     private let nativeChatListBar = NativeChatListBar()
     private let nativeMyHeader = NativeSimpleGlassHeader()
+    private let nativeMyContent = NativeMyContent()
     private var isOnMy = false
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
@@ -140,7 +142,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -606,6 +608,17 @@ class ViewController: UIViewController,
             nativeMyHeader.titleTopAnchorRef.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
         ])
 
+        // 마이페이지 네이티브 본문 (웹 위 덮음, 헤더 아래)
+        nativeMyContent.delegate = self
+        nativeMyContent.isHidden = true
+        view.insertSubview(nativeMyContent, belowSubview: nativeMyHeader)
+        NSLayoutConstraint.activate([
+            nativeMyContent.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeMyContent.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeMyContent.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeMyContent.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
         nativeHomeHeader.delegate = self
         nativeHomeHeader.isHidden = true
@@ -797,8 +810,14 @@ class ViewController: UIViewController,
         if onMy != isOnMy {
             isOnMy = onMy
             nativeMyHeader.isHidden = !onMy
+            nativeMyContent.isHidden = !onMy
         }
-        if onMy { view.bringSubviewToFront(nativeMyHeader) }
+        if onMy {
+            view.bringSubviewToFront(nativeMyContent)
+            view.bringSubviewToFront(nativeMyHeader)
+            nativeMyContent.setInsets(top: view.safeAreaInsets.top + 56, bottom: 92)
+            requestMyProfile()
+        }
 
         // 홈 글래스 헤더 (스페이서가 공간 확보하므로 콘텐츠 인셋은 변경 안 함)
         let onHome = currentNativePath == "/main" || currentNativePath == "/"
@@ -1033,6 +1052,29 @@ class ViewController: UIViewController,
     }
     func homeRequestSections() {
         webView.evaluateJavaScript("(window.__freetifulHomeSectionsPost && window.__freetifulHomeSectionsPost());", completionHandler: nil)
+    }
+
+    // MARK: - NativeMyContentDelegate
+    func myOpenPath(_ path: String) {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
+    }
+    func myLogout() {
+        webView.evaluateJavaScript("(window.__freetifulLogout && window.__freetifulLogout());", completionHandler: nil)
+    }
+    func myShowLogin() {
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('freetiful:show-login'));", completionHandler: nil)
+    }
+    private func requestMyProfile() {
+        webView.evaluateJavaScript("(window.__freetifulMyProfilePost && window.__freetifulMyProfilePost());", completionHandler: nil)
+    }
+    private func handleNativeMyProfile(_ body: Any) {
+        guard let d = body as? [String: Any] else { return }
+        let p = MyProfile(loggedIn: (d["loggedIn"] as? Bool) ?? false,
+                          name: (d["name"] as? String) ?? "",
+                          email: (d["email"] as? String) ?? "",
+                          image: (d["image"] as? String) ?? "",
+                          proPending: (d["proPending"] as? Bool) ?? false)
+        nativeMyContent.setProfile(p)
     }
 
     private func handleNativeHomeRows(_ body: Any) {
@@ -1412,6 +1454,7 @@ class ViewController: UIViewController,
         case "nativeChatMessages": handleNativeChatMessages(message.body)
         case "nativeHomeRows": handleNativeHomeRows(message.body)
         case "nativeHomeBanners": handleNativeHomeBanners(message.body)
+        case "nativeMyProfile": handleNativeMyProfile(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {

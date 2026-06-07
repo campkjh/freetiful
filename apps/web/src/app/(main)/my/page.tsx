@@ -333,6 +333,24 @@ export default function MyPage() {
     router.push('/');
   };
 
+  // 네이티브 마이페이지 브리지 (프로필 데이터 + 로그아웃)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const post = () => {
+      (window as any).webkit?.messageHandlers?.nativeMyProfile?.postMessage({
+        loggedIn: isLoggedIn,
+        name: user.name || '',
+        email: user.email || '',
+        image: getProfileImageUrl(user.image, user.email || user.name),
+        proPending: Boolean(proRegistrationPending && proProfileStatus !== 'approved'),
+      });
+    };
+    (window as any).__freetifulMyProfilePost = post;
+    (window as any).__freetifulLogout = () => { try { executeLogout(); } catch {} };
+    post();
+    return () => { try { delete (window as any).__freetifulMyProfilePost; delete (window as any).__freetifulLogout; } catch {} };
+  }, [isLoggedIn, user, proProfileStatus, proRegistrationPending]);
+
 
   return (
     <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
