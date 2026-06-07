@@ -809,7 +809,7 @@ class ViewController: UIViewController,
         }
         if onHome {
             view.bringSubviewToFront(nativeHomeHeader)
-            let top = view.safeAreaInsets.top + 56
+            let top = view.safeAreaInsets.top + 58
             nativeHomeContent.setInsets(top: top, bottom: 92)
             if !hasLoadedHome {
                 hasLoadedHome = true
@@ -825,10 +825,19 @@ class ViewController: UIViewController,
             }
         }
 
-        // 네이티브 헤더(리스트/마이) 아래에서 웹 콘텐츠 시작하도록 상단 인셋
-        let needsHeaderInset = onList || onMy
-        webView.scrollView.contentInset.top = needsHeaderInset ? 88 : 0
-        webView.scrollView.verticalScrollIndicatorInsets.top = needsHeaderInset ? 88 : 0
+        // 웹 콘텐츠 인셋: 홈=글래스헤더(58)+탭(46) 아래 + 하단 탭바, 리스트/마이=네이티브 헤더 아래
+        if onHome {
+            webView.scrollView.contentInset.top = 104
+            webView.scrollView.verticalScrollIndicatorInsets.top = 104
+            webView.scrollView.contentInset.bottom = 72
+            webView.scrollView.verticalScrollIndicatorInsets.bottom = 72
+        } else {
+            let needsHeaderInset = onList || onMy
+            webView.scrollView.contentInset.top = needsHeaderInset ? 88 : 0
+            webView.scrollView.verticalScrollIndicatorInsets.top = needsHeaderInset ? 88 : 0
+            webView.scrollView.contentInset.bottom = 0
+            webView.scrollView.verticalScrollIndicatorInsets.bottom = 0
+        }
 
         // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"

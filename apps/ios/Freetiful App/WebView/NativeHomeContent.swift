@@ -30,21 +30,28 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     weak var delegate: NativeHomeContentDelegate?
     private let imageBase: String
 
-    // 헤더 탭: 전체(=홈) / 결혼식사회자 / 행사사회자 / 외국어사회자
-    private let categories = ["전체", "결혼식사회자", "행사사회자", "외국어사회자"]
+    // 헤더 탭: 전체(=웹 홈) / 결혼식사회자 / 행사사회자 / 외국어사회자
+    private let tabTitles = ["전체", "결혼식사회자", "행사사회자", "외국어사회자"]
+    private let categoryCount = 3  // 결혼식/행사/외국어 (전체 제외)
     private let categoryTabs = HomeCategoryTabsView()
     private let pager = UIScrollView()
     private let pageRow = UIStackView()
-    private var pageScrolls: [UIScrollView] = []
-    private var pageLists: [UIStackView?] = []     // 0번(홈)=nil, 1~3=사회자 리스트
-    private var pageEmpties: [UILabel?] = []
-    private var currentPage = 0
+    private var pageScrolls: [UIScrollView] = []   // 0=결혼식,1=행사,2=외국어
+    private var pageLists: [UIStackView] = []
+    private var pageEmpties: [UILabel] = []
+    private var currentTab = 0   // 0=전체, 1~3=카테고리
     private var requestedPages = Set<Int>()
-    private let banner = NativeHomeBanner()
 
     private var topInset: CGFloat = 0
     private var bottomInset: CGFloat = 0
     private var tabsTop: NSLayoutConstraint!
+
+    // 빈 영역(전체=웹 모드의 페이저 아래) 터치는 뒤의 웹뷰로 통과
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let v = super.hitTest(point, with: event)
+        if v === self { return nil }
+        return v
+    }
 
     init(imageBase: String) {
         self.imageBase = imageBase
@@ -66,22 +73,24 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
 
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = .white
+        backgroundColor = .clear   // 전체(웹) 모드에서 뒤 웹뷰가 비치도록
 
         // 헤더 탭 (상단 고정 — 글래스 헤더 바로 아래)
         categoryTabs.translatesAutoresizingMaskIntoConstraints = false
         categoryTabs.backgroundColor = .white
-        categoryTabs.configure(tabs: categories)
-        categoryTabs.onSelect = { [weak self] idx in self?.scrollTo(page: idx, animated: true) }
+        categoryTabs.configure(tabs: tabTitles)
+        categoryTabs.onSelect = { [weak self] idx in self?.showTab(idx, animated: true) }
         addSubview(categoryTabs)
         tabsTop = categoryTabs.topAnchor.constraint(equalTo: topAnchor, constant: topInset)
 
-        // 좌우 스와이프 페이저
+        // 좌우 스와이프 페이저 (카테고리 3개) — 전체 탭에선 숨겨 웹 노출
         pager.translatesAutoresizingMaskIntoConstraints = false
         pager.isPagingEnabled = true
         pager.showsHorizontalScrollIndicator = false
         pager.delegate = self
+        pager.backgroundColor = .white
         pager.contentInsetAdjustmentBehavior = .never
+        pager.isHidden = true   // 기본 전체(웹)
         addSubview(pager)
 
         NSLayoutConstraint.activate([
@@ -107,11 +116,12 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
             pageRow.heightAnchor.constraint(equalTo: pager.frameLayoutGuide.heightAnchor),
         ])
 
-        for idx in categories.indices {
+        for _ in 0..<categoryCount {
             let pageScroll = UIScrollView()
             pageScroll.translatesAutoresizingMaskIntoConstraints = false
             pageScroll.alwaysBounceVertical = true
             pageScroll.showsVerticalScrollIndicator = false
+            pageScroll.backgroundColor = .white
             pageScroll.contentInsetAdjustmentBehavior = .never
             pageRow.addArrangedSubview(pageScroll)
             // 계층 추가 후 width 제약 활성화 (frameLayoutGuide 공통조상 필요)
@@ -119,7 +129,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
 
             let content = UIStackView()
             content.axis = .vertical
-            content.spacing = idx == 0 ? 12 : 10
+            content.spacing = 10
             content.translatesAutoresizingMaskIntoConstraints = false
             pageScroll.addSubview(content)
             NSLayoutConstraint.activate([
@@ -129,103 +139,77 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
                 content.bottomAnchor.constraint(equalTo: pageScroll.contentLayoutGuide.bottomAnchor, constant: -24),
             ])
 
-            if idx == 0 {
-                // 전체 = 기존 홈 (히어로 카드 + 배너)
-                content.addArrangedSubview(buildHeroRow())
-                banner.onTap = { [weak self] link in self?.delegate?.homeOpenBanner(link) }
-                content.addArrangedSubview(banner)
-                banner.heightAnchor.constraint(equalTo: banner.widthAnchor, multiplier: 300.0 / 1170.0).isActive = true
-                pageLists.append(nil)
-                pageEmpties.append(nil)
-            } else {
-                // 사회자 리스트
-                let list = UIStackView()
-                list.axis = .vertical
-                list.spacing = 10
-                content.addArrangedSubview(list)
+            let list = UIStackView()
+            list.axis = .vertical
+            list.spacing = 10
+            content.addArrangedSubview(list)
 
-                let empty = UILabel()
-                empty.text = "불러오는 중…"
-                empty.font = .systemFont(ofSize: 14)
-                empty.textColor = UIColor(white: 0.6, alpha: 1)
-                empty.textAlignment = .center
-                content.addArrangedSubview(empty)
+            let empty = UILabel()
+            empty.text = "불러오는 중…"
+            empty.font = .systemFont(ofSize: 14)
+            empty.textColor = UIColor(white: 0.6, alpha: 1)
+            empty.textAlignment = .center
+            content.addArrangedSubview(empty)
 
-                pageLists.append(list)
-                pageEmpties.append(empty)
-            }
             pageScrolls.append(pageScroll)
+            pageLists.append(list)
+            pageEmpties.append(empty)
         }
     }
 
-    // MARK: - 히어로 카드 행 (전문결혼식 / 전문행사 찾기) — 전체(홈) 탭에 표시
-    private func buildHeroRow() -> UIView {
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.distribution = .fillEqually
-        row.spacing = 12
+    func setBanners(_ items: [HomeBanner]) { /* 전체(홈)는 웹뷰가 표시 — 네이티브 배너 미사용 */ }
 
-        let wedding = HeroCardView(
-            imageURL: "\(imageBase)/images/category-icons/wedding-mc.png",
-            line1: "전문결혼식", line2: "사회자 찾기", showChevron: true
-        )
-        wedding.onTap = { [weak self] in self?.delegate?.homeOpenWeddingFind() }
-
-        let event = HeroCardView(
-            imageURL: "\(imageBase)/images/category-icons/event-mc.png",
-            line1: "전문행사", line2: "사회자 찾기", showChevron: false
-        )
-        event.onTap = { [weak self] in self?.delegate?.homeOpenEventRequest() }
-
-        row.addArrangedSubview(wedding)
-        row.addArrangedSubview(event)
-        return row
-    }
-
-    func setBanners(_ items: [HomeBanner]) { banner.setBanners(items) }
-
-    // 표시 시점 — 사회자 리스트(결혼식/행사/외국어) 미리 요청 (홈 탭은 요청 없음)
+    // 표시 시점 — 카테고리 리스트(결혼식/행사/외국어) 미리 요청
     func loadInitial() {
-        requestPageIfNeeded(1)
-        requestPageIfNeeded(2)
-        requestPageIfNeeded(3)
+        for page in 0..<categoryCount { requestPageIfNeeded(page) }
     }
 
-    func scrollTo(page: Int, animated: Bool) {
-        guard page >= 0, page < categories.count else { return }
-        let w = pager.bounds.width
-        if w > 0 { pager.setContentOffset(CGPoint(x: CGFloat(page) * w, y: 0), animated: animated) }
-        currentPage = page
-        categoryTabs.select(page)
-        requestPageIfNeeded(page)
+    // 탭 전환: 0=전체(페이저 숨겨 웹 노출), 1~3=카테고리(페이저 표시)
+    func showTab(_ tab: Int, animated: Bool) {
+        guard tab >= 0, tab < tabTitles.count else { return }
+        currentTab = tab
+        categoryTabs.select(tab)
+        if tab == 0 {
+            pager.isHidden = true
+        } else {
+            pager.isHidden = false
+            let page = tab - 1
+            let w = pager.bounds.width
+            if w > 0 { pager.setContentOffset(CGPoint(x: CGFloat(page) * w, y: 0), animated: animated) }
+            requestPageIfNeeded(page)
+        }
     }
+
+    // 현재 전체(웹) 모드인지
+    var isShowingWebHome: Bool { currentTab == 0 }
 
     private func requestPageIfNeeded(_ page: Int) {
-        guard page >= 1, page < categories.count else { return }  // 0(홈)은 사회자 요청 없음
+        guard page >= 0, page < categoryCount else { return }
         guard !requestedPages.contains(page) else { return }
         requestedPages.insert(page)
-        delegate?.homeRequestPros(page)
+        delegate?.homeRequestPros(page + 1)   // 웹 인덱스 1=결혼식,2=행사,3=외국어
     }
 
     func scrollViewDidEndDecelerating(_ sv: UIScrollView) {
         guard sv == pager, pager.bounds.width > 0 else { return }
         let page = Int(round(pager.contentOffset.x / pager.bounds.width))
-        if page != currentPage {
-            currentPage = page
-            categoryTabs.select(page)
-            Haptics.tap() // 스와이프 시 진동
+        let tab = page + 1
+        if tab != currentTab {
+            currentTab = tab
+            categoryTabs.select(tab)
+            Haptics.tap() // 스와이프 전환 진동
         }
         requestPageIfNeeded(page)
     }
 
+    // categoryIndex: 웹 인덱스(1=결혼식,2=행사,3=외국어)
     func setPros(categoryIndex: Int, items: [HomeProItem]) {
-        guard categoryIndex >= 1, categoryIndex < pageLists.count,
-              let list = pageLists[categoryIndex] else { return }
+        let page = categoryIndex - 1
+        guard page >= 0, page < pageLists.count else { return }
+        let list = pageLists[page]
         list.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        if let empty = pageEmpties[categoryIndex] {
-            empty.text = items.isEmpty ? "사회자가 없습니다" : ""
-            empty.isHidden = !items.isEmpty
-        }
+        pageEmpties[page].text = items.isEmpty ? "사회자가 없습니다" : ""
+        pageEmpties[page].isHidden = !items.isEmpty
         for item in items.prefix(12) {
             let cell = HomeProCell(item: item)
             cell.onTap = { [weak self] id in self?.delegate?.homeOpenPro(id) }
