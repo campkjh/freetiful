@@ -337,7 +337,7 @@ export default function MyPage() {
   return (
     <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-white px-4">
+      <div data-native-my-header className="sticky top-0 z-20 bg-white px-4">
         <div className="h-[52px] flex items-center">
           <h1 className="text-[18px] font-bold text-gray-900">마이페이지</h1>
         </div>
