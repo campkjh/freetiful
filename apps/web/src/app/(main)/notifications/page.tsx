@@ -151,6 +151,23 @@ export default function NotificationsPage() {
     await notificationApi.deleteOne(id);
   };
 
+  // 네이티브 알림 화면 브리지
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const post = () => {
+      (window as any).webkit?.messageHandlers?.nativeNotifications?.postMessage({
+        items: items.map((n) => ({ id: n.id, title: n.title, body: n.body, date: n.date, isRead: n.isRead, url: n.link || '' })),
+      });
+    };
+    (window as any).__freetifulNotifications = {
+      post,
+      invokeDelete: (id: string) => { handleDelete(id); },
+      invokeRead: (id: string) => { notificationApi.markAsRead(id).catch(() => {}); },
+    };
+    post();
+    return () => { try { delete (window as any).__freetifulNotifications; } catch {} };
+  }, [items]);
+
   const handleTouchStart = useCallback((id: string, e: React.TouchEvent) => {
     touchStartX.current[id] = e.touches[0].clientX;
     touchCurrentX.current[id] = e.touches[0].clientX;

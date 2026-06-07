@@ -48,7 +48,8 @@ class ViewController: UIViewController,
                       NativeHomeHeaderDelegate,
                       NativeHomeContentDelegate,
                       NativeMyContentDelegate,
-                      NativeBackHeaderDelegate {
+                      NativeBackHeaderDelegate,
+                      NativeNotificationsDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -64,6 +65,8 @@ class ViewController: UIViewController,
     private var isOnMy = false
     private let nativeBackHeader = NativeBackHeader()   // 상세화면 글래스 뒤로가기 헤더
     private var isOnDetail = false
+    private let nativeNotifications = NativeNotificationsContent()   // 알림 화면 네이티브
+    private var isOnNotifications = false
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -145,7 +148,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile", "nativeHomeBusiness"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile", "nativeHomeBusiness", "nativeNotifications"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -634,6 +637,17 @@ class ViewController: UIViewController,
             nativeBackHeader.titleTopAnchorRef.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 4),
         ])
 
+        // 알림 화면 네이티브 본문 (웹 위 덮음, 백헤더 아래)
+        nativeNotifications.isHidden = true
+        nativeNotifications.delegate = self
+        view.insertSubview(nativeNotifications, belowSubview: nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeNotifications.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeNotifications.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeNotifications.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeNotifications.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
         nativeHomeHeader.delegate = self
         nativeHomeHeader.isHidden = true
@@ -849,6 +863,23 @@ class ViewController: UIViewController,
             webView.evaluateJavaScript("document.title") { [weak self] r, _ in
                 guard let self = self, let t = r as? String else { return }
                 self.nativeBackHeader.setTitle(self.cleanDetailTitle(t))
+            }
+        }
+
+        // 알림 화면 (네이티브 리스트 + 글래스 백헤더)
+        let onNotif = currentNativePath == "/notifications"
+        if onNotif != isOnNotifications {
+            isOnNotifications = onNotif
+            nativeNotifications.isHidden = !onNotif
+        }
+        if onNotif {
+            view.bringSubviewToFront(nativeNotifications)
+            view.bringSubviewToFront(nativeBackHeader)
+            nativeBackHeader.isHidden = false
+            nativeBackHeader.setTitle("알림")
+            nativeNotifications.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
+            for delay in [0.0, 0.4, 1.2, 2.5] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestNotifications() }
             }
         }
 
@@ -1098,6 +1129,30 @@ class ViewController: UIViewController,
             return items.isEmpty ? nil : HomeBusinessSection(category: cat, items: items)
         }
         if !sections.isEmpty { nativeHomeContent.setBusinessSections(sections) }
+    }
+
+    func requestNotifications() {
+        webView.evaluateJavaScript("(window.__freetifulNotifications && window.__freetifulNotifications.post && window.__freetifulNotifications.post());", completionHandler: nil)
+    }
+    private func handleNativeNotifications(_ body: Any) {
+        guard let dict = body as? [String: Any] else { return }
+        let arr = (dict["items"] as? [[String: Any]]) ?? []
+        let items: [NativeNotification] = arr.compactMap { d in
+            guard let id = d["id"] as? String else { return nil }
+            return NativeNotification(id: id, title: (d["title"] as? String) ?? "", body: (d["body"] as? String) ?? "",
+                                      date: (d["date"] as? String) ?? "", isRead: (d["isRead"] as? Bool) ?? false,
+                                      url: (d["url"] as? String) ?? "")
+        }
+        nativeNotifications.setItems(items)
+    }
+
+    // MARK: - NativeNotificationsDelegate
+    func notificationDidTap(_ id: String, url: String) {
+        webView.evaluateJavaScript("(window.__freetifulNotifications && window.__freetifulNotifications.invokeRead && window.__freetifulNotifications.invokeRead(\(jsLiteral(id))));", completionHandler: nil)
+        if !url.isEmpty, let norm = normalizedInternalPath(from: url) { navigateNativeWeb(to: norm) }
+    }
+    func notificationDidDelete(_ id: String) {
+        webView.evaluateJavaScript("(window.__freetifulNotifications && window.__freetifulNotifications.invokeDelete && window.__freetifulNotifications.invokeDelete(\(jsLiteral(id))));", completionHandler: nil)
     }
     func homeOpenPath(_ path: String) {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
@@ -1537,6 +1592,7 @@ class ViewController: UIViewController,
         case "nativeHomeBanners": handleNativeHomeBanners(message.body)
         case "nativeMyProfile": handleNativeMyProfile(message.body)
         case "nativeHomeBusiness": handleNativeHomeBusiness(message.body)
+        case "nativeNotifications": handleNativeNotifications(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
