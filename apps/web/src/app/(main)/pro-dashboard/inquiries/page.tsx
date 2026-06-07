@@ -9,7 +9,7 @@ import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 
-type Filter = 'all' | 'multi' | 'single';
+type Filter = 'all' | 'multi' | 'single' | 'archived';
 type RequestKind = 'multi' | 'single';
 
 const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-simple-requests-cache-v1';
@@ -25,6 +25,7 @@ interface MatchDeliveryView {
   customerName: string;
   customerImage: string;
   requestKind: RequestKind;
+  status: string;
   categoryName: string;
   eventCategoryName: string;
   eventDate: string | null;
@@ -141,7 +142,7 @@ function formatTime(value: string | null): string {
 
 function mapMatchDeliveries(items: any[]): MatchDeliveryView[] {
   return items
-    .filter((d: any) => ['pending', 'viewed'].includes(d.status))
+    .filter((d: any) => ['pending', 'viewed', 'archived'].includes(d.status))
     .map((d: any) => {
       const raw = typeof d.matchRequest?.rawUserInput === 'object' && d.matchRequest?.rawUserInput
         ? d.matchRequest.rawUserInput
@@ -154,6 +155,7 @@ function mapMatchDeliveries(items: any[]): MatchDeliveryView[] {
         customerName: d.matchRequest?.user?.name || '고객',
         customerImage: d.matchRequest?.user?.profileImageUrl || '/images/default-profile.png',
         requestKind,
+        status: d.status || 'pending',
         categoryName: d.matchRequest?.category?.name || raw.categoryName || '사회자 요청',
         eventCategoryName: d.matchRequest?.eventCategory?.name || raw.eventType || '',
         eventDate: d.matchRequest?.eventDate || raw.date || null,
@@ -170,6 +172,7 @@ const TABS: { key: Filter; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'multi', label: '다수요청' },
   { key: 'single', label: '개인요청' },
+  { key: 'archived', label: '보관' },
 ];
 
 export default function ProRequestsPage() {
@@ -194,10 +197,10 @@ export default function ProRequestsPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const w = window as any;
-    const KEY_TO_LABEL: Record<string, string> = { all: '전체', multi: '다수요청', single: '개인요청' };
-    const LABEL_TO_KEY: Record<string, Filter> = { '전체': 'all', '다수요청': 'multi', '개인요청': 'single' };
+    const KEY_TO_LABEL: Record<string, string> = { all: '전체', multi: '다수요청', single: '개인요청', archived: '보관' };
+    const LABEL_TO_KEY: Record<string, Filter> = { '전체': 'all', '다수요청': 'multi', '개인요청': 'single', '보관': 'archived' };
     w.__freetifulInquiryList = {
-      getState: () => ({ tab: KEY_TO_LABEL[filter] || '전체', tabs: ['전체', '다수요청', '개인요청'] }),
+      getState: () => ({ tab: KEY_TO_LABEL[filter] || '전체', tabs: ['전체', '다수요청', '개인요청', '보관'] }),
       setTab: (label: string) => setFilter(LABEL_TO_KEY[label] || 'all'),
       getItems: () => inquiryItemsRef.current,
       invokeReject: (id: string) => { handleReject(id); },
@@ -306,8 +309,10 @@ export default function ProRequestsPage() {
   }, [refreshRequests]);
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return requests;
-    return requests.filter((request) => request.requestKind === filter);
+    if (filter === 'archived') return requests.filter((r) => r.status === 'archived');
+    const active = requests.filter((r) => r.status !== 'archived');
+    if (filter === 'all') return active;
+    return active.filter((request) => request.requestKind === filter);
   }, [filter, requests]);
 
   // ─── iOS 네이티브 새요청 행 데이터 브리지 ───
@@ -350,7 +355,7 @@ export default function ProRequestsPage() {
     try {
       await matchApi.respond(deliveryId, 'archive');
       setRequests((prev) => {
-        const next = prev.filter((request) => request.id !== deliveryId);
+        const next = prev.map((request) => request.id === deliveryId ? { ...request, status: 'archived' } : request);
         writeCache(next, authUser?.id);
         return next;
       });
