@@ -514,7 +514,8 @@ function ProsListContent() {
     let results = ALL_PROS.filter((p) => {
       if (selectedLang !== '전체' && !(p.languages || []).includes(selectedLang)) return false;
       if (selectedType === '외국어사회자' && (!p.languages || p.languages.length === 0)) return false;
-      if (selectedType !== '전체' && selectedType !== '외국어사회자' && !(p.categories || []).includes(selectedType)) return false;
+      // 결혼식/행사(사회자)는 승인+비숨김 전체 노출 (카테고리 제한 없음)
+      if (selectedType !== '전체' && selectedType !== '외국어사회자' && selectedType !== '사회자' && !(p.categories || []).includes(selectedType)) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !(p.categories || []).some((c) => c.toLowerCase().includes(q))) return false;
       if (!matchesRegion(p, selectedRegion)) return false;
       return true;
