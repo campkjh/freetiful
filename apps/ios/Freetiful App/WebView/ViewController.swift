@@ -811,7 +811,16 @@ class ViewController: UIViewController,
             view.bringSubviewToFront(nativeHomeHeader)
             let top = view.safeAreaInsets.top + 56
             nativeHomeContent.setInsets(top: top, bottom: 92)
-            if !hasLoadedHome { hasLoadedHome = true; nativeHomeContent.loadInitial() }
+            if !hasLoadedHome {
+                hasLoadedHome = true
+                nativeHomeContent.loadInitial()
+                // 레이스 보강: 웹 브리지 준비 타이밍에 따라 첫 요청이 비어올 수 있어 몇 번 재요청
+                for delay in [0.5, 1.2, 2.4, 4.0, 6.0] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                        self?.homeRequestPros(0)
+                    }
+                }
+            }
         }
 
         // 네이티브 헤더(리스트/마이) 아래에서 웹 콘텐츠 시작하도록 상단 인셋
