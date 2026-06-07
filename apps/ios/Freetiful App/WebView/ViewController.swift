@@ -49,7 +49,8 @@ class ViewController: UIViewController,
                       NativeHomeContentDelegate,
                       NativeMyContentDelegate,
                       NativeBackHeaderDelegate,
-                      NativeNotificationsDelegate {
+                      NativeNotificationsDelegate,
+                      NativeSearchDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -67,6 +68,8 @@ class ViewController: UIViewController,
     private var isOnDetail = false
     private let nativeNotifications = NativeNotificationsContent()   // 알림 화면 네이티브
     private var isOnNotifications = false
+    private let nativeSearch = NativeSearchContent()   // 검색 화면 네이티브
+    private var isOnSearch = false
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -648,6 +651,17 @@ class ViewController: UIViewController,
             nativeNotifications.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
+        // 검색 화면 네이티브 본문 (웹 위 덮음 — 자체 검색바)
+        nativeSearch.isHidden = true
+        nativeSearch.delegate = self
+        view.insertSubview(nativeSearch, belowSubview: nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeSearch.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeSearch.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeSearch.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeSearch.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
         nativeHomeHeader.delegate = self
         nativeHomeHeader.isHidden = true
@@ -880,6 +894,20 @@ class ViewController: UIViewController,
             nativeNotifications.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
             for delay in [0.0, 0.4, 1.2, 2.5] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestNotifications() }
+            }
+        }
+
+        // 검색 화면 (네이티브 글래스 검색바 + 결과)
+        let onSearch = currentNativePath == "/search"
+        if onSearch != isOnSearch {
+            isOnSearch = onSearch
+            nativeSearch.isHidden = !onSearch
+            if onSearch {
+                nativeSearch.setInsets(top: view.safeAreaInsets.top + 8, bottom: view.safeAreaInsets.bottom + 12)
+                view.bringSubviewToFront(nativeSearch)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.nativeSearch.focus() }
+            } else {
+                nativeSearch.resignSearch()
             }
         }
 
@@ -1153,6 +1181,16 @@ class ViewController: UIViewController,
     }
     func notificationDidDelete(_ id: String) {
         webView.evaluateJavaScript("(window.__freetifulNotifications && window.__freetifulNotifications.invokeDelete && window.__freetifulNotifications.invokeDelete(\(jsLiteral(id))));", completionHandler: nil)
+    }
+
+    // MARK: - NativeSearchDelegate
+    func searchDidTapPro(_ id: String) {
+        nativeSearch.resignSearch()
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros/' + \(jsLiteral(id))));", completionHandler: nil)
+    }
+    func searchDidCancel() {
+        if webView.canGoBack { webView.goBack() }
+        else { webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/main'));", completionHandler: nil) }
     }
     func homeOpenPath(_ path: String) {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)

@@ -35,6 +35,17 @@ enum NativeHomeData {
         }
     }
 
+    static func search(_ query: String, _ done: @escaping ([HomeProItem]) -> Void) {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { DispatchQueue.main.async { done([]) }; return }
+        let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
+        getJSON("\(base)/discovery/pros?search=\(enc)&limit=40&withTotal=false") { obj in
+            let arr = asArray(obj, keys: ["data", "items"])
+            let items = arr.map { proItem($0) }
+            DispatchQueue.main.async { done(items) }
+        }
+    }
+
     // MARK: - fetch
     private static func fetchPros(_ done: @escaping ([[String: Any]]) -> Void) {
         if let c = prosCache { done(c); return }
