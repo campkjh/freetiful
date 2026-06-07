@@ -1781,6 +1781,7 @@ export default function ProDetailPage() {
       <div className="lg:hidden" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
       {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
       <div
+        data-native-back-header
         className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
           headerSolid ? 'bg-white border-b border-gray-100 h-[60px] py-0' : 'justify-between pt-3 pb-3 px-4'
         }`}

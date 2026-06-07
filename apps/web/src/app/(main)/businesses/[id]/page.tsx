@@ -112,7 +112,7 @@ export default function BusinessDetailPage() {
 
   return (
     <div className="bg-white min-h-screen pb-24">
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg z-30 bg-white/90 backdrop-blur-sm border-b border-gray-100">
+      <div data-native-back-header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg z-30 bg-white/90 backdrop-blur-sm border-b border-gray-100">
         <div className="flex items-center justify-between px-4 h-12">
           <button onClick={() => router.back()} className="p-1"><ArrowLeft size={22} /></button>
           <div className="flex items-center gap-2">
