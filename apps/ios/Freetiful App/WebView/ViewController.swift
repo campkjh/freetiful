@@ -914,6 +914,10 @@ class ViewController: UIViewController,
     func chatMessagesQuoteTap(_ quotationId: String) {
         webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.openQuotePayment && window.__freetifulChat.openQuotePayment(\(jsLiteral(quotationId)));", completionHandler: nil)
     }
+    func chatMessagesImageTap(_ url: String) {
+        guard !url.isEmpty else { return }
+        present(NativeImageViewer(url: url), animated: true)
+    }
 
     // MARK: - NativeChatBarsDelegate
     func chatBarsDidTapBack() {

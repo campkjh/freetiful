@@ -30,6 +30,8 @@ protocol NativeChatMessagesDelegate: AnyObject {
     func chatMessagesReact(_ id: String, emoji: String)
     // 견적 카드 탭 → 결제
     func chatMessagesQuoteTap(_ quotationId: String)
+    // 이미지 탭 → 전체화면 확대
+    func chatMessagesImageTap(_ url: String)
 }
 
 // 네이티브 채팅 본문 (UITableView) — 글래스 헤더 아래 / 입력바 위
@@ -156,6 +158,7 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         if m.type == "image" && !m.imageUrl.isEmpty {
             let cell = tableView.dequeueReusableCell(withIdentifier: "image", for: indexPath) as! NativeChatImageCell
             cell.configure(m)
+            cell.onTap = { [weak self] url in self?.delegate?.chatMessagesImageTap(url) }
             return cell
         }
         let cell = tableView.dequeueReusableCell(withIdentifier: "bubble", for: indexPath) as! NativeChatBubbleCell
@@ -313,6 +316,7 @@ final class NativeChatBubbleCell: UITableViewCell {
 
 // MARK: - 이미지 말풍선 셀
 final class NativeChatImageCell: UITableViewCell {
+    var onTap: ((String) -> Void)?
     private let photo = UIImageView()
     private let timeLabel = UILabel()
     private var leadingC: NSLayoutConstraint!
@@ -338,6 +342,8 @@ final class NativeChatImageCell: UITableViewCell {
         photo.layer.cornerRadius = 16
         photo.layer.cornerCurve = .continuous
         photo.backgroundColor = UIColor(white: 0.90, alpha: 1)
+        photo.isUserInteractionEnabled = true
+        photo.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
         contentView.addSubview(photo)
 
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -357,6 +363,12 @@ final class NativeChatImageCell: UITableViewCell {
             timeLabel.topAnchor.constraint(equalTo: photo.bottomAnchor, constant: 2),
             timeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
         ])
+    }
+
+    @objc private func handleTap() {
+        guard !currentURL.isEmpty else { return }
+        Haptics.tap()
+        onTap?(currentURL)
     }
 
     func configure(_ m: NativeChatMessage) {
@@ -492,6 +504,70 @@ final class NativeChatQuoteCell: UITableViewCell {
         eventLabel.text = parts.joined(separator: "\n")
         eventLabel.isHidden = parts.isEmpty
         payHint.isHidden = quotationId.isEmpty
+    }
+}
+
+// MARK: - 전체화면 이미지 뷰어 (탭하여 확대/줌/닫기)
+final class NativeImageViewer: UIViewController, UIScrollViewDelegate {
+    private let scrollView = UIScrollView()
+    private let imageView = UIImageView()
+    private let urlString: String
+
+    init(url: String) {
+        self.urlString = url
+        super.init(nibName: nil, bundle: nil)
+        modalPresentationStyle = .overFullScreen
+        modalTransitionStyle = .crossDissolve
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+
+        scrollView.frame = view.bounds
+        scrollView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        scrollView.delegate = self
+        scrollView.minimumZoomScale = 1
+        scrollView.maximumZoomScale = 4
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.contentInsetAdjustmentBehavior = .never
+        view.addSubview(scrollView)
+
+        imageView.frame = scrollView.bounds
+        imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        imageView.contentMode = .scaleAspectFit
+        scrollView.addSubview(imageView)
+        NativeChatImageLoader.load(urlString, into: imageView, fallback: nil)
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissSelf))
+        let dbl = UITapGestureRecognizer(target: self, action: #selector(doubleTap(_:)))
+        dbl.numberOfTapsRequired = 2
+        tap.require(toFail: dbl)
+        scrollView.addGestureRecognizer(tap)
+        scrollView.addGestureRecognizer(dbl)
+
+        let close = UIButton(type: .system)
+        close.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .bold)), for: .normal)
+        close.tintColor = .white
+        close.backgroundColor = UIColor(white: 0, alpha: 0.4)
+        close.layer.cornerRadius = 20
+        close.translatesAutoresizingMaskIntoConstraints = false
+        close.addTarget(self, action: #selector(dismissSelf), for: .touchUpInside)
+        view.addSubview(close)
+        NSLayoutConstraint.activate([
+            close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            close.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            close.widthAnchor.constraint(equalToConstant: 40),
+            close.heightAnchor.constraint(equalToConstant: 40),
+        ])
+    }
+
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+    @objc private func dismissSelf() { dismiss(animated: true) }
+    @objc private func doubleTap(_ gr: UITapGestureRecognizer) {
+        scrollView.setZoomScale(scrollView.zoomScale > 1 ? 1 : 2.5, animated: true)
     }
 }
 
