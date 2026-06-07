@@ -1298,8 +1298,8 @@ export default function HomePage() {
         const items = list.map((p: any) => ({
           id: p.id,
           name: p.name || p.user?.name || '사회자',
-          image: abs(p.image || p.images?.[0]?.imageUrl || p.user?.profileImageUrl || ''),
-          rating: Number(p.avgRating) || 0,
+          image: abs(p.image || p.profileImageUrl || p.mainImage || (Array.isArray(p.images) ? (typeof p.images[0] === 'string' ? p.images[0] : p.images?.[0]?.imageUrl) : '') || p.user?.profileImageUrl || ''),
+          rating: Number(p.avgRating ?? p.rating) || 0,
           reviewCount: p.reviewCount || 0,
           intro: p.shortIntro || p.mainExperience || '',
         }));
