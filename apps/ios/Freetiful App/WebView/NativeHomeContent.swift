@@ -43,8 +43,6 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     private var catLists: [UIStackView] = []
     private var catEmpties: [UILabel] = []
     private var currentTab = 0
-    private var requestedCats = Set<Int>()
-    private var requestedSections = false
 
     private var topInset: CGFloat = 0
     private var bottomInset: CGFloat = 0
@@ -165,8 +163,12 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     func setSections(_ data: HomeSectionsData) { homeAll.setSections(data) }
 
     func loadInitial() {
-        requestSectionsIfNeeded()
-        for cat in 1...3 { requestCatIfNeeded(cat) }
+        // 네이티브가 API 직접 호출 (웹 브리지/Vercel 캐시 무관)
+        NativeHomeData.loadSections { [weak self] d in self?.homeAll.setSections(d) }
+        NativeHomeData.loadBanners { [weak self] b in self?.homeAll.setBanners(b) }
+        for cat in 1...3 {
+            NativeHomeData.loadCategory(cat) { [weak self] items in self?.setPros(categoryIndex: cat, items: items) }
+        }
     }
 
     func showTab(_ tab: Int, animated: Bool) {
@@ -175,19 +177,6 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         categoryTabs.select(tab)
         let w = pager.bounds.width
         if w > 0 { pager.setContentOffset(CGPoint(x: CGFloat(tab) * w, y: 0), animated: animated) }
-        if tab == 0 { requestSectionsIfNeeded() } else { requestCatIfNeeded(tab) }
-    }
-
-    private func requestSectionsIfNeeded() {
-        guard !requestedSections else { return }
-        requestedSections = true
-        delegate?.homeRequestSections()
-    }
-    private func requestCatIfNeeded(_ cat: Int) {
-        guard cat >= 1, cat <= 3 else { return }
-        guard !requestedCats.contains(cat) else { return }
-        requestedCats.insert(cat)
-        delegate?.homeRequestPros(cat)   // 1=결혼식,2=행사,3=외국어
     }
 
     func scrollViewDidEndDecelerating(_ sv: UIScrollView) {
@@ -198,7 +187,6 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
             categoryTabs.select(tab)
             Haptics.tap() // 스와이프 전환 진동
         }
-        if tab == 0 { requestSectionsIfNeeded() } else { requestCatIfNeeded(tab) }
     }
 
     // categoryIndex: 1=결혼식,2=행사,3=외국어

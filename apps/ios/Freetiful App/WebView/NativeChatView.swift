@@ -48,6 +48,15 @@ enum NativeChatImageLoader {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         // 빈 값이거나 SVG(기본 프로필 이미지)면 네이티브 플레이스홀더 유지 — UIImage 는 SVG 디코드 불가
         guard !trimmed.isEmpty, !trimmed.lowercased().hasSuffix(".svg") else { return }
+        // data: URI (배너 등 인라인 base64) — URLSession 미지원이라 직접 디코드
+        if trimmed.hasPrefix("data:") {
+            if let comma = trimmed.firstIndex(of: ","),
+               let d = Data(base64Encoded: String(trimmed[trimmed.index(after: comma)...]).trimmingCharacters(in: .whitespacesAndNewlines)),
+               let img = UIImage(data: d) {
+                imageView.image = img
+            }
+            return
+        }
         let full: String
         if trimmed.hasPrefix("http") {
             full = trimmed

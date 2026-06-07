@@ -112,7 +112,7 @@ final class NativeHomeAllView: UIView {
         banner.heightAnchor.constraint(equalTo: banner.widthAnchor, multiplier: 300.0 / 1170.0).isActive = true
 
         // 4) BEST 결혼식 사회자 (포디움)
-        let bestHeader = HomeSectionHeader(title: "BEST 결혼식 사회자", subtitle: "검증된 인기 사회자", trophy: true)
+        let bestHeader = HomeSectionHeader(title: "BEST 결혼식 사회자", subtitle: "검증된 인기 사회자", trophyURL: "\(imageBase)/images/trophy.png")
         bestHeader.onMore = { [weak self] in self?.delegate?.homeOpenPath("/pros") }
         bestPodium.onSelect = { [weak self] id in self?.delegate?.homeOpenPro(id) }
         stack.addArrangedSubview(padded(stackV([bestHeader, bestPodium], spacing: 14), h: 16))
@@ -130,13 +130,13 @@ final class NativeHomeAllView: UIView {
         stack.addArrangedSubview(dressSection)
 
         // 7) 더 많은 사회자 (그리드)
-        let moreHeader = HomeSectionHeader(title: "프리티풀의 더 많은 사회자", subtitle: "고객 만족도가 높은 사회자를 만나보세요", trophy: false)
+        let moreHeader = HomeSectionHeader(title: "프리티풀의 더 많은 사회자", subtitle: "고객 만족도가 높은 사회자를 만나보세요")
         moreHeader.onMore = { [weak self] in self?.delegate?.homeOpenPath("/pros") }
         moreGrid.onSelect = { [weak self] id in self?.delegate?.homeOpenPro(id) }
         stack.addArrangedSubview(padded(stackV([moreHeader, moreGrid], spacing: 14), h: 16))
 
         // 8) 행사 사회자 (그리드)
-        let eventHeader = HomeSectionHeader(title: "프리티풀의 행사 사회자", subtitle: "기업행사와 컨퍼런스에 어울리는 사회자를 만나보세요", trophy: false)
+        let eventHeader = HomeSectionHeader(title: "프리티풀의 행사 사회자", subtitle: "기업행사와 컨퍼런스에 어울리는 사회자를 만나보세요")
         eventHeader.onMore = { [weak self] in self?.delegate?.homeOpenPath("/pros?category=전문행사사회자") }
         eventGrid.onSelect = { [weak self] id in self?.delegate?.homeOpenPro(id) }
         stack.addArrangedSubview(padded(stackV([eventHeader, eventGrid], spacing: 14), h: 16))
@@ -177,7 +177,7 @@ final class NativeHomeAllView: UIView {
     }
 
     private func buildCarouselSection(title: String, subtitle: String, more: String, carousel: HomeBusinessCarousel) -> UIView {
-        let header = HomeSectionHeader(title: title, subtitle: subtitle, trophy: false)
+        let header = HomeSectionHeader(title: title, subtitle: subtitle)
         header.onMore = { [weak self] in self?.delegate?.homeOpenPath(more) }
         let wrap = UIStackView(arrangedSubviews: [padded(header, h: 16), carousel])
         wrap.axis = .vertical
@@ -212,7 +212,7 @@ final class NativeHomeAllView: UIView {
 final class HomeSectionHeader: UIView {
     var onMore: (() -> Void)?
 
-    init(title: String, subtitle: String, trophy: Bool) {
+    init(title: String, subtitle: String, trophyURL: String? = nil) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 
@@ -234,11 +234,14 @@ final class HomeSectionHeader: UIView {
         leading.axis = .horizontal
         leading.spacing = 8
         leading.alignment = .center
-        if trophy {
-            let trophyIcon = UILabel()
-            trophyIcon.text = "🏆"
-            trophyIcon.font = .systemFont(ofSize: 30)
-            leading.addArrangedSubview(trophyIcon)
+        if let trophyURL = trophyURL {
+            let trophy = UIImageView()
+            trophy.translatesAutoresizingMaskIntoConstraints = false
+            trophy.contentMode = .scaleAspectFit
+            NativeChatImageLoader.load(trophyURL, into: trophy, fallback: nil)
+            trophy.widthAnchor.constraint(equalToConstant: 40).isActive = true
+            trophy.heightAnchor.constraint(equalToConstant: 40).isActive = true
+            leading.addArrangedSubview(trophy)
         }
         leading.addArrangedSubview(textCol)
 
