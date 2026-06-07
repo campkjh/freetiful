@@ -201,6 +201,7 @@ export default function ProRequestsPage() {
       setTab: (label: string) => setFilter(LABEL_TO_KEY[label] || 'all'),
       getItems: () => inquiryItemsRef.current,
       invokeReject: (id: string) => { handleReject(id); },
+      invokeArchive: (id: string) => { handleArchive(id); },
       invokeChat: (id: string) => {
         const r = requestsRef.current.find((x) => x.id === id);
         if (r) handleStartChat(r);
@@ -342,6 +343,21 @@ export default function ProRequestsPage() {
       toast.success('요청을 거절했습니다');
     } catch (e: any) {
       toast.error(`거절 실패: ${e?.response?.data?.message || e?.message || ''}`);
+    }
+  }
+
+  async function handleArchive(deliveryId: string) {
+    try {
+      await matchApi.respond(deliveryId, 'archive');
+      setRequests((prev) => {
+        const next = prev.filter((request) => request.id !== deliveryId);
+        writeCache(next, authUser?.id);
+        return next;
+      });
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      toast.success('요청을 보관했습니다');
+    } catch (e: any) {
+      toast.error(`보관 실패: ${e?.response?.data?.message || e?.message || ''}`);
     }
   }
 

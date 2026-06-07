@@ -18,6 +18,7 @@ struct NativeInquiryItem {
 protocol NativeInquiryContentDelegate: AnyObject {
     func inquiryDidTapChat(_ id: String)
     func inquiryDidTapReject(_ id: String)
+    func inquiryDidArchive(_ id: String)
 }
 
 // MARK: - 패딩 라벨 (뱃지/칩용)
@@ -152,6 +153,19 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
         cell.onChat = { [weak self] id in self?.delegate?.inquiryDidTapChat(id) }
         cell.onReject = { [weak self] id in self?.delegate?.inquiryDidTapReject(id) }
         return cell
+    }
+
+    // 우→좌 스와이프 → 보관
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard indexPath.row < items.count else { return nil }
+        let id = items[indexPath.row].id
+        let archive = UIContextualAction(style: .normal, title: "보관") { [weak self] _, _, done in
+            Haptics.tap()
+            self?.delegate?.inquiryDidArchive(id)
+            done(true)
+        }
+        archive.backgroundColor = UIColor(white: 0.45, alpha: 1)
+        return UISwipeActionsConfiguration(actions: [archive])
     }
 }
 

@@ -935,6 +935,9 @@ class ViewController: UIViewController,
     func inquiryDidTapReject(_ id: String) {
         webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeReject && window.__freetifulInquiryList.invokeReject(\(jsLiteral(id)));", completionHandler: nil)
     }
+    func inquiryDidArchive(_ id: String) {
+        webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeArchive && window.__freetifulInquiryList.invokeArchive(\(jsLiteral(id)));", completionHandler: nil)
+    }
 
     // MARK: - 채팅 본문(네이티브 메시지) (B3)
     private func requestNativeChatMessages() {
