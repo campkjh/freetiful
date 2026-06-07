@@ -162,6 +162,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     // MARK: 데이터
     func setBanners(_ items: [HomeBanner]) { homeAll.setBanners(items) }
     func setSections(_ data: HomeSectionsData) { homeAll.setSections(data) }
+    func setBusinessSections(_ sections: [HomeBusinessSection]) { homeAll.setBusinessSections(sections) }
 
     func loadInitial() {
         // 네이티브가 API 직접 호출 (웹 브리지/Vercel 캐시 무관)

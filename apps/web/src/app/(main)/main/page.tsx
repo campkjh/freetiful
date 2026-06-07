@@ -1648,6 +1648,28 @@ export default function HomePage() {
   }, []);
 
   const businessPartnerSections = useMemo(() => getBusinessPartnerSections(businesses), [businesses]);
+  // 네이티브 홈 웨딩파트너 섹션 브리지 (웹 큐레이션 이미지 사용 — API 원본이 엉뚱한 문제 해결)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const post = () => {
+      const sections = businessPartnerSections.map((s) => ({
+        category: s.category,
+        items: s.businesses.slice(0, 10).map((b) => ({
+          id: b.id,
+          name: b.name,
+          location: b.location || '',
+          image: (b.images && b.images[0]) || '',
+          tags: Array.isArray(b.tags) ? b.tags.slice(0, 3) : [],
+          isPopular: Boolean(b.isPopular),
+        })),
+      }));
+      (window as any).webkit?.messageHandlers?.nativeHomeBusiness?.postMessage({ sections });
+    };
+    (window as any).__freetifulBusinessPost = post;
+    post();
+    const t = setTimeout(post, 1500);
+    return () => { clearTimeout(t); try { delete (window as any).__freetifulBusinessPost; } catch {} };
+  }, [businessPartnerSections]);
   const warmProsList = () => {
     discoveryApi.getProList({ limit: 100, sort: 'reviews', withTotal: false, realtime: true }).catch(() => {});
   };

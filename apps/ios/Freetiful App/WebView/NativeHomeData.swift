@@ -82,11 +82,9 @@ enum NativeHomeData {
             event += pros.filter { !ids.contains(($0["id"] as? String) ?? "") }
         }
         let eventPros = event.prefix(9).map { proCard($0) }
-        let sections: [HomeBusinessSection] = bizCategories.compactMap { cat in
-            let items = biz.filter { bizMatches($0, cat) }.prefix(8).enumerated().map { bizItem($1, popular: $0 < 2) }
-            return items.isEmpty ? nil : HomeBusinessSection(category: cat, items: Array(items))
-        }
-        return HomeSectionsData(best: Array(best), morePros: Array(morePros), eventPros: Array(eventPros), businessSections: sections)
+        // 업체(웨딩파트너)는 웹 큐레이션 브리지(nativeHomeBusiness)로 받음 — API 원본 이미지가 엉뚱해서 여기선 비움
+        _ = biz
+        return HomeSectionsData(best: Array(best), morePros: Array(morePros), eventPros: Array(eventPros), businessSections: [])
     }
 
     private static func filterCategory(_ index: Int, _ pros: [[String: Any]]) -> [[String: Any]] {

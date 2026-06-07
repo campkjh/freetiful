@@ -142,9 +142,13 @@ final class NativeHomeAllView: UIView {
         bestPodium.setPros(Array(data.best.prefix(3)))
         moreGrid.setItems(Array(data.morePros.prefix(9)))
         eventGrid.setItems(Array(data.eventPros.prefix(9)))
-        // 웨딩파트너 섹션 동적 구성 (웨딩홀→드레스→피부과→스튜디오→헤어→메이크업→스냅)
+        if !data.businessSections.isEmpty { setBusinessSections(data.businessSections) }
+    }
+
+    // 웨딩파트너 섹션 (웹 큐레이션 브리지에서 받음 — 웨딩홀→드레스→피부과→스튜디오→헤어→메이크업→스냅)
+    func setBusinessSections(_ sections: [HomeBusinessSection]) {
         businessContainer.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for sec in data.businessSections {
+        for sec in sections {
             let carousel = HomeBusinessCarousel()
             carousel.onSelect = { [weak self] id in self?.delegate?.homeOpenBusiness(id) }
             carousel.setItems(sec.items)

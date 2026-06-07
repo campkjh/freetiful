@@ -145,7 +145,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile", "nativeHomeBusiness"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -863,16 +863,13 @@ class ViewController: UIViewController,
             view.bringSubviewToFront(nativeHomeHeader)
             let top = view.safeAreaInsets.top + 58
             nativeHomeContent.setInsets(top: top, bottom: 92)
+            homeRequestBusiness()   // 웹 큐레이션 웨딩파트너 요청 (매 진입)
             if !hasLoadedHome {
                 hasLoadedHome = true
-                nativeHomeContent.loadInitial()
-                // 레이스 보강: 웹 브리지 준비 타이밍에 따라 첫 요청이 비어올 수 있어 몇 번 재요청 (1=결혼식,2=행사,3=외국어)
-                for delay in [0.6, 1.5, 3.0, 5.0] {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                        self?.homeRequestPros(1)
-                        self?.homeRequestPros(2)
-                        self?.homeRequestPros(3)
-                    }
+                nativeHomeContent.loadInitial()   // 사회자/배너는 NativeHomeData 직접 fetch (전체)
+                // 웨딩파트너 큐레이션 레이스 보강
+                for delay in [0.5, 1.5, 3.0, 5.0] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.homeRequestBusiness() }
                 }
             }
         }
@@ -1077,6 +1074,24 @@ class ViewController: UIViewController,
     }
     func homeRequestPros(_ categoryIndex: Int) {
         webView.evaluateJavaScript("(window.__freetifulHomeRowsPost && window.__freetifulHomeRowsPost(\(categoryIndex)));", completionHandler: nil)
+    }
+    func homeRequestBusiness() {
+        webView.evaluateJavaScript("(window.__freetifulBusinessPost && window.__freetifulBusinessPost());", completionHandler: nil)
+    }
+    private func handleNativeHomeBusiness(_ body: Any) {
+        guard let dict = body as? [String: Any] else { return }
+        let arr = (dict["sections"] as? [[String: Any]]) ?? []
+        let sections: [HomeBusinessSection] = arr.compactMap { s in
+            guard let cat = s["category"] as? String else { return nil }
+            let items = ((s["items"] as? [[String: Any]]) ?? []).compactMap { (d: [String: Any]) -> HomeBusiness? in
+                guard let id = d["id"] as? String else { return nil }
+                return HomeBusiness(id: id, name: (d["name"] as? String) ?? "", location: (d["location"] as? String) ?? "",
+                                    image: (d["image"] as? String) ?? "", tags: (d["tags"] as? [String]) ?? [],
+                                    isPopular: (d["isPopular"] as? Bool) ?? false)
+            }
+            return items.isEmpty ? nil : HomeBusinessSection(category: cat, items: items)
+        }
+        if !sections.isEmpty { nativeHomeContent.setBusinessSections(sections) }
     }
     func homeOpenPath(_ path: String) {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
@@ -1515,6 +1530,7 @@ class ViewController: UIViewController,
         case "nativeHomeRows": handleNativeHomeRows(message.body)
         case "nativeHomeBanners": handleNativeHomeBanners(message.body)
         case "nativeMyProfile": handleNativeMyProfile(message.body)
+        case "nativeHomeBusiness": handleNativeHomeBusiness(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
