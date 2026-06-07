@@ -422,8 +422,8 @@ final class HomeBestPodium: UIView {
         img.translatesAutoresizingMaskIntoConstraints = false
         img.contentMode = .scaleAspectFill
         img.clipsToBounds = true
-        img.layer.cornerRadius = 200           // 오벌/필 형태 (1·2·3 동일, min변 절반으로 클램프)
-        img.layer.cornerCurve = .continuous
+        img.layer.cornerRadius = 150           // 둥근/필 형태 (1·2·3 동일)
+        img.layer.cornerCurve = .circular      // .continuous 는 큰 r에서 마름모처럼 뾰족해짐 → .circular
         img.layer.borderWidth = 2              // 보더 얇게
         img.layer.borderColor = rankColor(rank).cgColor
         img.backgroundColor = UIColor(white: 0.93, alpha: 1)

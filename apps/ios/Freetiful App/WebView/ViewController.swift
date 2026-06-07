@@ -815,8 +815,12 @@ class ViewController: UIViewController,
         if onMy {
             view.bringSubviewToFront(nativeMyContent)
             view.bringSubviewToFront(nativeMyHeader)
+            view.bringSubviewToFront(nativeNavBar)   // 하단 네비바가 본문 위에 보이도록
             nativeMyContent.setInsets(top: view.safeAreaInsets.top + 56, bottom: 92)
-            requestMyProfile()
+            // 브리지 준비 타이밍 보강 — 프로필 몇 번 재요청
+            for delay in [0.0, 0.4, 1.2, 2.5] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestMyProfile() }
+            }
         }
 
         // 홈 글래스 헤더 (스페이서가 공간 확보하므로 콘텐츠 인셋은 변경 안 함)

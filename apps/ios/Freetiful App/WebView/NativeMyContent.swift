@@ -69,7 +69,7 @@ final class NativeMyContent: UIView {
 
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = .white
+        backgroundColor = UIColor(red: 0.949, green: 0.957, blue: 0.965, alpha: 1) // 연회색 (글래스 카드 대비)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.alwaysBounceVertical = true
@@ -98,8 +98,8 @@ final class NativeMyContent: UIView {
         for sec in Self.sections { stack.addArrangedSubview(buildSection(sec.title, sec.items)) }
         stack.addArrangedSubview(buildLogout())
 
-        // 기본: 로그인 안 된 상태로 시작
-        applyProfile(MyProfile(loggedIn: false, name: "", email: "", image: "", proPending: false))
+        // 기본: 로그인됨 placeholder — 브리지 도착 전 '로그인 필요' 오표시 방지
+        applyProfile(MyProfile(loggedIn: true, name: "", email: "", image: "", proPending: false))
     }
 
     // MARK: 데이터
@@ -232,20 +232,21 @@ final class NativeMyContent: UIView {
         rows.spacing = 0
         for item in items { rows.addArrangedSubview(buildRow(item)) }
 
-        let card = UIView()
+        // 글래스 섹션 카드 (iOS 26 리퀴드 글래스) — 내용은 contentView 에 추가(크래시 방지)
+        let card = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
         card.translatesAutoresizingMaskIntoConstraints = false
-        card.backgroundColor = .white
         card.layer.cornerRadius = 16
         card.layer.cornerCurve = .continuous
+        card.clipsToBounds = true
         card.layer.borderWidth = 0.5
-        card.layer.borderColor = UIColor(white: 0.92, alpha: 1).cgColor
+        card.layer.borderColor = UIColor.white.withAlphaComponent(0.45).cgColor
         rows.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(rows)
+        card.contentView.addSubview(rows)
         NSLayoutConstraint.activate([
-            rows.topAnchor.constraint(equalTo: card.topAnchor, constant: 4),
-            rows.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -4),
-            rows.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            rows.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            rows.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 4),
+            rows.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor, constant: -4),
+            rows.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
+            rows.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor),
         ])
         let cardWrap = UIView()
         cardWrap.translatesAutoresizingMaskIntoConstraints = false
