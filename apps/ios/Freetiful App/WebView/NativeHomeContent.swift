@@ -7,6 +7,9 @@ protocol NativeHomeContentDelegate: AnyObject {
     func homeOpenPro(_ proId: String)
     func homeRequestPros(_ categoryIndex: Int)
     func homeOpenBanner(_ link: String)
+    func homeOpenPath(_ path: String)        // 카테고리 아이콘 / 전체보기
+    func homeOpenBusiness(_ id: String)
+    func homeRequestSections()               // 전체(홈) 섹션 데이터 요청
 }
 
 struct HomeBanner {
@@ -30,31 +33,26 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     weak var delegate: NativeHomeContentDelegate?
     private let imageBase: String
 
-    // 헤더 탭: 전체(=웹 홈) / 결혼식사회자 / 행사사회자 / 외국어사회자
+    // 헤더 탭: 전체(=네이티브 홈) / 결혼식사회자 / 행사사회자 / 외국어사회자
     private let tabTitles = ["전체", "결혼식사회자", "행사사회자", "외국어사회자"]
-    private let categoryCount = 3  // 결혼식/행사/외국어 (전체 제외)
     private let categoryTabs = HomeCategoryTabsView()
     private let pager = UIScrollView()
     private let pageRow = UIStackView()
-    private var pageScrolls: [UIScrollView] = []   // 0=결혼식,1=행사,2=외국어
-    private var pageLists: [UIStackView] = []
-    private var pageEmpties: [UILabel] = []
-    private var currentTab = 0   // 0=전체, 1~3=카테고리
-    private var requestedPages = Set<Int>()
+    private let homeAll: NativeHomeAllView          // page 0 (전체)
+    private var catScrolls: [UIScrollView] = []     // page 1~3 (결혼식/행사/외국어)
+    private var catLists: [UIStackView] = []
+    private var catEmpties: [UILabel] = []
+    private var currentTab = 0
+    private var requestedCats = Set<Int>()
+    private var requestedSections = false
 
     private var topInset: CGFloat = 0
     private var bottomInset: CGFloat = 0
     private var tabsTop: NSLayoutConstraint!
 
-    // 빈 영역(전체=웹 모드의 페이저 아래) 터치는 뒤의 웹뷰로 통과
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let v = super.hitTest(point, with: event)
-        if v === self { return nil }
-        return v
-    }
-
     init(imageBase: String) {
         self.imageBase = imageBase
+        self.homeAll = NativeHomeAllView(imageBase: imageBase)
         super.init(frame: .zero)
         setup()
     }
@@ -65,7 +63,8 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         topInset = top
         bottomInset = bottom
         tabsTop?.constant = top
-        for s in pageScrolls {
+        homeAll.setInsets(top: 0, bottom: bottom)
+        for s in catScrolls {
             s.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
             s.verticalScrollIndicatorInsets = UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
         }
@@ -73,7 +72,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
 
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = .clear   // 전체(웹) 모드에서 뒤 웹뷰가 비치도록
+        backgroundColor = .white
 
         // 헤더 탭 (상단 고정 — 글래스 헤더 바로 아래)
         categoryTabs.translatesAutoresizingMaskIntoConstraints = false
@@ -83,14 +82,13 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         addSubview(categoryTabs)
         tabsTop = categoryTabs.topAnchor.constraint(equalTo: topAnchor, constant: topInset)
 
-        // 좌우 스와이프 페이저 (카테고리 3개) — 전체 탭에선 숨겨 웹 노출
+        // 좌우 스와이프 페이저 (전체 + 카테고리 3개 = 4페이지)
         pager.translatesAutoresizingMaskIntoConstraints = false
         pager.isPagingEnabled = true
         pager.showsHorizontalScrollIndicator = false
         pager.delegate = self
         pager.backgroundColor = .white
         pager.contentInsetAdjustmentBehavior = .never
-        pager.isHidden = true   // 기본 전체(웹)
         addSubview(pager)
 
         NSLayoutConstraint.activate([
@@ -116,7 +114,13 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
             pageRow.heightAnchor.constraint(equalTo: pager.frameLayoutGuide.heightAnchor),
         ])
 
-        for _ in 0..<categoryCount {
+        // page 0 — 전체 (네이티브 홈 본문)
+        homeAll.delegate = self
+        pageRow.addArrangedSubview(homeAll)
+        homeAll.widthAnchor.constraint(equalTo: pager.frameLayoutGuide.widthAnchor).isActive = true
+
+        // page 1~3 — 카테고리 리스트
+        for _ in 0..<3 {
             let pageScroll = UIScrollView()
             pageScroll.translatesAutoresizingMaskIntoConstraints = false
             pageScroll.alwaysBounceVertical = true
@@ -124,7 +128,6 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
             pageScroll.backgroundColor = .white
             pageScroll.contentInsetAdjustmentBehavior = .never
             pageRow.addArrangedSubview(pageScroll)
-            // 계층 추가 후 width 제약 활성화 (frameLayoutGuide 공통조상 필요)
             pageScroll.widthAnchor.constraint(equalTo: pager.frameLayoutGuide.widthAnchor).isActive = true
 
             let content = UIStackView()
@@ -151,65 +154,61 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
             empty.textAlignment = .center
             content.addArrangedSubview(empty)
 
-            pageScrolls.append(pageScroll)
-            pageLists.append(list)
-            pageEmpties.append(empty)
+            catScrolls.append(pageScroll)
+            catLists.append(list)
+            catEmpties.append(empty)
         }
     }
 
-    func setBanners(_ items: [HomeBanner]) { /* 전체(홈)는 웹뷰가 표시 — 네이티브 배너 미사용 */ }
+    // MARK: 데이터
+    func setBanners(_ items: [HomeBanner]) { homeAll.setBanners(items) }
+    func setSections(_ data: HomeSectionsData) { homeAll.setSections(data) }
 
-    // 표시 시점 — 카테고리 리스트(결혼식/행사/외국어) 미리 요청
     func loadInitial() {
-        for page in 0..<categoryCount { requestPageIfNeeded(page) }
+        requestSectionsIfNeeded()
+        for cat in 1...3 { requestCatIfNeeded(cat) }
     }
 
-    // 탭 전환: 0=전체(페이저 숨겨 웹 노출), 1~3=카테고리(페이저 표시)
     func showTab(_ tab: Int, animated: Bool) {
         guard tab >= 0, tab < tabTitles.count else { return }
         currentTab = tab
         categoryTabs.select(tab)
-        if tab == 0 {
-            pager.isHidden = true
-        } else {
-            pager.isHidden = false
-            let page = tab - 1
-            let w = pager.bounds.width
-            if w > 0 { pager.setContentOffset(CGPoint(x: CGFloat(page) * w, y: 0), animated: animated) }
-            requestPageIfNeeded(page)
-        }
+        let w = pager.bounds.width
+        if w > 0 { pager.setContentOffset(CGPoint(x: CGFloat(tab) * w, y: 0), animated: animated) }
+        if tab == 0 { requestSectionsIfNeeded() } else { requestCatIfNeeded(tab) }
     }
 
-    // 현재 전체(웹) 모드인지
-    var isShowingWebHome: Bool { currentTab == 0 }
-
-    private func requestPageIfNeeded(_ page: Int) {
-        guard page >= 0, page < categoryCount else { return }
-        guard !requestedPages.contains(page) else { return }
-        requestedPages.insert(page)
-        delegate?.homeRequestPros(page + 1)   // 웹 인덱스 1=결혼식,2=행사,3=외국어
+    private func requestSectionsIfNeeded() {
+        guard !requestedSections else { return }
+        requestedSections = true
+        delegate?.homeRequestSections()
+    }
+    private func requestCatIfNeeded(_ cat: Int) {
+        guard cat >= 1, cat <= 3 else { return }
+        guard !requestedCats.contains(cat) else { return }
+        requestedCats.insert(cat)
+        delegate?.homeRequestPros(cat)   // 1=결혼식,2=행사,3=외국어
     }
 
     func scrollViewDidEndDecelerating(_ sv: UIScrollView) {
         guard sv == pager, pager.bounds.width > 0 else { return }
-        let page = Int(round(pager.contentOffset.x / pager.bounds.width))
-        let tab = page + 1
+        let tab = Int(round(pager.contentOffset.x / pager.bounds.width))
         if tab != currentTab {
             currentTab = tab
             categoryTabs.select(tab)
             Haptics.tap() // 스와이프 전환 진동
         }
-        requestPageIfNeeded(page)
+        if tab == 0 { requestSectionsIfNeeded() } else { requestCatIfNeeded(tab) }
     }
 
-    // categoryIndex: 웹 인덱스(1=결혼식,2=행사,3=외국어)
+    // categoryIndex: 1=결혼식,2=행사,3=외국어
     func setPros(categoryIndex: Int, items: [HomeProItem]) {
-        let page = categoryIndex - 1
-        guard page >= 0, page < pageLists.count else { return }
-        let list = pageLists[page]
+        let idx = categoryIndex - 1
+        guard idx >= 0, idx < catLists.count else { return }
+        let list = catLists[idx]
         list.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        pageEmpties[page].text = items.isEmpty ? "사회자가 없습니다" : ""
-        pageEmpties[page].isHidden = !items.isEmpty
+        catEmpties[idx].text = items.isEmpty ? "사회자가 없습니다" : ""
+        catEmpties[idx].isHidden = !items.isEmpty
         for item in items.prefix(12) {
             let cell = HomeProCell(item: item)
             cell.onTap = { [weak self] id in self?.delegate?.homeOpenPro(id) }
@@ -218,13 +217,23 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     }
 }
 
+// NativeHomeAllView(전체) 액션을 상위 델리게이트로 전달
+extension NativeHomeContent: NativeHomeAllDelegate {
+    func homeOpenWeddingFind() { delegate?.homeOpenWeddingFind() }
+    func homeOpenEventRequest() { delegate?.homeOpenEventRequest() }
+    func homeOpenPath(_ path: String) { delegate?.homeOpenPath(path) }
+    func homeOpenPro(_ id: String) { delegate?.homeOpenPro(id) }
+    func homeOpenBusiness(_ id: String) { delegate?.homeOpenBusiness(id) }
+    func homeOpenBanner(_ link: String) { delegate?.homeOpenBanner(link) }
+}
+
 // MARK: - 히어로 카드 (정사각형, 배경 이미지 + 흰 그라데이션 + 타이틀 + 프레스 애니메이션)
 final class HeroCardView: UIControl {
     var onTap: (() -> Void)?
     private let bg = UIImageView()
     private let overlay = CAGradientLayer()
 
-    init(imageURL: String, line1: String, line2: String, showChevron: Bool) {
+    init(imageURL: String, line1: String, line2: String, showChevron: Bool, badge: String? = nil) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         layer.cornerRadius = 18
@@ -278,6 +287,23 @@ final class HeroCardView: UIControl {
             titleStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             titleStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
         ])
+
+        if let badge = badge {
+            let pill = PaddingLabel()
+            pill.text = badge
+            pill.font = .systemFont(ofSize: 11, weight: .bold)
+            pill.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+            pill.backgroundColor = UIColor(red: 0.90, green: 0.94, blue: 1.0, alpha: 0.95)
+            pill.layer.cornerRadius = 11
+            pill.clipsToBounds = true
+            pill.translatesAutoresizingMaskIntoConstraints = false
+            pill.isUserInteractionEnabled = false
+            addSubview(pill)
+            NSLayoutConstraint.activate([
+                pill.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+                pill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            ])
+        }
 
         if showChevron {
             let chev = UIImageView(image: UIImage(systemName: "chevron.right", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)))

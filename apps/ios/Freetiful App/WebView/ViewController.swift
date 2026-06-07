@@ -140,7 +140,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeHomeSections"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -825,19 +825,10 @@ class ViewController: UIViewController,
             }
         }
 
-        // 웹 콘텐츠 인셋: 홈=글래스헤더(58)+탭(46) 아래 + 하단 탭바, 리스트/마이=네이티브 헤더 아래
-        if onHome {
-            webView.scrollView.contentInset.top = 104
-            webView.scrollView.verticalScrollIndicatorInsets.top = 104
-            webView.scrollView.contentInset.bottom = 72
-            webView.scrollView.verticalScrollIndicatorInsets.bottom = 72
-        } else {
-            let needsHeaderInset = onList || onMy
-            webView.scrollView.contentInset.top = needsHeaderInset ? 88 : 0
-            webView.scrollView.verticalScrollIndicatorInsets.top = needsHeaderInset ? 88 : 0
-            webView.scrollView.contentInset.bottom = 0
-            webView.scrollView.verticalScrollIndicatorInsets.bottom = 0
-        }
+        // 네이티브 헤더(리스트/마이) 아래에서 웹 콘텐츠 시작하도록 상단 인셋 (홈은 네이티브가 덮음)
+        let needsHeaderInset = onList || onMy
+        webView.scrollView.contentInset.top = needsHeaderInset ? 88 : 0
+        webView.scrollView.verticalScrollIndicatorInsets.top = needsHeaderInset ? 88 : 0
 
         // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"
@@ -1033,6 +1024,40 @@ class ViewController: UIViewController,
     }
     func homeRequestPros(_ categoryIndex: Int) {
         webView.evaluateJavaScript("(window.__freetifulHomeRowsPost && window.__freetifulHomeRowsPost(\(categoryIndex)));", completionHandler: nil)
+    }
+    func homeOpenPath(_ path: String) {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
+    }
+    func homeOpenBusiness(_ id: String) {
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/businesses/' + \(jsLiteral(id))));", completionHandler: nil)
+    }
+    func homeRequestSections() {
+        webView.evaluateJavaScript("(window.__freetifulHomeSectionsPost && window.__freetifulHomeSectionsPost());", completionHandler: nil)
+    }
+
+    private func handleNativeHomeSections(_ body: Any) {
+        guard nativeNavigationEnabled, let dict = body as? [String: Any] else { return }
+        func intOf(_ d: [String: Any], _ k: String) -> Int { (d[k] as? Int) ?? Int((d[k] as? Double) ?? 0) }
+        func best(_ key: String) -> [HomeBestPro] {
+            ((dict[key] as? [[String: Any]]) ?? []).compactMap { d in
+                guard let id = d["id"] as? String else { return nil }
+                return HomeBestPro(id: id, name: (d["name"] as? String) ?? "사회자", image: (d["image"] as? String) ?? "", careerYears: intOf(d, "careerYears"))
+            }
+        }
+        func cards(_ key: String) -> [HomeProCard] {
+            ((dict[key] as? [[String: Any]]) ?? []).compactMap { d in
+                guard let id = d["id"] as? String else { return nil }
+                return HomeProCard(id: id, name: (d["name"] as? String) ?? "사회자", image: (d["image"] as? String) ?? "", careerYears: intOf(d, "careerYears"), tags: (d["tags"] as? [String]) ?? [], isPartner: (d["isPartner"] as? Bool) ?? false)
+            }
+        }
+        func biz(_ key: String) -> [HomeBusiness] {
+            ((dict[key] as? [[String: Any]]) ?? []).compactMap { d in
+                guard let id = d["id"] as? String else { return nil }
+                return HomeBusiness(id: id, name: (d["name"] as? String) ?? "", location: (d["location"] as? String) ?? "", image: (d["image"] as? String) ?? "", tags: (d["tags"] as? [String]) ?? [], isPopular: (d["isPopular"] as? Bool) ?? false)
+            }
+        }
+        let data = HomeSectionsData(best: best("best"), morePros: cards("morePros"), eventPros: cards("eventPros"), weddingHalls: biz("weddingHalls"), dresses: biz("dresses"))
+        nativeHomeContent.setSections(data)
     }
 
     private func handleNativeHomeRows(_ body: Any) {
@@ -1412,6 +1437,7 @@ class ViewController: UIViewController,
         case "nativeChatMessages": handleNativeChatMessages(message.body)
         case "nativeHomeRows": handleNativeHomeRows(message.body)
         case "nativeHomeBanners": handleNativeHomeBanners(message.body)
+        case "nativeHomeSections": handleNativeHomeSections(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
