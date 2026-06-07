@@ -814,10 +814,12 @@ class ViewController: UIViewController,
             if !hasLoadedHome {
                 hasLoadedHome = true
                 nativeHomeContent.loadInitial()
-                // 레이스 보강: 웹 브리지 준비 타이밍에 따라 첫 요청이 비어올 수 있어 몇 번 재요청
-                for delay in [0.5, 1.2, 2.4, 4.0, 6.0] {
+                // 레이스 보강: 웹 브리지 준비 타이밍에 따라 첫 요청이 비어올 수 있어 몇 번 재요청 (1=결혼식,2=행사,3=외국어)
+                for delay in [0.6, 1.5, 3.0, 5.0] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                        self?.homeRequestPros(0)
+                        self?.homeRequestPros(1)
+                        self?.homeRequestPros(2)
+                        self?.homeRequestPros(3)
                     }
                 }
             }

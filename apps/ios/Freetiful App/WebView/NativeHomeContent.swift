@@ -28,21 +28,23 @@ struct HomeProItem {
 // 현재: 히어로 카드(전문결혼식/전문행사 찾기). 이후: 카테고리 탭/스와이프, 배너, 사회자 리스트.
 final class NativeHomeContent: UIView, UIScrollViewDelegate {
     weak var delegate: NativeHomeContentDelegate?
-    private let scrollView = UIScrollView()
-    private let stack = UIStackView()
     private let imageBase: String
 
-    // 카테고리 탭 + 좌우 스와이프 페이저
+    // 헤더 탭: 전체(=홈) / 결혼식사회자 / 행사사회자 / 외국어사회자
     private let categories = ["전체", "결혼식사회자", "행사사회자", "외국어사회자"]
     private let categoryTabs = HomeCategoryTabsView()
     private let pager = UIScrollView()
     private let pageRow = UIStackView()
-    private var pageLists: [UIStackView] = []
-    private var pageEmpties: [UILabel] = []
-    private var pagerHeight: NSLayoutConstraint!
+    private var pageScrolls: [UIScrollView] = []
+    private var pageLists: [UIStackView?] = []     // 0번(홈)=nil, 1~3=사회자 리스트
+    private var pageEmpties: [UILabel?] = []
     private var currentPage = 0
     private var requestedPages = Set<Int>()
     private let banner = NativeHomeBanner()
+
+    private var topInset: CGFloat = 0
+    private var bottomInset: CGFloat = 0
+    private var tabsTop: NSLayoutConstraint!
 
     init(imageBase: String) {
         self.imageBase = imageBase
@@ -51,52 +53,113 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    // top = 글래스 헤더 높이(탭을 헤더 바로 아래 고정), bottom = 하단 탭바 높이
     func setInsets(top: CGFloat, bottom: CGFloat) {
-        scrollView.contentInset = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
-        scrollView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
+        topInset = top
+        bottomInset = bottom
+        tabsTop?.constant = top
+        for s in pageScrolls {
+            s.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
+            s.verticalScrollIndicatorInsets = UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
+        }
     }
 
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .white
 
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.alwaysBounceVertical = true
-        scrollView.contentInsetAdjustmentBehavior = .never
-        scrollView.showsVerticalScrollIndicator = false
-        addSubview(scrollView)
+        // 헤더 탭 (상단 고정 — 글래스 헤더 바로 아래)
+        categoryTabs.translatesAutoresizingMaskIntoConstraints = false
+        categoryTabs.backgroundColor = .white
+        categoryTabs.configure(tabs: categories)
+        categoryTabs.onSelect = { [weak self] idx in self?.scrollTo(page: idx, animated: true) }
+        addSubview(categoryTabs)
+        tabsTop = categoryTabs.topAnchor.constraint(equalTo: topAnchor, constant: topInset)
 
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.axis = .vertical
-        stack.spacing = 8
-        scrollView.addSubview(stack)
+        // 좌우 스와이프 페이저
+        pager.translatesAutoresizingMaskIntoConstraints = false
+        pager.isPagingEnabled = true
+        pager.showsHorizontalScrollIndicator = false
+        pager.delegate = self
+        pager.contentInsetAdjustmentBehavior = .never
+        addSubview(pager)
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 12),
-            stack.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor, constant: 10),
-            stack.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor, constant: -10),
-            stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
+            tabsTop,
+            categoryTabs.leadingAnchor.constraint(equalTo: leadingAnchor),
+            categoryTabs.trailingAnchor.constraint(equalTo: trailingAnchor),
+            categoryTabs.heightAnchor.constraint(equalToConstant: 46),
+
+            pager.topAnchor.constraint(equalTo: categoryTabs.bottomAnchor),
+            pager.leadingAnchor.constraint(equalTo: leadingAnchor),
+            pager.trailingAnchor.constraint(equalTo: trailingAnchor),
+            pager.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        buildHeroCards()
-        buildCategorySection()
-        buildBannerSection()
+        pageRow.axis = .horizontal
+        pageRow.translatesAutoresizingMaskIntoConstraints = false
+        pager.addSubview(pageRow)
+        NSLayoutConstraint.activate([
+            pageRow.topAnchor.constraint(equalTo: pager.contentLayoutGuide.topAnchor),
+            pageRow.bottomAnchor.constraint(equalTo: pager.contentLayoutGuide.bottomAnchor),
+            pageRow.leadingAnchor.constraint(equalTo: pager.contentLayoutGuide.leadingAnchor),
+            pageRow.trailingAnchor.constraint(equalTo: pager.contentLayoutGuide.trailingAnchor),
+            pageRow.heightAnchor.constraint(equalTo: pager.frameLayoutGuide.heightAnchor),
+        ])
+
+        for idx in categories.indices {
+            let pageScroll = UIScrollView()
+            pageScroll.translatesAutoresizingMaskIntoConstraints = false
+            pageScroll.alwaysBounceVertical = true
+            pageScroll.showsVerticalScrollIndicator = false
+            pageScroll.contentInsetAdjustmentBehavior = .never
+            pageRow.addArrangedSubview(pageScroll)
+            // 계층 추가 후 width 제약 활성화 (frameLayoutGuide 공통조상 필요)
+            pageScroll.widthAnchor.constraint(equalTo: pager.frameLayoutGuide.widthAnchor).isActive = true
+
+            let content = UIStackView()
+            content.axis = .vertical
+            content.spacing = idx == 0 ? 12 : 10
+            content.translatesAutoresizingMaskIntoConstraints = false
+            pageScroll.addSubview(content)
+            NSLayoutConstraint.activate([
+                content.topAnchor.constraint(equalTo: pageScroll.contentLayoutGuide.topAnchor, constant: 14),
+                content.leadingAnchor.constraint(equalTo: pageScroll.frameLayoutGuide.leadingAnchor, constant: 16),
+                content.trailingAnchor.constraint(equalTo: pageScroll.frameLayoutGuide.trailingAnchor, constant: -16),
+                content.bottomAnchor.constraint(equalTo: pageScroll.contentLayoutGuide.bottomAnchor, constant: -24),
+            ])
+
+            if idx == 0 {
+                // 전체 = 기존 홈 (히어로 카드 + 배너)
+                content.addArrangedSubview(buildHeroRow())
+                banner.onTap = { [weak self] link in self?.delegate?.homeOpenBanner(link) }
+                content.addArrangedSubview(banner)
+                banner.heightAnchor.constraint(equalTo: banner.widthAnchor, multiplier: 300.0 / 1170.0).isActive = true
+                pageLists.append(nil)
+                pageEmpties.append(nil)
+            } else {
+                // 사회자 리스트
+                let list = UIStackView()
+                list.axis = .vertical
+                list.spacing = 10
+                content.addArrangedSubview(list)
+
+                let empty = UILabel()
+                empty.text = "불러오는 중…"
+                empty.font = .systemFont(ofSize: 14)
+                empty.textColor = UIColor(white: 0.6, alpha: 1)
+                empty.textAlignment = .center
+                content.addArrangedSubview(empty)
+
+                pageLists.append(list)
+                pageEmpties.append(empty)
+            }
+            pageScrolls.append(pageScroll)
+        }
     }
 
-    private func buildBannerSection() {
-        banner.onTap = { [weak self] link in self?.delegate?.homeOpenBanner(link) }
-        stack.addArrangedSubview(banner)
-        banner.heightAnchor.constraint(equalTo: banner.widthAnchor, multiplier: 300.0 / 1170.0).isActive = true
-    }
-
-    func setBanners(_ items: [HomeBanner]) { banner.setBanners(items) }
-
-    // MARK: - 히어로 카드 (전문결혼식 / 전문행사 찾기)
-    private func buildHeroCards() {
+    // MARK: - 히어로 카드 행 (전문결혼식 / 전문행사 찾기) — 전체(홈) 탭에 표시
+    private func buildHeroRow() -> UIView {
         let row = UIStackView()
         row.axis = .horizontal
         row.distribution = .fillEqually
@@ -116,72 +179,16 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
 
         row.addArrangedSubview(wedding)
         row.addArrangedSubview(event)
-        stack.addArrangedSubview(row)
+        return row
     }
 
-    // MARK: - 카테고리 탭 + 좌우 스와이프 페이저
-    private func buildCategorySection() {
-        categoryTabs.configure(tabs: categories)
-        categoryTabs.onSelect = { [weak self] idx in self?.scrollTo(page: idx, animated: true) }
-        stack.addArrangedSubview(categoryTabs)
-        categoryTabs.heightAnchor.constraint(equalToConstant: 46).isActive = true
+    func setBanners(_ items: [HomeBanner]) { banner.setBanners(items) }
 
-        pager.translatesAutoresizingMaskIntoConstraints = false
-        pager.isPagingEnabled = true
-        pager.showsHorizontalScrollIndicator = false
-        pager.delegate = self
-        pager.contentInsetAdjustmentBehavior = .never
-        stack.addArrangedSubview(pager)
-        pagerHeight = pager.heightAnchor.constraint(equalToConstant: 420)
-        pagerHeight.isActive = true
-
-        pageRow.axis = .horizontal
-        pageRow.translatesAutoresizingMaskIntoConstraints = false
-        pager.addSubview(pageRow)
-        NSLayoutConstraint.activate([
-            pageRow.topAnchor.constraint(equalTo: pager.contentLayoutGuide.topAnchor),
-            pageRow.bottomAnchor.constraint(equalTo: pager.contentLayoutGuide.bottomAnchor),
-            pageRow.leadingAnchor.constraint(equalTo: pager.contentLayoutGuide.leadingAnchor),
-            pageRow.trailingAnchor.constraint(equalTo: pager.contentLayoutGuide.trailingAnchor),
-            pageRow.heightAnchor.constraint(equalTo: pager.frameLayoutGuide.heightAnchor),
-        ])
-
-        for _ in categories {
-            let pageContainer = UIView()
-            pageContainer.translatesAutoresizingMaskIntoConstraints = false
-            pageRow.addArrangedSubview(pageContainer)
-            // 계층에 추가한 뒤 제약 활성화 (frameLayoutGuide 와 공통 조상 필요)
-            pageContainer.widthAnchor.constraint(equalTo: pager.frameLayoutGuide.widthAnchor).isActive = true
-
-            let list = UIStackView()
-            list.axis = .vertical
-            list.spacing = 10
-            list.translatesAutoresizingMaskIntoConstraints = false
-            pageContainer.addSubview(list)
-
-            let empty = UILabel()
-            empty.text = "불러오는 중…"
-            empty.font = .systemFont(ofSize: 14)
-            empty.textColor = UIColor(white: 0.6, alpha: 1)
-            empty.textAlignment = .center
-            empty.translatesAutoresizingMaskIntoConstraints = false
-            pageContainer.addSubview(empty)
-
-            NSLayoutConstraint.activate([
-                list.topAnchor.constraint(equalTo: pageContainer.topAnchor, constant: 4),
-                list.leadingAnchor.constraint(equalTo: pageContainer.leadingAnchor),
-                list.trailingAnchor.constraint(equalTo: pageContainer.trailingAnchor),
-                empty.centerXAnchor.constraint(equalTo: pageContainer.centerXAnchor),
-                empty.topAnchor.constraint(equalTo: pageContainer.topAnchor, constant: 44),
-            ])
-            pageLists.append(list)
-            pageEmpties.append(empty)
-        }
-    }
-
-    // 표시 시점에 호출 — 첫 카테고리 데이터 요청
+    // 표시 시점 — 사회자 리스트(결혼식/행사/외국어) 미리 요청 (홈 탭은 요청 없음)
     func loadInitial() {
-        requestPageIfNeeded(0)
+        requestPageIfNeeded(1)
+        requestPageIfNeeded(2)
+        requestPageIfNeeded(3)
     }
 
     func scrollTo(page: Int, animated: Bool) {
@@ -194,6 +201,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     }
 
     private func requestPageIfNeeded(_ page: Int) {
+        guard page >= 1, page < categories.count else { return }  // 0(홈)은 사회자 요청 없음
         guard !requestedPages.contains(page) else { return }
         requestedPages.insert(page)
         delegate?.homeRequestPros(page)
@@ -211,12 +219,14 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     }
 
     func setPros(categoryIndex: Int, items: [HomeProItem]) {
-        guard categoryIndex >= 0, categoryIndex < pageLists.count else { return }
-        let list = pageLists[categoryIndex]
+        guard categoryIndex >= 1, categoryIndex < pageLists.count,
+              let list = pageLists[categoryIndex] else { return }
         list.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        pageEmpties[categoryIndex].text = items.isEmpty ? "사회자가 없습니다" : ""
-        pageEmpties[categoryIndex].isHidden = !items.isEmpty
-        for item in items.prefix(8) {
+        if let empty = pageEmpties[categoryIndex] {
+            empty.text = items.isEmpty ? "사회자가 없습니다" : ""
+            empty.isHidden = !items.isEmpty
+        }
+        for item in items.prefix(12) {
             let cell = HomeProCell(item: item)
             cell.onTap = { [weak self] id in self?.delegate?.homeOpenPro(id) }
             list.addArrangedSubview(cell)

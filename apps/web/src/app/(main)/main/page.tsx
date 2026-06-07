@@ -1289,13 +1289,27 @@ export default function HomePage() {
     if (typeof window === 'undefined') return;
     const ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '').replace(/\/api\/v1$/, '').replace(/\/api$/, '');
     const abs = (u?: string) => (u && ORIGIN && u.startsWith('/uploads/') ? `${ORIGIN}${u}` : (u || ''));
-    const CATS = ['', '결혼식사회자', '행사사회자', '외국어사회자'];
+    let proCache: any[] | null = null;
+    const fetchAllPros = async (): Promise<any[]> => {
+      if (proCache) return proCache;
+      const res: any = await discoveryApi.getProList({ limit: 41, sort: 'reviews', withTotal: false });
+      proCache = Array.isArray(res?.data) ? res.data : Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+      return proCache;
+    };
+    const lowerCats = (p: any) => (Array.isArray(p.categories) ? p.categories : []).map((c: any) => String(typeof c === 'string' ? c : c?.name || c?.category?.name || '').toLowerCase());
+    const lowerTags = (p: any) => (Array.isArray(p.tags) ? p.tags : []).map((t: any) => String(t).toLowerCase());
+    // index: 1=결혼식사회자, 2=행사사회자, 3=외국어사회자 (기존 홈 분류 로직과 동일)
+    const filterByTab = (index: number, list: any[]): any[] => {
+      if (index === 1) return list.filter((p) => lowerCats(p).some((v: string) => v.includes('결혼식') || v.includes('사회자') || v.includes('mc')));
+      if (index === 2) return list.filter((p) => [...lowerCats(p), ...lowerTags(p)].some((v: string) => v.includes('행사') || v.includes('기업') || v.includes('컨퍼런스') || v.includes('컨벤션') || v.includes('쇼호스트') || v.includes('event')));
+      if (index === 3) return list.filter((p) => (Array.isArray(p.languages) ? p.languages : []).length > 0);
+      return list;
+    };
     (window as any).__freetifulHomeRowsPost = async (index: number) => {
       try {
-        const cat = CATS[index] || '';
-        const res: any = await discoveryApi.getProList(cat ? { search: cat, limit: 12 } : { limit: 12 });
-        const list: any[] = Array.isArray(res?.data) ? res.data : Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
-        const items = list.map((p: any) => ({
+        const all = await fetchAllPros();
+        const list = filterByTab(index, all);
+        const items = list.slice(0, 12).map((p: any) => ({
           id: p.id,
           name: p.name || p.user?.name || '사회자',
           image: abs(p.image || p.profileImageUrl || p.mainImage || (Array.isArray(p.images) ? (typeof p.images[0] === 'string' ? p.images[0] : p.images?.[0]?.imageUrl) : '') || p.user?.profileImageUrl || ''),
@@ -1306,10 +1320,10 @@ export default function HomePage() {
         (window as any).webkit?.messageHandlers?.nativeHomeRows?.postMessage({ index, items });
       } catch {}
     };
-    // 브리지 준비되면 전체(0) 능동 푸시 — 네이티브 초기 요청 레이스 해소
-    const push0 = () => { (window as any).__freetifulHomeRowsPost?.(0); };
-    const t1 = setTimeout(push0, 200);
-    const t2 = setTimeout(push0, 1200);
+    // 브리지 준비되면 1·2·3 능동 푸시 — 네이티브 초기 요청 레이스 해소
+    const pushAll = () => { [1, 2, 3].forEach((i) => (window as any).__freetifulHomeRowsPost?.(i)); };
+    const t1 = setTimeout(pushAll, 200);
+    const t2 = setTimeout(pushAll, 1200);
     return () => { clearTimeout(t1); clearTimeout(t2); try { delete (window as any).__freetifulHomeRowsPost; } catch {} };
   }, []);
 
