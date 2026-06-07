@@ -91,7 +91,7 @@ enum NativeHomeData {
 
     private static func filterCategory(_ index: Int, _ pros: [[String: Any]]) -> [[String: Any]] {
         switch index {
-        case 1: return pros.filter { isWedding($0) }
+        case 1: return pros   // 결혼식사회자 = 승인+비숨김 전체 노출
         case 2: return pros.filter { isEvent($0) }
         case 3: return pros.filter { !strArr($0["languages"]).isEmpty }
         default: return pros
@@ -126,7 +126,8 @@ enum NativeHomeData {
         HomeProItem(id: (p["id"] as? String) ?? "", name: proName(p), image: proImg(p),
                     rating: (p["avgRating"] as? Double) ?? Double(intVal(p["avgRating"])),
                     reviewCount: intVal(p["reviewCount"]),
-                    intro: (p["shortIntro"] as? String) ?? (p["mainExperience"] as? String) ?? "")
+                    intro: (p["shortIntro"] as? String) ?? (p["mainExperience"] as? String) ?? "",
+                    careerYears: intVal(p["careerYears"]))
     }
     private static func bestPro(_ p: [String: Any]) -> HomeBestPro {
         HomeBestPro(id: (p["id"] as? String) ?? "", name: proName(p), image: proImg(p), careerYears: intVal(p["careerYears"]))

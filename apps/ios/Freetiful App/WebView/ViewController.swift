@@ -1148,7 +1148,8 @@ class ViewController: UIViewController,
                 image: (d["image"] as? String) ?? "",
                 rating: (d["rating"] as? Double) ?? Double((d["rating"] as? Int) ?? 0),
                 reviewCount: (d["reviewCount"] as? Int) ?? Int((d["reviewCount"] as? Double) ?? 0),
-                intro: (d["intro"] as? String) ?? ""
+                intro: (d["intro"] as? String) ?? "",
+                careerYears: (d["careerYears"] as? Int) ?? Int((d["careerYears"] as? Double) ?? 0)
             )
         }
         nativeHomeContent.setPros(categoryIndex: index, items: items)

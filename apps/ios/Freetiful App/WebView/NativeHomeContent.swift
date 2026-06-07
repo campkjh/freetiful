@@ -25,6 +25,7 @@ struct HomeProItem {
     let rating: Double
     let reviewCount: Int
     let intro: String
+    let careerYears: Int
 }
 
 // 네이티브 홈 스크린 본문 (웹 홈 위에 전체 덮음) — 완성될 때까지 단계적으로 섹션 추가.
@@ -418,26 +419,41 @@ final class HomeProCell: UIControl {
         layer.borderWidth = 0.5
         layer.borderColor = UIColor(white: 0.93, alpha: 1).cgColor
 
-        let avatar = UIImageView()
-        avatar.translatesAutoresizingMaskIntoConstraints = false
-        avatar.contentMode = .scaleAspectFill
-        avatar.clipsToBounds = true
-        avatar.layer.cornerRadius = 28
-        avatar.backgroundColor = UIColor(white: 0.92, alpha: 1)
-        avatar.isUserInteractionEnabled = false
-        addSubview(avatar)
-        NativeChatImageLoader.load(item.image, into: avatar, fallback: NativeChatHeaderView.avatarPlaceholder)
+        // 3:4 프로필 사진 (r20)
+        let photo = UIImageView()
+        photo.translatesAutoresizingMaskIntoConstraints = false
+        photo.contentMode = .scaleAspectFill
+        photo.clipsToBounds = true
+        photo.layer.cornerRadius = 20
+        photo.layer.cornerCurve = .continuous
+        photo.backgroundColor = UIColor(white: 0.92, alpha: 1)
+        photo.isUserInteractionEnabled = false
+        addSubview(photo)
+        NativeChatImageLoader.load(item.image, into: photo, fallback: NativeChatHeaderView.avatarPlaceholder)
 
         let name = UILabel()
         name.text = item.name
-        name.font = .systemFont(ofSize: 15, weight: .bold)
+        name.font = .systemFont(ofSize: 16, weight: .bold)
         name.textColor = UIColor(white: 0.1, alpha: 1)
 
+        // 경력 태그
+        let career = PaddingLabel()
+        career.text = item.careerYears > 0 ? "경력 \(item.careerYears)년" : "신규"
+        career.font = .systemFont(ofSize: 11, weight: .semibold)
+        career.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+        career.backgroundColor = UIColor(red: 0.92, green: 0.95, blue: 1.0, alpha: 1)
+        career.layer.cornerRadius = 6
+        career.clipsToBounds = true
+
         let rating = UILabel()
-        let ratingText = item.rating > 0 ? String(format: "★ %.1f (%d)", item.rating, item.reviewCount) : "★ 신규"
-        rating.text = ratingText
+        rating.text = item.rating > 0 ? String(format: "★ %.1f (%d)", item.rating, item.reviewCount) : "★ 신규"
         rating.font = .systemFont(ofSize: 12, weight: .medium)
         rating.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+
+        let metaRow = UIStackView(arrangedSubviews: [career, rating])
+        metaRow.axis = .horizontal
+        metaRow.spacing = 6
+        metaRow.alignment = .center
 
         let intro = UILabel()
         intro.text = item.intro
@@ -445,23 +461,23 @@ final class HomeProCell: UIControl {
         intro.textColor = UIColor(white: 0.5, alpha: 1)
         intro.numberOfLines = 1
 
-        let col = UIStackView(arrangedSubviews: [name, rating, intro])
+        let col = UIStackView(arrangedSubviews: [name, metaRow, intro])
         col.axis = .vertical
-        col.spacing = 3
+        col.spacing = 5
         col.alignment = .leading
         col.translatesAutoresizingMaskIntoConstraints = false
         col.isUserInteractionEnabled = false
         addSubview(col)
 
         NSLayoutConstraint.activate([
-            avatar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            avatar.centerYAnchor.constraint(equalTo: centerYAnchor),
-            avatar.widthAnchor.constraint(equalToConstant: 56),
-            avatar.heightAnchor.constraint(equalToConstant: 56),
-            col.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 12),
+            photo.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            photo.centerYAnchor.constraint(equalTo: centerYAnchor),
+            photo.widthAnchor.constraint(equalToConstant: 66),
+            photo.heightAnchor.constraint(equalToConstant: 88),   // 3:4
+            col.leadingAnchor.constraint(equalTo: photo.trailingAnchor, constant: 14),
             col.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
             col.centerYAnchor.constraint(equalTo: centerYAnchor),
-            heightAnchor.constraint(equalToConstant: 80),
+            heightAnchor.constraint(equalToConstant: 112),   // 조금 더 크게
         ])
 
         addTarget(self, action: #selector(fire), for: .touchUpInside)
