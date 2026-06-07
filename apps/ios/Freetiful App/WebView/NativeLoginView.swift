@@ -20,79 +20,49 @@ struct NativeLoginView: View {
 
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
+            // 딤 배경 (앱이 비치는 적정 크기 모달)
+            Color.black.opacity(0.38).ignoresSafeArea()
+                .onTapGesture { goHome() }
 
-            VStack(spacing: 20) {
-                Spacer()
-
+            // 글래스 카드
+            VStack(spacing: 16) {
                 Image("logo-wordmark")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 40)
+                    .resizable().scaledToFit().frame(height: 32)
+                    .padding(.top, 4)
 
                 Text("나의 특별한 행사를 완성하는 전문가")
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
-
-                Spacer().frame(maxHeight: 40)
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 4)
 
                 VStack(spacing: 10) {
-                    // Kakao
-                    Button(action: handleKakaoLogin) {
-                        Text("카카오로 시작하기")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Color(red: 1.0, green: 0.898, blue: 0.0))
-                            .foregroundColor(Color(red: 0.098, green: 0.098, blue: 0.098))
-                            .cornerRadius(14)
-                    }
+                    socialButton(icon: "login-kakao", title: "카카오로 시작하기",
+                                 bg: Color(red: 1.0, green: 0.898, blue: 0.0),
+                                 fg: Color(red: 0.098, green: 0.098, blue: 0.098), action: handleKakaoLogin)
+                    socialButton(icon: "login-naver", title: "네이버로 시작하기",
+                                 bg: Color(red: 0.012, green: 0.780, blue: 0.353), fg: .white, action: handleNaverLogin)
+                    socialButton(icon: "login-google", title: "Google로 시작하기",
+                                 bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
+                    socialButton(icon: "login-apple", title: "Apple로 시작하기",
+                                 bg: .black, fg: .white, action: handleAppleLogin)
 
-                    // Naver
-                    Button(action: handleNaverLogin) {
-                        Text("네이버로 시작하기")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Color(red: 0.012, green: 0.780, blue: 0.353))
-                            .foregroundColor(.white)
-                            .cornerRadius(14)
-                    }
-
-                    // Google
-                    Button(action: handleGoogleLogin) {
-                        Text("Google로 시작하기")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Color.white)
-                            .foregroundColor(Color(red: 0.3, green: 0.3, blue: 0.3))
-                            .cornerRadius(14)
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                    }
-
-                    // Apple (web-based via Freetiful web login)
-                    Button(action: handleAppleLogin) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "apple.logo")
-                            Text("Apple로 시작하기").fontWeight(.bold)
-                        }
-                        .frame(maxWidth: .infinity).frame(height: 48)
-                        .background(Color.black)
-                        .foregroundColor(.white)
-                        .cornerRadius(14)
-                    }
-
-                    // "나중에 하기" — 시트 닫고 홈으로 이동 (Android 동일 UX)
                     Button("나중에 하기") { goHome() }
-                        .foregroundColor(.gray)
-                        .padding(.top, 8)
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 14))
+                        .padding(.top, 6)
                 }
-                .padding(.horizontal, 40)
-                .padding(.bottom, 40)
             }
+            .padding(26)
+            .frame(maxWidth: 360)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.white.opacity(0.45), lineWidth: 1))
+            .shadow(color: .black.opacity(0.25), radius: 28, y: 12)
+            .padding(.horizontal, 28)
 
             if isLoading {
-                ProgressView().scaleEffect(1.5)
+                ProgressView().scaleEffect(1.4).tint(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black.opacity(0.2))
+                    .background(Color.black.opacity(0.25).ignoresSafeArea())
             }
         }
         // OAuth 앱 전환 중 시트가 잠깐 사라질 수 있어 로딩 중에는 홈 이동을 막는다.
@@ -100,6 +70,25 @@ struct NativeLoginView: View {
             if !didLoginSuccessfully && !isLoading {
                 goHome()
             }
+        }
+    }
+
+    // 소셜 로그인 버튼 (제공 아이콘 + 브랜드 컬러)
+    @ViewBuilder
+    private func socialButton(icon: String, title: String, bg: Color, fg: Color, bordered: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(icon).resizable().scaledToFit().frame(width: 20, height: 20)
+                Text(title).fontWeight(.bold)
+            }
+            .frame(maxWidth: .infinity).frame(height: 50)
+            .background(bg)
+            .foregroundColor(fg)
+            .cornerRadius(14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.gray.opacity(bordered ? 0.25 : 0), lineWidth: 1)
+            )
         }
     }
 

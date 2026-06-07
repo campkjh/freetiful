@@ -1475,7 +1475,9 @@ class ViewController: UIViewController,
     // MARK: - Native Login Sheet (Stady-style)
     private func presentNativeLoginSheet() {
         let host = UIHostingController(rootView: NativeLoginView())
-        host.modalPresentationStyle = .formSheet
+        host.modalPresentationStyle = .overFullScreen   // 앱 위 글래스 카드 모달
+        host.modalTransitionStyle = .crossDissolve
+        host.view.backgroundColor = .clear
         DispatchQueue.main.async { [weak self] in
             self?.present(host, animated: true)
         }
