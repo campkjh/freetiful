@@ -86,14 +86,40 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         tableView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
     }
 
+    private var pendingAnimIds = Set<String>()
+    private var animatedIds = Set<String>()
+
     func setMessages(_ next: [NativeChatMessage], forceScroll: Bool) {
         let wasNearBottom = isNearBottom()
         let grew = next.count > messages.count
+        // 새로 추가된 메시지만 등장 애니메이션 대상으로 표시 (첫 로드는 제외)
+        if !messages.isEmpty {
+            let prevIds = Set(messages.map { $0.id })
+            pendingAnimIds = Set(next.map { $0.id }).subtracting(prevIds)
+        } else {
+            pendingAnimIds = []
+        }
         messages = next
         emptyLabel.isHidden = !next.isEmpty
         tableView.reloadData()
         if forceScroll || grew || wasNearBottom {
             DispatchQueue.main.async { [weak self] in self?.scrollToBottom(animated: !forceScroll) }
+        }
+    }
+
+    // iMessage식 등장 애니메이션 — 새 메시지가 보일 때 스프링 팝
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        guard indexPath.row < messages.count else { return }
+        let id = messages[indexPath.row].id
+        guard pendingAnimIds.contains(id), !animatedIds.contains(id) else { return }
+        animatedIds.insert(id)
+        if animatedIds.count > 400 { animatedIds.removeAll() }
+        cell.alpha = 0
+        cell.contentView.transform = CGAffineTransform(translationX: 0, y: 16).scaledBy(x: 0.95, y: 0.95)
+        UIView.animate(withDuration: 0.42, delay: 0, usingSpringWithDamping: 0.74,
+                       initialSpringVelocity: 0.5, options: [.allowUserInteraction]) {
+            cell.alpha = 1
+            cell.contentView.transform = .identity
         }
     }
 
