@@ -879,7 +879,14 @@ class ViewController: UIViewController,
                 replyName: (d["replyName"] as? String) ?? "",
                 replyContent: (d["replyContent"] as? String) ?? "",
                 reaction: (d["reaction"] as? String) ?? "",
-                pending: (d["pending"] as? Bool) ?? false
+                pending: (d["pending"] as? Bool) ?? false,
+                systemKind: (d["systemKind"] as? String) ?? "",
+                quoteAmount: (d["quoteAmount"] as? Int) ?? Int((d["quoteAmount"] as? Double) ?? 0),
+                quoteTitle: (d["quoteTitle"] as? String) ?? "",
+                quoteDate: (d["quoteDate"] as? String) ?? "",
+                quoteTime: (d["quoteTime"] as? String) ?? "",
+                quoteLocation: (d["quoteLocation"] as? String) ?? "",
+                quotationId: (d["quotationId"] as? String) ?? ""
             )
         }
         nativeChatMessages.setMessages(msgs, forceScroll: !hasLoadedChatMessagesOnce)
@@ -903,6 +910,9 @@ class ViewController: UIViewController,
     }
     func chatMessagesReact(_ id: String, emoji: String) {
         webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.reactMessage && window.__freetifulChat.reactMessage(\(jsLiteral(id)), \(jsLiteral(emoji)));", completionHandler: nil)
+    }
+    func chatMessagesQuoteTap(_ quotationId: String) {
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.openQuotePayment && window.__freetifulChat.openQuotePayment(\(jsLiteral(quotationId)));", completionHandler: nil)
     }
 
     // MARK: - NativeChatBarsDelegate
