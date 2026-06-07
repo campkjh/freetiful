@@ -1320,11 +1320,36 @@ export default function HomePage() {
         (window as any).webkit?.messageHandlers?.nativeHomeRows?.postMessage({ index, items });
       } catch {}
     };
-    // 브리지 준비되면 1·2·3 능동 푸시 — 네이티브 초기 요청 레이스 해소
-    const pushAll = () => { [1, 2, 3].forEach((i) => (window as any).__freetifulHomeRowsPost?.(i)); };
+    // 전체(홈) 네이티브 섹션 데이터 (BEST/더많은/행사 사회자 + 웨딩홀/드레스 업체)
+    const proImg = (p: any) => abs(p.image || p.profileImageUrl || p.mainImage || (Array.isArray(p.images) ? (typeof p.images[0] === 'string' ? p.images[0] : p.images?.[0]?.imageUrl) : '') || p.user?.profileImageUrl || '');
+    const proCard = (p: any) => ({ id: p.id, name: p.name || p.user?.name || '사회자', image: proImg(p), careerYears: Number(p.careerYears) || 0, tags: Array.isArray(p.tags) ? p.tags.slice(0, 3) : [], isPartner: Boolean(p.isFeatured || p.showPartnersLogo) });
+    let bizCache: any[] | null = null;
+    const fetchBusiness = async (): Promise<any[]> => {
+      if (bizCache) return bizCache;
+      try { const r = await fetch('/api/v1/business?limit=100'); const d = await r.json(); bizCache = Array.isArray(d?.items) ? d.items : Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : []; } catch { bizCache = []; }
+      return bizCache || [];
+    };
+    const bizCatNames = (b: any) => (Array.isArray(b.categories) ? b.categories : []).map((c: any) => String(c?.category?.name || c?.name || c || ''));
+    const bizForCategory = (cat: string, list: any[]) => list.filter((b) => bizCatNames(b).some((n: string) => n.includes(cat)) || String(b.businessType || '').includes(cat));
+    const bizCard = (b: any, i: number) => ({ id: b.id, name: b.businessName || b.name || b.title || '업체', location: String(b.address || b.region || '').trim().split(/\s+/)[0] || '', image: abs(Array.isArray(b.images) ? (typeof b.images[0] === 'string' ? b.images[0] : b.images?.[0]?.imageUrl) : ''), tags: Array.isArray(b.tags) ? b.tags.slice(0, 3) : [], isPopular: i < 2 });
+    (window as any).__freetifulHomeSectionsPost = async () => {
+      try {
+        const [pros, biz] = await Promise.all([fetchAllPros(), fetchBusiness()]);
+        const best = [...filterByTab(1, pros)].sort((a, b) => (Number(b.careerYears) || 0) - (Number(a.careerYears) || 0)).slice(0, 3).map((p: any) => ({ id: p.id, name: p.name || '사회자', image: proImg(p), careerYears: Number(p.careerYears) || 0 }));
+        const morePros = pros.slice(0, 6).map(proCard);
+        let event = filterByTab(2, pros);
+        if (event.length < 9) { const ids = new Set(event.map((p: any) => p.id)); event = [...event, ...pros.filter((p: any) => !ids.has(p.id))]; }
+        const eventPros = event.slice(0, 9).map(proCard);
+        const weddingHalls = bizForCategory('웨딩홀', biz).slice(0, 8).map(bizCard);
+        const dresses = bizForCategory('드레스', biz).slice(0, 8).map(bizCard);
+        (window as any).webkit?.messageHandlers?.nativeHomeSections?.postMessage({ best, morePros, eventPros, weddingHalls, dresses });
+      } catch {}
+    };
+    // 브리지 준비되면 능동 푸시 — 네이티브 초기 요청 레이스 해소
+    const pushAll = () => { [1, 2, 3].forEach((i) => (window as any).__freetifulHomeRowsPost?.(i)); (window as any).__freetifulHomeSectionsPost?.(); };
     const t1 = setTimeout(pushAll, 200);
     const t2 = setTimeout(pushAll, 1200);
-    return () => { clearTimeout(t1); clearTimeout(t2); try { delete (window as any).__freetifulHomeRowsPost; } catch {} };
+    return () => { clearTimeout(t1); clearTimeout(t2); try { delete (window as any).__freetifulHomeRowsPost; delete (window as any).__freetifulHomeSectionsPost; } catch {} };
   }, []);
 
   /* hero 자동재생 영상 — iOS WebView는 autoPlay가 fullscreen 강제 트리거하므로
