@@ -139,6 +139,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const authHydrated = useAuthStore((s) => s.hasHydrated);
   const isPro = useMemo(() => authUser?.role === 'pro', [authUser?.role]);
   const [newRequestCount, setNewRequestCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   // 로그인이 필요한 ��이지 패턴
   const AUTH_REQUIRED = [/^\/chat/, /^\/my/, /^\/pro-/, /^\/inquiries/];
@@ -227,9 +228,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 안드로이드 WebView에서 사회자 페이지 첫 진입을 막지 않도록 나머지는 idle 이후로 지연.
   useEffect(() => {
     const loggedIn = authUser !== null;
-    if (!loggedIn) return;
+    if (!loggedIn) { setChatUnreadCount(0); return; }
 
     let cancelled = false;
+    let unsubUnread = () => {};
     const onChatRoute = pathname.startsWith('/chat');
     const onRealtimeRoute = onChatRoute || pathname.startsWith('/pro-dashboard');
 
@@ -241,6 +243,14 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       if (withRooms && chatState.rooms.length === 0 && !chatState.roomsLoading) {
         chatState.fetchRooms();
       }
+      // 하단 탭 채팅 미읽음 뱃지 동기화 (룸 캐시 + 소켓 라이브 갱신)
+      const computeUnread = () => {
+        const rooms = useChatStore.getState().rooms;
+        const total = rooms.reduce((sum, r) => sum + (r.unreadCount || 0), 0);
+        setChatUnreadCount(total);
+      };
+      computeUnread();
+      unsubUnread = useChatStore.subscribe(computeUnread);
     };
 
     let cancelChat = () => {};
@@ -261,6 +271,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      unsubUnread();
       cancelChat();
       cancelNotifications();
     };
@@ -330,7 +341,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-1">
             {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
               const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
-              const badge = label === '새요청' ? newRequestCount : 0;
+              const badge = label === '새요청' ? newRequestCount : label === '채팅' ? chatUnreadCount : 0;
               return (
                 <Link
                   key={href}
@@ -428,7 +439,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                 {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
                   const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
                   const isBiz = href === '/biz';
-                  const badge = label === '새요청' ? newRequestCount : 0;
+                  const badge = label === '새요청' ? newRequestCount : label === '채팅' ? chatUnreadCount : 0;
                   const itemStyle: CSSProperties = {
                     opacity: bizCollapsing ? 0 : 1,
                     transform: bizCollapsing ? 'scale(0.5)' : 'scale(1)',
