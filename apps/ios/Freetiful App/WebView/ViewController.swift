@@ -1370,22 +1370,8 @@ class ViewController: UIViewController,
     }
 
     private func handleNativeHomeRows(_ body: Any) {
-        guard nativeNavigationEnabled, let dict = body as? [String: Any] else { return }
-        let index = (dict["index"] as? Int) ?? Int((dict["index"] as? Double) ?? 0)
-        let arr = (dict["items"] as? [[String: Any]]) ?? []
-        let items: [HomeProItem] = arr.compactMap { d in
-            guard let id = d["id"] as? String else { return nil }
-            return HomeProItem(
-                id: id,
-                name: (d["name"] as? String) ?? "사회자",
-                image: (d["image"] as? String) ?? "",
-                rating: (d["rating"] as? Double) ?? Double((d["rating"] as? Int) ?? 0),
-                reviewCount: (d["reviewCount"] as? Int) ?? Int((d["reviewCount"] as? Double) ?? 0),
-                intro: (d["intro"] as? String) ?? "",
-                careerYears: (d["careerYears"] as? Int) ?? Int((d["careerYears"] as? Double) ?? 0)
-            )
-        }
-        nativeHomeContent.setPros(categoryIndex: index, items: items)
+        // 카테고리 리스트(결혼식/행사/외국어)는 NativeHomeData(직접 fetch — 전체 27명 + 경력)가 단일 소스.
+        // 웹 브리지는 slice(0,12) + 경력없음이라 덮어쓰면 12명·확인중이 됨 → 무시.
     }
 
     func homeOpenBanner(_ link: String) {
