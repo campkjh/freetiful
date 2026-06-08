@@ -71,6 +71,10 @@ final class NativeHomeAllView: UIView {
         scrollView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
     }
 
+    func scrollToTop() {
+        scrollView.setContentOffset(CGPoint(x: 0, y: -scrollView.contentInset.top), animated: false)
+    }
+
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .white

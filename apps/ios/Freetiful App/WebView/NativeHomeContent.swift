@@ -177,8 +177,16 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         guard tab >= 0, tab < tabTitles.count else { return }
         currentTab = tab
         categoryTabs.select(tab)
+        scrollPageToTop(tab)   // 탭 전환 시 목적 페이지를 항상 최상단에서 시작
         let w = pager.bounds.width
         if w > 0 { pager.setContentOffset(CGPoint(x: CGFloat(tab) * w, y: 0), animated: animated) }
+    }
+
+    // 좌우 스와이프로 페이저를 끌기 시작하면 이동할 양옆 페이지를 미리 최상단으로 (전환 후 살짝 내려가 보이는 문제 방지)
+    func scrollViewWillBeginDragging(_ sv: UIScrollView) {
+        guard sv == pager else { return }
+        scrollPageToTop(currentTab - 1)
+        scrollPageToTop(currentTab + 1)
     }
 
     func scrollViewDidEndDecelerating(_ sv: UIScrollView) {
@@ -188,6 +196,18 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
             currentTab = tab
             categoryTabs.select(tab)
             Haptics.tap() // 스와이프 전환 진동
+        }
+    }
+
+    // 페이지 세로 스크롤을 최상단으로 (탭 0 = 전체 홈, 1~3 = 카테고리)
+    private func scrollPageToTop(_ tab: Int) {
+        if tab == 0 {
+            homeAll.scrollToTop()
+        } else {
+            let i = tab - 1
+            guard i >= 0, i < catScrolls.count else { return }
+            let s = catScrolls[i]
+            s.setContentOffset(CGPoint(x: 0, y: -s.contentInset.top), animated: false)
         }
     }
 
