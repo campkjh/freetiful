@@ -5,11 +5,34 @@ enum NativeHomeData {
     private static let base = "https://freetiful.com/api/v1"
     private static var prosCache: [[String: Any]]?
     private static var bizCache: [[String: Any]]?
+    private static var bannersCache: [[String: Any]]?
+
+    // MARK: - 디스크 캐시 (콜드스타트 대비 — 직전 데이터 즉시 렌더 후 백그라운드 갱신)
+    private static func saveDisk(_ key: String, _ arr: [[String: Any]]) {
+        if let data = try? JSONSerialization.data(withJSONObject: arr) {
+            UserDefaults.standard.set(data, forKey: "ftHome_\(key)")
+        }
+    }
+    private static func loadDisk(_ key: String) -> [[String: Any]]? {
+        guard let data = UserDefaults.standard.data(forKey: "ftHome_\(key)"),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
+        return obj
+    }
+    private static func cachedPros() -> [[String: Any]]? { prosCache ?? loadDisk("pros") }
+    private static func cachedBiz() -> [[String: Any]]? { bizCache ?? loadDisk("biz") }
+    private static func cachedBannersRaw() -> [[String: Any]]? { bannersCache ?? loadDisk("banners") }
 
     // MARK: - 공개 로더
     static func loadSections(_ done: @escaping (HomeSectionsData) -> Void) {
+        // 1) 캐시 즉시 렌더
+        if let cp = cachedPros(), !cp.isEmpty {
+            let d = deriveSections(pros: cp, biz: cachedBiz() ?? [])
+            DispatchQueue.main.async { done(d) }
+        }
+        // 2) 신선 데이터로 갱신 (실패/빈값이면 캐시 유지)
         fetchPros { pros in
             fetchBusiness { biz in
+                guard !pros.isEmpty else { return }
                 let d = deriveSections(pros: pros, biz: biz)
                 DispatchQueue.main.async { done(d) }
             }
@@ -17,19 +40,31 @@ enum NativeHomeData {
     }
 
     static func loadBanners(_ done: @escaping ([HomeBanner]) -> Void) {
+        if let cb = cachedBannersRaw(), !cb.isEmpty {
+            DispatchQueue.main.async { done(parseBanners(cb)) }
+        }
         getJSON("\(base)/banners?placement=home") { obj in
             let arr = asArray(obj, keys: ["data", "items"])
-            let banners: [HomeBanner] = arr.compactMap { d in
-                let img = (d["imageUrl"] as? String) ?? (d["image"] as? String) ?? ""
-                guard !img.isEmpty else { return nil }
-                return HomeBanner(image: img, link: (d["linkUrl"] as? String) ?? (d["link"] as? String) ?? "")
-            }
-            DispatchQueue.main.async { done(banners) }
+            guard !arr.isEmpty else { return }
+            bannersCache = arr; saveDisk("banners", arr)
+            DispatchQueue.main.async { done(parseBanners(arr)) }
+        }
+    }
+    private static func parseBanners(_ arr: [[String: Any]]) -> [HomeBanner] {
+        arr.compactMap { d in
+            let img = (d["imageUrl"] as? String) ?? (d["image"] as? String) ?? ""
+            guard !img.isEmpty else { return nil }
+            return HomeBanner(image: img, link: (d["linkUrl"] as? String) ?? (d["link"] as? String) ?? "")
         }
     }
 
     static func loadCategory(_ index: Int, _ done: @escaping ([HomeProItem]) -> Void) {
+        if let cp = cachedPros(), !cp.isEmpty {
+            let items = filterCategory(index, cp).prefix(100).map { proItem($0) }
+            DispatchQueue.main.async { done(Array(items)) }
+        }
         fetchPros { pros in
+            guard !pros.isEmpty else { return }
             let items = filterCategory(index, pros).prefix(100).map { proItem($0) }
             DispatchQueue.main.async { done(Array(items)) }
         }
@@ -51,7 +86,7 @@ enum NativeHomeData {
         if let c = prosCache { done(c); return }
         getJSON("\(base)/discovery/pros?limit=100&sort=reviews&withTotal=false") { obj in
             let arr = asArray(obj, keys: ["data", "items"])
-            if !arr.isEmpty { prosCache = arr }
+            if !arr.isEmpty { prosCache = arr; saveDisk("pros", arr) }
             done(arr)
         }
     }
@@ -59,17 +94,19 @@ enum NativeHomeData {
         if let c = bizCache { done(c); return }
         getJSON("\(base)/business?limit=100") { obj in
             let arr = asArray(obj, keys: ["items", "data"])
-            if !arr.isEmpty { bizCache = arr }
+            if !arr.isEmpty { bizCache = arr; saveDisk("biz", arr) }
             done(arr)
         }
     }
-    private static func getJSON(_ urlStr: String, _ done: @escaping (Any?) -> Void) {
+    private static func getJSON(_ urlStr: String, attempt: Int = 0, _ done: @escaping (Any?) -> Void) {
         guard let url = URL(string: urlStr) else { done(nil); return }
         var req = URLRequest(url: url)
-        req.timeoutInterval = 15
+        req.timeoutInterval = 35   // Railway 콜드스타트(~30초) 대비
         URLSession.shared.dataTask(with: req) { data, _, _ in
-            guard let data = data, let obj = try? JSONSerialization.jsonObject(with: data) else { done(nil); return }
-            done(obj)
+            if let data = data, let obj = try? JSONSerialization.jsonObject(with: data) { done(obj); return }
+            if attempt < 2 {   // 콜드스타트 실패 시 재시도(2회)
+                DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) { getJSON(urlStr, attempt: attempt + 1, done) }
+            } else { done(nil) }
         }.resume()
     }
     private static func asArray(_ obj: Any?, keys: [String]) -> [[String: Any]] {

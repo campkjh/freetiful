@@ -77,6 +77,8 @@ class ViewController: UIViewController,
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
     private var hasLoadedHome = false
+    private var didFirstOnHome = false
+    private var didRevealHomeEarly = false
     private var isOnChatList = false
     private var lastListContext = "chat"
     private let nativeChatListContent = NativeChatListContent()
@@ -127,6 +129,9 @@ class ViewController: UIViewController,
         observePushIdNotification()
         observePushDeepLinkNotification()
         loadInitialPage()
+        // 홈 데이터를 앱 실행 즉시 로드 (웹 셸 onHome 신호 안 기다림) — 디스크 캐시 즉시 렌더 + 백그라운드 갱신
+        hasLoadedHome = true
+        nativeHomeContent.loadInitial()
         OneSignalManager.shared.deliverCurrentPushId()
     }
 
@@ -956,10 +961,10 @@ class ViewController: UIViewController,
             let top = view.safeAreaInsets.top + 58
             nativeHomeContent.setInsets(top: top, bottom: 92)
             homeRequestBusiness()   // 웹 큐레이션 웨딩파트너 요청 (매 진입)
-            if !hasLoadedHome {
-                hasLoadedHome = true
-                nativeHomeContent.loadInitial()   // 사회자/배너는 NativeHomeData 직접 fetch (전체)
-                // 웨딩파트너 큐레이션 레이스 보강
+            // 홈 데이터(loadInitial)는 앱 실행 즉시 이미 로드함 — 여기선 웹 의존 업체 브리지만 보강
+            if !didFirstOnHome {
+                didFirstOnHome = true
+                // 웨딩파트너 큐레이션(웹 브리지)은 웹 로드 후 가능 — 첫 진입 시 레이스 보강
                 for delay in [0.5, 1.5, 3.0, 5.0] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.homeRequestBusiness() }
                 }
@@ -1607,6 +1612,23 @@ class ViewController: UIViewController,
 
     private func loadHome() {
         webView.load(URLRequest(url: URL(string: "\(kWebBase)/")!))
+        // 스플래시를 웹 셸 로딩과 무관하게 조기 해제 + 네이티브 홈 표출 (기본 홈 랜딩)
+        // → 콜드스타트여도 네이티브 홈(디스크 캐시/로딩표시)이 바로 보임
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.revealNativeHomeEarly() }
+    }
+
+    private func revealNativeHomeEarly() {
+        guard !didRevealHomeEarly else { return }
+        // 딥링크 등 홈이 아닌 경로로 진입 중이면 건너뜀
+        guard currentNativePath == "/" || currentNativePath == "/main" else { return }
+        didRevealHomeEarly = true
+        dismissSplash()
+        updateNativeChatVisibility()   // onHome 분기 → 네이티브 홈/헤더/네비 표출
+    }
+
+    private func dismissSplash() {
+        guard let lav = logoAnimationView, lav.superview != nil else { return }
+        UIView.animate(withDuration: 0.25) { lav.alpha = 0 } completion: { _ in lav.removeFromSuperview() }
     }
 
     private func loadInternalPath(_ path: String) {
@@ -1659,10 +1681,8 @@ class ViewController: UIViewController,
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         updateNativePath(from: webView.url)
         refreshNativeNavState()
-        UIView.animate(withDuration: 0.3) { self.logoAnimationView.alpha = 0 } completion: { _ in
-            self.logoAnimationView.removeFromSuperview()
-            self.webView.isHidden = false
-        }
+        dismissSplash()   // 이미 조기 해제됐으면 no-op
+        webView.isHidden = false
         flushPendingPushSubscriptionId()
     }
 
