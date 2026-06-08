@@ -135,6 +135,33 @@ function fileToDataUrl(file: File) {
   });
 }
 
+// 상세설명 인라인 이미지: 리사이즈+압축해서 base64 용량을 대폭 축소 (저장 속도/본문 크기 개선)
+function compressImageToDataUrl(file: File, maxW = 1200, quality = 0.72): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        URL.revokeObjectURL(objectUrl);
+        const scale = Math.min(1, maxW / (img.width || maxW));
+        const w = Math.max(1, Math.round((img.width || maxW) * scale));
+        const h = Math.max(1, Math.round((img.height || maxW) * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('no ctx')); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch (err) {
+        reject(err as Error);
+      }
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('이미지 로드 실패')); };
+    img.src = objectUrl;
+  });
+}
+
 function loadImageElement(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -329,24 +356,36 @@ export default function ProEditPage() {
   const detailEditorRef = useRef<HTMLDivElement>(null);
   const detailImageInputRef = useRef<HTMLInputElement>(null);
   const detailColorInputRef = useRef<HTMLInputElement>(null);
+  const detailDirtyRef = useRef(false);   // 사용자가 에디터를 직접 수정했는지 (로드 레이스로 덮어쓰기 방지)
   const execDetailFormat = (command: string, value?: string) => {
     detailEditorRef.current?.focus();
     document.execCommand(command, false, value);
+    detailDirtyRef.current = true;
     setDetailHtml(detailEditorRef.current?.innerHTML || '');
   };
-  const onDetailImageSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onDetailImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      detailEditorRef.current?.focus();
-      document.execCommand('insertImage', false, base64);
-      setDetailHtml(detailEditorRef.current?.innerHTML || '');
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    try {
+      const dataUrl = await compressImageToDataUrl(file);   // 리사이즈+압축 → 저장 payload 대폭 축소
+      detailEditorRef.current?.focus();
+      document.execCommand('insertImage', false, dataUrl);
+      detailDirtyRef.current = true;
+      setDetailHtml(detailEditorRef.current?.innerHTML || '');
+    } catch {
+      setToast('이미지 처리에 실패했습니다');
+      setTimeout(() => setToast(''), 2000);
+    }
   };
+  // 에디터 DOM을 detailHtml 상태와 동기화 — 로드/지연 마운트 시 채워주고, 입력 중(포커스)엔 건드리지 않아 커서·내용을 보존
+  useEffect(() => {
+    const el = detailEditorRef.current;
+    if (!el || document.activeElement === el) return;
+    if ((el.innerHTML || '') !== (detailHtml || '')) {
+      el.innerHTML = detailHtml || '';
+    }
+  });
   const [videos, setVideos] = useState<string[]>([]);
   const [showYoutubeSearch, setShowYoutubeSearch] = useState(false);
   const [ytChannelQuery, setYtChannelQuery] = useState('');
@@ -413,6 +452,7 @@ export default function ProEditPage() {
       if (!awards && out.mainExperience) setAwards(out.mainExperience);
       // 상세설명 HTML 을 에디터에 주입 + state 동기화
       if (out.detailHtml) {
+        detailDirtyRef.current = true;
         setDetailHtml(out.detailHtml);
         if (detailEditorRef.current) detailEditorRef.current.innerHTML = out.detailHtml;
         setTimeout(() => detailEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
@@ -436,7 +476,7 @@ export default function ProEditPage() {
           if (detailEditorRef.current) {
             const before = detailEditorRef.current.innerHTML;
             detailEditorRef.current.innerHTML = imgTag + before;
-            console.log('[AI Hero] editor innerHTML set, length:', detailEditorRef.current.innerHTML.length);
+            detailDirtyRef.current = true;
             setDetailHtml(imgTag + before);
             detailEditorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
@@ -476,9 +516,9 @@ export default function ProEditPage() {
       if (specialty.length > 0) setSelectedCategories(specialty);
       setTags(quality);
     }
-    if (p.detailHtml) {
+    if (typeof p.detailHtml === 'string' && !detailDirtyRef.current) {
       setDetailHtml(p.detailHtml);
-      if (detailEditorRef.current) detailEditorRef.current.innerHTML = p.detailHtml;
+      // DOM 반영은 아래 동기화 effect가 처리 (포커스/입력 중엔 안 건드려 커서·내용 보존)
     }
     if (p.gender) setGender(p.gender);
     if (p.youtubeUrl) {
@@ -827,6 +867,8 @@ export default function ProEditPage() {
     if (saving) return;
     setSaving(true);
     setToast('프로필 저장 중...');
+    // 에디터의 실제 내용을 저장 소스로 사용 (상태가 늦게 반영돼도 상세설명 유실 방지)
+    const currentDetailHtml = (detailEditorRef.current?.innerHTML ?? detailHtml) || '';
     try {
       // 1) localStorage 저장 (즉시 UI 반영용). 새로 선택한 base64 사진은 용량이 커서 저장하지 않는다.
       const persistedPhotoUrls = photos
@@ -865,7 +907,7 @@ export default function ProEditPage() {
         mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : '',
         careerYears: careerYears || undefined,
         awards,
-        detailHtml,
+        detailHtml: currentDetailHtml,
         youtubeUrl: videos[0] || '',
         isProfileHidden,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
@@ -911,7 +953,7 @@ export default function ProEditPage() {
         mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : '',
         careerYears: careerYears || undefined,
         awards,
-        detailHtml,
+        detailHtml: currentDetailHtml,
         youtubeUrl: videos[0] || '',
         isProfileHidden,
         tags: mergedTags,
@@ -1664,7 +1706,7 @@ export default function ProEditPage() {
             ref={detailEditorRef}
             contentEditable
             suppressContentEditableWarning
-            onInput={(e) => setDetailHtml(e.currentTarget.innerHTML)}
+            onInput={(e) => { detailDirtyRef.current = true; setDetailHtml(e.currentTarget.innerHTML); }}
             className="min-h-[180px] p-4 border border-gray-200 rounded-xl text-[15px] text-gray-900 leading-relaxed outline-none focus:border-[#3180F7] [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_h3]:text-[16px] [&_h3]:font-bold [&_h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#3180F7] [&_a]:underline empty:before:content-['상세_소개를_직접_작성하거나_AI_자동_생성을_눌러주세요'] empty:before:text-gray-300"
           />
         </div>
