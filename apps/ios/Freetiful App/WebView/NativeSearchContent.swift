@@ -29,7 +29,6 @@ final class NativeSearchContent: UIView, UITextFieldDelegate {
     private let emptyResultLabel = UILabel()
 
     private var debounce: DispatchWorkItem?
-    private var barTop: NSLayoutConstraint!
 
     private let recentKey = "ftRecentSearches"
     private let introIdxKey = "ftIntroIdx"
@@ -46,7 +45,6 @@ final class NativeSearchContent: UIView, UITextFieldDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func setInsets(top: CGFloat, bottom: CGFloat) {
-        barTop?.constant = top
         scrollView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
         scrollView.verticalScrollIndicatorInsets = UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
     }
@@ -81,15 +79,23 @@ final class NativeSearchContent: UIView, UITextFieldDelegate {
         let barRow = UIStackView(arrangedSubviews: [magnifier, field])
         barRow.axis = .horizontal; barRow.spacing = 8; barRow.alignment = .center
         searchPill.setContent(barRow, insets: UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 12))
-        addSubview(searchPill)
+        searchPill.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        searchPill.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         var cc = UIButton.Configuration.plain()
         cc.title = "취소"; cc.baseForegroundColor = UIColor(white: 0.3, alpha: 1)
         cc.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 6, bottom: 0, trailing: 0)
         cancelButton.configuration = cc
         cancelButton.setContentHuggingPriority(.required, for: .horizontal)
+        cancelButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
-        addSubview(cancelButton)
+
+        let barStack = UIStackView(arrangedSubviews: [searchPill, cancelButton])
+        barStack.axis = .horizontal
+        barStack.spacing = 6
+        barStack.alignment = .fill
+        barStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(barStack)
 
         // 스크롤 + 콘텐츠
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -107,15 +113,12 @@ final class NativeSearchContent: UIView, UITextFieldDelegate {
         contentStack.addArrangedSubview(emptyContainer)
         contentStack.addArrangedSubview(resultsStack)
 
-        barTop = searchPill.topAnchor.constraint(equalTo: topAnchor, constant: 0)
         NSLayoutConstraint.activate([
-            barTop,
-            searchPill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            searchPill.heightAnchor.constraint(equalToConstant: 42),
-            cancelButton.leadingAnchor.constraint(equalTo: searchPill.trailingAnchor, constant: 4),
-            cancelButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            cancelButton.centerYAnchor.constraint(equalTo: searchPill.centerYAnchor),
-            scrollView.topAnchor.constraint(equalTo: searchPill.bottomAnchor, constant: 12),
+            barStack.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: 8), // 항상 안전영역 아래
+            barStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            barStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            barStack.heightAnchor.constraint(equalToConstant: 42),
+            scrollView.topAnchor.constraint(equalTo: barStack.bottomAnchor, constant: 12),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
