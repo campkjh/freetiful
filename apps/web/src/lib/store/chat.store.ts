@@ -325,6 +325,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       dispatchChatEvent('freetiful:chat-socket-disconnected');
     });
 
+    // 새 매칭요청(다수요청 포함)/응답 실시간 수신 → 새요청 목록·배지 즉시 갱신 (기존엔 30초 폴링뿐이라 실시간 X였음)
+    socket.on('matchUpdated', () => {
+      try {
+        window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+        window.dispatchEvent(new Event('freetiful:dashboard-updated'));
+      } catch {}
+    });
+
     socket.on('newMessage', (message: MessageItem) => {
       const { currentRoomId, messageCache } = get();
       const myId = currentUserId();
