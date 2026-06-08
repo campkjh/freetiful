@@ -220,7 +220,7 @@ export default function PhotosPage() {
 
   const handleNext = () => {
     if (photos.length < 4) return;
-    router.push('/pro-register/pricing');
+    router.push('/pro-register/profile'); // 상품고지(pricing) 단계 제거 — 가격은 가입 후 프로필 설정에서
   };
 
   const isValid = photos.length >= 4;
