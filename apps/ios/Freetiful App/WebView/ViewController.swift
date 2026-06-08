@@ -982,6 +982,7 @@ class ViewController: UIViewController,
             }
             nativeHelp.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
             nativeHelp.setTab(tab)
+            nativeHelp.loadIfNeeded()   // 3개 탭 모두 미리 로드
             nativeBackHeader.setTitle(title)
         }
 

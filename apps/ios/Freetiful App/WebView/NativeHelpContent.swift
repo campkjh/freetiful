@@ -8,7 +8,7 @@ protocol NativeHelpDelegate: AnyObject {
 final class NativeHelpContent: UIView {
     weak var delegate: NativeHelpDelegate?
 
-    private let tabBar = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+    private let tabBar = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
     private let tabStack = UIStackView()
     private var tabButtons: [UIButton] = []
     private let indicator = UIView()
@@ -152,17 +152,47 @@ final class NativeHelpContent: UIView {
         loadTab(index)
     }
 
-    func loadIfNeeded() { loadTab(current) }
+    func loadIfNeeded() { for i in 0..<3 { loadTab(i) } }   // 3개 탭 모두 미리 로드 (전환 즉시)
 
     // MARK: - 로드
+    private let cacheKeys = ["ftHelpFaqs", "ftHelpAnnouncements", "ftHelpPolicies"]
     private func loadTab(_ index: Int) {
         if loaded[index] { return }
         loaded[index] = true
-        switch index {
-        case 0: fetchJSON("\(Self.base)/faqs") { [weak self] arr in self?.renderFaqs(arr) }
-        case 1: fetchJSON("\(Self.base)/announcements") { [weak self] arr in self?.renderAnnouncements(arr) }
-        default: fetchJSON("\(Self.base)/policies") { [weak self] arr in self?.renderPolicies(arr) }
+        let url = ["\(Self.base)/faqs", "\(Self.base)/announcements", "\(Self.base)/policies"][index]
+        if let cached = loadDisk(cacheKeys[index]), !cached.isEmpty { render(index, cached) }   // 캐시 즉시 렌더
+        fetchJSON(url) { [weak self] arr in
+            guard let self = self, !arr.isEmpty else { return }
+            self.saveDisk(self.cacheKeys[index], arr)
+            self.render(index, arr)
         }
+    }
+    private func render(_ index: Int, _ arr: [[String: Any]]) {
+        switch index {
+        case 0: renderFaqs(arr)
+        case 1: renderAnnouncements(arr)
+        default: renderPolicies(arr)
+        }
+    }
+    private func saveDisk(_ key: String, _ arr: [[String: Any]]) {
+        if let data = try? JSONSerialization.data(withJSONObject: arr) { UserDefaults.standard.set(data, forKey: key) }
+    }
+    private func loadDisk(_ key: String) -> [[String: Any]]? {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
+        return obj
+    }
+    static func htmlToText(_ html: String) -> String {
+        var s = html
+        for (pat, rep) in [("(?i)</p>", "\n\n"), ("(?i)<br\\s*/?>", "\n"), ("(?i)</h[1-6]>", "\n\n"),
+                           ("(?i)</li>", "\n"), ("(?i)<li[^>]*>", "• ")] {
+            s = s.replacingOccurrences(of: pat, with: rep, options: .regularExpression)
+        }
+        s = s.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        s = s.replacingOccurrences(of: "&nbsp;", with: " ").replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<").replacingOccurrences(of: "&gt;", with: ">")
+        s = s.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func fetchJSON(_ urlStr: String, _ done: @escaping ([[String: Any]]) -> Void) {
@@ -195,7 +225,7 @@ final class NativeHelpContent: UIView {
         for c in order {
             st.addArrangedSubview(sectionHeader(c))
             for f in byCat[c] ?? [] {
-                st.addArrangedSubview(ExpandableCard(title: (f["question"] as? String) ?? "", body: (f["answer"] as? String) ?? ""))
+                st.addArrangedSubview(ExpandableCard(title: (f["question"] as? String) ?? "", body: Self.htmlToText((f["answer"] as? String) ?? "")))
             }
         }
     }
@@ -208,27 +238,20 @@ final class NativeHelpContent: UIView {
         for a in pub {
             let tag = (a["tag"] as? String) ?? ""
             let date = shortDate((a["publishedAt"] as? String) ?? (a["createdAt"] as? String) ?? "")
-            st.addArrangedSubview(ExpandableCard(title: (a["title"] as? String) ?? "", body: (a["content"] as? String) ?? "", badge: tag, date: date))
+            st.addArrangedSubview(ExpandableCard(title: (a["title"] as? String) ?? "", body: Self.htmlToText((a["content"] as? String) ?? ""), badge: tag, date: date))
         }
     }
 
     private func renderPolicies(_ arr: [[String: Any]]) {
         let st = stacks[2]; loadings[2].isHidden = true
         st.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        var items = arr.compactMap { d -> (String, String)? in
-            guard let slug = d["slug"] as? String, let title = d["title"] as? String else { return nil }
-            return (slug, title)
-        }
-        if items.isEmpty {
-            // 폴백 (정적)
-            items = [("service", "서비스 이용약관"), ("privacy", "개인정보 수집 및 이용약관"),
-                     ("third-party", "개인정보 제3자 제공 동의서"), ("electronic-finance", "전자금융거래 이용약관"),
-                     ("marketing", "마케팅 정보 수신 동의"), ("meta-ads", "META 광고 데이터 처리 약관")]
-        }
-        for (slug, title) in items {
-            let row = PolicyRow(title: title)
-            row.onTap = { [weak self] in self?.delegate?.helpDidTapPolicy(slug) }
-            st.addArrangedSubview(row)
+        let pub = arr.filter { ($0["isPublished"] as? Bool) ?? true }
+        if pub.isEmpty { loadings[2].isHidden = false; loadings[2].text = "등록된 약관이 없습니다"; return }
+        for d in pub {
+            let title = (d["title"] as? String) ?? "약관"
+            let content = Self.htmlToText((d["contentHtml"] as? String) ?? (d["content"] as? String) ?? (d["summary"] as? String) ?? "")
+            // 탭하면 약관 전문을 인라인으로 펼침 (웹 상세 이동 X → "없는 페이지" 해결)
+            st.addArrangedSubview(ExpandableCard(title: title, body: content))
         }
     }
 
@@ -278,7 +301,8 @@ final class ExpandableCard: UIView {
         topRow.axis = .horizontal; topRow.spacing = 10; topRow.alignment = .center
         topRow.translatesAutoresizingMaskIntoConstraints = false
 
-        bodyLabel.text = body.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        bodyLabel.text = body
+        bodyLabel.numberOfLines = 0
         bodyLabel.font = .systemFont(ofSize: 14)
         bodyLabel.textColor = UIColor(white: 0.4, alpha: 1)
         bodyLabel.numberOfLines = 0

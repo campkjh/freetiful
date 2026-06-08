@@ -328,10 +328,7 @@ final class HomeCategoryIcons: UIView {
 
         let iconWrap = UIView()
         iconWrap.translatesAutoresizingMaskIntoConstraints = false
-        iconWrap.backgroundColor = UIColor(white: 0.97, alpha: 1)
-        iconWrap.layer.cornerRadius = 28
-        iconWrap.layer.cornerCurve = .continuous
-        iconWrap.clipsToBounds = true
+        iconWrap.backgroundColor = .clear   // 회색 배경/라운드 제거
         iconWrap.isUserInteractionEnabled = false
         container.addSubview(iconWrap)
 
@@ -357,12 +354,12 @@ final class HomeCategoryIcons: UIView {
         NSLayoutConstraint.activate([
             iconWrap.topAnchor.constraint(equalTo: container.topAnchor),
             iconWrap.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            iconWrap.widthAnchor.constraint(equalToConstant: 56),
-            iconWrap.heightAnchor.constraint(equalToConstant: 56),
-            iv.topAnchor.constraint(equalTo: iconWrap.topAnchor, constant: 6),
-            iv.bottomAnchor.constraint(equalTo: iconWrap.bottomAnchor, constant: -6),
-            iv.leadingAnchor.constraint(equalTo: iconWrap.leadingAnchor, constant: 6),
-            iv.trailingAnchor.constraint(equalTo: iconWrap.trailingAnchor, constant: -6),
+            iconWrap.widthAnchor.constraint(equalToConstant: 60),
+            iconWrap.heightAnchor.constraint(equalToConstant: 60),
+            iv.topAnchor.constraint(equalTo: iconWrap.topAnchor),
+            iv.bottomAnchor.constraint(equalTo: iconWrap.bottomAnchor),
+            iv.leadingAnchor.constraint(equalTo: iconWrap.leadingAnchor),
+            iv.trailingAnchor.constraint(equalTo: iconWrap.trailingAnchor),
             label.topAnchor.constraint(equalTo: iconWrap.bottomAnchor, constant: 6),
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             label.trailingAnchor.constraint(equalTo: container.trailingAnchor),
