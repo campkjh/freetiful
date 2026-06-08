@@ -51,7 +51,8 @@ class ViewController: UIViewController,
                       NativeBackHeaderDelegate,
                       NativeNotificationsDelegate,
                       NativeSearchDelegate,
-                      NativeCustomerInquiriesDelegate {
+                      NativeCustomerInquiriesDelegate,
+                      NativeHelpDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -73,6 +74,9 @@ class ViewController: UIViewController,
     private var isOnSearch = false
     private let nativeCustomerInquiries = NativeCustomerInquiries()   // 고객 문의목록 네이티브
     private var isOnCustomerInquiries = false
+    private let nativeHelp = NativeHelpContent()   // 고객센터(FAQ/공지/약관) 네이티브
+    private var isOnHelp = false
+    private let helpPaths = ["/my/support", "/my/faq", "/my/announcements", "/my/terms"]
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -681,6 +685,17 @@ class ViewController: UIViewController,
             nativeCustomerInquiries.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
+        // 고객센터(FAQ/공지/약관) 네이티브 본문 (웹 위 덮음, 백헤더 아래)
+        nativeHelp.isHidden = true
+        nativeHelp.delegate = self
+        view.insertSubview(nativeHelp, belowSubview: nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeHelp.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeHelp.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeHelp.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeHelp.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
         nativeHomeHeader.delegate = self
         nativeHomeHeader.isHidden = true
@@ -946,6 +961,28 @@ class ViewController: UIViewController,
             for delay in [0.0, 0.4, 1.2, 2.5] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestCustomerInquiries() }
             }
+        }
+
+        // 고객센터(FAQ/공지/약관) 화면 — 글래스 탭 네이티브
+        let onHelp = helpPaths.contains(currentNativePath)
+        if onHelp != isOnHelp {
+            isOnHelp = onHelp
+            nativeHelp.isHidden = !onHelp
+        }
+        if onHelp {
+            view.bringSubviewToFront(nativeHelp)
+            view.bringSubviewToFront(nativeBackHeader)
+            let tab: Int
+            let title: String
+            switch currentNativePath {
+            case "/my/announcements": tab = 1; title = "공지사항"
+            case "/my/terms": tab = 2; title = "약관 및 정책"
+            case "/my/faq": tab = 0; title = "자주 묻는 질문"
+            default: tab = 0; title = "고객센터"
+            }
+            nativeHelp.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
+            nativeHelp.setTab(tab)
+            nativeBackHeader.setTitle(title)
         }
 
         // 백헤더 가시성 통합 제어 — 상세/알림/문의목록이 아니면 반드시 숨김 (뒤로가기 후 잔존 방지)
@@ -1250,6 +1287,11 @@ class ViewController: UIViewController,
     func searchDidCancel() {
         if webView.canGoBack { webView.goBack() }
         else { webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/main'));", completionHandler: nil) }
+    }
+
+    // MARK: - NativeHelpDelegate
+    func helpDidTapPolicy(_ slug: String) {
+        navigateNativeWeb(to: "/my/terms/\(slug)")
     }
 
     // MARK: - NativeCustomerInquiriesDelegate
