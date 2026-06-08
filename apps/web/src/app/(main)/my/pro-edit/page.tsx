@@ -328,6 +328,8 @@ export default function ProEditPage() {
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [awards, setAwards] = useState('');
   const [detailHtml, setDetailHtml] = useState('');
+  const detailHtmlRef = useRef('');
+  detailHtmlRef.current = detailHtml; // 항상 최신 detailHtml 미러 (에디터 마운트 시 주입용)
 
   /* ── Pricing (결혼식 사회자 1부/1+2부 플랜 기반) ── */
   type PlanTpl = { planKey: string; label: string; defaultPrice: number; description: string; includedItems: string[] };
@@ -354,6 +356,14 @@ export default function ProEditPage() {
     setPlanPrices((prev) => ({ ...prev, [key]: price }));
   };
   const detailEditorRef = useRef<HTMLDivElement>(null);
+  // 에디터가 (슬라이드 패널 열림 등으로) 마운트될 때 저장된 내용을 확실히 주입.
+  // 동기화 effect는 포커스 중이면 건너뛰므로, 마운트 시점엔 ref 콜백으로 직접 채워 누락을 막는다.
+  const setDetailEditorRef = useCallback((el: HTMLDivElement | null) => {
+    detailEditorRef.current = el;
+    if (el && (el.innerHTML || '') !== (detailHtmlRef.current || '')) {
+      el.innerHTML = detailHtmlRef.current || '';
+    }
+  }, []);
   const detailImageInputRef = useRef<HTMLInputElement>(null);
   const detailColorInputRef = useRef<HTMLInputElement>(null);
   const detailDirtyRef = useRef(false);   // 사용자가 에디터를 직접 수정했는지 (로드 레이스로 덮어쓰기 방지)
@@ -1703,7 +1713,7 @@ export default function ProEditPage() {
 
           {/* Editable content */}
           <div
-            ref={detailEditorRef}
+            ref={setDetailEditorRef}
             contentEditable
             suppressContentEditableWarning
             onInput={(e) => { detailDirtyRef.current = true; setDetailHtml(e.currentTarget.innerHTML); }}
