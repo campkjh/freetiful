@@ -922,6 +922,7 @@ class ViewController: UIViewController,
             if onSearch {
                 nativeSearch.setInsets(top: view.safeAreaInsets.top + 8, bottom: view.safeAreaInsets.bottom + 12)
                 view.bringSubviewToFront(nativeSearch)
+                nativeSearch.prepareForShow()   // 소개 문구 회전 + 최근검색어/추천 갱신
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.nativeSearch.focus() }
             } else {
                 nativeSearch.resignSearch()
