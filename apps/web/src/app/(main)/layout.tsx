@@ -196,6 +196,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         .catch(() => {
           if (!cancelled) setNewRequestCount(0);
         });
+      // 새요청 전체 목록도 앱 로드 시 미리 캐시에 데워둠 → 탭 진입 즉시 표시(콜드 지연 제거)
+      import('@/lib/api/pro-requests-prefetch').then(({ prefetchProRequests }) => prefetchProRequests(authUser.id)).catch(() => {});
     };
 
     const cancelInitialRefresh = queueIdleTask(refresh, pathname.startsWith('/pro-dashboard') ? 0 : 600, 2000);
