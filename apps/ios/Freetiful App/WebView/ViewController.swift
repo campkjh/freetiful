@@ -887,14 +887,11 @@ class ViewController: UIViewController,
 
         // 상세화면 글래스 백헤더 (사회자/업체 상세 등 — 뒤로가기)
         let onDetailPage = isDetailPath(currentNativePath)
-        if onDetailPage != isOnDetail {
-            isOnDetail = onDetailPage
-            nativeBackHeader.isHidden = !onDetailPage
-        }
+        isOnDetail = onDetailPage
         if onDetailPage {
             view.bringSubviewToFront(nativeBackHeader)
-            // document.title이 일반값이면 페이지 H1로 폴백
-            let titleJS = "(function(){var t=(document.title||'').trim();if(t===''||t==='프리티풀'||t==='Freetiful'){var h=document.querySelector('main h1, h1');if(h&&h.textContent)return h.textContent.trim();}return t;})()"
+            // document.title이 브랜드명/빈값이면 페이지 H1(브랜드 제외)로 폴백, 그래도 없으면 빈 타이틀
+            let titleJS = "(function(){var bad=function(s){return !s||/freetiful|프리티풀/i.test(s);};var t=(document.title||'').trim();if(bad(t)){var hs=document.querySelectorAll('main h1, h1');for(var i=0;i<hs.length;i++){var x=(hs[i].textContent||'').trim();if(x&&!bad(x))return x;}return '';}return t;})()"
             webView.evaluateJavaScript(titleJS) { [weak self] r, _ in
                 guard let self = self, let t = r as? String else { return }
                 self.nativeBackHeader.setTitle(self.cleanDetailTitle(t))
@@ -910,7 +907,6 @@ class ViewController: UIViewController,
         if onNotif {
             view.bringSubviewToFront(nativeNotifications)
             view.bringSubviewToFront(nativeBackHeader)
-            nativeBackHeader.isHidden = false
             nativeBackHeader.setTitle("알림")
             nativeNotifications.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
             for delay in [0.0, 0.4, 1.2, 2.5] {
@@ -941,13 +937,15 @@ class ViewController: UIViewController,
         if onCustInq {
             view.bringSubviewToFront(nativeCustomerInquiries)
             view.bringSubviewToFront(nativeBackHeader)
-            nativeBackHeader.isHidden = false
             nativeBackHeader.setTitle("문의목록")
             nativeCustomerInquiries.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
             for delay in [0.0, 0.4, 1.2, 2.5] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestCustomerInquiries() }
             }
         }
+
+        // 백헤더 가시성 통합 제어 — 상세/알림/문의목록이 아니면 반드시 숨김 (뒤로가기 후 잔존 방지)
+        nativeBackHeader.isHidden = !(onDetailPage || onNotif || onCustInq)
 
         // 홈 글래스 헤더 (스페이서가 공간 확보하므로 콘텐츠 인셋은 변경 안 함)
         let onHome = currentNativePath == "/main" || currentNativePath == "/"
@@ -980,6 +978,7 @@ class ViewController: UIViewController,
         // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"
         let onInquiryNative = currentNativePath == "/pro-dashboard/inquiries"
+        let enteringInquiry = onInquiryNative && !isOnInquiry   // 새요청 진입 전환
         isOnInquiry = onInquiryNative
         nativeChatListContent.isHidden = !onChatListNative
         nativeInquiryContent.isHidden = !onInquiryNative
@@ -990,6 +989,7 @@ class ViewController: UIViewController,
         }
         if onInquiryNative {
             nativeInquiryContent.setInsets(top: listTop, bottom: 92)
+            if enteringInquiry { loadCachedInquiryRows() }   // 진입 즉시 캐시 표시 (웹 브리지 응답 전)
             requestNativeInquiryRows()
         }
     }
@@ -1057,6 +1057,10 @@ class ViewController: UIViewController,
 
     private func handleNativeInquiryRows(_ body: Any) {
         guard nativeNavigationEnabled, let arr = body as? [[String: Any]] else { return }
+        applyInquiryRows(arr, cache: true)
+    }
+
+    private func applyInquiryRows(_ arr: [[String: Any]], cache: Bool) {
         let items: [NativeInquiryItem] = arr.compactMap { d in
             guard let id = d["id"] as? String else { return nil }
             let parts = (d["parts"] as? [String]) ?? []
@@ -1075,6 +1079,16 @@ class ViewController: UIViewController,
             )
         }
         nativeInquiryContent.setRows(items)
+        // 디스크 캐시 (다음 진입 시 즉시 표시) — 신선 응답이 빈 배열이면 캐시 유지
+        if cache, !arr.isEmpty, let data = try? JSONSerialization.data(withJSONObject: arr) {
+            UserDefaults.standard.set(data, forKey: "ftInquiryRows")
+        }
+    }
+
+    private func loadCachedInquiryRows() {
+        guard let data = UserDefaults.standard.data(forKey: "ftInquiryRows"),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+        applyInquiryRows(arr, cache: false)
     }
 
     // MARK: - NativeInquiryContentDelegate
@@ -1300,6 +1314,7 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
     }
     func myLogout() {
+        UserDefaults.standard.removeObject(forKey: "ftInquiryRows")   // 개인 새요청 캐시 삭제
         webView.evaluateJavaScript("(window.__freetifulLogout && window.__freetifulLogout());", completionHandler: nil)
     }
     func myShowLogin() {
@@ -1342,7 +1357,9 @@ class ViewController: UIViewController,
             if t.hasSuffix(suffix) { t = String(t.dropLast(suffix.count)) }
         }
         t = t.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (t == "프리티풀" || t == "Freetiful") ? "" : t
+        // 브랜드명이 포함된 일반 타이틀은 헤더에 표시하지 않음
+        if t.range(of: "freetiful", options: .caseInsensitive) != nil || t.contains("프리티풀") { return "" }
+        return t
     }
 
     private func handleNativeHomeRows(_ body: Any) {
@@ -1988,6 +2005,7 @@ class ViewController: UIViewController,
     // MARK: - Logout
     private func socialLogout() {
         OneSignal.logout()
+        UserDefaults.standard.removeObject(forKey: "ftInquiryRows")   // 개인 새요청 캐시 삭제
     }
 
     // MARK: - API 호출 + JWT 주입
