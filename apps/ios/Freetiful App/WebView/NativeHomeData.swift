@@ -10,11 +10,11 @@ enum NativeHomeData {
     // MARK: - 디스크 캐시 (콜드스타트 대비 — 직전 데이터 즉시 렌더 후 백그라운드 갱신)
     private static func saveDisk(_ key: String, _ arr: [[String: Any]]) {
         if let data = try? JSONSerialization.data(withJSONObject: arr) {
-            UserDefaults.standard.set(data, forKey: "ftHome_\(key)")
+            UserDefaults.standard.set(data, forKey: "ftHomeV2_\(key)")
         }
     }
     private static func loadDisk(_ key: String) -> [[String: Any]]? {
-        guard let data = UserDefaults.standard.data(forKey: "ftHome_\(key)"),
+        guard let data = UserDefaults.standard.data(forKey: "ftHomeV2_\(key)"),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
         return obj
     }
@@ -102,6 +102,7 @@ enum NativeHomeData {
         guard let url = URL(string: urlStr) else { done(nil); return }
         var req = URLRequest(url: url)
         req.timeoutInterval = 35   // Railway 콜드스타트(~30초) 대비
+        req.cachePolicy = .reloadIgnoringLocalCacheData   // URLSession 캐시가 옛 응답(12명/경력없음) 서빙 방지 — 항상 최신
         URLSession.shared.dataTask(with: req) { data, _, _ in
             if let data = data, let obj = try? JSONSerialization.jsonObject(with: data) { done(obj); return }
             if attempt < 2 {   // 콜드스타트 실패 시 재시도(2회)
