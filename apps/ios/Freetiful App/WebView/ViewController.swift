@@ -864,6 +864,7 @@ class ViewController: UIViewController,
         if onList != isOnChatList {
             isOnChatList = onList
             nativeChatListBar.isHidden = !onList
+            if onList { nativeChatListContent.scrollToTop() }   // 진입 시 최상단
         }
         if onList { requestNativeChatListState() }
 
@@ -873,6 +874,7 @@ class ViewController: UIViewController,
             isOnMy = onMy
             nativeMyHeader.isHidden = !onMy
             nativeMyContent.isHidden = !onMy
+            if onMy { nativeMyContent.scrollToTop() }   // 진입 시 최상단
         }
         if onMy {
             view.bringSubviewToFront(nativeMyContent)
@@ -934,6 +936,7 @@ class ViewController: UIViewController,
         if onCustInq != isOnCustomerInquiries {
             isOnCustomerInquiries = onCustInq
             nativeCustomerInquiries.isHidden = !onCustInq
+            if onCustInq { nativeCustomerInquiries.scrollToTop() }   // 진입 시 최상단
         }
         if onCustInq {
             view.bringSubviewToFront(nativeCustomerInquiries)
@@ -990,7 +993,10 @@ class ViewController: UIViewController,
         }
         if onInquiryNative {
             nativeInquiryContent.setInsets(top: listTop, bottom: 92)
-            if enteringInquiry { loadCachedInquiryRows() }   // 진입 즉시 캐시 표시 (웹 브리지 응답 전)
+            if enteringInquiry {
+                loadCachedInquiryRows()   // 진입 즉시 캐시 표시 (웹 브리지 응답 전)
+                nativeInquiryContent.scrollToTop()   // 진입 시 최상단
+            }
             requestNativeInquiryRows()
         }
     }

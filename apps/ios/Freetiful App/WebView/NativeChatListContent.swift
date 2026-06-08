@@ -69,6 +69,10 @@ final class NativeChatListContent: UIView, UITableViewDataSource, UITableViewDel
         tableView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
     }
 
+    func scrollToTop() {
+        tableView.setContentOffset(CGPoint(x: 0, y: -tableView.contentInset.top), animated: false)
+    }
+
     func setRows(_ newRows: [NativeChatRow]) {
         rows = newRows
         emptyLabel.isHidden = !newRows.isEmpty

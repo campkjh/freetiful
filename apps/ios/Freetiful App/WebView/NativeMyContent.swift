@@ -67,6 +67,10 @@ final class NativeMyContent: UIView {
         scrollView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
     }
 
+    func scrollToTop() {
+        scrollView.setContentOffset(CGPoint(x: 0, y: -scrollView.contentInset.top), animated: false)
+    }
+
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = UIColor(red: 0.949, green: 0.957, blue: 0.965, alpha: 1) // 연회색 (글래스 카드 대비)

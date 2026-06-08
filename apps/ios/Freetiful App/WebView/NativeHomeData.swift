@@ -124,7 +124,7 @@ enum NativeHomeData {
         let best = pros.filter { isWedding($0) }
             .sorted { intVal($0["careerYears"]) > intVal($1["careerYears"]) }
             .prefix(3).map { bestPro($0) }
-        let morePros = pros.prefix(9).map { proCard($0) }
+        let morePros = pros.prefix(30).map { proCard($0) }   // 전체 사회자 노출 (이전 9 → 전체)
         var event = pros.filter { isEvent($0) }
         if event.count < 9 {
             let ids = Set(event.compactMap { $0["id"] as? String })

@@ -40,6 +40,10 @@ final class NativeCustomerInquiries: UIView, UITableViewDataSource, UITableViewD
         tableView.verticalScrollIndicatorInsets = UIEdgeInsets(top: 0, left: 0, bottom: bottom, right: 0)
     }
 
+    func scrollToTop() {
+        tableView.setContentOffset(CGPoint(x: 0, y: -tableView.contentInset.top), animated: false)
+    }
+
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = UIColor(red: 0.969, green: 0.973, blue: 0.980, alpha: 1)
