@@ -129,8 +129,15 @@ export class NotificationService {
       this.logger.log(
         `[OneSignal] external_id=${userId} → id=${res.data?.id} recipients=${recipients} errors=${JSON.stringify(res.data?.errors ?? null)}`,
       );
-      // id가 있어도 recipients=0이면 실제 수신자가 없으므로 subscription_id fallback을 탄다.
-      if (res.status >= 200 && res.status < 300 && hasId && recipients > 0) return true;
+      // id가 있고 "not subscribed"(실제 구독자 없음) 에러가 아니면 전송 성공으로 간주.
+      // recipients 가 전파 지연으로 0 으로 보고돼도 alias 전송은 이미 됐으므로,
+      // subscription_id 폴백을 또 태우면 같은 기기에 알림이 2번 간다(중복 원인). 폴백은 진짜 미연결일 때만.
+      const notSubscribed =
+        Array.isArray(res.data?.errors) &&
+        (res.data.errors as unknown[]).some(
+          (x) => typeof x === 'string' && x.includes('not subscribed'),
+        );
+      if (res.status >= 200 && res.status < 300 && hasId && !notSubscribed) return true;
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: unknown }; message?: string };
       this.logger.warn(
