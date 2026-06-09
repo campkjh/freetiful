@@ -68,6 +68,8 @@ class ViewController: UIViewController,
     private let nativeMyContent = NativeMyContent()
     private var isOnMy = false
     private let nativeBackHeader = NativeBackHeader()   // 상세화면 글래스 뒤로가기 헤더
+    private let nativeBizNav = NativeBizNav()            // 비즈 페이지 네이티브 글래스 하단 네비
+    private var isOnBiz = false
     private var isOnDetail = false
     private let nativeNotifications = NativeNotificationsContent()   // 알림 화면 네이티브
     private var isOnNotifications = false
@@ -128,6 +130,7 @@ class ViewController: UIViewController,
         print("🧭 Freetiful current native auth build marker: 2026-05-08-kakao-native-api")
         setupWebView()
         setupBackSwipe()
+        setupBizNav()
         if nativeNavigationEnabled {
             setupNativeNavigationBar()
             setupNativeChatBars()
@@ -142,6 +145,24 @@ class ViewController: UIViewController,
         hasLoadedHome = true
         nativeHomeContent.loadInitial()
         OneSignalManager.shared.deliverCurrentPushId()
+    }
+
+    // 비즈 페이지 네이티브 글래스 하단 네비 (홈 버튼 + 4 섹션 탭)
+    private func setupBizNav() {
+        nativeBizNav.isHidden = true
+        nativeBizNav.onHome = { [weak self] in
+            self?.webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/main'));", completionHandler: nil)
+        }
+        nativeBizNav.onTab = { [weak self] section in
+            self?.webView.evaluateJavaScript("(window.__freetifulBizScroll && window.__freetifulBizScroll(\(self?.jsLiteral(section) ?? "''")));", completionHandler: nil)
+        }
+        view.addSubview(nativeBizNav)
+        NSLayoutConstraint.activate([
+            nativeBizNav.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
+            nativeBizNav.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -14),
+            nativeBizNav.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            nativeBizNav.heightAnchor.constraint(equalToConstant: 62),
+        ])
     }
 
     // 좌→우 엣지 스와이프로 이전 페이지
@@ -285,6 +306,7 @@ class ViewController: UIViewController,
           'html.freetiful-ios-native-nav [data-ios-native-nav-hidden]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chat-header]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chat-gradient]{display:none!important;pointer-events:none!important;}',
+          'html.freetiful-ios-native-nav [data-native-biz-nav]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chat-footer]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-chatlist-header]{display:none!important;pointer-events:none!important;}',
           'html.freetiful-ios-native-nav [data-native-my-header]{display:none!important;pointer-events:none!important;}',
@@ -633,6 +655,14 @@ class ViewController: UIViewController,
         webView.scrollView.contentInset.bottom = hidden ? 0 : 88
         webView.scrollView.verticalScrollIndicatorInsets.bottom = hidden ? 0 : 88
         updateNativeChatVisibility()
+
+        // 비즈 메인 페이지: 네이티브 글래스 하단 네비 표출 (웹 하단 네비 숨김은 CSS로)
+        let onBiz = (currentNativePath == "/biz" || currentNativePath == "/biz/")
+        if onBiz != isOnBiz {
+            isOnBiz = onBiz
+            nativeBizNav.isHidden = !onBiz
+        }
+        if onBiz { view.bringSubviewToFront(nativeBizNav) }
     }
 
     private func shouldHideNativeNavigation(path: String) -> Bool {
