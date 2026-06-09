@@ -66,14 +66,14 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         ctaBar.layer.borderWidth = 1
         ctaBar.layer.borderColor = UIColor.white.withAlphaComponent(0.4).cgColor
         addSubview(ctaBar)
-        var cfg = UIButton.Configuration.filled()
+        // 글래스 캡슐 자체가 버튼 (덧방 느낌 제거) — 살짝 파란 틴트 + 파란 텍스트
+        ctaBar.contentView.backgroundColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 0.14)
+        var cfg = UIButton.Configuration.plain()
         cfg.title = "문의하기"
-        cfg.baseBackgroundColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
-        cfg.baseForegroundColor = .white
-        cfg.cornerStyle = .capsule
+        cfg.baseForegroundColor = UIColor(red: 0.13, green: 0.40, blue: 0.92, alpha: 1)
         cfg.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 20, bottom: 14, trailing: 20)
         ctaButton.configuration = cfg
-        ctaButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        ctaButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .bold)
         ctaButton.translatesAutoresizingMaskIntoConstraints = false
         ctaButton.addTarget(self, action: #selector(ctaTapped), for: .touchUpInside)
         ctaBar.contentView.addSubview(ctaButton)
@@ -138,17 +138,21 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let services = d["services"] as? [[String: Any]] ?? []
         let reviews = d["reviews"] as? [[String: Any]] ?? []
 
-        // 1) 사진 카루셀
+        // 1) 사진 카루셀 (정사각형)
         contentStack.addArrangedSubview(buildCarousel(images))
 
-        // 2) 정보 글래스 카드
-        contentStack.addArrangedSubview(wrapPad(buildInfoCard(name: name, category: category, regions: regions,
-            career: career, rating: rating, reviewCount: reviewCount, responseRate: responseRate, tags: tags, shortIntro: shortIntro)))
+        // 2) 정보 (프로필 행 + 태그 + 별점 + 주요경력) — 웹과 동일 구조
+        let avatar = (user?["profileImageUrl"] as? String) ?? images.first ?? ""
+        let isFeatured = (d["isFeatured"] as? Bool) ?? true
+        let mainExp = (d["mainExperience"] as? String) ?? ""
+        contentStack.addArrangedSubview(wrapPad(buildInfo(avatar: avatar, category: category, name: name,
+            isFeatured: isFeatured, tags: tags, rating: rating, reviewCount: reviewCount, mainExp: mainExp)))
 
-        // 3) 소개
+        // 3) 서비스 설명 (상세설명 HTML)
         if !intro.isEmpty {
-            contentStack.addArrangedSubview(wrapPad(buildSection(title: "사회자 소개", body: intro)))
+            contentStack.addArrangedSubview(wrapPad(buildSection(title: "서비스 설명", body: intro)))
         }
+        _ = (regions, career, responseRate, shortIntro) // (웹 구조에선 미사용 — 경고 방지)
         // 4) 서비스
         if !services.isEmpty {
             contentStack.addArrangedSubview(wrapPad(buildServices(services)))
@@ -161,7 +165,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     private func buildCarousel(_ images: [String]) -> UIView {
         let holder = UIView()
         let w = UIScreen.main.bounds.width
-        let h = w * 1.15
+        let h = w   // 정사각형 (웹과 동일)
         carousel.translatesAutoresizingMaskIntoConstraints = false
         carousel.isPagingEnabled = true
         carousel.showsHorizontalScrollIndicator = false
@@ -231,40 +235,78 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         }
     }
 
-    private func buildInfoCard(name: String, category: String, regions: String, career: Int, rating: Double,
-                               reviewCount: Int, responseRate: Int, tags: [String], shortIntro: String) -> UIView {
-        let card = glassCard()
-        let nameLabel = UILabel()
-        nameLabel.text = name
-        nameLabel.font = .systemFont(ofSize: 22, weight: .bold)
-        nameLabel.textColor = UIColor(white: 0.1, alpha: 1)
-        let sub = UILabel()
-        sub.text = [category, regions.isEmpty ? nil : regions].compactMap { $0 }.joined(separator: " · ")
-        sub.font = .systemFont(ofSize: 13, weight: .medium)
-        sub.textColor = UIColor(white: 0.5, alpha: 1)
-        // 통계 행
-        let stats = UIStackView()
-        stats.axis = .horizontal; stats.distribution = .fillEqually; stats.spacing = 8
-        stats.addArrangedSubview(statBox(career > 0 ? "\(career)년" : "신규", "경력"))
-        stats.addArrangedSubview(statBox(rating > 0 ? String(format: "%.1f", rating) : "-", "평점(\(reviewCount))"))
-        stats.addArrangedSubview(statBox(responseRate > 0 ? "\(responseRate)%" : "-", "응답률"))
-        let col = UIStackView(arrangedSubviews: [nameLabel, sub, stats])
-        col.axis = .vertical; col.spacing = 8
-        col.setCustomSpacing(14, after: sub)
-        if !shortIntro.isEmpty {
-            let si = UILabel()
-            si.text = shortIntro
-            si.font = .systemFont(ofSize: 13.5)
-            si.textColor = UIColor(white: 0.35, alpha: 1)
-            si.numberOfLines = 0
-            col.addArrangedSubview(si)
+    private func buildInfo(avatar: String, category: String, name: String, isFeatured: Bool, tags: [String],
+                           rating: Double, reviewCount: Int, mainExp: String) -> UIView {
+        let blue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+        let col = UIStackView(); col.axis = .vertical; col.spacing = 8; col.alignment = .fill
+
+        // 프로필 행 (아바타 + 카테고리 이름 + 인증 배지)
+        let av = UIImageView()
+        av.contentMode = .scaleAspectFill; av.clipsToBounds = true
+        av.layer.cornerRadius = 11; av.layer.cornerCurve = .continuous
+        av.backgroundColor = UIColor(white: 0.93, alpha: 1)
+        av.translatesAutoresizingMaskIntoConstraints = false
+        av.widthAnchor.constraint(equalToConstant: 40).isActive = true
+        av.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        NativeChatImageLoader.load(avatar, into: av, fallback: NativeChatHeaderView.avatarPlaceholder)
+        let nameL = UILabel()
+        nameL.text = "\(category) \(name)"
+        nameL.font = .systemFont(ofSize: 18, weight: .bold)
+        nameL.textColor = UIColor(white: 0.1, alpha: 1)
+        let leftRow = UIStackView(arrangedSubviews: [av, nameL]); leftRow.axis = .horizontal; leftRow.spacing = 10; leftRow.alignment = .center
+        let proRow = UIStackView(arrangedSubviews: [leftRow]); proRow.axis = .horizontal; proRow.alignment = .center
+        if isFeatured {
+            let badge = PaddingLabel()
+            badge.text = "✓ 인증 사회자"
+            badge.inset = UIEdgeInsets(top: 4, left: 9, bottom: 4, right: 9)
+            badge.font = .systemFont(ofSize: 11, weight: .bold)
+            badge.textColor = blue
+            badge.backgroundColor = blue.withAlphaComponent(0.1)
+            badge.layer.cornerRadius = 11; badge.clipsToBounds = true
+            badge.setContentHuggingPriority(.required, for: .horizontal)
+            proRow.addArrangedSubview(UIView())
+            proRow.addArrangedSubview(badge)
         }
-        if !tags.isEmpty {
-            let tagWrap = flowTags(tags)
-            col.addArrangedSubview(tagWrap)
+        col.addArrangedSubview(proRow)
+
+        if !tags.isEmpty { col.addArrangedSubview(flowTags(tags)) }
+
+        // 별점
+        let starRow = UIStackView(); starRow.axis = .horizontal; starRow.spacing = 3; starRow.alignment = .center
+        let filled = Int(rating.rounded())
+        for i in 0..<5 {
+            let s = UILabel(); s.text = "★"; s.font = .systemFont(ofSize: 15)
+            s.textColor = i < filled ? UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1) : UIColor(white: 0.85, alpha: 1)
+            starRow.addArrangedSubview(s)
         }
-        pin(col, into: card, inset: 18)
-        return card
+        let rl = UILabel(); rl.text = String(format: "%.1f", rating); rl.font = .systemFont(ofSize: 16, weight: .bold); rl.textColor = UIColor(white: 0.1, alpha: 1)
+        let cl = UILabel(); cl.text = "(\(reviewCount))"; cl.font = .systemFont(ofSize: 14); cl.textColor = UIColor(white: 0.6, alpha: 1)
+        starRow.setCustomSpacing(8, after: starRow.arrangedSubviews.last!)
+        starRow.addArrangedSubview(rl); starRow.addArrangedSubview(cl); starRow.addArrangedSubview(UIView())
+        col.addArrangedSubview(starRow)
+        col.setCustomSpacing(14, after: starRow)
+
+        // 주요 경력 카드 (연한 파랑)
+        let lines = mainExp.split(whereSeparator: { $0 == "\n" || $0 == "/" }).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        if !lines.isEmpty {
+            let cc = UIView()
+            cc.backgroundColor = UIColor(red: 0.969, green: 0.98, blue: 1.0, alpha: 1)
+            cc.layer.cornerRadius = 12; cc.layer.cornerCurve = .continuous
+            cc.layer.borderWidth = 1; cc.layer.borderColor = UIColor(white: 0.93, alpha: 1).cgColor
+            let t = UILabel(); t.text = "주요 경력"; t.font = .systemFont(ofSize: 11, weight: .bold); t.textColor = blue
+            let ul = UIStackView(arrangedSubviews: [t]); ul.axis = .vertical; ul.spacing = 4
+            ul.setCustomSpacing(7, after: t)
+            for line in lines.prefix(5) {
+                let dot = UILabel(); dot.text = "•"; dot.font = .systemFont(ofSize: 13); dot.textColor = blue
+                dot.setContentHuggingPriority(.required, for: .horizontal)
+                let tx = UILabel(); tx.text = line; tx.font = .systemFont(ofSize: 13); tx.textColor = UIColor(white: 0.2, alpha: 1); tx.numberOfLines = 0
+                let r = UIStackView(arrangedSubviews: [dot, tx]); r.axis = .horizontal; r.spacing = 6; r.alignment = .firstBaseline
+                ul.addArrangedSubview(r)
+            }
+            pin(ul, into: cc, inset: 14)
+            col.addArrangedSubview(cc)
+        }
+        return col
     }
 
     private func buildSection(title: String, body: String) -> UIView {
@@ -336,8 +378,10 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     private func glassCard() -> UIView {
         let v = UIView()
         v.backgroundColor = .white
-        v.layer.cornerRadius = 18
+        v.layer.cornerRadius = 14
         v.layer.cornerCurve = .continuous
+        v.layer.borderWidth = 1
+        v.layer.borderColor = UIColor(white: 0.91, alpha: 1).cgColor
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }
