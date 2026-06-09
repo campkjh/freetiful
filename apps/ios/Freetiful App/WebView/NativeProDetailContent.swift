@@ -81,6 +81,23 @@ private final class RecoCardButton: UIControl {
     var proIdRef = ""
 }
 
+// MARK: - 종횡비 자동 이미지뷰 (상세설명 포트폴리오 이미지 — 로드된 이미지 비율로 높이 결정)
+private final class AspectImageView: UIImageView {
+    private var aspect: NSLayoutConstraint?
+    override var image: UIImage? {
+        didSet {
+            guard let img = image, img.size.width > 0 else { return }
+            let ratio = min(2.0, img.size.height / img.size.width)   // 너무 긴 이미지 방지
+            aspect?.isActive = false
+            let c = heightAnchor.constraint(equalTo: widthAnchor, multiplier: ratio)
+            c.priority = .required
+            c.isActive = true
+            aspect = c
+            superview?.superview?.layoutIfNeeded()
+        }
+    }
+}
+
 // 사회자 상세 네이티브 — 사진 카루셀 + 정보 + 서비스설명 + 추천 + 리뷰(레이더) + FAQ + 글래스 CTA
 final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     weak var delegate: NativeProDetailDelegate?
@@ -235,7 +252,12 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let tags = strArr(d["tagList"]).isEmpty ? strArr(d["tags"]) : strArr(d["tagList"])
         let category = strArr(d["categoryNames"]).first ?? strArr(d["categories"]).first ?? "사회자"
         let images = imageUrls(d["images"])
-        let intro = NativeHelpContent.htmlToText((d["detailHtml"] as? String) ?? "")
+        let detailHtml = (d["detailHtml"] as? String) ?? ""
+        let apiFaqs: [(String, String)] = (d["faqs"] as? [[String: Any]])?.compactMap { f in
+            guard let q = (f["question"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !q.isEmpty,
+                  let a = (f["answer"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !a.isEmpty else { return nil }
+            return (q, a)
+        } ?? []
         let apiReviews = d["reviews"] as? [[String: Any]] ?? []
         let avatar = (user?["profileImageUrl"] as? String) ?? (d["profileImageUrl"] as? String) ?? images.first ?? ""
         let isFeatured = (d["isFeatured"] as? Bool) ?? true
@@ -252,20 +274,21 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let hasAnyScore = scoreValues.contains { $0 > 0 }
         let potential = Int((scoreValues.reduce(0) { $0 + $1 * 20 }).rounded())
 
-        // ── 섹션 (웹 모바일 순서) ──
+        // ── 섹션 (웹 순서, 추천은 맨 아래) ──
         contentStack.addArrangedSubview(buildCarousel(images))
         contentStack.addArrangedSubview(wrapPad(buildInfo(avatar: avatar, category: category, name: name,
             isFeatured: isFeatured, tags: tags, rating: rating, reviewCount: reviewCount, mainExp: mainExp)))
-        if !intro.isEmpty {
-            contentStack.addArrangedSubview(wrapPad(buildSection(title: "서비스 설명", body: intro)))
+        if let desc = buildDescription(detailHtml) {
+            contentStack.addArrangedSubview(wrapPad(desc))
         }
+        contentStack.addArrangedSubview(wrapPad(buildReviews(displayReviews, rating: rating, count: reviewCount,
+            scores: scoreValues, potential: potential, hasAnyScore: hasAnyScore)))
+        contentStack.addArrangedSubview(wrapPad(buildFaq(category: category,
+            hasVideo: (d["youtubeUrl"] as? String)?.isEmpty == false, custom: apiFaqs)))
         let recos = NativeHomeData.recommendedPros(excluding: proId, limit: 10)
         if !recos.isEmpty {
             contentStack.addArrangedSubview(buildRecommend(recos))
         }
-        contentStack.addArrangedSubview(wrapPad(buildReviews(displayReviews, rating: rating, count: reviewCount,
-            scores: scoreValues, potential: potential, hasAnyScore: hasAnyScore)))
-        contentStack.addArrangedSubview(wrapPad(buildFaq(category: category, hasVideo: (d["youtubeUrl"] as? String)?.isEmpty == false)))
 
         layoutIfNeeded()
         if animated {
@@ -453,13 +476,40 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         return col
     }
 
-    private func buildSection(title: String, body: String) -> UIView {
+    // 서비스 설명 — detailHtml 의 텍스트 + 이미지 모두 렌더 (웹 dangerouslySetInnerHTML 대응)
+    private func buildDescription(_ html: String) -> UIView? {
+        let text = NativeHelpContent.htmlToText(html)
+        let imgs = extractImageSrcs(html)
+        guard !text.isEmpty || !imgs.isEmpty else { return nil }
         let card = glassCard()
-        let t = UILabel(); t.text = title; t.font = .systemFont(ofSize: 16, weight: .bold); t.textColor = UIColor(white: 0.12, alpha: 1)
-        let b = UILabel(); b.text = body; b.font = .systemFont(ofSize: 14.5); b.textColor = UIColor(white: 0.35, alpha: 1); b.numberOfLines = 0
-        let col = UIStackView(arrangedSubviews: [t, b]); col.axis = .vertical; col.spacing = 10
+        let col = UIStackView(); col.axis = .vertical; col.spacing = 12; col.alignment = .fill
+        let t = UILabel(); t.text = "서비스 설명"; t.font = .systemFont(ofSize: 16, weight: .bold); t.textColor = UIColor(white: 0.12, alpha: 1)
+        col.addArrangedSubview(t)
+        if !text.isEmpty {
+            let b = UILabel(); b.text = text; b.font = .systemFont(ofSize: 14.5); b.textColor = UIColor(white: 0.3, alpha: 1); b.numberOfLines = 0
+            b.setContentHuggingPriority(.required, for: .vertical)
+            col.addArrangedSubview(b)
+        }
+        for src in imgs.prefix(15) {
+            let iv = AspectImageView()
+            iv.contentMode = .scaleAspectFill
+            iv.clipsToBounds = true
+            iv.layer.cornerRadius = 10; iv.layer.cornerCurve = .continuous
+            iv.backgroundColor = UIColor(white: 0.95, alpha: 1)
+            NativeChatImageLoader.load(src, into: iv, fallback: nil)
+            col.addArrangedSubview(iv)
+        }
         pin(col, into: card, inset: 18)
         return card
+    }
+    private func extractImageSrcs(_ html: String) -> [String] {
+        var result: [String] = []
+        guard let re = try? NSRegularExpression(pattern: "<img[^>]+src=[\"']([^\"']+)[\"']", options: [.caseInsensitive]) else { return [] }
+        let ns = html as NSString
+        re.enumerateMatches(in: html, range: NSRange(location: 0, length: ns.length)) { m, _, _ in
+            if let m = m, m.numberOfRanges > 1 { result.append(ns.substring(with: m.range(at: 1))) }
+        }
+        return result
     }
 
     // MARK: - 추천 사회자 (홈 캐시 재사용 — 가로 스크롤, 3:4 카드)
@@ -786,17 +836,17 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         return chip
     }
 
-    // MARK: - FAQ (아코디언 — 기본 3개)
-    private func buildFaq(category: String, hasVideo: Bool) -> UIView {
+    // MARK: - FAQ (아코디언 — 사회자가 등록한 FAQ 우선, 없으면 기본 3개)
+    private func buildFaq(category: String, hasVideo: Bool, custom: [(String, String)]) -> UIView {
         let card = glassCard()
         let t = UILabel(); t.text = "FAQ"; t.font = .systemFont(ofSize: 18, weight: .bold); t.textColor = UIColor(white: 0.1, alpha: 1)
         let col = UIStackView(arrangedSubviews: [t]); col.axis = .vertical; col.spacing = 0; col.alignment = .fill
         col.setCustomSpacing(6, after: t)
-        let faqs: [(String, String)] = [
+        let faqs: [(String, String)] = custom.isEmpty ? [
             ("\(category) 섭외는 어떻게 진행되나요?", "문의하기로 장소와 행사 성격을 알려주시면 사회자가 가능 여부와 견적을 확인해 답변드립니다. 이후 결제와 사전 미팅을 통해 진행 방향을 조율합니다."),
             ("행사 전 준비 자료는 언제 전달하면 되나요?", "행사 개요, 식순, 요청 멘트, 참고 대본이 있다면 전달해 주세요. 결혼식은 보통 본식 한 달 전후로 사전 질문지를 기반으로 대본을 맞춰갑니다."),
             ("진행 영상이나 포트폴리오는 어디에서 볼 수 있나요?", hasVideo ? "상세페이지의 영상 섹션에서 대표 진행 영상을 확인할 수 있습니다." : "등록된 영상이 없는 경우 문의하기로 참고 포트폴리오를 요청할 수 있습니다."),
-        ]
+        ] : custom
         for (i, f) in faqs.enumerated() {
             if i > 0 { col.addArrangedSubview(divider()) }
             col.addArrangedSubview(faqItem(question: f.0, answer: f.1))
