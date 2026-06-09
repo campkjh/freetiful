@@ -102,7 +102,7 @@ final class NativeBusinessDetailContent: UIView, UIScrollViewDelegate {
 
     func setInsets(top: CGFloat, bottom: CGFloat) {
         topInset = top
-        scroll.contentInset = UIEdgeInsets(top: top, left: 0, bottom: bottom + 80, right: 0)
+        scroll.contentInset = UIEdgeInsets(top: top, left: 0, bottom: bottom + 24, right: 0)
         scroll.verticalScrollIndicatorInsets.top = top
     }
     func scrollToTop() { scroll.setContentOffset(CGPoint(x: 0, y: -scroll.contentInset.top), animated: false) }
@@ -145,13 +145,8 @@ final class NativeBusinessDetailContent: UIView, UIScrollViewDelegate {
             contentStack.addArrangedSubview(wrapPad(desc))
         }
 
-        // 전화 CTA
-        if let phone = (d["phone"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !phone.isEmpty {
-            phoneDigits = phone.filter { $0.isNumber || $0 == "+" }
-            cta.isHidden = phoneDigits.isEmpty
-        } else {
-            cta.isHidden = true
-        }
+        // 전화 문의 푸터 제거 (사용자 요청)
+        cta.isHidden = true
 
         // 진입 애니메이션 (섹션 스태거 fade+rise)
         for (i, v) in contentStack.arrangedSubviews.enumerated() {
@@ -160,10 +155,6 @@ final class NativeBusinessDetailContent: UIView, UIScrollViewDelegate {
             UIView.animate(withDuration: 0.5, delay: Double(i) * 0.06, options: [.curveEaseOut]) {
                 v.alpha = 1; v.transform = .identity
             }
-        }
-        if !cta.isHidden {
-            cta.alpha = 0
-            UIView.animate(withDuration: 0.5, delay: 0.2, options: [.curveEaseOut]) { self.cta.alpha = 1 }
         }
     }
 

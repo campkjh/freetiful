@@ -335,6 +335,13 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     private let pageDots = UIStackView()
     private var dotViews: [UIView] = []
     private let pageBadge = UILabel()
+    // 히어로 캐러셀(가운데 크게 + 양옆 peek + 스와이프 시 스무스 스케일)
+    private var carouselItems: [UIView] = []
+    private var carItemW: CGFloat = 0
+    private var carSpacing: CGFloat = 12
+    private var carHeight: CGFloat = 0
+    private let carMinScale: CGFloat = 0.88
+    private var carPeek = false
 
     // CTA (글래스)
     private let ctaBar = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
@@ -475,6 +482,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     @objc private func recoTapped(_ sender: RecoCardButton) { Haptics.tap(); delegate?.proDetailOpen(sender.proIdRef) }
 
     func loadDetail(id: String) {
+        if id == proId && hasContent { return }   // 이미 같은 사회자 표시 중 — 깜빡임/클로버 방지
         proId = id
         hasContent = false
         loadingLabel.text = "불러오는 중…"
@@ -491,6 +499,9 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     }
 
     private func render(_ d: [String: Any], animated: Bool) {
+        // 에러/부분 응답(이름·이미지 전무)이 이미 표시된 정상 콘텐츠를 덮어쓰지 않도록 방어
+        let guardName = ((d["user"] as? [String: Any])?["name"] as? String) ?? (d["name"] as? String) ?? ""
+        if hasContent && guardName.isEmpty && imageUrls(d["images"]).isEmpty { return }
         loadingLabel.isHidden = true
         contentStack.isHidden = false
         ctaBar.isHidden = false
@@ -576,6 +587,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         floatingTabBar.isHidden = true; floatingTabBar.alpha = 0
 
         layoutIfNeeded()
+        updateCarouselScale()   // 레이아웃 직후 가운데 카드 1.0·양옆 축소 초기 적용
         if animated {
             let secs = contentStack.arrangedSubviews
             for (i, sec) in secs.enumerated() {
@@ -605,27 +617,42 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     private func buildCarousel(_ images: [String]) -> UIView {
         let holder = UIView()
         let w = UIScreen.main.bounds.width
-        let h = w
+        let imgs = images.isEmpty ? [""] : images
+        // 가운데 카드 크게 + 양옆 살짝 보이게(peek). 1장이면 풀폭.
+        carPeek = imgs.count > 1
+        let itemW = carPeek ? round(w * 0.82) : w
+        let h = carPeek ? round(w * 1.04) : w
+        let sideInset = (w - itemW) / 2
+        carItemW = itemW; carHeight = h
         carousel.translatesAutoresizingMaskIntoConstraints = false
-        carousel.isPagingEnabled = true
+        carousel.isPagingEnabled = false
+        carousel.decelerationRate = .fast
+        carousel.clipsToBounds = false   // 양옆 peek 카드가 보이도록
         carousel.showsHorizontalScrollIndicator = false
         carousel.delegate = self
         carousel.contentInsetAdjustmentBehavior = .never
+        carousel.contentInset = UIEdgeInsets(top: 0, left: sideInset, bottom: 0, right: sideInset)
         carouselRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        carouselItems = []
         carouselRow.axis = .horizontal
+        carouselRow.spacing = carPeek ? carSpacing : 0
+        carouselRow.alignment = .center
         carouselRow.translatesAutoresizingMaskIntoConstraints = false
         carousel.addSubview(carouselRow)
         holder.addSubview(carousel)
-        let imgs = images.isEmpty ? [""] : images
         for u in imgs {
             let iv = UIImageView()
             iv.contentMode = .scaleAspectFill
             iv.clipsToBounds = true
+            iv.layer.cornerRadius = carPeek ? 22 : 0
+            iv.layer.cornerCurve = .continuous
             iv.backgroundColor = UIColor(white: 0.93, alpha: 1)
             iv.translatesAutoresizingMaskIntoConstraints = false
             NativeChatImageLoader.load(u, into: iv, fallback: NativeChatHeaderView.avatarPlaceholder)
             carouselRow.addArrangedSubview(iv)
-            iv.widthAnchor.constraint(equalToConstant: w).isActive = true
+            iv.widthAnchor.constraint(equalToConstant: itemW).isActive = true
+            iv.heightAnchor.constraint(equalToConstant: h).isActive = true
+            carouselItems.append(iv)
         }
         // 페이지 닷
         dotViews.forEach { $0.removeFromSuperview() }; dotViews = []
@@ -644,15 +671,6 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
                 pageDots.addArrangedSubview(dot)
             }
             holder.addSubview(pageDots)
-            // 1/N 배지
-            pageBadge.text = "1 / \(imgs.count)"
-            pageBadge.font = .systemFont(ofSize: 11, weight: .semibold)
-            pageBadge.textColor = .white
-            pageBadge.backgroundColor = UIColor.black.withAlphaComponent(0.45)
-            pageBadge.textAlignment = .center
-            pageBadge.layer.cornerRadius = 11; pageBadge.clipsToBounds = true
-            pageBadge.translatesAutoresizingMaskIntoConstraints = false
-            holder.addSubview(pageBadge)
         }
         NSLayoutConstraint.activate([
             carousel.topAnchor.constraint(equalTo: holder.topAnchor),
@@ -670,28 +688,54 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             NSLayoutConstraint.activate([
                 pageDots.centerXAnchor.constraint(equalTo: holder.centerXAnchor),
                 pageDots.bottomAnchor.constraint(equalTo: holder.bottomAnchor, constant: -14),
-                pageBadge.trailingAnchor.constraint(equalTo: holder.trailingAnchor, constant: -12),
-                pageBadge.bottomAnchor.constraint(equalTo: holder.bottomAnchor, constant: -12),
-                pageBadge.heightAnchor.constraint(equalToConstant: 22),
-                pageBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
             ])
         }
+        DispatchQueue.main.async { [weak self] in self?.updateCarouselScale() }
         return holder
+    }
+
+    // 가운데 카드는 1.0, 양옆 카드는 carMinScale 까지 스무스 축소 (스크롤 위치 기반)
+    private func updateCarouselScale() {
+        guard carPeek, carItemW > 0, carousel.bounds.width > 0 else { return }
+        let centerX = carousel.contentOffset.x + carousel.bounds.width / 2
+        let step = carItemW + carSpacing
+        for (i, item) in carouselItems.enumerated() {
+            let itemCenterX = CGFloat(i) * step + carItemW / 2
+            let t = min(1, abs(itemCenterX - centerX) / step)
+            let scale = 1 - t * (1 - carMinScale)
+            item.transform = CGAffineTransform(scaleX: scale, y: scale)
+        }
+    }
+    private func carouselIndex(forOffsetX x: CGFloat) -> Int {
+        let step = carItemW + carSpacing
+        let centerX = x + carousel.bounds.width / 2
+        let idx = Int(((centerX - carItemW / 2) / step).rounded())
+        return max(0, min(carouselItems.count - 1, idx))
+    }
+    private func carouselOffsetX(forIndex i: Int) -> CGFloat {
+        let step = carItemW + carSpacing
+        return CGFloat(i) * step + carItemW / 2 - carousel.bounds.width / 2
+    }
+    func scrollViewWillEndDragging(_ sv: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        guard sv == carousel, carPeek else { return }
+        let i = carouselIndex(forOffsetX: targetContentOffset.pointee.x)
+        targetContentOffset.pointee.x = carouselOffsetX(forIndex: i)
     }
 
     func scrollViewDidScroll(_ sv: UIScrollView) {
         if sv == carousel {
+            updateCarouselScale()
             guard carousel.bounds.width > 0, dotViews.count > 1 else { return }
-            let page = Int(round(carousel.contentOffset.x / carousel.bounds.width))
+            let page = carPeek ? carouselIndex(forOffsetX: carousel.contentOffset.x)
+                               : Int(round(carousel.contentOffset.x / carousel.bounds.width))
             for (i, dot) in dotViews.enumerated() {
                 dot.backgroundColor = i == page ? .white : UIColor.white.withAlphaComponent(0.5)
             }
-            pageBadge.text = "\(min(dotViews.count, max(1, page + 1))) / \(dotViews.count)"
             return
         }
         guard sv == scrollView else { return }
         updateStickyTabs()
-        let heroH = UIScreen.main.bounds.width
+        let heroH = carHeight > 0 ? carHeight : UIScreen.main.bounds.width
         onScroll?(max(0, min(1, (scrollView.contentOffset.y + topInset) / (heroH * 0.6))))
     }
 
@@ -781,28 +825,23 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         col.addArrangedSubview(starRow)
         col.setCustomSpacing(14, after: starRow)
 
-        // 주요 경력 카드
+        // 주요 경력 — 제목·불릿 없이 그라데이션 텍스트만, 한 줄씩 줄바꿈
         let lines = mainExp.split(whereSeparator: { $0 == "\n" || $0 == "/" }).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         if !lines.isEmpty {
             let cc = UIView()
             cc.backgroundColor = UIColor(red: 0.969, green: 0.98, blue: 1.0, alpha: 1)
-            cc.layer.cornerRadius = 12; cc.layer.cornerCurve = .continuous
+            cc.layer.cornerRadius = 32; cc.layer.cornerCurve = .continuous
             cc.layer.borderWidth = 1; cc.layer.borderColor = UIColor(white: 0.93, alpha: 1).cgColor
-            let t = UILabel(); t.text = "주요 경력"; t.font = .systemFont(ofSize: 11, weight: .bold); t.textColor = blue
-            let ul = UIStackView(arrangedSubviews: [t]); ul.axis = .vertical; ul.spacing = 4
-            ul.setCustomSpacing(7, after: t)
-            for (i, line) in lines.prefix(5).enumerated() {
-                let dot = UILabel(); dot.text = "•"; dot.font = .systemFont(ofSize: 16, weight: .semibold); dot.textColor = blue
-                dot.setContentHuggingPriority(.required, for: .horizontal)
+            let ul = UIStackView(); ul.axis = .vertical; ul.spacing = 6
+            for (i, line) in lines.prefix(6).enumerated() {
                 let tx = GradientSweepLabel()
                 tx.text = line
                 tx.font = .systemFont(ofSize: 16, weight: .semibold)
                 tx.numberOfLines = 0
                 tx.sweepDelay = 0.4 + Double(i) * 0.22   // 한 줄씩 순차
-                let r = UIStackView(arrangedSubviews: [dot, tx]); r.axis = .horizontal; r.spacing = 7; r.alignment = .top
-                ul.addArrangedSubview(r)
+                ul.addArrangedSubview(tx)
             }
-            pin(ul, into: cc, inset: 14)
+            pin(ul, into: cc, inset: 18)
             col.addArrangedSubview(cc)
         }
         return col
@@ -974,13 +1013,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let url = (p["profileImageUrl"] as? String) ?? imageUrls(p["images"]).first ?? ""
         NativeChatImageLoader.load(url, into: img, fallback: NativeChatHeaderView.avatarPlaceholder)
 
-        let badge = PaddingLabel()
-        badge.text = "✓ Partners"
-        badge.inset = UIEdgeInsets(top: 2, left: 6, bottom: 2, right: 6)
-        badge.font = .systemFont(ofSize: 9, weight: .bold)
-        badge.textColor = blue
-        badge.backgroundColor = UIColor(red: 0.918, green: 0.953, blue: 1.0, alpha: 1)
-        badge.layer.cornerRadius = 8; badge.clipsToBounds = true
+        let badge = makePartnersBadge(height: 13)
         let badgeWrap = UIStackView(arrangedSubviews: [badge, UIView()]); badgeWrap.axis = .horizontal
 
         let cat = strArr(p["categories"]).first ?? strArr(p["categoryNames"]).first ?? "사회자"
@@ -1278,6 +1311,30 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     }
 
     // MARK: - 헬퍼
+    // 파트너스 뱃지 (첨부 SVG 로고를 흰 칩에 담아 사진 위에서도 가독)
+    private func makePartnersBadge(height: CGFloat) -> UIView {
+        let chip = UIView()
+        chip.backgroundColor = .white
+        chip.layer.cornerRadius = max(6, height * 0.5)
+        chip.layer.cornerCurve = .continuous
+        chip.layer.shadowColor = UIColor.black.cgColor
+        chip.layer.shadowOpacity = 0.10
+        chip.layer.shadowRadius = 2.5
+        chip.layer.shadowOffset = CGSize(width: 0, height: 1)
+        chip.translatesAutoresizingMaskIntoConstraints = false
+        let img = UIImageView(image: UIImage(named: "partners-badge")?.withRenderingMode(.alwaysOriginal))
+        img.contentMode = .scaleAspectFit
+        img.translatesAutoresizingMaskIntoConstraints = false
+        chip.addSubview(img)
+        NSLayoutConstraint.activate([
+            img.heightAnchor.constraint(equalToConstant: height),
+            img.topAnchor.constraint(equalTo: chip.topAnchor, constant: 3),
+            img.bottomAnchor.constraint(equalTo: chip.bottomAnchor, constant: -3),
+            img.leadingAnchor.constraint(equalTo: chip.leadingAnchor, constant: 7),
+            img.trailingAnchor.constraint(equalTo: chip.trailingAnchor, constant: -7),
+        ])
+        return chip
+    }
     private func glassCard() -> UIView {
         let v = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
         v.layer.cornerRadius = 32; v.layer.cornerCurve = .continuous

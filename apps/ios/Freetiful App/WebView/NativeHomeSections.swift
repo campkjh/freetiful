@@ -721,18 +721,26 @@ final class HomeProGridCard: UIControl {
         ])
 
         if item.isPartner {
-            let partnerPill = GlassPill(corner: 8)
-            partnerPill.translatesAutoresizingMaskIntoConstraints = false
-            partnerPill.isUserInteractionEnabled = false
-            let partnerLabel = UILabel()
-            partnerLabel.text = "✓ Partners"
-            partnerLabel.font = .systemFont(ofSize: 9.5, weight: .bold)
-            partnerLabel.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
-            partnerPill.setContent(partnerLabel, insets: UIEdgeInsets(top: 3, left: 8, bottom: 3, right: 8))
-            addSubview(partnerPill)
+            let chip = UIView()
+            chip.backgroundColor = .white
+            chip.layer.cornerRadius = 7; chip.layer.cornerCurve = .continuous
+            chip.layer.shadowColor = UIColor.black.cgColor
+            chip.layer.shadowOpacity = 0.12; chip.layer.shadowRadius = 2.5; chip.layer.shadowOffset = CGSize(width: 0, height: 1)
+            chip.isUserInteractionEnabled = false
+            chip.translatesAutoresizingMaskIntoConstraints = false
+            let badgeImg = UIImageView(image: UIImage(named: "partners-badge")?.withRenderingMode(.alwaysOriginal))
+            badgeImg.contentMode = .scaleAspectFit
+            badgeImg.translatesAutoresizingMaskIntoConstraints = false
+            chip.addSubview(badgeImg)
+            addSubview(chip)
             NSLayoutConstraint.activate([
-                partnerPill.topAnchor.constraint(equalTo: img.topAnchor, constant: 6),
-                partnerPill.leadingAnchor.constraint(equalTo: img.leadingAnchor, constant: 6),
+                badgeImg.heightAnchor.constraint(equalToConstant: 13),
+                badgeImg.topAnchor.constraint(equalTo: chip.topAnchor, constant: 3),
+                badgeImg.bottomAnchor.constraint(equalTo: chip.bottomAnchor, constant: -3),
+                badgeImg.leadingAnchor.constraint(equalTo: chip.leadingAnchor, constant: 7),
+                badgeImg.trailingAnchor.constraint(equalTo: chip.trailingAnchor, constant: -7),
+                chip.topAnchor.constraint(equalTo: img.topAnchor, constant: 6),
+                chip.leadingAnchor.constraint(equalTo: img.leadingAnchor, constant: 6),
             ])
         }
         addAction(UIAction { [weak self] _ in Haptics.tap(); self?.onTap?(self?.proId ?? "") }, for: .touchUpInside)
