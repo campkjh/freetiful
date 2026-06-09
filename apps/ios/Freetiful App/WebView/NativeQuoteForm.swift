@@ -56,13 +56,13 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
         card.layer.cornerCurve = .continuous
         card.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         card.layer.borderWidth = 0.5
-        card.layer.borderColor = UIColor(white: 0.9, alpha: 1).cgColor
+        card.layer.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
         view.addSubview(card)
 
-        // 웹 견적 시트와 동일하게 흰색 불투명 (뒤 콘텐츠 비침 없이 깔끔)
+        // 글래스 모달에 살짝 화이트 틴트 (가독성·질감)
         let whiteTint = UIView()
         whiteTint.translatesAutoresizingMaskIntoConstraints = false
-        whiteTint.backgroundColor = UIColor.white.withAlphaComponent(0.98)
+        whiteTint.backgroundColor = UIColor.white.withAlphaComponent(0.22)
         whiteTint.isUserInteractionEnabled = false
         card.contentView.addSubview(whiteTint)
         NSLayoutConstraint.activate([

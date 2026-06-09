@@ -1288,7 +1288,11 @@ class ViewController: UIViewController,
                 quoteDate: (d["quoteDate"] as? String) ?? "",
                 quoteTime: (d["quoteTime"] as? String) ?? "",
                 quoteLocation: (d["quoteLocation"] as? String) ?? "",
-                quotationId: (d["quotationId"] as? String) ?? ""
+                quotationId: (d["quotationId"] as? String) ?? "",
+                quoteEventName: (d["quoteEventName"] as? String) ?? "",
+                quotePlanLabel: (d["quotePlanLabel"] as? String) ?? "",
+                quoteProImage: (d["quoteProImage"] as? String) ?? "",
+                quoteIsLatest: (d["quoteIsLatest"] as? Bool) ?? false
             )
         }
         nativeChatMessages.setMessages(msgs, forceScroll: !hasLoadedChatMessagesOnce)

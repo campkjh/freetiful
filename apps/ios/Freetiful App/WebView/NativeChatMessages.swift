@@ -20,6 +20,10 @@ struct NativeChatMessage {
     let quoteTime: String
     let quoteLocation: String
     let quotationId: String
+    var quoteEventName: String = ""
+    var quotePlanLabel: String = ""
+    var quoteProImage: String = ""
+    var quoteIsLatest: Bool = false
 }
 
 protocol NativeChatMessagesDelegate: AnyObject {
@@ -458,102 +462,129 @@ final class NativeChatQuoteCell: UITableViewCell {
     var onTap: ((String) -> Void)?
     private var quotationId = ""
     private let card = UIView()
-    private let titleLabel = UILabel()
-    private let amountLabel = UILabel()
+    private let photo = UIImageView()
+    private let planPill = PaddingLabel()
     private let eventLabel = UILabel()
-    private let payHint = UILabel()
+    private let amountLabel = UILabel()
+    private let payBar = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    private let payLabel = UILabel()
+    private let statusChip = PaddingLabel()
 
     private static let amountFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.groupingSeparator = ","
-        return f
+        let f = NumberFormatter(); f.numberStyle = .decimal; f.groupingSeparator = ","; return f
     }()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        setup()
+        super.init(style: style, reuseIdentifier: reuseIdentifier); setup()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setup() {
         selectionStyle = .none
-        backgroundColor = .clear
-        contentView.backgroundColor = .clear
+        backgroundColor = .clear; contentView.backgroundColor = .clear
 
         card.translatesAutoresizingMaskIntoConstraints = false
         card.backgroundColor = .white
-        card.layer.cornerRadius = 18
-        card.layer.cornerCurve = .continuous
-        card.layer.borderWidth = 1
-        card.layer.borderColor = UIColor(red: 0.85, green: 0.91, blue: 1.0, alpha: 1).cgColor
+        card.layer.cornerRadius = 18; card.layer.cornerCurve = .continuous
+        card.layer.borderWidth = 1; card.layer.borderColor = UIColor(red: 0.85, green: 0.91, blue: 1.0, alpha: 1).cgColor
         card.layer.shadowColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1).cgColor
-        card.layer.shadowOpacity = 0.10
-        card.layer.shadowRadius = 12
-        card.layer.shadowOffset = CGSize(width: 0, height: 6)
+        card.layer.shadowOpacity = 0.10; card.layer.shadowRadius = 12; card.layer.shadowOffset = CGSize(width: 0, height: 6)
         contentView.addSubview(card)
 
-        titleLabel.text = "📋 견적서"
-        titleLabel.font = .systemFont(ofSize: 13, weight: .bold)
-        titleLabel.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+        // 사회자 프로필 사진 카드 (좌)
+        photo.translatesAutoresizingMaskIntoConstraints = false
+        photo.contentMode = .scaleAspectFill; photo.clipsToBounds = true
+        photo.layer.cornerRadius = 13; photo.layer.cornerCurve = .continuous
+        photo.backgroundColor = UIColor(white: 0.91, alpha: 1)
+        card.addSubview(photo)
 
-        amountLabel.font = .systemFont(ofSize: 22, weight: .heavy)
-        amountLabel.textColor = UIColor(white: 0.1, alpha: 1)
+        planPill.font = .systemFont(ofSize: 11, weight: .medium)
+        planPill.textColor = UIColor(white: 0.3, alpha: 1)
+        planPill.backgroundColor = UIColor(white: 0, alpha: 0.06)
+        planPill.layer.cornerRadius = 9; planPill.clipsToBounds = true
+        planPill.inset = UIEdgeInsets(top: 3, left: 9, bottom: 3, right: 9)
+        planPill.setContentHuggingPriority(.required, for: .horizontal)
 
-        eventLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        eventLabel.textColor = UIColor(red: 0.42, green: 0.46, blue: 0.52, alpha: 1)
-        eventLabel.numberOfLines = 2
+        eventLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        eventLabel.textColor = UIColor(white: 0.1, alpha: 1); eventLabel.numberOfLines = 2
 
-        payHint.text = "탭하여 결제하기"
-        payHint.font = .systemFont(ofSize: 13, weight: .bold)
-        payHint.textColor = .white
-        payHint.textAlignment = .center
-        payHint.backgroundColor = UIColor(red: 0.192, green: 0.502, blue: 0.969, alpha: 1)
-        payHint.layer.cornerRadius = 10
-        payHint.clipsToBounds = true
+        amountLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        amountLabel.textColor = UIColor(white: 0.05, alpha: 1)
 
-        let stack = UIStackView(arrangedSubviews: [titleLabel, amountLabel, eventLabel, payHint])
-        stack.axis = .vertical
-        stack.spacing = 6
-        stack.alignment = .fill
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.setCustomSpacing(10, after: eventLabel)
-        card.addSubview(stack)
+        // 결제 버튼 (글래스, 고객 최신 견적만)
+        payBar.translatesAutoresizingMaskIntoConstraints = false
+        payBar.layer.cornerRadius = 13; payBar.layer.cornerCurve = .continuous; payBar.clipsToBounds = true
+        payBar.layer.borderWidth = 1; payBar.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
+        payBar.contentView.backgroundColor = UIColor(red: 44/255, green: 83/255, blue: 255/255, alpha: 0.55)
+        payLabel.text = "결제하기"; payLabel.font = .systemFont(ofSize: 13.5, weight: .bold); payLabel.textColor = .white; payLabel.textAlignment = .center
+        payLabel.translatesAutoresizingMaskIntoConstraints = false
+        payBar.contentView.addSubview(payLabel)
+        NSLayoutConstraint.activate([
+            payLabel.topAnchor.constraint(equalTo: payBar.contentView.topAnchor, constant: 8),
+            payLabel.bottomAnchor.constraint(equalTo: payBar.contentView.bottomAnchor, constant: -8),
+            payLabel.leadingAnchor.constraint(equalTo: payBar.contentView.leadingAnchor, constant: 24),
+            payLabel.trailingAnchor.constraint(equalTo: payBar.contentView.trailingAnchor, constant: -24),
+        ])
+        payBar.setContentHuggingPriority(.required, for: .horizontal)
+
+        statusChip.font = .systemFont(ofSize: 12, weight: .bold)
+        statusChip.layer.cornerRadius = 9; statusChip.clipsToBounds = true
+        statusChip.inset = UIEdgeInsets(top: 5, left: 11, bottom: 5, right: 11)
+        statusChip.setContentHuggingPriority(.required, for: .horizontal)
+
+        let rightStack = UIStackView(arrangedSubviews: [planPill, eventLabel, amountLabel, payBar, statusChip])
+        rightStack.axis = .vertical; rightStack.spacing = 5; rightStack.alignment = .leading
+        rightStack.setCustomSpacing(9, after: amountLabel)
+        rightStack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(rightStack)
 
         NSLayoutConstraint.activate([
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
-            card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 36),
-            card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -36),
-            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
-            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
-            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
-            payHint.heightAnchor.constraint(equalToConstant: 38),
+            card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            card.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -40),
+            card.widthAnchor.constraint(lessThanOrEqualToConstant: 332),
+            photo.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
+            photo.topAnchor.constraint(equalTo: card.topAnchor, constant: 14),
+            photo.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -14),
+            photo.widthAnchor.constraint(equalToConstant: 100),
+            photo.heightAnchor.constraint(equalToConstant: 152),
+            rightStack.leadingAnchor.constraint(equalTo: photo.trailingAnchor, constant: 12),
+            rightStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
+            rightStack.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+            rightStack.topAnchor.constraint(greaterThanOrEqualTo: card.topAnchor, constant: 14),
+            payBar.heightAnchor.constraint(equalToConstant: 36),
         ])
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        card.addGestureRecognizer(tap)
-        card.isUserInteractionEnabled = true
+        card.addGestureRecognizer(tap); card.isUserInteractionEnabled = true
     }
 
     @objc private func handleTap() {
         guard !quotationId.isEmpty else { return }
-        Haptics.tap()
-        onTap?(quotationId)
+        Haptics.tap(); onTap?(quotationId)
     }
 
     func configure(_ m: NativeChatMessage) {
         quotationId = m.quotationId
         let amountStr = NativeChatQuoteCell.amountFormatter.string(from: NSNumber(value: m.quoteAmount)) ?? "\(m.quoteAmount)"
-        amountLabel.text = "₩\(amountStr)"
-        var parts: [String] = []
-        let dt = [m.quoteDate, m.quoteTime].filter { !$0.isEmpty }.joined(separator: " ")
-        if !dt.isEmpty { parts.append(dt) }
-        if !m.quoteLocation.isEmpty { parts.append(m.quoteLocation) }
-        eventLabel.text = parts.joined(separator: "\n")
-        eventLabel.isHidden = parts.isEmpty
-        payHint.isHidden = quotationId.isEmpty
+        amountLabel.text = "\(amountStr)원"
+        eventLabel.text = m.quoteEventName.isEmpty ? "행사 진행" : m.quoteEventName
+        planPill.text = m.quotePlanLabel.isEmpty ? "견적서" : m.quotePlanLabel
+        NativeChatImageLoader.load(m.quoteProImage, into: photo, fallback: NativeChatHeaderView.avatarPlaceholder)
+        if m.mine {
+            payBar.isHidden = true; statusChip.isHidden = false
+            statusChip.text = "결제 대기 중"
+            statusChip.textColor = UIColor(red: 0.85, green: 0.55, blue: 0.0, alpha: 1)
+            statusChip.backgroundColor = UIColor(red: 1.0, green: 0.97, blue: 0.88, alpha: 1)
+        } else if m.quoteIsLatest {
+            statusChip.isHidden = true; payBar.isHidden = false
+        } else {
+            payBar.isHidden = true; statusChip.isHidden = false
+            statusChip.text = "만료된 견적"
+            statusChip.textColor = UIColor(white: 0.6, alpha: 1)
+            statusChip.backgroundColor = UIColor(white: 0.93, alpha: 1)
+        }
     }
 }
 
