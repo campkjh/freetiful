@@ -159,6 +159,28 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         }
         // 5) 리뷰
         contentStack.addArrangedSubview(wrapPad(buildReviews(reviews, rating: rating, count: reviewCount)))
+
+        // 진입 애니메이션 (웹 Reveal — 페이드 + 슬라이드업, 스태거)
+        layoutIfNeeded()
+        let secs = contentStack.arrangedSubviews
+        for (i, sec) in secs.enumerated() {
+            sec.alpha = 0
+            sec.transform = CGAffineTransform(translationX: 0, y: i == 0 ? 0 : 18)
+        }
+        for (i, sec) in secs.enumerated() {
+            UIView.animate(withDuration: 0.55, delay: i == 0 ? 0 : 0.06 + Double(i) * 0.07,
+                           options: [.curveEaseOut]) {
+                sec.alpha = 1
+                sec.transform = .identity
+            }
+        }
+        // CTA 슬라이드업
+        ctaBar.alpha = 0
+        ctaBar.transform = CGAffineTransform(translationX: 0, y: 36)
+        UIView.animate(withDuration: 0.5, delay: 0.25, options: [.curveEaseOut]) {
+            self.ctaBar.alpha = 1
+            self.ctaBar.transform = .identity
+        }
     }
 
     // MARK: - 섹션 빌더
