@@ -323,6 +323,10 @@ export class DiscoveryService implements OnModuleInit {
           categories: { select: { category: { select: { name: true } } } },
           regions: { select: { region: { select: { name: true } } } },
           languages: { select: { languageCode: true } },
+          faqs: {
+            orderBy: { displayOrder: 'asc' },
+            select: { id: true, question: true, answer: true },
+          },
           reviews: {
             where: { isVisible: true },
             select: {
