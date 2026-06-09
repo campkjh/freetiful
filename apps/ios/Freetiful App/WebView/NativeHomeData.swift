@@ -102,7 +102,7 @@ enum NativeHomeData {
     }
     // 프로필 편집 후 호출 — 상세 디스크 캐시/프리페치 기록 비움(다음 조회 신선)
     static func clearDetailCaches() {
-        prefetchedIds.removeAll()
+        prefetchLock.lock(); prefetchedIds.removeAll(); prefetchLock.unlock()
         for k in UserDefaults.standard.dictionaryRepresentation().keys where k.hasPrefix("ftProDetail_") {
             UserDefaults.standard.removeObject(forKey: k)
         }
@@ -119,10 +119,19 @@ enum NativeHomeData {
 
     // 상위 사회자 상세 프리페치 → 디스크 캐시 워밍(탭 시 상세설명 즉시 렌더)
     private static var prefetchedIds = Set<String>()
+    private static let prefetchLock = NSLock()   // prefetchedIds 동시 접근 보호(백그라운드 스레드 레이스 방지)
     static func prefetchDetails(_ ids: [String], limit: Int = 8) {
-        let targets = ids.prefix(limit).filter { !prefetchedIds.contains($0) && loadDetailDisk($0) == nil }
+        // contains/insert 를 락으로 원자적으로 — 동시 호출 시 Set 버퍼 손상(SIGABRT) 방지
+        var targets: [String] = []
+        prefetchLock.lock()
+        for id in ids.prefix(limit) where !prefetchedIds.contains(id) {
+            if loadDetailDisk(id) == nil {
+                prefetchedIds.insert(id)
+                targets.append(id)
+            }
+        }
+        prefetchLock.unlock()
         for id in targets {
-            prefetchedIds.insert(id)
             getJSON("\(base)/discovery/pros/\(id)") { obj in
                 if let d = obj as? [String: Any] { saveDetailDisk(id, d) }
             }
