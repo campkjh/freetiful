@@ -93,7 +93,7 @@ private final class AspectImageView: UIImageView {
             c.priority = .required
             c.isActive = true
             aspect = c
-            superview?.superview?.layoutIfNeeded()
+            setNeedsLayout()   // 동기 전체 레이아웃 강제 안 함 — 다음 사이클에 배치 처리(이미지별 thrashing 방지)
         }
     }
 }

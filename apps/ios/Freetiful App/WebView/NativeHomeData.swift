@@ -100,6 +100,13 @@ enum NativeHomeData {
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         return obj
     }
+    // 프로필 편집 후 호출 — 상세 디스크 캐시/프리페치 기록 비움(다음 조회 신선)
+    static func clearDetailCaches() {
+        prefetchedIds.removeAll()
+        for k in UserDefaults.standard.dictionaryRepresentation().keys where k.hasPrefix("ftProDetail_") {
+            UserDefaults.standard.removeObject(forKey: k)
+        }
+    }
     // 홈 리스트(메모리/디스크) 캐시에서 특정 사회자 기본정보
     static func cachedProBasic(_ id: String) -> [String: Any]? {
         cachedPros()?.first { ($0["id"] as? String) == id }
@@ -108,6 +115,18 @@ enum NativeHomeData {
     static func recommendedPros(excluding id: String, limit: Int = 10) -> [[String: Any]] {
         guard let arr = cachedPros() else { return [] }
         return Array(arr.filter { ($0["id"] as? String) != id }.prefix(limit))
+    }
+
+    // 상위 사회자 상세 프리페치 → 디스크 캐시 워밍(탭 시 상세설명 즉시 렌더)
+    private static var prefetchedIds = Set<String>()
+    static func prefetchDetails(_ ids: [String], limit: Int = 8) {
+        let targets = ids.prefix(limit).filter { !prefetchedIds.contains($0) && loadDetailDisk($0) == nil }
+        for id in targets {
+            prefetchedIds.insert(id)
+            getJSON("\(base)/discovery/pros/\(id)") { obj in
+                if let d = obj as? [String: Any] { saveDetailDisk(id, d) }
+            }
+        }
     }
 
     static func search(_ query: String, _ done: @escaping ([HomeProItem]) -> Void) {
@@ -126,7 +145,13 @@ enum NativeHomeData {
         if let c = prosCache { done(c); return }
         getJSON("\(base)/discovery/pros?limit=100&sort=reviews&withTotal=false") { obj in
             let arr = asArray(obj, keys: ["data", "items"])
-            if !arr.isEmpty { prosCache = arr; saveDisk("pros", arr) }
+            if !arr.isEmpty {
+                prosCache = arr; saveDisk("pros", arr)
+                // 잠시 후 상위 사회자 상세 프리페치(초기 렌더와 경쟁 방지)
+                DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
+                    prefetchDetails(arr.compactMap { $0["id"] as? String })
+                }
+            }
             done(arr)
         }
     }

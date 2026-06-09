@@ -599,6 +599,8 @@ export class ProService implements OnModuleInit {
       data: fields,
     });
     this.discovery.invalidateCache(updated.id);
+    // 저장 즉시 상세 캐시 재워밍 → 사회자가 바로 조회해도 신선+빠르게(0.5s) 반영 (콜드 미스 2.2s 회피)
+    this.discovery.getProDetail(updated.id, false).catch(() => {});
     return updated;
   }
 

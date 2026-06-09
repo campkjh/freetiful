@@ -283,7 +283,7 @@ export class DiscoveryService implements OnModuleInit {
   }
 
   /** 전문가 상세 */
-  async getProDetail(proProfileId: string) {
+  async getProDetail(proProfileId: string, countView = true) {
     await this.resetExistingProServicePricesToZero();
 
     const detailCacheKey = `proDetail:${proProfileId}`;
@@ -357,10 +357,12 @@ export class DiscoveryService implements OnModuleInit {
 
     if (!pro) return null;
 
-    this.prisma.proProfile.update({
-      where: { id: proProfileId },
-      data: { profileViews: { increment: 1 } },
-    }).catch(() => {});
+    if (countView) {
+      this.prisma.proProfile.update({
+        where: { id: proProfileId },
+        data: { profileViews: { increment: 1 } },
+      }).catch(() => {});
+    }
 
     const detailResult = {
       ...pro,

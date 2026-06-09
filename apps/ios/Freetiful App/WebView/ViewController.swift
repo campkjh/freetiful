@@ -554,7 +554,12 @@ class ViewController: UIViewController,
 
     private func updateNativePath(from url: URL?) {
         guard let url = url, (url.host ?? "").contains("freetiful.com") else { return }
-        currentNativePath = url.path.isEmpty ? "/" : url.path
+        let newPath = url.path.isEmpty ? "/" : url.path
+        // 프로필 편집 페이지를 떠나면(저장 가능성) 상세 디스크 캐시 비움 → 다음 상세 조회를 신선하게(바로 반영)
+        if currentNativePath.contains("/pro-edit"), !newPath.contains("/pro-edit") {
+            NativeHomeData.clearDetailCaches()
+        }
+        currentNativePath = newPath
         renderNativeNavigation(animated: true)
     }
 
