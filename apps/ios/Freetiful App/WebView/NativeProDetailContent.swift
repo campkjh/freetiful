@@ -216,7 +216,7 @@ final class CollapsibleContent: UIView {
         toggle.layer.cornerRadius = 19; toggle.layer.cornerCurve = .continuous; toggle.clipsToBounds = true
         toggle.layer.borderWidth = 1; toggle.layer.borderColor = UIColor.white.withAlphaComponent(0.6).cgColor
         toggle.contentView.backgroundColor = blue.withAlphaComponent(0.10)
-        toggleLabel.text = "펼쳐보기"; toggleLabel.font = .systemFont(ofSize: 13.5, weight: .bold); toggleLabel.textColor = blue
+        toggleLabel.text = "더보기"; toggleLabel.font = .systemFont(ofSize: 13.5, weight: .bold); toggleLabel.textColor = blue
         chevron.image = UIImage(systemName: "chevron.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .bold))
         chevron.tintColor = blue
         let row = UIStackView(arrangedSubviews: [toggleLabel, chevron]); row.axis = .horizontal; row.spacing = 5; row.alignment = .center
@@ -255,17 +255,15 @@ final class CollapsibleContent: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         fadeGradient.frame = fade.bounds
-        // 콘텐츠가 짧으면 접기 UI 자체를 숨김
-        let needs = expanded || clipper.subviews.first.map { $0.bounds.height > collapsedH + 12 } ?? false
-        toggle.isHidden = !needs
-        fade.isHidden = !needs || expanded
+        // 더보기 버튼은 항상 표시(접힘일 때), 펼치면 페이드만 숨김
+        fade.isHidden = expanded
     }
 
     @objc private func tapToggle() {
         Haptics.tap()
         expanded.toggle()
         cap.isActive = !expanded
-        toggleLabel.text = expanded ? "접기" : "펼쳐보기"
+        toggleLabel.text = expanded ? "접기" : "더보기"
         UIView.animate(withDuration: 0.34, delay: 0, options: [.curveEaseInOut]) {
             self.chevron.transform = self.expanded ? CGAffineTransform(rotationAngle: .pi) : .identity
             self.fade.alpha = self.expanded ? 0 : 1

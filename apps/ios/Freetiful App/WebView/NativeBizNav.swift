@@ -9,7 +9,7 @@ final class NativeBizNav: UIView {
     private let homePill = GlassPill(corner: 23)
     private let homeButton = UIButton(type: .system)
     private var tabButtons: [UIButton] = []
-    private var indicator = UIView()
+    private let indicator = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
 
     // 사용자 선택: 웹 현재 그대로 (회사소개·서비스·자료실·문의)
     let sections = ["회사소개", "핵심서비스", "자료실", "문의폼"]
@@ -37,12 +37,11 @@ final class NativeBizNav: UIView {
         layer.shadowColor = UIColor(red: 0.1, green: 0.15, blue: 0.3, alpha: 1).cgColor
         layer.shadowOpacity = 0.12; layer.shadowRadius = 18; layer.shadowOffset = CGSize(width: 0, height: 6)
 
-        // 홈 버튼 (홈 아이콘 → 일반 홈)
+        // 홈으로 돌아가는 버튼 — chevron
         var hcfg = UIButton.Configuration.plain()
-        hcfg.image = UIImage(named: "iconHome")?.withRenderingMode(.alwaysTemplate)
+        hcfg.image = UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold))
         homeButton.configuration = hcfg
         homeButton.tintColor = UIColor(white: 0.13, alpha: 1)
-        homeButton.imageView?.contentMode = .scaleAspectFit
         homeButton.addTarget(self, action: #selector(tapHome), for: .touchUpInside)
         homePill.setContent(homeButton, insets: UIEdgeInsets(top: 11, left: 11, bottom: 11, right: 11))
         bar.contentView.addSubview(homePill)
@@ -52,9 +51,12 @@ final class NativeBizNav: UIView {
         stack.translatesAutoresizingMaskIntoConstraints = false
         bar.contentView.addSubview(stack)
 
-        indicator.backgroundColor = blue
-        indicator.layer.cornerRadius = 2
-        bar.contentView.addSubview(indicator)
+        // 활성 탭 글래스 물방울(쉐이드) — 탭 버튼 뒤
+        indicator.layer.cornerRadius = 16; indicator.layer.cornerCurve = .continuous
+        indicator.clipsToBounds = true
+        indicator.contentView.backgroundColor = blue.withAlphaComponent(0.13)
+        indicator.isUserInteractionEnabled = false
+        bar.contentView.insertSubview(indicator, belowSubview: stack)
 
         for i in 0..<sections.count {
             let b = UIButton(type: .system)
@@ -106,9 +108,8 @@ final class NativeBizNav: UIView {
     private func layoutIndicator(animated: Bool) {
         guard !tabButtons.isEmpty, let target = tabButtons[safe: activeIndex] else { return }
         let f = target.convert(target.bounds, to: bar.contentView)
-        let w: CGFloat = 18
-        let newFrame = CGRect(x: f.midX - w/2, y: bar.contentView.bounds.height - 6, width: w, height: 3)
-        if animated { UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut]) { self.indicator.frame = newFrame } }
+        let newFrame = f.insetBy(dx: 5, dy: 7)
+        if animated { UIView.animate(withDuration: 0.32, delay: 0, options: [.curveEaseInOut, .allowUserInteraction]) { self.indicator.frame = newFrame } }
         else { indicator.frame = newFrame }
     }
     override func layoutSubviews() {

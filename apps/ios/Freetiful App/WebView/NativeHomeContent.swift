@@ -535,7 +535,8 @@ final class NativeHomeBanner: UIView, UIScrollViewDelegate {
     var onTap: ((String) -> Void)?
     private let scroll = UIScrollView()
     private let row = UIStackView()
-    private let indicator = UILabel()
+    private let indicator = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    private let indicatorLabel = UILabel()
     private var banners: [HomeBanner] = []
     private var current = 0
     private var timer: Timer?
@@ -561,15 +562,19 @@ final class NativeHomeBanner: UIView, UIScrollViewDelegate {
         row.translatesAutoresizingMaskIntoConstraints = false
         scroll.addSubview(row)
 
+        // 글래스 페이지 인디케이터 (1 / N) — 중앙 정렬
         indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.font = .systemFont(ofSize: 11, weight: .medium)
-        indicator.textColor = .white
-        indicator.backgroundColor = UIColor(white: 0, alpha: 0.3)
-        indicator.textAlignment = .center
-        indicator.layer.cornerRadius = 10
+        indicator.layer.cornerRadius = 12; indicator.layer.cornerCurve = .continuous
         indicator.clipsToBounds = true
+        indicator.layer.borderWidth = 0.5; indicator.layer.borderColor = UIColor.white.withAlphaComponent(0.4).cgColor
+        indicator.contentView.backgroundColor = UIColor(white: 0, alpha: 0.22)
         indicator.isHidden = true
         addSubview(indicator)
+        indicatorLabel.translatesAutoresizingMaskIntoConstraints = false
+        indicatorLabel.font = .systemFont(ofSize: 11, weight: .semibold)
+        indicatorLabel.textColor = .white
+        indicatorLabel.textAlignment = .center
+        indicator.contentView.addSubview(indicatorLabel)
 
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: topAnchor),
@@ -583,7 +588,11 @@ final class NativeHomeBanner: UIView, UIScrollViewDelegate {
             row.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor),
             indicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             indicator.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
-            indicator.heightAnchor.constraint(equalToConstant: 20),
+            indicator.heightAnchor.constraint(equalToConstant: 24),
+            indicatorLabel.topAnchor.constraint(equalTo: indicator.contentView.topAnchor),
+            indicatorLabel.bottomAnchor.constraint(equalTo: indicator.contentView.bottomAnchor),
+            indicatorLabel.leadingAnchor.constraint(equalTo: indicator.contentView.leadingAnchor, constant: 11),
+            indicatorLabel.trailingAnchor.constraint(equalTo: indicator.contentView.trailingAnchor, constant: -11),
         ])
 
         scroll.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
@@ -610,7 +619,7 @@ final class NativeHomeBanner: UIView, UIScrollViewDelegate {
 
     private func updateIndicator() {
         guard !banners.isEmpty else { return }
-        indicator.text = "  \(current + 1) / \(banners.count)  "
+        indicatorLabel.text = "\(current + 1) / \(banners.count)"
     }
 
     private func restartTimer() {
