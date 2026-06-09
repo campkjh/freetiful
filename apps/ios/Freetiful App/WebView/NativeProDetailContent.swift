@@ -181,6 +181,55 @@ final class DetailTabBar: UIView {
     }
 }
 
+// MARK: - 그라데이션 스윕 텍스트 (#B0B8C1 → 파란 그라데이션 통과 → #191F28, 한 줄씩 고급스럽게)
+final class GradientSweepLabel: UILabel {
+    var sweepDelay: CFTimeInterval = 0
+    private let gradient = CAGradientLayer()
+    private let textMask = CATextLayer()
+    private var animated = false
+
+    override init(frame: CGRect) { super.init(frame: frame); setupSweep() }
+    required init?(coder: NSCoder) { super.init(coder: coder); setupSweep() }
+
+    private func setupSweep() {
+        textColor = .clear   // 베이스 텍스트 숨김 — 그라데이션으로 표현
+        numberOfLines = 0
+        let dark = UIColor(red: 25/255, green: 31/255, blue: 40/255, alpha: 1)     // #191F28
+        let blue = UIColor(red: 49/255, green: 130/255, blue: 246/255, alpha: 1)   // #3182F6
+        let gray = UIColor(red: 176/255, green: 184/255, blue: 193/255, alpha: 1)  // #B0B8C1
+        gradient.colors = [dark.cgColor, blue.cgColor, gray.cgColor]
+        gradient.startPoint = CGPoint(x: 0, y: 0.5)
+        gradient.endPoint = CGPoint(x: 1, y: 0.5)
+        gradient.locations = [-0.45, -0.2, 0.0]   // 시작: 전부 회색
+        layer.addSublayer(gradient)
+        textMask.contentsScale = UIScreen.main.scale
+        textMask.isWrapped = true
+        textMask.truncationMode = .none
+        textMask.alignmentMode = .left
+        gradient.mask = textMask
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        gradient.frame = bounds
+        textMask.frame = bounds
+        textMask.string = NSAttributedString(string: text ?? "", attributes: [.font: font as Any, .foregroundColor: UIColor.black])
+        if !animated, bounds.width > 1 { animated = true; runSweep() }
+    }
+
+    private func runSweep() {
+        let a = CABasicAnimation(keyPath: "locations")
+        a.fromValue = [-0.45, -0.2, 0.0]
+        a.toValue = [1.0, 1.2, 1.45]
+        a.duration = 1.15
+        a.beginTime = CACurrentMediaTime() + sweepDelay
+        a.fillMode = .both
+        a.isRemovedOnCompletion = false
+        a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        gradient.add(a, forKey: "sweep")
+    }
+}
+
 // MARK: - 접기/펼치기 콘텐츠 (긴 서비스 설명 — 기본 접힘 + 글래스 펼쳐보기 버튼 + 애니메이션)
 final class CollapsibleContent: UIView {
     private let clipper = UIView()
@@ -742,11 +791,15 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             let t = UILabel(); t.text = "주요 경력"; t.font = .systemFont(ofSize: 11, weight: .bold); t.textColor = blue
             let ul = UIStackView(arrangedSubviews: [t]); ul.axis = .vertical; ul.spacing = 4
             ul.setCustomSpacing(7, after: t)
-            for line in lines.prefix(5) {
-                let dot = UILabel(); dot.text = "•"; dot.font = .systemFont(ofSize: 13); dot.textColor = blue
+            for (i, line) in lines.prefix(5).enumerated() {
+                let dot = UILabel(); dot.text = "•"; dot.font = .systemFont(ofSize: 16, weight: .semibold); dot.textColor = blue
                 dot.setContentHuggingPriority(.required, for: .horizontal)
-                let tx = UILabel(); tx.text = line; tx.font = .systemFont(ofSize: 13); tx.textColor = UIColor(white: 0.2, alpha: 1); tx.numberOfLines = 0
-                let r = UIStackView(arrangedSubviews: [dot, tx]); r.axis = .horizontal; r.spacing = 6; r.alignment = .firstBaseline
+                let tx = GradientSweepLabel()
+                tx.text = line
+                tx.font = .systemFont(ofSize: 16, weight: .semibold)
+                tx.numberOfLines = 0
+                tx.sweepDelay = 0.4 + Double(i) * 0.22   // 한 줄씩 순차
+                let r = UIStackView(arrangedSubviews: [dot, tx]); r.axis = .horizontal; r.spacing = 7; r.alignment = .top
                 ul.addArrangedSubview(r)
             }
             pin(ul, into: cc, inset: 14)
