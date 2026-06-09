@@ -1123,8 +1123,8 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     // MARK: - 헬퍼
     private func glassCard() -> UIView {
         let v = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
-        v.layer.cornerRadius = 16; v.layer.cornerCurve = .continuous
-        v.contentView.layer.cornerRadius = 16; v.contentView.layer.cornerCurve = .continuous; v.contentView.clipsToBounds = true
+        v.layer.cornerRadius = 24; v.layer.cornerCurve = .continuous
+        v.contentView.layer.cornerRadius = 24; v.contentView.layer.cornerCurve = .continuous; v.contentView.clipsToBounds = true
         v.contentView.backgroundColor = UIColor.white.withAlphaComponent(0.55)
         v.layer.borderWidth = 1; v.layer.borderColor = UIColor.white.withAlphaComponent(0.7).cgColor
         v.layer.shadowColor = UIColor(red: 0.1, green: 0.15, blue: 0.3, alpha: 1).cgColor
