@@ -410,7 +410,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
 
         var titles: [String] = []
         tabSections = []
-        if let desc = buildDescription(detailHtml) {
+        if let desc = buildDescription(detailHtml, videoId: youtubeID(youtubeURLString)) {
             let w = wrapPad(desc); contentStack.addArrangedSubview(w)
             titles.append("서비스 설명"); tabSections.append(w)
         }
@@ -691,12 +691,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         right.setCustomSpacing(5, after: ratingRow)
         let row = UIStackView(arrangedSubviews: [av, right]); row.axis = .horizontal; row.spacing = 14; row.alignment = .center
         col.addArrangedSubview(row)
-
-        if let vid = youtubeID(youtube) {
-            let vt = UILabel(); vt.text = "진행 영상"; vt.font = .systemFont(ofSize: 14, weight: .bold); vt.textColor = UIColor(white: 0.15, alpha: 1)
-            col.addArrangedSubview(vt)
-            col.addArrangedSubview(videoThumb(vid))
-        }
+        _ = youtube   // 영상은 서비스 설명 섹션으로 이동(중복 방지)
         pin(col, into: card, inset: 18)
         return card
     }
@@ -743,14 +738,21 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     }
 
     // 서비스 설명 — detailHtml 의 텍스트 + 이미지 모두 렌더 (웹 dangerouslySetInnerHTML 대응)
-    private func buildDescription(_ html: String) -> UIView? {
+    private func buildDescription(_ html: String, videoId: String?) -> UIView? {
         let text = NativeHelpContent.htmlToText(html)
         let imgs = extractImageSrcs(html)
-        guard !text.isEmpty || !imgs.isEmpty else { return nil }
+        guard !text.isEmpty || !imgs.isEmpty || videoId != nil else { return nil }
         let card = glassCard()
         let col = UIStackView(); col.axis = .vertical; col.spacing = 12; col.alignment = .fill
         let t = UILabel(); t.text = "서비스 설명"; t.font = .systemFont(ofSize: 16, weight: .bold); t.textColor = UIColor(white: 0.12, alpha: 1)
         col.addArrangedSubview(t)
+        // 진행 영상 (있으면 상단에 prominent)
+        if let vid = videoId {
+            let vt = UILabel(); vt.text = "진행 영상"; vt.font = .systemFont(ofSize: 14, weight: .bold); vt.textColor = UIColor(white: 0.2, alpha: 1)
+            col.addArrangedSubview(vt)
+            col.setCustomSpacing(8, after: vt)
+            col.addArrangedSubview(videoThumb(vid))
+        }
         if !text.isEmpty {
             let b = UILabel(); b.text = text; b.font = .systemFont(ofSize: 14.5); b.textColor = UIColor(white: 0.3, alpha: 1); b.numberOfLines = 0
             b.setContentHuggingPriority(.required, for: .vertical)
