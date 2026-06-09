@@ -267,7 +267,8 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         ctaBar.layer.borderWidth = 1
         ctaBar.layer.borderColor = UIColor.white.withAlphaComponent(0.55).cgColor
         addSubview(ctaBar)
-        ctaBar.contentView.backgroundColor = blue.withAlphaComponent(0.20)
+        // #2C53FF @ 60% 글래스
+        ctaBar.contentView.backgroundColor = UIColor(red: 44/255, green: 83/255, blue: 255/255, alpha: 0.6)
         // 상단 유리 하이라이트
         ctaHighlight.colors = [UIColor.white.withAlphaComponent(0.45).cgColor, UIColor.white.withAlphaComponent(0.0).cgColor]
         ctaHighlight.startPoint = CGPoint(x: 0.5, y: 0)
@@ -276,10 +277,15 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
 
         var cfg = UIButton.Configuration.plain()
         cfg.title = "이 사회자에게 문의하기"
-        cfg.baseForegroundColor = UIColor(red: 0.10, green: 0.34, blue: 0.86, alpha: 1)
+        cfg.baseForegroundColor = .white
         cfg.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 20, bottom: 14, trailing: 20)
+        cfg.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var out = incoming
+            out.font = .systemFont(ofSize: 16.5, weight: .bold)   // weight 700
+            out.foregroundColor = .white
+            return out
+        }
         ctaButton.configuration = cfg
-        ctaButton.titleLabel?.font = .systemFont(ofSize: 16.5, weight: .bold)
         ctaButton.translatesAutoresizingMaskIntoConstraints = false
         ctaButton.addTarget(self, action: #selector(ctaTapped), for: .touchUpInside)
         ctaBar.contentView.addSubview(ctaButton)
@@ -1123,8 +1129,8 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     // MARK: - 헬퍼
     private func glassCard() -> UIView {
         let v = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
-        v.layer.cornerRadius = 24; v.layer.cornerCurve = .continuous
-        v.contentView.layer.cornerRadius = 24; v.contentView.layer.cornerCurve = .continuous; v.contentView.clipsToBounds = true
+        v.layer.cornerRadius = 32; v.layer.cornerCurve = .continuous
+        v.contentView.layer.cornerRadius = 32; v.contentView.layer.cornerCurve = .continuous; v.contentView.clipsToBounds = true
         v.contentView.backgroundColor = UIColor.white.withAlphaComponent(0.55)
         v.layer.borderWidth = 1; v.layer.borderColor = UIColor.white.withAlphaComponent(0.7).cgColor
         v.layer.shadowColor = UIColor(red: 0.1, green: 0.15, blue: 0.3, alpha: 1).cgColor
