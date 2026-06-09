@@ -1270,6 +1270,12 @@ export default function ProDetailPage() {
     }
   };
 
+  // 네이티브 상세의 문의 CTA가 호출 (웹 문의 핸들러 트리거)
+  useEffect(() => {
+    (window as any).__freetifulProInquiry = () => { try { handleInquiry(); } catch {} };
+    return () => { try { delete (window as any).__freetifulProInquiry; } catch {} };
+  });
+
   const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
     setActiveSection(section);
     const target = section === 'desc' ? descRef.current : section === 'info' ? infoRef.current : reviewsRef.current;
