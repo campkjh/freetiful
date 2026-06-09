@@ -144,16 +144,55 @@ class ViewController: UIViewController,
         OneSignalManager.shared.deliverCurrentPushId()
     }
 
-    // 좌→우 엣지 스와이프로 이전 페이지 (서브페이지만 — 네비게이션바 루트 페이지 제외)
+    // 좌→우 엣지 스와이프로 이전 페이지
+    // - 웹 페이지: WKWebView 자체 인터랙티브 슬라이드(allowsBackForwardNavigationGestures)
+    // - 네이티브 오버레이(상세/채팅/알림 등): 손가락 따라 슬라이드되는 인터랙티브 back
+    private var backSwipeViews: [UIView] = []
     private func setupBackSwipe() {
         let edge = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(handleBackEdgePan(_:)))
         edge.edges = .left
+        edge.delegate = self
         view.addGestureRecognizer(edge)
     }
+    private func currentOverlayViews() -> [UIView] {
+        var vs: [UIView] = []
+        if isOnChatDetail { vs += [nativeChatMessages, nativeChatInputBar, nativeChatHeader] }
+        else if isOnProDetail { vs.append(nativeProDetail) }
+        else if isOnNotifications { vs.append(nativeNotifications) }
+        else if isOnCustomerInquiries { vs.append(nativeCustomerInquiries) }
+        else if isOnHelp { vs.append(nativeHelp) }
+        else if isOnSearch { vs.append(nativeSearch) }
+        if !isOnChatDetail && !nativeBackHeader.isHidden { vs.append(nativeBackHeader) }
+        return vs
+    }
+    private func backSwipeOverlayActive() -> Bool {
+        isOnChatDetail || isOnProDetail || isOnNotifications || isOnCustomerInquiries || isOnHelp || isOnSearch
+    }
     @objc private func handleBackEdgePan(_ g: UIScreenEdgePanGestureRecognizer) {
-        guard g.state == .began else { return }
-        guard nativeNavigationEnabled, shouldHideNativeNavigation(path: currentNativePath) else { return }
-        if isOnChatDetail { chatBarsDidTapBack() } else { backHeaderTapBack() }
+        let tx = max(0, g.translation(in: view).x)
+        switch g.state {
+        case .began:
+            backSwipeViews = currentOverlayViews()
+        case .changed:
+            for v in backSwipeViews { v.transform = CGAffineTransform(translationX: tx, y: 0) }
+        case .ended, .cancelled, .failed:
+            let w = view.bounds.width
+            let complete = tx > w * 0.32 || g.velocity(in: view).x > 700
+            let views = backSwipeViews
+            backSwipeViews = []
+            if complete {
+                UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseOut], animations: {
+                    for v in views { v.transform = CGAffineTransform(translationX: w, y: 0) }
+                }, completion: { _ in
+                    // 숨긴 뒤 transform 리셋 → 원위치로 튀는 깜빡임 방지 (경로 옵저버가 곧 가시성 재설정)
+                    for v in views { v.isHidden = true; v.transform = .identity }
+                    if self.isOnChatDetail { self.chatBarsDidTapBack() } else { self.backHeaderTapBack() }
+                })
+            } else {
+                UIView.animate(withDuration: 0.2) { for v in views { v.transform = .identity } }
+            }
+        default: break
+        }
     }
 
     // MARK: - WebView Setup
@@ -193,6 +232,7 @@ class ViewController: UIViewController,
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.scrollView.delegate = self
+        webView.allowsBackForwardNavigationGestures = true   // 웹 페이지: 좌→우 네이티브 인터랙티브 슬라이드 뒤로가기
         webView.isHidden = true
         webView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -2273,5 +2313,15 @@ class AppleSignInCoordinator: NSObject,
             .compactMap { $0 as? UIWindowScene }
             .flatMap { $0.windows }
             .first { $0.isKeyWindow } ?? UIWindow()
+    }
+}
+
+// MARK: - 엣지 스와이프 뒤로가기 (네이티브 오버레이에서만 내 제스처 — 웹 페이지는 WKWebView 슬라이드에 위임)
+extension ViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
+        if g is UIScreenEdgePanGestureRecognizer {
+            return nativeNavigationEnabled && backSwipeOverlayActive()
+        }
+        return true
     }
 }
