@@ -462,7 +462,9 @@ final class NativeChatQuoteCell: UITableViewCell {
     var onTap: ((String) -> Void)?
     private var quotationId = ""
     private let card = UIView()
+    private let photoWrap = UIView()
     private let photo = UIImageView()
+    private let blue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
     private let planPill = PaddingLabel()
     private let eventLabel = UILabel()
     private let amountLabel = UILabel()
@@ -483,25 +485,32 @@ final class NativeChatQuoteCell: UITableViewCell {
         selectionStyle = .none
         backgroundColor = .clear; contentView.backgroundColor = .clear
 
+        // 카드 컨테이너 제거 — 투명 (사진 + 텍스트만)
         card.translatesAutoresizingMaskIntoConstraints = false
-        card.backgroundColor = .white
-        card.layer.cornerRadius = 18; card.layer.cornerCurve = .continuous
-        card.layer.borderWidth = 1; card.layer.borderColor = UIColor(red: 0.85, green: 0.91, blue: 1.0, alpha: 1).cgColor
-        card.layer.shadowColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1).cgColor
-        card.layer.shadowOpacity = 0.10; card.layer.shadowRadius = 12; card.layer.shadowOffset = CGSize(width: 0, height: 6)
+        card.backgroundColor = .clear
         contentView.addSubview(card)
 
-        // 사회자 프로필 사진 카드 (좌)
+        // 사회자 프로필 사진 카드 (좌) — 살짝 기울인 3D 느낌 + 그림자
+        photoWrap.translatesAutoresizingMaskIntoConstraints = false
+        photoWrap.layer.shadowColor = UIColor.black.cgColor
+        photoWrap.layer.shadowOpacity = 0.18; photoWrap.layer.shadowRadius = 10; photoWrap.layer.shadowOffset = CGSize(width: 0, height: 8)
+        var tilt = CATransform3DIdentity
+        tilt.m34 = -1.0 / 760
+        tilt = CATransform3DRotate(tilt, -14 * .pi / 180, 0, 1, 0)
+        tilt = CATransform3DRotate(tilt, 5 * .pi / 180, 1, 0, 0)
+        photoWrap.layer.transform = tilt
+        card.addSubview(photoWrap)
         photo.translatesAutoresizingMaskIntoConstraints = false
         photo.contentMode = .scaleAspectFill; photo.clipsToBounds = true
-        photo.layer.cornerRadius = 13; photo.layer.cornerCurve = .continuous
+        photo.layer.cornerRadius = 14; photo.layer.cornerCurve = .continuous
         photo.backgroundColor = UIColor(white: 0.91, alpha: 1)
-        card.addSubview(photo)
+        photoWrap.addSubview(photo)
 
-        planPill.font = .systemFont(ofSize: 11, weight: .medium)
-        planPill.textColor = UIColor(white: 0.3, alpha: 1)
-        planPill.backgroundColor = UIColor(white: 0, alpha: 0.06)
-        planPill.layer.cornerRadius = 9; planPill.clipsToBounds = true
+        // "견적서" 라벨
+        planPill.font = .systemFont(ofSize: 12, weight: .bold)
+        planPill.textColor = blue
+        planPill.backgroundColor = blue.withAlphaComponent(0.10)
+        planPill.layer.cornerRadius = 8; planPill.clipsToBounds = true
         planPill.inset = UIEdgeInsets(top: 3, left: 9, bottom: 3, right: 9)
         planPill.setContentHuggingPriority(.required, for: .horizontal)
 
@@ -541,16 +550,20 @@ final class NativeChatQuoteCell: UITableViewCell {
         NSLayoutConstraint.activate([
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
-            card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14),
             card.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -40),
-            card.widthAnchor.constraint(lessThanOrEqualToConstant: 332),
-            photo.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
-            photo.topAnchor.constraint(equalTo: card.topAnchor, constant: 14),
-            photo.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -14),
-            photo.widthAnchor.constraint(equalToConstant: 100),
-            photo.heightAnchor.constraint(equalToConstant: 152),
-            rightStack.leadingAnchor.constraint(equalTo: photo.trailingAnchor, constant: 12),
-            rightStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
+            card.widthAnchor.constraint(lessThanOrEqualToConstant: 330),
+            photoWrap.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 6),
+            photoWrap.topAnchor.constraint(equalTo: card.topAnchor, constant: 14),
+            photoWrap.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -14),
+            photoWrap.widthAnchor.constraint(equalToConstant: 100),
+            photoWrap.heightAnchor.constraint(equalToConstant: 150),
+            photo.topAnchor.constraint(equalTo: photoWrap.topAnchor),
+            photo.bottomAnchor.constraint(equalTo: photoWrap.bottomAnchor),
+            photo.leadingAnchor.constraint(equalTo: photoWrap.leadingAnchor),
+            photo.trailingAnchor.constraint(equalTo: photoWrap.trailingAnchor),
+            rightStack.leadingAnchor.constraint(equalTo: photoWrap.trailingAnchor, constant: 18),
+            rightStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -10),
             rightStack.centerYAnchor.constraint(equalTo: card.centerYAnchor),
             rightStack.topAnchor.constraint(greaterThanOrEqualTo: card.topAnchor, constant: 14),
             payBar.heightAnchor.constraint(equalToConstant: 36),
@@ -570,7 +583,7 @@ final class NativeChatQuoteCell: UITableViewCell {
         let amountStr = NativeChatQuoteCell.amountFormatter.string(from: NSNumber(value: m.quoteAmount)) ?? "\(m.quoteAmount)"
         amountLabel.text = "\(amountStr)원"
         eventLabel.text = m.quoteEventName.isEmpty ? "행사 진행" : m.quoteEventName
-        planPill.text = m.quotePlanLabel.isEmpty ? "견적서" : m.quotePlanLabel
+        planPill.text = "견적서"
         NativeChatImageLoader.load(m.quoteProImage, into: photo, fallback: NativeChatHeaderView.avatarPlaceholder)
         if m.mine {
             payBar.isHidden = true; statusChip.isHidden = false

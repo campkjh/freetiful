@@ -39,9 +39,20 @@ struct ChatMenuItem {
     let destructive: Bool
 }
 
-// 간단한 원격 이미지 로더 (프로필 아바타용)
+// 원격 이미지 로더 (메모리 + 디스크 캐시 — 세션 간 유지로 재다운로드 제거)
 enum NativeChatImageLoader {
     private static var cache: [String: UIImage] = [:]
+    private static let diskDir: URL = {
+        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("ftImgCache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+    private static func stableKey(_ s: String) -> String {
+        var h: UInt64 = 1469598103934665603
+        for b in s.utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
+        return String(h, radix: 16)
+    }
+    private static func diskPath(_ full: String) -> URL { diskDir.appendingPathComponent(stableKey(full)) }
 
     static func load(_ urlString: String, into imageView: UIImageView, fallback: UIImage?) {
         imageView.image = fallback
@@ -69,14 +80,22 @@ enum NativeChatImageLoader {
             imageView.image = cached
             return
         }
-        guard let url = URL(string: full) else { return }
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            guard let data = data, let image = UIImage(data: data) else { return }
-            DispatchQueue.main.async {
-                cache[full] = image
-                imageView.image = image
+        let path = diskPath(full)
+        weak var weakIV = imageView
+        DispatchQueue.global(qos: .userInitiated).async {
+            // 1) 디스크 캐시 즉시
+            if let data = try? Data(contentsOf: path), let image = UIImage(data: data) {
+                DispatchQueue.main.async { cache[full] = image; weakIV?.image = image }
+                return
             }
-        }.resume()
+            // 2) 다운로드 → 디스크+메모리 저장
+            guard let url = URL(string: full) else { return }
+            URLSession.shared.dataTask(with: url) { data, _, _ in
+                guard let data = data, let image = UIImage(data: data) else { return }
+                try? data.write(to: path, options: .atomic)
+                DispatchQueue.main.async { cache[full] = image; weakIV?.image = image }
+            }.resume()
+        }
     }
 }
 

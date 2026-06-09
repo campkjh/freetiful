@@ -1439,8 +1439,10 @@ class ViewController: UIViewController,
 
     // MARK: - NativeProDetailDelegate
     func proDetailInquiry(_ id: String) {
-        // 웹 상세의 문의 핸들러 트리거 (웹은 네이티브 뒤에 로드돼 있음)
-        webView.evaluateJavaScript("(window.__freetifulProInquiry && window.__freetifulProInquiry());", completionHandler: nil)
+        // 웹에 즉시 문의 전송(확인 모달은 네이티브 뒤라 안 보임) → 전송되면 네이티브 토스트
+        webView.evaluateJavaScript("(window.__freetifulProInquirySend ? window.__freetifulProInquirySend() : (window.__freetifulProInquiry && window.__freetifulProInquiry(), false));") { [weak self] result, _ in
+            if (result as? Bool) == true { self?.showNativeToast("문의하기가 전송되었습니다") }
+        }
     }
     func proDetailOpen(_ id: String) {
         // 추천 사회자 탭 → 웹 라우트 이동(경로 옵저버가 네이티브 상세 재로딩)

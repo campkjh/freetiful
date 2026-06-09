@@ -181,6 +181,99 @@ final class DetailTabBar: UIView {
     }
 }
 
+// MARK: - 접기/펼치기 콘텐츠 (긴 서비스 설명 — 기본 접힘 + 글래스 펼쳐보기 버튼 + 애니메이션)
+final class CollapsibleContent: UIView {
+    private let clipper = UIView()
+    private let fade = UIView()
+    private let fadeGradient = CAGradientLayer()
+    private let toggle = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    private let toggleLabel = UILabel()
+    private let chevron = UIImageView()
+    private var cap: NSLayoutConstraint!
+    private let collapsedH: CGFloat
+    private var expanded = false
+    private let blue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+
+    init(content: UIView, collapsedHeight: CGFloat = 340) {
+        collapsedH = collapsedHeight
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+
+        clipper.clipsToBounds = true
+        clipper.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(clipper)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        clipper.addSubview(content)
+
+        fade.translatesAutoresizingMaskIntoConstraints = false
+        fade.isUserInteractionEnabled = false
+        fadeGradient.colors = [UIColor.white.withAlphaComponent(0).cgColor, UIColor.white.cgColor]
+        fade.layer.addSublayer(fadeGradient)
+        addSubview(fade)
+
+        // 글래스 펼쳐보기 버튼
+        toggle.translatesAutoresizingMaskIntoConstraints = false
+        toggle.layer.cornerRadius = 19; toggle.layer.cornerCurve = .continuous; toggle.clipsToBounds = true
+        toggle.layer.borderWidth = 1; toggle.layer.borderColor = UIColor.white.withAlphaComponent(0.6).cgColor
+        toggle.contentView.backgroundColor = blue.withAlphaComponent(0.10)
+        toggleLabel.text = "펼쳐보기"; toggleLabel.font = .systemFont(ofSize: 13.5, weight: .bold); toggleLabel.textColor = blue
+        chevron.image = UIImage(systemName: "chevron.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .bold))
+        chevron.tintColor = blue
+        let row = UIStackView(arrangedSubviews: [toggleLabel, chevron]); row.axis = .horizontal; row.spacing = 5; row.alignment = .center
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.isUserInteractionEnabled = false
+        toggle.contentView.addSubview(row)
+        addSubview(toggle)
+        toggle.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapToggle)))
+
+        cap = clipper.heightAnchor.constraint(lessThanOrEqualToConstant: collapsedH)
+        cap.isActive = true
+        let fitBottom = clipper.bottomAnchor.constraint(equalTo: content.bottomAnchor); fitBottom.priority = .defaultHigh; fitBottom.isActive = true
+
+        NSLayoutConstraint.activate([
+            clipper.topAnchor.constraint(equalTo: topAnchor),
+            clipper.leadingAnchor.constraint(equalTo: leadingAnchor),
+            clipper.trailingAnchor.constraint(equalTo: trailingAnchor),
+            content.topAnchor.constraint(equalTo: clipper.topAnchor),
+            content.leadingAnchor.constraint(equalTo: clipper.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: clipper.trailingAnchor),
+            fade.leadingAnchor.constraint(equalTo: leadingAnchor),
+            fade.trailingAnchor.constraint(equalTo: trailingAnchor),
+            fade.bottomAnchor.constraint(equalTo: clipper.bottomAnchor),
+            fade.heightAnchor.constraint(equalToConstant: 56),
+            toggle.topAnchor.constraint(equalTo: clipper.bottomAnchor, constant: 10),
+            toggle.centerXAnchor.constraint(equalTo: centerXAnchor),
+            toggle.heightAnchor.constraint(equalToConstant: 38),
+            toggle.bottomAnchor.constraint(equalTo: bottomAnchor),
+            row.centerXAnchor.constraint(equalTo: toggle.contentView.centerXAnchor),
+            row.centerYAnchor.constraint(equalTo: toggle.contentView.centerYAnchor),
+            row.leadingAnchor.constraint(greaterThanOrEqualTo: toggle.contentView.leadingAnchor, constant: 18),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        fadeGradient.frame = fade.bounds
+        // 콘텐츠가 짧으면 접기 UI 자체를 숨김
+        let needs = expanded || clipper.subviews.first.map { $0.bounds.height > collapsedH + 12 } ?? false
+        toggle.isHidden = !needs
+        fade.isHidden = !needs || expanded
+    }
+
+    @objc private func tapToggle() {
+        Haptics.tap()
+        expanded.toggle()
+        cap.isActive = !expanded
+        toggleLabel.text = expanded ? "접기" : "펼쳐보기"
+        UIView.animate(withDuration: 0.34, delay: 0, options: [.curveEaseInOut]) {
+            self.chevron.transform = self.expanded ? CGAffineTransform(rotationAngle: .pi) : .identity
+            self.fade.alpha = self.expanded ? 0 : 1
+            self.superview?.superview?.superview?.layoutIfNeeded()
+        } completion: { _ in self.setNeedsLayout() }
+    }
+}
+
 // 사회자 상세 네이티브 — 사진 카루셀 + 정보 + 서비스설명 + 추천 + 리뷰(레이더) + FAQ + 글래스 CTA
 final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     weak var delegate: NativeProDetailDelegate?
@@ -753,10 +846,12 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             col.setCustomSpacing(8, after: vt)
             col.addArrangedSubview(videoThumb(vid))
         }
+        // 본문(텍스트+이미지)은 길어서 기본 접힘 — 펼쳐보기 버튼
+        let body = UIStackView(); body.axis = .vertical; body.spacing = 12; body.alignment = .fill
         if !text.isEmpty {
             let b = UILabel(); b.text = text; b.font = .systemFont(ofSize: 14.5); b.textColor = UIColor(white: 0.3, alpha: 1); b.numberOfLines = 0
             b.setContentHuggingPriority(.required, for: .vertical)
-            col.addArrangedSubview(b)
+            body.addArrangedSubview(b)
         }
         for src in imgs.prefix(15) {
             let iv = AspectImageView()
@@ -765,7 +860,10 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             iv.layer.cornerRadius = 10; iv.layer.cornerCurve = .continuous
             iv.backgroundColor = UIColor(white: 0.95, alpha: 1)
             NativeChatImageLoader.load(src, into: iv, fallback: nil)
-            col.addArrangedSubview(iv)
+            body.addArrangedSubview(iv)
+        }
+        if !body.arrangedSubviews.isEmpty {
+            col.addArrangedSubview(CollapsibleContent(content: body))
         }
         pin(col, into: card, inset: 18)
         return card
