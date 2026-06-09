@@ -98,6 +98,89 @@ private final class AspectImageView: UIImageView {
     }
 }
 
+// MARK: - 섹션 탭바 (인라인=흰배경+보더 / 플로팅=글래스, 인디케이터 슬라이드 애니메이션)
+final class DetailTabBar: UIView {
+    var onTap: ((Int) -> Void)?
+    private let stack = UIStackView()
+    private let indicator = UIView()
+    private var buttons: [UIButton] = []
+    private(set) var activeIndex = 0
+    private let blue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+    private let inactive = UIColor(white: 0.6, alpha: 1)
+
+    init(glass: Bool) {
+        super.init(frame: .zero)
+        if glass {
+            let fx = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+            fx.contentView.backgroundColor = UIColor.white.withAlphaComponent(0.5)
+            fx.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(fx)
+            NSLayoutConstraint.activate([
+                fx.topAnchor.constraint(equalTo: topAnchor), fx.bottomAnchor.constraint(equalTo: bottomAnchor),
+                fx.leadingAnchor.constraint(equalTo: leadingAnchor), fx.trailingAnchor.constraint(equalTo: trailingAnchor),
+            ])
+        } else {
+            backgroundColor = .white
+        }
+        // 하단 보더 (얇은 회색)
+        let border = UIView(); border.backgroundColor = UIColor(white: 0.89, alpha: 1)
+        border.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(border)
+        stack.axis = .horizontal; stack.distribution = .fillEqually
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        addSubview(indicator)
+        indicator.backgroundColor = blue; indicator.layer.cornerRadius = 1
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: topAnchor), stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor), stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            border.leadingAnchor.constraint(equalTo: leadingAnchor), border.trailingAnchor.constraint(equalTo: trailingAnchor),
+            border.bottomAnchor.constraint(equalTo: bottomAnchor), border.heightAnchor.constraint(equalToConstant: 1),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func configure(_ titles: [String]) {
+        buttons.forEach { $0.removeFromSuperview() }; buttons = []
+        for (i, t) in titles.enumerated() {
+            let b = UIButton(type: .system)
+            b.setTitle(t, for: .normal)
+            b.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+            b.tag = i
+            b.addTarget(self, action: #selector(tap(_:)), for: .touchUpInside)
+            buttons.append(b); stack.addArrangedSubview(b)
+        }
+        activeIndex = 0
+        setNeedsLayout(); layoutIfNeeded()
+        applyColors()
+    }
+    @objc private func tap(_ s: UIButton) { onTap?(s.tag) }
+
+    func setActive(_ index: Int, animated: Bool) {
+        guard index >= 0, index < buttons.count, index != activeIndex || !animated else {
+            if index == activeIndex { return }; return
+        }
+        activeIndex = index
+        applyColors()
+        let target = indicatorFrame(index)
+        if animated {
+            UIView.animate(withDuration: 0.4, delay: 0, options: [.curveEaseInOut]) { self.indicator.frame = target }
+        } else { indicator.frame = target }
+    }
+    private func applyColors() {
+        for (i, b) in buttons.enumerated() { b.setTitleColor(i == activeIndex ? blue : inactive, for: .normal) }
+    }
+    private func indicatorFrame(_ index: Int) -> CGRect {
+        let n = max(1, buttons.count)
+        let segW = bounds.width / CGFloat(n)
+        return CGRect(x: CGFloat(index) * segW + segW * 0.2, y: bounds.height - 2.5, width: segW * 0.6, height: 2.5)
+    }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        indicator.frame = indicatorFrame(activeIndex)
+    }
+}
+
 // 사회자 상세 네이티브 — 사진 카루셀 + 정보 + 서비스설명 + 추천 + 리뷰(레이더) + FAQ + 글래스 CTA
 final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     weak var delegate: NativeProDetailDelegate?
@@ -124,6 +207,15 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     private var topInset: CGFloat = 0
     private var contentTop: NSLayoutConstraint!
 
+    // 섹션 탭 (인라인 + 스티키 글래스)
+    private let inlineTabBar = DetailTabBar(glass: false)
+    private let floatingTabBar = DetailTabBar(glass: true)
+    private var floatingTop: NSLayoutConstraint!
+    private var tabSections: [UIView] = []        // 탭 인덱스 → 섹션 뷰
+    private var inlineTabHolder: UIView?          // 인라인 탭바의 스택 내 위치(스티키 임계점 계산)
+    private var isAutoScrolling = false
+    private var youtubeURLString = ""
+
     private let scoreLabels = ["경력", "만족도", "위트", "발성", "이미지", "구성력"]
 
     // 표시 리뷰 모델
@@ -141,6 +233,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         scrollView.contentInset = UIEdgeInsets(top: top, left: 0, bottom: 96, right: 0)
         scrollView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: 96, right: 0)
         scrollView.contentOffset = CGPoint(x: 0, y: -top)
+        floatingTop?.constant = top   // 스티키 탭바를 헤더 바로 아래에
     }
 
     private func setup() {
@@ -190,6 +283,15 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         ctaButton.addTarget(self, action: #selector(ctaTapped), for: .touchUpInside)
         ctaBar.contentView.addSubview(ctaButton)
 
+        // 스티키 글래스 탭바 (헤더가 인라인 탭을 가리면 표출)
+        floatingTabBar.translatesAutoresizingMaskIntoConstraints = false
+        floatingTabBar.alpha = 0
+        floatingTabBar.isHidden = true
+        floatingTabBar.onTap = { [weak self] i in self?.scrollToSection(i) }
+        inlineTabBar.onTap = { [weak self] i in self?.scrollToSection(i) }
+        addSubview(floatingTabBar)
+        floatingTop = floatingTabBar.topAnchor.constraint(equalTo: topAnchor, constant: 0)
+
         contentTop = contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor)
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: topAnchor),
@@ -210,6 +312,10 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             ctaButton.bottomAnchor.constraint(equalTo: ctaBar.contentView.bottomAnchor),
             ctaButton.leadingAnchor.constraint(equalTo: ctaBar.contentView.leadingAnchor),
             ctaButton.trailingAnchor.constraint(equalTo: ctaBar.contentView.trailingAnchor),
+            floatingTop,
+            floatingTabBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            floatingTabBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            floatingTabBar.heightAnchor.constraint(equalToConstant: 50),
         ])
     }
 
@@ -262,6 +368,8 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let avatar = (user?["profileImageUrl"] as? String) ?? (d["profileImageUrl"] as? String) ?? images.first ?? ""
         let isFeatured = (d["isFeatured"] as? Bool) ?? true
         let mainExp = (d["mainExperience"] as? String) ?? ""
+        let responseRate = intVal(d["responseRate"])
+        youtubeURLString = (d["youtubeUrl"] as? String) ?? ""
 
         // 표시 리뷰: API 본문 있으면 사용, 없으면 웹과 동일한 레거시 폴백 생성
         let displayReviews = Self.resolveReviews(api: apiReviews, reviewCount: reviewCount, rating: rating)
@@ -274,21 +382,51 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let hasAnyScore = scoreValues.contains { $0 > 0 }
         let potential = Int((scoreValues.reduce(0) { $0 + $1 * 20 }).rounded())
 
-        // ── 섹션 (웹 순서, 추천은 맨 아래) ──
+        // ── 섹션 (추천은 맨 아래) ──
         contentStack.addArrangedSubview(buildCarousel(images))
         contentStack.addArrangedSubview(wrapPad(buildInfo(avatar: avatar, category: category, name: name,
             isFeatured: isFeatured, tags: tags, rating: rating, reviewCount: reviewCount, mainExp: mainExp)))
+
+        // 섹션 탭바 (인라인) — 스크롤로 헤더에 가리면 스티키 글래스 탭으로 표출
+        let inlineHolder = UIView()
+        inlineTabBar.translatesAutoresizingMaskIntoConstraints = false
+        inlineHolder.addSubview(inlineTabBar)
+        NSLayoutConstraint.activate([
+            inlineTabBar.topAnchor.constraint(equalTo: inlineHolder.topAnchor),
+            inlineTabBar.bottomAnchor.constraint(equalTo: inlineHolder.bottomAnchor),
+            inlineTabBar.leadingAnchor.constraint(equalTo: inlineHolder.leadingAnchor),
+            inlineTabBar.trailingAnchor.constraint(equalTo: inlineHolder.trailingAnchor),
+            inlineTabBar.heightAnchor.constraint(equalToConstant: 50),
+        ])
+        inlineTabHolder = inlineHolder
+        contentStack.addArrangedSubview(inlineHolder)
+
+        var titles: [String] = []
+        tabSections = []
         if let desc = buildDescription(detailHtml) {
-            contentStack.addArrangedSubview(wrapPad(desc))
+            let w = wrapPad(desc); contentStack.addArrangedSubview(w)
+            titles.append("서비스 설명"); tabSections.append(w)
         }
-        contentStack.addArrangedSubview(wrapPad(buildReviews(displayReviews, rating: rating, count: reviewCount,
-            scores: scoreValues, potential: potential, hasAnyScore: hasAnyScore)))
+        let infoSec = wrapPad(buildProfileInfo(avatar: avatar, name: name, category: category,
+            rating: rating, reviewCount: reviewCount, responseRate: responseRate, youtube: youtubeURLString))
+        contentStack.addArrangedSubview(infoSec)
+        titles.append("사회자 정보"); tabSections.append(infoSec)
+
+        let reviewSec = wrapPad(buildReviews(displayReviews, rating: rating, count: reviewCount,
+            scores: scoreValues, potential: potential, hasAnyScore: hasAnyScore))
+        contentStack.addArrangedSubview(reviewSec)
+        titles.append("리뷰 (\(reviewCount))"); tabSections.append(reviewSec)
+
         contentStack.addArrangedSubview(wrapPad(buildFaq(category: category,
-            hasVideo: (d["youtubeUrl"] as? String)?.isEmpty == false, custom: apiFaqs)))
+            hasVideo: !youtubeURLString.isEmpty, custom: apiFaqs)))
         let recos = NativeHomeData.recommendedPros(excluding: proId, limit: 10)
         if !recos.isEmpty {
             contentStack.addArrangedSubview(buildRecommend(recos))
         }
+
+        inlineTabBar.configure(titles)
+        floatingTabBar.configure(titles)
+        floatingTabBar.isHidden = true; floatingTabBar.alpha = 0
 
         layoutIfNeeded()
         if animated {
@@ -395,12 +533,53 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     }
 
     func scrollViewDidScroll(_ sv: UIScrollView) {
-        guard sv == carousel, carousel.bounds.width > 0, dotViews.count > 1 else { return }
-        let page = Int(round(carousel.contentOffset.x / carousel.bounds.width))
-        for (i, dot) in dotViews.enumerated() {
-            dot.backgroundColor = i == page ? .white : UIColor.white.withAlphaComponent(0.5)
+        if sv == carousel {
+            guard carousel.bounds.width > 0, dotViews.count > 1 else { return }
+            let page = Int(round(carousel.contentOffset.x / carousel.bounds.width))
+            for (i, dot) in dotViews.enumerated() {
+                dot.backgroundColor = i == page ? .white : UIColor.white.withAlphaComponent(0.5)
+            }
+            pageBadge.text = "\(min(dotViews.count, max(1, page + 1))) / \(dotViews.count)"
+            return
         }
-        pageBadge.text = "\(min(dotViews.count, max(1, page + 1))) / \(dotViews.count)"
+        guard sv == scrollView else { return }
+        updateStickyTabs()
+    }
+
+    private func updateStickyTabs() {
+        guard let holder = inlineTabHolder, !tabSections.isEmpty, scrollView.bounds.height > 0 else { return }
+        let inlineY = holder.convert(holder.bounds, to: scrollView).minY
+        let show = scrollView.contentOffset.y >= inlineY - topInset
+        if show && floatingTabBar.isHidden {
+            floatingTabBar.isHidden = false
+            bringSubviewToFront(floatingTabBar)
+            UIView.animate(withDuration: 0.2) { self.floatingTabBar.alpha = 1 }
+        } else if !show && !floatingTabBar.isHidden {
+            UIView.animate(withDuration: 0.2, animations: { self.floatingTabBar.alpha = 0 }) { _ in
+                if self.floatingTabBar.alpha == 0 { self.floatingTabBar.isHidden = true }
+            }
+        }
+        guard !isAutoScrolling else { return }
+        let probe = scrollView.contentOffset.y + topInset + 56
+        var active = 0
+        for (i, sec) in tabSections.enumerated() where sec.convert(sec.bounds, to: scrollView).minY <= probe { active = i }
+        inlineTabBar.setActive(active, animated: true)
+        floatingTabBar.setActive(active, animated: true)
+    }
+
+    private func scrollToSection(_ index: Int) {
+        guard index >= 0, index < tabSections.count else { return }
+        Haptics.tap()
+        let sec = tabSections[index]
+        let y = sec.convert(sec.bounds, to: scrollView).minY - topInset - 50
+        isAutoScrolling = true
+        inlineTabBar.setActive(index, animated: true)
+        floatingTabBar.setActive(index, animated: true)
+        scrollView.setContentOffset(CGPoint(x: 0, y: max(y, -topInset)), animated: true)
+    }
+
+    func scrollViewDidEndScrollingAnimation(_ sv: UIScrollView) {
+        if sv == scrollView { isAutoScrolling = false; updateStickyTabs() }
     }
 
     // MARK: - 정보 (프로필 + 태그 + 별점 + 주요경력)
@@ -474,6 +653,84 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             col.addArrangedSubview(cc)
         }
         return col
+    }
+
+    // 사회자 정보 (프로필 요약 + 연락/응답 + 영상)
+    private func buildProfileInfo(avatar: String, name: String, category: String, rating: Double,
+                                  reviewCount: Int, responseRate: Int, youtube: String) -> UIView {
+        let gold = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1)
+        let card = glassCard()
+        let col = UIStackView(); col.axis = .vertical; col.spacing = 14; col.alignment = .fill
+        let t = UILabel(); t.text = "사회자 정보"; t.font = .systemFont(ofSize: 18, weight: .bold); t.textColor = UIColor(white: 0.1, alpha: 1)
+        col.addArrangedSubview(t)
+
+        let av = UIImageView()
+        av.contentMode = .scaleAspectFill; av.clipsToBounds = true
+        av.layer.cornerRadius = 12; av.layer.cornerCurve = .continuous
+        av.backgroundColor = UIColor(white: 0.93, alpha: 1)
+        av.translatesAutoresizingMaskIntoConstraints = false
+        av.widthAnchor.constraint(equalToConstant: 56).isActive = true
+        av.heightAnchor.constraint(equalToConstant: 56).isActive = true
+        NativeChatImageLoader.load(avatar, into: av, fallback: NativeChatHeaderView.avatarPlaceholder)
+        let nameL = UILabel(); nameL.text = "\(category) \(name)"; nameL.font = .systemFont(ofSize: 15, weight: .bold); nameL.textColor = UIColor(white: 0.1, alpha: 1)
+        let star = UILabel(); star.text = "★"; star.font = .systemFont(ofSize: 12); star.textColor = gold
+        let rl = UILabel(); rl.text = "\(String(format: "%.1f", rating)) (\(reviewCount))"; rl.font = .systemFont(ofSize: 12.5, weight: .semibold); rl.textColor = UIColor(white: 0.2, alpha: 1)
+        let ratingRow = UIStackView(arrangedSubviews: [star, rl, UIView()]); ratingRow.axis = .horizontal; ratingRow.spacing = 4; ratingRow.alignment = .center
+        let c1 = UILabel(); c1.text = "연락 가능 시간 · 평일·주말 09:00~21:00"; c1.font = .systemFont(ofSize: 11.5); c1.textColor = UIColor(white: 0.55, alpha: 1)
+        let c2 = UILabel(); c2.text = responseRate > 0 ? "평균 응답률 \(responseRate)% · 보통 1시간 이내" : "평균 응답 시간 · 보통 1시간 이내"; c2.font = .systemFont(ofSize: 11.5); c2.textColor = UIColor(white: 0.55, alpha: 1)
+        let right = UIStackView(arrangedSubviews: [nameL, ratingRow, c1, c2]); right.axis = .vertical; right.spacing = 3; right.alignment = .fill
+        right.setCustomSpacing(5, after: ratingRow)
+        let row = UIStackView(arrangedSubviews: [av, right]); row.axis = .horizontal; row.spacing = 14; row.alignment = .center
+        col.addArrangedSubview(row)
+
+        if let vid = youtubeID(youtube) {
+            let vt = UILabel(); vt.text = "진행 영상"; vt.font = .systemFont(ofSize: 14, weight: .bold); vt.textColor = UIColor(white: 0.15, alpha: 1)
+            col.addArrangedSubview(vt)
+            col.addArrangedSubview(videoThumb(vid))
+        }
+        pin(col, into: card, inset: 18)
+        return card
+    }
+
+    private func videoThumb(_ videoId: String) -> UIView {
+        let wrap = UIView()
+        let img = UIImageView()
+        img.contentMode = .scaleAspectFill; img.clipsToBounds = true
+        img.layer.cornerRadius = 12; img.layer.cornerCurve = .continuous
+        img.backgroundColor = .black
+        img.translatesAutoresizingMaskIntoConstraints = false
+        NativeChatImageLoader.load("https://img.youtube.com/vi/\(videoId)/hqdefault.jpg", into: img, fallback: nil)
+        wrap.addSubview(img)
+        let play = UILabel(); play.text = "▶"; play.font = .systemFont(ofSize: 18); play.textColor = UIColor(white: 0.1, alpha: 1)
+        play.textAlignment = .center
+        play.backgroundColor = UIColor.white.withAlphaComponent(0.92)
+        play.layer.cornerRadius = 24; play.clipsToBounds = true
+        play.translatesAutoresizingMaskIntoConstraints = false
+        wrap.addSubview(play)
+        NSLayoutConstraint.activate([
+            img.topAnchor.constraint(equalTo: wrap.topAnchor), img.bottomAnchor.constraint(equalTo: wrap.bottomAnchor),
+            img.leadingAnchor.constraint(equalTo: wrap.leadingAnchor), img.trailingAnchor.constraint(equalTo: wrap.trailingAnchor),
+            img.heightAnchor.constraint(equalTo: img.widthAnchor, multiplier: 9.0 / 16.0),
+            play.centerXAnchor.constraint(equalTo: wrap.centerXAnchor), play.centerYAnchor.constraint(equalTo: wrap.centerYAnchor),
+            play.widthAnchor.constraint(equalToConstant: 48), play.heightAnchor.constraint(equalToConstant: 48),
+        ])
+        wrap.isUserInteractionEnabled = true
+        wrap.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(videoTapped)))
+        return wrap
+    }
+    @objc private func videoTapped() {
+        guard let url = URL(string: youtubeURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+    private func youtubeID(_ url: String) -> String? {
+        guard !url.isEmpty else { return nil }
+        for marker in ["v=", "youtu.be/", "embed/"] {
+            if let r = url.range(of: marker) {
+                let id = url[r.upperBound...].prefix { $0 != "&" && $0 != "?" && $0 != "/" }
+                if !id.isEmpty { return String(id) }
+            }
+        }
+        return nil
     }
 
     // 서비스 설명 — detailHtml 의 텍스트 + 이미지 모두 렌더 (웹 dangerouslySetInnerHTML 대응)
@@ -862,10 +1119,13 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
 
     // MARK: - 헬퍼
     private func glassCard() -> UIView {
-        let v = UIView()
-        v.backgroundColor = .white
-        v.layer.cornerRadius = 14; v.layer.cornerCurve = .continuous
-        v.layer.borderWidth = 1; v.layer.borderColor = UIColor(white: 0.91, alpha: 1).cgColor
+        let v = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+        v.layer.cornerRadius = 16; v.layer.cornerCurve = .continuous
+        v.contentView.layer.cornerRadius = 16; v.contentView.layer.cornerCurve = .continuous; v.contentView.clipsToBounds = true
+        v.contentView.backgroundColor = UIColor.white.withAlphaComponent(0.55)
+        v.layer.borderWidth = 1; v.layer.borderColor = UIColor.white.withAlphaComponent(0.7).cgColor
+        v.layer.shadowColor = UIColor(red: 0.1, green: 0.15, blue: 0.3, alpha: 1).cgColor
+        v.layer.shadowOpacity = 0.06; v.layer.shadowRadius = 12; v.layer.shadowOffset = CGSize(width: 0, height: 5)
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }
@@ -913,13 +1173,14 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         ])
     }
     private func pin(_ v: UIView, into parent: UIView, inset: CGFloat) {
+        let host = (parent as? UIVisualEffectView)?.contentView ?? parent
         v.translatesAutoresizingMaskIntoConstraints = false
-        parent.addSubview(v)
+        host.addSubview(v)
         NSLayoutConstraint.activate([
-            v.topAnchor.constraint(equalTo: parent.topAnchor, constant: inset),
-            v.bottomAnchor.constraint(equalTo: parent.bottomAnchor, constant: -inset),
-            v.leadingAnchor.constraint(equalTo: parent.leadingAnchor, constant: inset),
-            v.trailingAnchor.constraint(equalTo: parent.trailingAnchor, constant: -inset),
+            v.topAnchor.constraint(equalTo: host.topAnchor, constant: inset),
+            v.bottomAnchor.constraint(equalTo: host.bottomAnchor, constant: -inset),
+            v.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: inset),
+            v.trailingAnchor.constraint(equalTo: host.trailingAnchor, constant: -inset),
         ])
     }
     private func intVal(_ v: Any?) -> Int { (v as? Int) ?? Int((v as? Double) ?? 0) }
