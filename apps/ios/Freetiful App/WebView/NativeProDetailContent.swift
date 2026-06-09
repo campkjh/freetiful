@@ -108,7 +108,12 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     private var contentTop: NSLayoutConstraint!
 
     private let scoreLabels = ["경력", "만족도", "위트", "발성", "이미지", "구성력"]
-    private let scoreKeys = ["ratingExperience", "ratingSatisfaction", "ratingWit", "ratingVoice", "ratingAppearance", "ratingComposition"]
+
+    // 표시 리뷰 모델
+    struct DisplayReview {
+        let name: String; let rating: Double; let date: String
+        let scores: [String: Double]; let content: String; let badge: String
+    }
 
     override init(frame: CGRect) { super.init(frame: frame); setup() }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -231,15 +236,17 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let category = strArr(d["categoryNames"]).first ?? strArr(d["categories"]).first ?? "사회자"
         let images = imageUrls(d["images"])
         let intro = NativeHelpContent.htmlToText((d["detailHtml"] as? String) ?? "")
-        let reviews = d["reviews"] as? [[String: Any]] ?? []
+        let apiReviews = d["reviews"] as? [[String: Any]] ?? []
         let avatar = (user?["profileImageUrl"] as? String) ?? (d["profileImageUrl"] as? String) ?? images.first ?? ""
         let isFeatured = (d["isFeatured"] as? Bool) ?? true
         let mainExp = (d["mainExperience"] as? String) ?? ""
 
-        // 점수 (리뷰별 6축 평균, 없으면 avgRating 폴백 — 웹과 동일)
+        // 표시 리뷰: API 본문 있으면 사용, 없으면 웹과 동일한 레거시 폴백 생성
+        let displayReviews = Self.resolveReviews(api: apiReviews, reviewCount: reviewCount, rating: rating)
+        // 점수: 표시 리뷰의 6축 평균, 없으면 avgRating 폴백
         let ratingFallback = (reviewCount > 0 && rating > 0) ? min(5, max(0, rating)) : 0
-        let scoreValues: [Double] = scoreKeys.map { key in
-            let vals = reviews.compactMap { dbl($0[key]) }.filter { $0 > 0 }
+        let scoreValues: [Double] = scoreLabels.map { label in
+            let vals = displayReviews.compactMap { $0.scores[label] }.filter { $0 > 0 }
             return vals.isEmpty ? ratingFallback : vals.reduce(0, +) / Double(vals.count)
         }
         let hasAnyScore = scoreValues.contains { $0 > 0 }
@@ -256,7 +263,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         if !recos.isEmpty {
             contentStack.addArrangedSubview(buildRecommend(recos))
         }
-        contentStack.addArrangedSubview(wrapPad(buildReviews(reviews, rating: rating, count: reviewCount,
+        contentStack.addArrangedSubview(wrapPad(buildReviews(displayReviews, rating: rating, count: reviewCount,
             scores: scoreValues, potential: potential, hasAnyScore: hasAnyScore)))
         contentStack.addArrangedSubview(wrapPad(buildFaq(category: category, hasVideo: (d["youtubeUrl"] as? String)?.isEmpty == false)))
 
@@ -540,7 +547,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     }
 
     // MARK: - 리뷰 (별점 + 레이더/포텐셜 + 목록/빈상태)
-    private func buildReviews(_ reviews: [[String: Any]], rating: Double, count: Int,
+    private func buildReviews(_ reviews: [DisplayReview], rating: Double, count: Int,
                               scores: [Double], potential: Int, hasAnyScore: Bool) -> UIView {
         let card = glassCard()
         let col = UIStackView(); col.axis = .vertical; col.spacing = 14; col.alignment = .fill
@@ -569,8 +576,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let listTitle = UILabel(); listTitle.text = "전체 리뷰 \(count)건"; listTitle.font = .systemFont(ofSize: 15, weight: .bold); listTitle.textColor = UIColor(white: 0.1, alpha: 1)
         col.addArrangedSubview(listTitle)
 
-        let realReviews = reviews.filter { !(((($0["content"] as? String) ?? (($0["comment"] as? String))) ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
-        if realReviews.isEmpty {
+        if reviews.isEmpty {
             let box = UIView(); box.backgroundColor = UIColor(white: 0.97, alpha: 1); box.layer.cornerRadius = 14; box.layer.cornerCurve = .continuous
             let e1 = UILabel(); e1.text = "아직 표시할 리뷰가 없습니다"; e1.font = .systemFont(ofSize: 14, weight: .semibold); e1.textColor = UIColor(white: 0.4, alpha: 1); e1.textAlignment = .center
             let e2 = UILabel(); e2.text = "리뷰가 등록되면 이곳에 바로 보여집니다"; e2.font = .systemFont(ofSize: 12); e2.textColor = UIColor(white: 0.6, alpha: 1); e2.textAlignment = .center
@@ -578,17 +584,144 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             pin(ec, into: box, inset: 22)
             col.addArrangedSubview(box)
         } else {
-            for r in realReviews.prefix(10) {
-                let rv = intVal(r["rating"]) > 0 ? intVal(r["rating"]) : Int(dbl(r["avgRating"]) ?? 5)
-                let stars = UILabel(); stars.text = String(repeating: "★", count: min(5, max(1, rv))); stars.font = .systemFont(ofSize: 12); stars.textColor = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1)
-                let body = UILabel(); body.text = ((r["content"] as? String) ?? (r["comment"] as? String)) ?? ""; body.font = .systemFont(ofSize: 13.5); body.textColor = UIColor(white: 0.25, alpha: 1); body.numberOfLines = 0
-                let rc = UIStackView(arrangedSubviews: [stars, body]); rc.axis = .vertical; rc.spacing = 5
-                col.addArrangedSubview(divider()); col.addArrangedSubview(rc)
+            for r in reviews.prefix(10) {
+                col.addArrangedSubview(divider())
+                col.addArrangedSubview(reviewCard(r))
             }
         }
         pin(col, into: card, inset: 18)
         return card
     }
+
+    private func reviewCard(_ r: DisplayReview) -> UIView {
+        let col = UIStackView(); col.axis = .vertical; col.spacing = 9; col.alignment = .fill
+
+        // 작성자 행 (아바타 이모지 + 이름 + 배지)
+        let av = PaddingLabel()
+        av.text = "🚀"; av.font = .systemFont(ofSize: 14); av.textAlignment = .center
+        av.backgroundColor = UIColor(white: 0.95, alpha: 1)
+        av.layer.cornerRadius = 16; av.clipsToBounds = true
+        av.translatesAutoresizingMaskIntoConstraints = false
+        av.widthAnchor.constraint(equalToConstant: 32).isActive = true
+        av.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        let nameL = UILabel(); nameL.text = r.name; nameL.font = .systemFont(ofSize: 13.5); nameL.textColor = UIColor(white: 0.35, alpha: 1)
+        let topRow = UIStackView(arrangedSubviews: [av, nameL]); topRow.axis = .horizontal; topRow.spacing = 8; topRow.alignment = .center
+        if !r.badge.isEmpty {
+            let b = PaddingLabel()
+            b.text = r.badge
+            b.inset = UIEdgeInsets(top: 2, left: 7, bottom: 2, right: 7)
+            b.font = .systemFont(ofSize: 10, weight: .medium)
+            b.textColor = UIColor(white: 0.5, alpha: 1)
+            b.backgroundColor = UIColor(white: 0.95, alpha: 1)
+            b.layer.cornerRadius = 8; b.clipsToBounds = true
+            b.setContentHuggingPriority(.required, for: .horizontal)
+            topRow.addArrangedSubview(UIView())
+            topRow.addArrangedSubview(b)
+        } else {
+            topRow.addArrangedSubview(UIView())
+        }
+        col.addArrangedSubview(topRow)
+
+        // 별점 + 날짜
+        let stars = UILabel(); stars.text = starString(r.rating); stars.font = .systemFont(ofSize: 12); stars.textColor = UIColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1)
+        let rt = UILabel(); rt.text = String(format: "%.1f", r.rating); rt.font = .systemFont(ofSize: 12.5, weight: .bold); rt.textColor = UIColor(white: 0.1, alpha: 1)
+        let sep = UILabel(); sep.text = "|"; sep.font = .systemFont(ofSize: 11); sep.textColor = UIColor(white: 0.8, alpha: 1)
+        let dt = UILabel(); dt.text = r.date; dt.font = .systemFont(ofSize: 12); dt.textColor = UIColor(white: 0.6, alpha: 1)
+        let metaRow = UIStackView(arrangedSubviews: [stars, rt, sep, dt, UIView()]); metaRow.axis = .horizontal; metaRow.spacing = 6; metaRow.alignment = .center
+        col.addArrangedSubview(metaRow)
+
+        // 점수 칩
+        if !r.scores.isEmpty {
+            let wrap = UIStackView(); wrap.axis = .horizontal; wrap.spacing = 4; wrap.alignment = .center
+            for label in scoreLabels where r.scores[label] != nil {
+                let chip = PaddingLabel()
+                let v = r.scores[label] ?? 0
+                chip.attributedText = scoreChipText(label, v)
+                chip.inset = UIEdgeInsets(top: 2, left: 6, bottom: 2, right: 6)
+                chip.backgroundColor = UIColor(white: 0.95, alpha: 1)
+                chip.layer.cornerRadius = 5; chip.clipsToBounds = true
+                wrap.addArrangedSubview(chip)
+            }
+            wrap.addArrangedSubview(UIView())
+            let scroll = UIScrollView(); scroll.showsHorizontalScrollIndicator = false
+            scroll.translatesAutoresizingMaskIntoConstraints = false
+            wrap.translatesAutoresizingMaskIntoConstraints = false
+            scroll.addSubview(wrap)
+            NSLayoutConstraint.activate([
+                wrap.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+                wrap.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+                wrap.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+                wrap.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+                wrap.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor),
+                scroll.heightAnchor.constraint(equalToConstant: 22),
+            ])
+            col.addArrangedSubview(scroll)
+        }
+
+        // 본문
+        let body = UILabel(); body.text = r.content; body.font = .systemFont(ofSize: 13.5); body.textColor = UIColor(white: 0.2, alpha: 1); body.numberOfLines = 0
+        col.addArrangedSubview(body)
+        return col
+    }
+
+    private func starString(_ rating: Double) -> String {
+        let full = Int(rating)
+        let half = rating - Double(full) >= 0.5
+        var s = String(repeating: "★", count: full)
+        if half { s += "⯨" }
+        let empty = 5 - full - (half ? 1 : 0)
+        if empty > 0 { s += String(repeating: "☆", count: empty) }
+        return s
+    }
+    private func scoreChipText(_ label: String, _ value: Double) -> NSAttributedString {
+        let s = NSMutableAttributedString(string: "\(label) ", attributes: [.font: UIFont.systemFont(ofSize: 10, weight: .medium), .foregroundColor: UIColor(white: 0.4, alpha: 1)])
+        s.append(NSAttributedString(string: String(format: "%.1f", value), attributes: [.font: UIFont.systemFont(ofSize: 10, weight: .bold), .foregroundColor: blue]))
+        return s
+    }
+
+    // MARK: - 리뷰 해석 (웹 buildReviewFallbacks 동일 — API 본문 없으면 레거시 폴백)
+    private static func resolveReviews(api: [[String: Any]], reviewCount: Int, rating: Double) -> [DisplayReview] {
+        let keymap: [(String, String)] = [("경력","ratingExperience"),("만족도","ratingSatisfaction"),("위트","ratingWit"),("발성","ratingVoice"),("이미지","ratingAppearance"),("구성력","ratingComposition")]
+        let mapped: [DisplayReview] = api.compactMap { r in
+            let content = (((r["content"] as? String) ?? (r["comment"] as? String) ?? (r["body"] as? String)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !content.isEmpty else { return nil }
+            var sc: [String: Double] = [:]
+            for (label, key) in keymap { if let v = numD(r[key]), v > 0 { sc[label] = v } }
+            let name: String
+            if (r["isAnonymous"] as? Bool) == true { name = "익명" }
+            else if let n = (r["reviewer"] as? [String: Any])?["name"] as? String, !n.isEmpty { name = String(n.prefix(2)) + "********" }
+            else { name = "고객" }
+            return DisplayReview(name: name, rating: numD(r["avgRating"]) ?? 5, date: "", scores: sc, content: content, badge: "")
+        }
+        if !mapped.isEmpty { return mapped }
+        let take = min(reviewCount, legacyReviews.count)
+        guard take > 0 else { return [] }
+        let profile = rating > 0 ? min(5, max(1, (rating * 10).rounded() / 10)) : legacyReviews[0].rating
+        return legacyReviews.prefix(take).enumerated().map { (i, r) in
+            DisplayReview(name: r.name, rating: i == 0 ? profile : min(profile, r.rating), date: r.date, scores: r.scores, content: r.content, badge: r.badge)
+        }
+    }
+    private static func numD(_ v: Any?) -> Double? {
+        if let d = v as? Double { return d }; if let i = v as? Int { return Double(i) }; if let s = v as? String { return Double(s) }; return nil
+    }
+    // 웹 LEGACY_REVIEW_FALLBACKS 동일
+    private static let legacyReviews: [DisplayReview] = [
+        DisplayReview(name: "나른********", rating: 5, date: "26.02.09",
+            scores: ["경력": 5, "만족도": 5, "구성력": 5, "위트": 4.5, "발성": 5, "이미지": 5],
+            content: "상담과정부터 행사 진행, 마무리까지 모두 빠르고 친절하게 응대해 주셨어요! 진행도 상황에 맞게 톤 바꿔가시면서 잘 진행해 주셨습니다!", badge: "대행사/에이전시"),
+        DisplayReview(name: "행복한신부", rating: 5, date: "26.01.15",
+            scores: ["경력": 5, "만족도": 5, "구성력": 4.5, "위트": 5, "발성": 5, "이미지": 5],
+            content: "결혼식 진행이 정말 매끄러웠어요. 하객분들 모두 칭찬하셨고, 예식 흐름을 자연스럽게 이끌어 주셔서 든든했습니다.", badge: "개인"),
+        DisplayReview(name: "이벤트기획", rating: 4.8, date: "25.12.20",
+            scores: ["경력": 5, "만족도": 4.5, "구성력": 5, "위트": 4.5, "발성": 5, "이미지": 4.5],
+            content: "기업 행사 사회자로 섭외했는데 사전 커뮤니케이션도 빠르고 현장 분위기 조율이 좋았습니다. 다음 행사에도 다시 요청드리고 싶어요.", badge: "Biz·기업"),
+        DisplayReview(name: "웨딩플래너", rating: 5, date: "25.11.05",
+            scores: ["경력": 5, "만족도": 5, "구성력": 5, "위트": 5, "발성": 5, "이미지": 5],
+            content: "플래너 입장에서도 진행이 안정적이라 안심됐습니다. 신랑신부 요청사항을 잘 반영해 주셨고 하객 반응도 좋았습니다.", badge: "대행사/에이전시"),
+        DisplayReview(name: "스트********", rating: 4.9, date: "25.06.10",
+            scores: ["경력": 4.5, "만족도": 5, "구성력": 5, "위트": 5, "발성": 4.5, "이미지": 5],
+            content: "행사 시작 전부터 끝까지 꼼꼼하게 챙겨주셨고 돌발 상황도 차분하게 정리해 주셔서 만족스러웠습니다.", badge: "개인"),
+    ]
 
     private func buildPotentialBlock(scores: [Double], potential: Int, hasAnyScore: Bool) -> UIView {
         let block = UIView()
@@ -740,12 +873,6 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         ])
     }
     private func intVal(_ v: Any?) -> Int { (v as? Int) ?? Int((v as? Double) ?? 0) }
-    private func dbl(_ v: Any?) -> Double? {
-        if let d = v as? Double { return d }
-        if let i = v as? Int { return Double(i) }
-        if let s = v as? String { return Double(s) }
-        return nil
-    }
     private func strArr(_ v: Any?) -> [String] {
         if let a = v as? [String] { return a }
         if let a = v as? [Any] { return a.compactMap { $0 as? String } }
