@@ -89,6 +89,9 @@ class ViewController: UIViewController,
     private var currentBizDetailId = ""
     private let nativeCategoryList = NativeCategoryListContent()   // 홈 카테고리 → 네이티브 리스트
     private var isOnCategoryList = false
+    private let nativeReviewList = NativeReviewListContent()   // 사회자 리뷰 전체 리스트
+    private var isOnReviewList = false
+    private var currentReviewProId = ""
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -187,6 +190,7 @@ class ViewController: UIViewController,
         if isOnChatDetail { vs += [nativeChatMessages, nativeChatInputBar, nativeChatHeader] }
         else if isOnProDetail { vs.append(nativeProDetail) }
         else if isOnBizDetail { vs.append(nativeBizDetail) }
+        else if isOnReviewList { vs.append(nativeReviewList) }
         else if isOnCategoryList { vs.append(nativeCategoryList) }
         else if isOnNotifications { vs.append(nativeNotifications) }
         else if isOnCustomerInquiries { vs.append(nativeCustomerInquiries) }
@@ -196,7 +200,7 @@ class ViewController: UIViewController,
         return vs
     }
     private func backSwipeOverlayActive() -> Bool {
-        isOnChatDetail || isOnProDetail || isOnBizDetail || isOnCategoryList || isOnNotifications || isOnCustomerInquiries || isOnHelp || isOnSearch
+        isOnChatDetail || isOnProDetail || isOnBizDetail || isOnReviewList || isOnCategoryList || isOnNotifications || isOnCustomerInquiries || isOnHelp || isOnSearch
     }
     @objc private func handleBackEdgePan(_ g: UIScreenEdgePanGestureRecognizer) {
         let tx = max(0, g.translation(in: view).x)
@@ -834,6 +838,16 @@ class ViewController: UIViewController,
             nativeCategoryList.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
+        // 리뷰 전체 리스트 네이티브 본문 (웹 위 덮음, 백헤더 아래)
+        nativeReviewList.isHidden = true
+        view.insertSubview(nativeReviewList, belowSubview: nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeReviewList.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeReviewList.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeReviewList.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeReviewList.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
         nativeHomeHeader.delegate = self
         nativeHomeHeader.isHidden = true
@@ -1047,7 +1061,7 @@ class ViewController: UIViewController,
         isOnDetail = onDetailPage
         nativeBackHeader.setSearchVisible(false)   // 기본 숨김 — 웨딩파트너 리스트에서만 표출
         let detailPathOnlyEarly = currentNativePath.split(separator: "?").first.map(String.init) ?? currentNativePath
-        let nativeOwnsTitle = detailPathOnlyEarly.hasPrefix("/businesses/")   // 업체 상세는 네이티브가 이름 주입
+        let nativeOwnsTitle = detailPathOnlyEarly.hasPrefix("/businesses/") || detailPathOnlyEarly.hasSuffix("/reviews")   // 업체 상세/리뷰리스트는 네이티브가 타이틀 주입
         if onDetailPage {
             view.bringSubviewToFront(nativeBackHeader)
             // 기본: 일반 상세(웹)는 글래스 항상 ON·공유 없음 — 사회자 상세는 아래 onProDetail에서 스크롤 구동으로 덮어씀
@@ -1213,8 +1227,30 @@ class ViewController: UIViewController,
             }
         }
 
-        // 백헤더 가시성 통합 제어 — 상세/알림/문의목록/카테고리리스트가 아니면 반드시 숨김 (뒤로가기 후 잔존 방지)
-        nativeBackHeader.isHidden = !(onDetailPage || onNotif || onCustInq || onCategoryList)
+        // 사회자 리뷰 전체 리스트 (/pros/:id/reviews)
+        let onReviewList = detailPathOnly.range(of: "^/pros/[^/]+/reviews$", options: .regularExpression) != nil
+        if onReviewList != isOnReviewList {
+            isOnReviewList = onReviewList
+            nativeReviewList.isHidden = !onReviewList
+        }
+        if onReviewList {
+            view.bringSubviewToFront(nativeReviewList)
+            view.bringSubviewToFront(nativeBackHeader)
+            nativeReviewList.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
+            nativeBackHeader.setShareVisible(false)
+            nativeBackHeader.setGlassProgress(1)
+            nativeBackHeader.setTitle("리뷰")
+            let rid = String(detailPathOnly.dropFirst("/pros/".count).dropLast("/reviews".count))
+            if rid != currentReviewProId {
+                currentReviewProId = rid
+                nativeReviewList.loadReviews(proId: rid)
+            }
+        } else {
+            currentReviewProId = ""
+        }
+
+        // 백헤더 가시성 통합 제어 — 상세/알림/문의목록/카테고리리스트/리뷰가 아니면 반드시 숨김 (뒤로가기 후 잔존 방지)
+        nativeBackHeader.isHidden = !(onDetailPage || onNotif || onCustInq || onCategoryList || onReviewList)
 
         // 홈 글래스 헤더 (스페이서가 공간 확보하므로 콘텐츠 인셋은 변경 안 함)
         let onHome = currentNativePath == "/main" || currentNativePath == "/"
@@ -1541,6 +1577,11 @@ class ViewController: UIViewController,
         // 추천 사회자 탭 → 웹 라우트 이동(경로 옵저버가 네이티브 상세 재로딩)
         guard !id.isEmpty else { return }
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros/' + \(jsLiteral(id))));", completionHandler: nil)
+    }
+    func proDetailOpenReviews(_ id: String) {
+        // 리뷰 전체보기 → /pros/:id/reviews (경로 옵저버가 네이티브 리뷰 리스트 표출)
+        guard !id.isEmpty else { return }
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros/' + \(jsLiteral(id)) + '/reviews'));", completionHandler: nil)
     }
 
     // MARK: - NativeCustomerInquiriesDelegate

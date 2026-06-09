@@ -3,6 +3,7 @@ import UIKit
 protocol NativeProDetailDelegate: AnyObject {
     func proDetailInquiry(_ id: String)
     func proDetailOpen(_ id: String)
+    func proDetailOpenReviews(_ id: String)
 }
 
 // MARK: - 레이더 차트 (웹 RadarChart 동일 — 6축 헥사곤)
@@ -1053,7 +1054,20 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let col = UIStackView(); col.axis = .vertical; col.spacing = 14; col.alignment = .fill
 
         let t = UILabel(); t.text = "리뷰"; t.font = .systemFont(ofSize: 18, weight: .bold); t.textColor = UIColor(white: 0.1, alpha: 1)
-        col.addArrangedSubview(t)
+        let allBtn = UIButton(type: .system)
+        var abcfg = UIButton.Configuration.plain()
+        abcfg.title = "전체보기"
+        abcfg.image = UIImage(systemName: "chevron.right", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
+        abcfg.imagePlacement = .trailing; abcfg.imagePadding = 2
+        abcfg.baseForegroundColor = UIColor(white: 0.5, alpha: 1)
+        abcfg.contentInsets = .zero
+        var abattr = AttributedString("전체보기"); abattr.font = .systemFont(ofSize: 13, weight: .medium)
+        abcfg.attributedTitle = abattr
+        allBtn.configuration = abcfg
+        allBtn.setContentHuggingPriority(.required, for: .horizontal)
+        allBtn.addAction(UIAction { [weak self] _ in Haptics.tap(); self.map { $0.delegate?.proDetailOpenReviews($0.proId) } }, for: .touchUpInside)
+        let titleRow = UIStackView(arrangedSubviews: [t, UIView(), allBtn]); titleRow.axis = .horizontal; titleRow.alignment = .center
+        col.addArrangedSubview(titleRow)
 
         // 큰 별점 행
         let starRow = UIStackView(); starRow.axis = .horizontal; starRow.spacing = 2; starRow.alignment = .center
@@ -1180,7 +1194,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     }
 
     // MARK: - 리뷰 해석 (웹 buildReviewFallbacks 동일 — API 본문 없으면 레거시 폴백)
-    private static func resolveReviews(api: [[String: Any]], reviewCount: Int, rating: Double) -> [DisplayReview] {
+    static func resolveReviews(api: [[String: Any]], reviewCount: Int, rating: Double) -> [DisplayReview] {
         let keymap: [(String, String)] = [("경력","ratingExperience"),("만족도","ratingSatisfaction"),("위트","ratingWit"),("발성","ratingVoice"),("이미지","ratingAppearance"),("구성력","ratingComposition")]
         let mapped: [DisplayReview] = api.compactMap { r in
             let content = (((r["content"] as? String) ?? (r["comment"] as? String) ?? (r["body"] as? String)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
