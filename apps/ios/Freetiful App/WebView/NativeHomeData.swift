@@ -174,7 +174,8 @@ enum NativeHomeData {
                     rating: (p["avgRating"] as? Double) ?? Double(intVal(p["avgRating"])),
                     reviewCount: intVal(p["reviewCount"]),
                     intro: (p["shortIntro"] as? String) ?? (p["mainExperience"] as? String) ?? "",
-                    careerYears: intVal(p["careerYears"]))
+                    careerYears: intVal(p["careerYears"]),
+                    tags: Array(strArr(p["tags"]).prefix(3)))
     }
     private static func bestPro(_ p: [String: Any]) -> HomeBestPro {
         HomeBestPro(id: (p["id"] as? String) ?? "", name: proName(p), image: proImg(p), careerYears: intVal(p["careerYears"]))

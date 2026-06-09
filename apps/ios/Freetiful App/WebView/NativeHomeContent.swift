@@ -26,6 +26,7 @@ struct HomeProItem {
     let reviewCount: Int
     let intro: String
     let careerYears: Int
+    var tags: [String] = []
 }
 
 // 네이티브 홈 스크린 본문 (웹 홈 위에 전체 덮음) — 완성될 때까지 단계적으로 섹션 추가.
@@ -482,7 +483,28 @@ final class HomeProCell: UIControl {
         intro.textColor = UIColor(white: 0.5, alpha: 1)
         intro.numberOfLines = 1
 
-        let col = UIStackView(arrangedSubviews: [name, metaRow, intro])
+        var rows: [UIView] = [name, metaRow]
+        if !item.intro.isEmpty { rows.append(intro) }
+        if !item.tags.isEmpty {
+            let tagsRow = UIStackView()
+            tagsRow.axis = .horizontal
+            tagsRow.spacing = 4
+            tagsRow.alignment = .center
+            for t in item.tags.prefix(3) {
+                let chip = PaddingLabel()
+                chip.text = t
+                chip.inset = UIEdgeInsets(top: 2, left: 7, bottom: 2, right: 7)
+                chip.font = .systemFont(ofSize: 10.5, weight: .medium)
+                chip.textColor = UIColor(white: 0.42, alpha: 1)
+                chip.backgroundColor = UIColor(white: 0.94, alpha: 1)
+                chip.layer.cornerRadius = 8
+                chip.clipsToBounds = true
+                tagsRow.addArrangedSubview(chip)
+            }
+            tagsRow.addArrangedSubview(UIView())   // 좌측 정렬 스페이서
+            rows.append(tagsRow)
+        }
+        let col = UIStackView(arrangedSubviews: rows)
         col.axis = .vertical
         col.spacing = 5
         col.alignment = .leading
@@ -498,7 +520,7 @@ final class HomeProCell: UIControl {
             col.leadingAnchor.constraint(equalTo: photo.trailingAnchor, constant: 14),
             col.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
             col.centerYAnchor.constraint(equalTo: centerYAnchor),
-            heightAnchor.constraint(equalToConstant: 112),   // 조금 더 크게
+            heightAnchor.constraint(equalToConstant: 118),   // 태그 행 포함
         ])
 
         addTarget(self, action: #selector(fire), for: .touchUpInside)
