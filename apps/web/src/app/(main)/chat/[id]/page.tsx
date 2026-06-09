@@ -104,6 +104,27 @@ function isOptimisticId(id: string) {
   return id.startsWith('opt-') || id.startsWith('pending-');
 }
 
+// 같은 견적(quotationId)에 카드가 두 번(스토어 낙관적 + 로컬 insert) 들어오는 중복 제거.
+// 낙관적(opt-/pending-) id 카드보다 실제(UUID) 카드를 우선 보존. 순서 유지.
+function dedupeQuoteMessages(messages: Message[]): Message[] {
+  const indexByQuote = new Map<string, number>();
+  const result: Message[] = [];
+  for (const m of messages) {
+    const qid = m.type === 'system' && m.system?.kind === 'quote'
+      ? ((m.system as { quotationId?: string })?.quotationId)
+      : undefined;
+    if (!qid) { result.push(m); continue; }
+    const existingIdx = indexByQuote.get(qid);
+    if (existingIdx === undefined) {
+      indexByQuote.set(qid, result.length);
+      result.push(m);
+    } else if (isOptimisticId(result[existingIdx].id) && !isOptimisticId(m.id)) {
+      result[existingIdx] = m; // 낙관적 카드를 실제 카드로 교체
+    }
+  }
+  return result;
+}
+
 function hasFetchedEquivalent(message: Message, fetched: Message[]) {
   if (!isOptimisticId(message.id)) return false;
   const sentAt = messageTime(message);
@@ -727,7 +748,7 @@ export default function ChatRoomPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const api = {
-      getMessages: () => messagesRef.current.map((m) => ({
+      getMessages: () => dedupeQuoteMessages(messagesRef.current).map((m) => ({
         id: m.id,
         mine: m.senderId === myIdRef.current,
         content: m.content || '',
@@ -1171,12 +1192,14 @@ export default function ChatRoomPage() {
             </div>
           )}
           {(() => {
+            // 견적 카드 중복(낙관적+실제) 제거 후 렌더 — 네이티브 getMessages 와 동일 기준
+            const dedupedMessages = dedupeQuoteMessages(messages);
             // 가장 최근 견적 메시지의 id 를 미리 계산 — 그 견적에만 "결제하기" 버튼 활성화
-            const latestQuoteId = [...messages]
+            const latestQuoteId = [...dedupedMessages]
               .filter((m) => m.type === 'system' && m.system?.kind === 'quote' && m.system?.quotationId)
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.id || null;
-            return messages.map((msg, i) => {
-            const showDate = shouldShowDateDivider(messages, i);
+            return dedupedMessages.map((msg, i) => {
+            const showDate = shouldShowDateDivider(dedupedMessages, i);
 
             if (msg.type === 'system') {
               return (
@@ -1188,7 +1211,7 @@ export default function ChatRoomPage() {
                   )}
                   {msg.system ? (
                     <Suspense fallback={<SystemMessageFallback msg={msg} />}>
-                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} myProfileImage={authUser?.profileImageUrl || null} isLatestQuote={msg.id === latestQuoteId} refreshTick={messages.length} />
+                      <SystemMessageCard msg={msg} isPro={isPro} chatPartner={chatPartner} myProfileImage={authUser?.profileImageUrl || null} isLatestQuote={msg.id === latestQuoteId} refreshTick={dedupedMessages.length} />
                     </Suspense>
                   ) : (
                     <SystemMessageFallback msg={msg} />
