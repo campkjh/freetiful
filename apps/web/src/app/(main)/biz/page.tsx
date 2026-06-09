@@ -539,6 +539,15 @@ export default function BizPage() {
     }
   }
 
+  // 네이티브(iOS) 비즈 하단 네비 → 섹션 스크롤 브리지
+  useEffect(() => {
+    (window as unknown as { __freetifulBizScroll?: (id: string) => void }).__freetifulBizScroll = (id: string) => {
+      try { scrollTo(id); } catch { /* noop */ }
+    };
+    return () => { try { delete (window as unknown as { __freetifulBizScroll?: unknown }).__freetifulBizScroll; } catch { /* noop */ } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleInquiry(e: React.FormEvent) {
     e.preventDefault();
     if (!inquiry.name || !inquiry.phone || !inquiry.message) {
@@ -1499,6 +1508,7 @@ export default function BizPage() {
 
       {/* ═══ 모바일 바텀 네비게이션 ═══════════════════════════ */}
       <nav
+        data-native-biz-nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe transition-all duration-700"
         style={{
           transform: receptionFullscreen ? 'translateY(100%)' : 'translateY(0)',
