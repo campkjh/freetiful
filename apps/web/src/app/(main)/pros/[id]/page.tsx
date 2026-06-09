@@ -1223,10 +1223,12 @@ export default function ProDetailPage() {
     setConfirmInquiryOpen(true);
   };
 
-  const submitInquiryRequest = async () => {
+  const submitInquiryRequest = async (override?: { location: string; date: string; time: string }) => {
     if (!pro || !authUser || openingChat) return;
-    const trimmedLocation = inquiryLocation.trim();
-    if (!trimmedLocation || !inquiryDate || !inquiryTime) {
+    const trimmedLocation = (override?.location ?? inquiryLocation).trim();
+    const eventDate = override?.date ?? inquiryDate;
+    const eventTime = override?.time ?? inquiryTime;
+    if (!trimmedLocation || !eventDate || !eventTime) {
       toast.error('행사 장소와 일시를 입력해주세요.');
       return;
     }
@@ -1235,8 +1237,8 @@ export default function ProDetailPage() {
       const categoryName = pro.categoryName || '사회자';
       await matchApi.createRequest({
         categoryId: categoryName,
-        eventDate: inquiryDate,
-        eventTime: inquiryTime,
+        eventDate: eventDate,
+        eventTime: eventTime,
         eventLocation: trimmedLocation,
         type: 'single',
         selectedProProfileIds: [pro.id],
@@ -1246,8 +1248,8 @@ export default function ProDetailPage() {
           eventType: `${categoryName} 문의`,
           eventName: `${categoryName} 문의`,
           location: trimmedLocation,
-          date: inquiryDate,
-          timeStart: inquiryTime,
+          date: eventDate,
+          timeStart: eventTime,
           targetScope: 'single',
           requestKind: 'single',
           note: '사회자 상세페이지에서 보낸 문의 요청입니다.',
@@ -1273,7 +1275,21 @@ export default function ProDetailPage() {
   // 네이티브 상세의 문의 CTA가 호출 (웹 문의 핸들러 트리거)
   useEffect(() => {
     (window as any).__freetifulProInquiry = () => { try { handleInquiry(); } catch {} };
-    return () => { try { delete (window as any).__freetifulProInquiry; } catch {} };
+    // 네이티브 즉시 전송 (확인 모달이 네이티브 오버레이 뒤라 안 보임 → 기본값으로 바로 문의 생성, 세부는 채팅서 협의)
+    (window as any).__freetifulProInquirySend = () => {
+      try {
+        if (!authUser) { handleInquiry(); return false; }
+        if ((pro?.userId && pro.userId === authUser.id) || pro?.id === 'my-pro') return false;
+        const d = new Date(); d.setDate(d.getDate() + 14);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        submitInquiryRequest({ location: '추후 협의', date: dateStr, time: '협의' });
+        return true;
+      } catch { return false; }
+    };
+    return () => {
+      try { delete (window as any).__freetifulProInquiry; } catch {}
+      try { delete (window as any).__freetifulProInquirySend; } catch {}
+    };
   });
 
   const scrollToSection = (section: 'desc' | 'info' | 'reviews') => {
@@ -2488,7 +2504,7 @@ export default function ProDetailPage() {
               <button
                 type="button"
                 disabled={openingChat}
-                onClick={submitInquiryRequest}
+                onClick={() => submitInquiryRequest()}
                 className="flex h-[48px] items-center justify-center gap-2 rounded-2xl bg-[#3180F7] text-[15px] font-bold text-white shadow-[0_12px_24px_rgba(49,128,247,0.24)] transition active:scale-[0.98] disabled:opacity-70"
               >
                 {openingChat && <span className="h-4 w-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />}
