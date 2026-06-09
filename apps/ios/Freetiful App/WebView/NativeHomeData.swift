@@ -70,10 +70,44 @@ enum NativeHomeData {
         }
     }
 
+    // 상세: (1) 디스크 캐시 즉시 → (2) 없으면 홈 리스트의 기본정보로 즉시(헤더/사진/경력/별점) → (3) 신선 상세로 교체
+    // done 이 최대 2번 호출될 수 있음(부분→완전). 첫 호출만 애니메이션, 둘째는 교체.
     static func loadProDetail(_ id: String, _ done: @escaping ([String: Any]?) -> Void) {
-        getJSON("\(base)/discovery/pros/\(id)") { obj in
-            DispatchQueue.main.async { done(obj as? [String: Any]) }
+        var rendered = false
+        if let cached = loadDetailDisk(id) {
+            rendered = true
+            DispatchQueue.main.async { done(cached) }
+        } else if let basic = cachedProBasic(id) {
+            rendered = true
+            DispatchQueue.main.async { done(basic) }
         }
+        getJSON("\(base)/discovery/pros/\(id)") { obj in
+            guard let d = obj as? [String: Any] else {
+                if !rendered { DispatchQueue.main.async { done(nil) } }
+                return
+            }
+            saveDetailDisk(id, d)
+            DispatchQueue.main.async { done(d) }
+        }
+    }
+    private static func saveDetailDisk(_ id: String, _ d: [String: Any]) {
+        if let data = try? JSONSerialization.data(withJSONObject: d) {
+            UserDefaults.standard.set(data, forKey: "ftProDetail_\(id)")
+        }
+    }
+    private static func loadDetailDisk(_ id: String) -> [String: Any]? {
+        guard let data = UserDefaults.standard.data(forKey: "ftProDetail_\(id)"),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return obj
+    }
+    // 홈 리스트(메모리/디스크) 캐시에서 특정 사회자 기본정보
+    static func cachedProBasic(_ id: String) -> [String: Any]? {
+        cachedPros()?.first { ($0["id"] as? String) == id }
+    }
+    // 추천 사회자 (현재 제외, 홈 캐시 재사용 — 추가 네트워크 없음)
+    static func recommendedPros(excluding id: String, limit: Int = 10) -> [[String: Any]] {
+        guard let arr = cachedPros() else { return [] }
+        return Array(arr.filter { ($0["id"] as? String) != id }.prefix(limit))
     }
 
     static func search(_ query: String, _ done: @escaping ([HomeProItem]) -> Void) {

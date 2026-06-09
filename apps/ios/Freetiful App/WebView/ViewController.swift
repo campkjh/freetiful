@@ -1335,6 +1335,11 @@ class ViewController: UIViewController,
         // 웹 상세의 문의 핸들러 트리거 (웹은 네이티브 뒤에 로드돼 있음)
         webView.evaluateJavaScript("(window.__freetifulProInquiry && window.__freetifulProInquiry());", completionHandler: nil)
     }
+    func proDetailOpen(_ id: String) {
+        // 추천 사회자 탭 → 웹 라우트 이동(경로 옵저버가 네이티브 상세 재로딩)
+        guard !id.isEmpty else { return }
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros/' + \(jsLiteral(id))));", completionHandler: nil)
+    }
 
     // MARK: - NativeCustomerInquiriesDelegate
     func customerInquiryDidTap(_ link: String, hasRoom: Bool) {
