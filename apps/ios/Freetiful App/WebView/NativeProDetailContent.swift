@@ -645,7 +645,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             let iv = UIImageView()
             iv.contentMode = .scaleAspectFill
             iv.clipsToBounds = true
-            iv.layer.cornerRadius = carPeek ? 22 : 0
+            iv.layer.cornerRadius = carPeek ? 48 : 0
             iv.layer.cornerCurve = .continuous
             iv.backgroundColor = UIColor(white: 0.93, alpha: 1)
             iv.translatesAutoresizingMaskIntoConstraints = false
