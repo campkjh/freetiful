@@ -70,6 +70,12 @@ enum NativeHomeData {
         }
     }
 
+    static func loadProDetail(_ id: String, _ done: @escaping ([String: Any]?) -> Void) {
+        getJSON("\(base)/discovery/pros/\(id)") { obj in
+            DispatchQueue.main.async { done(obj as? [String: Any]) }
+        }
+    }
+
     static func search(_ query: String, _ done: @escaping ([HomeProItem]) -> Void) {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { DispatchQueue.main.async { done([]) }; return }

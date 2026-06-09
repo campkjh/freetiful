@@ -52,7 +52,8 @@ class ViewController: UIViewController,
                       NativeNotificationsDelegate,
                       NativeSearchDelegate,
                       NativeCustomerInquiriesDelegate,
-                      NativeHelpDelegate {
+                      NativeHelpDelegate,
+                      NativeProDetailDelegate {
 
     var webView: WKWebView!
     var logoAnimationView: LottieAnimationView!
@@ -77,6 +78,9 @@ class ViewController: UIViewController,
     private let nativeHelp = NativeHelpContent()   // 고객센터(FAQ/공지/약관) 네이티브
     private var isOnHelp = false
     private let helpPaths = ["/my/support", "/my/faq", "/my/announcements", "/my/terms"]
+    private let nativeProDetail = NativeProDetailContent()   // 사회자 상세 네이티브
+    private var isOnProDetail = false
+    private var currentProDetailId = ""
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -696,6 +700,17 @@ class ViewController: UIViewController,
             nativeHelp.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
+        // 사회자 상세 네이티브 본문 (웹 위 덮음, 백헤더 아래)
+        nativeProDetail.isHidden = true
+        nativeProDetail.delegate = self
+        view.insertSubview(nativeProDetail, belowSubview: nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeProDetail.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeProDetail.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeProDetail.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeProDetail.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
         nativeHomeHeader.delegate = self
         nativeHomeHeader.isHidden = true
@@ -984,6 +999,26 @@ class ViewController: UIViewController,
             nativeHelp.setTab(tab)
             nativeHelp.loadIfNeeded()   // 3개 탭 모두 미리 로드
             nativeBackHeader.setTitle(title)
+        }
+
+        // 사회자 상세 네이티브 (정확히 /pros/:id 만 — 하위 리뷰/체크아웃 제외)
+        let detailPathOnly = currentNativePath.split(separator: "?").first.map(String.init) ?? currentNativePath
+        let onProDetail = detailPathOnly.range(of: "^/pros/[^/]+$", options: .regularExpression) != nil
+        if onProDetail != isOnProDetail {
+            isOnProDetail = onProDetail
+            nativeProDetail.isHidden = !onProDetail
+        }
+        if onProDetail {
+            view.bringSubviewToFront(nativeProDetail)
+            view.bringSubviewToFront(nativeBackHeader)
+            nativeProDetail.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom)
+            let pid = String(detailPathOnly.dropFirst("/pros/".count))
+            if pid != currentProDetailId {
+                currentProDetailId = pid
+                nativeProDetail.loadDetail(id: pid)
+            }
+        } else {
+            currentProDetailId = ""
         }
 
         // 백헤더 가시성 통합 제어 — 상세/알림/문의목록이 아니면 반드시 숨김 (뒤로가기 후 잔존 방지)
@@ -1293,6 +1328,12 @@ class ViewController: UIViewController,
     // MARK: - NativeHelpDelegate
     func helpDidTapPolicy(_ slug: String) {
         navigateNativeWeb(to: "/my/terms/\(slug)")
+    }
+
+    // MARK: - NativeProDetailDelegate
+    func proDetailInquiry(_ id: String) {
+        // 웹 상세의 문의 핸들러 트리거 (웹은 네이티브 뒤에 로드돼 있음)
+        webView.evaluateJavaScript("(window.__freetifulProInquiry && window.__freetifulProInquiry());", completionHandler: nil)
     }
 
     // MARK: - NativeCustomerInquiriesDelegate
