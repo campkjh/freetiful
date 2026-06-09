@@ -927,6 +927,9 @@ class ViewController: UIViewController,
         isOnDetail = onDetailPage
         if onDetailPage {
             view.bringSubviewToFront(nativeBackHeader)
+            // 기본: 일반 상세(웹)는 글래스 항상 ON·공유 없음 — 사회자 상세는 아래 onProDetail에서 스크롤 구동으로 덮어씀
+            nativeBackHeader.setShareVisible(false)
+            nativeBackHeader.setGlassProgress(1)
             // document.title이 브랜드명/빈값이면 페이지 H1(브랜드 제외)로 폴백, 그래도 없으면 빈 타이틀
             let titleJS = "(function(){var bad=function(s){return !s||/freetiful|프리티풀/i.test(s);};var t=(document.title||'').trim();if(bad(t)){var hs=document.querySelectorAll('main h1, h1');for(var i=0;i<hs.length;i++){var x=(hs[i].textContent||'').trim();if(x&&!bad(x))return x;}return '';}return t;})()"
             webView.evaluateJavaScript(titleJS) { [weak self] r, _ in
@@ -944,6 +947,8 @@ class ViewController: UIViewController,
         if onNotif {
             view.bringSubviewToFront(nativeNotifications)
             view.bringSubviewToFront(nativeBackHeader)
+            nativeBackHeader.setShareVisible(false)
+            nativeBackHeader.setGlassProgress(1)
             nativeBackHeader.setTitle("알림")
             nativeNotifications.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
             for delay in [0.0, 0.4, 1.2, 2.5] {
@@ -976,6 +981,8 @@ class ViewController: UIViewController,
         if onCustInq {
             view.bringSubviewToFront(nativeCustomerInquiries)
             view.bringSubviewToFront(nativeBackHeader)
+            nativeBackHeader.setShareVisible(false)
+            nativeBackHeader.setGlassProgress(1)
             nativeBackHeader.setTitle("문의목록")
             nativeCustomerInquiries.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
             for delay in [0.0, 0.4, 1.2, 2.5] {
@@ -1003,6 +1010,8 @@ class ViewController: UIViewController,
             nativeHelp.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
             nativeHelp.setTab(tab)
             nativeHelp.loadIfNeeded()   // 3개 탭 모두 미리 로드
+            nativeBackHeader.setShareVisible(false)
+            nativeBackHeader.setGlassProgress(1)
             nativeBackHeader.setTitle(title)
         }
 
@@ -1017,6 +1026,10 @@ class ViewController: UIViewController,
             view.bringSubviewToFront(nativeProDetail)
             view.bringSubviewToFront(nativeBackHeader)
             nativeProDetail.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom)
+            // 사회자 상세: 헤더는 히어로 위에선 투명(글래스 버튼만), 스크롤로 가리면 글래스 + 공유 버튼 노출
+            nativeBackHeader.setShareVisible(true)
+            nativeBackHeader.setGlassProgress(0)
+            nativeProDetail.onScroll = { [weak self] p in self?.nativeBackHeader.setGlassProgress(p) }
             let pid = String(detailPathOnly.dropFirst("/pros/".count))
             if pid != currentProDetailId {
                 currentProDetailId = pid
@@ -1441,6 +1454,15 @@ class ViewController: UIViewController,
         } else {
             webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/main'));", completionHandler: nil)
         }
+    }
+    func backHeaderTapShare() {
+        // 현재 상세 페이지 URL 공유 (네이티브 공유 시트)
+        let urlStr = (webView.url?.absoluteString) ?? (currentProDetailId.isEmpty ? "https://freetiful.com" : "https://freetiful.com/pros/\(currentProDetailId)")
+        guard let url = URL(string: urlStr) else { return }
+        let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        av.popoverPresentationController?.sourceView = nativeBackHeader
+        av.popoverPresentationController?.sourceRect = CGRect(x: nativeBackHeader.bounds.maxX - 40, y: nativeBackHeader.bounds.maxY - 20, width: 1, height: 1)
+        present(av, animated: true)
     }
 
     // 상세화면(뒤로가기 헤더 적용 대상) 경로 판별 — 점진 확장

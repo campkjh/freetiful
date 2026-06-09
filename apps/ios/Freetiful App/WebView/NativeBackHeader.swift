@@ -2,18 +2,19 @@ import UIKit
 
 protocol NativeBackHeaderDelegate: AnyObject {
     func backHeaderTapBack()
+    func backHeaderTapShare()
 }
 
-// 상세화면용 글래스 백헤더 — 그라데이션 블러(위 흐림→아래 선명) + 글래스 뒤로가기 버튼 + 중앙 타이틀
+// 상세화면 백헤더 — 히어로 위에선 투명(글래스 버튼만), 스크롤로 히어로를 가리면 글래스 바가 페이드인 + 중앙 타이틀
 final class NativeBackHeader: UIView {
     weak var delegate: NativeBackHeaderDelegate?
 
-    private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
-    private let blurMask = CAGradientLayer()
-    private let tintHost = UIView()
-    private let tintGradient = CAGradientLayer()
+    private let glassBg = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
+    private let bottomBorder = UIView()
     private let backPill = GlassPill(corner: 19)
     private let backButton = UIButton(type: .system)
+    private let sharePill = GlassPill(corner: 19)
+    private let shareButton = UIButton(type: .system)
     private let titleLabel = UILabel()
 
     var titleTopAnchorRef: NSLayoutYAxisAnchor { backPill.topAnchor }
@@ -25,68 +26,78 @@ final class NativeBackHeader: UIView {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .clear
 
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        blurMask.colors = [
-            UIColor(white: 1, alpha: 1).cgColor,
-            UIColor(white: 1, alpha: 1).cgColor,
-            UIColor(white: 1, alpha: 0).cgColor,
-        ]
-        blurMask.locations = [0, 0.55, 1]
-        blur.layer.mask = blurMask
-        addSubview(blur)
+        // 글래스 배경 (그라데이션 마스크 없음 — 스크롤 진행도로 alpha 제어)
+        glassBg.translatesAutoresizingMaskIntoConstraints = false
+        glassBg.alpha = 0
+        glassBg.isUserInteractionEnabled = false
+        addSubview(glassBg)
 
-        tintHost.translatesAutoresizingMaskIntoConstraints = false
-        tintHost.isUserInteractionEnabled = false
-        tintGradient.colors = [
-            UIColor(white: 1, alpha: 0.72).cgColor,
-            UIColor(white: 1, alpha: 0.32).cgColor,
-            UIColor(white: 1, alpha: 0).cgColor,
-        ]
-        tintGradient.locations = [0, 0.55, 1]
-        tintHost.layer.addSublayer(tintGradient)
-        addSubview(tintHost)
+        bottomBorder.translatesAutoresizingMaskIntoConstraints = false
+        bottomBorder.backgroundColor = UIColor(white: 0.86, alpha: 1)
+        bottomBorder.alpha = 0
+        addSubview(bottomBorder)
 
-        var cfg = UIButton.Configuration.plain()
-        cfg.image = UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold))
-        cfg.baseForegroundColor = UIColor(white: 0.2, alpha: 1)
-        backButton.configuration = cfg
+        // 뒤로
+        var bcfg = UIButton.Configuration.plain()
+        bcfg.image = UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold))
+        bcfg.baseForegroundColor = UIColor(white: 0.2, alpha: 1)
+        backButton.configuration = bcfg
         backButton.addTarget(self, action: #selector(tapBack), for: .touchUpInside)
         backPill.setContent(backButton)
         addSubview(backPill)
+
+        // 공유
+        var scfg = UIButton.Configuration.plain()
+        scfg.image = UIImage(systemName: "square.and.arrow.up", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold))
+        scfg.baseForegroundColor = UIColor(white: 0.2, alpha: 1)
+        shareButton.configuration = scfg
+        shareButton.addTarget(self, action: #selector(tapShare), for: .touchUpInside)
+        sharePill.setContent(shareButton)
+        addSubview(sharePill)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = .systemFont(ofSize: 17, weight: .bold)
         titleLabel.textColor = UIColor(white: 0.1, alpha: 1)
         titleLabel.textAlignment = .center
         titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.alpha = 0
         addSubview(titleLabel)
 
         NSLayoutConstraint.activate([
-            blur.topAnchor.constraint(equalTo: topAnchor),
-            blur.leadingAnchor.constraint(equalTo: leadingAnchor),
-            blur.trailingAnchor.constraint(equalTo: trailingAnchor),
-            blur.bottomAnchor.constraint(equalTo: bottomAnchor),
-            tintHost.topAnchor.constraint(equalTo: topAnchor),
-            tintHost.leadingAnchor.constraint(equalTo: leadingAnchor),
-            tintHost.trailingAnchor.constraint(equalTo: trailingAnchor),
-            tintHost.bottomAnchor.constraint(equalTo: bottomAnchor),
+            glassBg.topAnchor.constraint(equalTo: topAnchor),
+            glassBg.leadingAnchor.constraint(equalTo: leadingAnchor),
+            glassBg.trailingAnchor.constraint(equalTo: trailingAnchor),
+            glassBg.bottomAnchor.constraint(equalTo: bottomAnchor),
+            bottomBorder.leadingAnchor.constraint(equalTo: leadingAnchor),
+            bottomBorder.trailingAnchor.constraint(equalTo: trailingAnchor),
+            bottomBorder.bottomAnchor.constraint(equalTo: bottomAnchor),
+            bottomBorder.heightAnchor.constraint(equalToConstant: 0.5),
             backPill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             backPill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
             backPill.widthAnchor.constraint(equalToConstant: 38),
             backPill.heightAnchor.constraint(equalToConstant: 38),
+            sharePill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            sharePill.centerYAnchor.constraint(equalTo: backPill.centerYAnchor),
+            sharePill.widthAnchor.constraint(equalToConstant: 38),
+            sharePill.heightAnchor.constraint(equalToConstant: 38),
             titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: backPill.centerYAnchor),
             titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: backPill.trailingAnchor, constant: 8),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -50),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: sharePill.leadingAnchor, constant: -8),
         ])
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        blurMask.frame = blur.bounds
-        tintGradient.frame = tintHost.bounds
-    }
-
     func setTitle(_ t: String) { titleLabel.text = t }
+
+    // 스크롤 진행도(0 = 히어로 위 투명, 1 = 히어로 가림 글래스)
+    func setGlassProgress(_ p: CGFloat) {
+        let c = max(0, min(1, p))
+        glassBg.alpha = c
+        bottomBorder.alpha = c
+        titleLabel.alpha = c
+    }
+    func setShareVisible(_ v: Bool) { sharePill.isHidden = !v }
+
     @objc private func tapBack() { Haptics.tap(); delegate?.backHeaderTapBack() }
+    @objc private func tapShare() { Haptics.tap(); delegate?.backHeaderTapShare() }
 }

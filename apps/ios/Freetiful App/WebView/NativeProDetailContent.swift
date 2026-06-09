@@ -215,6 +215,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     private var inlineTabHolder: UIView?          // 인라인 탭바의 스택 내 위치(스티키 임계점 계산)
     private var isAutoScrolling = false
     private var youtubeURLString = ""
+    var onScroll: ((CGFloat) -> Void)?   // 헤더 글래스 진행도(0=히어로 위, 1=히어로 가림)
 
     private let scoreLabels = ["경력", "만족도", "위트", "발성", "이미지", "구성력"]
 
@@ -544,6 +545,8 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         }
         guard sv == scrollView else { return }
         updateStickyTabs()
+        let heroH = UIScreen.main.bounds.width
+        onScroll?(max(0, min(1, (scrollView.contentOffset.y + topInset) / (heroH * 0.6))))
     }
 
     private func updateStickyTabs() {
