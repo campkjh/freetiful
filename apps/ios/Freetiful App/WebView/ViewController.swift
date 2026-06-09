@@ -1290,6 +1290,10 @@ class ViewController: UIViewController,
     func inquiryDidArchive(_ id: String) {
         webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeArchive && window.__freetifulInquiryList.invokeArchive(\(jsLiteral(id)));", completionHandler: nil)
     }
+    func inquiryDidPullRefresh() {
+        // 웹 매칭요청 재조회 트리거 + 즉시 재전송(목록 갱신 → setRows 가 endRefresh 호출)
+        webView.evaluateJavaScript("(function(){ try { window.dispatchEvent(new Event('freetiful:match-requests-changed')); if (window.__freetifulInquiryRowsPost) window.__freetifulInquiryRowsPost(); } catch(e){} })();", completionHandler: nil)
+    }
 
     // MARK: - 채팅 본문(네이티브 메시지) (B3)
     private func requestNativeChatMessages() {

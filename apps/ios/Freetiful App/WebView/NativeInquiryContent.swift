@@ -1,4 +1,5 @@
 import UIKit
+import Lottie
 
 // 새요청(사회자 매칭 요청) 한 카드 (웹 window.__freetifulInquiryList.getItems() 에서 전달)
 struct NativeInquiryItem {
@@ -19,6 +20,7 @@ protocol NativeInquiryContentDelegate: AnyObject {
     func inquiryDidTapChat(_ id: String)
     func inquiryDidTapReject(_ id: String)
     func inquiryDidArchive(_ id: String)
+    func inquiryDidPullRefresh()
 }
 
 // MARK: - 패딩 라벨 (뱃지/칩용)
@@ -98,6 +100,16 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
     private var items: [NativeInquiryItem] = []
     private let emptyLabel = UILabel()
 
+    // 풀투리프레시
+    private let loader = LottieAnimationView(name: "freetiful_loading")
+    private var loaderTop: NSLayoutConstraint!
+    private var baseTop: CGFloat = 0
+    private var refreshing = false
+    private var lastHapticStep = 0
+    private let pullThreshold: CGFloat = 78
+    private let lightHaptic = UIImpactFeedbackGenerator(style: .light)
+    private let heavyHaptic = UIImpactFeedbackGenerator(style: .medium)
+
     override init(frame: CGRect) { super.init(frame: frame); setup() }
     required init?(coder: NSCoder) { super.init(coder: coder); setup() }
 
@@ -124,6 +136,13 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
         emptyLabel.isHidden = true
         addSubview(emptyLabel)
 
+        loader.translatesAutoresizingMaskIntoConstraints = false
+        loader.loopMode = .loop
+        loader.contentMode = .scaleAspectFit
+        loader.alpha = 0
+        addSubview(loader)
+        loaderTop = loader.centerYAnchor.constraint(equalTo: topAnchor, constant: 30)
+
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: topAnchor),
             tableView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -131,12 +150,64 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
             tableView.bottomAnchor.constraint(equalTo: bottomAnchor),
             emptyLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            loaderTop,
+            loader.centerXAnchor.constraint(equalTo: centerXAnchor),
+            loader.widthAnchor.constraint(equalToConstant: 48),
+            loader.heightAnchor.constraint(equalToConstant: 48),
         ])
     }
 
     func setInsets(top: CGFloat, bottom: CGFloat) {
-        tableView.contentInset = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
+        baseTop = top
+        let extra = refreshing ? pullThreshold : 0
+        tableView.contentInset = UIEdgeInsets(top: top + extra, left: 0, bottom: bottom, right: 0)
         tableView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
+        loaderTop.constant = top + 30
+    }
+
+    // MARK: - 풀투리프레시
+    func scrollViewDidScroll(_ sv: UIScrollView) {
+        let pull = -(sv.contentOffset.y + baseTop)
+        if refreshing { return }
+        loader.alpha = max(0, min(1, pull / pullThreshold))
+        loader.transform = CGAffineTransform(rotationAngle: min(pull, pullThreshold) / pullThreshold * .pi)
+            .scaledBy(x: max(0.5, min(1, pull / pullThreshold)), y: max(0.5, min(1, pull / pullThreshold)))
+        // 끌수록 진동 두두두둥 (단계별)
+        let step = Int(max(0, pull) / 16)
+        if step > lastHapticStep, pull < pullThreshold + 30 {
+            lastHapticStep = step
+            lightHaptic.impactOccurred(intensity: min(1, 0.35 + CGFloat(step) * 0.13))
+        } else if step < lastHapticStep {
+            lastHapticStep = step
+        }
+    }
+    func scrollViewWillBeginDragging(_ sv: UIScrollView) { lightHaptic.prepare(); heavyHaptic.prepare(); lastHapticStep = 0 }
+    func scrollViewDidEndDragging(_ sv: UIScrollView, willDecelerate decelerate: Bool) {
+        let pull = -(sv.contentOffset.y + baseTop)
+        if pull > pullThreshold && !refreshing { startRefresh() }
+    }
+
+    private func startRefresh() {
+        refreshing = true
+        heavyHaptic.impactOccurred()
+        loader.alpha = 1
+        loader.transform = .identity
+        loader.play()
+        UIView.animate(withDuration: 0.25) {
+            self.tableView.contentInset.top = self.baseTop + self.pullThreshold
+        }
+        delegate?.inquiryDidPullRefresh()
+        // 안전망: 일정시간 뒤 자동 종료
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in self?.endRefresh() }
+    }
+    func endRefresh() {
+        guard refreshing else { return }
+        refreshing = false
+        loader.stop()
+        UIView.animate(withDuration: 0.3, animations: {
+            self.loader.alpha = 0
+            self.tableView.contentInset.top = self.baseTop
+        })
     }
 
     func scrollToTop() {
@@ -146,6 +217,7 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
     func setRows(_ newItems: [NativeInquiryItem]) {
         items = newItems
         emptyLabel.isHidden = !newItems.isEmpty
+        if refreshing { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.endRefresh() } }
         tableView.reloadData()
     }
 

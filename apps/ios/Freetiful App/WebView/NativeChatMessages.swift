@@ -1,4 +1,33 @@
 import UIKit
+import CoreMotion
+
+// 디바이스 모션(자이로) 공유 제공 — 견적 카드 사진 3D 틸트용
+final class MotionTilt {
+    static let shared = MotionTilt()
+    private let mgr = CMMotionManager()
+    private var refRoll: Double?
+    private(set) var roll: Double = 0   // 기준 자세 대비 (좌우)
+    private(set) var pitch: Double = 0  // 기준 자세 대비 (앞뒤)
+    private init() {}
+
+    func start() {
+        guard mgr.isDeviceMotionAvailable, !mgr.isDeviceMotionActive else { return }
+        mgr.deviceMotionUpdateInterval = 1.0 / 50.0
+        var refPitch: Double?
+        mgr.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
+            guard let self = self, let m = motion else { return }
+            if self.refRoll == nil { self.refRoll = m.attitude.roll }
+            if refPitch == nil { refPitch = m.attitude.pitch }
+            let dRoll = m.attitude.roll - (self.refRoll ?? 0)
+            let dPitch = m.attitude.pitch - (refPitch ?? 0)
+            // 저역통과 필터로 스무스하게
+            self.roll += (dRoll - self.roll) * 0.18
+            self.pitch += (dPitch - self.pitch) * 0.18
+            NotificationCenter.default.post(name: .motionTilt, object: nil)
+        }
+    }
+}
+extension Notification.Name { static let motionTilt = Notification.Name("ftMotionTilt") }
 
 // 채팅 본문 한 메시지 (웹 window.__freetifulChat.getMessages() 에서 전달)
 struct NativeChatMessage {
@@ -470,7 +499,8 @@ final class NativeChatQuoteCell: UITableViewCell {
     private let amountLabel = UILabel()
     private let payBar = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
     private let payLabel = UILabel()
-    private let statusChip = PaddingLabel()
+    private let statusChip = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    private let statusLabel = UILabel()
 
     private static let amountFormatter: NumberFormatter = {
         let f = NumberFormatter(); f.numberStyle = .decimal; f.groupingSeparator = ","; return f
@@ -494,12 +524,11 @@ final class NativeChatQuoteCell: UITableViewCell {
         photoWrap.translatesAutoresizingMaskIntoConstraints = false
         photoWrap.layer.shadowColor = UIColor.black.cgColor
         photoWrap.layer.shadowOpacity = 0.18; photoWrap.layer.shadowRadius = 10; photoWrap.layer.shadowOffset = CGSize(width: 0, height: 8)
-        var tilt = CATransform3DIdentity
-        tilt.m34 = -1.0 / 760
-        tilt = CATransform3DRotate(tilt, -14 * .pi / 180, 0, 1, 0)
-        tilt = CATransform3DRotate(tilt, 5 * .pi / 180, 1, 0, 0)
-        photoWrap.layer.transform = tilt
         card.addSubview(photoWrap)
+        // 자이로(디바이스 모션) 3D 틸트
+        MotionTilt.shared.start()
+        NotificationCenter.default.addObserver(self, selector: #selector(onMotion), name: .motionTilt, object: nil)
+        applyTilt()
         photo.translatesAutoresizingMaskIntoConstraints = false
         photo.contentMode = .scaleAspectFill; photo.clipsToBounds = true
         photo.layer.cornerRadius = 14; photo.layer.cornerCurve = .continuous
@@ -536,9 +565,19 @@ final class NativeChatQuoteCell: UITableViewCell {
         ])
         payBar.setContentHuggingPriority(.required, for: .horizontal)
 
-        statusChip.font = .systemFont(ofSize: 12, weight: .bold)
-        statusChip.layer.cornerRadius = 9; statusChip.clipsToBounds = true
-        statusChip.inset = UIEdgeInsets(top: 5, left: 11, bottom: 5, right: 11)
+        // 상태 칩 (결제 대기 중 / 만료된 견적) — 글래스
+        statusChip.translatesAutoresizingMaskIntoConstraints = false
+        statusChip.layer.cornerRadius = 14; statusChip.layer.cornerCurve = .continuous; statusChip.clipsToBounds = true
+        statusChip.layer.borderWidth = 1; statusChip.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
+        statusLabel.font = .systemFont(ofSize: 12.5, weight: .bold); statusLabel.textAlignment = .center
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        statusChip.contentView.addSubview(statusLabel)
+        NSLayoutConstraint.activate([
+            statusLabel.topAnchor.constraint(equalTo: statusChip.contentView.topAnchor, constant: 7),
+            statusLabel.bottomAnchor.constraint(equalTo: statusChip.contentView.bottomAnchor, constant: -7),
+            statusLabel.leadingAnchor.constraint(equalTo: statusChip.contentView.leadingAnchor, constant: 14),
+            statusLabel.trailingAnchor.constraint(equalTo: statusChip.contentView.trailingAnchor, constant: -14),
+        ])
         statusChip.setContentHuggingPriority(.required, for: .horizontal)
 
         let rightStack = UIStackView(arrangedSubviews: [planPill, eventLabel, amountLabel, payBar, statusChip])
@@ -578,6 +617,21 @@ final class NativeChatQuoteCell: UITableViewCell {
         Haptics.tap(); onTap?(quotationId)
     }
 
+    @objc private func onMotion() { applyTilt() }
+    private func applyTilt() {
+        let gain = 0.7
+        let ry = (-14.0 * .pi / 180) + max(-0.55, min(0.55, MotionTilt.shared.roll)) * gain
+        let rx = (5.0 * .pi / 180) - max(-0.55, min(0.55, MotionTilt.shared.pitch)) * gain
+        var t = CATransform3DIdentity
+        t.m34 = -1.0 / 760
+        t = CATransform3DRotate(t, ry, 0, 1, 0)
+        t = CATransform3DRotate(t, rx, 1, 0, 0)
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        photoWrap.layer.transform = t
+        CATransaction.commit()
+    }
+    deinit { NotificationCenter.default.removeObserver(self) }
+
     func configure(_ m: NativeChatMessage) {
         quotationId = m.quotationId
         let amountStr = NativeChatQuoteCell.amountFormatter.string(from: NSNumber(value: m.quoteAmount)) ?? "\(m.quoteAmount)"
@@ -587,16 +641,16 @@ final class NativeChatQuoteCell: UITableViewCell {
         NativeChatImageLoader.load(m.quoteProImage, into: photo, fallback: NativeChatHeaderView.avatarPlaceholder)
         if m.mine {
             payBar.isHidden = true; statusChip.isHidden = false
-            statusChip.text = "결제 대기 중"
-            statusChip.textColor = UIColor(red: 0.85, green: 0.55, blue: 0.0, alpha: 1)
-            statusChip.backgroundColor = UIColor(red: 1.0, green: 0.97, blue: 0.88, alpha: 1)
+            statusLabel.text = "결제 대기 중"
+            statusLabel.textColor = UIColor(red: 0.78, green: 0.48, blue: 0.0, alpha: 1)
+            statusChip.contentView.backgroundColor = UIColor(red: 1.0, green: 0.78, blue: 0.30, alpha: 0.28)
         } else if m.quoteIsLatest {
             statusChip.isHidden = true; payBar.isHidden = false
         } else {
             payBar.isHidden = true; statusChip.isHidden = false
-            statusChip.text = "만료된 견적"
-            statusChip.textColor = UIColor(white: 0.6, alpha: 1)
-            statusChip.backgroundColor = UIColor(white: 0.93, alpha: 1)
+            statusLabel.text = "만료된 견적"
+            statusLabel.textColor = UIColor(white: 0.45, alpha: 1)
+            statusChip.contentView.backgroundColor = UIColor(white: 0.6, alpha: 0.22)
         }
     }
 }
