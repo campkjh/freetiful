@@ -748,7 +748,14 @@ export default function ChatRoomPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const api = {
-      getMessages: () => dedupeQuoteMessages(messagesRef.current).map((m) => ({
+      getMessages: () => {
+        const list = dedupeQuoteMessages(messagesRef.current);
+        const latestQuoteId = [...list]
+          .filter((m) => m.type === 'system' && m.system?.kind === 'quote' && (m.system as { quotationId?: string })?.quotationId)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.id || null;
+        return list.map((m) => {
+          const sys = m.system as (typeof m.system & { eventName?: string; planLabel?: string; proImage?: string }) | undefined;
+          return {
         id: m.id,
         mine: m.senderId === myIdRef.current,
         content: m.content || '',
@@ -764,11 +771,17 @@ export default function ChatRoomPage() {
         systemKind: m.system?.kind || '',
         quoteAmount: m.system?.amount || 0,
         quoteTitle: m.system?.title || '',
+        quoteEventName: sys?.eventName || m.system?.title || '',
+        quotePlanLabel: sys?.planLabel || '',
+        quoteProImage: absChatUrl(sys?.proImage || ''),
+        quoteIsLatest: m.id === latestQuoteId,
         quoteDate: m.system?.eventDate || '',
         quoteTime: m.system?.eventTime || '',
         quoteLocation: m.system?.eventLocation || m.system?.venue || '',
         quotationId: m.system?.quotationId || '',
-      })),
+          };
+        });
+      },
       // ─── 네이티브 롱프레스 글래스 메뉴 액션 (B3 Phase2) ───
       reactions: () => ['❤️', '👍', '😂', '😮', '😢', '🙏'],
       replyMessage: (id: string) => {
