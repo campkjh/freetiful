@@ -127,6 +127,7 @@ class ViewController: UIViewController,
         super.viewDidLoad()
         print("🧭 Freetiful current native auth build marker: 2026-05-08-kakao-native-api")
         setupWebView()
+        setupBackSwipe()
         if nativeNavigationEnabled {
             setupNativeNavigationBar()
             setupNativeChatBars()
@@ -141,6 +142,18 @@ class ViewController: UIViewController,
         hasLoadedHome = true
         nativeHomeContent.loadInitial()
         OneSignalManager.shared.deliverCurrentPushId()
+    }
+
+    // 좌→우 엣지 스와이프로 이전 페이지 (서브페이지만 — 네비게이션바 루트 페이지 제외)
+    private func setupBackSwipe() {
+        let edge = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(handleBackEdgePan(_:)))
+        edge.edges = .left
+        view.addGestureRecognizer(edge)
+    }
+    @objc private func handleBackEdgePan(_ g: UIScreenEdgePanGestureRecognizer) {
+        guard g.state == .began else { return }
+        guard nativeNavigationEnabled, shouldHideNativeNavigation(path: currentNativePath) else { return }
+        if isOnChatDetail { chatBarsDidTapBack() } else { backHeaderTapBack() }
     }
 
     // MARK: - WebView Setup
