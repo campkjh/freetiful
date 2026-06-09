@@ -324,12 +324,6 @@ export default function CeoPage() {
                 image: '/images/ceo.png',
               },
               {
-                name: t({ ko: '신동혁', en: 'Donghyuk Shin', ja: '申東赫', zh: '申东赫' }),
-                role: t({ ko: '최고전략책임자', en: 'Chief Strategy Officer', ja: '最高戦略責任者', zh: '首席战略官' }),
-                badge: 'CSO',
-                image: '/images/director-shin-dh.png',
-              },
-              {
                 name: t({ ko: '김명옥', en: 'Myeongok Kim', ja: '金明玉', zh: '金明玉' }),
                 role: t({ ko: '최고재무책임자', en: 'Chief Financial Officer', ja: '最高財務責任者', zh: '首席财务官' }),
                 badge: 'CFO',
@@ -431,15 +425,9 @@ export default function CeoPage() {
               <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gray-300" />
             </div>
 
-            {/* C-레벨 6개 그리드 */}
-            <div className="mt-0 md:mt-0 grid grid-cols-2 md:grid-cols-6 gap-6 md:gap-3">
+            {/* C-레벨 5개 그리드 */}
+            <div className="mt-0 md:mt-0 grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-3">
               {[
-                {
-                  badge: 'CSO',
-                  name: t({ ko: '신동혁', en: 'Donghyuk Shin', ja: '申東赫', zh: '申东赫' }),
-                  role: t({ ko: '최고전략책임자', en: 'CSO', ja: '最高戦略責任者', zh: '首席战略官' }),
-                  teams: [t({ ko: '전략기획팀', en: 'Strategy Planning', ja: '戦略企画チーム', zh: '战略规划' }), t({ ko: '사업개발팀', en: 'Biz Development', ja: '事業開発チーム', zh: '业务开发' })],
-                },
                 {
                   badge: 'CFO',
                   name: t({ ko: '김명옥', en: 'Myeongok Kim', ja: '金明玉', zh: '金明玉' }),
