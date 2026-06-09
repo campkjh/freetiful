@@ -28,6 +28,22 @@ final class NativeCategoryListContent: UIView {
     private let countLabel = UILabel()
     private let sortButton = UIButton(type: .system)
 
+    // 웨딩파트너 글래스 카테고리 탭 + 검색
+    private let bizCategories = ["전체", "웨딩홀", "드레스", "피부과", "스튜디오", "헤어", "메이크업", "스냅", "한복", "가전", "성형외과", "보석", "답례품", "자동차", "신혼여행", "가구"]
+    private let tabBarBg = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
+    private let tabScroll = UIScrollView()
+    private let tabStack = UIStackView()
+    private var tabButtons: [UIButton] = []
+    private let searchBar = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
+    private let searchField = UITextField()
+    private var tabBarTop: NSLayoutConstraint!
+    private let topBarHeight: CGFloat = 54
+    private var baseTopInset: CGFloat = 0
+    private var baseBottomInset: CGFloat = 0
+    private var searching = false
+    private var reloadSeq = 0
+    private let blue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+
     override init(frame: CGRect) { super.init(frame: frame); setup() }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
@@ -69,6 +85,182 @@ final class NativeCategoryListContent: UIView {
             emptyLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         buildHeader()
+        buildTabBar()
+        buildSearchBar()
+    }
+
+    // 웨딩파트너 글래스 카테고리 탭바
+    private func buildTabBar() {
+        tabBarBg.translatesAutoresizingMaskIntoConstraints = false
+        tabBarBg.isHidden = true
+        tabBarBg.layer.borderWidth = 0.5
+        tabBarBg.layer.borderColor = UIColor(white: 0.88, alpha: 0.6).cgColor
+        addSubview(tabBarBg)
+
+        tabScroll.translatesAutoresizingMaskIntoConstraints = false
+        tabScroll.showsHorizontalScrollIndicator = false
+        tabScroll.contentInsetAdjustmentBehavior = .never
+        tabBarBg.contentView.addSubview(tabScroll)
+
+        tabStack.axis = .horizontal; tabStack.spacing = 8; tabStack.alignment = .center
+        tabStack.translatesAutoresizingMaskIntoConstraints = false
+        tabScroll.addSubview(tabStack)
+
+        for (i, cat) in bizCategories.enumerated() {
+            let b = UIButton(type: .system)
+            var c = UIButton.Configuration.plain()
+            c.title = cat
+            c.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 14, bottom: 7, trailing: 14)
+            c.background.cornerRadius = 16
+            b.configuration = c
+            b.tag = i
+            b.addTarget(self, action: #selector(tapTab(_:)), for: .touchUpInside)
+            tabButtons.append(b)
+            tabStack.addArrangedSubview(b)
+        }
+
+        tabBarTop = tabBarBg.topAnchor.constraint(equalTo: topAnchor, constant: 0)
+        NSLayoutConstraint.activate([
+            tabBarTop,
+            tabBarBg.leadingAnchor.constraint(equalTo: leadingAnchor),
+            tabBarBg.trailingAnchor.constraint(equalTo: trailingAnchor),
+            tabBarBg.heightAnchor.constraint(equalToConstant: topBarHeight),
+            tabScroll.leadingAnchor.constraint(equalTo: tabBarBg.contentView.leadingAnchor),
+            tabScroll.trailingAnchor.constraint(equalTo: tabBarBg.contentView.trailingAnchor),
+            tabScroll.centerYAnchor.constraint(equalTo: tabBarBg.contentView.centerYAnchor),
+            tabScroll.heightAnchor.constraint(equalToConstant: 36),
+            tabStack.topAnchor.constraint(equalTo: tabScroll.contentLayoutGuide.topAnchor),
+            tabStack.bottomAnchor.constraint(equalTo: tabScroll.contentLayoutGuide.bottomAnchor),
+            tabStack.leadingAnchor.constraint(equalTo: tabScroll.contentLayoutGuide.leadingAnchor, constant: 14),
+            tabStack.trailingAnchor.constraint(equalTo: tabScroll.contentLayoutGuide.trailingAnchor, constant: -14),
+            tabStack.heightAnchor.constraint(equalTo: tabScroll.heightAnchor),
+        ])
+    }
+
+    private func buildSearchBar() {
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        searchBar.isHidden = true
+        searchBar.layer.borderWidth = 0.5
+        searchBar.layer.borderColor = UIColor(white: 0.88, alpha: 0.6).cgColor
+        addSubview(searchBar)
+
+        // 글래스 인풋 캡슐
+        let field = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.layer.cornerRadius = 18; field.layer.cornerCurve = .continuous
+        field.contentView.layer.cornerRadius = 18; field.contentView.clipsToBounds = true
+        field.contentView.backgroundColor = UIColor.white.withAlphaComponent(0.5)
+        field.layer.borderWidth = 1; field.layer.borderColor = UIColor.white.withAlphaComponent(0.7).cgColor
+        searchBar.contentView.addSubview(field)
+
+        let mag = UIImageView(image: UIImage(systemName: "magnifyingglass", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)))
+        mag.tintColor = UIColor(white: 0.5, alpha: 1)
+        mag.translatesAutoresizingMaskIntoConstraints = false
+        field.contentView.addSubview(mag)
+
+        searchField.placeholder = "웨딩파트너 검색"
+        searchField.font = .systemFont(ofSize: 15)
+        searchField.textColor = UIColor(white: 0.1, alpha: 1)
+        searchField.clearButtonMode = .whileEditing
+        searchField.returnKeyType = .search
+        searchField.autocorrectionType = .no
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.addTarget(self, action: #selector(searchChanged), for: .editingChanged)
+        searchField.delegate = self
+        field.contentView.addSubview(searchField)
+
+        let cancel = UIButton(type: .system)
+        var cc = UIButton.Configuration.plain()
+        cc.title = "취소"
+        cc.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 6, bottom: 4, trailing: 4)
+        cc.baseForegroundColor = UIColor(white: 0.3, alpha: 1)
+        cancel.configuration = cc
+        cancel.translatesAutoresizingMaskIntoConstraints = false
+        cancel.setContentHuggingPriority(.required, for: .horizontal)
+        cancel.addAction(UIAction { [weak self] _ in self?.toggleSearch() }, for: .touchUpInside)
+        searchBar.contentView.addSubview(cancel)
+
+        NSLayoutConstraint.activate([
+            searchBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            searchBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            searchBar.topAnchor.constraint(equalTo: tabBarBg.topAnchor),
+            searchBar.heightAnchor.constraint(equalToConstant: topBarHeight),
+            cancel.trailingAnchor.constraint(equalTo: searchBar.contentView.trailingAnchor, constant: -10),
+            cancel.centerYAnchor.constraint(equalTo: searchBar.contentView.centerYAnchor),
+            field.leadingAnchor.constraint(equalTo: searchBar.contentView.leadingAnchor, constant: 14),
+            field.trailingAnchor.constraint(equalTo: cancel.leadingAnchor, constant: -8),
+            field.centerYAnchor.constraint(equalTo: searchBar.contentView.centerYAnchor),
+            field.heightAnchor.constraint(equalToConstant: 38),
+            mag.leadingAnchor.constraint(equalTo: field.contentView.leadingAnchor, constant: 12),
+            mag.centerYAnchor.constraint(equalTo: field.contentView.centerYAnchor),
+            searchField.leadingAnchor.constraint(equalTo: mag.trailingAnchor, constant: 8),
+            searchField.trailingAnchor.constraint(equalTo: field.contentView.trailingAnchor, constant: -12),
+            searchField.centerYAnchor.constraint(equalTo: field.contentView.centerYAnchor),
+        ])
+    }
+
+    @objc private func tapTab(_ b: UIButton) {
+        Haptics.tap()
+        selectTab(bizCategories[b.tag])
+    }
+    private func selectTab(_ cat: String) {
+        let apiCat = cat == "전체" ? "" : cat
+        guard apiCat != category || searching else { return }
+        if searching { exitSearchUI() }
+        category = apiCat
+        bizRows = []
+        highlightTabs()
+        table.reloadData()
+        scrollToTop()
+        reload()
+    }
+    private func highlightTabs() {
+        for b in tabButtons {
+            let cat = bizCategories[b.tag]
+            let active = (cat == "전체" ? "" : cat) == category && !searching
+            var c = b.configuration
+            c?.attributedTitle = AttributedString(cat, attributes: AttributeContainer([
+                .font: UIFont.systemFont(ofSize: 14, weight: active ? .bold : .medium),
+            ]))
+            c?.baseForegroundColor = active ? blue : UIColor(white: 0.5, alpha: 1)
+            c?.background.backgroundColor = active ? blue.withAlphaComponent(0.12) : UIColor(white: 0.95, alpha: 0.7)
+            b.configuration = c
+        }
+    }
+
+    // 검색 토글 (헤더 검색 버튼 → 호출)
+    func toggleSearch() {
+        guard mode == .business else { return }
+        if searching {
+            exitSearchUI()
+            bizRows = []
+            highlightTabs()
+            table.reloadData()
+            reload()
+        } else {
+            searching = true
+            searchBar.isHidden = false
+            tabBarBg.isHidden = true
+            searchBar.alpha = 0
+            UIView.animate(withDuration: 0.2) { self.searchBar.alpha = 1 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.searchField.becomeFirstResponder() }
+        }
+    }
+    private func exitSearchUI() {
+        searching = false
+        searchField.text = ""
+        searchField.resignFirstResponder()
+        searchBar.isHidden = true
+        tabBarBg.isHidden = (mode != .business)
+    }
+    @objc private func searchChanged() {
+        let q = searchField.text ?? ""
+        let seq = reloadSeq + 1; reloadSeq = seq
+        if q.trimmingCharacters(in: .whitespaces).isEmpty { bizRows = []; applyLoaded(); return }
+        NativeHomeData.searchBiz(q) { [weak self] items in
+            guard let self = self, seq == self.reloadSeq else { return }
+            self.bizRows = items; self.applyLoaded()
+        }
     }
 
     private func buildHeader() {
@@ -118,9 +310,17 @@ final class NativeCategoryListContent: UIView {
     }
 
     func setInsets(top: CGFloat, bottom: CGFloat) {
-        table.contentInset = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
+        baseTopInset = top
+        baseBottomInset = bottom
+        tabBarTop?.constant = top
+        applyTableInsets()
+    }
+    private func applyTableInsets() {
+        let extra: CGFloat = (mode == .business) ? topBarHeight : 0   // 탭바/검색바 높이
+        let top = baseTopInset + extra
+        table.contentInset = UIEdgeInsets(top: top, left: 0, bottom: baseBottomInset, right: 0)
         table.verticalScrollIndicatorInsets.top = top
-        table.verticalScrollIndicatorInsets.bottom = bottom
+        table.verticalScrollIndicatorInsets.bottom = baseBottomInset
     }
 
     func scrollToTop() {
@@ -128,7 +328,7 @@ final class NativeCategoryListContent: UIView {
         table.setContentOffset(CGPoint(x: 0, y: top), animated: false)
     }
 
-    // 외부에서 진입 시 호출 — 같은 카테고리면 재요청 안 함
+    // 외부(웹 경로 변경)에서 진입 시 호출 — 같은 내비게이션 키면 재설정 안 함(탭 선택 유지)
     func configure(mode: Mode, category: String) {
         let key = "\(mode)|\(category)"
         if key == lastKey { return }
@@ -138,8 +338,12 @@ final class NativeCategoryListContent: UIView {
         self.sort = "popular"
         proRows = []; bizRows = []
         animatedRows.removeAll()
+        if searching { exitSearchUI() }
         table.tableHeaderView = mode == .pro ? header : nil   // 정렬은 사회자만(웹 동일)
+        tabBarBg.isHidden = (mode != .business)               // 글래스 카테고리 탭은 웨딩파트너만
+        if mode == .business { highlightTabs() }
         updateSortMenu()
+        applyTableInsets()
         table.reloadData()
         scrollToTop()
         reload()
@@ -149,16 +353,16 @@ final class NativeCategoryListContent: UIView {
         emptyLabel.isHidden = true
         if (mode == .pro ? proRows.isEmpty : bizRows.isEmpty) { spinner.startAnimating() }
         animatedRows.removeAll()
-        let token = lastKey
+        let seq = reloadSeq + 1; reloadSeq = seq
         if mode == .pro {
             NativeHomeData.loadProCategory(category: category, sort: sort) { [weak self] items in
-                guard let self = self, token == self.lastKey else { return }
+                guard let self = self, seq == self.reloadSeq else { return }
                 self.proRows = items
                 self.applyLoaded()
             }
         } else {
             NativeHomeData.loadBizCategory(category: category) { [weak self] items in
-                guard let self = self, token == self.lastKey else { return }
+                guard let self = self, seq == self.reloadSeq else { return }
                 self.bizRows = items
                 self.applyLoaded()
             }
@@ -207,6 +411,16 @@ extension NativeCategoryListContent: UITableViewDataSource, UITableViewDelegate 
             cell.alpha = 1
             cell.transform = .identity
         }
+    }
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        if searching { searchField.resignFirstResponder() }
+    }
+}
+
+extension NativeCategoryListContent: UITextFieldDelegate {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
     }
 }
 

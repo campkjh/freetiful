@@ -334,6 +334,18 @@ enum NativeHomeData {
             tags: Array(strArr(b["tags"]).prefix(3)))
     }
 
+    // 웨딩파트너 검색
+    static func searchBiz(_ query: String, _ done: @escaping ([CategoryBizItem]) -> Void) {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { DispatchQueue.main.async { done([]) }; return }
+        let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
+        getJSON("\(base)/business?search=\(enc)&limit=60") { obj in
+            let arr = asArray(obj, keys: ["items", "data"])
+            let items = arr.prefix(60).map { catBizItem($0) }
+            DispatchQueue.main.async { done(items) }
+        }
+    }
+
     // 업체(웨딩파트너) 상세 — 디스크 캐시 즉시 → 신선 교체
     static func loadBizDetail(_ id: String, _ done: @escaping ([String: Any]?) -> Void) {
         var rendered = false

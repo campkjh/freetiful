@@ -214,10 +214,25 @@ final class HomeSectionHeader: UIView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
 
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 18, weight: .bold)
-        titleLabel.textColor = UIColor(white: 0.1, alpha: 1)
+        let titleLabel: UILabel
+        if trophyURL != nil {
+            // 트로피 근처(왼쪽)=골드 → 오른쪽=검정 그라데이션
+            let g = GradientTextLabel()
+            g.text = title
+            g.font = .systemFont(ofSize: 18, weight: .bold)
+            g.gradientColors = [
+                UIColor(red: 0.85, green: 0.62, blue: 0.13, alpha: 1).cgColor,   // 골드
+                UIColor(white: 0.1, alpha: 1).cgColor,                            // 검정
+            ]
+            g.gradientLocations = [0.0, 0.62]
+            titleLabel = g
+        } else {
+            let l = UILabel()
+            l.text = title
+            l.font = .systemFont(ofSize: 18, weight: .bold)
+            l.textColor = UIColor(white: 0.1, alpha: 1)
+            titleLabel = l
+        }
 
         let subtitleLabel = UILabel()
         subtitleLabel.text = subtitle
@@ -709,6 +724,17 @@ final class HomeProGridCard: UIControl {
         col.isUserInteractionEnabled = false
         addSubview(col)
 
+        // 파트너스 뱃지 — 경력 아래, 칩 없이 로고만(풀어서)
+        if item.isPartner {
+            let partnerBadge = UIImageView(image: UIImage(named: "partners-badge")?.withRenderingMode(.alwaysOriginal))
+            partnerBadge.contentMode = .scaleAspectFit
+            partnerBadge.translatesAutoresizingMaskIntoConstraints = false
+            partnerBadge.heightAnchor.constraint(equalToConstant: 15).isActive = true
+            partnerBadge.widthAnchor.constraint(equalTo: partnerBadge.heightAnchor, multiplier: 148.0 / 44.0).isActive = true
+            col.addArrangedSubview(partnerBadge)
+            col.setCustomSpacing(6, after: career)
+        }
+
         NSLayoutConstraint.activate([
             img.topAnchor.constraint(equalTo: topAnchor),
             img.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -720,29 +746,6 @@ final class HomeProGridCard: UIControl {
             col.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        if item.isPartner {
-            let chip = UIView()
-            chip.backgroundColor = .white
-            chip.layer.cornerRadius = 7; chip.layer.cornerCurve = .continuous
-            chip.layer.shadowColor = UIColor.black.cgColor
-            chip.layer.shadowOpacity = 0.12; chip.layer.shadowRadius = 2.5; chip.layer.shadowOffset = CGSize(width: 0, height: 1)
-            chip.isUserInteractionEnabled = false
-            chip.translatesAutoresizingMaskIntoConstraints = false
-            let badgeImg = UIImageView(image: UIImage(named: "partners-badge")?.withRenderingMode(.alwaysOriginal))
-            badgeImg.contentMode = .scaleAspectFit
-            badgeImg.translatesAutoresizingMaskIntoConstraints = false
-            chip.addSubview(badgeImg)
-            addSubview(chip)
-            NSLayoutConstraint.activate([
-                badgeImg.heightAnchor.constraint(equalToConstant: 13),
-                badgeImg.topAnchor.constraint(equalTo: chip.topAnchor, constant: 3),
-                badgeImg.bottomAnchor.constraint(equalTo: chip.bottomAnchor, constant: -3),
-                badgeImg.leadingAnchor.constraint(equalTo: chip.leadingAnchor, constant: 7),
-                badgeImg.trailingAnchor.constraint(equalTo: chip.trailingAnchor, constant: -7),
-                chip.topAnchor.constraint(equalTo: img.topAnchor, constant: 6),
-                chip.leadingAnchor.constraint(equalTo: img.leadingAnchor, constant: 6),
-            ])
-        }
         addAction(UIAction { [weak self] _ in Haptics.tap(); self?.onTap?(self?.proId ?? "") }, for: .touchUpInside)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -764,5 +767,31 @@ final class PaddingLabel: UILabel {
     override var intrinsicContentSize: CGSize {
         let s = super.intrinsicContentSize
         return CGSize(width: s.width + inset.left + inset.right, height: s.height + inset.top + inset.bottom)
+    }
+}
+
+// MARK: - 정적 가로 그라데이션 텍스트 (트로피 근처=골드 → 검정)
+final class GradientTextLabel: UILabel {
+    var gradientColors: [CGColor] = [] { didSet { gradient.colors = gradientColors } }
+    var gradientLocations: [NSNumber]? { didSet { gradient.locations = gradientLocations } }
+    private let gradient = CAGradientLayer()
+    private let textMask = CATextLayer()
+    override init(frame: CGRect) { super.init(frame: frame); setupG() }
+    required init?(coder: NSCoder) { super.init(coder: coder); setupG() }
+    private func setupG() {
+        textColor = .clear
+        gradient.startPoint = CGPoint(x: 0, y: 0.5)
+        gradient.endPoint = CGPoint(x: 1, y: 0.5)
+        layer.addSublayer(gradient)
+        textMask.contentsScale = UIScreen.main.scale
+        textMask.isWrapped = true
+        textMask.alignmentMode = .left
+        gradient.mask = textMask
+    }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        gradient.frame = bounds
+        textMask.frame = bounds
+        textMask.string = NSAttributedString(string: text ?? "", attributes: [.font: font as Any, .foregroundColor: UIColor.black])
     }
 }

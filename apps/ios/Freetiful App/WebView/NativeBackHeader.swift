@@ -15,6 +15,9 @@ final class NativeBackHeader: UIView {
     private let backButton = UIButton(type: .system)
     private let sharePill = GlassPill(corner: 19)
     private let shareButton = UIButton(type: .system)
+    private let searchPill = GlassPill(corner: 19)
+    private let searchButton = UIButton(type: .system)
+    var onSearch: (() -> Void)?
     private let titleLabel = UILabel()
 
     var titleTopAnchorRef: NSLayoutYAxisAnchor { backPill.topAnchor }
@@ -55,6 +58,16 @@ final class NativeBackHeader: UIView {
         sharePill.setContent(shareButton)
         addSubview(sharePill)
 
+        // 검색 (웨딩파트너 리스트)
+        var sccfg = UIButton.Configuration.plain()
+        sccfg.image = UIImage(systemName: "magnifyingglass", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold))
+        sccfg.baseForegroundColor = UIColor(white: 0.2, alpha: 1)
+        searchButton.configuration = sccfg
+        searchButton.addTarget(self, action: #selector(tapSearch), for: .touchUpInside)
+        searchPill.setContent(searchButton)
+        searchPill.isHidden = true
+        addSubview(searchPill)
+
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = .systemFont(ofSize: 17, weight: .bold)
         titleLabel.textColor = UIColor(white: 0.1, alpha: 1)
@@ -80,6 +93,10 @@ final class NativeBackHeader: UIView {
             sharePill.centerYAnchor.constraint(equalTo: backPill.centerYAnchor),
             sharePill.widthAnchor.constraint(equalToConstant: 38),
             sharePill.heightAnchor.constraint(equalToConstant: 38),
+            searchPill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            searchPill.centerYAnchor.constraint(equalTo: backPill.centerYAnchor),
+            searchPill.widthAnchor.constraint(equalToConstant: 38),
+            searchPill.heightAnchor.constraint(equalToConstant: 38),
             titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: backPill.centerYAnchor),
             titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: backPill.trailingAnchor, constant: 8),
@@ -97,7 +114,9 @@ final class NativeBackHeader: UIView {
         titleLabel.alpha = c
     }
     func setShareVisible(_ v: Bool) { sharePill.isHidden = !v }
+    func setSearchVisible(_ v: Bool) { searchPill.isHidden = !v }
 
     @objc private func tapBack() { Haptics.tap(); delegate?.backHeaderTapBack() }
     @objc private func tapShare() { Haptics.tap(); delegate?.backHeaderTapShare() }
+    @objc private func tapSearch() { Haptics.tap(); onSearch?() }
 }

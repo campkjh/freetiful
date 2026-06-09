@@ -340,7 +340,8 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     private var carItemW: CGFloat = 0
     private var carSpacing: CGFloat = 12
     private var carHeight: CGFloat = 0
-    private let carMinScale: CGFloat = 0.88
+    private var carLeftInset: CGFloat = 0
+    private let carMinScale: CGFloat = 0.9
     private var carPeek = false
 
     // CTA (글래스)
@@ -618,12 +619,12 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let holder = UIView()
         let w = UIScreen.main.bounds.width
         let imgs = images.isEmpty ? [""] : images
-        // 가운데 카드 크게 + 양옆 살짝 보이게(peek). 1장이면 풀폭.
+        // 활성 카드 좌측정렬(살짝 왼쪽 여백) + 다음 카드 크게 peek. 1장이면 풀폭.
         carPeek = imgs.count > 1
-        let itemW = carPeek ? round(w * 0.82) : w
-        let h = carPeek ? round(w * 1.04) : w
-        let sideInset = (w - itemW) / 2
-        carItemW = itemW; carHeight = h
+        let itemW = carPeek ? round(w * 0.70) : w
+        let h = carPeek ? round(w * 1.06) : w
+        let leftInset: CGFloat = carPeek ? 18 : 0
+        carItemW = itemW; carHeight = h; carLeftInset = leftInset
         carousel.translatesAutoresizingMaskIntoConstraints = false
         carousel.isPagingEnabled = false
         carousel.decelerationRate = .fast
@@ -631,7 +632,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         carousel.showsHorizontalScrollIndicator = false
         carousel.delegate = self
         carousel.contentInsetAdjustmentBehavior = .never
-        carousel.contentInset = UIEdgeInsets(top: 0, left: sideInset, bottom: 0, right: sideInset)
+        carousel.contentInset = UIEdgeInsets(top: 0, left: leftInset, bottom: 0, right: carPeek ? max(0, w - itemW - leftInset) : 0)
         carouselRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
         carouselItems = []
         carouselRow.axis = .horizontal
@@ -673,7 +674,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             holder.addSubview(pageDots)
         }
         NSLayoutConstraint.activate([
-            carousel.topAnchor.constraint(equalTo: holder.topAnchor),
+            carousel.topAnchor.constraint(equalTo: holder.topAnchor, constant: carPeek ? 22 : 0),   // 상단에서 살짝 내림
             carousel.leadingAnchor.constraint(equalTo: holder.leadingAnchor),
             carousel.trailingAnchor.constraint(equalTo: holder.trailingAnchor),
             carousel.bottomAnchor.constraint(equalTo: holder.bottomAnchor),
@@ -696,25 +697,24 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
 
     // 가운데 카드는 1.0, 양옆 카드는 carMinScale 까지 스무스 축소 (스크롤 위치 기반)
     private func updateCarouselScale() {
-        guard carPeek, carItemW > 0, carousel.bounds.width > 0 else { return }
-        let centerX = carousel.contentOffset.x + carousel.bounds.width / 2
+        guard carPeek, carItemW > 0 else { return }
         let step = carItemW + carSpacing
+        let focus = carousel.contentOffset.x + carLeftInset   // 활성 카드 leading 의 컨텐츠 x
         for (i, item) in carouselItems.enumerated() {
-            let itemCenterX = CGFloat(i) * step + carItemW / 2
-            let t = min(1, abs(itemCenterX - centerX) / step)
+            let itemLead = CGFloat(i) * step
+            let t = min(1, abs(itemLead - focus) / step)
             let scale = 1 - t * (1 - carMinScale)
             item.transform = CGAffineTransform(scaleX: scale, y: scale)
         }
     }
     private func carouselIndex(forOffsetX x: CGFloat) -> Int {
         let step = carItemW + carSpacing
-        let centerX = x + carousel.bounds.width / 2
-        let idx = Int(((centerX - carItemW / 2) / step).rounded())
+        let idx = Int(((x + carLeftInset) / step).rounded())
         return max(0, min(carouselItems.count - 1, idx))
     }
     private func carouselOffsetX(forIndex i: Int) -> CGFloat {
         let step = carItemW + carSpacing
-        return CGFloat(i) * step + carItemW / 2 - carousel.bounds.width / 2
+        return CGFloat(i) * step - carLeftInset
     }
     func scrollViewWillEndDragging(_ sv: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
         guard sv == carousel, carPeek else { return }
@@ -1311,29 +1311,14 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     }
 
     // MARK: - 헬퍼
-    // 파트너스 뱃지 (첨부 SVG 로고를 흰 칩에 담아 사진 위에서도 가독)
+    // 파트너스 뱃지 (첨부 SVG 로고 — 칩 없이 풀어서)
     private func makePartnersBadge(height: CGFloat) -> UIView {
-        let chip = UIView()
-        chip.backgroundColor = .white
-        chip.layer.cornerRadius = max(6, height * 0.5)
-        chip.layer.cornerCurve = .continuous
-        chip.layer.shadowColor = UIColor.black.cgColor
-        chip.layer.shadowOpacity = 0.10
-        chip.layer.shadowRadius = 2.5
-        chip.layer.shadowOffset = CGSize(width: 0, height: 1)
-        chip.translatesAutoresizingMaskIntoConstraints = false
         let img = UIImageView(image: UIImage(named: "partners-badge")?.withRenderingMode(.alwaysOriginal))
         img.contentMode = .scaleAspectFit
         img.translatesAutoresizingMaskIntoConstraints = false
-        chip.addSubview(img)
-        NSLayoutConstraint.activate([
-            img.heightAnchor.constraint(equalToConstant: height),
-            img.topAnchor.constraint(equalTo: chip.topAnchor, constant: 3),
-            img.bottomAnchor.constraint(equalTo: chip.bottomAnchor, constant: -3),
-            img.leadingAnchor.constraint(equalTo: chip.leadingAnchor, constant: 7),
-            img.trailingAnchor.constraint(equalTo: chip.trailingAnchor, constant: -7),
-        ])
-        return chip
+        img.heightAnchor.constraint(equalToConstant: height).isActive = true
+        img.widthAnchor.constraint(equalTo: img.heightAnchor, multiplier: 148.0 / 44.0).isActive = true
+        return img
     }
     private func glassCard() -> UIView {
         let v = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())

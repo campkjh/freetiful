@@ -1045,6 +1045,7 @@ class ViewController: UIViewController,
         // 상세화면 글래스 백헤더 (사회자/업체 상세 등 — 뒤로가기)
         let onDetailPage = isDetailPath(currentNativePath)
         isOnDetail = onDetailPage
+        nativeBackHeader.setSearchVisible(false)   // 기본 숨김 — 웨딩파트너 리스트에서만 표출
         let detailPathOnlyEarly = currentNativePath.split(separator: "?").first.map(String.init) ?? currentNativePath
         let nativeOwnsTitle = detailPathOnlyEarly.hasPrefix("/businesses/")   // 업체 상세는 네이티브가 이름 주입
         if onDetailPage {
@@ -1199,6 +1200,8 @@ class ViewController: UIViewController,
             view.bringSubviewToFront(nativeBackHeader)
             nativeCategoryList.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
             nativeBackHeader.setShareVisible(false)
+            nativeBackHeader.setSearchVisible(onBizCategory)   // 웨딩파트너 리스트만 검색 버튼
+            nativeBackHeader.onSearch = { [weak self] in self?.nativeCategoryList.toggleSearch() }
             nativeBackHeader.setGlassProgress(1)
             let cat = queryParam("category", from: currentNativeQuery)
             if onProCategory {
