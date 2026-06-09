@@ -64,6 +64,11 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         tableView.register(NativeChatSystemCell.self, forCellReuseIdentifier: "system")
         addSubview(tableView)
 
+        // 메시지 영역(다른 곳) 탭 시 키보드 내림 — 셀 탭은 막지 않음(cancelsTouchesInView=false)
+        let dismissTap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboardTap))
+        dismissTap.cancelsTouchesInView = false
+        tableView.addGestureRecognizer(dismissTap)
+
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
         emptyLabel.text = "대화를 시작해보세요"
         emptyLabel.font = .systemFont(ofSize: 14)
@@ -85,6 +90,8 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         tableView.contentInset = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
         tableView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
     }
+
+    @objc private func dismissKeyboardTap() { window?.endEditing(true) }
 
     private var pendingAnimIds = Set<String>()
     private var animatedIds = Set<String>()

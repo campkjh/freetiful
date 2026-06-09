@@ -797,7 +797,9 @@ class ViewController: UIViewController,
     @objc private func chatKeyboardWillChange(_ note: Notification) {
         guard isOnChatDetail,
               let frame = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
-        let overlap = max(0, view.bounds.height - frame.origin.y)
+        // 키보드 프레임을 뷰 좌표계로 변환 후 겹침 계산 (윈도우 좌표 불일치로 인한 빈틈/웹뷰 노출 방지)
+        let kbInView = view.convert(frame, from: nil)
+        let overlap = max(0, view.bounds.maxY - kbInView.minY)
         let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
         nativeChatInputBottom?.constant = -overlap
         UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
