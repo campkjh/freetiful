@@ -269,4 +269,111 @@ enum NativeHomeData {
                             location: loc, image: bizImg(b),
                             tags: Array(strArr(b["tags"]).prefix(3)), isPopular: popular)
     }
+
+    // MARK: - 카테고리 리스트 (홈 카테고리 아이콘 → 네이티브 리스트)
+    static func loadProCategory(category: String, sort: String, _ done: @escaping ([CategoryProItem]) -> Void) {
+        if let cp = cachedPros(), !cp.isEmpty {
+            DispatchQueue.main.async { done(mapProCategory(cp, category: category, sort: sort)) }
+        }
+        fetchPros { pros in
+            guard !pros.isEmpty else { return }
+            DispatchQueue.main.async { done(mapProCategory(pros, category: category, sort: sort)) }
+        }
+    }
+    private static func mapProCategory(_ pros: [[String: Any]], category: String, sort: String) -> [CategoryProItem] {
+        let c = category.lowercased()
+        var filtered = pros
+        if c.contains("외국어") || c.contains("통역") || c.contains("foreign") {
+            filtered = pros.filter { !strArr($0["languages"]).isEmpty }
+        } else if c.contains("행사") || c.contains("기업") || c.contains("쇼호스트") {
+            filtered = pros.filter { isEvent($0) }
+            if filtered.count < 4 { filtered = pros }
+        }
+        switch sort {
+        case "avg_rating": filtered.sort { dblVal($0["avgRating"]) > dblVal($1["avgRating"]) }
+        case "review_count": filtered.sort { intVal($0["reviewCount"]) > intVal($1["reviewCount"]) }
+        case "experience": filtered.sort { intVal($0["careerYears"]) > intVal($1["careerYears"]) }
+        default: break   // popular = fetch 순서(추천)
+        }
+        return filtered.prefix(120).enumerated().map { catProItem($1, rank: $0 + 1) }
+    }
+    private static func dblVal(_ v: Any?) -> Double { (v as? Double) ?? Double(intVal(v)) }
+    private static func catProItem(_ p: [String: Any], rank: Int) -> CategoryProItem {
+        CategoryProItem(
+            id: (p["id"] as? String) ?? "", name: proName(p), image: proImg(p),
+            intro: (p["shortIntro"] as? String) ?? (p["mainExperience"] as? String) ?? "",
+            rating: dblVal(p["avgRating"]), reviewCount: intVal(p["reviewCount"]),
+            careerYears: intVal(p["careerYears"]),
+            category: strArr(p["categories"]).first ?? "사회자",
+            regions: strArr(p["regions"]), isNationwide: (p["isNationwide"] as? Bool) ?? false,
+            rank: rank)
+    }
+
+    static func loadBizCategory(category: String, _ done: @escaping ([CategoryBizItem]) -> Void) {
+        let enc = category.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? category
+        let url = category.isEmpty ? "\(base)/business?limit=80" : "\(base)/business?category=\(enc)&limit=80"
+        getJSON(url) { obj in
+            var arr = asArray(obj, keys: ["items", "data"])
+            // 백엔드 카테고리 스코핑 실패 시 전체에서 클라 필터(웹과 동일한 폴백)
+            if arr.isEmpty, !category.isEmpty, let c = cachedBiz() {
+                arr = c.filter { bizMatches($0, category) }
+            }
+            let items = arr.prefix(80).map { catBizItem($0) }
+            DispatchQueue.main.async { done(items) }
+        }
+    }
+    private static func catBizItem(_ b: [String: Any]) -> CategoryBizItem {
+        let addr = (b["address"] as? String) ?? ""
+        let region = addr.split(separator: " ").prefix(2).joined(separator: " ")
+        let cats = (b["categories"] as? [[String: Any]])?.compactMap { ($0["category"] as? [String: Any])?["name"] as? String } ?? strArr(b["categories"])
+        let catLabel = cats.isEmpty ? ((b["businessType"] as? String) ?? "웨딩파트너") : cats.joined(separator: " · ")
+        return CategoryBizItem(
+            id: (b["id"] as? String) ?? "",
+            title: (b["businessName"] as? String) ?? (b["name"] as? String) ?? "업체",
+            region: region.isEmpty ? "전국" : region, category: catLabel, image: bizImg(b),
+            tags: Array(strArr(b["tags"]).prefix(3)))
+    }
+
+    // 업체(웨딩파트너) 상세 — 디스크 캐시 즉시 → 신선 교체
+    static func loadBizDetail(_ id: String, _ done: @escaping ([String: Any]?) -> Void) {
+        var rendered = false
+        if let data = UserDefaults.standard.data(forKey: "ftBizDetail_\(id)"),
+           let cached = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            rendered = true
+            DispatchQueue.main.async { done(cached) }
+        }
+        getJSON("\(base)/business/\(id)") { obj in
+            guard let d = obj as? [String: Any] else {
+                if !rendered { DispatchQueue.main.async { done(nil) } }
+                return
+            }
+            if let data = try? JSONSerialization.data(withJSONObject: d) {
+                UserDefaults.standard.set(data, forKey: "ftBizDetail_\(id)")
+            }
+            DispatchQueue.main.async { done(d) }
+        }
+    }
+}
+
+// MARK: - 카테고리 리스트 모델
+struct CategoryProItem {
+    let id: String
+    let name: String
+    let image: String
+    let intro: String
+    let rating: Double
+    let reviewCount: Int
+    let careerYears: Int
+    let category: String
+    let regions: [String]
+    let isNationwide: Bool
+    let rank: Int
+}
+struct CategoryBizItem {
+    let id: String
+    let title: String
+    let region: String
+    let category: String
+    let image: String
+    let tags: [String]
 }

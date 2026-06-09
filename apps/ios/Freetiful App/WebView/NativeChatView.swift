@@ -97,6 +97,30 @@ enum NativeChatImageLoader {
             }.resume()
         }
     }
+
+    // 셀 재사용 안전 버전 — completion 으로 이미지 전달(호출측이 토큰 검증). nil 이면 실패.
+    static func fetch(_ urlString: String, _ completion: @escaping (UIImage?) -> Void) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.lowercased().hasSuffix(".svg") else { completion(nil); return }
+        let full: String
+        if trimmed.hasPrefix("http") { full = trimmed }
+        else if trimmed.hasPrefix("/") { full = "https://freetiful.com\(trimmed)" }
+        else { full = "https://freetiful.com/\(trimmed)" }
+        if let cached = cache[full] { completion(cached); return }
+        let path = diskPath(full)
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let data = try? Data(contentsOf: path), let image = UIImage(data: data) {
+                DispatchQueue.main.async { cache[full] = image; completion(image) }
+                return
+            }
+            guard let url = URL(string: full) else { DispatchQueue.main.async { completion(nil) }; return }
+            URLSession.shared.dataTask(with: url) { data, _, _ in
+                guard let data = data, let image = UIImage(data: data) else { DispatchQueue.main.async { completion(nil) }; return }
+                try? data.write(to: path, options: .atomic)
+                DispatchQueue.main.async { cache[full] = image; completion(image) }
+            }.resume()
+        }
+    }
 }
 
 // MARK: - 네이티브 Liquid Glass 캡슐

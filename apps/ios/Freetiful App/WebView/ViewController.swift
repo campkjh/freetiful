@@ -53,6 +53,7 @@ class ViewController: UIViewController,
                       NativeSearchDelegate,
                       NativeCustomerInquiriesDelegate,
                       NativeHelpDelegate,
+                      NativeCategoryListDelegate,
                       NativeProDetailDelegate {
 
     var webView: WKWebView!
@@ -83,6 +84,11 @@ class ViewController: UIViewController,
     private let nativeProDetail = NativeProDetailContent()   // 사회자 상세 네이티브
     private var isOnProDetail = false
     private var currentProDetailId = ""
+    private let nativeBizDetail = NativeBusinessDetailContent()   // 웨딩파트너 상세 네이티브
+    private var isOnBizDetail = false
+    private var currentBizDetailId = ""
+    private let nativeCategoryList = NativeCategoryListContent()   // 홈 카테고리 → 네이티브 리스트
+    private var isOnCategoryList = false
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -103,6 +109,7 @@ class ViewController: UIViewController,
     private var webViewTopFull: NSLayoutConstraint?
     private var webViewBottomFull: NSLayoutConstraint?
     private var currentNativePath = "/"
+    private var currentNativeQuery = ""   // location.search (예: "?category=웨딩홀")
     private var currentNativeActualIsPro = false
     private var currentNativeIsProMode = false
     private var currentNativeViewAsUser = false
@@ -179,6 +186,8 @@ class ViewController: UIViewController,
         var vs: [UIView] = []
         if isOnChatDetail { vs += [nativeChatMessages, nativeChatInputBar, nativeChatHeader] }
         else if isOnProDetail { vs.append(nativeProDetail) }
+        else if isOnBizDetail { vs.append(nativeBizDetail) }
+        else if isOnCategoryList { vs.append(nativeCategoryList) }
         else if isOnNotifications { vs.append(nativeNotifications) }
         else if isOnCustomerInquiries { vs.append(nativeCustomerInquiries) }
         else if isOnHelp { vs.append(nativeHelp) }
@@ -187,7 +196,7 @@ class ViewController: UIViewController,
         return vs
     }
     private func backSwipeOverlayActive() -> Bool {
-        isOnChatDetail || isOnProDetail || isOnNotifications || isOnCustomerInquiries || isOnHelp || isOnSearch
+        isOnChatDetail || isOnProDetail || isOnBizDetail || isOnCategoryList || isOnNotifications || isOnCustomerInquiries || isOnHelp || isOnSearch
     }
     @objc private func handleBackEdgePan(_ g: UIScreenEdgePanGestureRecognizer) {
         let tx = max(0, g.translation(in: view).x)
@@ -407,6 +416,7 @@ class ViewController: UIViewController,
         try { badges = window.__freetifulNavBadges || {}; } catch (e) {}
         return {
           path: window.location.pathname || '/',
+          search: window.location.search || '',
           actualIsPro: actualIsPro,
           isProMode: actualIsPro && !viewAsUser,
           viewAsUser: viewAsUser,
@@ -600,6 +610,7 @@ class ViewController: UIViewController,
         if let path = state["path"] as? String, !path.isEmpty {
             currentNativePath = path
         }
+        currentNativeQuery = (state["search"] as? String) ?? ""
         if let actualIsPro = state["actualIsPro"] as? Bool {
             currentNativeActualIsPro = actualIsPro
         }
@@ -635,6 +646,7 @@ class ViewController: UIViewController,
             NativeHomeData.clearDetailCaches()
         }
         currentNativePath = newPath
+        currentNativeQuery = url.query ?? ""
         renderNativeNavigation(animated: true)
     }
 
@@ -665,8 +677,9 @@ class ViewController: UIViewController,
         if onBiz { view.bringSubviewToFront(nativeBizNav) }
     }
 
-    private func shouldHideNativeNavigation(path: String) -> Bool {
+    private func shouldHideNativeNavigation(path rawPath: String) -> Bool {
         // 웹 layout.tsx 의 HIDE_NAV_PATTERNS 와 동일하게 nav 를 숨길 경로
+        let path = rawPath.split(separator: "?").first.map(String.init) ?? rawPath   // 쿼리 제거(?category= 등)
         if path.hasPrefix("/chat/") { return true }
         if path.hasPrefix("/pros/") { return true }
         if path.hasPrefix("/businesses/") { return true }
@@ -675,6 +688,7 @@ class ViewController: UIViewController,
         if path.hasPrefix("/pro-register") { return true }
         if path.hasPrefix("/biz") { return true }
         if path.hasPrefix("/search") { return true }
+        if path.hasPrefix("/wedding-mc") { return true }
         if path == "/pros" || path == "/businesses" || path == "/careers" { return true }
         return false
     }
@@ -797,6 +811,27 @@ class ViewController: UIViewController,
             nativeProDetail.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             nativeProDetail.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             nativeProDetail.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
+        // 웨딩파트너 상세 네이티브 본문 (웹 위 덮음, 백헤더 아래)
+        nativeBizDetail.isHidden = true
+        view.insertSubview(nativeBizDetail, belowSubview: nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeBizDetail.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeBizDetail.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeBizDetail.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeBizDetail.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
+        // 카테고리 리스트 네이티브 본문 (웹 위 덮음, 백헤더 아래)
+        nativeCategoryList.isHidden = true
+        nativeCategoryList.delegate = self
+        view.insertSubview(nativeCategoryList, belowSubview: nativeBackHeader)
+        NSLayoutConstraint.activate([
+            nativeCategoryList.topAnchor.constraint(equalTo: view.topAnchor),
+            nativeCategoryList.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            nativeCategoryList.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            nativeCategoryList.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
         // 홈 글래스 헤더 (로고 + 글래스 검색 + 글래스 알림)
@@ -1010,16 +1045,20 @@ class ViewController: UIViewController,
         // 상세화면 글래스 백헤더 (사회자/업체 상세 등 — 뒤로가기)
         let onDetailPage = isDetailPath(currentNativePath)
         isOnDetail = onDetailPage
+        let detailPathOnlyEarly = currentNativePath.split(separator: "?").first.map(String.init) ?? currentNativePath
+        let nativeOwnsTitle = detailPathOnlyEarly.hasPrefix("/businesses/")   // 업체 상세는 네이티브가 이름 주입
         if onDetailPage {
             view.bringSubviewToFront(nativeBackHeader)
             // 기본: 일반 상세(웹)는 글래스 항상 ON·공유 없음 — 사회자 상세는 아래 onProDetail에서 스크롤 구동으로 덮어씀
             nativeBackHeader.setShareVisible(false)
             nativeBackHeader.setGlassProgress(1)
             // document.title이 브랜드명/빈값이면 페이지 H1(브랜드 제외)로 폴백, 그래도 없으면 빈 타이틀
-            let titleJS = "(function(){var bad=function(s){return !s||/freetiful|프리티풀/i.test(s);};var t=(document.title||'').trim();if(bad(t)){var hs=document.querySelectorAll('main h1, h1');for(var i=0;i<hs.length;i++){var x=(hs[i].textContent||'').trim();if(x&&!bad(x))return x;}return '';}return t;})()"
-            webView.evaluateJavaScript(titleJS) { [weak self] r, _ in
-                guard let self = self, let t = r as? String else { return }
-                self.nativeBackHeader.setTitle(self.cleanDetailTitle(t))
+            if !nativeOwnsTitle {
+                let titleJS = "(function(){var bad=function(s){return !s||/freetiful|프리티풀/i.test(s);};var t=(document.title||'').trim();if(bad(t)){var hs=document.querySelectorAll('main h1, h1');for(var i=0;i<hs.length;i++){var x=(hs[i].textContent||'').trim();if(x&&!bad(x))return x;}return '';}return t;})()"
+                webView.evaluateJavaScript(titleJS) { [weak self] r, _ in
+                    guard let self = self, let t = r as? String else { return }
+                    self.nativeBackHeader.setTitle(self.cleanDetailTitle(t))
+                }
             }
         }
 
@@ -1124,8 +1163,55 @@ class ViewController: UIViewController,
             currentProDetailId = ""
         }
 
-        // 백헤더 가시성 통합 제어 — 상세/알림/문의목록이 아니면 반드시 숨김 (뒤로가기 후 잔존 방지)
-        nativeBackHeader.isHidden = !(onDetailPage || onNotif || onCustInq)
+        // 웨딩파트너(업체) 상세 네이티브 (정확히 /businesses/:id)
+        let onBizDetail = detailPathOnly.range(of: "^/businesses/[^/]+$", options: .regularExpression) != nil
+        if onBizDetail != isOnBizDetail {
+            isOnBizDetail = onBizDetail
+            nativeBizDetail.isHidden = !onBizDetail
+        }
+        if onBizDetail {
+            view.bringSubviewToFront(nativeBizDetail)
+            view.bringSubviewToFront(nativeBackHeader)
+            nativeBizDetail.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom)
+            nativeBackHeader.setShareVisible(true)
+            nativeBackHeader.setGlassProgress(0)
+            nativeBizDetail.onScroll = { [weak self] p in self?.nativeBackHeader.setGlassProgress(p) }
+            nativeBizDetail.onTitle = { [weak self] name in self?.nativeBackHeader.setTitle(name) }
+            let bid = String(detailPathOnly.dropFirst("/businesses/".count))
+            if bid != currentBizDetailId {
+                currentBizDetailId = bid
+                nativeBizDetail.loadDetail(id: bid)
+            }
+        } else {
+            currentBizDetailId = ""
+        }
+
+        // 카테고리 리스트 네이티브 (홈 카테고리 아이콘 → /pros, /businesses)
+        let onProCategory = detailPathOnly == "/pros"
+        let onBizCategory = detailPathOnly == "/businesses"
+        let onCategoryList = onProCategory || onBizCategory
+        if onCategoryList != isOnCategoryList {
+            isOnCategoryList = onCategoryList
+            nativeCategoryList.isHidden = !onCategoryList
+        }
+        if onCategoryList {
+            view.bringSubviewToFront(nativeCategoryList)
+            view.bringSubviewToFront(nativeBackHeader)
+            nativeCategoryList.setInsets(top: view.safeAreaInsets.top + 50, bottom: view.safeAreaInsets.bottom + 12)
+            nativeBackHeader.setShareVisible(false)
+            nativeBackHeader.setGlassProgress(1)
+            let cat = queryParam("category", from: currentNativeQuery)
+            if onProCategory {
+                nativeBackHeader.setTitle(cat.isEmpty ? "사회자" : cat)
+                nativeCategoryList.configure(mode: .pro, category: cat)
+            } else {
+                nativeBackHeader.setTitle("웨딩파트너")
+                nativeCategoryList.configure(mode: .business, category: cat)
+            }
+        }
+
+        // 백헤더 가시성 통합 제어 — 상세/알림/문의목록/카테고리리스트가 아니면 반드시 숨김 (뒤로가기 후 잔존 방지)
+        nativeBackHeader.isHidden = !(onDetailPage || onNotif || onCustInq || onCategoryList)
 
         // 홈 글래스 헤더 (스페이서가 공간 확보하므로 콘텐츠 인셋은 변경 안 함)
         let onHome = currentNativePath == "/main" || currentNativePath == "/"
@@ -1510,6 +1596,22 @@ class ViewController: UIViewController,
     }
     func homeOpenPath(_ path: String) {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
+    }
+    // MARK: - NativeCategoryListDelegate
+    func categoryListDidSelect(path: String) {
+        guard !path.isEmpty else { return }
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
+    }
+    // 쿼리스트링에서 파라미터 추출 (예: "?category=결혼식사회자" 또는 "category=...")
+    private func queryParam(_ name: String, from rawQuery: String) -> String {
+        let q = rawQuery.hasPrefix("?") ? String(rawQuery.dropFirst()) : rawQuery
+        for pair in q.split(separator: "&") {
+            let kv = pair.split(separator: "=", maxSplits: 1).map(String.init)
+            if kv.first == name, kv.count > 1 {
+                return kv[1].removingPercentEncoding ?? kv[1]
+            }
+        }
+        return ""
     }
     func homeOpenBusiness(_ id: String) {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/businesses/' + \(jsLiteral(id))));", completionHandler: nil)
