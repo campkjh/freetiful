@@ -1741,11 +1741,26 @@ export default function ChatExtras(props: ChatExtrasProps) {
             window.location.href = `/pros/${chatPartner.proProfileId || chatPartner.id || ''}`;
           }
           break;
-        case 'delete': setMessages([]); toast.success('대화 삭제됨'); break; // 확인은 네이티브에서
+        case 'delete': {
+          // 실제 방 삭제 (확인은 네이티브에서) → 목록 갱신 + 뒤로가기
+          const rid = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+          setMessages([]);
+          if (rid && !rid.startsWith('pending-')) {
+            useChatStore.getState().deleteRoom(rid)
+              .then(() => {
+                toast.success('대화가 삭제되었습니다');
+                window.dispatchEvent(new Event('freetiful:chat-rooms-changed'));
+                (window as any).__freetifulChat?.back?.();
+              })
+              .catch(() => toast.error('대화 삭제에 실패했습니다'));
+          }
+          break;
+        }
       }
     };
     w.__freetifulChatActions = {
       attachItems, menuItems, invokeAttach, invokeMenu,
+      sendLocation: (lat: number, lng: number) => sendLocationMessage(Number(lat), Number(lng)),
       getQuoteDefaults: () => computeQuoteDefaults(),
       submitQuote: (data: any) => {
         try {

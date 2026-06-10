@@ -192,6 +192,32 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         tableView.scrollToRow(at: last, at: .bottom, animated: animated)
     }
 
+    func scrollToTop(animated: Bool) {
+        guard !messages.isEmpty else { return }
+        tableView.scrollToRow(at: IndexPath(row: 0, section: 0), at: .top, animated: animated)
+    }
+
+    // 대화 내용 검색 — 일치 메시지 개수 반환, 첫 일치로 스크롤(셀 하이라이트 플래시)
+    @discardableResult
+    func searchScroll(_ query: String) -> Int {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return 0 }
+        let hits = messages.enumerated().filter { $0.element.content.lowercased().contains(q) }
+        guard let first = hits.first else { return 0 }
+        let ip = IndexPath(row: first.offset, section: 0)
+        tableView.scrollToRow(at: ip, at: .middle, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let cell = self?.tableView.cellForRow(at: ip) else { return }
+            let flash = UIView(frame: cell.contentView.bounds)
+            flash.backgroundColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 0.14)
+            flash.layer.cornerRadius = 12
+            flash.isUserInteractionEnabled = false
+            cell.contentView.addSubview(flash)
+            UIView.animate(withDuration: 0.9, delay: 0.25, options: [], animations: { flash.alpha = 0 }) { _ in flash.removeFromSuperview() }
+        }
+        return hits.count
+    }
+
     // 꾹눌러 네이티브 글래스 컨텍스트 메뉴 (블러 + 리프트 프리뷰 자동)
     func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
         guard indexPath.row < messages.count else { return nil }

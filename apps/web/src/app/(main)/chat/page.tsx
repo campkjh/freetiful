@@ -210,6 +210,7 @@ export default function ChatListPage() {
       getState: () => ({ tab: currentTab, tabs: ['전체', '읽음', '안 읽음', '숨김'] }),
       setTab: (t: string) => { if (isPro) setProActiveTab(t as ProFilterTab); else setActiveTab(t as FilterTab); },
       toggleSearch: () => setShowSearch((v) => !v),
+      setSearch: (q: string) => { setSearch(q || ''); setShowSearch(!!q); },
       getRooms: () => chatRowsRef.current,
       openRoom: (id: string) => router.push(`/chat/${id}`),
       hideRoom: (id: string) => handleHideRoom(id),

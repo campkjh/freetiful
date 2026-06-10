@@ -29,11 +29,11 @@ final class NativeCategoryListContent: UIView {
     private let sortButton = UIButton(type: .system)
 
     // 웨딩파트너 글래스 카테고리 탭 + 검색
-    private let bizCategories = ["전체", "웨딩홀", "드레스", "피부과", "스튜디오", "헤어", "메이크업", "스냅", "한복", "가전", "성형외과", "보석", "답례품", "자동차", "신혼여행", "가구"]
+    private let bizCategories = ["전체", "웨딩홀", "드레스", "피부과", "스튜디오", "헤어", "메이크업", "스냅"]
     private let tabBarBg = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
     private let tabScroll = UIScrollView()
     private let tabStack = UIStackView()
-    private var tabButtons: [UIButton] = []
+    private var tabCells: [(cat: String, button: UIButton, tint: UIView)] = []
     private let searchBar = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
     private let searchField = UITextField()
     private var tabBarTop: NSLayoutConstraint!
@@ -106,17 +106,34 @@ final class NativeCategoryListContent: UIView {
         tabStack.translatesAutoresizingMaskIntoConstraints = false
         tabScroll.addSubview(tabStack)
 
+        // 채팅/새요청 탭과 동일 디자인 — 글래스 캡슐 + 활성=짙은 틴트·흰 글자
         for (i, cat) in bizCategories.enumerated() {
+            let pill = GlassPill(corner: 16)
+            let tint = UIView()
+            tint.translatesAutoresizingMaskIntoConstraints = false
+            tint.backgroundColor = UIColor(white: 0.1, alpha: 1)
+            tint.alpha = 0
+            tint.isUserInteractionEnabled = false
             let b = UIButton(type: .system)
-            var c = UIButton.Configuration.plain()
-            c.title = cat
-            c.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 14, bottom: 7, trailing: 14)
-            c.background.cornerRadius = 16
-            b.configuration = c
+            b.translatesAutoresizingMaskIntoConstraints = false
+            b.setTitle(cat, for: .normal)
+            b.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
             b.tag = i
             b.addTarget(self, action: #selector(tapTab(_:)), for: .touchUpInside)
-            tabButtons.append(b)
-            tabStack.addArrangedSubview(b)
+            pill.contentView.addSubview(tint)
+            pill.contentView.addSubview(b)
+            NSLayoutConstraint.activate([
+                tint.topAnchor.constraint(equalTo: pill.contentView.topAnchor),
+                tint.leadingAnchor.constraint(equalTo: pill.contentView.leadingAnchor),
+                tint.trailingAnchor.constraint(equalTo: pill.contentView.trailingAnchor),
+                tint.bottomAnchor.constraint(equalTo: pill.contentView.bottomAnchor),
+                b.topAnchor.constraint(equalTo: pill.contentView.topAnchor, constant: 7),
+                b.bottomAnchor.constraint(equalTo: pill.contentView.bottomAnchor, constant: -7),
+                b.leadingAnchor.constraint(equalTo: pill.contentView.leadingAnchor, constant: 16),
+                b.trailingAnchor.constraint(equalTo: pill.contentView.trailingAnchor, constant: -16),
+            ])
+            tabCells.append((cat, b, tint))
+            tabStack.addArrangedSubview(pill)
         }
 
         tabBarTop = tabBarBg.topAnchor.constraint(equalTo: topAnchor, constant: 0)
@@ -215,16 +232,12 @@ final class NativeCategoryListContent: UIView {
         reload()
     }
     private func highlightTabs() {
-        for b in tabButtons {
-            let cat = bizCategories[b.tag]
-            let active = (cat == "전체" ? "" : cat) == category && !searching
-            var c = b.configuration
-            c?.attributedTitle = AttributedString(cat, attributes: AttributeContainer([
-                .font: UIFont.systemFont(ofSize: 14, weight: active ? .bold : .medium),
-            ]))
-            c?.baseForegroundColor = active ? blue : UIColor(white: 0.5, alpha: 1)
-            c?.background.backgroundColor = active ? blue.withAlphaComponent(0.12) : UIColor(white: 0.95, alpha: 0.7)
-            b.configuration = c
+        UIView.animate(withDuration: 0.2) {
+            for (cat, b, tint) in self.tabCells {
+                let on = (cat == "전체" ? "" : cat) == self.category && !self.searching
+                tint.alpha = on ? 1 : 0
+                b.setTitleColor(on ? .white : UIColor(white: 0.28, alpha: 1), for: .normal)
+            }
         }
     }
 

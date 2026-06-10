@@ -320,6 +320,14 @@ enum NativeHomeData {
     }
 
     static func loadBizCategory(category: String, _ done: @escaping ([CategoryBizItem]) -> Void) {
+        // 1) 디스크 캐시 즉시 렌더 (재진입 시 바로 표시) — done 최대 2회(캐시→신선)
+        let cacheKey = "ftBizCat_\(category.isEmpty ? "all" : category)"
+        if let data = UserDefaults.standard.data(forKey: cacheKey),
+           let cached = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]], !cached.isEmpty {
+            let items = cached.prefix(80).map { catBizItem($0) }
+            DispatchQueue.main.async { done(Array(items)) }
+        }
+        // 2) 신선 데이터로 갱신
         let enc = category.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? category
         let url = category.isEmpty ? "\(base)/business?limit=80" : "\(base)/business?category=\(enc)&limit=80"
         getJSON(url) { obj in
@@ -328,8 +336,11 @@ enum NativeHomeData {
             if arr.isEmpty, !category.isEmpty, let c = cachedBiz() {
                 arr = c.filter { bizMatches($0, category) }
             }
+            if !arr.isEmpty, let data = try? JSONSerialization.data(withJSONObject: Array(arr.prefix(80))) {
+                UserDefaults.standard.set(data, forKey: cacheKey)
+            }
             let items = arr.prefix(80).map { catBizItem($0) }
-            DispatchQueue.main.async { done(items) }
+            DispatchQueue.main.async { done(Array(items)) }
         }
     }
     private static func catBizItem(_ b: [String: Any]) -> CategoryBizItem {

@@ -389,6 +389,8 @@ export default function WeddingMcLandingPage() {
       }
       createdMatchRequestId = res?.matchRequest?.id || null;
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      // iOS: 다이나믹 아일랜드 "사회자 찾는 중" 라이브 액티비티 시작
+      try { (window as any).webkit?.messageHandlers?.nativeMCSearch?.postMessage({ action: 'start', category: '결혼식 사회자' }); } catch {}
     } catch (err: any) {
       window.alert(`제출에 실패했어요. ${err?.response?.data?.message || err?.message || ''}`);
       setSubmitting(false);

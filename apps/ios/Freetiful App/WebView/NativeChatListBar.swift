@@ -3,6 +3,7 @@ import UIKit
 protocol NativeChatListBarDelegate: AnyObject {
     func chatListSelectTab(_ tab: String)
     func chatListTapSearch()
+    func chatListSearchChanged(_ query: String)
 }
 
 // 채팅 리스트 상단 고정 바 — "채팅" 헤더 + 글래스 탭 + 위가 가장 흐리고 아래로 선명해지는 그라데이션 블러
@@ -18,6 +19,11 @@ final class NativeChatListBar: UIView {
     private let searchPill = GlassPill(corner: 19)
     private let searchButton = UIButton(type: .system)
     private let tabsRow = UIStackView()
+    // 검색 모드 (검색버튼 탭 → 글래스 인풋 표시, 입력 시 리스트 필터)
+    private let searchWrap = GlassPill(corner: 19)
+    private let searchField = UITextField()
+    private let searchCancel = UIButton(type: .system)
+    private var searchActive = false
 
     private var tabCells: [(tab: String, button: UIButton, tint: UIView)] = []
     private var selectedTab = "전체"
@@ -78,6 +84,50 @@ final class NativeChatListBar: UIView {
         tabsRow.alignment = .center
         tabsRow.spacing = 8
         addSubview(tabsRow)
+
+        // 검색 인풋 (기본 숨김 — 검색버튼 탭 시 타이틀 자리에 표시)
+        let mag = UIImageView(image: UIImage(systemName: "magnifyingglass", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)))
+        mag.tintColor = UIColor(white: 0.5, alpha: 1)
+        mag.translatesAutoresizingMaskIntoConstraints = false
+        searchField.placeholder = "이름·메시지 검색"
+        searchField.font = .systemFont(ofSize: 15)
+        searchField.textColor = UIColor(white: 0.1, alpha: 1)
+        searchField.clearButtonMode = .whileEditing
+        searchField.returnKeyType = .search
+        searchField.autocorrectionType = .no
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.addTarget(self, action: #selector(searchChanged), for: .editingChanged)
+        searchField.addTarget(self, action: #selector(searchDone), for: .editingDidEndOnExit)
+        searchWrap.contentView.addSubview(mag)
+        searchWrap.contentView.addSubview(searchField)
+        searchWrap.isHidden = true
+        addSubview(searchWrap)
+
+        var ccfg = UIButton.Configuration.plain()
+        ccfg.title = "취소"
+        ccfg.baseForegroundColor = UIColor(white: 0.25, alpha: 1)
+        ccfg.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 4)
+        searchCancel.configuration = ccfg
+        searchCancel.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+        searchCancel.addTarget(self, action: #selector(cancelSearch), for: .touchUpInside)
+        searchCancel.isHidden = true
+        searchCancel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(searchCancel)
+
+        NSLayoutConstraint.activate([
+            searchWrap.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            searchWrap.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            searchWrap.heightAnchor.constraint(equalToConstant: 38),
+            searchWrap.trailingAnchor.constraint(equalTo: searchCancel.leadingAnchor, constant: -4),
+            searchCancel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            searchCancel.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            mag.leadingAnchor.constraint(equalTo: searchWrap.contentView.leadingAnchor, constant: 12),
+            mag.centerYAnchor.constraint(equalTo: searchWrap.contentView.centerYAnchor),
+            searchField.leadingAnchor.constraint(equalTo: mag.trailingAnchor, constant: 7),
+            searchField.trailingAnchor.constraint(equalTo: searchWrap.contentView.trailingAnchor, constant: -10),
+            searchField.topAnchor.constraint(equalTo: searchWrap.contentView.topAnchor),
+            searchField.bottomAnchor.constraint(equalTo: searchWrap.contentView.bottomAnchor),
+        ])
 
         NSLayoutConstraint.activate([
             blur.topAnchor.constraint(equalTo: topAnchor),
@@ -170,5 +220,26 @@ final class NativeChatListBar: UIView {
         delegate?.chatListSelectTab(title)
     }
 
-    @objc private func tapSearch() { Haptics.tap(); delegate?.chatListTapSearch() }
+    @objc private func tapSearch() {
+        Haptics.tap()
+        setSearchActive(!searchActive)
+    }
+    private func setSearchActive(_ on: Bool) {
+        searchActive = on
+        searchWrap.isHidden = !on
+        searchCancel.isHidden = !on
+        titleLabel.isHidden = on
+        searchPill.isHidden = on
+        if on {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { self.searchField.becomeFirstResponder() }
+        } else {
+            searchField.text = ""
+            searchField.resignFirstResponder()
+            delegate?.chatListSearchChanged("")
+        }
+    }
+    @objc private func cancelSearch() { Haptics.tap(); setSearchActive(false) }
+    @objc private func searchChanged() { delegate?.chatListSearchChanged(searchField.text ?? "") }
+    @objc private func searchDone() { searchField.resignFirstResponder() }
+    func exitSearch() { if searchActive { setSearchActive(false) } }
 }

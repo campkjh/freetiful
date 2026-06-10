@@ -1,6 +1,7 @@
 import UIKit
 import SwiftUI
 import WebKit
+import CoreLocation
 import KakaoSDKAuth
 import KakaoSDKUser
 import GoogleSignIn
@@ -92,6 +93,8 @@ class ViewController: UIViewController,
     private let nativeReviewList = NativeReviewListContent()   // 사회자 리뷰 전체 리스트
     private var isOnReviewList = false
     private var currentReviewProId = ""
+    private let chatLocationManager = CLLocationManager()   // 채팅 위치 공유
+    private var pendingLocationSend = false
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -262,7 +265,7 @@ class ViewController: UIViewController,
         }
 
         // JS → iOS 브릿지 등록
-        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile", "nativeHomeBusiness", "nativeNotifications", "nativeCustomerInquiries"].forEach {
+        ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin", "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "nativeChatState", "nativeChatListState", "nativeChatListRows", "nativeInquiryRows", "nativeChatMessages", "nativeHomeRows", "nativeHomeBanners", "nativeMyProfile", "nativeHomeBusiness", "nativeNotifications", "nativeCustomerInquiries", "nativeMCSearch"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -977,10 +980,8 @@ class ViewController: UIViewController,
         items.append(contentsOf: [
             ChatMenuItem(id: "camera", label: "카메라", sf: "camera.fill", destructive: false),
             ChatMenuItem(id: "photo", label: "사진", sf: "photo.fill", destructive: false),
-            ChatMenuItem(id: "emoji", label: "이모티콘", sf: "face.smiling", destructive: false),
             ChatMenuItem(id: "file", label: "파일", sf: "doc.fill", destructive: false),
             ChatMenuItem(id: "location", label: "위치", sf: "mappin.and.ellipse", destructive: false),
-            ChatMenuItem(id: "audio", label: "오디오", sf: "music.note", destructive: false),
         ])
         return items
     }
@@ -1123,6 +1124,7 @@ class ViewController: UIViewController,
             if onCustInq {
                 loadCachedCustomerInquiries()   // 진입 즉시 캐시 표시 (웹 브리지 응답 전)
                 nativeCustomerInquiries.scrollToTop()   // 진입 시 최상단
+                MCSearchActivity.endAll()       // 요청목록 확인 = 사회자 찾기 액티비티 종료
             }
         }
         if onCustInq {
@@ -1301,6 +1303,7 @@ class ViewController: UIViewController,
         if onChatListNative {
             if enteringChat {
                 // 탭바 즉시 표시(웹 왕복 기다리지 않음) + 캐시 행 즉시 렌더
+                nativeChatListBar.exitSearch()
                 nativeChatListBar.setTitle("채팅")
                 nativeChatListBar.setSearchHidden(false)
                 nativeChatListBar.configure(tabs: ["전체", "읽음", "안 읽음", "숨김"], selected: cachedListTab("chat"))
@@ -1313,6 +1316,7 @@ class ViewController: UIViewController,
             nativeInquiryContent.setInsets(top: listTop, bottom: 92)
             if enteringInquiry {
                 // 탭바 즉시 표시 + 캐시 행 즉시 렌더
+                nativeChatListBar.exitSearch()
                 nativeChatListBar.setTitle("새 요청")
                 nativeChatListBar.setSearchHidden(true)
                 nativeChatListBar.configure(tabs: ["전체", "다수요청", "개인요청", "보관"], selected: cachedListTab("inquiry"))
@@ -1353,7 +1357,11 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("window.\(hook) && window.\(hook).setTab(\(jsLiteral(tab)));", completionHandler: nil)
     }
     func chatListTapSearch() {
-        webView.evaluateJavaScript("window.__freetifulChatList && window.__freetifulChatList.toggleSearch && window.__freetifulChatList.toggleSearch();", completionHandler: nil)
+        // 검색 UI는 NativeChatListBar 가 자체 표시 — 여기선 추가 동작 없음
+    }
+    func chatListSearchChanged(_ query: String) {
+        // 웹 리스트 필터(search state) → 필터된 행이 자동으로 네이티브에 재전송됨
+        webView.evaluateJavaScript("window.__freetifulChatList && window.__freetifulChatList.setSearch && window.__freetifulChatList.setSearch(\(jsLiteral(query)));", completionHandler: nil)
     }
 
     private func requestNativeChatListRows() {
@@ -1665,6 +1673,14 @@ class ViewController: UIViewController,
         applyCustomerInquiries(dict, cache: false)
     }
 
+    // 결혼식 사회자 찾기 폼 제출 → 다이나믹 아일랜드 "사회자 찾는 중" 라이브 액티비티
+    private func handleNativeMCSearch(_ body: Any) {
+        let dict = body as? [String: Any]
+        let action = (dict?["action"] as? String) ?? "start"
+        if action == "end" { MCSearchActivity.endAll(); return }
+        MCSearchActivity.start(category: (dict?["category"] as? String) ?? "결혼식 사회자")
+    }
+
     private func showNativeToast(_ text: String) {
         let label = PaddingLabel2()
         label.text = text
@@ -1834,7 +1850,32 @@ class ViewController: UIViewController,
             presentNativeQuoteForm()
             return
         }
-        webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.invokeAttach(\(jsLiteral(id)));", completionHandler: nil)
+        if id == "location" {
+            requestNativeLocationForChat()
+            return
+        }
+        // ChatExtras(lazy) 미마운트 레이스 — 브리지 없으면 0.6s 후 1회 재시도
+        let js = "(function(){ if (window.__freetifulChatActions) { window.__freetifulChatActions.invokeAttach(\(jsLiteral(id))); return true; } return false; })();"
+        webView.evaluateJavaScript(js) { [weak self] ok, _ in
+            if (ok as? Bool) != true {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    self?.webView.evaluateJavaScript(js, completionHandler: nil)
+                }
+            }
+        }
+    }
+
+    // 위치 공유 — 네이티브 CLLocationManager 로 현재 위치 → 웹 sendLocation 브리지
+    private func requestNativeLocationForChat() {
+        let status = chatLocationManager.authorizationStatus
+        if status == .denied || status == .restricted {
+            showNativeToast("설정 > 프리티풀에서 위치 접근을 허용해주세요")
+            return
+        }
+        pendingLocationSend = true
+        chatLocationManager.delegate = self
+        if status == .notDetermined { chatLocationManager.requestWhenInUseAuthorization() }
+        else { chatLocationManager.requestLocation() }
     }
 
     private func presentNativeQuoteForm() {
@@ -1864,6 +1905,32 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.submitQuote && window.__freetifulChatActions.submitQuote(\(json));", completionHandler: nil)
     }
     func chatBarsInvokeMenu(_ id: String, label: String, destructive: Bool) {
+        // 네이티브 처리 항목 — 웹 오버레이가 가려져 보이지 않는 액션들
+        if id == "search" {
+            let alert = UIAlertController(title: "대화 내용 검색", message: nil, preferredStyle: .alert)
+            alert.addTextField { tf in tf.placeholder = "검색어"; tf.returnKeyType = .search }
+            alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+            alert.addAction(UIAlertAction(title: "검색", style: .default) { [weak self, weak alert] _ in
+                guard let self = self else { return }
+                let q = alert?.textFields?.first?.text ?? ""
+                let count = self.nativeChatMessages.searchScroll(q)
+                self.showNativeToast(count > 0 ? "\(count)개의 메시지를 찾았습니다" : "검색 결과가 없습니다")
+            })
+            present(alert, animated: true)
+            return
+        }
+        if id == "mute" {
+            let willMute = !nativeChatState.muted
+            webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.invokeMenu('mute');", completionHandler: nil)
+            showNativeToast(willMute ? "이 채팅의 알림을 껐습니다" : "이 채팅의 알림을 켰습니다")
+            return
+        }
+        if id == "profile", nativeChatState.isPro {
+            // 사회자 → 고객 요청 정보는 대화 상단 안내 카드에 있음
+            nativeChatMessages.scrollToTop(animated: true)
+            showNativeToast("대화 상단에서 고객 요청 정보를 확인하세요")
+            return
+        }
         let js = "window.__freetifulChatActions && window.__freetifulChatActions.invokeMenu(\(jsLiteral(id)));"
         if destructive {
             let alert = UIAlertController(title: label, message: "되돌릴 수 없습니다. 계속할까요?", preferredStyle: .alert)
@@ -2160,6 +2227,7 @@ class ViewController: UIViewController,
         case "nativeHomeBusiness": handleNativeHomeBusiness(message.body)
         case "nativeNotifications": handleNativeNotifications(message.body)
         case "nativeCustomerInquiries": handleNativeCustomerInquiries(message.body)
+        case "nativeMCSearch": handleNativeMCSearch(message.body)
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {
@@ -2554,6 +2622,33 @@ class AppleSignInCoordinator: NSObject,
 }
 
 // MARK: - 엣지 스와이프 뒤로가기 (네이티브 오버레이에서만 내 제스처 — 웹 페이지는 WKWebView 슬라이드에 위임)
+// 채팅 위치 공유 — 현재 위치 1회 취득 → 웹 sendLocation 브리지
+extension ViewController: CLLocationManagerDelegate {
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard pendingLocationSend else { return }
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            manager.requestLocation()
+        case .denied, .restricted:
+            pendingLocationSend = false
+            showNativeToast("설정 > 프리티풀에서 위치 접근을 허용해주세요")
+        default: break
+        }
+    }
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard pendingLocationSend, let loc = locations.first else { return }
+        pendingLocationSend = false
+        let js = "window.__freetifulChatActions && window.__freetifulChatActions.sendLocation && window.__freetifulChatActions.sendLocation(\(loc.coordinate.latitude), \(loc.coordinate.longitude));"
+        webView.evaluateJavaScript(js, completionHandler: nil)
+        showNativeToast("내 위치를 전송했습니다")
+    }
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        guard pendingLocationSend else { return }
+        pendingLocationSend = false
+        showNativeToast("위치를 가져오지 못했습니다")
+    }
+}
+
 extension ViewController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
         if g is UIScreenEdgePanGestureRecognizer {
