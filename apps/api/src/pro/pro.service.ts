@@ -667,6 +667,7 @@ export class ProService implements OnModuleInit {
       this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl: image.imageUrl }).catch(() => undefined);
     }
 
+    this.discovery.invalidateCache(profile.id);
     return image;
   }
 
@@ -719,6 +720,7 @@ export class ProService implements OnModuleInit {
         this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl: null }).catch(() => undefined);
       }
     }
+    this.discovery.invalidateCache(profile.id);
   }
 
   async reorderImages(userId: string, imageIds: string[], primaryId?: string) {
@@ -753,6 +755,7 @@ export class ProService implements OnModuleInit {
       }
     }
 
+    this.discovery.invalidateCache(profile.id);
     return this.getImages(userId);
   }
 
@@ -779,6 +782,7 @@ export class ProService implements OnModuleInit {
       await this.imageService.deleteFile(oldFilename);
     }
 
+    this.discovery.invalidateCache(profile.id);
     return this.prisma.proProfileImage.update({
       where: { id: imageId },
       data: {

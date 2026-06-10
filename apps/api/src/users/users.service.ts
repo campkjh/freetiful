@@ -86,6 +86,7 @@ export class UsersService {
         name: updated.name,
         profileImageUrl: updated.profileImageUrl,
       }).catch(() => undefined);
+      await this.invalidateDiscoveryForUser(userId);
     }
     return updated;
   }
@@ -110,6 +111,7 @@ export class UsersService {
       data: { profileImageUrl },
     });
     this.chatRealtime.emitProfileUpdatedForUser(userId, { profileImageUrl }).catch(() => undefined);
+    await this.invalidateDiscoveryForUser(userId);
 
     return {
       profileImageUrl,
@@ -177,6 +179,14 @@ export class UsersService {
     return user;
   }
 
+  // 해당 유저가 사회자면 디스커버리 캐시(상세+리스트) 무효화 — 이름/이미지/활성상태가 노출되므로
+  private async invalidateDiscoveryForUser(userId: string) {
+    try {
+      const pro = await this.prisma.proProfile.findUnique({ where: { userId }, select: { id: true } });
+      if (pro) this.discovery.invalidateCache(pro.id);
+    } catch {}
+  }
+
   async deleteAccount(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -194,6 +204,7 @@ export class UsersService {
       },
     });
 
+    await this.invalidateDiscoveryForUser(userId);
     // Delete all sessions
     await this.prisma.session.deleteMany({ where: { userId } });
 

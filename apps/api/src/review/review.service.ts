@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { DiscoveryService } from '../discovery/discovery.service';
 import { ImageService } from '../image/image.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -15,6 +16,7 @@ export class ReviewService {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private imageService: ImageService,
+    private discovery: DiscoveryService,
   ) {}
 
   /** 리뷰 작성 */
@@ -212,6 +214,8 @@ export class ReviewService {
         reviewCount: allReviews.length,
       },
     });
+    // 평점/리뷰수 변경 → 디스커버리 캐시 무효화(상세+리스트 즉시 반영)
+    this.discovery.invalidateCache(proProfileId);
   }
 
   /** 전문가의 리뷰 목록 (공개) */
@@ -294,6 +298,7 @@ export class ReviewService {
         proRepliedAt: new Date(),
       },
     });
+    this.discovery.invalidateCache(proProfileId);   // 답글이 상세 리뷰에 노출
 
     // 답글 알림 → 리뷰 작성자에게
     const proName = review.proProfile?.user?.name || '사회자';

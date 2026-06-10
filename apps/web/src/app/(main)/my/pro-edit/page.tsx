@@ -978,7 +978,7 @@ export default function ProEditPage() {
       try {
         const { invalidateProCache } = await import('@/lib/api/discovery.api');
         invalidateProCache(); // 클라 메모리 캐시 전체 삭제
-        try { localStorage.removeItem('freetiful-pros-cache'); } catch {}
+        try { localStorage.removeItem('freetiful-pros-cache'); localStorage.removeItem('freetiful-pros-cache-v6'); } catch {}   // 홈 첫페인트 캐시까지 무효화
         if (myProId) safeSetLocalStorage('freetiful-my-pro-id', myProId);
         writeProEditProfileCache(authUser?.id || editResponse?.userId || editResponse?.user?.id, optimisticSavedProfile);
       } catch {}

@@ -351,6 +351,13 @@ export default function AdminProEditPage() {
       const updated = await adminFetch('PATCH', `/api/v1/admin/pros/${proId}/full`, payload);
       // 백엔드가 getProDetail 결과를 반환 — 폼에 즉시 반영해 무엇이 실제로 저장됐는지 보여줌
       clearAdminFetchCache();
+      // 공개 페이지(상세/리스트/홈) 클라 캐시도 무효화 — 어드민이 바로 확인해도 새 데이터
+      try {
+        const { invalidateProCache } = await import('@/lib/api/discovery.api');
+        invalidateProCache(proId);
+        invalidateProCache();
+        localStorage.removeItem('freetiful-pros-cache-v6');
+      } catch {}
       if (updated && typeof updated === 'object') {
         applyDetailToState(updated);
       } else {

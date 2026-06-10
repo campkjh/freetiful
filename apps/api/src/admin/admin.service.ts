@@ -123,6 +123,8 @@ export class AdminService {
         reviewCount: reviews.length,
       },
     });
+    // 평점/리뷰수 변경 → 디스커버리 캐시 무효화
+    this.discoveryService.invalidateCache(proProfileId);
   }
 
   private formatAdminProProfileSummary(profile: {
@@ -1559,6 +1561,10 @@ export class AdminService {
       data: allowed,
     });
 
+    // 이름/프로필이미지/활성상태 변경이 사회자 상세·리스트에 노출 → 캐시 무효화
+    const proOfUser = await this.prisma.proProfile.findUnique({ where: { userId }, select: { id: true } });
+    if (proOfUser) this.discoveryService.invalidateCache(proOfUser.id);
+
     if (allowed.role === 'pro') {
       await this.ensureApprovedProProfile(userId);
     }
@@ -1954,6 +1960,7 @@ export class AdminService {
       }
     }
 
+    if (merged.length) this.discoveryService.invalidateCache();
     return {
       mergedCount: merged.length,
       skippedCount: skipped.length,
@@ -1976,6 +1983,8 @@ export class AdminService {
         isActive: false,
       },
     });
+    const archivedPro = await this.prisma.proProfile.findUnique({ where: { userId }, select: { id: true } });
+    if (archivedPro) this.discoveryService.invalidateCache(archivedPro.id);
     return { success: true, userId, archivedEmail: newEmail };
   }
 
@@ -2031,6 +2040,7 @@ export class AdminService {
       },
       { timeout: 30000, maxWait: 10000 },
     );
+    if (proProfileId) this.discoveryService.invalidateCache(proProfileId);
     return { success: true };
   }
 
