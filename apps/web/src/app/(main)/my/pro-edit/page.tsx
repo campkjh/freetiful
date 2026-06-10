@@ -928,11 +928,11 @@ export default function ProEditPage() {
         services: servicesPayload,
       };
 
-      const editResponse: any = await prosApi.submitRegistration(profilePayload);
-      if (haveProfilePhotosChanged(photos, mainPhotoIndex)) {
-        setToast('프로필 사진 저장 중...');
-      }
-      const photoResult: any = await syncProfilePhotos(photos, mainPhotoIndex).catch((error) => ({ error }));
+      // 프로필 저장과 사진 동기화는 서로 독립 — 병렬 실행해 순차 대기(저장 느림) 제거
+      const [editResponse, photoResult] = (await Promise.all([
+        prosApi.submitRegistration(profilePayload),
+        syncProfilePhotos(photos, mainPhotoIndex).catch((error) => ({ error })),
+      ])) as [any, any];
       const syncedImages = Array.isArray(photoResult?.images) ? photoResult.images : undefined;
       if (photoResult?.error) {
         const photoError = photoResult.error;
