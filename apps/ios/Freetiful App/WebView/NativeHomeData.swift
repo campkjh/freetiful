@@ -455,6 +455,50 @@ enum NativeHomeData {
         return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
     }
 
+    // ─── 채팅 리스트 직접 fetch — 웹뷰/페이지 마운트 대기 없이 즉시 (rooms 콜드 5~10s 도 프리워밍으로 흡수) ───
+    static func loadChatRooms(token: String, _ done: @escaping ([[String: Any]]?) -> Void) {
+        guard !token.isEmpty, let url = URL(string: "\(base)/chat/rooms?limit=60&withTotal=false") else {
+            DispatchQueue.main.async { done(nil) }; return
+        }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 35
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        URLSession.shared.dataTask(with: req) { data, resp, _ in
+            guard let data = data, (resp as? HTTPURLResponse)?.statusCode == 200,
+                  let obj = try? JSONSerialization.jsonObject(with: data) else {
+                DispatchQueue.main.async { done(nil) }; return
+            }
+            let arr = asArray(obj, keys: ["data", "items"])
+            // 최신 메시지 순 정렬 (웹 리스트와 동일)
+            let rows = arr.map { chatRow($0) }.sorted { ($0["time"] as? String ?? "") > ($1["time"] as? String ?? "") }
+            DispatchQueue.main.async { done(rows) }
+        }.resume()
+    }
+    private static func chatRow(_ r: [String: Any]) -> [String: Any] {
+        let other = r["otherUser"] as? [String: Any] ?? [:]
+        let last = r["lastMessage"] as? [String: Any]
+        var preview = ((last?["content"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if preview.isEmpty, let t = last?["type"] as? String {
+            switch t {
+            case "image": preview = "사진을 보냈습니다"
+            case "file": preview = "파일을 보냈습니다"
+            case "location": preview = "위치를 공유했습니다"
+            case "audio": preview = "음성 메시지를 보냈습니다"
+            case "system": preview = "안내 메시지"
+            default: preview = ""
+            }
+        }
+        return [
+            "id": (r["id"] as? String) ?? "",
+            "name": (other["name"] as? String) ?? "",
+            "image": (other["profileImageUrl"] as? String) ?? "",
+            "lastMessage": preview,
+            "time": (r["lastMessageAt"] as? String) ?? "",
+            "unread": (r["unreadCount"] as? Int) ?? Int((r["unreadCount"] as? Double) ?? 0),
+        ]
+    }
+
     // 업체(웨딩파트너) 상세 — 디스크 캐시 즉시 → 신선 교체
     static func loadBizDetail(_ id: String, _ done: @escaping ([String: Any]?) -> Void) {
         var rendered = false

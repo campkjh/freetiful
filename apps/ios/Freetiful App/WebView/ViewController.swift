@@ -1312,7 +1312,10 @@ class ViewController: UIViewController,
                 nativeChatListBar.setTitle("채팅")
                 nativeChatListBar.setSearchHidden(false)
                 nativeChatListBar.configure(tabs: ["전체", "읽음", "안 읽음", "숨김"], selected: cachedListTab("chat"))
+                webChatRowsArrived = false
                 loadCachedChatRows()
+                // 토큰 동기화 후 직접 fetch — 웹뷰 체인(하이드레이션/마운트) 안 기다림
+                syncAuthToken { [weak self] in self?.fetchChatRoomsDirect() }
             }
             nativeChatListContent.setInsets(top: listTop, bottom: 92)
             requestNativeChatListRows()
@@ -1328,8 +1331,8 @@ class ViewController: UIViewController,
                 webInquiryRowsArrived = false
                 loadCachedInquiryRows()
                 nativeInquiryContent.scrollToTop()
-                syncAuthToken()
-                fetchProInquiriesDirect()   // 웹뷰/페이지 마운트 안 기다리고 직접 API — 신선 행 즉시
+                // 토큰 동기화 후 직접 fetch — 첫 실행(토큰 미저장)도 즉시 동작
+                syncAuthToken { [weak self] in self?.fetchProInquiriesDirect() }
                 // 페이지 마운트 지연 대비 재요청 사다리 (프리페치 브리지 → 페이지 브리지 순으로 채워짐)
                 for delay in [0.3, 0.9, 2.0] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestNativeInquiryRows() }
@@ -1382,6 +1385,7 @@ class ViewController: UIViewController,
 
     private func handleNativeChatListRows(_ body: Any) {
         guard nativeNavigationEnabled, let arr = body as? [[String: Any]] else { return }
+        webChatRowsArrived = true
         applyChatRows(arr, cache: true)
     }
     private func applyChatRows(_ arr: [[String: Any]], cache: Bool) {
@@ -1462,12 +1466,14 @@ class ViewController: UIViewController,
 
     // ─── 새요청 직접 fetch (웹뷰/페이지 마운트 불요 — 토큰만 있으면 즉시) ───
     private var nativeAuthToken: String { UserDefaults.standard.string(forKey: "ftAccessToken") ?? "" }
-    private func syncAuthToken() {
+    private func syncAuthToken(_ completion: (() -> Void)? = nil) {
         let js = "(function(){try{var a=JSON.parse(localStorage.getItem('prettyful-auth')||'{}');return (a.state&&a.state.accessToken)||'';}catch(e){return ''}})()"
         webView.evaluateJavaScript(js) { result, _ in
-            guard let t = result as? String else { return }
-            if t.isEmpty { UserDefaults.standard.removeObject(forKey: "ftAccessToken") }
-            else { UserDefaults.standard.set(t, forKey: "ftAccessToken") }
+            if let t = result as? String {
+                if t.isEmpty { UserDefaults.standard.removeObject(forKey: "ftAccessToken") }
+                else { UserDefaults.standard.set(t, forKey: "ftAccessToken") }
+            }
+            completion?()
         }
     }
     private var webInquiryRowsArrived = false   // 이번 진입에서 웹(브리지) 행 수신 여부 — 직접 fetch 가 덮어쓰지 않게
@@ -1485,6 +1491,22 @@ class ViewController: UIViewController,
                 return
             }
             self.applyInquiryRows(rows, cache: true)
+        }
+    }
+
+    private var webChatRowsArrived = false   // 채팅 — 동일 가드
+    private func fetchChatRoomsDirect() {
+        let token = nativeAuthToken
+        guard !token.isEmpty else { return }
+        NativeHomeData.loadChatRooms(token: token) { [weak self] rows in
+            guard let self = self, let rows = rows, !rows.isEmpty else { return }
+            guard !self.webChatRowsArrived else {
+                if let data = try? JSONSerialization.data(withJSONObject: rows) {
+                    UserDefaults.standard.set(data, forKey: "ftChatRows")
+                }
+                return
+            }
+            self.applyChatRows(rows, cache: true)
         }
     }
 
@@ -2130,11 +2152,16 @@ class ViewController: UIViewController,
     }
 
     private func loadInitialPage() {
-        // 새요청 프리워밍 — 저장된 토큰으로 앱 시작 즉시 직접 fetch(디스크 캐시 갱신 → 진입 시 0초 표시)
+        // 새요청+채팅 프리워밍 — 저장된 토큰으로 앱 시작 즉시 직접 fetch(디스크 캐시 갱신 → 진입 시 0초 표시)
+        // 채팅 rooms 는 서버 콜드 응답이 5~10s 걸릴 수 있어 시작 시 미리 때려 서버 캐시도 데움
         if !nativeAuthToken.isEmpty {
             NativeHomeData.loadProInquiries(token: nativeAuthToken) { rows in
                 guard let rows = rows, !rows.isEmpty, let data = try? JSONSerialization.data(withJSONObject: rows) else { return }
                 UserDefaults.standard.set(data, forKey: "ftInquiryRows")
+            }
+            NativeHomeData.loadChatRooms(token: nativeAuthToken) { rows in
+                guard let rows = rows, !rows.isEmpty, let data = try? JSONSerialization.data(withJSONObject: rows) else { return }
+                UserDefaults.standard.set(data, forKey: "ftChatRows")
             }
         }
         // 토큰 동기화 (웹 로그인 상태 → 네이티브 영속화, 다음 실행 프리워밍용)
@@ -2529,6 +2556,7 @@ class ViewController: UIViewController,
     private func socialLogout() {
         OneSignal.logout()
         UserDefaults.standard.removeObject(forKey: "ftInquiryRows")   // 개인 새요청 캐시 삭제
+        UserDefaults.standard.removeObject(forKey: "ftChatRows")      // 개인 채팅 캐시 삭제
         UserDefaults.standard.removeObject(forKey: "ftAccessToken")   // 직접 fetch 토큰 삭제
     }
 
