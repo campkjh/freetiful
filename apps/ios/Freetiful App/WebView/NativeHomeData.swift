@@ -101,9 +101,11 @@ enum NativeHomeData {
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         return obj
     }
-    // 프로필 편집 후 호출 — 상세 디스크 캐시/프리페치 기록 비움(다음 조회 신선)
+    // 프로필 편집 후 호출 — 상세 디스크 캐시/프리페치 기록 + 홈 리스트 메모리 캐시 비움(다음 조회 신선)
+    // prosCache 메모리를 비워야 fetchPros 의 단락(short-circuit)이 풀려 홈/카테고리 리스트가 새 데이터로 갱신됨
     static func clearDetailCaches() {
         prefetchLock.lock(); prefetchedIds.removeAll(); prefetchLock.unlock()
+        prosCache = nil
         for k in UserDefaults.standard.dictionaryRepresentation().keys where k.hasPrefix("ftProDetail_") {
             UserDefaults.standard.removeObject(forKey: k)
         }

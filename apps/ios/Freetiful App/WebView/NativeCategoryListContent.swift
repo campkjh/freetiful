@@ -341,6 +341,9 @@ final class NativeCategoryListContent: UIView {
         table.setContentOffset(CGPoint(x: 0, y: top), animated: false)
     }
 
+    // 프로필 수정 등 — 다음 진입 시 신선 재로딩 강제
+    func invalidate() { lastKey = "" }
+
     // 외부(웹 경로 변경)에서 진입 시 호출 — 같은 내비게이션 키면 재설정 안 함(탭 선택 유지)
     func configure(mode: Mode, category: String) {
         let key = "\(mode)|\(category)"

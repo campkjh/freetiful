@@ -29,7 +29,8 @@ export class DiscoveryController {
     @Query('withTotal') withTotal?: string,
     @Res({ passthrough: true }) res?: any,
   ) {
-    res?.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=300');
+    // 프로필 수정 반영 지연 최소화 — CDN 캐시 짧게(서버 인메모리 5분 캐시가 부하 흡수)
+    res?.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
     return this.discovery.getProList({
       page,
       limit,
@@ -45,7 +46,7 @@ export class DiscoveryController {
   }
 
   @Get('pros/:id')
-  @Header('Cache-Control', 'public, s-maxage=180, stale-while-revalidate=600')
+  @Header('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120')
   @ApiOperation({ summary: '전문가 상세 조회' })
   getProDetail(@Param('id') id: string, @Query('nocache') nocache?: string) {
     if (nocache === '1') this.discovery.invalidateCache(id);

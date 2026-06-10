@@ -1280,7 +1280,7 @@ export default function ProfilePage() {
                       // 홈/사회자 리스트에 최신 프로필 이미지 반영
                       const { invalidateProCache } = await import('@/lib/api/discovery.api');
                       invalidateProCache();
-                      try { localStorage.removeItem('freetiful-pros-cache'); } catch {}
+                      try { localStorage.removeItem('freetiful-pros-cache'); localStorage.removeItem('freetiful-pros-cache-v6'); } catch {}
                     } catch {}
                   } catch (e: any) {
                     submitError = e;

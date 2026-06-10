@@ -117,10 +117,12 @@ class ViewController: UIViewController,
     private var currentNativePath = "/" {
         didSet {
             // 프로필 편집(/pro-edit)을 떠나면(저장 가능성) 상세 캐시 무효화 + 네이티브 상세 재로딩 강제
-            // → 사회자가 프로필 수정하면 다음 상세 진입 시 즉시 반영. 브리지/URL 어느 경로로 바뀌든 동작.
+            // + 홈/카테고리 리스트도 신선 데이터로 재로딩 → 사회자가 프로필 수정하면 전 화면 즉시 반영
             if oldValue.contains("/pro-edit"), !currentNativePath.contains("/pro-edit") {
                 NativeHomeData.clearDetailCaches()
                 nativeProDetail.invalidate()
+                nativeCategoryList.invalidate()
+                nativeHomeContent.loadInitial()
             }
         }
     }

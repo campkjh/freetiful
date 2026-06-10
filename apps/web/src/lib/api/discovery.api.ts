@@ -112,14 +112,35 @@ function storageSet(key: string, data: any) {
   } catch {}
 }
 
+// 캐시 응답 시 백그라운드 재검증 간격 — 프로필 수정이 다른 사용자에게도 빠르게 보이도록
+const REVALIDATE_AFTER = 20_000;
+
+function backgroundRevalidate<T>(key: string, fetcher: () => Promise<T>) {
+  if (inflight.has(key)) return;
+  const p = fetcher().then((data) => {
+    const normalized = normalizePublicProPrices(data);
+    cache.set(key, { data: normalized, ts: Date.now() });
+    if (key.startsWith('list:')) indexProPreviews(normalized);
+    storageSet(key, normalized);
+    inflight.delete(key);
+    return normalized;
+  }).catch(() => { inflight.delete(key); }) as Promise<T>;
+  inflight.set(key, p);
+}
+
 function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.ts < TTL) return Promise.resolve(normalizePublicProPrices(hit.data as T));
+  if (hit && Date.now() - hit.ts < TTL) {
+    // stale-while-revalidate: 즉시 캐시 반환 + 오래됐으면 백그라운드 갱신
+    if (Date.now() - hit.ts > REVALIDATE_AFTER) backgroundRevalidate(key, fetcher);
+    return Promise.resolve(normalizePublicProPrices(hit.data as T));
+  }
   const stored = storageGet<T>(key);
   if (stored) {
     const ts = Date.now();
     cache.set(key, { data: stored, ts });
     if (key.startsWith('list:')) indexProPreviews(stored, ts);
+    backgroundRevalidate(key, fetcher);   // 디스크 캐시는 이전 세션 데이터 — 항상 백그라운드 갱신
     return Promise.resolve(stored);
   }
   const existing = inflight.get(key);
@@ -220,17 +241,30 @@ export function primeProPreview(item: ProListItem) {
   previewCache.set(item.id, { data: normalizePublicProPrices(item), ts: Date.now() });
 }
 
+// 프로필 수정 후 CDN(s-maxage) 우회용 버전 — 이 기기의 다음 요청부터 URL 이 바뀌어 엣지 캐시를 통과
+const CACHE_BUST_KEY = 'freetiful-pros-cache-bust';
+function cacheBust(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try { return localStorage.getItem(CACHE_BUST_KEY) || undefined; } catch { return undefined; }
+}
+
 export function invalidateProCache(id?: string) {
+  if (typeof window !== 'undefined') {
+    try { localStorage.setItem(CACHE_BUST_KEY, String(Date.now())); } catch {}
+  }
   if (id) {
     cache.delete(`detail:${id}`);
+    previewCache.delete(id);
     if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_PREFIX + `detail:${id}`);
     return;
   }
-  // id 없으면 모든 detail + list 캐시 삭제
+  // id 없으면 모든 detail + list + preview + daily 캐시 삭제
   const keys = Array.from(cache.keys());
   keys.forEach((k) => {
     if (k.startsWith('list:') || k.startsWith('detail:')) cache.delete(k);
   });
+  cache.delete('daily');
+  previewCache.clear();
   if (typeof window !== 'undefined') {
     Object.keys(localStorage)
       .filter((k) => k.startsWith(STORAGE_PREFIX))
@@ -269,7 +303,8 @@ export const discoveryApi = {
       });
     }
     const key = `list:${JSON.stringify(requestParams || {})}`;
-    return cached(key, () => apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, { params: requestParams }).then((r) => r.data));
+    const bust = cacheBust();
+    return cached(key, () => apiClient.get<{ data: ProListItem[]; total: number; hasMore: boolean }>(`${BASE}/pros`, { params: bust ? { ...requestParams, _v: bust } : requestParams }).then((r) => r.data));
   },
 
   getProDetail: (id: string, skipCache = false) => {
@@ -284,6 +319,7 @@ export const discoveryApi = {
         return normalized;
       });
     }
-    return cached(key, () => apiClient.get(`${BASE}/pros/${id}`).then((r) => r.data));
+    const bust = cacheBust();
+    return cached(key, () => apiClient.get(`${BASE}/pros/${id}`, { params: bust ? { _v: bust } : undefined }).then((r) => r.data));
   },
 };
