@@ -1314,8 +1314,8 @@ class ViewController: UIViewController,
                 nativeChatListBar.configure(tabs: ["전체", "읽음", "안 읽음", "숨김"], selected: cachedListTab("chat"))
                 webChatRowsArrived = false
                 loadCachedChatRows()
-                // 토큰 동기화 후 직접 fetch — 웹뷰 체인(하이드레이션/마운트) 안 기다림
-                syncAuthToken { [weak self] in self?.fetchChatRoomsDirect() }
+                // 토큰 확보까지 재시도하며 직접 fetch — 웹뷰 체인(하이드레이션/마운트) 안 기다림
+                directFetchWithTokenRetry(isChat: true)
             }
             nativeChatListContent.setInsets(top: listTop, bottom: 92)
             requestNativeChatListRows()
@@ -1331,8 +1331,8 @@ class ViewController: UIViewController,
                 webInquiryRowsArrived = false
                 loadCachedInquiryRows()
                 nativeInquiryContent.scrollToTop()
-                // 토큰 동기화 후 직접 fetch — 첫 실행(토큰 미저장)도 즉시 동작
-                syncAuthToken { [weak self] in self?.fetchProInquiriesDirect() }
+                // 토큰 확보까지 재시도하며 직접 fetch — 첫 실행(토큰 미저장)도 동작
+                directFetchWithTokenRetry(isChat: false)
                 // 페이지 마운트 지연 대비 재요청 사다리 (프리페치 브리지 → 페이지 브리지 순으로 채워짐)
                 for delay in [0.3, 0.9, 2.0] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestNativeInquiryRows() }
@@ -1508,6 +1508,28 @@ class ViewController: UIViewController,
             }
             self.applyChatRows(rows, cache: true)
         }
+    }
+
+    // 토큰이 아직 동기화 전(첫 실행 직진입)이어도 확보될 때까지 재시도 — 둘 다 직접 fetch 보장
+    private var directFetchSeq = 0
+    private func directFetchWithTokenRetry(isChat: Bool) {
+        directFetchSeq += 1
+        let seq = directFetchSeq
+        func attempt(_ remaining: [Double]) {
+            guard seq == directFetchSeq else { return }   // 새 진입이 시작되면 이전 사다리 중단
+            syncAuthToken { [weak self] in
+                guard let self = self, seq == self.directFetchSeq else { return }
+                if !self.nativeAuthToken.isEmpty {
+                    isChat ? self.fetchChatRoomsDirect() : self.fetchProInquiriesDirect()
+                    return
+                }
+                // 웹 행이 이미 왔으면 중단, 아니면 잠시 후 재시도(웹뷰 로드 대기)
+                if isChat ? self.webChatRowsArrived : self.webInquiryRowsArrived { return }
+                guard let next = remaining.first else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + next) { attempt(Array(remaining.dropFirst())) }
+            }
+        }
+        attempt([0.8, 1.5, 2.5, 4.0])
     }
 
     // MARK: - NativeInquiryContentDelegate
@@ -2164,9 +2186,22 @@ class ViewController: UIViewController,
                 UserDefaults.standard.set(data, forKey: "ftChatRows")
             }
         }
-        // 토큰 동기화 (웹 로그인 상태 → 네이티브 영속화, 다음 실행 프리워밍용)
+        // 토큰 동기화 — 첫 실행이면 확보되는 즉시 프리워밍(채팅+새요청)까지 수행
+        let hadToken = !nativeAuthToken.isEmpty
         for delay in [3.0, 8.0] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.syncAuthToken() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.syncAuthToken { [weak self] in
+                    guard let self = self, !hadToken, !self.nativeAuthToken.isEmpty else { return }
+                    NativeHomeData.loadProInquiries(token: self.nativeAuthToken) { rows in
+                        guard let rows = rows, !rows.isEmpty, let data = try? JSONSerialization.data(withJSONObject: rows) else { return }
+                        UserDefaults.standard.set(data, forKey: "ftInquiryRows")
+                    }
+                    NativeHomeData.loadChatRooms(token: self.nativeAuthToken) { rows in
+                        guard let rows = rows, !rows.isEmpty, let data = try? JSONSerialization.data(withJSONObject: rows) else { return }
+                        UserDefaults.standard.set(data, forKey: "ftChatRows")
+                    }
+                }
+            }
         }
         if let deepLink = OneSignalManager.shared.consumePendingDeepLink(),
            let path = normalizedInternalPath(from: deepLink) {
