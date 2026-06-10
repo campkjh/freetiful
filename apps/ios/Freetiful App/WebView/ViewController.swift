@@ -107,6 +107,7 @@ class ViewController: UIViewController,
     private let nativeInquiryContent = NativeInquiryContent()
     private let nativeChatMessages = NativeChatMessagesView()
     private var isOnInquiry = false
+    private var isOnChatRows = false   // 채팅 리스트 본문 진입 감지(탭바 가드 isOnChatList 와 분리)
     private var hasLoadedChatMessagesOnce = false
     private var lastChatDetailPath = ""
     // 채팅방에서 webView 를 화면 가장자리까지(상/하단 safe area 제거) 토글
@@ -1295,9 +1296,11 @@ class ViewController: UIViewController,
         // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"
         let onInquiryNative = currentNativePath == "/pro-dashboard/inquiries"
-        let enteringChat = onChatListNative && !isOnChatList       // 채팅 진입 전환
+        // 주의: isOnChatList 는 위 탭바 가드(/chat+새요청 공용) 전용 — 여기서 덮어쓰면
+        // 새요청에서 false 가 되어 홈 이동 시 탭바가 안 숨겨짐(잔존 버그). 본문 진입 감지는 별도 플래그.
+        let enteringChat = onChatListNative && !isOnChatRows        // 채팅 진입 전환
         let enteringInquiry = onInquiryNative && !isOnInquiry       // 새요청 진입 전환
-        isOnChatList = onChatListNative
+        isOnChatRows = onChatListNative
         isOnInquiry = onInquiryNative
         nativeChatListContent.isHidden = !onChatListNative
         nativeInquiryContent.isHidden = !onInquiryNative
@@ -1324,6 +1327,10 @@ class ViewController: UIViewController,
                 nativeChatListBar.configure(tabs: ["전체", "다수요청", "개인요청", "보관"], selected: cachedListTab("inquiry"))
                 loadCachedInquiryRows()
                 nativeInquiryContent.scrollToTop()
+                // 페이지 마운트 지연 대비 재요청 사다리 (프리페치 브리지 → 페이지 브리지 순으로 채워짐)
+                for delay in [0.3, 0.9, 2.0] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestNativeInquiryRows() }
+                }
             }
             requestNativeInquiryRows()
         }
@@ -1408,7 +1415,9 @@ class ViewController: UIViewController,
 
     // MARK: - 새요청(새요청 리스트) 본문
     private func requestNativeInquiryRows() {
-        webView.evaluateJavaScript("window.__freetifulInquiryRowsPost && window.__freetifulInquiryRowsPost();", completionHandler: nil)
+        // 페이지 브리지(탭 필터 정확) 우선, 미마운트면 레이아웃 프리페치 캐시로 즉시 행 전송
+        let js = "(function(){ if (window.__freetifulInquiryList && window.__freetifulInquiryRowsPost) { window.__freetifulInquiryRowsPost(); return; } if (window.__freetifulInquiryPrefetchPost) { window.__freetifulInquiryPrefetchPost(); } })();"
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
     private func handleNativeInquiryRows(_ body: Any) {
