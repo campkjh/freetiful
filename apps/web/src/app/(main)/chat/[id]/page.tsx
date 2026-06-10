@@ -606,8 +606,13 @@ export default function ChatRoomPage() {
       prevWsCountRef.current = wsMessages.length;
       return;
     }
-    const newWsMessages = wsMessages.slice(prevWsCountRef.current);
+    // 스토어 낙관적(pending-) 메시지는 로컬에 넣지 않음 — 페이지가 자체 opt-/insert 로 발신자 메시지를 관리.
+    // (카운트 기반 동기화가 pending-→실제 교체를 놓쳐 pending- 가 남으면 발신자 화면에만 2개로 보이던 버그)
+    const newWsMessages = wsMessages
+      .slice(prevWsCountRef.current)
+      .filter((m) => !String(m.id).startsWith('pending-'));
     prevWsCountRef.current = wsMessages.length;
+    if (newWsMessages.length === 0) return;
 
     const mapped: Message[] = newWsMessages.map(mapApiMessage);
     setMessages((prev) => {
