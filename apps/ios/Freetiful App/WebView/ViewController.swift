@@ -1120,7 +1120,10 @@ class ViewController: UIViewController,
         if onCustInq != isOnCustomerInquiries {
             isOnCustomerInquiries = onCustInq
             nativeCustomerInquiries.isHidden = !onCustInq
-            if onCustInq { nativeCustomerInquiries.scrollToTop() }   // 진입 시 최상단
+            if onCustInq {
+                loadCachedCustomerInquiries()   // 진입 즉시 캐시 표시 (웹 브리지 응답 전)
+                nativeCustomerInquiries.scrollToTop()   // 진입 시 최상단
+            }
         }
         if onCustInq {
             view.bringSubviewToFront(nativeCustomerInquiries)
@@ -1288,23 +1291,39 @@ class ViewController: UIViewController,
         // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"
         let onInquiryNative = currentNativePath == "/pro-dashboard/inquiries"
-        let enteringInquiry = onInquiryNative && !isOnInquiry   // 새요청 진입 전환
+        let enteringChat = onChatListNative && !isOnChatList       // 채팅 진입 전환
+        let enteringInquiry = onInquiryNative && !isOnInquiry       // 새요청 진입 전환
+        isOnChatList = onChatListNative
         isOnInquiry = onInquiryNative
         nativeChatListContent.isHidden = !onChatListNative
         nativeInquiryContent.isHidden = !onInquiryNative
         let listTop = nativeChatListBar.frame.height > 0 ? nativeChatListBar.frame.height : (view.safeAreaInsets.top + 92)
         if onChatListNative {
+            if enteringChat {
+                // 탭바 즉시 표시(웹 왕복 기다리지 않음) + 캐시 행 즉시 렌더
+                nativeChatListBar.setTitle("채팅")
+                nativeChatListBar.setSearchHidden(false)
+                nativeChatListBar.configure(tabs: ["전체", "읽음", "안 읽음", "숨김"], selected: cachedListTab("chat"))
+                loadCachedChatRows()
+            }
             nativeChatListContent.setInsets(top: listTop, bottom: 92)
             requestNativeChatListRows()
         }
         if onInquiryNative {
             nativeInquiryContent.setInsets(top: listTop, bottom: 92)
             if enteringInquiry {
-                loadCachedInquiryRows()   // 진입 즉시 캐시 표시 (웹 브리지 응답 전)
-                nativeInquiryContent.scrollToTop()   // 진입 시 최상단
+                // 탭바 즉시 표시 + 캐시 행 즉시 렌더
+                nativeChatListBar.setTitle("새 요청")
+                nativeChatListBar.setSearchHidden(true)
+                nativeChatListBar.configure(tabs: ["전체", "다수요청", "개인요청", "보관"], selected: cachedListTab("inquiry"))
+                loadCachedInquiryRows()
+                nativeInquiryContent.scrollToTop()
             }
             requestNativeInquiryRows()
         }
+    }
+    private func cachedListTab(_ context: String) -> String {
+        UserDefaults.standard.string(forKey: context == "inquiry" ? "ftInquiryTab" : "ftChatTab") ?? "전체"
     }
 
     private func requestNativeChatState() {
@@ -1324,6 +1343,8 @@ class ViewController: UIViewController,
         let tabs = (dict["tabs"] as? [String]) ?? []
         let tab = (dict["tab"] as? String) ?? ""
         if !tabs.isEmpty { nativeChatListBar.configure(tabs: tabs, selected: tab) }
+        // 선택 탭 저장 → 다음 진입 시 즉시 복원
+        if !tab.isEmpty { UserDefaults.standard.set(tab, forKey: context == "inquiry" ? "ftInquiryTab" : "ftChatTab") }
     }
 
     // MARK: - NativeChatListBarDelegate
@@ -1341,6 +1362,9 @@ class ViewController: UIViewController,
 
     private func handleNativeChatListRows(_ body: Any) {
         guard nativeNavigationEnabled, let arr = body as? [[String: Any]] else { return }
+        applyChatRows(arr, cache: true)
+    }
+    private func applyChatRows(_ arr: [[String: Any]], cache: Bool) {
         let rows: [NativeChatRow] = arr.compactMap { d in
             guard let id = d["id"] as? String else { return nil }
             return NativeChatRow(
@@ -1353,6 +1377,15 @@ class ViewController: UIViewController,
             )
         }
         nativeChatListContent.setRows(rows)
+        // 디스크 캐시 (다음 진입 시 즉시 표시) — 빈 배열이면 캐시 유지
+        if cache, !arr.isEmpty, let data = try? JSONSerialization.data(withJSONObject: arr) {
+            UserDefaults.standard.set(data, forKey: "ftChatRows")
+        }
+    }
+    private func loadCachedChatRows() {
+        guard let data = UserDefaults.standard.data(forKey: "ftChatRows"),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+        applyChatRows(arr, cache: false)
     }
 
     // MARK: - NativeChatListContentDelegate
@@ -1605,6 +1638,9 @@ class ViewController: UIViewController,
     }
     private func handleNativeCustomerInquiries(_ body: Any) {
         guard let dict = body as? [String: Any] else { return }
+        applyCustomerInquiries(dict, cache: true)
+    }
+    private func applyCustomerInquiries(_ dict: [String: Any], cache: Bool) {
         func parse(_ key: String) -> [NativeInquiryCard] {
             let arr = (dict[key] as? [[String: Any]]) ?? []
             return arr.compactMap { d in
@@ -1616,7 +1652,17 @@ class ViewController: UIViewController,
                                          hasRoom: (d["hasRoom"] as? Bool) ?? false)
             }
         }
-        nativeCustomerInquiries.setData(active: parse("active"), archived: parse("archived"))
+        let active = parse("active"); let archived = parse("archived")
+        nativeCustomerInquiries.setData(active: active, archived: archived)
+        // 디스크 캐시 (다음 진입 즉시 표시) — 둘 다 비면 캐시 유지
+        if cache, (!active.isEmpty || !archived.isEmpty), let data = try? JSONSerialization.data(withJSONObject: dict) {
+            UserDefaults.standard.set(data, forKey: "ftCustomerInquiries")
+        }
+    }
+    private func loadCachedCustomerInquiries() {
+        guard let data = UserDefaults.standard.data(forKey: "ftCustomerInquiries"),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        applyCustomerInquiries(dict, cache: false)
     }
 
     private func showNativeToast(_ text: String) {
