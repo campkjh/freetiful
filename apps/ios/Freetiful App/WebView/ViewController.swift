@@ -111,7 +111,16 @@ class ViewController: UIViewController,
     private var webViewBottomSafe: NSLayoutConstraint?
     private var webViewTopFull: NSLayoutConstraint?
     private var webViewBottomFull: NSLayoutConstraint?
-    private var currentNativePath = "/"
+    private var currentNativePath = "/" {
+        didSet {
+            // 프로필 편집(/pro-edit)을 떠나면(저장 가능성) 상세 캐시 무효화 + 네이티브 상세 재로딩 강제
+            // → 사회자가 프로필 수정하면 다음 상세 진입 시 즉시 반영. 브리지/URL 어느 경로로 바뀌든 동작.
+            if oldValue.contains("/pro-edit"), !currentNativePath.contains("/pro-edit") {
+                NativeHomeData.clearDetailCaches()
+                nativeProDetail.invalidate()
+            }
+        }
+    }
     private var currentNativeQuery = ""   // location.search (예: "?category=웨딩홀")
     private var currentNativeActualIsPro = false
     private var currentNativeIsProMode = false
@@ -645,11 +654,7 @@ class ViewController: UIViewController,
     private func updateNativePath(from url: URL?) {
         guard let url = url, (url.host ?? "").contains("freetiful.com") else { return }
         let newPath = url.path.isEmpty ? "/" : url.path
-        // 프로필 편집 페이지를 떠나면(저장 가능성) 상세 디스크 캐시 비움 → 다음 상세 조회를 신선하게(바로 반영)
-        if currentNativePath.contains("/pro-edit"), !newPath.contains("/pro-edit") {
-            NativeHomeData.clearDetailCaches()
-        }
-        currentNativePath = newPath
+        currentNativePath = newPath   // didSet 이 /pro-edit 이탈 시 상세 캐시 무효화 처리
         currentNativeQuery = url.query ?? ""
         renderNativeNavigation(animated: true)
     }

@@ -483,6 +483,11 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     @objc private func ctaTapped() { Haptics.tap(); delegate?.proDetailInquiry(proId) }
     @objc private func recoTapped(_ sender: RecoCardButton) { Haptics.tap(); delegate?.proDetailOpen(sender.proIdRef) }
 
+    // 프로필 수정 등으로 캐시가 무효화됐을 때 — 다음 진입 시 신선 재로딩 강제
+    func invalidate() {
+        hasContent = false
+        proId = ""
+    }
     func loadDetail(id: String) {
         if id == proId && hasContent { return }   // 이미 같은 사회자 표시 중 — 깜빡임/클로버 방지
         proId = id

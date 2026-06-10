@@ -29,14 +29,15 @@ enum NativeHomeData {
             let d = deriveSections(pros: cp, biz: cachedBiz() ?? [])
             DispatchQueue.main.async { done(d) }
         }
-        // 2) 신선 데이터로 갱신 (실패/빈값이면 캐시 유지)
+        // 2) 신선 데이터로 갱신 — 사회자 로드되면 즉시 렌더.
+        //    업체는 deriveSections 에서 안 쓰이므로(웹 브리지로 받음) 기다리지 않음 → 초기 로드 가속.
         fetchPros { pros in
-            fetchBusiness { biz in
-                guard !pros.isEmpty else { return }
-                let d = deriveSections(pros: pros, biz: biz)
-                DispatchQueue.main.async { done(d) }
-            }
+            guard !pros.isEmpty else { return }
+            let d = deriveSections(pros: pros, biz: cachedBiz() ?? [])
+            DispatchQueue.main.async { done(d) }
         }
+        // 업체 캐시는 병렬로 워밍만 (렌더 블로킹 안 함)
+        fetchBusiness { _ in }
     }
 
     static func loadBanners(_ done: @escaping ([HomeBanner]) -> Void) {
