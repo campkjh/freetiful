@@ -369,6 +369,92 @@ enum NativeHomeData {
         }
     }
 
+    // ─── 새요청(매칭 딜리버리) 직접 fetch — 웹뷰 로드/페이지 마운트 대기 없이 즉시 ───
+    // 행 형태는 웹 inquiries 페이지의 네이티브 매핑과 동일 (applyInquiryRows 가 그대로 소비)
+    static func loadProInquiries(token: String, _ done: @escaping ([[String: Any]]?) -> Void) {
+        guard !token.isEmpty, let url = URL(string: "\(base)/match/pro/requests?limit=100") else {
+            DispatchQueue.main.async { done(nil) }; return
+        }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 35
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        URLSession.shared.dataTask(with: req) { data, resp, _ in
+            guard let data = data, (resp as? HTTPURLResponse)?.statusCode == 200,
+                  let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                DispatchQueue.main.async { done(nil) }; return
+            }
+            // 전체 탭 기준: pending/viewed 만 (보관 탭은 웹 브리지가 정확히 처리)
+            let rows = arr
+                .filter { ["pending", "viewed"].contains(($0["status"] as? String) ?? "") }
+                .map { inquiryRow($0) }
+            DispatchQueue.main.async { done(rows) }
+        }.resume()
+    }
+    private static func inquiryRow(_ d: [String: Any]) -> [String: Any] {
+        let mr = d["matchRequest"] as? [String: Any] ?? [:]
+        let raw = mr["rawUserInput"] as? [String: Any] ?? [:]
+        let user = mr["user"] as? [String: Any] ?? [:]
+        let kind = (mr["type"] as? String) == "single" ? "single" : "multi"
+        let catName = ((mr["category"] as? [String: Any])?["name"] as? String) ?? (raw["categoryName"] as? String) ?? "사회자 요청"
+        let evCat = ((mr["eventCategory"] as? [String: Any])?["name"] as? String) ?? (raw["eventType"] as? String) ?? ""
+        let eventDate = (mr["eventDate"] as? String) ?? (raw["date"] as? String)
+        let eventTime = (raw["timeStart"] as? String) ?? (mr["eventTime"] as? String)
+        let eventPart = (raw["eventPart"] as? String) ?? ""
+        return [
+            "id": (d["id"] as? String) ?? "",
+            "name": (user["name"] as? String) ?? "고객",
+            "image": (user["profileImageUrl"] as? String) ?? "/images/default-profile.png",
+            "kind": kind,
+            "isMulti": kind == "multi",
+            "kindLabel": kind == "multi" ? "다수요청" : "개인요청",
+            "timeAgo": inquiryTimeAgo(d["deliveredAt"] as? String),
+            "category": [catName, evCat].filter { !$0.isEmpty }.joined(separator: " · "),
+            "parts": eventPart.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty },
+            "dateText": "\(inquiryFormatDate(eventDate)) \(inquiryFormatTime(eventTime))".trimmingCharacters(in: .whitespaces),
+            "location": (mr["eventLocation"] as? String) ?? (raw["location"] as? String) ?? "",
+            "note": (raw["note"] as? String) ?? "",
+        ]
+    }
+    private static func parseISODate(_ s: String?) -> Date? {
+        guard let s = s, !s.isEmpty else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: s) { return d }
+        iso.formatOptions = [.withInternetDateTime]
+        if let d = iso.date(from: s) { return d }
+        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"; df.locale = Locale(identifier: "en_US_POSIX")
+        return df.date(from: String(s.prefix(10)))
+    }
+    private static func inquiryTimeAgo(_ s: String?) -> String {
+        guard let d = parseISODate(s) else { return "" }
+        let min = Int(Date().timeIntervalSince(d) / 60)
+        if min < 1 { return "방금" }
+        if min < 60 { return "\(min)분 전" }
+        let hr = min / 60
+        if hr < 24 { return "\(hr)시간 전" }
+        let days = hr / 24
+        if days < 7 { return "\(days)일 전" }
+        let c = Calendar.current.dateComponents([.month, .day], from: d)
+        return "\(c.month ?? 0)/\(c.day ?? 0)"
+    }
+    private static func inquiryFormatDate(_ s: String?) -> String {
+        guard let d = parseISODate(s) else { return "일시 미정" }
+        let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+        let c = Calendar.current.dateComponents([.month, .day, .weekday], from: d)
+        return "\(c.month ?? 0)/\(c.day ?? 0) (\(weekdays[((c.weekday ?? 1) - 1) % 7]))"
+    }
+    private static func inquiryFormatTime(_ s: String?) -> String {
+        guard let s = s, !s.isEmpty else { return "" }
+        if s.range(of: "^\\d{2}:\\d{2}$", options: .regularExpression) != nil { return s }
+        if let m = s.range(of: "T\\d{2}:\\d{2}", options: .regularExpression) {
+            return String(s[s.index(m.lowerBound, offsetBy: 1)..<m.upperBound])
+        }
+        guard let d = parseISODate(s) else { return s }
+        let c = Calendar.current.dateComponents([.hour, .minute], from: d)
+        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+    }
+
     // 업체(웨딩파트너) 상세 — 디스크 캐시 즉시 → 신선 교체
     static func loadBizDetail(_ id: String, _ done: @escaping ([String: Any]?) -> Void) {
         var rendered = false

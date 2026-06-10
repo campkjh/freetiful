@@ -1325,8 +1325,11 @@ class ViewController: UIViewController,
                 nativeChatListBar.setTitle("새 요청")
                 nativeChatListBar.setSearchHidden(true)
                 nativeChatListBar.configure(tabs: ["전체", "다수요청", "개인요청", "보관"], selected: cachedListTab("inquiry"))
+                webInquiryRowsArrived = false
                 loadCachedInquiryRows()
                 nativeInquiryContent.scrollToTop()
+                syncAuthToken()
+                fetchProInquiriesDirect()   // 웹뷰/페이지 마운트 안 기다리고 직접 API — 신선 행 즉시
                 // 페이지 마운트 지연 대비 재요청 사다리 (프리페치 브리지 → 페이지 브리지 순으로 채워짐)
                 for delay in [0.3, 0.9, 2.0] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestNativeInquiryRows() }
@@ -1422,6 +1425,7 @@ class ViewController: UIViewController,
 
     private func handleNativeInquiryRows(_ body: Any) {
         guard nativeNavigationEnabled, let arr = body as? [[String: Any]] else { return }
+        webInquiryRowsArrived = true
         applyInquiryRows(arr, cache: true)
     }
 
@@ -1454,6 +1458,34 @@ class ViewController: UIViewController,
         guard let data = UserDefaults.standard.data(forKey: "ftInquiryRows"),
               let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
         applyInquiryRows(arr, cache: false)
+    }
+
+    // ─── 새요청 직접 fetch (웹뷰/페이지 마운트 불요 — 토큰만 있으면 즉시) ───
+    private var nativeAuthToken: String { UserDefaults.standard.string(forKey: "ftAccessToken") ?? "" }
+    private func syncAuthToken() {
+        let js = "(function(){try{var a=JSON.parse(localStorage.getItem('prettyful-auth')||'{}');return (a.state&&a.state.accessToken)||'';}catch(e){return ''}})()"
+        webView.evaluateJavaScript(js) { result, _ in
+            guard let t = result as? String else { return }
+            if t.isEmpty { UserDefaults.standard.removeObject(forKey: "ftAccessToken") }
+            else { UserDefaults.standard.set(t, forKey: "ftAccessToken") }
+        }
+    }
+    private var webInquiryRowsArrived = false   // 이번 진입에서 웹(브리지) 행 수신 여부 — 직접 fetch 가 덮어쓰지 않게
+    private func fetchProInquiriesDirect() {
+        let token = nativeAuthToken
+        guard !token.isEmpty else { return }
+        NativeHomeData.loadProInquiries(token: token) { [weak self] rows in
+            guard let self = self, let rows = rows, !rows.isEmpty else { return }
+            // 웹 브리지 행(탭 필터 정확)이 이미 왔으면 양보 — 직접 fetch 는 빈 화면을 빠르게 채우는 용도
+            guard !self.webInquiryRowsArrived else {
+                // 디스크 캐시 워밍만 (다음 실행 즉시 표시)
+                if let data = try? JSONSerialization.data(withJSONObject: rows) {
+                    UserDefaults.standard.set(data, forKey: "ftInquiryRows")
+                }
+                return
+            }
+            self.applyInquiryRows(rows, cache: true)
+        }
     }
 
     // MARK: - NativeInquiryContentDelegate
@@ -2098,6 +2130,17 @@ class ViewController: UIViewController,
     }
 
     private func loadInitialPage() {
+        // 새요청 프리워밍 — 저장된 토큰으로 앱 시작 즉시 직접 fetch(디스크 캐시 갱신 → 진입 시 0초 표시)
+        if !nativeAuthToken.isEmpty {
+            NativeHomeData.loadProInquiries(token: nativeAuthToken) { rows in
+                guard let rows = rows, !rows.isEmpty, let data = try? JSONSerialization.data(withJSONObject: rows) else { return }
+                UserDefaults.standard.set(data, forKey: "ftInquiryRows")
+            }
+        }
+        // 토큰 동기화 (웹 로그인 상태 → 네이티브 영속화, 다음 실행 프리워밍용)
+        for delay in [3.0, 8.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.syncAuthToken() }
+        }
         if let deepLink = OneSignalManager.shared.consumePendingDeepLink(),
            let path = normalizedInternalPath(from: deepLink) {
             loadInternalPath(path)
@@ -2486,6 +2529,7 @@ class ViewController: UIViewController,
     private func socialLogout() {
         OneSignal.logout()
         UserDefaults.standard.removeObject(forKey: "ftInquiryRows")   // 개인 새요청 캐시 삭제
+        UserDefaults.standard.removeObject(forKey: "ftAccessToken")   // 직접 fetch 토큰 삭제
     }
 
     // MARK: - API 호출 + JWT 주입
