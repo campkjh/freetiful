@@ -1223,14 +1223,14 @@ export default function ProDetailPage() {
     setConfirmInquiryOpen(true);
   };
 
-  const submitInquiryRequest = async (override?: { location: string; date: string; time: string }) => {
-    if (!pro || !authUser || openingChat) return;
+  const submitInquiryRequest = async (override?: { location: string; date: string; time: string }): Promise<string> => {
+    if (!pro || !authUser || openingChat) return 'fail:준비 중입니다. 잠시 후 다시 시도해주세요.';
     const trimmedLocation = (override?.location ?? inquiryLocation).trim();
     const eventDate = override?.date ?? inquiryDate;
     const eventTime = override?.time ?? inquiryTime;
     if (!trimmedLocation || !eventDate || !eventTime) {
       toast.error('행사 장소와 일시를 입력해주세요.');
-      return;
+      return 'fail:행사 장소와 일시를 입력해주세요.';
     }
     setOpeningChat(true);
     try {
@@ -1260,13 +1260,16 @@ export default function ProDetailPage() {
       setConfirmInquiryOpen(false);
       toast.success('문의요청이 완료되었습니다.');
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      return 'ok';
     } catch (error: any) {
       if (error?.response?.status === 401) {
         rememberAuthReturnTo();
         if (!requestNativeLoginSheet({ reason: 'pro-detail-inquiry' })) setLoginModal(true);
-      } else {
-        toast.error(error?.response?.data?.message || '문의요청에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        return 'fail:로그인이 필요합니다.';
       }
+      const msg = error?.response?.data?.message || '문의요청에 실패했습니다. 잠시 후 다시 시도해주세요.';
+      toast.error(msg);
+      return 'fail:' + msg;
     } finally {
       setOpeningChat(false);
     }
@@ -1286,9 +1289,20 @@ export default function ProDetailPage() {
         return true;
       } catch { return false; }
     };
+    // 네이티브 v2 — 실제 API 결과('ok'|'fail:사유'|'login') 를 반환 (성공 가장 토스트 버그 수정)
+    (window as any).__freetifulProInquirySendAsync = async () => {
+      try {
+        if (!authUser) { handleInquiry(); return 'login'; }
+        if ((pro?.userId && pro.userId === authUser.id) || pro?.id === 'my-pro') return 'fail:본인 프로필에는 문의할 수 없습니다.';
+        const d = new Date(); d.setDate(d.getDate() + 14);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return await submitInquiryRequest({ location: '추후 협의', date: dateStr, time: '협의' });
+      } catch (e: any) { return 'fail:' + (e?.message || '오류가 발생했습니다.'); }
+    };
     return () => {
       try { delete (window as any).__freetifulProInquiry; } catch {}
       try { delete (window as any).__freetifulProInquirySend; } catch {}
+      try { delete (window as any).__freetifulProInquirySendAsync; } catch {}
     };
   });
 

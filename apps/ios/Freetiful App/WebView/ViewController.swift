@@ -1712,9 +1712,36 @@ class ViewController: UIViewController,
 
     // MARK: - NativeProDetailDelegate
     func proDetailInquiry(_ id: String) {
-        // 웹에 즉시 문의 전송(확인 모달은 네이티브 뒤라 안 보임) → 전송되면 네이티브 토스트
-        webView.evaluateJavaScript("(window.__freetifulProInquirySend ? window.__freetifulProInquirySend() : (window.__freetifulProInquiry && window.__freetifulProInquiry(), false));") { [weak self] result, _ in
-            if (result as? Bool) == true { self?.showNativeToast("문의하기가 전송되었습니다") }
+        // 1) 무엇을 보내는지 확인 모달 → 2) 전송 → 3) 실제 API 결과로 토스트 (성공 가장 버그 수정)
+        let alert = UIAlertController(
+            title: "이 사회자에게 문의할까요?",
+            message: "문의가 전달되면 사회자가 확인 후 채팅으로 연락드려요.\n행사 일정·장소는 채팅에서 협의할 수 있어요.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        alert.addAction(UIAlertAction(title: "문의 보내기", style: .default) { [weak self] _ in
+            self?.sendProInquiry()
+        })
+        present(alert, animated: true)
+    }
+    private func sendProInquiry() {
+        let js = """
+        if (window.__freetifulProInquirySendAsync) { return await window.__freetifulProInquirySendAsync(); }
+        if (window.__freetifulProInquirySend) { return window.__freetifulProInquirySend() ? 'ok' : 'fail:전송하지 못했습니다.'; }
+        return 'fail:페이지 준비 중입니다. 잠시 후 다시 시도해주세요.';
+        """
+        webView.callAsyncJavaScript(js, arguments: [:], in: nil, in: .page) { [weak self] result in
+            guard let self = self else { return }
+            let r = ((try? result.get()) as? String) ?? "fail:오류가 발생했습니다."
+            if r == "ok" {
+                self.showNativeToast("문의를 보냈어요! 문의목록에서 확인할 수 있어요")
+                self.requestCustomerInquiries()   // 고객 문의목록 즉시 갱신
+            } else if r == "login" {
+                // 로그인 시트는 웹 핸들러가 표시
+            } else {
+                let msg = r.hasPrefix("fail:") ? String(r.dropFirst(5)) : "문의 전송에 실패했습니다."
+                self.showNativeToast(msg)
+            }
         }
     }
     func proDetailOpen(_ id: String) {

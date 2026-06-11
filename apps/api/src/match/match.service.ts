@@ -102,10 +102,18 @@ export class MatchService {
         type: data.type,
         categoryId: category.id,
         eventCategoryId: eventCategory?.id,
-        eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
-        eventTime: data.eventTime
-          ? new Date(`1970-01-01T${data.eventTime}`)
-          : undefined,
+        // '협의'/'추후 협의' 같은 비정형 입력 방어 — Invalid Date 로 생성 자체가 500 나던 버그.
+        // 원문은 rawUserInput 에 보존되므로 파싱 불가 값은 미정(undefined)으로 저장.
+        eventDate: (() => {
+          if (!data.eventDate) return undefined;
+          const d = new Date(data.eventDate);
+          return Number.isNaN(d.getTime()) ? undefined : d;
+        })(),
+        eventTime: (() => {
+          if (!data.eventTime) return undefined;
+          const t = new Date(`1970-01-01T${data.eventTime}`);
+          return Number.isNaN(t.getTime()) ? undefined : t;
+        })(),
         eventLocation: data.eventLocation,
         budgetMin: data.budgetMin,
         budgetMax: data.budgetMax,
