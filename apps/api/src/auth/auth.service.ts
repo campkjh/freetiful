@@ -537,7 +537,26 @@ export class AuthService {
     await this.popSession(refreshToken, userId);
   }
 
+  // 매 인증 요청마다 도는 유저 검증 — DB 왕복(리전 간 지연) 절약용 단기 캐시.
+  // 밴/비활성 반영이 최대 30초 지연되는 트레이드오프(수용 가능).
+  private userValidationCache = new Map<string, { user: any; ts: number }>();
+  private USER_VALIDATION_TTL = 30_000;
+
   async validateUser(userId: string) {
+    const cached = this.userValidationCache.get(userId);
+    if (cached && Date.now() - cached.ts < this.USER_VALIDATION_TTL) return cached.user;
+    const user = await this.validateUserUncached(userId);
+    if (user) {
+      if (this.userValidationCache.size > 500) {
+        const oldest = this.userValidationCache.keys().next().value;
+        if (oldest) this.userValidationCache.delete(oldest);
+      }
+      this.userValidationCache.set(userId, { user, ts: Date.now() });
+    }
+    return user;
+  }
+
+  private async validateUserUncached(userId: string) {
     // 1차: 정상 활성 유저
     const direct = await this.prisma.user.findUnique({
       where: { id: userId, isActive: true, isBanned: false },

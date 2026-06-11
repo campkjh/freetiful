@@ -84,14 +84,8 @@ export class MatchController {
   @ApiBearerAuth()
   @ApiOperation({ summary: '전문가에게 전달된 매칭 요청 조회' })
   async getMatchRequestsForPro(@Request() req: any, @Query('limit') limit?: string, @Query('skip') skip?: string) {
-    const proProfile = await this.prisma.proProfile.findUnique({
-      where: { userId: req.user.id },
-      select: { id: true },
-    });
-    if (!proProfile) {
-      throw new Error('전문가 프로필이 없습니다.');
-    }
-    return this.matchService.getMatchRequestsForPro(proProfile.id, Number(limit) || 50, Number(skip) || 0);
+    // 프로필 별도 조회(DB 왕복 1회) 제거 — userId 조인으로 한 번에. 프로필 없으면 빈 배열.
+    return this.matchService.getMatchRequestsForProUser(req.user.id, Number(limit) || 50, Number(skip) || 0);
   }
 
   /** 전문가가 매칭에 응답 */
