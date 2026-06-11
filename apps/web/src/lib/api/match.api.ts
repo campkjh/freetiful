@@ -27,6 +27,7 @@ export const matchApi = {
     eventTime?: string;
     eventLocation?: string;
     type?: 'multi' | 'single';
+    selectedProProfileIds?: string[];
     rawUserInput?: Record<string, unknown>;
   }) => apiClient.post(`${BASE}/quick-request`, data).then((r) => r.data),
 

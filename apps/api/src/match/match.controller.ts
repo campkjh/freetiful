@@ -37,6 +37,7 @@ export class MatchController {
       eventTime?: string;
       eventLocation?: string;
       type?: 'multi' | 'single';
+      selectedProProfileIds?: string[];
       rawUserInput?: any;
     },
   ) {
