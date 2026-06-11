@@ -104,13 +104,12 @@ export function useAuth() {
       withLogin(() => authApi.emailRegister(dto), '회원가입에 실패했습니다.'),
 
     logout: async () => {
-      try {
-        if (refreshToken) await authApi.logout(refreshToken);
-      } finally {
-        notifyIOSLogout();
-        storeLogout();
-        router.push('/main');
-      }
+      // 낙관적 로그아웃 — 상태/화면 먼저 정리(즉시 반영), 서버 세션 해제는 백그라운드
+      const tokenForRevoke = refreshToken;
+      notifyIOSLogout();
+      storeLogout();
+      router.push('/main');
+      if (tokenForRevoke) authApi.logout(tokenForRevoke).catch(() => {});
     },
   };
 }

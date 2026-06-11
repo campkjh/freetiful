@@ -337,6 +337,21 @@ export function installNativeAuthBridge() {
   };
   window.freetifulCompleteLogin = completeLogin;
 
+  // 글로벌 로그아웃 폴백 — /my 페이지가 마운트 안 돼 있어도 네이티브 로그아웃 버튼이 항상 동작
+  if (!(window as any).__freetifulLogout) {
+    (window as any).__freetifulLogout = () => {
+      try {
+        const { useAuthStore } = require('@/lib/store/auth.store');
+        const token = useAuthStore.getState().refreshToken;
+        useAuthStore.getState().logout();
+        if (token) {
+          import('@/lib/api/auth.api').then(({ authApi }) => authApi.logout(token).catch(() => {})).catch(() => {});
+        }
+      } catch {}
+      try { window.location.replace('/main'); } catch {}
+    };
+  }
+
   const reconcile = () => restoreNativeAuthFromStorage();
   window.addEventListener('pageshow', reconcile);
   window.addEventListener('focus', reconcile);

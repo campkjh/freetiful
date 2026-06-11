@@ -330,7 +330,7 @@ export default function MyPage() {
     localStorage.removeItem('freetiful-logged-in');
     localStorage.removeItem('freetiful-user');
     localStorage.removeItem('userRole');
-    router.push('/');
+    router.push('/main');   // '/'는 서버 redirect 바운스 — 직접 /main
   };
 
   // 네이티브 마이페이지 브리지 (프로필 데이터 + 로그아웃)
