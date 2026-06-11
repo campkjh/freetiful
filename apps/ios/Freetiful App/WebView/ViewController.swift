@@ -1468,10 +1468,13 @@ class ViewController: UIViewController,
     private var nativeAuthToken: String { UserDefaults.standard.string(forKey: "ftAccessToken") ?? "" }
     private func syncAuthToken(_ completion: (() -> Void)? = nil) {
         let js = "(function(){try{var a=JSON.parse(localStorage.getItem('prettyful-auth')||'{}');return (a.state&&a.state.accessToken)||'';}catch(e){return ''}})()"
-        webView.evaluateJavaScript(js) { result, _ in
+        webView.evaluateJavaScript(js) { result, err in
             if let t = result as? String {
+                NSLog("[ft.perf] token sync: %d chars", t.count)
                 if t.isEmpty { UserDefaults.standard.removeObject(forKey: "ftAccessToken") }
                 else { UserDefaults.standard.set(t, forKey: "ftAccessToken") }
+            } else {
+                NSLog("[ft.perf] token sync FAIL: %@", err?.localizedDescription ?? "nil result")
             }
             completion?()
         }

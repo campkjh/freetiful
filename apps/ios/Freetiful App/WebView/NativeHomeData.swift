@@ -475,7 +475,7 @@ enum NativeHomeData {
     // ─── 채팅 리스트 직접 fetch — 웹뷰/페이지 마운트 대기 없이 즉시 (rooms 콜드 5~10s 도 프리워밍으로 흡수) ───
     static func loadChatRooms(token: String, _ done: @escaping ([[String: Any]]?) -> Void) {
         guard !token.isEmpty else { DispatchQueue.main.async { done(nil) }; return }
-        authedGET("\(base)/chat/rooms?limit=60&withTotal=false", token: token) { _, obj in
+        authedGET("\(base)/chat/rooms?limit=50&withTotal=false", token: token) { _, obj in
             guard obj != nil else { DispatchQueue.main.async { done(nil) }; return }
             let arr = asArray(obj, keys: ["data", "items"])
             // 최신 메시지 순 정렬 (웹 리스트와 동일)
