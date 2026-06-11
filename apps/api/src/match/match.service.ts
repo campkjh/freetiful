@@ -447,12 +447,21 @@ export class MatchService {
   }
 
   /** 전문가에게 전달된 매칭 요청 목록 */
+  // userId 로 직접 조인 — 컨트롤러의 proProfile 선조회(DB 왕복 1회) 제거용
+  async getMatchRequestsForProUser(userId: string, limit = 50, skip = 0) {
+    return this.getMatchRequestsForProWhere({ proProfile: { userId } }, limit, skip);
+  }
+
   async getMatchRequestsForPro(proProfileId: string, limit = 50, skip = 0) {
+    return this.getMatchRequestsForProWhere({ proProfileId }, limit, skip);
+  }
+
+  private async getMatchRequestsForProWhere(proWhere: any, limit = 50, skip = 0) {
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
     // 새 요청 섹션은 pending/viewed, 보관 탭은 archived 만 사용한다.
     // 거절/응답 이력은 DB 단계에서 제외해 전체 매칭 히스토리를 끌어오는 비용을 없앤다.
     const deliveries = await this.prisma.matchDelivery.findMany({
-      where: { proProfileId, status: { in: ['pending', 'viewed', 'archived'] } },
+      where: { ...proWhere, status: { in: ['pending', 'viewed', 'archived'] } },
       select: {
         id: true,
         matchRequestId: true,

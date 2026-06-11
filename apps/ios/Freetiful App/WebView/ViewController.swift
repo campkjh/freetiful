@@ -1408,7 +1408,11 @@ class ViewController: UIViewController,
     }
     private func loadCachedChatRows() {
         guard let data = UserDefaults.standard.data(forKey: "ftChatRows"),
-              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            NSLog("[ft.perf] chat cache: EMPTY")
+            return
+        }
+        NSLog("[ft.perf] chat cache: %d rows → 즉시 표시", arr.count)
         applyChatRows(arr, cache: false)
     }
 
@@ -1460,7 +1464,11 @@ class ViewController: UIViewController,
 
     private func loadCachedInquiryRows() {
         guard let data = UserDefaults.standard.data(forKey: "ftInquiryRows"),
-              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            NSLog("[ft.perf] inquiry cache: EMPTY")
+            return
+        }
+        NSLog("[ft.perf] inquiry cache: %d rows → 즉시 표시", arr.count)
         applyInquiryRows(arr, cache: false)
     }
 
