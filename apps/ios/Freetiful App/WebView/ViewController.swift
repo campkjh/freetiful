@@ -2633,6 +2633,7 @@ class ViewController: UIViewController,
             }
 
             print("✅ [CurrentAuth] API login success, injecting JWT for user:", userId)
+            UserDefaults.standard.set(accessToken, forKey: "ftAccessToken")   // 직접 fetch 용 즉시 저장
             self?.injectJWT(accessToken: accessToken, refreshToken: refreshToken, userJSON: userJSON)
         }.resume()
     }

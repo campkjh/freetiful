@@ -159,8 +159,8 @@ enum NativeHomeData {
             let arr = asArray(obj, keys: ["data", "items"])
             if !arr.isEmpty {
                 prosCache = arr; saveDisk("pros", arr)
-                // 잠시 후 상위 사회자 상세 프리페치(초기 렌더와 경쟁 방지)
-                DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
+                // 잠시 후 상위 사회자 상세 프리페치(초기 렌더 + 새요청/채팅 직접 fetch 와 경쟁 방지)
+                DispatchQueue.global().asyncAfter(deadline: .now() + 6.0) {
                     prefetchDetails(arr.compactMap { $0["id"] as? String })
                 }
             }
@@ -369,27 +369,44 @@ enum NativeHomeData {
         }
     }
 
+    // ─── 고우선순위 전용 세션 — 홈 이미지/프리페치 트래픽과 분리(시작 직후 대역폭 경쟁 회피) ───
+    private static let prioritySession: URLSession = {
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.timeoutIntervalForRequest = 15
+        cfg.waitsForConnectivity = true
+        return URLSession(configuration: cfg)
+    }()
+    private static func authedGET(_ urlStr: String, token: String, _ done: @escaping (Int, Any?) -> Void) {
+        guard let url = URL(string: urlStr) else { done(0, nil); return }
+        var req = URLRequest(url: url)
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let started = Date()
+        let task = prioritySession.dataTask(with: req) { data, resp, err in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            let ms = Int(Date().timeIntervalSince(started) * 1000)
+            NSLog("[ft.perf] GET %@ → %d (%dms)%@", url.path, code, ms, err != nil ? " err=\(err!.localizedDescription)" : "")
+            guard let data = data, code == 200, let obj = try? JSONSerialization.jsonObject(with: data) else {
+                done(code, nil); return
+            }
+            done(code, obj)
+        }
+        task.priority = URLSessionTask.highPriority
+        task.resume()
+    }
+
     // ─── 새요청(매칭 딜리버리) 직접 fetch — 웹뷰 로드/페이지 마운트 대기 없이 즉시 ───
     // 행 형태는 웹 inquiries 페이지의 네이티브 매핑과 동일 (applyInquiryRows 가 그대로 소비)
     static func loadProInquiries(token: String, _ done: @escaping ([[String: Any]]?) -> Void) {
-        guard !token.isEmpty, let url = URL(string: "\(base)/match/pro/requests?limit=100") else {
-            DispatchQueue.main.async { done(nil) }; return
-        }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 35
-        req.cachePolicy = .reloadIgnoringLocalCacheData
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        URLSession.shared.dataTask(with: req) { data, resp, _ in
-            guard let data = data, (resp as? HTTPURLResponse)?.statusCode == 200,
-                  let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-                DispatchQueue.main.async { done(nil) }; return
-            }
+        guard !token.isEmpty else { DispatchQueue.main.async { done(nil) }; return }
+        authedGET("\(base)/match/pro/requests?limit=100", token: token) { _, obj in
+            guard let arr = obj as? [[String: Any]] else { DispatchQueue.main.async { done(nil) }; return }
             // 전체 탭 기준: pending/viewed 만 (보관 탭은 웹 브리지가 정확히 처리)
             let rows = arr
                 .filter { ["pending", "viewed"].contains(($0["status"] as? String) ?? "") }
                 .map { inquiryRow($0) }
             DispatchQueue.main.async { done(rows) }
-        }.resume()
+        }
     }
     private static func inquiryRow(_ d: [String: Any]) -> [String: Any] {
         let mr = d["matchRequest"] as? [String: Any] ?? [:]
@@ -457,23 +474,14 @@ enum NativeHomeData {
 
     // ─── 채팅 리스트 직접 fetch — 웹뷰/페이지 마운트 대기 없이 즉시 (rooms 콜드 5~10s 도 프리워밍으로 흡수) ───
     static func loadChatRooms(token: String, _ done: @escaping ([[String: Any]]?) -> Void) {
-        guard !token.isEmpty, let url = URL(string: "\(base)/chat/rooms?limit=60&withTotal=false") else {
-            DispatchQueue.main.async { done(nil) }; return
-        }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 35
-        req.cachePolicy = .reloadIgnoringLocalCacheData
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        URLSession.shared.dataTask(with: req) { data, resp, _ in
-            guard let data = data, (resp as? HTTPURLResponse)?.statusCode == 200,
-                  let obj = try? JSONSerialization.jsonObject(with: data) else {
-                DispatchQueue.main.async { done(nil) }; return
-            }
+        guard !token.isEmpty else { DispatchQueue.main.async { done(nil) }; return }
+        authedGET("\(base)/chat/rooms?limit=60&withTotal=false", token: token) { _, obj in
+            guard obj != nil else { DispatchQueue.main.async { done(nil) }; return }
             let arr = asArray(obj, keys: ["data", "items"])
             // 최신 메시지 순 정렬 (웹 리스트와 동일)
             let rows = arr.map { chatRow($0) }.sorted { ($0["time"] as? String ?? "") > ($1["time"] as? String ?? "") }
             DispatchQueue.main.async { done(rows) }
-        }.resume()
+        }
     }
     private static func chatRow(_ r: [String: Any]) -> [String: Any] {
         let other = r["otherUser"] as? [String: Any] ?? [:]
