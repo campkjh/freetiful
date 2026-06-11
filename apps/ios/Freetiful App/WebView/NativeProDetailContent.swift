@@ -535,6 +535,11 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let mainExp = (d["mainExperience"] as? String) ?? ""
         let responseRate = intVal(d["responseRate"])
         youtubeURLString = (d["youtubeUrl"] as? String) ?? ""
+        // 여러 영상 — youtubeUrl 에 개행 조인 저장(단일 데이터 호환)
+        let videoEntries: [(id: String, url: String)] = youtubeURLString
+            .split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .compactMap { u in youtubeID(u).map { (id: $0, url: u) } }
 
         // 표시 리뷰: API 본문 있으면 사용, 없으면 웹과 동일한 레거시 폴백 생성
         let displayReviews = Self.resolveReviews(api: apiReviews, reviewCount: reviewCount, rating: rating)
@@ -568,7 +573,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
 
         var titles: [String] = []
         tabSections = []
-        if let desc = buildDescription(detailHtml, videoId: youtubeID(youtubeURLString)) {
+        if let desc = buildDescription(detailHtml, videos: videoEntries) {
             let w = wrapPad(desc); contentStack.addArrangedSubview(w)
             titles.append("서비스 설명"); tabSections.append(w)
         }
@@ -885,7 +890,7 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         return card
     }
 
-    private func videoThumb(_ videoId: String) -> UIView {
+    private func videoThumb(_ videoId: String, urlString: String) -> UIView {
         let wrap = UIView()
         let img = UIImageView()
         img.contentMode = .scaleAspectFill; img.clipsToBounds = true
@@ -908,12 +913,14 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             play.widthAnchor.constraint(equalToConstant: 48), play.heightAnchor.constraint(equalToConstant: 48),
         ])
         wrap.isUserInteractionEnabled = true
-        wrap.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(videoTapped)))
+        let urlToOpen = urlString
+        let tap = UITapGestureRecognizer()
+        tap.addTargetClosure { _ in
+            guard let url = URL(string: urlToOpen) else { return }
+            UIApplication.shared.open(url)
+        }
+        wrap.addGestureRecognizer(tap)
         return wrap
-    }
-    @objc private func videoTapped() {
-        guard let url = URL(string: youtubeURLString) else { return }
-        UIApplication.shared.open(url)
     }
     private func youtubeID(_ url: String) -> String? {
         guard !url.isEmpty else { return nil }
@@ -927,20 +934,20 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
     }
 
     // 서비스 설명 — detailHtml 의 텍스트 + 이미지 모두 렌더 (웹 dangerouslySetInnerHTML 대응)
-    private func buildDescription(_ html: String, videoId: String?) -> UIView? {
+    private func buildDescription(_ html: String, videos: [(id: String, url: String)]) -> UIView? {
         let text = NativeHelpContent.htmlToText(html)
         let imgs = extractImageSrcs(html)
-        guard !text.isEmpty || !imgs.isEmpty || videoId != nil else { return nil }
+        guard !text.isEmpty || !imgs.isEmpty || !videos.isEmpty else { return nil }
         let card = glassCard()
         let col = UIStackView(); col.axis = .vertical; col.spacing = 12; col.alignment = .fill
         let t = UILabel(); t.text = "서비스 설명"; t.font = .systemFont(ofSize: 16, weight: .bold); t.textColor = UIColor(white: 0.12, alpha: 1)
         col.addArrangedSubview(t)
-        // 진행 영상 (있으면 상단에 prominent)
-        if let vid = videoId {
+        // 진행 영상 (여러 개 지원 — 전부 표시)
+        if !videos.isEmpty {
             let vt = UILabel(); vt.text = "진행 영상"; vt.font = .systemFont(ofSize: 14, weight: .bold); vt.textColor = UIColor(white: 0.2, alpha: 1)
             col.addArrangedSubview(vt)
             col.setCustomSpacing(8, after: vt)
-            col.addArrangedSubview(videoThumb(vid))
+            for v in videos { col.addArrangedSubview(videoThumb(v.id, urlString: v.url)) }
         }
         // 본문(텍스트+이미지)은 길어서 기본 접힘 — 펼쳐보기 버튼
         let body = UIStackView(); body.axis = .vertical; body.spacing = 12; body.alignment = .fill
@@ -1462,5 +1469,19 @@ private final class FaqItemView: UIView {
             self.chevron.transform = self.open ? CGAffineTransform(rotationAngle: .pi) : .identity
             self.superview?.superview?.layoutIfNeeded()
         }
+    }
+}
+
+// UITapGestureRecognizer 클로저 헬퍼 (영상 썸네일 등 다중 인스턴스 탭 처리용)
+private final class ClosureSleeve: NSObject {
+    let closure: (UITapGestureRecognizer) -> Void
+    init(_ closure: @escaping (UITapGestureRecognizer) -> Void) { self.closure = closure }
+    @objc func invoke(_ g: UITapGestureRecognizer) { closure(g) }
+}
+extension UITapGestureRecognizer {
+    func addTargetClosure(_ closure: @escaping (UITapGestureRecognizer) -> Void) {
+        let sleeve = ClosureSleeve(closure)
+        addTarget(sleeve, action: #selector(ClosureSleeve.invoke(_:)))
+        objc_setAssociatedObject(self, String(format: "[%d]", arc4random()), sleeve, .OBJC_ASSOCIATION_RETAIN)
     }
 }

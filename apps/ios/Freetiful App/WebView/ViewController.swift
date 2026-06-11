@@ -1724,32 +1724,40 @@ class ViewController: UIViewController,
 
     // MARK: - NativeProDetailDelegate
     func proDetailInquiry(_ id: String) {
-        // 1) 무엇을 보내는지 확인 모달 → 2) 전송 → 3) 실제 API 결과로 토스트 (성공 가장 버그 수정)
-        let alert = UIAlertController(
-            title: "이 사회자에게 문의할까요?",
-            message: "문의가 전달되면 사회자가 확인 후 채팅으로 연락드려요.\n행사 일정·장소는 채팅에서 협의할 수 있어요.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
-        alert.addAction(UIAlertAction(title: "문의 보내기", style: .default) { [weak self] _ in
-            self?.sendProInquiry()
-        })
-        present(alert, animated: true)
+        // 입력 폼: 로그인=행사일·부·장소 / 비로그인=+이름·전화(자동 회원화+로그인 유지)
+        let stateJS = "(function(){try{var st=window.__freetifulProInquiryState?window.__freetifulProInquiryState():null;return JSON.stringify(st||{});}catch(e){return '{}'}})()"
+        webView.evaluateJavaScript(stateJS) { [weak self] result, _ in
+            guard let self = self else { return }
+            var loggedIn = false
+            var proName = ""
+            if let str = result as? String, let data = str.data(using: .utf8),
+               let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                loggedIn = (obj["loggedIn"] as? Bool) ?? false
+                proName = (obj["proName"] as? String) ?? ""
+            }
+            let form = NativeProInquiryFormViewController(loggedIn: loggedIn, proName: proName)
+            form.onSubmit = { [weak self] payload in self?.sendProInquiry(payload) }
+            self.present(form, animated: false)
+        }
     }
-    private func sendProInquiry() {
+    private func sendProInquiry(_ payload: [String: String]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else { return }
         let js = """
+        if (window.__freetifulProInquirySubmit) { return await window.__freetifulProInquirySubmit(\(json)); }
         if (window.__freetifulProInquirySendAsync) { return await window.__freetifulProInquirySendAsync(); }
-        if (window.__freetifulProInquirySend) { return window.__freetifulProInquirySend() ? 'ok' : 'fail:전송하지 못했습니다.'; }
         return 'fail:페이지 준비 중입니다. 잠시 후 다시 시도해주세요.';
         """
         webView.callAsyncJavaScript(js, arguments: [:], in: nil, in: .page) { [weak self] result in
             guard let self = self else { return }
             let r = ((try? result.get()) as? String) ?? "fail:오류가 발생했습니다."
-            if r == "ok" {
-                self.showNativeToast("문의를 보냈어요! 문의목록에서 확인할 수 있어요")
-                self.requestCustomerInquiries()   // 고객 문의목록 즉시 갱신
-            } else if r == "login" {
-                // 로그인 시트는 웹 핸들러가 표시
+            if r == "ok" || r == "ok:signed" {
+                self.showNativeToast(r == "ok:signed"
+                    ? "문의를 보냈어요! 가입까지 완료됐어요 🎉"
+                    : "문의를 보냈어요! 문의목록에서 확인할 수 있어요")
+                self.requestCustomerInquiries()                  // 고객 문의목록 즉시 갱신
+                self.syncAuthToken()                              // 자동 로그인 토큰 영속(계속 로그인 유지)
+                self.refreshNativeNavState()                      // 로그인 상태 UI 반영
             } else {
                 let msg = r.hasPrefix("fail:") ? String(r.dropFirst(5)) : "문의 전송에 실패했습니다."
                 self.showNativeToast(msg)

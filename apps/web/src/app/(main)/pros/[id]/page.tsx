@@ -485,7 +485,10 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
   const userName = res.user?.name || '사회자';
   const images = res.images?.map((img: any) => img.imageUrl) || [];
   const profileImg = images[0] || res.user?.profileImageUrl || '';
-  const ytId = extractYoutubeId(res.youtubeUrl);
+  // 여러 영상 — youtubeUrl 에 개행 조인 저장(단일 데이터 호환)
+  const ytUrls: string[] = String(res.youtubeUrl || '').split(/\n+/).map((u: string) => u.trim()).filter(Boolean);
+  const ytIds: string[] = Array.from(new Set(ytUrls.map((u) => extractYoutubeId(u)).filter(Boolean))) as string[];
+  const ytId = ytIds[0] || null;
   const proCategory: string = (res.categoryNames && res.categoryNames[0]) || '사회자';
   const services = res.services || [];
   const fallbackPlans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
@@ -561,7 +564,7 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     showPartnersLogo: Boolean(res.showPartnersLogo),
     companyLogos: Array.isArray(res.companyLogos) ? res.companyLogos.filter(Boolean) : [],
     youtubeId: ytId,
-    youtubeVideos: ytId ? [{ id: ytId, title: `${userName} ${proCategory} 진행 영상` }] : [],
+    youtubeVideos: ytIds.map((id, i) => ({ id, title: `${userName} ${proCategory} 진행 영상${ytIds.length > 1 ? ` ${i + 1}` : ''}` })),
     faqs,
     rating: res.avgRating || 0,
     reviewCount: res.reviewCount || 0,
@@ -1289,6 +1292,74 @@ export default function ProDetailPage() {
         return true;
       } catch { return false; }
     };
+    // 네이티브 v3 — 입력 폼 제출 (로그인: createRequest / 비로그인: quickRequest 자동 회원화+로그인)
+    (window as any).__freetifulProInquiryState = () => ({
+      loggedIn: !!authUser,
+      proName: pro?.name || '',
+    });
+    (window as any).__freetifulProInquirySubmit = async (payload: any) => {
+      try {
+        if (!pro) return 'fail:페이지 준비 중입니다.';
+        if ((pro?.userId && authUser && pro.userId === authUser.id) || pro?.id === 'my-pro') return 'fail:본인 프로필에는 문의할 수 없습니다.';
+        const date = String(payload?.date || '').trim();
+        const time = String(payload?.time || '협의').trim() || '협의';
+        const part = String(payload?.part || '').trim();
+        const location = String(payload?.location || '').trim() || '추후 협의';
+        const categoryName = pro.categoryName || '사회자';
+        const rawUserInput = {
+          source: 'pro_detail_inquiry_form',
+          categoryName,
+          eventType: `${categoryName} 문의`,
+          eventName: `${categoryName} 문의`,
+          location,
+          date,
+          timeStart: time,
+          eventPart: part,
+          targetScope: 'single',
+          requestKind: 'single',
+          note: part ? `${part} 행사 문의입니다.` : '사회자 상세페이지에서 보낸 문의 요청입니다.',
+          targetProProfileId: pro.id,
+          targetProName: pro.name,
+        };
+        if (authUser) {
+          await matchApi.createRequest({
+            categoryId: categoryName,
+            eventDate: date || undefined,
+            eventTime: time,
+            eventLocation: location,
+            type: 'single',
+            selectedProProfileIds: [pro.id],
+            rawUserInput,
+          });
+          window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+          return 'ok';
+        }
+        // 비로그인 — 간이 회원가입 + 문의 + 자동 로그인 유지
+        const name = String(payload?.name || '').trim();
+        const phone = String(payload?.phone || '').replace(/\D/g, '');
+        if (!name) return 'fail:이름을 입력해주세요.';
+        if (phone.length < 9) return 'fail:올바른 전화번호를 입력해주세요.';
+        const res: any = await matchApi.quickRequest({
+          name,
+          phone,
+          categoryId: categoryName,
+          eventDate: date || undefined,
+          eventTime: time,
+          eventLocation: location,
+          type: 'single',
+          selectedProProfileIds: [pro.id],
+          rawUserInput,
+        });
+        if (res?.accessToken && res?.refreshToken && res?.user) {
+          const { useAuthStore } = await import('@/lib/store/auth.store');
+          useAuthStore.getState().setAuth(res.user, res.accessToken, res.refreshToken);
+        }
+        window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+        return 'ok:signed';
+      } catch (e: any) {
+        return 'fail:' + (e?.response?.data?.message || e?.message || '문의 전송에 실패했습니다.');
+      }
+    };
     // 네이티브 v2 — 실제 API 결과('ok'|'fail:사유'|'login') 를 반환 (성공 가장 토스트 버그 수정)
     (window as any).__freetifulProInquirySendAsync = async () => {
       try {
@@ -1303,6 +1374,8 @@ export default function ProDetailPage() {
       try { delete (window as any).__freetifulProInquiry; } catch {}
       try { delete (window as any).__freetifulProInquirySend; } catch {}
       try { delete (window as any).__freetifulProInquirySendAsync; } catch {}
+      try { delete (window as any).__freetifulProInquiryState; } catch {}
+      try { delete (window as any).__freetifulProInquirySubmit; } catch {}
     };
   });
 

@@ -196,8 +196,15 @@ export class ImageService {
       pipeline = pipeline.sharpen({ sigma: 1.2 });
     }
 
-    // ─── Face Detection (heuristic-based using edge & region analysis) ─
-    const hasFace = await this.detectFace(file.buffer);
+    // ─── Face Detection + WebP 변환 병렬 (저장 시간 단축) ─
+    const id = randomUUID();
+    const webpFilename = `${id}.webp`;
+    const originalFilename = `${id}_original${path.extname(file.originalname)}`;
+
+    const [hasFace, webpBuffer] = await Promise.all([
+      this.detectFace(file.buffer),
+      pipeline.webp({ quality, effort: 4 }).toBuffer(),
+    ]);
 
     if (requireFace && !hasFace) {
       throw new BadRequestException(
@@ -205,22 +212,18 @@ export class ImageService {
       );
     }
 
-    // ─── Convert to WebP ───────────────────────────────────────────────
-    const id = randomUUID();
-    const webpFilename = `${id}.webp`;
-    const originalFilename = `${id}_original${path.extname(file.originalname)}`;
-
-    const webpBuffer = await pipeline
-      .webp({ quality, effort: 4 })
-      .toBuffer();
-
     // 우선순위: Supabase Storage → DB (bytea, 항상 동작) → 로컬 디스크(레거시)
     let publicWebpUrl: string | null = null;
     let publicOrigUrl: string | null = null;
 
     if (this.supabase) {
-      publicWebpUrl = await this.uploadToSupabase(webpFilename, webpBuffer, 'image/webp');
-      publicOrigUrl = await this.uploadToSupabase(originalFilename, file.buffer, file.mimetype);
+      // 두 업로드 병렬 (원본+웹p 순차 대기 제거)
+      const [w, o] = await Promise.all([
+        this.uploadToSupabase(webpFilename, webpBuffer, 'image/webp'),
+        this.uploadToSupabase(originalFilename, file.buffer, file.mimetype).catch(() => null),
+      ]);
+      publicWebpUrl = w;
+      publicOrigUrl = o;
     }
 
     if (!publicWebpUrl) {

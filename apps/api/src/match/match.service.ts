@@ -166,7 +166,8 @@ export class MatchService {
   }
 
   private async resolveCategory(categoryInput: string, rawUserInput?: any) {
-    const direct = await this.prisma.category.findUnique({
+    const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryInput || '');
+    const direct = !uuidLike ? null : await this.prisma.category.findUnique({
       where: { id: categoryInput },
     });
     if (direct) return direct;
@@ -378,7 +379,8 @@ export class MatchService {
       skipDuplicates: true,
     });
 
-    // 2) 알림은 fire-and-forget — 응답을 막지 않는다
+    // 2) 알림은 fire-and-forget — 응답 이후(setImmediate)에 시작해 DB 풀/이벤트루프 경쟁도 차단
+    setImmediate(() => {
     for (const pc of validTargets) {
       const proUserId = pc.userId;
       this.notificationService
@@ -391,6 +393,7 @@ export class MatchService {
         )
         .catch(() => {});
     }
+    });
 
     this.chatRealtimeService.emitMatchUpdated(
       validTargets.map((target) => target.userId),
@@ -651,6 +654,7 @@ export class MatchService {
       eventTime?: string;
       eventLocation?: string;
       type?: 'multi' | 'single';
+      selectedProProfileIds?: string[];
       rawUserInput?: any;
     },
   ) {
@@ -663,13 +667,16 @@ export class MatchService {
     }
 
     let userId = await this.resolveUserIdFromAuthHeader(authorizationHeader);
+    let resolvedUser: any = null;   // 마지막 중복 findUnique 제거용
 
     if (userId) {
       // 로그인 상태 — 전화번호가 비어있으면 채워주기만 함
       const existing = await this.prisma.user.findUnique({ where: { id: userId } });
+      resolvedUser = existing;
       if (existing && !existing.phone) {
-        await this.prisma.user
+        this.prisma.user
           .update({ where: { id: userId }, data: { phone } })
+          .then((u) => { resolvedUser = u; })
           .catch(() => {});
       }
     } else {
@@ -680,9 +687,11 @@ export class MatchService {
       const byPhone = await this.prisma.user.findUnique({ where: { phone } });
       if (byPhone) {
         userId = byPhone.mergedToUserId || byPhone.id;
+        resolvedUser = byPhone;
         if (!byPhone.name || byPhone.name.startsWith('[merged]')) {
-          await this.prisma.user
+          this.prisma.user
             .update({ where: { id: userId }, data: { name } })
+            .then((u) => { resolvedUser = u; })
             .catch(() => {});
         }
       } else {
@@ -695,21 +704,25 @@ export class MatchService {
           },
         });
         userId = created.id;
+        resolvedUser = created;
       }
     }
 
-    const matchRequest = await this.createMatchRequest(userId, {
-      categoryId: body.categoryId,
-      eventCategoryId: body.eventCategoryId,
-      eventDate: body.eventDate,
-      eventTime: body.eventTime,
-      eventLocation: body.eventLocation,
-      type: body.type || 'multi',
-      rawUserInput: body.rawUserInput,
-    });
-
-    const tokens = await this.issueTokensForUser(userId);
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    // 매칭 생성과 토큰 발급은 독립 — 병렬 실행으로 응답 단축
+    const [matchRequest, tokens] = await Promise.all([
+      this.createMatchRequest(userId, {
+        categoryId: body.categoryId,
+        eventCategoryId: body.eventCategoryId,
+        eventDate: body.eventDate,
+        eventTime: body.eventTime,
+        eventLocation: body.eventLocation,
+        type: body.type || (body.selectedProProfileIds?.length ? 'single' : 'multi'),
+        selectedProProfileIds: body.selectedProProfileIds,
+        rawUserInput: body.rawUserInput,
+      }),
+      this.issueTokensForUser(userId),
+    ]);
+    const user = resolvedUser ?? (await this.prisma.user.findUnique({ where: { id: userId } }));
 
     return {
       accessToken: tokens.accessToken,
@@ -741,7 +754,7 @@ export class MatchService {
       { expiresIn: this.config.get('JWT_EXPIRES_IN', '7d') },
     );
     const refreshToken = uuid();
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 8)   // 랜덤 토큰 해시 — cost 10→8 (응답 단축);
     await this.prisma.session.create({
       data: {
         userId,

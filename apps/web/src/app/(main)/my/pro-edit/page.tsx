@@ -532,7 +532,8 @@ export default function ProEditPage() {
     }
     if (p.gender) setGender(p.gender);
     if (p.youtubeUrl) {
-      setVideos((prev) => prev.includes(p.youtubeUrl) ? prev : [p.youtubeUrl, ...prev]);
+      const urls = String(p.youtubeUrl).split(/\n+/).map((u: string) => u.trim()).filter(Boolean);
+      setVideos((prev) => Array.from(new Set([...urls, ...prev])));
     }
     if (p.user?.name) setName(p.user.name);
     if (p.phone || p.user?.phone) setPhone(p.phone || p.user.phone);
@@ -918,7 +919,7 @@ export default function ProEditPage() {
         careerYears: careerYears || undefined,
         awards,
         detailHtml: currentDetailHtml,
-        youtubeUrl: videos[0] || '',
+        youtubeUrl: videos.filter(Boolean).join('\n'),   // 여러 영상 — 개행 조인(단일 데이터 호환)
         isProfileHidden,
         faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages,
@@ -964,7 +965,7 @@ export default function ProEditPage() {
         careerYears: careerYears || undefined,
         awards,
         detailHtml: currentDetailHtml,
-        youtubeUrl: videos[0] || '',
+        youtubeUrl: videos.filter(Boolean).join('\n'),   // 여러 영상 — 개행 조인(단일 데이터 호환)
         isProfileHidden,
         tags: mergedTags,
         images: syncedImages || editResponse?.images,
