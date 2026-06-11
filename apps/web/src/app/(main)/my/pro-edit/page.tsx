@@ -986,7 +986,7 @@ export default function ProEditPage() {
       // 상세 페이지로 이동 (타임스탬프로 HTTP 캐시 버스트)
       setTimeout(() => {
         if (myProId) {
-          window.location.href = `/pros/${myProId}?_=${Date.now()}`;
+          window.location.replace(`/pros/${myProId}?_=${Date.now()}`);   // replace: 뒤로가기가 프로필수정으로 안 돌아가게
         } else {
           setToast('');
         }

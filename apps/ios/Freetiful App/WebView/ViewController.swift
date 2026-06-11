@@ -1059,14 +1059,16 @@ class ViewController: UIViewController,
             view.bringSubviewToFront(nativeMyHeader)
             view.bringSubviewToFront(nativeNavBar)   // 하단 네비바가 본문 위에 보이도록
             nativeMyContent.setInsets(top: view.safeAreaInsets.top + 56, bottom: 92)
-            // 브리지 준비 타이밍 보강 — 프로필 몇 번 재요청
-            for delay in [0.0, 0.4, 1.2, 2.5] {
+            nativeMyContent.setPartnerRowHidden(currentNativeActualIsPro)   // 사회자면 파트너 신청 숨김(웹과 동일)
+            // 브리지 준비 타이밍 보강 — 프로필 몇 번 재요청 (로그인 직후 리로드 하이드레이션까지 커버)
+            for delay in [0.0, 0.4, 1.2, 2.5, 5.0, 10.0] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.requestMyProfile() }
             }
         }
 
         // 상세화면 글래스 백헤더 (사회자/업체 상세 등 — 뒤로가기)
         let onDetailPage = isDetailPath(currentNativePath)
+        let enteringWebDetail = onDetailPage && !isOnDetail   // 웹 상세(프로필수정/구매내역 등) 진입 전환
         isOnDetail = onDetailPage
         nativeBackHeader.setSearchVisible(false)   // 기본 숨김 — 웨딩파트너 리스트에서만 표출
         let detailPathOnlyEarly = currentNativePath.split(separator: "?").first.map(String.init) ?? currentNativePath
@@ -1292,6 +1294,16 @@ class ViewController: UIViewController,
         let webTopInset: CGFloat = needsHeaderInset ? 88 : (onDetailPage ? 50 : 0)
         webView.scrollView.contentInset.top = webTopInset
         webView.scrollView.verticalScrollIndicatorInsets.top = webTopInset
+        // 웹 상세(프로필수정/구매내역 등) 진입 시 페이지 최상단이 헤더에 가려지던 문제 —
+        // 인셋만 주고 오프셋을 안 당겨 '이름'부터 보였음. 진입 시 -inset 으로 스냅(+Next 늦은 scrollTo(0,0) 보정)
+        if enteringWebDetail, webTopInset > 0 {
+            webView.scrollView.setContentOffset(CGPoint(x: 0, y: -webTopInset), animated: false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                guard let self = self, self.isOnDetail, !self.webView.scrollView.isTracking,
+                      self.webView.scrollView.contentOffset.y == 0 else { return }
+                self.webView.scrollView.setContentOffset(CGPoint(x: 0, y: -webTopInset), animated: false)
+            }
+        }
 
         // 리스트 본문(네이티브 테이블) — 채팅(/chat) & 새요청(/pro-dashboard/inquiries)
         let onChatListNative = currentNativePath == "/chat"
@@ -1860,9 +1872,32 @@ class ViewController: UIViewController,
     func myOpenPath(_ path: String) {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate(\(jsLiteral(path))));", completionHandler: nil)
     }
+    func myTapProfileCard() {
+        // 사회자: 본인 상세 보기(비공개여도 확인 가능), 일반: 프로필 설정
+        webView.evaluateJavaScript("(function(){try{return localStorage.getItem('freetiful-my-pro-id')||'';}catch(e){return ''}})()") { [weak self] result, _ in
+            guard let self = self else { return }
+            let pid = (result as? String) ?? ""
+            if self.currentNativeActualIsPro, !pid.isEmpty {
+                self.navigateNativeWeb(to: "/pros/\(pid)")
+            } else {
+                self.navigateNativeWeb(to: "/my/settings")
+            }
+        }
+    }
+
     func myLogout() {
-        UserDefaults.standard.removeObject(forKey: "ftInquiryRows")   // 개인 새요청 캐시 삭제
-        webView.evaluateJavaScript("(window.__freetifulLogout && window.__freetifulLogout());", completionHandler: nil)
+        // 낙관적 로그아웃 — 네이티브 마이는 즉시 로그아웃 상태로, 웹 정리는 백그라운드
+        socialLogout()   // OneSignal 로그아웃 + 개인 캐시/토큰 삭제
+        nativeMyContent.setProfile(MyProfile(loggedIn: false, name: "", email: "", image: "", proPending: false))
+        // 웹: /my 미마운트여도 동작하는 폴백 포함(스토어/스토리지 정리 + 홈 이동)
+        let js = """
+        (function(){
+          if (window.__freetifulLogout) { window.__freetifulLogout(); return; }
+          try { localStorage.removeItem('prettyful-auth'); localStorage.removeItem('userRole'); localStorage.removeItem('viewAsUser'); localStorage.removeItem('freetiful-my-pro-id'); } catch(e) {}
+          try { window.location.replace('/main'); } catch(e) {}
+        })();
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
     func myShowLogin() {
         webView.evaluateJavaScript("window.dispatchEvent(new Event('freetiful:show-login'));", completionHandler: nil)
@@ -2069,22 +2104,23 @@ class ViewController: UIViewController,
         }
     }
 
-    private func navigateNativeWeb(to path: String) {
+    // replace=true: 히스토리에 안 쌓음 — 하단 탭 전환용(뒤로가기가 탭 이력으로 랜덤 이동하던 버그 방지)
+    private func navigateNativeWeb(to path: String, replace: Bool = false) {
         currentNativePath = path
         renderNativeNavigation(animated: true)
 
         let pathLiteral = jsLiteral(path)
         let urlLiteral = jsLiteral("\(kWebBase)\(path)")
+        let replaceLiteral = replace ? "true" : "false"
         let script = """
         (function() {
           var path = \(pathLiteral);
           var url = \(urlLiteral);
+          var rep = \(replaceLiteral);
+          if (window.__freetifulNavigate) { window.__freetifulNavigate(path, rep); return; }
           var link = document.querySelector('a[href="' + path + '"]');
-          if (link) {
-            link.click();
-          } else {
-            window.location.href = url;
-          }
+          if (link && !rep) { link.click(); return; }
+          if (rep) { window.location.replace(url); } else { window.location.href = url; }
         })();
         """
 
@@ -2106,7 +2142,8 @@ class ViewController: UIViewController,
     }
 
     func liquidGlassNavigationBar(_ navBar: LiquidGlassNavigationBar, didSelect item: LiquidNavItem) {
-        navigateNativeWeb(to: item.path)
+        guard item.path != currentNativePath else { return }   // 같은 탭 재탭 — 히스토리 오염 방지
+        navigateNativeWeb(to: item.path, replace: true)        // 탭 전환은 히스토리에 안 쌓음
     }
 
     func liquidGlassNavigationBarDidTapModeToggle(_ navBar: LiquidGlassNavigationBar) {
@@ -2435,6 +2472,18 @@ class ViewController: UIViewController,
                   let accessToken  = info["accessToken"]  as? String,
                   let refreshToken = info["refreshToken"] as? String,
                   let userJSON     = info["userJSON"]     as? String else { return }
+            // 직접 fetch 토큰 즉시 저장 + 네이티브 마이 낙관 반영(웹 리로드 기다리지 않음)
+            UserDefaults.standard.set(accessToken, forKey: "ftAccessToken")
+            if let udata = userJSON.data(using: .utf8),
+               let u = (try? JSONSerialization.jsonObject(with: udata)) as? [String: Any] {
+                self.nativeMyContent.setProfile(MyProfile(
+                    loggedIn: true,
+                    name: (u["name"] as? String) ?? "",
+                    email: (u["email"] as? String) ?? "",
+                    image: (u["profileImageUrl"] as? String) ?? "",
+                    proPending: false
+                ))
+            }
             let js = self.authInjectionScript(
                 accessToken: accessToken,
                 refreshToken: refreshToken,
@@ -2637,8 +2686,10 @@ class ViewController: UIViewController,
     // 프리티풀 API를 호출하고, 응답받은 JWT를 웹앱의 Zustand localStorage에 주입합니다.
     private func callAPI(endpoint: String, body: [String: Any]) {
         guard let url = URL(string: "\(kAPIBase)\(endpoint)") else { return }
+        // (아래 request 에 15s 타임아웃 적용 — 기본 60s 가 로그인 1분 무응답의 원인)
         print("🌐 [CurrentAuth] API request:", url.absoluteString)
         var request = URLRequest(url: url)
+        request.timeoutInterval = 15
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -2743,12 +2794,14 @@ class AppleSignInCoordinator: NSObject,
         self.completion = completion
     }
 
+    private var activeController: ASAuthorizationController?   // 진행 중 강참조 — 중도 해제로 간헐 실패하던 문제 방지
     func start() {
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
         controller.presentationContextProvider = self
+        activeController = controller
         controller.performRequests()
     }
 
@@ -2763,18 +2816,22 @@ class AppleSignInCoordinator: NSObject,
         let fn = cred.fullName?.givenName ?? ""
         let ln = cred.fullName?.familyName ?? ""
         let fullName = [fn, ln].filter { !$0.isEmpty }.joined(separator: " ")
+        activeController = nil
         completion(.success((identityToken, fullName.isEmpty ? nil : fullName)))
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        activeController = nil
         completion(.failure(error))
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ?? UIWindow()
+        // 시트 전환 중 isKeyWindow 가 잠시 false 일 수 있음 — 분리된 UIWindow() 반환이 간헐 실패(에러 1000) 원인
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.compactMap { $0.keyWindow }.first
+            ?? scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
+            ?? scenes.flatMap { $0.windows }.first
+            ?? ASPresentationAnchor()
     }
 }
 

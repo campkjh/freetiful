@@ -21,6 +21,7 @@ protocol NativeMyContentDelegate: AnyObject {
     func myOpenPath(_ path: String)
     func myLogout()
     func myShowLogin()
+    func myTapProfileCard()
 }
 
 // 마이페이지 네이티브 본문 (웹 위 전체 덮음)
@@ -163,7 +164,7 @@ final class NativeMyContent: UIView {
             chev.trailingAnchor.constraint(equalTo: profileCard.trailingAnchor, constant: -16),
             chev.centerYAnchor.constraint(equalTo: avatar.centerYAnchor),
         ])
-        profileCard.addAction(UIAction { [weak self] _ in Haptics.tap(); self?.delegate?.myOpenPath("/my/settings") }, for: .touchUpInside)
+        profileCard.addAction(UIAction { [weak self] _ in Haptics.tap(); self?.delegate?.myTapProfileCard() }, for: .touchUpInside)
         stack.addArrangedSubview(profileCard)
     }
 
@@ -330,8 +331,13 @@ final class NativeMyContent: UIView {
             chev.centerYAnchor.constraint(equalTo: row.centerYAnchor),
         ])
         row.addAction(UIAction { [weak self] _ in Haptics.tap(); self?.delegate?.myOpenPath(item.path) }, for: .touchUpInside)
+        if item.label == "파트너 신청" { partnerRow = row }
         return row
     }
+
+    // 사회자 계정이면 '파트너 신청' 숨김 (웹과 동일)
+    private weak var partnerRow: UIView?
+    func setPartnerRowHidden(_ hidden: Bool) { partnerRow?.isHidden = hidden }
 
     private func buildLogout() -> UIView {
         let row = UIControl()

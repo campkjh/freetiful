@@ -304,12 +304,14 @@ class AppleNativeLoginCoordinator: NSObject, ASAuthorizationControllerDelegate, 
         self.completion = completion
     }
 
+    private var activeController: ASAuthorizationController?   // 진행 중 강참조 — 중도 해제로 간헐 실패하던 문제 방지
     func signIn() {
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
         controller.presentationContextProvider = self
+        activeController = controller
         controller.performRequests()
     }
 
@@ -324,17 +326,21 @@ class AppleNativeLoginCoordinator: NSObject, ASAuthorizationControllerDelegate, 
         let fn = cred.fullName?.givenName ?? ""
         let ln = cred.fullName?.familyName ?? ""
         let fullName = [fn, ln].filter { !$0.isEmpty }.joined(separator: " ")
+        activeController = nil
         completion(.success((identityToken, fullName.isEmpty ? nil : fullName)))
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        activeController = nil
         completion(.failure(error))
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ?? UIWindow()
+        // 시트 전환 중 isKeyWindow 가 잠시 false 일 수 있음 — 분리된 UIWindow() 반환이 간헐 실패(에러 1000) 원인
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.compactMap { $0.keyWindow }.first
+            ?? scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
+            ?? scenes.flatMap { $0.windows }.first
+            ?? ASPresentationAnchor()
     }
 }

@@ -152,8 +152,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       rememberAuthReturnTo();
       if (requestNativeLoginSheet({ reason: 'auth-required', returnTo: pathname })) {
         setShowLoginModal(false);
-        // 네이티브 모달은 취소 이벤트를 웹으로 전달하지 않을 수 있음 → 취소 시 홈에 남도록 선제 이동
-        router.replace('/main');
+        // 시트가 덮기 전 로그아웃 마이페이지가 깜빡이던 문제 — 선이동을 시트 표시 이후로 지연
+        setTimeout(() => { try { router.replace('/main'); } catch {} }, 700);
       } else {
         setShowLoginModal(true);
       }
@@ -225,7 +225,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 네이티브 헤더/버튼에서 SPA 라우팅 (홈 검색/알림 등)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    (window as any).__freetifulNavigate = (path: string) => { try { router.push(path); } catch {} };
+    (window as any).__freetifulNavigate = (path: string, replace?: boolean) => { try { if (replace) router.replace(path); else router.push(path); } catch {} };
     return () => { try { delete (window as any).__freetifulNavigate; } catch {} };
   }, [router]);
 

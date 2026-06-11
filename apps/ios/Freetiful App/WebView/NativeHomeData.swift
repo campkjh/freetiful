@@ -106,6 +106,7 @@ enum NativeHomeData {
     static func clearDetailCaches() {
         prefetchLock.lock(); prefetchedIds.removeAll(); prefetchLock.unlock()
         prosCache = nil
+        UserDefaults.standard.removeObject(forKey: "ftHomeV2_pros")   // 리스트 디스크 캐시 — 옛 기본정보(옛 사진) 폴백 방지
         for k in UserDefaults.standard.dictionaryRepresentation().keys where k.hasPrefix("ftProDetail_") {
             UserDefaults.standard.removeObject(forKey: k)
         }
