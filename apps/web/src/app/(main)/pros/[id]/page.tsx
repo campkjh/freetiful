@@ -1036,7 +1036,7 @@ export default function ProDetailPage() {
               })
               .catch(() => {});
           };
-          runWhenIdle(loadRecommendations, 1500);
+          runWhenIdle(loadRecommendations, 300);
         } catch (mapErr) {
           console.error('ProDetail mapping error:', mapErr);
           if (!hasFallbackData) setApiError(true);
@@ -1959,7 +1959,7 @@ export default function ProDetailPage() {
               key={i}
               onClick={() => setImageModal(src)}
               className="relative shrink-0 snap-start overflow-hidden rounded-[48px] bg-gray-100 transition-transform duration-300 ease-out"
-              style={{ width: 'min(70vw, 420px)', aspectRatio: '1 / 1.06', transform: `scale(${i === activeImage ? 1 : 0.9})` }}
+              style={{ width: 'min(70vw, 420px)', aspectRatio: '70 / 106', transform: `scale(${i === activeImage ? 1 : 0.9})` }}
             >
               {Math.abs(i - activeImage) <= 1 ? (
                 <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} sizes="70vw" />
@@ -2050,7 +2050,7 @@ export default function ProDetailPage() {
 
 
       {/* ─── Section Tabs (Sticky below header) ─── */}
-      <div className="sticky top-[60px] z-30 mx-4 mt-5 rounded-[22px] border border-white/70 bg-white/70 backdrop-blur-xl shadow-[0_4px_10px_rgba(26,38,77,0.05)] overflow-hidden">
+      <div className="sticky top-[60px] z-30 mt-5 bg-white border-b border-gray-200">
         <div className="flex relative">
           {detailSectionTabs.map((tab) => {
             return (
