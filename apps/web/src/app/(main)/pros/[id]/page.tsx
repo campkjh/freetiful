@@ -1887,7 +1887,7 @@ export default function ProDetailPage() {
         </main>
       </div>
 
-      <div className="lg:hidden" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
+      <div className="lg:hidden bg-[#F7F8FA] min-h-screen" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
       {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
       <div
         data-native-back-header
@@ -1941,96 +1941,53 @@ export default function ProDetailPage() {
         </div>
       </div>
 
-      {/* ─── Image Gallery with swipe ─── */}
-      <div
-        ref={galleryRef}
-        className="relative w-full aspect-square bg-gray-100 overflow-hidden"
-        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
-        onTouchEnd={(e) => {
-          if (touchStartX.current === null) return;
-          const dx = e.changedTouches[0].clientX - touchStartX.current;
-          if (dx > 50) setActiveImage((i) => Math.max(0, i - 1));
-          if (dx < -50) setActiveImage((i) => Math.min(pro.images.length - 1, i + 1));
-          touchStartX.current = null;
-        }}
-      >
-        {/* Parallax wrapper: shrinks + moves up on scroll */}
+      {/* ─── Hero Carousel — 네이티브 동일 (좌정렬 + peek + 스와이프 스케일) ─── */}
+      <div className="pt-[74px] overflow-hidden">
         <div
-          className="absolute inset-0 will-change-transform"
-          style={{
-            transform: `translateY(${scrollY * 0.35}px) scale(${Math.max(0.88, 1 - scrollY / 1600)})`,
-            transformOrigin: 'center center',
-            opacity: Math.max(0, 1 - scrollY / 600),
+          ref={galleryRef as any}
+          onScroll={(e) => {
+            const el = e.currentTarget as HTMLDivElement;
+            const cardW = Math.min(el.clientWidth * 0.7, 420) + 12;
+            const idx = Math.round(el.scrollLeft / cardW);
+            const clamped = Math.max(0, Math.min(pro.images.length - 1, idx));
+            if (clamped !== activeImage) setActiveImage(clamped);
           }}
+          className="hero-snap flex gap-3 overflow-x-auto px-[18px]"
         >
-          <div
-            className="flex h-full transition-transform duration-[600ms] will-change-transform"
-            style={{
-              transform: `translateX(-${activeImage * 100}%)`,
-              transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-          >
-            {pro.images.map((src, i) => (
-              <button
-                key={i}
-	                onClick={() => setImageModal(src)}
-                className="relative w-full h-full shrink-0 block"
-              >
-                {i === 0 || Math.abs(i - activeImage) <= 1 ? (
-                  <Image
-                    src={src}
-                    alt={pro.name}
-                    fill
-                    className="object-cover"
-                    priority={i === 0}
-                    loading={i === 0 ? undefined : 'lazy'}
-                    sizes="100vw"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-100" />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Page indicator */}
-        <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[12px] font-medium px-2.5 py-1 rounded-full backdrop-blur-sm">
-          {activeImage + 1} / {pro.images.length}
-        </div>
-
-        {/* Dot navigation */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-          {pro.images.map((_, i) => (
+          {pro.images.map((src, i) => (
             <button
               key={i}
-              onClick={() => setActiveImage(i)}
-              className="rounded-full transition-all duration-500"
-              style={{
-                width: i === activeImage ? 22 : 6,
-                height: 6,
-                backgroundColor: i === activeImage ? 'white' : 'rgba(255,255,255,0.5)',
-                transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
-              }}
-            />
+              onClick={() => setImageModal(src)}
+              className="relative shrink-0 snap-start overflow-hidden rounded-[48px] bg-gray-100 transition-transform duration-300 ease-out"
+              style={{ width: 'min(70vw, 420px)', aspectRatio: '1 / 1.06', transform: `scale(${i === activeImage ? 1 : 0.9})` }}
+            >
+              {Math.abs(i - activeImage) <= 1 ? (
+                <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} sizes="70vw" />
+              ) : (
+                <div className="w-full h-full bg-gray-100" />
+              )}
+            </button>
           ))}
         </div>
-
-        {/* YouTube 영상 썸네일 (우측 하단) */}
-        {pro.youtubeId && (
-          <div className="absolute bottom-4 right-4 z-10 aspect-video w-[168px] overflow-hidden rounded-2xl border-2 border-white/90 bg-black shadow-[0_4px_22px_rgba(0,0,0,0.42)]">
-            <iframe
-              className="h-full w-full"
-              src={`https://www.youtube.com/embed/${pro.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${pro.youtubeId}&playsinline=1&modestbranding=1&rel=0&showinfo=0`}
-              title="YouTube preview"
-              allow="autoplay; encrypted-media; picture-in-picture"
-            />
+        {pro.images.length > 1 && (
+          <div className="mt-3 flex justify-center gap-1.5">
+            {pro.images.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  const el = galleryRef.current as HTMLDivElement | null;
+                  if (el) el.scrollTo({ left: i * (Math.min(el.clientWidth * 0.7, 420) + 12), behavior: 'smooth' });
+                }}
+                className="rounded-full transition-all duration-500"
+                style={{ width: i === activeImage ? 22 : 6, height: 6, backgroundColor: i === activeImage ? '#191F28' : '#C9CED6', transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }}
+              />
+            ))}
           </div>
         )}
       </div>
 
       {/* ─── Main Content ─── */}
-      <div className="px-2.5 pt-4">
+      <div className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-5">
         {/* Pro row + prime */}
         <Reveal>
           <div className="flex items-center justify-between mb-1.5">
@@ -2069,18 +2026,16 @@ export default function ProDetailPage() {
         {/* ─── 주요 경력 ─── */}
         {pro.career && pro.career.trim().length > 0 && (
           <Reveal delay={150}>
-            <div className="mb-4 rounded-xl border border-gray-100 bg-[#F7FAFF] px-3.5 py-3">
-              <p className="text-[11px] font-bold text-[#3180F7] mb-1.5">주요 경력</p>
-              <ul className="space-y-1 text-[13px] leading-[1.55] text-gray-800">
+            <div className="mb-4 rounded-[24px] border border-white bg-[#F7FAFF] px-4 py-4">
+              <ul className="space-y-1.5">
                 {pro.career
                   .split(/\n|\//)
                   .map((line) => line.trim())
                   .filter(Boolean)
-                  .slice(0, 5)
+                  .slice(0, 6)
                   .map((line, i) => (
-                    <li key={i} className="flex gap-1.5">
-                      <span className="text-[#3180F7]">•</span>
-                      <span className="flex-1">{line}</span>
+                    <li key={i} className="career-sweep text-[16px] font-semibold leading-[1.5]" style={{ animationDelay: `${0.4 + i * 0.22}s` }}>
+                      {line}
                     </li>
                   ))}
               </ul>
@@ -2093,11 +2048,9 @@ export default function ProDetailPage() {
 
       </div>
 
-      {/* ─── Divider ─── */}
-      <div className="h-2 bg-gray-50" />
 
       {/* ─── Section Tabs (Sticky below header) ─── */}
-      <div className="sticky top-[60px] z-30 bg-white border-b border-gray-200">
+      <div className="sticky top-[60px] z-30 mx-4 mt-5 rounded-[22px] border border-white/70 bg-white/70 backdrop-blur-xl shadow-[0_4px_10px_rgba(26,38,77,0.05)] overflow-hidden">
         <div className="flex relative">
           {detailSectionTabs.map((tab) => {
             return (
@@ -2125,7 +2078,7 @@ export default function ProDetailPage() {
 
       {/* ─── 서비스 설명 Section ─── */}
       {hasDescriptionContent && (
-        <div ref={descRef} className="px-2.5 pt-8">
+        <div ref={descRef} className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-6 scroll-mt-[120px]">
           <Reveal>
             <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
           </Reveal>
@@ -2261,10 +2214,9 @@ export default function ProDetailPage() {
       )}
 
       {/* ─── Divider ─── */}
-      <div className="h-2 bg-gray-50 mt-8" />
 
       {/* ─── 사회자 정보 Section ─── */}
-      <div ref={infoRef} className="px-2.5 pt-8">
+      <div ref={infoRef} className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-6 scroll-mt-[120px]">
         <h2 className="text-[20px] font-bold text-gray-900 mb-5">사회자 정보</h2>
 
         <div className="flex items-center gap-4 mb-5">
@@ -2324,7 +2276,7 @@ export default function ProDetailPage() {
       <div className="h-2 bg-gray-50 mt-10" />
 
       {/* ─── 리뷰 Section ─── */}
-      <div ref={reviewsRef} className="px-2.5 pt-6">
+      <div ref={reviewsRef} className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-6 scroll-mt-[120px]">
         <h2 className="text-[20px] font-bold text-gray-900 mb-2">리뷰</h2>
 
         <div className="flex items-center gap-2 mb-2">
@@ -2494,11 +2446,11 @@ export default function ProDetailPage() {
         <div className="flex items-center gap-3 max-w-[680px] mx-auto">
 		          {/* 문의하기 */}
           <div className="relative flex-1">
-            <div className="flex h-12 rounded-full overflow-hidden shadow-sm">
+            <div className="flex h-14 overflow-visible">
               <button
                 disabled={openingChat}
                 onClick={handleInquiry}
-                className="flex-1 rounded-full border border-gray-200 bg-white text-[14px] font-semibold text-gray-700 active:bg-gray-50 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+                className="flex-1 rounded-[28px] border border-white/55 bg-[#2C53FF]/60 backdrop-blur-xl text-[16.5px] font-bold text-white shadow-[0_8px_24px_rgba(44,83,255,0.35)] active:scale-[0.99] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {openingChat ? (
                   <>
@@ -2786,6 +2738,25 @@ export default function ProDetailPage() {
         @keyframes recentReviewsSlideLTR {
           0% { transform: translateX(-50%); }
           100% { transform: translateX(0); }
+        }
+        .hero-snap {
+          scroll-snap-type: x mandatory;
+          scroll-padding-left: 18px;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .hero-snap::-webkit-scrollbar { display: none; }
+        .career-sweep {
+          background-image: linear-gradient(90deg, #191F28 0%, #191F28 42%, #3182F6 50%, #B0B8C1 58%, #B0B8C1 100%);
+          background-size: 280% 100%;
+          background-position: 100% 0;
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          animation: careerSweep 1.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        @keyframes careerSweep {
+          to { background-position: 0% 0; }
         }
         .recent-reviews-carousel {
           animation: recentReviewsSlideLTR 34s linear infinite;
