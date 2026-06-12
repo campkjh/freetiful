@@ -15,6 +15,7 @@ import {
   normalizeWeddingPlanKey,
   parseWeddingOptionsFromDescription,
 } from '@/lib/wedding-plans';
+import { COMPANY_LOGOS } from '@/lib/company-logos';
 /* ─── Constants ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
@@ -322,6 +323,7 @@ export default function ProEditPage() {
   const [mainPhotoIndex, setMainPhotoIndex] = useState(0);
   const [removedPhotoIds, setRemovedPhotoIds] = useState<string[]>([]);
   const [selectedCompanyLogos, setSelectedCompanyLogos] = useState<string[]>([]);
+  const [showLogoSheet, setShowLogoSheet] = useState(false);
   const [languages, setLanguages] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [isProfileHidden, setIsProfileHidden] = useState(false);
@@ -1282,11 +1284,50 @@ export default function ProEditPage() {
           <p className="text-[13px] text-gray-400">등록된 기업이력이 없습니다</p>
         )}
         <button
-          onClick={() => router.push('/pro-register/profile')}
+          onClick={() => setShowLogoSheet(true)}
           className="mt-3 w-full py-2.5 border border-gray-200 rounded-xl text-[13px] font-bold text-gray-600 active:bg-gray-50 transition-colors"
         >
-          기업 선택 페이지로 이동
+          기업이력 선택
         </button>
+
+        {/* 기업이력 선택 시트 — 등록 플로우(파트너 신청)로 보내지 않고 인라인 선택 */}
+        {showLogoSheet && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-white">
+            <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-[18px] font-bold text-gray-900">기업이력 선택</h2>
+              <span className="text-[13px] text-[#3180F7] font-bold">{selectedCompanyLogos.length}개 선택됨</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="grid grid-cols-3 gap-3">
+                {COMPANY_LOGOS.map((logo, i) => {
+                  const selected = selectedCompanyLogos.includes(logo);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedCompanyLogos((prev) => selected ? prev.filter((l) => l !== logo) : [...prev, logo])}
+                      className={`relative aspect-[3/2] rounded-xl border-2 flex items-center justify-center p-3 transition-all ${
+                        selected ? 'border-[#3180F7] bg-blue-50/50 shadow-sm' : 'border-gray-100 bg-white'
+                      }`}
+                    >
+                      <img src={logo} alt="" className="w-full h-full object-contain" />
+                      {selected && (
+                        <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#3180F7] text-white text-[11px] flex items-center justify-center">✓</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="shrink-0 px-4 py-3 border-t border-gray-100" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}>
+              <button
+                onClick={() => setShowLogoSheet(false)}
+                className="w-full py-3.5 rounded-2xl bg-[#3180F7] text-white text-[15px] font-bold active:scale-[0.99] transition-transform"
+              >
+                완료 ({selectedCompanyLogos.length}개)
+              </button>
+            </div>
+          </div>
+        )}
       </Section>
 
       {/* ─── 8. 언어 ─── */}
