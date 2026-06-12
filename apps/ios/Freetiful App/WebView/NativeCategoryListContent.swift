@@ -402,7 +402,7 @@ extension NativeCategoryListContent: UITableViewDataSource, UITableViewDelegate 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         if mode == .pro {
             let cell = tableView.dequeueReusableCell(withIdentifier: "pro", for: indexPath) as! CategoryProCell
-            cell.configure(proRows[indexPath.row])
+            cell.configure(proRows[indexPath.row], showLanguages: category.contains("외국어") || category.contains("통역"))
             return cell
         } else {
             let cell = tableView.dequeueReusableCell(withIdentifier: "biz", for: indexPath) as! CategoryBizCell
@@ -543,7 +543,7 @@ private final class CategoryProCell: UITableViewCell {
         imgToken = ""
     }
 
-    func configure(_ p: CategoryProItem) {
+    func configure(_ p: CategoryProItem, showLanguages: Bool = false) {
         nameL.text = "\(p.category) \(p.name)"
         let isTop = (1...10).contains(p.rank)
         topPill.text = isTop ? "TOP \(p.rank)" : ""
@@ -560,8 +560,13 @@ private final class CategoryProCell: UITableViewCell {
 
         tagRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
         if p.careerYears > 0 { tagRow.addArrangedSubview(makeTag("경력 \(p.careerYears)년", strong: true)) }
-        let regionTags = p.isNationwide ? ["전국가능"] : Array(p.regions.prefix(2))
-        for t in regionTags { tagRow.addArrangedSubview(makeTag(t, strong: false)) }
+        if showLanguages, !p.languages.isEmpty {
+            // 외국어사회자 리스트 — 가능 언어를 파란 태그로 표시
+            for lang in p.languages.prefix(3) { tagRow.addArrangedSubview(makeLangTag(lang)) }
+        } else {
+            let regionTags = p.isNationwide ? ["전국가능"] : Array(p.regions.prefix(2))
+            for t in regionTags { tagRow.addArrangedSubview(makeTag(t, strong: false)) }
+        }
 
         let token = p.id + p.image
         imgToken = token
@@ -572,6 +577,17 @@ private final class CategoryProCell: UITableViewCell {
         }
     }
 
+    private func makeLangTag(_ text: String) -> UIView {
+        let l = PaddingLabel3()
+        l.text = text
+        l.font = .systemFont(ofSize: 10, weight: .bold)
+        l.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+        l.backgroundColor = UIColor(red: 0.917, green: 0.952, blue: 1, alpha: 1)   // #EAF3FF
+        l.textInsets = UIEdgeInsets(top: 3, left: 7, bottom: 3, right: 7)
+        l.layer.cornerRadius = 5
+        l.clipsToBounds = true
+        return l
+    }
     private func makeTag(_ text: String, strong: Bool) -> UIView {
         let l = PaddingLabel3()
         l.text = text

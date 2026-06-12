@@ -298,10 +298,8 @@ enum NativeHomeData {
         var filtered = pros
         if c.contains("외국어") || c.contains("통역") || c.contains("foreign") {
             filtered = pros.filter { !strArr($0["languages"]).isEmpty }
-        } else if c.contains("행사") || c.contains("기업") || c.contains("쇼호스트") {
-            filtered = pros.filter { isEvent($0) }
-            if filtered.count < 4 { filtered = pros }
         }
+        // 행사사회자 = 결혼식사회자와 동일(승인 전체 노출)
         switch sort {
         case "avg_rating": filtered.sort { dblVal($0["avgRating"]) > dblVal($1["avgRating"]) }
         case "review_count": filtered.sort { intVal($0["reviewCount"]) > intVal($1["reviewCount"]) }
@@ -318,7 +316,8 @@ enum NativeHomeData {
             rating: dblVal(p["avgRating"]), reviewCount: intVal(p["reviewCount"]),
             careerYears: intVal(p["careerYears"]),
             category: strArr(p["categories"]).first ?? "사회자",
-            regions: strArr(p["regions"]), isNationwide: (p["isNationwide"] as? Bool) ?? false,
+            regions: strArr(p["regions"]), languages: strArr(p["languages"]),
+            isNationwide: (p["isNationwide"] as? Bool) ?? false,
             rank: rank)
     }
 
@@ -540,6 +539,7 @@ struct CategoryProItem {
     let careerYears: Int
     let category: String
     let regions: [String]
+    let languages: [String]
     let isNationwide: Bool
     let rank: Int
 }
