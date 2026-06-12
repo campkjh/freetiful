@@ -113,7 +113,8 @@ final class NativeChatRowCell: UITableViewCell {
     private let nameLabel = UILabel()
     private let messageLabel = UILabel()
     private let timeLabel = UILabel()
-    private let unreadBadge = UILabel()
+    private let unreadBadge = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    private let unreadLabel = UILabel()
     private var currentImageURL = ""
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -150,14 +151,20 @@ final class NativeChatRowCell: UITableViewCell {
         timeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         contentView.addSubview(timeLabel)
 
+        // 안읽음 뱃지 — 글래스 캡슐 + 중앙 정렬 숫자
         unreadBadge.translatesAutoresizingMaskIntoConstraints = false
-        unreadBadge.font = .systemFont(ofSize: 11, weight: .bold)
-        unreadBadge.textColor = .white
-        unreadBadge.backgroundColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
-        unreadBadge.textAlignment = .center
-        unreadBadge.layer.cornerRadius = 9
+        unreadBadge.layer.cornerRadius = 11
+        unreadBadge.layer.cornerCurve = .continuous
         unreadBadge.clipsToBounds = true
+        unreadBadge.layer.borderWidth = 0.5
+        unreadBadge.layer.borderColor = UIColor.white.withAlphaComponent(0.55).cgColor
+        unreadBadge.contentView.backgroundColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 0.55)
         unreadBadge.isHidden = true
+        unreadLabel.translatesAutoresizingMaskIntoConstraints = false
+        unreadLabel.font = .systemFont(ofSize: 11, weight: .bold)
+        unreadLabel.textColor = .white
+        unreadLabel.textAlignment = .center
+        unreadBadge.contentView.addSubview(unreadLabel)
         contentView.addSubview(unreadBadge)
 
         NSLayoutConstraint.activate([
@@ -179,8 +186,12 @@ final class NativeChatRowCell: UITableViewCell {
 
             unreadBadge.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             unreadBadge.centerYAnchor.constraint(equalTo: messageLabel.centerYAnchor),
-            unreadBadge.heightAnchor.constraint(equalToConstant: 18),
-            unreadBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 18),
+            unreadBadge.heightAnchor.constraint(equalToConstant: 22),
+            unreadBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 22),
+            unreadLabel.centerXAnchor.constraint(equalTo: unreadBadge.contentView.centerXAnchor),
+            unreadLabel.centerYAnchor.constraint(equalTo: unreadBadge.contentView.centerYAnchor),
+            unreadLabel.leadingAnchor.constraint(greaterThanOrEqualTo: unreadBadge.contentView.leadingAnchor, constant: 7),
+            unreadLabel.trailingAnchor.constraint(lessThanOrEqualTo: unreadBadge.contentView.trailingAnchor, constant: -7),
         ])
     }
 
@@ -190,7 +201,7 @@ final class NativeChatRowCell: UITableViewCell {
         timeLabel.text = row.time
         if row.unread > 0 {
             unreadBadge.isHidden = false
-            unreadBadge.text = "  \(row.unread)  "
+            unreadLabel.text = row.unread > 99 ? "99+" : "\(row.unread)"
         } else {
             unreadBadge.isHidden = true
         }
