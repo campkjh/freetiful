@@ -217,7 +217,7 @@ enum NativeHomeData {
     private static func filterCategory(_ index: Int, _ pros: [[String: Any]]) -> [[String: Any]] {
         switch index {
         case 1: return pros   // 결혼식사회자 = 승인+비숨김 전체 노출
-        case 2: return pros.filter { isEvent($0) }
+        case 2: return pros   // 행사사회자 = 결혼식사회자와 동일(전체)
         case 3: return pros.filter { !strArr($0["languages"]).isEmpty }
         default: return pros
         }
