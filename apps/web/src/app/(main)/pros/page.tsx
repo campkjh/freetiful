@@ -725,19 +725,7 @@ function ProsListContent() {
 
       {/* Result count + sort dropdown */}
       <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white">
-        <p className="text-[13px] text-gray-500">
-          사회자{' '}
-          <motion.span
-            key={filtered.length}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.16, ease: PANEL_EASE }}
-            className="inline-block font-bold text-gray-900"
-          >
-            {filtered.length}
-          </motion.span>
-          명
-        </p>
+        <span />
         <div className="flex items-center gap-2">
           <select
             value={sortBy}
