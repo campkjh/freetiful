@@ -45,6 +45,9 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     private var catLists: [UIStackView] = []
     private var catEmpties: [UILabel] = []
     private var currentTab = 0
+    // 카테고리 탭(1~3)에서 네비바 위에 뜨는 '홈 전체로' 알약 글래스
+    private let homePill = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    private var homePillShown = false
 
     private var topInset: CGFloat = 0
     private var bottomInset: CGFloat = 0
@@ -174,10 +177,72 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         }
     }
 
+    private func ensureHomePill() {
+        guard homePill.superview == nil else { return }
+        homePill.translatesAutoresizingMaskIntoConstraints = false
+        homePill.layer.cornerRadius = 21
+        homePill.layer.cornerCurve = .continuous
+        homePill.clipsToBounds = true
+        homePill.layer.borderWidth = 0.5
+        homePill.layer.borderColor = UIColor.white.withAlphaComponent(0.25).cgColor
+        homePill.contentView.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        homePill.alpha = 0
+        homePill.isHidden = true
+
+        var cfg = UIButton.Configuration.plain()
+        cfg.image = UIImage(systemName: "house.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold))
+        cfg.title = "홈 전체"
+        cfg.imagePadding = 6
+        cfg.baseForegroundColor = .white
+        cfg.contentInsets = NSDirectionalEdgeInsets(top: 11, leading: 18, bottom: 11, trailing: 18)
+        cfg.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { var o = $0; o.font = .systemFont(ofSize: 13.5, weight: .bold); return o }
+        let btn = UIButton(configuration: cfg)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.addAction(UIAction { [weak self] _ in
+            Haptics.tap()
+            self?.showTab(0, animated: true)
+        }, for: .touchUpInside)
+        homePill.contentView.addSubview(btn)
+        addSubview(homePill)
+        NSLayoutConstraint.activate([
+            homePill.centerXAnchor.constraint(equalTo: centerXAnchor),
+            // 하단 네비바(높이 62, 하단 여백 8) 바로 위 8px
+            homePill.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -(8 + 62 + 8)),
+            homePill.heightAnchor.constraint(equalToConstant: 42),
+            btn.topAnchor.constraint(equalTo: homePill.contentView.topAnchor),
+            btn.bottomAnchor.constraint(equalTo: homePill.contentView.bottomAnchor),
+            btn.leadingAnchor.constraint(equalTo: homePill.contentView.leadingAnchor),
+            btn.trailingAnchor.constraint(equalTo: homePill.contentView.trailingAnchor),
+        ])
+    }
+    private func updateHomePill() {
+        ensureHomePill()
+        let show = currentTab != 0
+        guard show != homePillShown else { return }
+        homePillShown = show
+        if show {
+            homePill.isHidden = false
+            homePill.transform = CGAffineTransform(translationX: 0, y: 26)
+            UIView.animate(withDuration: 0.55, delay: 0.05, usingSpringWithDamping: 0.78, initialSpringVelocity: 0.6, options: [.curveEaseOut]) {
+                self.homePill.alpha = 1
+                self.homePill.transform = .identity
+            }
+        } else {
+            UIView.animate(withDuration: 0.22, animations: {
+                self.homePill.alpha = 0
+                self.homePill.transform = CGAffineTransform(translationX: 0, y: 22)
+            }) { _ in
+                self.homePill.isHidden = true
+                self.homePill.transform = .identity
+            }
+        }
+    }
+
     func showTab(_ tab: Int, animated: Bool) {
         guard tab >= 0, tab < tabTitles.count else { return }
         currentTab = tab
         categoryTabs.select(tab)
+        updateHomePill()
         scrollPageToTop(tab)   // 탭 전환 시 목적 페이지를 항상 최상단에서 시작
         let w = pager.bounds.width
         if w > 0 { pager.setContentOffset(CGPoint(x: CGFloat(tab) * w, y: 0), animated: animated) }
@@ -196,6 +261,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         if tab != currentTab {
             currentTab = tab
             categoryTabs.select(tab)
+            updateHomePill()   // 카테고리 탭이면 '홈 전체' 알약 등장
             Haptics.tap() // 스와이프 전환 진동
         }
     }
