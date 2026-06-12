@@ -388,7 +388,7 @@ final class NativeCategoryListContent: UIView {
     private func applyLoaded() {
         spinner.stopAnimating()
         let n = mode == .pro ? proRows.count : bizRows.count
-        countLabel.text = mode == .pro ? "사회자 \(n)명" : "웨딩파트너 \(n)곳"
+        countLabel.text = ""   // 인원수 표기 제거 (사용자 요청)
         emptyLabel.isHidden = n > 0
         table.reloadData()
     }
