@@ -2233,8 +2233,8 @@ export default function ProDetailPage() {
         </div>
 
         {pro.youtubeVideos.length > 0 && (
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-[15px] font-bold text-gray-900">영상 리스트</h3>
+          <div className="mt-5">
+            <h3 className="mb-3 text-[15px] font-bold text-gray-900">진행 영상</h3>
             <div className="space-y-3">
               {pro.youtubeVideos.map((video) => (
                 <div key={`mobile-info-${video.id}`}>
