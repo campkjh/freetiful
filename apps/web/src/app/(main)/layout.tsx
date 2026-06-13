@@ -229,6 +229,60 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     return () => { try { delete (window as any).__freetifulNavigate; } catch {} };
   }, [router]);
 
+  // 네이티브 새요청 → 채팅 열기 (전역 폴백) — 새요청 페이지가 아직 마운트 안 됐어도 동작.
+  // 기존엔 페이지의 __freetifulInquiryList.invokeChat 에만 의존 → 네이티브가 캐시/직접조회로
+  // 먼저 그려진 상태에서 탭하면 브리지 부재로 조용히 무반응(채팅창 안 뜸)이던 버그 수정.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as any).__freetifulInquiryOpenChat = async (id: string): Promise<string> => {
+      try {
+        // 1) 새요청 페이지가 떠 있고 해당 요청을 들고 있으면 그쪽이 정확(상태/캐시 갱신) — 우선 사용
+        const pageList = (window as any).__freetifulInquiryList;
+        if (pageList?.invokeChat) {
+          const items = (pageList.getItems?.() || []) as any[];
+          if (!items.length || items.some((x) => x?.id === id)) {
+            pageList.invokeChat(id);
+            return 'page';
+          }
+          // 페이지는 떠 있지만 목록에 없음(페이지네이션/필터 차이) → 폴백으로 진행
+        }
+        // 2) 폴백 — 캐시 또는 서버에서 delivery 해석 → 방 생성 → 이동
+        const uid = useAuthStore.getState().user?.id;
+        let customerId = '';
+        let matchRequestId: string | undefined;
+        try {
+          const raw = (uid && localStorage.getItem(`freetiful-pro-simple-requests-cache-v1:${uid}`))
+            || localStorage.getItem('freetiful-pro-simple-requests-cache-v1');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const arr = Array.isArray(parsed?.data) ? parsed.data : (Array.isArray(parsed) ? parsed : []);
+            const row = arr.find((x: any) => x?.id === id);
+            if (row) { customerId = row.customerId || ''; matchRequestId = row.matchRequestId; }
+          }
+        } catch {}
+        if (!customerId) {
+          // 캐시 미스 — 서버에서 직접 조회
+          const { matchApi } = await import('@/lib/api/match.api');
+          const res: any = await matchApi.getProRequests({ limit: 100, skip: 0 });
+          const items: any[] = Array.isArray(res) ? res : (res?.items || res?.data || res?.requests || []);
+          const d = items.find((x: any) => x?.id === id);
+          if (d) { customerId = d.matchRequest?.user?.id || ''; matchRequestId = d.matchRequestId; }
+        }
+        if (!customerId) return 'fail:요청 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.';
+        const { chatApi } = await import('@/lib/api/chat.api');
+        const cr: any = await chatApi.createRoomAsPro(customerId, matchRequestId);
+        const roomId = cr?.data?.id || cr?.id;
+        if (!roomId) return 'fail:채팅방 생성에 실패했습니다.';
+        window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+        router.push(`/chat/${roomId}`);
+        return 'ok';
+      } catch (e: any) {
+        return 'fail:' + (e?.response?.data?.message || e?.message || '채팅 연결에 실패했습니다.');
+      }
+    };
+    return () => { try { delete (window as any).__freetifulInquiryOpenChat; } catch {} };
+  }, [router]);
+
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
     const handler = () => {

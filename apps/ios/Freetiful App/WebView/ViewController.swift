@@ -1556,8 +1556,25 @@ class ViewController: UIViewController,
     }
 
     // MARK: - NativeInquiryContentDelegate
+    private var inquiryChatOpening = false
     func inquiryDidTapChat(_ id: String) {
-        webView.evaluateJavaScript("window.__freetifulInquiryList && window.__freetifulInquiryList.invokeChat && window.__freetifulInquiryList.invokeChat(\(jsLiteral(id)));", completionHandler: nil)
+        guard !inquiryChatOpening else { return }   // 중복 탭 방지
+        inquiryChatOpening = true
+        // 전역 브리지 우선(페이지 미마운트여도 동작) → 결과로 피드백. 조용한 무반응 버그 수정.
+        let js = """
+        if (window.__freetifulInquiryOpenChat) { return await window.__freetifulInquiryOpenChat(\(jsLiteral(id))); }
+        if (window.__freetifulInquiryList && window.__freetifulInquiryList.invokeChat) { window.__freetifulInquiryList.invokeChat(\(jsLiteral(id))); return 'page'; }
+        return 'fail:준비 중입니다. 잠시 후 다시 시도해주세요.';
+        """
+        webView.callAsyncJavaScript(js, arguments: [:], in: nil, in: .page) { [weak self] result in
+            guard let self = self else { return }
+            self.inquiryChatOpening = false
+            let r = ((try? result.get()) as? String) ?? "fail:채팅 연결에 실패했습니다."
+            if r.hasPrefix("fail:") {
+                self.showNativeToast(String(r.dropFirst(5)))
+            }
+            // 'ok'/'page' → 경로 변경이 채팅 상세 오버레이를 띄움(별도 피드백 불필요)
+        }
     }
     func inquiryDidTapReject(_ id: String) {
         // 거절 사유 글래스 모달 → 작성 후 전송해야 거절
