@@ -747,41 +747,28 @@ export class ChatService implements OnModuleInit {
       throw new BadRequestException('본인과는 채팅을 시작할 수 없습니다');
     }
 
-    // 독립 조회(매칭딜리버리 · 기존 룸)를 병렬로 — 순차 DB 왕복 단축(방생성 지연 개선).
-    // 딜리버리에 고객 user 필드까지 함께 select 해 별도 customer 조회(아래)도 제거.
-    const customerParticipantUserIds = await this.getChatParticipantUserIds(dto.customerUserId);
-    const [deliveryToAccept, existing] = await Promise.all([
-      (dto.matchDeliveryId || dto.matchRequestId)
-        ? this.prisma.matchDelivery.findFirst({
-            where: {
-              ...(dto.matchDeliveryId ? { id: dto.matchDeliveryId } : {}),
-              ...(dto.matchRequestId ? { matchRequestId: dto.matchRequestId } : {}),
-              proProfileId: proProfile.id,
-            },
-            select: {
-              id: true,
-              matchRequestId: true,
-              status: true,
-              matchRequest: {
-                select: {
-                  userId: true,
-                  user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
-                },
+    // 순차 조회 — Supabase 작은 커넥션 풀에서 동시(Promise.all) 쿼리는 풀 고갈→P2024 타임아웃(500) 유발.
+    // 딜리버리 select 에 고객 user 까지 포함해 별도 customer 조회(아래)는 제거(왕복 1회 절약, 동시성 증가 없음).
+    const deliveryToAccept = (dto.matchDeliveryId || dto.matchRequestId)
+      ? await this.prisma.matchDelivery.findFirst({
+          where: {
+            ...(dto.matchDeliveryId ? { id: dto.matchDeliveryId } : {}),
+            ...(dto.matchRequestId ? { matchRequestId: dto.matchRequestId } : {}),
+            proProfileId: proProfile.id,
+          },
+          select: {
+            id: true,
+            matchRequestId: true,
+            status: true,
+            matchRequest: {
+              select: {
+                userId: true,
+                user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
               },
             },
-          })
-        : Promise.resolve(null),
-      this.prisma.chatRoom.findFirst({
-        where: {
-          proProfileId: proProfile.id,
-          OR: this.fastChatRoomParticipantWhere(customerParticipantUserIds),
-        },
-        include: {
-          user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
-          members: { where: { userId: proUserId } },
-        },
-      }),
-    ]);
+          },
+        })
+      : null;
     if (dto.matchDeliveryId || dto.matchRequestId) {
       if (!deliveryToAccept) {
         throw new ForbiddenException('해당 매칭 요청에 대한 권한이 없습니다');
@@ -791,6 +778,18 @@ export class ChatService implements OnModuleInit {
       }
     }
     const effectiveMatchRequestId = dto.matchRequestId ?? deliveryToAccept?.matchRequestId;
+
+    const customerParticipantUserIds = await this.getChatParticipantUserIds(dto.customerUserId);
+    const existing = await this.prisma.chatRoom.findFirst({
+      where: {
+        proProfileId: proProfile.id,
+        OR: this.fastChatRoomParticipantWhere(customerParticipantUserIds),
+      },
+      include: {
+        user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+        members: { where: { userId: proUserId } },
+      },
+    });
     if (existing) {
       await this.prisma.chatRoom.update({
         where: { id: existing.id },
