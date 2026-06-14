@@ -732,6 +732,9 @@ export class ChatService implements OnModuleInit {
 
   /** 전문가가 매칭 요청을 받고 먼저 고객에게 채팅을 거는 경우 */
   async createRoomAsPro(proUserId: string, dto: CreateRoomAsProDto) {
+    // [임시계측] 쿼리별 소요시간 → 응답 _t 로 반환(기기 로그로 병목 확정). 진단 후 제거.
+    const _t: Record<string, number> = {};
+    let _s = Date.now();
     // 호출자의 proProfile 확인
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { userId: proUserId },
@@ -742,6 +745,7 @@ export class ChatService implements OnModuleInit {
         images: { where: { isPrimary: true }, take: 1 },
       },
     });
+    _t.proProfile = Date.now() - _s; _s = Date.now();
     if (!proProfile) throw new ForbiddenException('전문가 프로필이 없습니다');
     if (proProfile.userId === dto.customerUserId) {
       throw new BadRequestException('본인과는 채팅을 시작할 수 없습니다');
@@ -777,6 +781,7 @@ export class ChatService implements OnModuleInit {
         throw new ForbiddenException('요청 고객 정보가 일치하지 않습니다');
       }
     }
+    _t.delivery = Date.now() - _s; _s = Date.now();
     const effectiveMatchRequestId = dto.matchRequestId ?? deliveryToAccept?.matchRequestId;
 
     const customerParticipantUserIds = await this.getChatParticipantUserIds(dto.customerUserId);
@@ -828,12 +833,14 @@ export class ChatService implements OnModuleInit {
       };
     }
 
+    _t.existingRoomFind = Date.now() - _s; _s = Date.now();
     // 딜리버리에서 이미 고객 정보를 받았으면 재사용(왕복 1회 절약), 없으면 조회
     const customer = deliveryToAccept?.matchRequest?.user
       ?? await this.prisma.user.findUnique({
         where: { id: dto.customerUserId },
         select: { id: true, name: true, profileImageUrl: true, isActive: true },
       });
+    _t.customer = Date.now() - _s; _s = Date.now();
     if (!customer) throw new NotFoundException('고객을 찾을 수 없습니다');
 
     const room = await this.prisma.chatRoom.create({
@@ -851,6 +858,7 @@ export class ChatService implements OnModuleInit {
         },
       },
     });
+    _t.createRoom = Date.now() - _s; _s = Date.now();
     const systemMessage = await this.prisma.message.create({
       data: {
         roomId: room.id,
@@ -860,10 +868,12 @@ export class ChatService implements OnModuleInit {
       },
       select: { id: true, createdAt: true },
     });
+    _t.message = Date.now() - _s; _s = Date.now();
     await this.prisma.chatRoom.update({
       where: { id: room.id },
       data: { lastMessageId: systemMessage.id, lastMessageAt: systemMessage.createdAt },
     });
+    _t.updateRoom = Date.now() - _s;
 
     this.invalidateRoomsCache(dto.customerUserId);
     this.invalidateRoomsCache(proUserId);
@@ -892,7 +902,8 @@ export class ChatService implements OnModuleInit {
       iAmPro: true,
       matchRequestId: room.matchRequestId,
       latestQuotationStatus: null,
-    };
+      _t,
+    } as any;
   }
 
   async getRooms(userId: string, query: ChatRoomQueryDto) {
