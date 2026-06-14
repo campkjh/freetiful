@@ -395,6 +395,37 @@ enum NativeHomeData {
         task.resume()
     }
 
+    // 사회자가 매칭요청 기반으로 채팅방 직접 생성 (웹뷰 JS/캐시 우회 — 새요청 fetch 와 동일 고속 세션)
+    static func createRoomAsPro(customerUserId: String, matchRequestId: String, token: String, _ done: @escaping (String?) -> Void) {
+        guard !token.isEmpty, !customerUserId.isEmpty, let url = URL(string: "\(base)/chat/rooms/pro-initiate") else {
+            DispatchQueue.main.async { done(nil) }; return
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var bodyDict: [String: Any] = ["customerUserId": customerUserId]
+        if !matchRequestId.isEmpty { bodyDict["matchRequestId"] = matchRequestId }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
+        let started = Date()
+        let task = prioritySession.dataTask(with: req) { data, resp, _ in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            let ms = Int(Date().timeIntervalSince(started) * 1000)
+            NSLog("[ft.perf] POST /chat/rooms/pro-initiate → %d (%dms)", code, ms)
+            var roomId: String? = nil
+            if let data = data, (200...299).contains(code),
+               let obj = try? JSONSerialization.jsonObject(with: data) {
+                if let dict = obj as? [String: Any] {
+                    roomId = (dict["id"] as? String) ?? ((dict["data"] as? [String: Any])?["id"] as? String)
+                }
+            }
+            DispatchQueue.main.async { done(roomId) }
+        }
+        task.priority = URLSessionTask.highPriority
+        task.resume()
+    }
+
     // ─── 새요청(매칭 딜리버리) 직접 fetch — 웹뷰 로드/페이지 마운트 대기 없이 즉시 ───
     // 행 형태는 웹 inquiries 페이지의 네이티브 매핑과 동일 (applyInquiryRows 가 그대로 소비)
     static func loadProInquiries(token: String, _ done: @escaping ([[String: Any]]?) -> Void) {
@@ -420,6 +451,8 @@ enum NativeHomeData {
         let eventPart = (raw["eventPart"] as? String) ?? ""
         return [
             "id": (d["id"] as? String) ?? "",
+            "customerId": (user["id"] as? String) ?? "",
+            "matchRequestId": (d["matchRequestId"] as? String) ?? (mr["id"] as? String) ?? "",
             "name": (user["name"] as? String) ?? "고객",
             "image": (user["profileImageUrl"] as? String) ?? "/images/default-profile.png",
             "kind": kind,

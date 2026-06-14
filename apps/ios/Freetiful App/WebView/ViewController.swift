@@ -1455,6 +1455,8 @@ class ViewController: UIViewController,
             let parts = (d["parts"] as? [String]) ?? []
             return NativeInquiryItem(
                 id: id,
+                customerId: (d["customerId"] as? String) ?? "",
+                matchRequestId: (d["matchRequestId"] as? String) ?? "",
                 name: (d["name"] as? String) ?? "고객",
                 image: (d["image"] as? String) ?? "",
                 kindLabel: (d["kindLabel"] as? String) ?? "",
@@ -1557,10 +1559,32 @@ class ViewController: UIViewController,
 
     // MARK: - NativeInquiryContentDelegate
     private var inquiryChatOpening = false
-    func inquiryDidTapChat(_ id: String) {
+    func inquiryDidTapChat(_ id: String, customerId: String, matchRequestId: String) {
         guard !inquiryChatOpening else { return }   // 중복 탭 방지
         inquiryChatOpening = true
-        // 전역 브리지 우선(페이지 미마운트여도 동작) → 결과로 피드백. 조용한 무반응 버그 수정.
+        let token = nativeAuthToken
+        // 1순위: 네이티브 직접 방생성 (웹뷰 JS+캐시+getProRequests 우회 → 느린 40초 경로 제거)
+        if !customerId.isEmpty, !token.isEmpty {
+            showNativeToast("채팅방을 여는 중…")
+            NativeHomeData.createRoomAsPro(customerUserId: customerId, matchRequestId: matchRequestId, token: token) { [weak self] roomId in
+                guard let self = self else { return }
+                if let roomId = roomId, !roomId.isEmpty {
+                    self.inquiryChatOpening = false
+                    // 목록에서 제거되도록 웹에 알림(백그라운드) + 채팅으로 이동
+                    self.webView.evaluateJavaScript("try{window.dispatchEvent(new Event('freetiful:match-requests-changed'))}catch(e){}", completionHandler: nil)
+                    self.navigateNativeWeb(to: "/chat/\(roomId)")
+                } else {
+                    // 직접 생성 실패 → 웹 브리지로 폴백
+                    self.openChatViaWebBridge(id)
+                }
+            }
+        } else {
+            openChatViaWebBridge(id)
+        }
+    }
+    // 폴백: 전역 웹 브리지(페이지 미마운트여도 동작) → 결과 기반 피드백
+    private func openChatViaWebBridge(_ id: String) {
+        inquiryChatOpening = true
         let js = """
         if (window.__freetifulInquiryOpenChat) { return await window.__freetifulInquiryOpenChat(\(jsLiteral(id))); }
         if (window.__freetifulInquiryList && window.__freetifulInquiryList.invokeChat) { window.__freetifulInquiryList.invokeChat(\(jsLiteral(id))); return 'page'; }

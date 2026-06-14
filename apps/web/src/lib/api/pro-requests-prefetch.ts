@@ -82,6 +82,8 @@ function postRowsToNative(mapped: any[]) {
     .filter((r: any) => r.status !== 'archived')
     .map((r: any) => ({
       id: r.id,
+      customerId: r.customerId,
+      matchRequestId: r.matchRequestId,
       name: r.customerName,
       image: r.customerImage,
       kind: r.requestKind,

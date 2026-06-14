@@ -4,6 +4,8 @@ import Lottie
 // 새요청(사회자 매칭 요청) 한 카드 (웹 window.__freetifulInquiryList.getItems() 에서 전달)
 struct NativeInquiryItem {
     let id: String
+    let customerId: String
+    let matchRequestId: String
     let name: String
     let image: String
     let kindLabel: String
@@ -17,7 +19,7 @@ struct NativeInquiryItem {
 }
 
 protocol NativeInquiryContentDelegate: AnyObject {
-    func inquiryDidTapChat(_ id: String)
+    func inquiryDidTapChat(_ id: String, customerId: String, matchRequestId: String)
     func inquiryDidTapReject(_ id: String)
     func inquiryDidArchive(_ id: String)
     func inquiryDidPullRefresh()
@@ -226,7 +228,7 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "card", for: indexPath) as! NativeInquiryCardCell
         cell.configure(items[indexPath.row])
-        cell.onChat = { [weak self] id in self?.delegate?.inquiryDidTapChat(id) }
+        cell.onChat = { [weak self] item in self?.delegate?.inquiryDidTapChat(item.id, customerId: item.customerId, matchRequestId: item.matchRequestId) }
         cell.onReject = { [weak self] id in self?.delegate?.inquiryDidTapReject(id) }
         return cell
     }
@@ -247,9 +249,10 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
 
 // MARK: - 카드 셀
 final class NativeInquiryCardCell: UITableViewCell {
-    var onChat: ((String) -> Void)?
+    var onChat: ((NativeInquiryItem) -> Void)?
     var onReject: ((String) -> Void)?
     private var currentId = ""
+    private var current: NativeInquiryItem?
     private var currentImageURL = ""
 
     private let card = UIView()
@@ -434,10 +437,11 @@ final class NativeInquiryCardCell: UITableViewCell {
     }
 
     @objc private func tapReject() { Haptics.tap(); onReject?(currentId) }
-    @objc private func tapChat() { Haptics.tap(); onChat?(currentId) }
+    @objc private func tapChat() { Haptics.tap(); if let c = current { onChat?(c) } }
 
     func configure(_ item: NativeInquiryItem) {
         currentId = item.id
+        current = item
         badge.text = item.kindLabel
         if item.isMulti {
             badge.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
