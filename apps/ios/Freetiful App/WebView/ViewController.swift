@@ -1563,23 +1563,25 @@ class ViewController: UIViewController,
         guard !inquiryChatOpening else { return }   // 중복 탭 방지
         inquiryChatOpening = true
         let token = nativeAuthToken
-        // 1순위: 네이티브 직접 방생성 (웹뷰 JS+캐시+getProRequests 우회 → 느린 40초 경로 제거)
-        if !customerId.isEmpty, !token.isEmpty {
-            showNativeToast("채팅방을 여는 중…")
-            NativeHomeData.createRoomAsPro(customerUserId: customerId, matchRequestId: matchRequestId, token: token) { [weak self] roomId in
-                guard let self = self else { return }
-                if let roomId = roomId, !roomId.isEmpty {
-                    self.inquiryChatOpening = false
-                    // 목록에서 제거되도록 웹에 알림(백그라운드) + 채팅으로 이동
-                    self.webView.evaluateJavaScript("try{window.dispatchEvent(new Event('freetiful:match-requests-changed'))}catch(e){}", completionHandler: nil)
-                    self.navigateNativeWeb(to: "/chat/\(roomId)")
-                } else {
-                    // 직접 생성 실패 → 웹 브리지로 폴백
-                    self.openChatViaWebBridge(id)
-                }
+        let openRoom: (String?) -> Void = { [weak self] roomId in
+            guard let self = self else { return }
+            if let roomId = roomId, !roomId.isEmpty {
+                self.inquiryChatOpening = false
+                self.webView.evaluateJavaScript("try{window.dispatchEvent(new Event('freetiful:match-requests-changed'))}catch(e){}", completionHandler: nil)
+                self.navigateNativeWeb(to: "/chat/\(roomId)")
+            } else {
+                self.openChatViaWebBridge(id)   // 직접 경로 실패 → 웹 브리지 폴백
             }
+        }
+        guard !token.isEmpty else { openChatViaWebBridge(id); return }
+        showNativeToast("채팅방을 여는 중…")
+        if !customerId.isEmpty {
+            // 1순위: 행에 customerId 있음 → 바로 방생성 (1콜)
+            NativeHomeData.createRoomAsPro(customerUserId: customerId, matchRequestId: matchRequestId, token: token, openRoom)
         } else {
-            openChatViaWebBridge(id)
+            // 오래된 캐시 행(customerId 없음) → 고속 직접 세션으로 재조회+해석 후 방생성
+            // (느린 웹 폴백/getProRequests-콜드 경로 회피)
+            NativeHomeData.openChatResolving(deliveryId: id, token: token, openRoom)
         }
     }
     // 폴백: 전역 웹 브리지(페이지 미마운트여도 동작) → 결과 기반 피드백

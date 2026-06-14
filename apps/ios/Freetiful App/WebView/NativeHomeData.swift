@@ -426,6 +426,24 @@ enum NativeHomeData {
         task.resume()
     }
 
+    // 오래된 캐시 행(customerId 없음)도 빠른 직접 경로로 처리:
+    // 고속 직접 세션으로 목록 재조회 → 해당 delivery 의 customerId/matchRequestId 해석 → 방생성.
+    // (느린 웹 폴백/getProRequests-콜드 경로를 타지 않게)
+    static func openChatResolving(deliveryId: String, token: String, _ done: @escaping (String?) -> Void) {
+        guard !token.isEmpty, !deliveryId.isEmpty else { DispatchQueue.main.async { done(nil) }; return }
+        authedGET("\(base)/match/pro/requests?limit=100", token: token) { _, obj in
+            guard let arr = obj as? [[String: Any]],
+                  let d = arr.first(where: { ($0["id"] as? String) == deliveryId }) else {
+                DispatchQueue.main.async { done(nil) }; return
+            }
+            let mr = d["matchRequest"] as? [String: Any] ?? [:]
+            let customerId = ((mr["user"] as? [String: Any])?["id"] as? String) ?? ""
+            let matchRequestId = (d["matchRequestId"] as? String) ?? (mr["id"] as? String) ?? ""
+            guard !customerId.isEmpty else { DispatchQueue.main.async { done(nil) }; return }
+            createRoomAsPro(customerUserId: customerId, matchRequestId: matchRequestId, token: token, done)
+        }
+    }
+
     // ─── 새요청(매칭 딜리버리) 직접 fetch — 웹뷰 로드/페이지 마운트 대기 없이 즉시 ───
     // 행 형태는 웹 inquiries 페이지의 네이티브 매핑과 동일 (applyInquiryRows 가 그대로 소비)
     static func loadProInquiries(token: String, _ done: @escaping ([[String: Any]]?) -> Void) {
