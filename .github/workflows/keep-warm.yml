@@ -1,0 +1,22 @@
+# Railway API 콜드스타트 방지 — 5분마다 health 핑으로 컨테이너/DB풀을 깨워둔다.
+# (새요청→채팅 등 첫 액션이 ~30초 콜드부팅을 기다리던 문제 완화)
+name: keep-api-warm
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # 5분마다 (GitHub Actions 최소 주기)
+  workflow_dispatch: {}        # 수동 실행 허용
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping health + warm hot paths
+        run: |
+          for url in \
+            "https://freetiful.com/api/v1/health" \
+            "https://freetiful.com/api/v1/discovery/pros?limit=1&withTotal=false"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$url" || echo "000")
+            echo "$url -> $code"
+          done
