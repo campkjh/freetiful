@@ -321,6 +321,8 @@ export default function ProRequestsPage() {
     requestsRef.current = requests;
     inquiryItemsRef.current = filtered.map((r) => ({
       id: r.id,
+      customerId: r.customerId,
+      matchRequestId: r.matchRequestId,
       name: r.customerName,
       image: r.customerImage,
       kind: r.requestKind,
