@@ -1563,6 +1563,9 @@ class ViewController: UIViewController,
         guard !inquiryChatOpening else { return }   // 중복 탭 방지
         inquiryChatOpening = true
         let token = nativeAuthToken
+        NSLog("[ft.perf] inquiry TAP: customerId=%@ matchReq=%@ token=%dchars path=%@",
+              customerId.isEmpty ? "EMPTY" : "ok", matchRequestId.isEmpty ? "EMPTY" : "ok",
+              token.count, token.isEmpty ? "webBridge" : (customerId.isEmpty ? "resolve" : "direct"))
         let openRoom: (String?) -> Void = { [weak self] roomId in
             guard let self = self else { return }
             if let roomId = roomId, !roomId.isEmpty {
@@ -1626,6 +1629,7 @@ class ViewController: UIViewController,
 
     private func handleNativeChatMessages(_ body: Any) {
         guard nativeNavigationEnabled, let arr = body as? [[String: Any]] else { return }
+        NSLog("[ft.perf] chat messages arrived: %d", arr.count)
         let msgs: [NativeChatMessage] = arr.compactMap { d in
             guard let id = d["id"] as? String else { return nil }
             return NativeChatMessage(
