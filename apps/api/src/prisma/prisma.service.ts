@@ -25,7 +25,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   // DB 커넥션 풀 워밍 — 20초마다 단일 가벼운 쿼리.
   // 주의: 병렬 N개로 데우려다 작은 풀(Supabase)을 keepalive 가 점유 → 요청과 경쟁해
   //   오히려 P2024(풀 타임아웃, 500) 유발했음. 동시성 0 인 단일 쿼리로 유지.
-  @Interval(20000)
+  // 5초 주기 — 연결을 항상 핫하게 유지(첫 쿼리 cold 커넥션 수립 4~9초 방지 검증용).
+  @Interval(5000)
   async keepConnectionWarm() {
     try {
       await this.$queryRaw`SELECT 1`;
