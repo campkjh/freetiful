@@ -747,26 +747,42 @@ export class ChatService implements OnModuleInit {
       throw new BadRequestException('본인과는 채팅을 시작할 수 없습니다');
     }
 
-    let deliveryToAccept: {
-      id: string;
-      matchRequestId: string;
-      status: string;
-      matchRequest: { userId: string };
-    } | null = null;
-    if (dto.matchDeliveryId || dto.matchRequestId) {
-      deliveryToAccept = await this.prisma.matchDelivery.findFirst({
+    // 독립 조회(매칭딜리버리 · 기존 룸)를 병렬로 — 순차 DB 왕복 단축(방생성 지연 개선).
+    // 딜리버리에 고객 user 필드까지 함께 select 해 별도 customer 조회(아래)도 제거.
+    const customerParticipantUserIds = await this.getChatParticipantUserIds(dto.customerUserId);
+    const [deliveryToAccept, existing] = await Promise.all([
+      (dto.matchDeliveryId || dto.matchRequestId)
+        ? this.prisma.matchDelivery.findFirst({
+            where: {
+              ...(dto.matchDeliveryId ? { id: dto.matchDeliveryId } : {}),
+              ...(dto.matchRequestId ? { matchRequestId: dto.matchRequestId } : {}),
+              proProfileId: proProfile.id,
+            },
+            select: {
+              id: true,
+              matchRequestId: true,
+              status: true,
+              matchRequest: {
+                select: {
+                  userId: true,
+                  user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+                },
+              },
+            },
+          })
+        : Promise.resolve(null),
+      this.prisma.chatRoom.findFirst({
         where: {
-          ...(dto.matchDeliveryId ? { id: dto.matchDeliveryId } : {}),
-          ...(dto.matchRequestId ? { matchRequestId: dto.matchRequestId } : {}),
           proProfileId: proProfile.id,
+          OR: this.fastChatRoomParticipantWhere(customerParticipantUserIds),
         },
-        select: {
-          id: true,
-          matchRequestId: true,
-          status: true,
-          matchRequest: { select: { userId: true } },
+        include: {
+          user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
+          members: { where: { userId: proUserId } },
         },
-      });
+      }),
+    ]);
+    if (dto.matchDeliveryId || dto.matchRequestId) {
       if (!deliveryToAccept) {
         throw new ForbiddenException('해당 매칭 요청에 대한 권한이 없습니다');
       }
@@ -775,20 +791,6 @@ export class ChatService implements OnModuleInit {
       }
     }
     const effectiveMatchRequestId = dto.matchRequestId ?? deliveryToAccept?.matchRequestId;
-
-    const customerParticipantUserIds = await this.getChatParticipantUserIds(dto.customerUserId);
-
-    // 기존 룸 확인 (customer ↔ 이 pro)
-    const existing = await this.prisma.chatRoom.findFirst({
-      where: {
-        proProfileId: proProfile.id,
-        OR: this.fastChatRoomParticipantWhere(customerParticipantUserIds),
-      },
-      include: {
-        user: { select: { id: true, name: true, profileImageUrl: true, isActive: true } },
-        members: { where: { userId: proUserId } },
-      },
-    });
     if (existing) {
       await this.prisma.chatRoom.update({
         where: { id: existing.id },
@@ -827,10 +829,12 @@ export class ChatService implements OnModuleInit {
       };
     }
 
-    const customer = await this.prisma.user.findUnique({
-      where: { id: dto.customerUserId },
-      select: { id: true, name: true, profileImageUrl: true, isActive: true },
-    });
+    // 딜리버리에서 이미 고객 정보를 받았으면 재사용(왕복 1회 절약), 없으면 조회
+    const customer = deliveryToAccept?.matchRequest?.user
+      ?? await this.prisma.user.findUnique({
+        where: { id: dto.customerUserId },
+        select: { id: true, name: true, profileImageUrl: true, isActive: true },
+      });
     if (!customer) throw new NotFoundException('고객을 찾을 수 없습니다');
 
     const room = await this.prisma.chatRoom.create({

@@ -395,9 +395,13 @@ enum NativeHomeData {
         task.resume()
     }
 
+    private static func isUUID(_ s: String) -> Bool {
+        return UUID(uuidString: s) != nil
+    }
+
     // 사회자가 매칭요청 기반으로 채팅방 직접 생성 (웹뷰 JS/캐시 우회 — 새요청 fetch 와 동일 고속 세션)
     static func createRoomAsPro(customerUserId: String, matchRequestId: String, token: String, _ done: @escaping (String?) -> Void) {
-        guard !token.isEmpty, !customerUserId.isEmpty, let url = URL(string: "\(base)/chat/rooms/pro-initiate") else {
+        guard !token.isEmpty, isUUID(customerUserId), let url = URL(string: "\(base)/chat/rooms/pro-initiate") else {
             DispatchQueue.main.async { done(nil) }; return
         }
         var req = URLRequest(url: url)
@@ -406,7 +410,9 @@ enum NativeHomeData {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var bodyDict: [String: Any] = ["customerUserId": customerUserId]
-        if !matchRequestId.isEmpty { bodyDict["matchRequestId"] = matchRequestId }
+        // matchRequestId 는 UUID 일 때만 전송 — 옛 캐시의 비정형 값이 @IsUUID 검증에 걸려
+        // 400 나던 문제 방지(없어도 방 생성됨)
+        if isUUID(matchRequestId) { bodyDict["matchRequestId"] = matchRequestId }
         req.httpBody = try? JSONSerialization.data(withJSONObject: bodyDict)
         let started = Date()
         let task = prioritySession.dataTask(with: req) { data, resp, _ in
