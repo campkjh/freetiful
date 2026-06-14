@@ -17,6 +17,7 @@ export class HealthController {
       db = false;
     }
     // DB가 일시적으로 죽어도 컨테이너는 살아있으므로 200(ok:true) 유지 (배포 헬스체크 실패 방지)
-    return { ok: true, db, service: 'prettyful-api' };
+    // build: 배포 완료 시점 확인용 마커 (변경 배포마다 갱신)
+    return { ok: true, db, service: 'prettyful-api', build: 'seq-keepalive-1' };
   }
 }
