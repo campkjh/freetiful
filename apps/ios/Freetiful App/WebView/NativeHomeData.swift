@@ -424,8 +424,6 @@ enum NativeHomeData {
                let obj = try? JSONSerialization.jsonObject(with: data) {
                 if let dict = obj as? [String: Any] {
                     roomId = (dict["id"] as? String) ?? ((dict["data"] as? [String: Any])?["id"] as? String)
-                    // [임시계측] 서버 쿼리별 시간 — 병목 확정용
-                    if let t = dict["_t"] as? [String: Any] { NSLog("[ft.perf] createRoom timings: %@", "\(t)") }
                 }
             }
             DispatchQueue.main.async { done(roomId) }
