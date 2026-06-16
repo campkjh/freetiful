@@ -1,7 +1,7 @@
 import UIKit
 import AVFoundation
 
-// 웨딩홀 리스트 히어로 — 빌라드지디 청담 (영상 배경 + 로고 + 소개)
+// 웨딩홀 리스트 히어로 — 빌라드지디 안양 (영상 배경 + 로고 + 소개)
 // 영상/로고: Vercel Blob CDN. tableHeaderView 로 사용.
 final class NativeVilladegdHero: UIView {
     private static let videoURL = URL(string: "https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd/villadegd-hero.mp4")!
@@ -58,7 +58,7 @@ final class NativeVilladegdHero: UIView {
         card.addSubview(logoView)
 
         let title = UILabel()
-        title.text = "웨딩의 가장 완벽한 색감"
+        title.text = "빛과 웨딩이 어우러지다"
         title.font = .systemFont(ofSize: 26, weight: .bold)
         title.textColor = .white
         title.layer.shadowColor = UIColor.black.cgColor
@@ -68,14 +68,14 @@ final class NativeVilladegdHero: UIView {
         title.translatesAutoresizingMaskIntoConstraints = false
 
         let subtitle = UILabel()
-        subtitle.text = "도심 안에서 펼쳐지는 숲 속 웨딩, 신랑신부를 더욱 빛나게 하는 청담 빌라드지디"
+        subtitle.text = "최초 미디어아트 웨딩, 신랑신부의 스토리를 빛으로 담는 안양 빌라드지디"
         subtitle.font = .systemFont(ofSize: 13)
         subtitle.textColor = UIColor.white.withAlphaComponent(0.85)
         subtitle.numberOfLines = 2
         subtitle.translatesAutoresizingMaskIntoConstraints = false
 
         let location = UILabel()
-        location.text = "📍 서울 강남구 학동로 519 · 02-542-7513"
+        location.text = "📍 경기 안양시 동안구 관악대로 254 · 031-382-3838"
         location.font = .systemFont(ofSize: 11.5)
         location.textColor = UIColor.white.withAlphaComponent(0.65)
         location.translatesAutoresizingMaskIntoConstraints = false
@@ -84,7 +84,7 @@ final class NativeVilladegdHero: UIView {
         tagRow.axis = .horizontal
         tagRow.spacing = 6
         tagRow.translatesAutoresizingMaskIntoConstraints = false
-        for t in ["색으로 소통하는 공간", "나이트웨딩", "웨딩 뮤지컬"] {
+        for t in ["미디어아트 웨딩", "커스터마이징 웨딩", "하우스 웨딩"] {
             let tag = PaddingLabel3()
             tag.text = t
             tag.font = .systemFont(ofSize: 11, weight: .semibold)
