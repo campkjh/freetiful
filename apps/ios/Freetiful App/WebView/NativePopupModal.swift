@@ -8,6 +8,7 @@ final class NativePopupModalViewController: UIViewController {
     private let bannerId: String
     var onOpenLink: ((String) -> Void)?
 
+    private static let inset: CGFloat = 8
     private let dimView = UIView()
     private let card = UIView()
     private var cardBottom: NSLayoutConstraint?
@@ -33,7 +34,9 @@ final class NativePopupModalViewController: UIViewController {
 
         card.translatesAutoresizingMaskIntoConstraints = false
         card.backgroundColor = .white
-        card.layer.cornerRadius = 36
+        // 화면 곡률에서 8px 인셋만큼 줄여 동심원 곡률 (아이폰 화면 r - 여백)
+        let screenR = (UIScreen.main.value(forKey: "_displayCorner" + "Radius") as? CGFloat) ?? 52
+        card.layer.cornerRadius = max(20, screenR - Self.inset)
         card.layer.cornerCurve = .continuous
         card.clipsToBounds = true
         view.addSubview(card)
@@ -51,29 +54,14 @@ final class NativePopupModalViewController: UIViewController {
         // 닫기 X
         let closeBtn = UIButton(type: .system)
         closeBtn.translatesAutoresizingMaskIntoConstraints = false
-        closeBtn.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .bold)), for: .normal)
-        closeBtn.tintColor = .white
-        closeBtn.backgroundColor = UIColor.black.withAlphaComponent(0.45)
-        closeBtn.layer.cornerRadius = 18
+        closeBtn.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)), for: .normal)
+        closeBtn.tintColor = .black
+        closeBtn.backgroundColor = .clear
+        closeBtn.layer.cornerRadius = 17
+        closeBtn.layer.borderWidth = 1.2
+        closeBtn.layer.borderColor = UIColor.black.cgColor
         closeBtn.addTarget(self, action: #selector(close), for: .touchUpInside)
         card.addSubview(closeBtn)
-
-        // 하단 버튼바 (3일 안보기 / 닫기)
-        let hideBtn = UIButton(type: .system)
-        hideBtn.translatesAutoresizingMaskIntoConstraints = false
-        hideBtn.setTitle("3일 동안 안보기", for: .normal)
-        hideBtn.setTitleColor(UIColor(white: 0.45, alpha: 1), for: .normal)
-        hideBtn.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        hideBtn.addTarget(self, action: #selector(hideFor3Days), for: .touchUpInside)
-        card.addSubview(hideBtn)
-
-        let closeText = UIButton(type: .system)
-        closeText.translatesAutoresizingMaskIntoConstraints = false
-        closeText.setTitle("닫기", for: .normal)
-        closeText.setTitleColor(UIColor(white: 0.1, alpha: 1), for: .normal)
-        closeText.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
-        closeText.addTarget(self, action: #selector(close), for: .touchUpInside)
-        card.addSubview(closeText)
 
         let bottom = card.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: 600)
         cardBottom = bottom
@@ -83,31 +71,26 @@ final class NativePopupModalViewController: UIViewController {
             dimView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             dimView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: Self.inset),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Self.inset),
             bottom,
 
             imageView.topAnchor.constraint(equalTo: card.topAnchor),
             imageView.leadingAnchor.constraint(equalTo: card.leadingAnchor),
             imageView.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            imageView.bottomAnchor.constraint(equalTo: card.bottomAnchor),
             imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: 3.0 / 4.0),
 
             closeBtn.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
             closeBtn.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
-            closeBtn.widthAnchor.constraint(equalToConstant: 36),
-            closeBtn.heightAnchor.constraint(equalToConstant: 36),
-
-            hideBtn.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 6),
-            hideBtn.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
-            hideBtn.bottomAnchor.constraint(equalTo: card.safeAreaLayoutGuide.bottomAnchor, constant: -10),
-            closeText.centerYAnchor.constraint(equalTo: hideBtn.centerYAnchor),
-            closeText.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -22),
+            closeBtn.widthAnchor.constraint(equalToConstant: 34),
+            closeBtn.heightAnchor.constraint(equalToConstant: 34),
         ])
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        cardBottom?.constant = -max(view.safeAreaInsets.bottom, 12)
+        cardBottom?.constant = -Self.inset
         UIView.animate(withDuration: 0.42, delay: 0, usingSpringWithDamping: 0.84, initialSpringVelocity: 0.5, options: [.curveEaseOut]) {
             self.view.layoutIfNeeded()
             self.dimView.backgroundColor = UIColor.black.withAlphaComponent(0.5)
@@ -122,10 +105,6 @@ final class NativePopupModalViewController: UIViewController {
         }) { _ in self.dismiss(animated: false) }
     }
 
-    @objc private func hideFor3Days() {
-        UserDefaults.standard.set(Date().timeIntervalSince1970 + 3 * 24 * 60 * 60, forKey: "ftPopupHide_\(bannerId)")
-        close()
-    }
 
     @objc private func tapImage() {
         let link = linkURL
