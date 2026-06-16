@@ -1210,23 +1210,37 @@ export default function HomePage() {
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
   const [phonePreviewSrc, setPhonePreviewSrc] = useState<string | null>(null);
   const [showOfficialOpenModal, setShowOfficialOpenModal] = useState(false);
+  const [popupBanner, setPopupBanner] = useState<{ id: string; imageUrl: string; linkUrl?: string | null } | null>(null);
   const [simpleRequestOpen, setSimpleRequestOpen] = useState(false);
   const [simpleRequestType, setSimpleRequestType] = useState<'wedding' | 'event'>('wedding');
   const skipHomeAnim = useHomeAnimationSkip();
   useEffect(() => () => resetHomeAnimationDecision(), []);
 
-  // 정식 오픈(2026-05-06) 안내 팝업 비활성화 — 오픈일 경과로 제거
+  // 홈 진입 팝업 모달 — 어드민 배너(placement=popup)로 동적 관리. 배너별 '3일 안보기' 기억.
   useEffect(() => {
-    setShowOfficialOpenModal(false);
+    let cancelled = false;
+    fetch('/api/v1/banners?placement=popup')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data) || data.length === 0) return;
+        const b = data[0];
+        if (!b?.imageUrl) return;
+        try {
+          const until = Number(localStorage.getItem(`freetiful-popup-hide:${b.id}`) || '0');
+          if (until && Date.now() < until) return;
+        } catch {}
+        setPopupBanner({ id: b.id, imageUrl: b.imageUrl, linkUrl: b.linkUrl });
+        setShowOfficialOpenModal(true);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   const hideOfficialOpenModalFor3Days = () => {
     try {
-      localStorage.setItem(
-        OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY,
-        String(Date.now() + OFFICIAL_OPEN_MODAL_HIDE_MS),
-      );
-      sessionStorage.setItem(OFFICIAL_OPEN_MODAL_SESSION_KEY, '1');
+      if (popupBanner) {
+        localStorage.setItem(`freetiful-popup-hide:${popupBanner.id}`, String(Date.now() + OFFICIAL_OPEN_MODAL_HIDE_MS));
+      }
     } catch {}
     setShowOfficialOpenModal(false);
   };
@@ -1734,37 +1748,49 @@ export default function HomePage() {
         onClose={() => setSimpleRequestOpen(false)}
       />
 
-      {showOfficialOpenModal && (
+      {showOfficialOpenModal && popupBanner && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Freetiful 5월 6일 정식 서비스 오픈 안내"
+          aria-label="안내 팝업"
           className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-[2px]"
           style={{ animation: 'homeOpeningModalFade 180ms ease-out both' }}
           onClick={() => setShowOfficialOpenModal(false)}
         >
           <div
-            className="relative w-full max-w-[720px] overflow-hidden rounded-[18px] bg-transparent shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25 lg:max-w-[820px]"
+            className="relative w-full max-w-[440px] overflow-hidden rounded-[18px] bg-transparent shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25"
             style={{ animation: 'homeOpeningModalIn 260ms cubic-bezier(0.16,1,0.3,1) both' }}
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setShowOfficialOpenModal(false)}
-              aria-label="오픈 안내 닫기"
+              aria-label="안내 닫기"
               className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95"
             >
               <X size={18} strokeWidth={2.4} />
             </button>
-            <Image
-              src={OFFICIAL_OPEN_MODAL_IMAGE}
-              alt="5월 6일 Freetiful 정식서비스 오픈 안내"
-              width={1450}
-              height={1088}
-              priority
-              sizes="(min-width: 1024px) 820px, calc(100vw - 32px)"
-              className="block h-auto w-full select-none"
-            />
+            {/* 가로 4 : 세로 3 — 어드민 배너(placement=popup) 이미지 동적 표시 */}
+            <button
+              type="button"
+              onClick={() => {
+                if (popupBanner.linkUrl) {
+                  try { window.location.href = popupBanner.linkUrl; } catch {}
+                } else {
+                  setShowOfficialOpenModal(false);
+                }
+              }}
+              className="relative block aspect-[4/3] w-full select-none"
+              aria-label="배너 보기"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={popupBanner.imageUrl}
+                alt="안내 팝업"
+                className="absolute inset-0 h-full w-full object-cover"
+                draggable={false}
+              />
+            </button>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-2 px-4 pb-4 pt-8 sm:px-5 sm:pb-5">
               <button
                 type="button"
