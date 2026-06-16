@@ -1139,6 +1139,7 @@ export class ChatService implements OnModuleInit {
         replyTo: {
           select: { id: true, content: true, senderId: true, type: true },
         },
+        reactions: { select: { emoji: true, userId: true } },
       },
       orderBy: { createdAt: 'desc' },
       take,
@@ -1164,17 +1165,21 @@ export class ChatService implements OnModuleInit {
             replyTo: {
               select: { id: true, content: true, senderId: true, type: true },
             },
+            reactions: { select: { emoji: true, userId: true } },
           },
         });
         if (lastMessage) messages.push(lastMessage);
       }
     }
 
-    // Group reactions
+    // 메시지별 reaction 로딩 — 현재 유저의 reaction 을 [0] 으로(웹/네이티브가 reactions[0].emoji 사용).
+    // 기존엔 [] 하드코딩이라 채팅 재진입 시 공감이 사라졌음.
     const orderedMessages = messages.reverse();
     const data = orderedMessages.map((msg) => ({
       ...msg,
-      reactions: [],
+      reactions: (((msg as any).reactions as Array<{ emoji: string; userId: string }>) || [])
+        .slice()
+        .sort((a, b) => (b.userId === userId ? 1 : 0) - (a.userId === userId ? 1 : 0)),
       isRead: false,
     }));
 

@@ -2600,26 +2600,41 @@ export class AdminService {
     this.logger.log(`Review request reminders sent for ${pending.length} quotations`);
   }
 
-  // ─── 사회자 출석체크 크론 (한국시간 매일 오전 9시) ─────────────────────
+  // ─── 사회자 미확인 요청 리마인더 (한국시간 매일 오전 9시) ─────────────────────
+  // 기존엔 새 요청 유무와 무관하게 전 사회자에게 발송 → "알림 들어가면 새 문의 없음" 유령 푸시였음.
+  // 최근 7일 내 도착했고 아직 확인(viewed)하지 않은 pending 요청이 있는 사회자에게만, 정확한 건수로 발송.
   @Cron('0 9 * * *', { timeZone: 'Asia/Seoul' })
   async sendProDailyAttendanceReminder() {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const grouped = await this.prisma.matchDelivery.groupBy({
+      by: ['proProfileId'],
+      where: { status: 'pending', deliveredAt: { gte: sevenDaysAgo } },
+      _count: { _all: true },
+    });
+    if (grouped.length === 0) {
+      this.logger.log('Pro daily reminder: 미확인 요청 없음 → 발송 안 함');
+      return;
+    }
+    const countByProfile = new Map(grouped.map((g) => [g.proProfileId, g._count._all]));
     const pros = await this.prisma.proProfile.findMany({
-      where: { status: 'approved' },
-      select: { userId: true },
+      where: { id: { in: grouped.map((g) => g.proProfileId) }, status: 'approved' },
+      select: { id: true, userId: true },
     });
 
     for (const p of pros) {
+      const n = countByProfile.get(p.id) ?? 0;
+      if (n <= 0) continue;
       this.notificationService
         .createNotification(
           p.userId,
           'system' as any,
-          '새 요청을 확인해 주세요',
-          '프리티풀에 접속해 도착한 요청을 확인해 보세요.',
-          { type: 'pro_attendance' },
+          '확인하지 않은 새 요청이 있어요',
+          `아직 확인하지 않은 요청 ${n}건이 있어요. 지금 확인해 보세요.`,
+          { type: 'match_request' },
         )
         .catch(() => {});
     }
 
-    this.logger.log(`Pro daily attendance reminders sent to ${pros.length} pros`);
+    this.logger.log(`Pro daily reminder sent to ${pros.length} pros (미확인 요청 보유)`);
   }
 }
