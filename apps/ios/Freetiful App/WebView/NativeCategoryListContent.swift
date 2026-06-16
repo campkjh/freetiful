@@ -360,15 +360,18 @@ final class NativeCategoryListContent: UIView {
     }
     private func sizeVilladegdHeader() {
         let w = bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width
-        let h = NativeVilladegdHero.preferredHeight(forWidth: w)
-        villadegdHero.frame = CGRect(x: 0, y: 0, width: w, height: h)
+        let h = bounds.height > 0 ? bounds.height : UIScreen.main.bounds.height
+        // 글래스 탭바 아래 가시 영역을 화면 세로로 꽉 채움
+        let heroH = max(440, h - topBarHeight)
+        villadegdHero.frame = CGRect(x: 0, y: 0, width: w, height: heroH)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         // 영상 히어로 헤더 폭이 테이블과 어긋나면 재조정 후 재지정(UIKit 헤더 갱신 규칙)
-        if table.tableHeaderView === villadegdHero, bounds.width > 0,
-           abs(villadegdHero.frame.width - bounds.width) > 0.5 {
+        if table.tableHeaderView === villadegdHero, bounds.width > 0, bounds.height > 0,
+           abs(villadegdHero.frame.width - bounds.width) > 0.5
+            || abs(villadegdHero.frame.height - max(440, bounds.height - topBarHeight)) > 0.5 {
             sizeVilladegdHeader()
             table.tableHeaderView = villadegdHero
         }

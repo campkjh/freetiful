@@ -22,9 +22,7 @@ final class NativeVilladegdHero: UIView {
 
         card.translatesAutoresizingMaskIntoConstraints = false
         card.backgroundColor = .black
-        card.layer.cornerRadius = 24
-        card.layer.cornerCurve = .continuous
-        card.clipsToBounds = true
+        card.clipsToBounds = true   // 풀스크린 풀블리드(라운딩 없음)
         addSubview(card)
 
         // 영상 (looping, muted)
@@ -48,18 +46,6 @@ final class NativeVilladegdHero: UIView {
         gradient.locations = [0, 0.32, 0.72, 1]
         card.layer.addSublayer(gradient)
 
-        // 상단 라벨 (PREMIUM WEDDING HALL)
-        let badge = PaddingLabel3()
-        badge.text = "PREMIUM WEDDING HALL"
-        badge.font = .systemFont(ofSize: 10, weight: .bold)
-        badge.textColor = .white
-        badge.backgroundColor = UIColor.white.withAlphaComponent(0.18)
-        badge.textInsets = UIEdgeInsets(top: 5, left: 10, bottom: 5, right: 10)
-        badge.layer.cornerRadius = 11
-        badge.clipsToBounds = true
-        badge.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(badge)
-
         // 로고 (흰색 PNG)
         logoView.translatesAutoresizingMaskIntoConstraints = false
         logoView.contentMode = .scaleAspectFit
@@ -73,7 +59,7 @@ final class NativeVilladegdHero: UIView {
 
         let title = UILabel()
         title.text = "웨딩의 가장 완벽한 색감"
-        title.font = .systemFont(ofSize: 21, weight: .bold)
+        title.font = .systemFont(ofSize: 26, weight: .bold)
         title.textColor = .white
         title.layer.shadowColor = UIColor.black.cgColor
         title.layer.shadowOpacity = 0.5
@@ -116,24 +102,22 @@ final class NativeVilladegdHero: UIView {
         let col = UIStackView(arrangedSubviews: [logoView, title, subtitle, location, tagRow])
         col.axis = .vertical
         col.alignment = .leading
-        col.spacing = 7
-        col.setCustomSpacing(10, after: logoView)
+        col.spacing = 9
+        col.setCustomSpacing(14, after: logoView)
         col.setCustomSpacing(9, after: location)
         col.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(col)
 
         NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: topAnchor, constant: 12),
-            card.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            card.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            card.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
-            badge.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
-            badge.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
-            logoView.heightAnchor.constraint(equalToConstant: 26),
-            logoView.widthAnchor.constraint(lessThanOrEqualToConstant: 140),
-            col.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
-            col.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-            col.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -20),
+            card.topAnchor.constraint(equalTo: topAnchor),
+            card.leadingAnchor.constraint(equalTo: leadingAnchor),
+            card.trailingAnchor.constraint(equalTo: trailingAnchor),
+            card.bottomAnchor.constraint(equalTo: bottomAnchor),
+            logoView.heightAnchor.constraint(equalToConstant: 34),
+            logoView.widthAnchor.constraint(lessThanOrEqualToConstant: 180),
+            col.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 22),
+            col.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -22),
+            col.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -104),
         ])
 
         player?.play()
