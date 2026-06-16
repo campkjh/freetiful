@@ -1217,7 +1217,12 @@ export default function HomePage() {
   useEffect(() => () => resetHomeAnimationDecision(), []);
 
   // 홈 진입 팝업 모달 — 어드민 배너(placement=popup)로 동적 관리. 배너별 '3일 안보기' 기억.
+  // 네이티브 앱에선 웹 모달을 띄우지 않는다(네이티브 홈 오버레이에 가려 안 보이고,
+  // role="dialog"가 hasBlockingOverlay 를 켜 하단 네비를 숨기는 부작용). 네이티브는 자체 팝업으로 표시.
   useEffect(() => {
+    const isNative = typeof window !== 'undefined'
+      && !!(window as any).webkit?.messageHandlers?.nativeNavState;
+    if (isNative) return;
     let cancelled = false;
     fetch('/api/v1/banners?placement=popup')
       .then((r) => (r.ok ? r.json() : null))
