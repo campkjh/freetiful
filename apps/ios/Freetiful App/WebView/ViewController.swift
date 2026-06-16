@@ -2303,7 +2303,18 @@ class ViewController: UIViewController,
         ])
     }
 
+    private var didCheckLaunchPopup = false
     private func loadInitialPage() {
+        // 홈 진입 팝업(배너 placement=popup) — 런치 1회, 홈 보인 뒤 약간 지연 후 네이티브 바텀시트
+        if !didCheckLaunchPopup {
+            didCheckLaunchPopup = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                guard let self = self else { return }
+                NativePopupModalViewController.checkAndPresent(from: self) { [weak self] link in
+                    self?.navigateNativeWeb(to: link)
+                }
+            }
+        }
         // 새요청+채팅 프리워밍 — 저장된 토큰으로 앱 시작 즉시 직접 fetch(디스크 캐시 갱신 → 진입 시 0초 표시)
         // 채팅 rooms 는 서버 콜드 응답이 5~10s 걸릴 수 있어 시작 시 미리 때려 서버 캐시도 데움
         if !nativeAuthToken.isEmpty {
