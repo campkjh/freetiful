@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-export type BannerPlacement = 'home' | 'businesses';
+export type BannerPlacement = 'home' | 'businesses' | 'popup';
 
 const PLACEMENT_MARKER = '[freetiful:banner-placement=businesses]';
 
 export function normalizePlacement(value?: string | null): BannerPlacement {
-  return value === 'businesses' ? 'businesses' : 'home';
+  // home / businesses / popup(홈 진입 모달) — popup 은 백엔드 placement 필드로 직접 구분
+  return value === 'businesses' || value === 'popup' ? value : 'home';
 }
 
 export function getApiBaseUrl() {
