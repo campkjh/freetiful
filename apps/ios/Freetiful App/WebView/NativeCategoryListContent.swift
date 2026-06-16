@@ -17,6 +17,7 @@ final class NativeCategoryListContent: UIView {
 
     private var mode: Mode = .pro
     private var category = ""
+    private lazy var villadegdHero = NativeVilladegdHero()
     private var sort = "popular"
     private var lastKey = ""
     private var proRows: [CategoryProItem] = []
@@ -226,6 +227,7 @@ final class NativeCategoryListContent: UIView {
         if searching { exitSearchUI() }
         category = apiCat
         bizRows = []
+        applyBusinessHeader()
         highlightTabs()
         table.reloadData()
         scrollToTop()
@@ -345,6 +347,33 @@ final class NativeCategoryListContent: UIView {
     func invalidate() { lastKey = "" }
 
     // 외부(웹 경로 변경)에서 진입 시 호출 — 같은 내비게이션 키면 재설정 안 함(탭 선택 유지)
+    // 웨딩홀(business)면 빌라드지디 영상 히어로를 테이블 헤더로, 그 외엔 기존 규칙.
+    private func applyBusinessHeader() {
+        if mode == .business, category == "웨딩홀" {
+            sizeVilladegdHeader()
+            table.tableHeaderView = villadegdHero
+            villadegdHero.resume()
+        } else {
+            villadegdHero.pause()
+            table.tableHeaderView = mode == .pro ? header : nil
+        }
+    }
+    private func sizeVilladegdHeader() {
+        let w = bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width
+        let h = NativeVilladegdHero.preferredHeight(forWidth: w)
+        villadegdHero.frame = CGRect(x: 0, y: 0, width: w, height: h)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // 영상 히어로 헤더 폭이 테이블과 어긋나면 재조정 후 재지정(UIKit 헤더 갱신 규칙)
+        if table.tableHeaderView === villadegdHero, bounds.width > 0,
+           abs(villadegdHero.frame.width - bounds.width) > 0.5 {
+            sizeVilladegdHeader()
+            table.tableHeaderView = villadegdHero
+        }
+    }
+
     func configure(mode: Mode, category: String) {
         let key = "\(mode)|\(category)"
         if key == lastKey { return }
@@ -355,7 +384,7 @@ final class NativeCategoryListContent: UIView {
         proRows = []; bizRows = []
         animatedRows.removeAll()
         if searching { exitSearchUI() }
-        table.tableHeaderView = mode == .pro ? header : nil   // 정렬은 사회자만(웹 동일)
+        applyBusinessHeader()   // 웨딩홀이면 빌라드지디 히어로, 아니면 정렬헤더(pro)/nil
         tabBarBg.isHidden = (mode != .business)               // 글래스 카테고리 탭은 웨딩파트너만
         if mode == .business { highlightTabs() }
         updateSortMenu()

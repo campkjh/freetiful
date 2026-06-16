@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev"],
       "cwd": "apps/web",
-      "port": 3000
+      "autoPort": true
     }
   ]
 }
