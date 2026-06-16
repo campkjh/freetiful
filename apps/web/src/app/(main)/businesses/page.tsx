@@ -30,6 +30,7 @@ import {
   sanitizeBusinessImageUrls,
 } from '@/lib/business-quality';
 import { deriveBusinessTagSuggestions, extractBusinessTagsFromHtml, normalizeBusinessTags } from '@/lib/business-tags';
+import VilladegdHero from '@/components/VilladegdHero';
 import {
   getWeddingPartnerImageSet,
   getWeddingPartnerSectionCategories,
@@ -1309,6 +1310,9 @@ export default function BusinessListPage() {
           />
         </div>
       </div>
+
+      {/* ─── 웨딩홀 히어로 (빌라드지디) ─── */}
+      {selectedCategory === '웨딩홀' && <VilladegdHero />}
 
       {/* ─── Region + Filter Row ─── */}
       <div className="px-4 py-2.5 flex items-center gap-2">
