@@ -6,7 +6,8 @@ export class BannerService {
   constructor(private prisma: PrismaService) {}
 
   private normalizePlacement(placement?: string | null) {
-    return placement === 'businesses' ? 'businesses' : 'home';
+    // home(홈 캐러셀) / businesses(웨딩파트너 리스트) / popup(홈 진입 모달)
+    return placement === 'businesses' || placement === 'popup' ? placement : 'home';
   }
 
   async listActive(placement?: string) {

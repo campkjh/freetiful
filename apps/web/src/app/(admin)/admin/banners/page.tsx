@@ -43,7 +43,7 @@ async function fileToResizedDataUrl(file: File, maxWidth = 1600, quality = 0.88)
 
 interface Banner {
   id: string;
-  placement: 'home' | 'businesses';
+  placement: 'home' | 'businesses' | 'popup';
   title: string;
   subtitle: string;
   imageUrl: string;
@@ -56,7 +56,7 @@ interface Banner {
 }
 
 const emptyDraft = {
-  placement: 'home' as 'home' | 'businesses',
+  placement: 'home' as 'home' | 'businesses' | 'popup',
   title: '',
   subtitle: '',
   imageUrl: '',
@@ -69,6 +69,7 @@ const emptyDraft = {
 const BANNER_PLACEMENTS = [
   { value: 'home', label: '홈' },
   { value: 'businesses', label: '웨딩파트너 리스트' },
+  { value: 'popup', label: '홈 팝업(모달, 4:3)' },
 ] as const;
 
 function getPlacementLabel(value?: string) {
