@@ -54,12 +54,9 @@ final class NativePopupModalViewController: UIViewController {
         // 닫기 X
         let closeBtn = UIButton(type: .system)
         closeBtn.translatesAutoresizingMaskIntoConstraints = false
-        closeBtn.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)), for: .normal)
+        closeBtn.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold)), for: .normal)
         closeBtn.tintColor = .black
         closeBtn.backgroundColor = .clear
-        closeBtn.layer.cornerRadius = 17
-        closeBtn.layer.borderWidth = 1.2
-        closeBtn.layer.borderColor = UIColor.black.cgColor
         closeBtn.addTarget(self, action: #selector(close), for: .touchUpInside)
         card.addSubview(closeBtn)
 
