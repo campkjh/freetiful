@@ -1753,12 +1753,12 @@ export default function HomePage() {
           role="dialog"
           aria-modal="true"
           aria-label="안내 팝업"
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/55 px-3 pb-[max(env(safe-area-inset-bottom),16px)] pt-6 backdrop-blur-[2px]"
           style={{ animation: 'homeOpeningModalFade 180ms ease-out both' }}
           onClick={() => setShowOfficialOpenModal(false)}
         >
           <div
-            className="relative w-full max-w-[440px] overflow-hidden rounded-[18px] bg-transparent shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25"
+            className="relative w-full max-w-[460px] overflow-hidden rounded-[36px] bg-transparent shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25"
             style={{ animation: 'homeOpeningModalIn 260ms cubic-bezier(0.16,1,0.3,1) both' }}
             onClick={(event) => event.stopPropagation()}
           >
@@ -1814,8 +1814,8 @@ export default function HomePage() {
               to { opacity: 1; }
             }
             @keyframes homeOpeningModalIn {
-              from { opacity: 0; transform: translateY(14px) scale(0.98); }
-              to { opacity: 1; transform: translateY(0) scale(1); }
+              from { opacity: 0; transform: translateY(100%); }
+              to { opacity: 1; transform: translateY(0); }
             }
           `}</style>
         </div>
