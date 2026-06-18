@@ -1232,36 +1232,57 @@ function langLabel(l: string): string {
   return LANG_LABELS[key] || l;
 }
 
-function HomeProTabCard({ pro, showLang }: { pro: any; showLang: boolean }) {
+// 네이티브 HomeProCell 과 동일한 가로 리스트 행 (사진 66×88 r20 + 이름/경력/평점/소개/태그)
+function HomeProTabCard({ pro, langMode }: { pro: any; langMode: boolean }) {
   const img = homeProImg(pro);
   const name = pro.name || pro.user?.name || '사회자';
   const intro = pro.shortIntro || pro.mainExperience || '';
+  const careerYears = Number(pro.careerYears ?? pro.career ?? 0) || 0;
+  const rating = Number(pro.rating ?? pro.avgRating ?? 0) || 0;
+  const reviewCount = Number(pro.reviewCount ?? pro.reviewsCount ?? 0) || 0;
   const langs: string[] = Array.isArray(pro.languages) ? pro.languages : [];
+  const rawTags: string[] = Array.isArray(pro.tags) ? pro.tags : [];
+  const chips = (langMode ? langs.map(langLabel) : rawTags).filter(Boolean).slice(0, 3);
   return (
-    <Link href={`/pros/${pro.id}`} className="block active:scale-[0.98] transition-transform" onTouchStart={() => discoveryApi.getProDetail(pro.id)}>
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-gray-100">
+    <Link
+      href={`/pros/${pro.id}`}
+      onTouchStart={() => discoveryApi.getProDetail(pro.id)}
+      className="flex h-[118px] flex-row items-center gap-[14px] rounded-2xl border-[0.5px] border-[#EDEDED] bg-white px-3 transition-transform active:scale-[0.99]"
+    >
+      <div className="h-[88px] w-[66px] shrink-0 overflow-hidden rounded-[20px] bg-[#EBEBEB]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {img ? <img src={img} alt={name} className="absolute inset-0 h-full w-full object-cover" draggable={false} /> : null}
-        {showLang && langs.length > 0 && (
-          <div className="absolute inset-x-2 bottom-2 z-10 flex flex-wrap gap-1">
-            {langs.slice(0, 3).map((l) => (
-              <span key={l} className="rounded-full bg-black/55 px-2 py-[3px] text-[10px] font-semibold text-white backdrop-blur-sm">{langLabel(l)}</span>
+        {img ? <img src={img} alt={name} className="h-full w-full object-cover" draggable={false} /> : null}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-[5px]">
+        <p className="max-w-full truncate text-[16px] font-bold text-[#1A1A1A]">{name}</p>
+        <div className="flex items-center gap-[6px]">
+          <span className="rounded-md bg-[#EBF2FF] px-[7px] py-[3px] text-[11px] font-semibold text-[#3080F7]">
+            {careerYears > 0 ? `경력 ${careerYears}년` : '프로'}
+          </span>
+          {rating > 0 && <span className="text-[12px] font-medium text-[#3080F7]">★ {rating.toFixed(1)} ({reviewCount})</span>}
+        </div>
+        {intro ? <p className="max-w-full truncate text-[12.5px] text-[#808080]">{intro}</p> : null}
+        {chips.length > 0 && (
+          <div className="flex items-center gap-[4px]">
+            {chips.map((c, i) => (
+              <span key={`${c}-${i}`} className="rounded-lg bg-[#F0F0F0] px-[7px] py-[2px] text-[10.5px] font-medium text-[#6B6B6B]">{c}</span>
             ))}
           </div>
         )}
       </div>
-      <p className="mt-1.5 truncate text-[14px] font-bold text-[#2B313D]">{name}</p>
-      {intro ? <p className="truncate text-[12px] text-gray-400">{intro}</p> : null}
     </Link>
   );
 }
 
-// 네이티브 홈과 동일한 카테고리 탭 + 좌우 스와이프 (전체/결혼식/행사/외국어) — 모바일 전용
+// 네이티브 홈과 동일: 헤더 아래 고정 글래스 탭 + 좌우 스와이프 페이저 + 긴 세로 리스트 (모바일 전용)
 function HomeSwipeTabs() {
   const [tab, setTab] = useState(0);
   const [pros, setPros] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const touchRef = useRef<{ x: number; y: number } | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const touchRef = useRef<{ x: number; y: number; locked: 0 | 1 | -1 } | null>(null);
+  const tabRef = useRef(0);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
 
   useEffect(() => {
     if (tab === 0 || loaded) return;
@@ -1284,63 +1305,165 @@ function HomeSwipeTabs() {
     if (index === 3) return list.filter((p) => (Array.isArray(p.languages) ? p.languages : []).length > 0);
     return list;
   };
-  const filtered = tab === 0 ? [] : filterByTab(tab, pros);
 
-  const onTouchStart = (e: ReactTouchEvent) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY }; };
+  const open = tab !== 0;
+  const goTab = (i: number) => { setDragX(0); setTab(i); };
+
+  // 오버레이(리스트) 페이저 스와이프 — 1↔2↔3 + 1에서 우스와이프 → 전체(홈)
+  const onTouchStart = (e: ReactTouchEvent) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY, locked: 0 }; };
+  const onTouchMove = (e: ReactTouchEvent) => {
+    const s = touchRef.current; if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x; const dy = t.clientY - s.y;
+    if (s.locked === 0) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      s.locked = Math.abs(dx) > Math.abs(dy) ? 1 : -1; // 1=가로 페이저, -1=세로 스크롤
+    }
+    if (s.locked !== 1) return;
+    let d = dx;
+    if (tab >= 3 && dx < 0) d = dx * 0.35; // 마지막 탭에서 왼쪽 끌기 저항
+    setDragX(d);
+  };
   const onTouchEnd = (e: ReactTouchEvent) => {
     const s = touchRef.current; touchRef.current = null; if (!s) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - s.x; const dy = t.clientY - s.y;
+    setDragX(0);
+    if (s.locked !== 1) return;
     if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
-    if (dx < 0 && tab < HOME_SWIPE_TABS.length - 1) setTab(tab + 1);
-    if (dx > 0 && tab > 0) setTab(tab - 1);
+    if (dx < 0) setTab((c) => Math.min(3, c + 1));
+    if (dx > 0) setTab((c) => Math.max(0, c - 1)); // 1→0(전체/홈)까지 허용
   };
 
+  // 전체(홈)에서 좌스와이프 → 결혼식 탭 열기 (윈도우 리스너, 축잠금 + 무시영역[배너/카테고리])
+  useEffect(() => {
+    let s: { x: number; y: number; locked: 0 | 1 | -1; ignore: boolean } | null = null;
+    const isMobile = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    const onStart = (e: TouchEvent) => {
+      if (tabRef.current !== 0 || !isMobile()) { s = null; return; }
+      const t = e.touches[0];
+      const target = e.target as HTMLElement | null;
+      const ignore = !!target?.closest?.('[data-hswipe-ignore]');
+      s = { x: t.clientX, y: t.clientY, locked: 0, ignore };
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!s || s.ignore) return;
+      const t = e.touches[0];
+      const dx = t.clientX - s.x; const dy = t.clientY - s.y;
+      if (s.locked === 0) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        s.locked = Math.abs(dx) > Math.abs(dy) * 1.3 ? 1 : -1;
+      }
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!s || s.ignore || s.locked !== 1) { s = null; return; }
+      const t = e.changedTouches[0];
+      const dx = t.clientX - s.x; const dy = t.clientY - s.y;
+      s = null;
+      if (dx < -60 && Math.abs(dx) > Math.abs(dy)) setTab(1);
+    };
+    window.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, []);
+
+  // 웨딩파트너 글래스탭 디자인 — 알약 칩 (선택=다크, 그 외=라이트 글래스)
   const tabBar = (
-    <div className="flex items-center gap-0.5 overflow-x-auto px-[6px]" style={{ scrollbarWidth: 'none' }}>
-      {HOME_SWIPE_TABS.map((t, i) => (
-        <button
-          key={t}
-          type="button"
-          onClick={() => setTab(i)}
-          className={`relative shrink-0 whitespace-nowrap px-3 py-2 text-[14px] transition-colors ${i === tab ? 'font-bold text-[#2B313D]' : 'font-medium text-gray-400'}`}
-        >
-          {t}
-          <span className={`absolute inset-x-3 bottom-0.5 h-[2.5px] rounded-full transition-all ${i === tab ? 'bg-[#2B313D]' : 'bg-transparent'}`} />
-        </button>
-      ))}
+    <div className="flex items-center gap-2 overflow-x-auto px-[12px] py-[7px]" style={{ scrollbarWidth: 'none' }}>
+      {HOME_SWIPE_TABS.map((t, i) => {
+        const active = i === tab;
+        return (
+          <button
+            key={t}
+            type="button"
+            onClick={() => goTab(i)}
+            className={`shrink-0 whitespace-nowrap rounded-full px-[15px] py-[8px] text-[13.5px] font-bold transition-all ${
+              active
+                ? 'bg-[#1A1A1A] text-white shadow-[0_5px_14px_rgba(0,0,0,0.2)]'
+                : 'border border-white/70 bg-white/55 text-[#3A3A3A] backdrop-blur-sm'
+            }`}
+          >
+            {t}
+          </button>
+        );
+      })}
     </div>
   );
 
   return (
-    <div className="lg:hidden">
-      <div className="border-b border-gray-100 pt-1">{tabBar}</div>
-      {tab !== 0 && (
-        <div className="fixed inset-x-0 bottom-0 top-[56px] z-[60] flex flex-col bg-white lg:hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-          <div className="border-b border-gray-100 pt-2">{tabBar}</div>
-          <div className="flex-1 overflow-y-auto px-[10px] pb-28 pt-3">
-            {!loaded ? (
-              <div className="py-24 text-center text-[14px] text-gray-400">불러오는 중…</div>
-            ) : filtered.length === 0 ? (
-              <div className="py-24 text-center text-[14px] text-gray-400">사회자가 없습니다</div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {filtered.slice(0, 40).map((p) => (
-                  <HomeProTabCard key={p.id} pro={p} showLang={tab === 3} />
-                ))}
+    <>
+      {/* 헤더+탭 통합 그라데이션 블러 — 콘텐츠가 뒤로 비치며 위로 갈수록 흐림 */}
+      <div
+        className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42]"
+        style={{
+          height: 106,
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.74), rgba(255,255,255,0.40))',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 62%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, black 0%, black 62%, transparent 100%)',
+        }}
+      />
+      {/* 헤더 바로 아래 고정 글래스 탭바 */}
+      <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45]">{tabBar}</div>
+
+      {/* 카테고리 리스트 오버레이 페이저 — 전체(0)=투명(홈 비침), 1~3=리스트 */}
+      <div
+        className="lg:hidden fixed inset-x-0 bottom-0 top-[102px] z-[40] overflow-hidden"
+        style={{ pointerEvents: open ? 'auto' : 'none' }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div
+          className="flex h-full"
+          style={{
+            width: '400%',
+            transform: `translateX(calc(${-tab * 25}% + ${dragX}px))`,
+            transition: dragX === 0 ? 'transform 0.34s cubic-bezier(0.22,0.61,0.36,1)' : 'none',
+            touchAction: 'pan-y',
+          }}
+        >
+          {HOME_SWIPE_TABS.map((_, panel) => {
+            if (panel === 0) return <div key="all" className="h-full w-1/4 shrink-0" />;
+            const near = Math.abs(panel - tab) <= 1;
+            const list = near ? filterByTab(panel, pros).slice(0, 100) : [];
+            return (
+              <div key={panel} className="h-full w-1/4 shrink-0 overflow-y-auto bg-white px-4 pb-28 pt-[14px]">
+                {!near ? null : !loaded ? (
+                  <div className="py-24 text-center text-[14px] text-[#999]">불러오는 중…</div>
+                ) : list.length === 0 ? (
+                  <div className="py-24 text-center text-[14px] text-[#999]">사회자가 없습니다</div>
+                ) : (
+                  <div className="flex flex-col gap-[10px]">
+                    {list.map((p) => (
+                      <HomeProTabCard key={p.id} pro={p} langMode={panel === 3} />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setTab(0)}
-            className="fixed bottom-[92px] left-1/2 z-[61] flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#2B313D]/90 px-5 py-2.5 text-[13.5px] font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.22)] backdrop-blur-md transition active:scale-95"
-          >
-            <HomeGlyph className="h-4 w-4" /> 홈 전체
-          </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* 홈 전체 pill (네비 홈 아이콘) — 리스트 탭에서만 */}
+      {open && (
+        <button
+          type="button"
+          onClick={() => goTab(0)}
+          className="lg:hidden fixed left-1/2 z-[46] flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/25 bg-black/60 px-[18px] py-[11px] text-[13.5px] font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md transition active:scale-95"
+          style={{ bottom: 'calc(82px + env(safe-area-inset-bottom))' }}
+        >
+          <HomeGlyph className="h-3.5 w-3.5" /> 홈 전체
+        </button>
       )}
-    </div>
+    </>
   );
 }
 
@@ -2058,9 +2181,9 @@ export default function HomePage() {
       <div
         ref={headerRef}
         data-native-home-header
-        className="lg:hidden fixed top-0 left-0 right-0 z-30 px-[10px] pt-[12px] pb-[10px]"
+        className="lg:hidden fixed top-0 left-0 right-0 z-[44] px-[10px] pt-[12px] pb-[10px]"
         style={{
-          background: 'linear-gradient(to bottom, rgba(255,255,255,1) 60%, rgba(255,255,255,0) 100%)',
+          background: 'transparent', // 통합 그라데이션 블러 레이어(HomeSwipeTabs)가 뒤에서 프로스트 처리
         }}
       >
         <div className="flex items-center gap-2">
@@ -2120,7 +2243,7 @@ export default function HomePage() {
         </div>
       </div>
       {/* Spacer for fixed header */}
-      <div className="lg:hidden h-[56px]" />
+      <div className="lg:hidden h-[106px]" />
 
       {/* ─── Mobile Home Hero: Category Cards → Category Tabs → Icon Grid → Banner ─ */}
       <div className="lg:hidden">
@@ -2164,10 +2287,12 @@ export default function HomePage() {
         {/* 카테고리 탭 (전체/결혼식/행사/외국어) + 좌우 스와이프 — 네이티브 홈과 동일 */}
         <HomeSwipeTabs />
 
-        <CategorySwiper />
+        <div data-hswipe-ignore>
+          <CategorySwiper />
+        </div>
 
         {/* 5. Slide Banner */}
-        <div className="px-[10px] pt-2 pb-0 lg:px-0 lg:pt-3 lg:pb-2">
+        <div data-hswipe-ignore className="px-[10px] pt-2 pb-0 lg:px-0 lg:pt-3 lg:pb-2">
           <div
             className="relative w-full overflow-hidden rounded-2xl lg:rounded-[22px] select-none"
             style={{ aspectRatio: '1170/300', touchAction: 'pan-y' }}
