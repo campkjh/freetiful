@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type TouchEvent as ReactTouchEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Search, Bell, ChevronRight, MapPin, X } from 'lucide-react';
@@ -1204,6 +1204,146 @@ function SimpleMatchRequestModal({
   );
 }
 
+// 하단 네비 '홈' 아이콘과 동일한 글리프 (홈 전체 버튼용)
+const HomeGlyph = ({ className }: { className?: string }) => (
+  <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
+    <path fillRule="evenodd" clipRule="evenodd" d="M28.0924 10.9387L16.8297 1.98268C16.5941 1.79489 16.3017 1.69263 16.0004 1.69263C15.6991 1.69263 15.4067 1.79489 15.1711 1.98268L3.90706 10.9387C3.59312 11.1884 3.33957 11.5057 3.16528 11.867C2.99098 12.2283 2.90044 12.6242 2.90039 13.0253V25.5827C2.90039 26.4314 3.23753 27.2453 3.83765 27.8454C4.43777 28.4455 5.2517 28.7827 6.10039 28.7827H13.3337V22.4467C13.3337 22.0931 13.4742 21.7539 13.7242 21.5039C13.9743 21.2538 14.3134 21.1133 14.6671 21.1133H17.3337C17.6873 21.1133 18.0265 21.2538 18.2765 21.5039C18.5266 21.7539 18.6671 22.0931 18.6671 22.4467V28.7827H25.8991C26.7478 28.7827 27.5617 28.4455 28.1618 27.8454C28.7619 27.2453 29.0991 26.4314 29.0991 25.5827V13.0267C29.099 12.6255 29.0085 12.2296 28.8342 11.8683C28.6599 11.507 28.4063 11.1884 28.0924 10.9387Z" fill="currentColor" />
+  </svg>
+);
+
+const HOME_SWIPE_TABS = ['전체', '결혼식사회자', '행사사회자', '외국어사회자'];
+
+function homeProImg(p: any): string {
+  const ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '').replace(/\/api\/v1$/, '').replace(/\/api$/, '');
+  const raw =
+    p.image || p.profileImageUrl || p.mainImage ||
+    (Array.isArray(p.images) ? (typeof p.images[0] === 'string' ? p.images[0] : p.images?.[0]?.imageUrl) : '') ||
+    p.user?.profileImageUrl || '';
+  return raw && ORIGIN && raw.startsWith('/uploads/') ? `${ORIGIN}${raw}` : (raw || '');
+}
+
+const LANG_LABELS: Record<string, string> = {
+  ko: '한국어', kr: '한국어', en: '영어', eng: '영어', zh: '중국어', cn: '중국어', chi: '중국어',
+  ja: '일본어', jp: '일본어', es: '스페인어', fr: '프랑스어', de: '독일어', ru: '러시아어',
+  th: '태국어', vi: '베트남어', ar: '아랍어',
+};
+function langLabel(l: string): string {
+  const key = String(l || '').trim().toLowerCase();
+  return LANG_LABELS[key] || l;
+}
+
+function HomeProTabCard({ pro, showLang }: { pro: any; showLang: boolean }) {
+  const img = homeProImg(pro);
+  const name = pro.name || pro.user?.name || '사회자';
+  const intro = pro.shortIntro || pro.mainExperience || '';
+  const langs: string[] = Array.isArray(pro.languages) ? pro.languages : [];
+  return (
+    <Link href={`/pros/${pro.id}`} className="block active:scale-[0.98] transition-transform" onTouchStart={() => discoveryApi.getProDetail(pro.id)}>
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-gray-100">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {img ? <img src={img} alt={name} className="absolute inset-0 h-full w-full object-cover" draggable={false} /> : null}
+        {showLang && langs.length > 0 && (
+          <div className="absolute inset-x-2 bottom-2 z-10 flex flex-wrap gap-1">
+            {langs.slice(0, 3).map((l) => (
+              <span key={l} className="rounded-full bg-black/55 px-2 py-[3px] text-[10px] font-semibold text-white backdrop-blur-sm">{langLabel(l)}</span>
+            ))}
+          </div>
+        )}
+      </div>
+      <p className="mt-1.5 truncate text-[14px] font-bold text-[#2B313D]">{name}</p>
+      {intro ? <p className="truncate text-[12px] text-gray-400">{intro}</p> : null}
+    </Link>
+  );
+}
+
+// 네이티브 홈과 동일한 카테고리 탭 + 좌우 스와이프 (전체/결혼식/행사/외국어) — 모바일 전용
+function HomeSwipeTabs() {
+  const [tab, setTab] = useState(0);
+  const [pros, setPros] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (tab === 0 || loaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res: any = await discoveryApi.getProList({ limit: 60, sort: 'reviews', withTotal: false });
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+        if (!cancelled) { setPros(list); setLoaded(true); }
+      } catch { if (!cancelled) setLoaded(true); }
+    })();
+    return () => { cancelled = true; };
+  }, [tab, loaded]);
+
+  const lowerCats = (p: any) => (Array.isArray(p.categories) ? p.categories : []).map((c: any) => String(typeof c === 'string' ? c : c?.name || c?.category?.name || '').toLowerCase());
+  const lowerTags = (p: any) => (Array.isArray(p.tags) ? p.tags : []).map((t: any) => String(t).toLowerCase());
+  const filterByTab = (index: number, list: any[]): any[] => {
+    if (index === 1) return list.filter((p) => lowerCats(p).some((v: string) => v.includes('결혼식') || v.includes('사회자') || v.includes('mc')));
+    if (index === 2) return list.filter((p) => [...lowerCats(p), ...lowerTags(p)].some((v: string) => v.includes('행사') || v.includes('기업') || v.includes('컨퍼런스') || v.includes('컨벤션') || v.includes('쇼호스트') || v.includes('event')));
+    if (index === 3) return list.filter((p) => (Array.isArray(p.languages) ? p.languages : []).length > 0);
+    return list;
+  };
+  const filtered = tab === 0 ? [] : filterByTab(tab, pros);
+
+  const onTouchStart = (e: ReactTouchEvent) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY }; };
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    const s = touchRef.current; touchRef.current = null; if (!s) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x; const dy = t.clientY - s.y;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+    if (dx < 0 && tab < HOME_SWIPE_TABS.length - 1) setTab(tab + 1);
+    if (dx > 0 && tab > 0) setTab(tab - 1);
+  };
+
+  const tabBar = (
+    <div className="flex items-center gap-0.5 overflow-x-auto px-[6px]" style={{ scrollbarWidth: 'none' }}>
+      {HOME_SWIPE_TABS.map((t, i) => (
+        <button
+          key={t}
+          type="button"
+          onClick={() => setTab(i)}
+          className={`relative shrink-0 whitespace-nowrap px-3 py-2 text-[14px] transition-colors ${i === tab ? 'font-bold text-[#2B313D]' : 'font-medium text-gray-400'}`}
+        >
+          {t}
+          <span className={`absolute inset-x-3 bottom-0.5 h-[2.5px] rounded-full transition-all ${i === tab ? 'bg-[#2B313D]' : 'bg-transparent'}`} />
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="lg:hidden">
+      <div className="border-b border-gray-100 pt-1">{tabBar}</div>
+      {tab !== 0 && (
+        <div className="fixed inset-x-0 bottom-0 top-[56px] z-[60] flex flex-col bg-white lg:hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+          <div className="border-b border-gray-100 pt-2">{tabBar}</div>
+          <div className="flex-1 overflow-y-auto px-[10px] pb-28 pt-3">
+            {!loaded ? (
+              <div className="py-24 text-center text-[14px] text-gray-400">불러오는 중…</div>
+            ) : filtered.length === 0 ? (
+              <div className="py-24 text-center text-[14px] text-gray-400">사회자가 없습니다</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {filtered.slice(0, 40).map((p) => (
+                  <HomeProTabCard key={p.id} pro={p} showLang={tab === 3} />
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setTab(0)}
+            className="fixed bottom-[92px] left-1/2 z-[61] flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#2B313D]/90 px-5 py-2.5 text-[13.5px] font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.22)] backdrop-blur-md transition active:scale-95"
+          >
+            <HomeGlyph className="h-4 w-4" /> 홈 전체
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const authUser = useAuthStore((s) => s.user);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -2020,6 +2160,9 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+
+        {/* 카테고리 탭 (전체/결혼식/행사/외국어) + 좌우 스와이프 — 네이티브 홈과 동일 */}
+        <HomeSwipeTabs />
 
         <CategorySwiper />
 
