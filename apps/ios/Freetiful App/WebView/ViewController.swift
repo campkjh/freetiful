@@ -709,6 +709,15 @@ class ViewController: UIViewController,
         if onBiz != isOnBiz {
             isOnBiz = onBiz
             nativeBizNav.isHidden = !onBiz
+            if onBiz {
+                // 비즈 페이지: 하단 세이프에어리어 제거 — webView 가 화면 맨 아래까지(흰 여백 제거)
+                webViewBottomSafe?.isActive = false
+                webViewBottomFull?.isActive = true
+            } else if !isOnChatDetail {
+                // /biz 이탈 시 복귀 (채팅상세가 full-bottom 을 쓰는 중이면 유지)
+                webViewBottomFull?.isActive = false
+                webViewBottomSafe?.isActive = true
+            }
         }
         if onBiz { view.bringSubviewToFront(nativeBizNav) }
     }
