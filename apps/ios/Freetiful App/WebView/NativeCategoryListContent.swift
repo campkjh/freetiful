@@ -10,6 +10,8 @@ final class NativeCategoryListContent: UIView {
     enum Mode { case pro, business }
 
     weak var delegate: NativeCategoryListDelegate?
+    // 백헤더 글래스 진행도 갱신(웨딩홀=0 그라데이션블러, 그 외=1 글래스) — 탭 전환 시에도 반영
+    var onHeaderGlass: ((CGFloat) -> Void)?
 
     private let table = UITableView(frame: .zero, style: .plain)
     private let spinner = UIActivityIndicatorView(style: .medium)
@@ -39,6 +41,10 @@ final class NativeCategoryListContent: UIView {
     private let searchField = UITextField()
     private var tabBarTop: NSLayoutConstraint!
     private let topBarHeight: CGFloat = 54
+    // 웨딩홀 히어로 위 상단 그라데이션 블러(헤더+탭 배경) — 맨 위 흐림 → 탭으로 갈수록 선명
+    private let topBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterialDark))
+    private let topBlurMask = CAGradientLayer()
+    private var isVilladegd: Bool { mode == .business && category == "웨딩홀" }
     private var baseTopInset: CGFloat = 0
     private var baseBottomInset: CGFloat = 0
     private var searching = false
@@ -86,9 +92,35 @@ final class NativeCategoryListContent: UIView {
             emptyLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         buildHeader()
+        buildTopBlur()
         buildTabBar()
         buildSearchBar()
     }
+
+    // 웨딩홀 히어로 위 상단 그라데이션 블러 — 헤더/탭 배경 영역. 맨 위는 진한 블러, 탭으로 내려갈수록 투명(영상 선명).
+    private func buildTopBlur() {
+        topBlur.translatesAutoresizingMaskIntoConstraints = false
+        topBlur.isHidden = true
+        addSubview(topBlur)   // tabBarBg/searchBar 보다 먼저 추가 → 그 아래에 위치(탭 글래스가 위)
+        topBlurMask.colors = [
+            UIColor.black.cgColor,
+            UIColor.black.withAlphaComponent(0.9).cgColor,
+            UIColor.clear.cgColor,
+        ]
+        topBlurMask.locations = [0, 0.45, 1]
+        topBlurMask.startPoint = CGPoint(x: 0.5, y: 0)
+        topBlurMask.endPoint = CGPoint(x: 0.5, y: 1)
+        topBlur.layer.mask = topBlurMask
+        NSLayoutConstraint.activate([
+            topBlur.topAnchor.constraint(equalTo: topAnchor),
+            topBlur.leadingAnchor.constraint(equalTo: leadingAnchor),
+            topBlur.trailingAnchor.constraint(equalTo: trailingAnchor),
+        ])
+        // 높이는 baseTopInset(헤더) + 탭바 높이 만큼 — setInsets 에서 갱신
+        topBlurHeight = topBlur.heightAnchor.constraint(equalToConstant: topBarHeight + 100)
+        topBlurHeight.isActive = true
+    }
+    private var topBlurHeight: NSLayoutConstraint!
 
     // 웨딩파트너 글래스 카테고리 탭바
     private func buildTabBar() {
@@ -328,13 +360,15 @@ final class NativeCategoryListContent: UIView {
         baseTopInset = top
         baseBottomInset = bottom
         tabBarTop?.constant = top
+        topBlurHeight?.constant = top + topBarHeight   // 헤더 + 탭바 영역까지 블러
         applyTableInsets()
     }
     private func applyTableInsets() {
+        // 웨딩홀: 히어로를 화면 최상단(헤더/탭 뒤)까지 붙임 → contentInset.top = 0
         let extra: CGFloat = (mode == .business) ? topBarHeight : 0   // 탭바/검색바 높이
-        let top = baseTopInset + extra
+        let top = isVilladegd ? 0 : (baseTopInset + extra)
         table.contentInset = UIEdgeInsets(top: top, left: 0, bottom: baseBottomInset, right: 0)
-        table.verticalScrollIndicatorInsets.top = top
+        table.verticalScrollIndicatorInsets.top = isVilladegd ? (baseTopInset + topBarHeight) : top
         table.verticalScrollIndicatorInsets.bottom = baseBottomInset
     }
 
@@ -349,14 +383,23 @@ final class NativeCategoryListContent: UIView {
     // 외부(웹 경로 변경)에서 진입 시 호출 — 같은 내비게이션 키면 재설정 안 함(탭 선택 유지)
     // 웨딩홀(business)면 빌라드지디 영상 히어로를 테이블 헤더로, 그 외엔 기존 규칙.
     private func applyBusinessHeader() {
-        if mode == .business, category == "웨딩홀" {
+        if isVilladegd {
             sizeVilladegdHeader()
             table.tableHeaderView = villadegdHero
             villadegdHero.resume()
+            // 헤더+탭 배경은 그라데이션 블러, 탭 알약(GlassPill)만 글래스 유지
+            topBlur.isHidden = false
+            tabBarBg.effect = nil
+            tabBarBg.layer.borderWidth = 0
         } else {
             villadegdHero.pause()
             table.tableHeaderView = mode == .pro ? header : nil
+            topBlur.isHidden = true
+            tabBarBg.effect = LiquidGlassEffectFactory.navigationEffect()
+            tabBarBg.layer.borderWidth = 0.5
         }
+        onHeaderGlass?(isVilladegd ? 0 : 1)
+        applyTableInsets()
     }
     private func sizeVilladegdHeader() {
         let w = bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width
@@ -368,6 +411,7 @@ final class NativeCategoryListContent: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        topBlurMask.frame = topBlur.bounds   // CAGradientLayer 는 오토리사이즈 안 됨 → 수동 갱신
         // 영상 히어로 헤더 폭이 테이블과 어긋나면 재조정 후 재지정(UIKit 헤더 갱신 규칙)
         if table.tableHeaderView === villadegdHero, bounds.width > 0, bounds.height > 0,
            abs(villadegdHero.frame.width - bounds.width) > 0.5

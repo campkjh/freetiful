@@ -877,6 +877,7 @@ class ViewController: UIViewController,
         // 카테고리 리스트 네이티브 본문 (웹 위 덮음, 백헤더 아래)
         nativeCategoryList.isHidden = true
         nativeCategoryList.delegate = self
+        nativeCategoryList.onHeaderGlass = { [weak self] progress in self?.nativeBackHeader.setGlassProgress(progress) }
         view.insertSubview(nativeCategoryList, belowSubview: nativeBackHeader)
         NSLayoutConstraint.activate([
             nativeCategoryList.topAnchor.constraint(equalTo: view.topAnchor),
@@ -1267,8 +1268,9 @@ class ViewController: UIViewController,
             nativeBackHeader.setShareVisible(false)
             nativeBackHeader.setSearchVisible(onBizCategory)   // 웨딩파트너 리스트만 검색 버튼
             nativeBackHeader.onSearch = { [weak self] in self?.nativeCategoryList.toggleSearch() }
-            nativeBackHeader.setGlassProgress(1)
             let cat = queryParam("category", from: currentNativeQuery)
+            // 웨딩홀: 상단 그라데이션 블러가 헤더 배경을 담당 → 백헤더 글래스 끔(뒤로/타이틀만 표시)
+            nativeBackHeader.setGlassProgress((onBizCategory && cat == "웨딩홀") ? 0 : 1)
             if onProCategory {
                 nativeBackHeader.setTitle(cat.isEmpty ? "사회자" : cat)
                 nativeCategoryList.configure(mode: .pro, category: cat)
