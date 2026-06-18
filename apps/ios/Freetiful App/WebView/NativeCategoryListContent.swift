@@ -95,6 +95,23 @@ final class NativeCategoryListContent: UIView {
         buildTopBlur()
         buildTabBar()
         buildSearchBar()
+
+        // 좌우 스와이프로 카테고리 탭 전환 (웨딩파트너 한정) — 세로 스크롤과 충돌 안 함(방향성 제스처)
+        for dir in [UISwipeGestureRecognizer.Direction.left, .right] {
+            let g = UISwipeGestureRecognizer(target: self, action: #selector(handleTabSwipe(_:)))
+            g.direction = dir
+            table.addGestureRecognizer(g)
+        }
+    }
+
+    @objc private func handleTabSwipe(_ g: UISwipeGestureRecognizer) {
+        guard mode == .business, !searching else { return }
+        let cur = category.isEmpty ? "전체" : category
+        guard let idx = bizCategories.firstIndex(of: cur) else { return }
+        let next = g.direction == .left ? idx + 1 : idx - 1   // 좌 스와이프 → 다음 탭, 우 스와이프 → 이전 탭
+        guard next >= 0, next < bizCategories.count else { return }
+        Haptics.tap()
+        selectTab(bizCategories[next])
     }
 
     // 웨딩홀 히어로 위 상단 그라데이션 블러 — 헤더/탭 배경 영역. 맨 위는 진한 블러, 탭으로 내려갈수록 투명(영상 선명).

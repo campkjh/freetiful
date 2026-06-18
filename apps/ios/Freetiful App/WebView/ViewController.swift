@@ -195,8 +195,9 @@ class ViewController: UIViewController,
         NSLayoutConstraint.activate([
             nativeBizNav.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
             nativeBizNav.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -14),
-            nativeBizNav.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-            nativeBizNav.heightAnchor.constraint(equalToConstant: 62),
+            // 홈 네비바와 동일: 화면 맨 아래 flush + 높이 80 (NativeBizNav 가 안전영역 위로 콘텐츠 정렬)
+            nativeBizNav.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            nativeBizNav.heightAnchor.constraint(equalToConstant: 80),
         ])
     }
 
