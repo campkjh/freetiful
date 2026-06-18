@@ -76,11 +76,11 @@ final class NativeBizNav: UIView {
         }
 
         NSLayoutConstraint.activate([
+            // 홈 네비 플로팅 탭 알약(_UITabBarItemPlatterView)과 동일: 상단정렬·높이 59·좌우 21 인셋
             bar.topAnchor.constraint(equalTo: topAnchor),
-            // 홈 네비처럼 하단 안전영역(홈 인디케이터) 위로 글래스 알약이 떠 있게 — 화면 맨아래 붙지 않음
-            bar.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
-            bar.leadingAnchor.constraint(equalTo: leadingAnchor),
-            bar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            bar.heightAnchor.constraint(equalToConstant: 59),
+            bar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 21),
+            bar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -21),
             homePill.leadingAnchor.constraint(equalTo: bar.contentView.leadingAnchor, constant: 8),
             homePill.centerYAnchor.constraint(equalTo: bar.contentView.centerYAnchor),
             homePill.widthAnchor.constraint(equalToConstant: 46),
@@ -115,6 +115,7 @@ final class NativeBizNav: UIView {
     }
     override func layoutSubviews() {
         super.layoutSubviews()
+        bar.layer.cornerRadius = bar.bounds.height / 2   // 홈 플로팅 탭처럼 캡슐
         layoutIndicator(animated: false)
     }
 }
