@@ -69,14 +69,13 @@ export default function PageTransition({ children }: { children: React.ReactNode
     }
   }, [pathname]);
 
-  // 애니메이션 중이 아닐 때는 래퍼 없이 그대로 (sticky/fixed 위치 보장)
-  if (animClass === null) {
-    return <>{children}</>;
-  }
-
+  // 래퍼 div 를 항상 동일하게 유지한다. 예전엔 애니메이션 중에만 <div> 로 감싸고
+  // 평소엔 <>{children}</> 로 렌더 → children 의 DOM 부모가 fragment↔div 로 바뀌며
+  // React 가 페이지 전체를 매번 언마운트/리마운트 → 진입 시 "두 번(세 번) 로딩" 발생.
+  // 애니메이션이 없을 땐 display:contents 로 레이아웃 박스를 없애 sticky/fixed 위치를 보존.
   return (
     <>
-      <div className={animClass}>
+      <div className={animClass ?? undefined} style={animClass ? undefined : { display: 'contents' }}>
         {children}
       </div>
       <style jsx global>{`
