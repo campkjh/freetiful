@@ -195,9 +195,9 @@ class ViewController: UIViewController,
         }
         view.addSubview(nativeBizNav)
         NSLayoutConstraint.activate([
-            nativeBizNav.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 14),
-            nativeBizNav.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -14),
-            // 홈 네비바와 동일: 화면 맨 아래 flush + 높이 80 (NativeBizNav 가 안전영역 위로 콘텐츠 정렬)
+            // 홈 네비바와 동일: 좌우 6, 화면 맨 아래 flush, 높이 80 (글래스 알약은 NativeBizNav 가 안전영역 위로 띄움)
+            nativeBizNav.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 6),
+            nativeBizNav.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -6),
             nativeBizNav.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             nativeBizNav.heightAnchor.constraint(equalToConstant: 80),
         ])

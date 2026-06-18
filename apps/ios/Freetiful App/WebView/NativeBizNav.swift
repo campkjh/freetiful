@@ -28,7 +28,7 @@ final class NativeBizNav: UIView {
 
         // 플로팅 글래스 바
         bar.translatesAutoresizingMaskIntoConstraints = false
-        bar.layer.cornerRadius = 31; bar.layer.cornerCurve = .continuous
+        bar.layer.cornerRadius = 28; bar.layer.cornerCurve = .continuous
         bar.clipsToBounds = true
         bar.layer.borderWidth = 1; bar.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
         bar.contentView.backgroundColor = UIColor.white.withAlphaComponent(0.55)
@@ -77,7 +77,8 @@ final class NativeBizNav: UIView {
 
         NSLayoutConstraint.activate([
             bar.topAnchor.constraint(equalTo: topAnchor),
-            bar.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // 홈 네비처럼 하단 안전영역(홈 인디케이터) 위로 글래스 알약이 떠 있게 — 화면 맨아래 붙지 않음
+            bar.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
             bar.leadingAnchor.constraint(equalTo: leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: trailingAnchor),
             homePill.leadingAnchor.constraint(equalTo: bar.contentView.leadingAnchor, constant: 8),
