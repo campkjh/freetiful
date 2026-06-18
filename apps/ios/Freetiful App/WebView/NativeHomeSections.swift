@@ -45,8 +45,9 @@ protocol NativeHomeAllDelegate: AnyObject {
 }
 
 // MARK: - 전체(홈) 네이티브 본문 — 웹 홈과 동일 구성
-final class NativeHomeAllView: UIView {
+final class NativeHomeAllView: UIView, UIScrollViewDelegate {
     weak var delegate: NativeHomeAllDelegate?
+    var onScroll: ((CGFloat) -> Void)?   // 세로 스크롤량(top inset 보정) — 탭 글래스 전환용
     private let imageBase: String
 
     private let scrollView = UIScrollView()
@@ -75,6 +76,10 @@ final class NativeHomeAllView: UIView {
         scrollView.setContentOffset(CGPoint(x: 0, y: -scrollView.contentInset.top), animated: false)
     }
 
+    func scrollViewDidScroll(_ sv: UIScrollView) {
+        onScroll?(sv.contentOffset.y + sv.contentInset.top)
+    }
+
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .white
@@ -83,6 +88,7 @@ final class NativeHomeAllView: UIView {
         scrollView.alwaysBounceVertical = true
         scrollView.showsVerticalScrollIndicator = false
         scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.delegate = self
         addSubview(scrollView)
 
         stack.axis = .vertical

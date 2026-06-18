@@ -45,6 +45,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     private var catLists: [UIStackView] = []
     private var catEmpties: [UILabel] = []
     private var currentTab = 0
+    private var tabsGlass = false   // 홈(전체) 스크롤 시 탭이 글래스 알약으로 모임
     // 카테고리 탭(1~3)에서 네비바 위에 뜨는 '홈 전체로' 알약 글래스
     private let homePill = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
     private var homePillShown = false
@@ -79,7 +80,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
 
         // 헤더 탭 (상단 고정 — 글래스 헤더 바로 아래)
         categoryTabs.translatesAutoresizingMaskIntoConstraints = false
-        categoryTabs.backgroundColor = .white
+        categoryTabs.backgroundColor = .clear   // 내부 solidBg(흰)/glassBlur 가 배경 담당
         categoryTabs.configure(tabs: tabTitles)
         categoryTabs.onSelect = { [weak self] idx in self?.showTab(idx, animated: true) }
         addSubview(categoryTabs)
@@ -119,6 +120,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
 
         // page 0 — 전체 (네이티브 홈 본문)
         homeAll.delegate = self
+        homeAll.onScroll = { [weak self] scrolled in self?.handleHomeScroll(scrolled) }
         pageRow.addArrangedSubview(homeAll)
         homeAll.widthAnchor.constraint(equalTo: pager.frameLayoutGuide.widthAnchor).isActive = true
 
@@ -238,9 +240,24 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         }
     }
 
+    // 전체(홈) 페이지 세로 스크롤 → 전문결혼식사회자찾기 히어로가 ~50% 가려지면 탭을 글래스 알약으로 모음
+    private func handleHomeScroll(_ scrolled: CGFloat) {
+        guard currentTab == 0 else { return }
+        let on = tabsGlass ? scrolled > 70 : scrolled > 110   // 히스테리시스(깜빡임 방지)
+        guard on != tabsGlass else { return }
+        tabsGlass = on
+        categoryTabs.setGlass(on, animated: true)
+    }
+    private func resetTabsGlass() {
+        guard tabsGlass else { return }
+        tabsGlass = false
+        categoryTabs.setGlass(false, animated: false)
+    }
+
     func showTab(_ tab: Int, animated: Bool) {
         guard tab >= 0, tab < tabTitles.count else { return }
         currentTab = tab
+        resetTabsGlass()   // 전환 직후 페이지는 최상단 → 일반 탭으로
         categoryTabs.select(tab)
         updateHomePill()
         scrollPageToTop(tab)   // 탭 전환 시 목적 페이지를 항상 최상단에서 시작
@@ -260,6 +277,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         let tab = Int(round(pager.contentOffset.x / pager.bounds.width))
         if tab != currentTab {
             currentTab = tab
+            resetTabsGlass()   // 스와이프로 페이지 바뀌면(최상단) 일반 탭으로 복귀
             categoryTabs.select(tab)
             updateHomePill()   // 카테고리 탭이면 '홈 전체' 알약 등장
             Haptics.tap() // 스와이프 전환 진동
@@ -421,33 +439,66 @@ final class HeroCardView: UIControl {
 // MARK: - 카테고리 보더 탭 (전체/결혼식/행사/외국어)
 final class HomeCategoryTabsView: UIView {
     var onSelect: ((Int) -> Void)?
+    private let solidBg = UIView()                       // 일반 상태 흰 배경
+    private let glassBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))  // 글래스 상태 그라데이션 블러
+    private let glassMask = CAGradientLayer()
     private let row = UIStackView()
     private let underline = UIView()
+    private let border = UIView()
     private var buttons: [UIButton] = []
+    private var pillBgs: [UIView] = []                   // 글래스 상태 탭 알약 배경
     private var underlineCenterX: NSLayoutConstraint?
     private var underlineWidth: NSLayoutConstraint?
+    private var rowLeading: NSLayoutConstraint!
+    private var rowTrailing: NSLayoutConstraint!         // 풀폭(==trailing) — 글래스 시 비활성→콘텐츠 폭으로 좌측 모임
+    private var selectedIndex = 0
+    private(set) var isGlass = false
 
     override init(frame: CGRect) { super.init(frame: frame); setup() }
     required init?(coder: NSCoder) { super.init(coder: coder); setup() }
 
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        let border = UIView()
+
+        solidBg.translatesAutoresizingMaskIntoConstraints = false
+        solidBg.backgroundColor = .white
+        addSubview(solidBg)
+
+        glassBlur.translatesAutoresizingMaskIntoConstraints = false
+        glassBlur.alpha = 0
+        glassMask.colors = [UIColor.white.cgColor, UIColor.white.cgColor, UIColor.white.withAlphaComponent(0).cgColor]
+        glassMask.locations = [0, 0.5, 1]   // 상단 블러 강함 → 탭 baseline 선명(그라데이션 블러)
+        glassBlur.layer.mask = glassMask
+        addSubview(glassBlur)
+
         border.translatesAutoresizingMaskIntoConstraints = false
         border.backgroundColor = UIColor(white: 0.92, alpha: 1)
         addSubview(border)
+
         row.axis = .horizontal
         row.distribution = .fillEqually
+        row.alignment = .center
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
+
         underline.translatesAutoresizingMaskIntoConstraints = false
         underline.backgroundColor = UIColor(white: 0.1, alpha: 1)
         underline.layer.cornerRadius = 1.5
         addSubview(underline)
+
+        rowLeading = row.leadingAnchor.constraint(equalTo: leadingAnchor)
+        rowTrailing = row.trailingAnchor.constraint(equalTo: trailingAnchor)
         NSLayoutConstraint.activate([
+            solidBg.topAnchor.constraint(equalTo: topAnchor),
+            solidBg.leadingAnchor.constraint(equalTo: leadingAnchor),
+            solidBg.trailingAnchor.constraint(equalTo: trailingAnchor),
+            solidBg.bottomAnchor.constraint(equalTo: bottomAnchor),
+            glassBlur.topAnchor.constraint(equalTo: topAnchor),
+            glassBlur.leadingAnchor.constraint(equalTo: leadingAnchor),
+            glassBlur.trailingAnchor.constraint(equalTo: trailingAnchor),
+            glassBlur.bottomAnchor.constraint(equalTo: bottomAnchor),
+            rowLeading, rowTrailing,
             row.topAnchor.constraint(equalTo: topAnchor),
-            row.leadingAnchor.constraint(equalTo: leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor),
             row.bottomAnchor.constraint(equalTo: bottomAnchor),
             border.leadingAnchor.constraint(equalTo: leadingAnchor),
             border.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -460,7 +511,16 @@ final class HomeCategoryTabsView: UIView {
 
     func configure(tabs: [String]) {
         row.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        pillBgs.forEach { $0.removeFromSuperview() }
+        pillBgs = []
         buttons = tabs.enumerated().map { (i, t) in
+            let pill = UIView()
+            pill.isUserInteractionEnabled = false
+            pill.layer.cornerCurve = .continuous
+            pill.alpha = 0
+            insertSubview(pill, belowSubview: row)
+            pillBgs.append(pill)
+
             let b = UIButton(type: .system)
             b.setTitle(t, for: .normal)
             b.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
@@ -470,6 +530,8 @@ final class HomeCategoryTabsView: UIView {
             row.addArrangedSubview(b)
             return b
         }
+        selectedIndex = 0
+        applyStyles()
         select(0)
     }
 
@@ -477,10 +539,8 @@ final class HomeCategoryTabsView: UIView {
 
     func select(_ index: Int) {
         guard index >= 0, index < buttons.count else { return }
-        for (i, b) in buttons.enumerated() {
-            b.setTitleColor(i == index ? UIColor(white: 0.1, alpha: 1) : UIColor(white: 0.55, alpha: 1), for: .normal)
-            b.titleLabel?.font = .systemFont(ofSize: 14, weight: i == index ? .bold : .semibold)
-        }
+        selectedIndex = index
+        applyStyles()
         let target = buttons[index]
         underlineCenterX?.isActive = false
         underlineWidth?.isActive = false
@@ -489,6 +549,64 @@ final class HomeCategoryTabsView: UIView {
         underlineCenterX?.isActive = true
         underlineWidth?.isActive = true
         UIView.animate(withDuration: 0.25) { self.layoutIfNeeded() }
+    }
+
+    // 글래스 전환: 탭이 좌측 글래스 알약(8px 갭)으로 모이고 헤더 그라데이션 블러가 켜짐
+    func setGlass(_ on: Bool, animated: Bool) {
+        guard on != isGlass else { return }
+        isGlass = on
+        rowTrailing.isActive = !on            // 비활성 → 스택이 콘텐츠 폭으로 줄어 좌측 정렬
+        rowLeading.constant = on ? 14 : 0
+        row.distribution = on ? .fill : .fillEqually
+        row.spacing = on ? 8 : 0
+        applyStyles()
+        let work = {
+            self.solidBg.alpha = on ? 0 : 1
+            self.glassBlur.alpha = on ? 1 : 0
+            self.border.alpha = on ? 0 : 1
+            self.underline.alpha = on ? 0 : 1
+            self.pillBgs.forEach { $0.alpha = on ? 1 : 0 }
+            self.layoutIfNeeded()
+            self.layoutPills()
+        }
+        if animated {
+            UIView.animate(withDuration: 0.36, delay: 0, usingSpringWithDamping: 0.84, initialSpringVelocity: 0.5, options: [.curveEaseInOut, .allowUserInteraction], animations: work)
+        } else { work() }
+    }
+
+    private func applyStyles() {
+        for (i, b) in buttons.enumerated() {
+            let sel = i == selectedIndex
+            if isGlass {
+                b.setTitleColor(sel ? .white : UIColor(white: 0.22, alpha: 1), for: .normal)
+                b.titleLabel?.font = .systemFont(ofSize: 13.5, weight: sel ? .bold : .semibold)
+            } else {
+                b.setTitleColor(sel ? UIColor(white: 0.1, alpha: 1) : UIColor(white: 0.55, alpha: 1), for: .normal)
+                b.titleLabel?.font = .systemFont(ofSize: 14, weight: sel ? .bold : .semibold)
+            }
+            if i < pillBgs.count {
+                let pill = pillBgs[i]
+                pill.backgroundColor = sel ? UIColor(white: 0.13, alpha: 1) : UIColor.white.withAlphaComponent(0.62)
+                pill.layer.borderWidth = sel ? 0 : 0.5
+                pill.layer.borderColor = UIColor(white: 0.1, alpha: 0.12).cgColor
+            }
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        glassMask.frame = glassBlur.bounds
+        layoutPills()
+    }
+    private func layoutPills() {
+        for (i, b) in buttons.enumerated() where i < pillBgs.count {
+            let f = b.convert(b.bounds, to: self)
+            let labelW = b.titleLabel?.intrinsicContentSize.width ?? f.width
+            let w = isGlass ? (labelW + 26) : f.width
+            let h: CGFloat = 32
+            pillBgs[i].frame = CGRect(x: f.midX - w / 2, y: f.midY - h / 2, width: w, height: h)
+            pillBgs[i].layer.cornerRadius = h / 2
+        }
     }
 }
 
