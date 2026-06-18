@@ -2964,3 +2964,50 @@ extension ViewController: UIGestureRecognizerDelegate {
         return true
     }
 }
+
+// MARK: - WKUIDelegate: JS alert/confirm/prompt
+// 미구현 시 WKWebView 에서 window.confirm() 이 조용히 false 를 반환 → 회원탈퇴 등 confirm 기반 액션이 "무응답"이 됨.
+extension ViewController {
+    private func presentJSPanel(_ alert: UIAlertController, onFailure: @escaping () -> Void) {
+        var top: UIViewController = self
+        while let presented = top.presentedViewController, !(presented is UIAlertController) {
+            top = presented
+        }
+        // 이미 알럿이 떠 있으면 중첩 표시 충돌 방지
+        guard !(top.presentedViewController is UIAlertController) else { onFailure(); return }
+        top.present(alert, animated: true)
+    }
+
+    func webView(_ webView: WKWebView,
+                 runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo,
+                 completionHandler: @escaping () -> Void) {
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "확인", style: .default) { _ in completionHandler() })
+        presentJSPanel(alert, onFailure: completionHandler)
+    }
+
+    func webView(_ webView: WKWebView,
+                 runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo,
+                 completionHandler: @escaping (Bool) -> Void) {
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel) { _ in completionHandler(false) })
+        alert.addAction(UIAlertAction(title: "확인", style: .default) { _ in completionHandler(true) })
+        presentJSPanel(alert) { completionHandler(false) }
+    }
+
+    func webView(_ webView: WKWebView,
+                 runJavaScriptTextInputPanelWithPrompt prompt: String,
+                 defaultText: String?,
+                 initiatedByFrame frame: WKFrameInfo,
+                 completionHandler: @escaping (String?) -> Void) {
+        let alert = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
+        alert.addTextField { $0.text = defaultText }
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel) { _ in completionHandler(nil) })
+        alert.addAction(UIAlertAction(title: "확인", style: .default) { [weak alert] _ in
+            completionHandler(alert?.textFields?.first?.text)
+        })
+        presentJSPanel(alert) { completionHandler(nil) }
+    }
+}
