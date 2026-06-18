@@ -366,28 +366,42 @@ export default function WeddingMcLandingPage() {
     let createdMatchRequestId: string | null = null;
     try {
       const digits = normalizedPhone.replace(/\D/g, '');
-      const res = await matchApi.quickRequest({
-        name: name.trim() || undefined,
-        phone: digits,
-        categoryId: '결혼식사회자',
-        type: 'multi',
-        eventLocation: fullLocation,
-        eventDate: datePart || undefined,
-        eventTime: timePart || undefined,
-        rawUserInput: {
-          source: 'landing_wedding_mc_v3',
-          name: name.trim(),
-          phone: normalizedPhone,
-          addressDetail,
-          eventPart,
-          eventDateTime,
-          ...utm,
-        },
-      });
-      if (res?.accessToken && res?.refreshToken && res?.user) {
-        setAuth(res.user, res.accessToken, res.refreshToken);
+      const rawUserInput = {
+        source: 'landing_wedding_mc_v3',
+        name: name.trim(),
+        phone: normalizedPhone,
+        addressDetail,
+        eventPart,
+        eventDateTime,
+        ...utm,
+      };
+      // 로그인 상태면 인증 의뢰(createRequest), 비로그인이면 간이가입+의뢰(quickRequest)
+      let res: any;
+      if (authUser) {
+        res = await matchApi.createRequest({
+          categoryId: '결혼식사회자',
+          type: 'multi',
+          eventLocation: fullLocation,
+          eventDate: datePart || undefined,
+          eventTime: timePart || undefined,
+          rawUserInput,
+        });
+      } else {
+        res = await matchApi.quickRequest({
+          name: name.trim() || undefined,
+          phone: digits,
+          categoryId: '결혼식사회자',
+          type: 'multi',
+          eventLocation: fullLocation,
+          eventDate: datePart || undefined,
+          eventTime: timePart || undefined,
+          rawUserInput,
+        });
+        if (res?.accessToken && res?.refreshToken && res?.user) {
+          setAuth(res.user, res.accessToken, res.refreshToken);
+        }
       }
-      createdMatchRequestId = res?.matchRequest?.id || null;
+      createdMatchRequestId = res?.matchRequest?.id || res?.id || null;
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       // iOS: 다이나믹 아일랜드 "사회자 찾는 중" 라이브 액티비티 시작
       try { (window as any).webkit?.messageHandlers?.nativeMCSearch?.postMessage({ action: 'start', category: '결혼식 사회자' }); } catch {}
@@ -804,28 +818,33 @@ export default function WeddingMcLandingPage() {
                   disabled={submitting}
                   className={`w-full h-[56px] text-[17px] font-bold rounded-[16px] transition active:scale-[0.98] disabled:opacity-60 ${name.trim() && normalizePhone(phone) && addressDetail.trim() && eventDateTime && agree ? 'bg-[#3182F6] hover:bg-[#4E83F6] text-white' : 'bg-[#F2F4F6] text-[#333D4B]'}`}
                 >
-                  {submitting ? '전송 중...' : '비회원 의뢰하기'}
+                  {submitting ? '전송 중...' : (authUser ? '의뢰하기' : '비회원 의뢰하기')}
                 </button>
 
-                {/* 가입 유도 말풍선 — 카카오 로그인 위로 플로팅 (z 위로, 살짝 겹침) */}
-                <div className="relative z-10 mt-4 -mb-[10px] flex justify-center">
-                  <div className="wmc-bob relative w-fit">
-                    <div className="rounded-[14px] bg-white px-4 py-2 text-[14px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
-                      가입만 해도 <span className="wmc-money-grad">5,000원</span> 지급
+                {/* 비로그인일 때만 가입 유도 + 카카오 로그인 노출 (로그인 상태에선 숨김) */}
+                {!authUser && (
+                  <>
+                    {/* 가입 유도 말풍선 — 카카오 로그인 위로 플로팅 (z 위로, 살짝 겹침) */}
+                    <div className="relative z-10 mt-4 -mb-[10px] flex justify-center">
+                      <div className="wmc-bob relative w-fit">
+                        <div className="rounded-[14px] bg-white px-4 py-2 text-[14px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
+                          가입만 해도 <span className="wmc-money-grad">5,000원</span> 지급
+                        </div>
+                        <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid white' }} />
+                      </div>
                     </div>
-                    <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid white' }} />
-                  </div>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={() => startOAuth('kakao')}
-                  style={{ marginTop: '36px' }}
-                  className="flex w-full h-[56px] items-center justify-center gap-2 rounded-[16px] bg-[#FEE500] text-[17px] font-bold text-[#191600] transition active:scale-[0.98]"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#191600" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.9 1.9 5.4 4.7 6.8-.2.7-.7 2.6-.8 3-.1.5.2.5.4.3.2-.1 2.6-1.8 3.6-2.5.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z" /></svg>
-                  카카오 로그인
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => startOAuth('kakao')}
+                      style={{ marginTop: '36px' }}
+                      className="flex w-full h-[56px] items-center justify-center gap-2 rounded-[16px] bg-[#FEE500] text-[17px] font-bold text-[#191600] transition active:scale-[0.98]"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#191600" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.9 1.9 5.4 4.7 6.8-.2.7-.7 2.6-.8 3-.1.5.2.5.4.3.2-.1 2.6-1.8 3.6-2.5.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z" /></svg>
+                      카카오 로그인
+                    </button>
+                  </>
+                )}
               </form>
             </div>
           </section>
@@ -844,20 +863,22 @@ export default function WeddingMcLandingPage() {
             className="wmc-sticky-cta fixed inset-x-0 bottom-0 z-40"
             style={{ transition: 'transform .35s ease, opacity .35s ease' }}
           >
-            {/* 이미지 + 말풍선 — 버튼 위로 내려서 겹치게 (z 높여 버튼 위에 표시) */}
-            <div className="relative z-20 -mb-[44px] px-5">
-              <div className="mx-auto max-w-md">
-                <div className="wmc-bob mx-auto w-fit">
-                  <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 해도 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
-                  <div className="relative mx-auto w-fit">
-                    <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
-                      가입만 해도 <span className="wmc-money-grad">5,000원</span> 지급
+            {/* 이미지 + 말풍선 — 버튼 위로 내려서 겹치게 (z 높여 버튼 위에 표시). 로그인 시 가입 유도 숨김 */}
+            {!authUser && (
+              <div className="relative z-20 -mb-[44px] px-5">
+                <div className="mx-auto max-w-md">
+                  <div className="wmc-bob mx-auto w-fit">
+                    <img src="/images/wedding-mc/redesign/money-5000.png" alt="가입만 해도 5,000원 지급" className="mx-auto -mb-1 h-[72px] w-auto" />
+                    <div className="relative mx-auto w-fit">
+                      <div className="rounded-[16px] bg-white px-4 py-2.5 text-[15px] font-bold text-[#333D4B] shadow-[0_8px_22px_rgba(0,20,60,0.16)]">
+                        가입만 해도 <span className="wmc-money-grad">5,000원</span> 지급
+                      </div>
+                      <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
                     </div>
-                    <div className="absolute left-1/2 top-full -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '9px solid white' }} />
                   </div>
                 </div>
               </div>
-            </div>
+            )}
             {/* 그라데이션 페이드 — 무료견적 받기 버튼 직전부터 흰색 시작 */}
             <div className="h-9 bg-gradient-to-b from-white/0 to-white" />
             <div className="bg-white px-5" style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
