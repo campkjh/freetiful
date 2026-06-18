@@ -21,19 +21,11 @@ struct NativeLoginView: View {
     @State private var sheetOffset: CGFloat = 900
     @State private var dimOpacity: Double = 0
 
-    // 비즈 히어로의 동그란 전문가 캐러셀에 쓰이는 사진들 (freetiful.com 호스팅)
-    private let expertImageURLs = [
-        "https://freetiful.com/images/pro-15/IMG_0196.avif",
-        "https://freetiful.com/images/pro-23/IMG_46511771924269213.avif",
-        "https://freetiful.com/images/pro-12/IMG_27221772621229571.avif",
-        "https://freetiful.com/images/pro-31/IMG_73341772850094485.avif",
-        "https://freetiful.com/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif",
-        "https://freetiful.com/images/pro-25/2-11772248201484.avif",
-        "https://freetiful.com/images/pro-18/20161016_161406_IMG_5921.avif",
-        "https://freetiful.com/images/pro-34/IMG_2920.avif",
-        "https://freetiful.com/images/pro-07/IMG_53011772965035335.avif",
-        "https://freetiful.com/images/pro-03/IMG_06781773894450803.avif",
-    ]
+    // 화면 곡률에 맞춘 카드 r (첫진입 오픈 모달과 동일 방식: 화면 r − 여백10)
+    private var cardRadius: CGFloat {
+        let screenR = (UIScreen.main.value(forKey: "_displayCorner" + "Radius") as? CGFloat) ?? 52
+        return max(22, screenR - 10)
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -41,46 +33,37 @@ struct NativeLoginView: View {
             Color.black.opacity(0.42 * dimOpacity).ignoresSafeArea()
                 .onTapGesture { dismissDown() }
 
-            // 하단 글래스 시트
-            VStack(spacing: 0) {
-                Capsule().fill(Color.white.opacity(0.6)).frame(width: 40, height: 5).padding(.top, 10)
+            // 플로팅 글래스 카드 — 첫진입 오픈 모달처럼 화면 곡률 r + 상하좌우 10px 여백, 아래에서 슬라이드업
+            VStack(spacing: 16) {
+                Image("logo-wordmark")
+                    .resizable().scaledToFit().frame(height: 30)
+                    .padding(.top, 6)
 
-                // 비즈 히어로 동그란 캐러셀 — 전문가 사진이 지나감
-                CircleMarquee(urls: expertImageURLs)
-                    .frame(height: 58)
-                    .padding(.top, 16)
-                    .padding(.bottom, 4)
+                Text("나의 특별한 행사를 완성하는 전문가")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 2)
 
-                VStack(spacing: 16) {
-                    Image("logo-wordmark")
-                        .resizable().scaledToFit().frame(height: 30)
+                VStack(spacing: 10) {
+                    socialButton(icon: "login-kakao", title: "카카오로 시작하기",
+                                 bg: Color(red: 1.0, green: 0.898, blue: 0.0),
+                                 fg: Color(red: 0.098, green: 0.098, blue: 0.098), action: handleKakaoLogin)
+                    socialButton(icon: "login-naver", title: "네이버로 시작하기",
+                                 bg: Color(red: 0.012, green: 0.780, blue: 0.353), fg: .white, action: handleNaverLogin)
+                    socialButton(icon: "login-google", title: "Google로 시작하기",
+                                 bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
+                    socialButton(icon: "login-apple", title: "Apple로 시작하기",
+                                 bg: .black, fg: .white, action: handleAppleLogin)
 
-                    Text("나의 특별한 행사를 완성하는 전문가")
-                        .font(.system(size: 13))
+                    Button("나중에 하기") { dismissDown() }
                         .foregroundColor(.secondary)
-                        .padding(.bottom, 2)
-
-                    VStack(spacing: 10) {
-                        socialButton(icon: "login-kakao", title: "카카오로 시작하기",
-                                     bg: Color(red: 1.0, green: 0.898, blue: 0.0),
-                                     fg: Color(red: 0.098, green: 0.098, blue: 0.098), action: handleKakaoLogin)
-                        socialButton(icon: "login-naver", title: "네이버로 시작하기",
-                                     bg: Color(red: 0.012, green: 0.780, blue: 0.353), fg: .white, action: handleNaverLogin)
-                        socialButton(icon: "login-google", title: "Google로 시작하기",
-                                     bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
-                        socialButton(icon: "login-apple", title: "Apple로 시작하기",
-                                     bg: .black, fg: .white, action: handleAppleLogin)
-
-                        Button("나중에 하기") { dismissDown() }
-                            .foregroundColor(.secondary)
-                            .font(.system(size: 14))
-                            .padding(.top, 6)
-                    }
+                        .font(.system(size: 14))
+                        .padding(.top, 6)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 14)
-                .padding(.bottom, 34)
             }
+            .padding(.horizontal, 22)
+            .padding(.top, 26)
+            .padding(.bottom, 26)
             .frame(maxWidth: .infinity)
             .background(
                 ZStack {
@@ -88,14 +71,15 @@ struct NativeLoginView: View {
                     Color.white.opacity(0.4)   // 오퍼시티 40 글래스
                 }
             )
-            .clipShape(UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
             .overlay(
-                UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous)
+                RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
                     .stroke(Color.white.opacity(0.55), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.25), radius: 28, y: -6)
+            .shadow(color: .black.opacity(0.22), radius: 26, y: 8)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
             .offset(y: sheetOffset)
-            .ignoresSafeArea(edges: .bottom)
 
             if isLoading {
                 ProgressView().scaleEffect(1.4).tint(.white)
@@ -103,6 +87,7 @@ struct NativeLoginView: View {
                     .background(Color.black.opacity(0.25).ignoresSafeArea())
             }
         }
+        .ignoresSafeArea()
         .onAppear {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                 sheetOffset = 0
@@ -321,59 +306,6 @@ struct LiquidGlassView: UIViewRepresentable {
         UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
     }
     func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
-}
-
-// 캐러셀 원형 사진 — 앱 공통 NativeChatImageLoader 로 로드(AVIF 디코딩 OK)
-struct MarqueeCircle: View {
-    let url: String
-    let size: CGFloat
-    @State private var image: UIImage?
-    var body: some View {
-        Group {
-            if let img = image {
-                Image(uiImage: img).resizable().scaledToFill()
-            } else {
-                Circle().fill(Color.white.opacity(0.22))
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 1.5))
-        .onAppear {
-            NativeChatImageLoader.fetch(url) { img in
-                guard let img = img else { return }
-                DispatchQueue.main.async { self.image = img }
-            }
-        }
-    }
-}
-
-// MARK: - 동그란 전문가 사진이 가로로 무한히 지나가는 캐러셀 (비즈 히어로 TiltedRow 재현)
-struct CircleMarquee: View {
-    let urls: [String]
-    private let size: CGFloat = 56
-    private let spacing: CGFloat = 12
-    @State private var offsetX: CGFloat = 0
-
-    var body: some View {
-        let loop = urls + urls   // 끊김 없는 루프용 2배
-        let unit = (size + spacing) * CGFloat(max(urls.count, 1))
-        HStack(spacing: spacing) {
-            ForEach(Array(loop.enumerated()), id: \.offset) { _, item in
-                MarqueeCircle(url: item, size: size)
-            }
-        }
-        .offset(x: offsetX)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .clipped()
-        .allowsHitTesting(false)
-        .onAppear {
-            offsetX = 0
-            withAnimation(.linear(duration: Double(max(urls.count, 1)) * 1.4).repeatForever(autoreverses: false)) {
-                offsetX = -unit
-            }
-        }
-    }
 }
 
 // MARK: - Naver Sign In Coordinator (access token만 반환 — 백엔드가 user info fetch)
