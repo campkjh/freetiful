@@ -17,52 +17,96 @@ struct NativeLoginView: View {
     @State private var appleCoordinator: AppleNativeLoginCoordinator?
     // 로그인 성공으로 닫힌 건지, 드래그/취소로 닫힌 건지 구분
     @State private var didLoginSuccessfully = false
+    // 하단에서 올라오는 모달 애니메이션
+    @State private var sheetOffset: CGFloat = 900
+    @State private var dimOpacity: Double = 0
+
+    // 비즈 히어로의 동그란 전문가 캐러셀에 쓰이는 사진들 (freetiful.com 호스팅)
+    private let expertImageURLs = [
+        "https://freetiful.com/images/pro-15/IMG_0196.avif",
+        "https://freetiful.com/images/pro-23/IMG_46511771924269213.avif",
+        "https://freetiful.com/images/pro-12/IMG_27221772621229571.avif",
+        "https://freetiful.com/images/pro-31/IMG_73341772850094485.avif",
+        "https://freetiful.com/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif",
+        "https://freetiful.com/images/pro-25/2-11772248201484.avif",
+        "https://freetiful.com/images/pro-18/20161016_161406_IMG_5921.avif",
+        "https://freetiful.com/images/pro-34/IMG_2920.avif",
+        "https://freetiful.com/images/pro-07/IMG_53011772965035335.avif",
+        "https://freetiful.com/images/pro-03/IMG_06781773894450803.avif",
+    ]
 
     var body: some View {
-        ZStack {
-            // 딤 배경 (앱이 비치는 적정 크기 모달)
-            Color.black.opacity(0.38).ignoresSafeArea()
-                .onTapGesture { goHome() }
+        ZStack(alignment: .bottom) {
+            // 딤 배경
+            Color.black.opacity(0.42 * dimOpacity).ignoresSafeArea()
+                .onTapGesture { dismissDown() }
 
-            // 글래스 카드
-            VStack(spacing: 16) {
-                Image("logo-wordmark")
-                    .resizable().scaledToFit().frame(height: 32)
-                    .padding(.top, 4)
+            // 하단 글래스 시트
+            VStack(spacing: 0) {
+                Capsule().fill(Color.white.opacity(0.6)).frame(width: 40, height: 5).padding(.top, 10)
 
-                Text("나의 특별한 행사를 완성하는 전문가")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
+                // 비즈 히어로 동그란 캐러셀 — 전문가 사진이 지나감
+                CircleMarquee(urls: expertImageURLs)
+                    .frame(height: 58)
+                    .padding(.top, 16)
                     .padding(.bottom, 4)
 
-                VStack(spacing: 10) {
-                    socialButton(icon: "login-kakao", title: "카카오로 시작하기",
-                                 bg: Color(red: 1.0, green: 0.898, blue: 0.0),
-                                 fg: Color(red: 0.098, green: 0.098, blue: 0.098), action: handleKakaoLogin)
-                    socialButton(icon: "login-naver", title: "네이버로 시작하기",
-                                 bg: Color(red: 0.012, green: 0.780, blue: 0.353), fg: .white, action: handleNaverLogin)
-                    socialButton(icon: "login-google", title: "Google로 시작하기",
-                                 bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
-                    socialButton(icon: "login-apple", title: "Apple로 시작하기",
-                                 bg: .black, fg: .white, action: handleAppleLogin)
+                VStack(spacing: 16) {
+                    Image("logo-wordmark")
+                        .resizable().scaledToFit().frame(height: 30)
 
-                    Button("나중에 하기") { goHome() }
+                    Text("나의 특별한 행사를 완성하는 전문가")
+                        .font(.system(size: 13))
                         .foregroundColor(.secondary)
-                        .font(.system(size: 14))
-                        .padding(.top, 6)
+                        .padding(.bottom, 2)
+
+                    VStack(spacing: 10) {
+                        socialButton(icon: "login-kakao", title: "카카오로 시작하기",
+                                     bg: Color(red: 1.0, green: 0.898, blue: 0.0),
+                                     fg: Color(red: 0.098, green: 0.098, blue: 0.098), action: handleKakaoLogin)
+                        socialButton(icon: "login-naver", title: "네이버로 시작하기",
+                                     bg: Color(red: 0.012, green: 0.780, blue: 0.353), fg: .white, action: handleNaverLogin)
+                        socialButton(icon: "login-google", title: "Google로 시작하기",
+                                     bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
+                        socialButton(icon: "login-apple", title: "Apple로 시작하기",
+                                     bg: .black, fg: .white, action: handleAppleLogin)
+
+                        Button("나중에 하기") { dismissDown() }
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 14))
+                            .padding(.top, 6)
+                    }
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 14)
+                .padding(.bottom, 34)
             }
-            .padding(26)
-            .frame(maxWidth: 360)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.white.opacity(0.45), lineWidth: 1))
-            .shadow(color: .black.opacity(0.25), radius: 28, y: 12)
-            .padding(.horizontal, 28)
+            .frame(maxWidth: .infinity)
+            .background(
+                ZStack {
+                    LiquidGlassView()
+                    Color.white.opacity(0.4)   // 오퍼시티 40 글래스
+                }
+            )
+            .clipShape(UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous))
+            .overlay(
+                UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous)
+                    .stroke(Color.white.opacity(0.55), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.25), radius: 28, y: -6)
+            .offset(y: sheetOffset)
+            .ignoresSafeArea(edges: .bottom)
 
             if isLoading {
                 ProgressView().scaleEffect(1.4).tint(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.black.opacity(0.25).ignoresSafeArea())
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                sheetOffset = 0
+                dimOpacity = 1
             }
         }
         // OAuth 앱 전환 중 시트가 잠깐 사라질 수 있어 로딩 중에는 홈 이동을 막는다.
@@ -71,6 +115,15 @@ struct NativeLoginView: View {
                 goHome()
             }
         }
+    }
+
+    // 아래로 내려가며 닫기 → 홈
+    private func dismissDown() {
+        withAnimation(.easeIn(duration: 0.25)) {
+            sheetOffset = 900
+            dimOpacity = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { goHome() }
     }
 
     // 소셜 로그인 버튼 (제공 아이콘 + 브랜드 컬러)
@@ -259,6 +312,67 @@ struct NativeLoginView: View {
             if let webView = findWebViewInView(subview) { return webView }
         }
         return nil
+    }
+}
+
+// MARK: - 앱 공통 리퀴드 글래스(UIGlassEffect)를 SwiftUI 카드 배경으로
+struct LiquidGlassView: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    }
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
+}
+
+// 캐러셀 원형 사진 — 앱 공통 NativeChatImageLoader 로 로드(AVIF 디코딩 OK)
+struct MarqueeCircle: View {
+    let url: String
+    let size: CGFloat
+    @State private var image: UIImage?
+    var body: some View {
+        Group {
+            if let img = image {
+                Image(uiImage: img).resizable().scaledToFill()
+            } else {
+                Circle().fill(Color.white.opacity(0.22))
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 1.5))
+        .onAppear {
+            NativeChatImageLoader.fetch(url) { img in
+                guard let img = img else { return }
+                DispatchQueue.main.async { self.image = img }
+            }
+        }
+    }
+}
+
+// MARK: - 동그란 전문가 사진이 가로로 무한히 지나가는 캐러셀 (비즈 히어로 TiltedRow 재현)
+struct CircleMarquee: View {
+    let urls: [String]
+    private let size: CGFloat = 56
+    private let spacing: CGFloat = 12
+    @State private var offsetX: CGFloat = 0
+
+    var body: some View {
+        let loop = urls + urls   // 끊김 없는 루프용 2배
+        let unit = (size + spacing) * CGFloat(max(urls.count, 1))
+        HStack(spacing: spacing) {
+            ForEach(Array(loop.enumerated()), id: \.offset) { _, item in
+                MarqueeCircle(url: item, size: size)
+            }
+        }
+        .offset(x: offsetX)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .clipped()
+        .allowsHitTesting(false)
+        .onAppear {
+            offsetX = 0
+            withAnimation(.linear(duration: Double(max(urls.count, 1)) * 1.4).repeatForever(autoreverses: false)) {
+                offsetX = -unit
+            }
+        }
     }
 }
 

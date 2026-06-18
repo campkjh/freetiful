@@ -2543,11 +2543,11 @@ class ViewController: UIViewController,
     // MARK: - Native Login Sheet (Stady-style)
     private func presentNativeLoginSheet() {
         let host = UIHostingController(rootView: NativeLoginView())
-        host.modalPresentationStyle = .overFullScreen   // 앱 위 글래스 카드 모달
-        host.modalTransitionStyle = .crossDissolve
+        host.modalPresentationStyle = .overFullScreen   // 앱 위 글래스 바텀시트
         host.view.backgroundColor = .clear
         DispatchQueue.main.async { [weak self] in
-            self?.present(host, animated: true)
+            // 슬라이드업/딤 페이드는 NativeLoginView 내부에서 처리 → 표준 전환 끔
+            self?.present(host, animated: false)
         }
     }
 
