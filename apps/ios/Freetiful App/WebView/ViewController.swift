@@ -129,6 +129,8 @@ class ViewController: UIViewController,
         }
     }
     private var currentNativeQuery = ""   // location.search (예: "?category=웨딩홀")
+    // 상세화면 뒤로가기의 논리적 목적지 — 직전에 머문 비-상세(리스트/홈/탭) 화면. raw goBack 의 히스토리 오염 회피.
+    private var lastBrowsePath = "/main"
     private var currentNativeActualIsPro = false
     private var currentNativeIsProMode = false
     private var currentNativeViewAsUser = false
@@ -684,6 +686,11 @@ class ViewController: UIViewController,
     }
 
     private func renderNativeNavigation(animated: Bool) {
+        // 상세가 아닌 화면(리스트/홈/탭)에 있을 때 그 경로를 기억 → 상세에서 뒤로가기 시 여기로 복귀
+        if !isDetailPath(currentNativePath) {
+            let q = currentNativeQuery.isEmpty ? "" : (currentNativeQuery.hasPrefix("?") ? currentNativeQuery : "?\(currentNativeQuery)")
+            lastBrowsePath = currentNativePath + q
+        }
         // 웹과 동일: role === 'pro' 이면 PRO nav, 아니면 USER nav (viewAsUser 무관, nav 내 토글 없음)
         let items = currentNativeActualIsPro ? nativeProNavItems : nativeUserNavItems
 
@@ -2015,6 +2022,21 @@ class ViewController: UIViewController,
 
     // MARK: - NativeBackHeaderDelegate
     func backHeaderTapBack() {
+        // raw webView.goBack() 은 SPA 히스토리 오염(예: 사회자 상세 뒤로 → 엉뚱하게 비즈)로 이어짐.
+        // 경로 기반 논리적 뒤로가기로 교체.
+        let p = currentNativePath.split(separator: "?").first.map(String.init) ?? currentNativePath
+        // 사회자 리뷰 전체 → 사회자 상세
+        if p.range(of: "^/pros/[^/]+/reviews$", options: .regularExpression) != nil {
+            let id = String(p.dropFirst("/pros/".count).dropLast("/reviews".count))
+            navigateNativeWeb(to: "/pros/\(id)", replace: true)
+            return
+        }
+        // 상세(사회자/업체/마이 하위) → 직전 브라우즈 화면(리스트/홈)
+        if isDetailPath(p) {
+            navigateNativeWeb(to: lastBrowsePath, replace: true)
+            return
+        }
+        // 그 외 — 기존 동작 유지
         if webView.canGoBack {
             webView.goBack()
         } else {
