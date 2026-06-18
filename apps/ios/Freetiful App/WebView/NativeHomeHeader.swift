@@ -9,11 +9,7 @@ protocol NativeHomeHeaderDelegate: AnyObject {
 final class NativeHomeHeader: UIView {
     weak var delegate: NativeHomeHeaderDelegate?
 
-    private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
-    private let blurMask = CAGradientLayer()
-    private let tintHost = UIView()
-    private let tintGradient = CAGradientLayer()
-
+    // 블러는 NativeHomeContent.topBlur(헤더+탭 통합 그라데이션 블러)가 담당 → 헤더는 투명 오버레이
     private let logo = UIImageView()
     private let searchPill = GlassPill(corner: 21)
     private let searchButton = UIButton(type: .system)
@@ -29,27 +25,6 @@ final class NativeHomeHeader: UIView {
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .clear
-
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        blurMask.colors = [
-            UIColor(white: 1, alpha: 1).cgColor,
-            UIColor(white: 1, alpha: 1).cgColor,
-            UIColor(white: 1, alpha: 0).cgColor,
-        ]
-        blurMask.locations = [0, 0.55, 1]
-        blur.layer.mask = blurMask
-        addSubview(blur)
-
-        tintHost.translatesAutoresizingMaskIntoConstraints = false
-        tintHost.isUserInteractionEnabled = false
-        tintGradient.colors = [
-            UIColor(white: 1, alpha: 0.78).cgColor,
-            UIColor(white: 1, alpha: 0.36).cgColor,
-            UIColor(white: 1, alpha: 0).cgColor,
-        ]
-        tintGradient.locations = [0, 0.6, 1]
-        tintHost.layer.addSublayer(tintGradient)
-        addSubview(tintHost)
 
         logo.translatesAutoresizingMaskIntoConstraints = false
         logo.image = UIImage(named: "logo-wordmark")?.withRenderingMode(.alwaysOriginal)
@@ -88,15 +63,6 @@ final class NativeHomeHeader: UIView {
         bellPill.contentView.addSubview(unreadDot)
 
         NSLayoutConstraint.activate([
-            blur.topAnchor.constraint(equalTo: topAnchor),
-            blur.leadingAnchor.constraint(equalTo: leadingAnchor),
-            blur.trailingAnchor.constraint(equalTo: trailingAnchor),
-            blur.bottomAnchor.constraint(equalTo: bottomAnchor),
-            tintHost.topAnchor.constraint(equalTo: topAnchor),
-            tintHost.leadingAnchor.constraint(equalTo: leadingAnchor),
-            tintHost.trailingAnchor.constraint(equalTo: trailingAnchor),
-            tintHost.bottomAnchor.constraint(equalTo: bottomAnchor),
-
             logo.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             logo.centerYAnchor.constraint(equalTo: searchPill.centerYAnchor),
             logo.heightAnchor.constraint(equalToConstant: 22),
@@ -117,12 +83,6 @@ final class NativeHomeHeader: UIView {
             unreadDot.topAnchor.constraint(equalTo: bellPill.contentView.topAnchor, constant: 9),
             unreadDot.trailingAnchor.constraint(equalTo: bellPill.contentView.trailingAnchor, constant: -10),
         ])
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        blurMask.frame = blur.bounds
-        tintGradient.frame = tintHost.bounds
     }
 
     func setUnread(_ hasUnread: Bool) { unreadDot.isHidden = !hasUnread }
