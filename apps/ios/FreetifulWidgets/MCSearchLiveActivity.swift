@@ -5,6 +5,8 @@ import SwiftUI
 // 다이나믹 아일랜드 + 잠금화면 — "사회자 찾는 중" 라이브 액티비티
 struct MCSearchLiveActivity: Widget {
     private let brandBlue = Color(red: 49/255, green: 130/255, blue: 246/255)
+    // 탭 시 문의목록으로 이동 (앱이 freetiful:// scheme 처리 → /inquiries)
+    private let deepLink = URL(string: "freetiful://inquiries")
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: MCSearchAttributes.self) { context in
@@ -26,6 +28,7 @@ struct MCSearchLiveActivity: Widget {
             .padding(14)
             .activityBackgroundTint(Color(.systemBackground).opacity(0.85))
             .activitySystemActionForegroundColor(brandBlue)
+            .widgetURL(deepLink)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -46,6 +49,7 @@ struct MCSearchLiveActivity: Widget {
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
+                    .widgetURL(deepLink)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     ProgressView()

@@ -81,7 +81,8 @@ class ViewController: UIViewController,
     private var isOnCustomerInquiries = false
     private let nativeHelp = NativeHelpContent()   // 고객센터(FAQ/공지/약관) 네이티브
     private var isOnHelp = false
-    private let helpPaths = ["/my/support", "/my/faq", "/my/announcements", "/my/terms"]
+    // 고객센터(/my/support)는 웹 페이지(연락처·운영시간)를 그대로 노출 — FAQ/공지/약관만 네이티브 글래스 탭
+    private let helpPaths = ["/my/faq", "/my/announcements", "/my/terms"]
     private let nativeProDetail = NativeProDetailContent()   // 사회자 상세 네이티브
     private var isOnProDetail = false
     private var currentProDetailId = ""
@@ -146,7 +147,16 @@ class ViewController: UIViewController,
     func oauth20ConnectionDidFinishDeleteToken() {}
     func oauth20Connection(_ oauthConnection: NaverThirdPartyLoginConnection?,
                            didFailWithError error: Error?) {
-        print("❌ 네이버 로그인 실패:", error?.localizedDescription ?? "unknown")
+        print("❌ 네이버 로그인 실패/취소:", error?.localizedDescription ?? "unknown")
+        // 사용자가 네이버 OAuth 를 취소하면 웹이 로그인 전환 로딩 상태에 멈춤(무한로딩) →
+        // 전환 플래그 정리 + 현재 페이지 새로고침으로 복구하고 안내 토스트 표시.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.webView.evaluateJavaScript("try{sessionStorage.removeItem('freetiful-auth-switching');}catch(e){}") { [weak self] _, _ in
+                self?.webView.reload()
+            }
+            self.showNativeToast("로그인이 취소되었어요")
+        }
     }
 
     // MARK: - Life Cycle
@@ -235,7 +245,14 @@ class ViewController: UIViewController,
                 }, completion: { _ in
                     // 숨긴 뒤 transform 리셋 → 원위치로 튀는 깜빡임 방지 (경로 옵저버가 곧 가시성 재설정)
                     for v in views { v.isHidden = true; v.transform = .identity }
-                    if self.isOnChatDetail { self.chatBarsDidTapBack() } else { self.backHeaderTapBack() }
+                    if self.isOnChatDetail {
+                        self.chatBarsDidTapBack()
+                    } else if self.isTopLevelTab(self.currentNativePath) {
+                        // 문의목록 등 최상위 탭 오버레이: raw goBack 이 이전 탭/구버전으로 가던 버그 → 홈으로
+                        self.navigateNativeWeb(to: "/main", replace: true)
+                    } else {
+                        self.backHeaderTapBack()
+                    }
                 })
             } else {
                 UIView.animate(withDuration: 0.2) { for v in views { v.transform = .identity } }
@@ -681,6 +698,10 @@ class ViewController: UIViewController,
         nativeNavBar.setVisible(!hidden, animated: animated)
         webView.scrollView.contentInset.bottom = hidden ? 0 : 88
         webView.scrollView.verticalScrollIndicatorInsets.bottom = hidden ? 0 : 88
+        // 최상위 탭(홈/Biz/문의목록/채팅/마이)에선 WKWebView 자체 스와이프백을 끔 —
+        // 탭은 "뒤로" 개념이 없어 raw history goBack 이 엉뚱한 이전 탭/구버전 렌더로 가던 버그 방지.
+        // 서브페이지(상세 등)에선 켜둠. 네이티브 오버레이는 별도 엣지팬(handleBackEdgePan)이 처리.
+        webView.allowsBackForwardNavigationGestures = !isTopLevelTab(currentNativePath)
         updateNativeChatVisibility()
 
         // 비즈 메인 페이지: 네이티브 글래스 하단 네비 표출 (웹 하단 네비 숨김은 CSS로)
@@ -690,6 +711,12 @@ class ViewController: UIViewController,
             nativeBizNav.isHidden = !onBiz
         }
         if onBiz { view.bringSubviewToFront(nativeBizNav) }
+    }
+
+    // 하단 네비 최상위 탭 경로 — "뒤로가기" 개념이 없는 화면들
+    private func isTopLevelTab(_ rawPath: String) -> Bool {
+        let path = rawPath.split(separator: "?").first.map(String.init) ?? rawPath
+        return ["/main", "/biz", "/biz/", "/inquiries", "/pro-dashboard/inquiries", "/chat", "/my"].contains(path)
     }
 
     private func shouldHideNativeNavigation(path rawPath: String) -> Bool {
