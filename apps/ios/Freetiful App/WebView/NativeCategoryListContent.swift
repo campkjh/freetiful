@@ -400,22 +400,22 @@ final class NativeCategoryListContent: UIView {
     // 외부(웹 경로 변경)에서 진입 시 호출 — 같은 내비게이션 키면 재설정 안 함(탭 선택 유지)
     // 웨딩홀(business)면 빌라드지디 영상 히어로를 테이블 헤더로, 그 외엔 기존 규칙.
     private func applyBusinessHeader() {
+        let business = (mode == .business)
         if isVilladegd {
             sizeVilladegdHeader()
             table.tableHeaderView = villadegdHero
             villadegdHero.resume()
-            // 헤더+탭 배경은 그라데이션 블러, 탭 알약(GlassPill)만 글래스 유지
-            topBlur.isHidden = false
-            tabBarBg.effect = nil
-            tabBarBg.layer.borderWidth = 0
         } else {
             villadegdHero.pause()
             table.tableHeaderView = mode == .pro ? header : nil
-            topBlur.isHidden = true
-            tabBarBg.effect = LiquidGlassEffectFactory.navigationEffect()
-            tabBarBg.layer.borderWidth = 0.5
         }
-        onHeaderGlass?(isVilladegd ? 0 : 1)
+        // 웨딩파트너 모든 카테고리 동일 디자인: 탭 알약(GlassPill)만 글래스 + 헤더/탭배경은 상단 그라데이션 블러.
+        // 웨딩홀은 다크(영상 위), 그 외는 라이트(흰 리스트 위).
+        topBlur.isHidden = !business
+        topBlur.effect = UIBlurEffect(style: isVilladegd ? .systemChromeMaterialDark : .systemThinMaterial)
+        tabBarBg.effect = business ? nil : LiquidGlassEffectFactory.navigationEffect()
+        tabBarBg.layer.borderWidth = business ? 0 : 0.5
+        onHeaderGlass?(business ? 0 : 1)
         applyTableInsets()
     }
     private func sizeVilladegdHeader() {
