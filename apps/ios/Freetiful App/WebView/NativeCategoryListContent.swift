@@ -404,8 +404,8 @@ final class NativeCategoryListContent: UIView {
     private func sizeVilladegdHeader() {
         let w = bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width
         let h = bounds.height > 0 ? bounds.height : UIScreen.main.bounds.height
-        // 글래스 탭바 아래 가시 영역을 화면 세로로 꽉 채움
-        let heroH = max(440, h - topBarHeight)
+        // 히어로가 화면을 꽉 채움(헤더/탭 뒤까지) — 진입 시 하단에 업체 리스트가 안 보이도록 전체 화면 높이
+        let heroH = max(440, h)
         villadegdHero.frame = CGRect(x: 0, y: 0, width: w, height: heroH)
     }
 
@@ -415,7 +415,7 @@ final class NativeCategoryListContent: UIView {
         // 영상 히어로 헤더 폭이 테이블과 어긋나면 재조정 후 재지정(UIKit 헤더 갱신 규칙)
         if table.tableHeaderView === villadegdHero, bounds.width > 0, bounds.height > 0,
            abs(villadegdHero.frame.width - bounds.width) > 0.5
-            || abs(villadegdHero.frame.height - max(440, bounds.height - topBarHeight)) > 0.5 {
+            || abs(villadegdHero.frame.height - max(440, bounds.height)) > 0.5 {
             sizeVilladegdHeader()
             table.tableHeaderView = villadegdHero
         }
