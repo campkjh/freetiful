@@ -191,7 +191,15 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         .then((data: any) => {
           if (cancelled) return;
           const items = Array.isArray(data) ? data : (data?.data || []);
-          setNewRequestCount(items.filter((m: any) => m.status === 'pending' || m.status === 'viewed').length);
+          // 새요청 페이지를 마지막으로 본 시각 이후에 도착한 요청만 카운트 → 페이지 확인 후엔 0(이후 신규만 다시 증가)
+          let viewedAt = 0;
+          try { viewedAt = Number(localStorage.getItem('freetiful-pro-inquiries-viewed-at')) || 0; } catch {}
+          setNewRequestCount(items.filter((m: any) => {
+            if (m.status !== 'pending' && m.status !== 'viewed') return false;
+            if (!viewedAt) return true;
+            const t = m.deliveredAt ? new Date(m.deliveredAt).getTime() : 0;
+            return t > viewedAt;
+          }).length);
         })
         .catch(() => {
           if (!cancelled) setNewRequestCount(0);
@@ -205,6 +213,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     window.addEventListener('focus', refresh);
     window.addEventListener('freetiful:match-requests-changed', refresh);
     window.addEventListener('freetiful:dashboard-updated', refresh as EventListener);
+    window.addEventListener('freetiful:inquiries-viewed', refresh);   // 새요청 페이지 확인 시 즉시 0으로
     return () => {
       cancelled = true;
       cancelInitialRefresh();
@@ -212,6 +221,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', refresh);
       window.removeEventListener('freetiful:match-requests-changed', refresh);
       window.removeEventListener('freetiful:dashboard-updated', refresh as EventListener);
+      window.removeEventListener('freetiful:inquiries-viewed', refresh);
     };
   }, [authHydrated, authUser?.id, authUser?.role]);
 

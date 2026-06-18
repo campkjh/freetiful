@@ -1515,35 +1515,6 @@ export default function BizPage() {
           opacity: receptionFullscreen ? 0 : 1,
         }}
       >
-        {/* 말풍선 — pill 바깥에 absolute로 배치 (overflow 영향 없음) */}
-        {!inquiryBubbleHidden && !bizNavCollapsing && (
-          <div
-            className="absolute pointer-events-none whitespace-nowrap"
-            style={{
-              bottom: 74,
-              right: '8%',
-              animation: 'bubbleBoingOnce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both, bubbleFloat 2.8s ease-in-out 1.5s infinite',
-              zIndex: 51,
-            }}
-          >
-            <div className="relative bg-white rounded-full px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.12)] border border-gray-100">
-              <span
-                className="text-[11px] font-bold"
-                style={{
-                  background: 'linear-gradient(90deg, #111111, #0052B5, #111111)',
-                  backgroundSize: '200% 100%',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                  animation: 'textGradientShift 2.5s ease-in-out infinite',
-                }}
-              >
-                문의하기
-              </span>
-              <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] w-2 h-2 bg-white border-r border-b border-gray-100 rotate-45" />
-            </div>
-          </div>
-        )}
         <div
           className="max-w-lg mx-auto mb-2"
           style={{
@@ -1558,7 +1529,8 @@ export default function BizPage() {
               maxWidth: bizNavCollapsing ? 60 : 512,
               height: 60,
               borderRadius: 9999,
-              overflow: 'hidden',
+              // 접힘 애니메이션 때만 클립 — 평소엔 visible 라야 문의 버튼 위 말풍선이 안 잘림
+              overflow: bizNavCollapsing ? 'hidden' : 'visible',
               transition: bizNavCollapsing
                 ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), max-width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
                 : 'none',
@@ -1633,6 +1605,33 @@ export default function BizPage() {
                     >
                       {item.label}
                     </span>
+                    {/* 문의하기 말풍선 — 문의 버튼 바로 위에 고정(화면 비율 무관) */}
+                    {isInquiry && !inquiryBubbleHidden && !bizNavCollapsing && (
+                      <div
+                        className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 pointer-events-none whitespace-nowrap"
+                        style={{
+                          animation: 'bubbleBoingOnce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both, bubbleFloat 2.8s ease-in-out 1.5s infinite',
+                          zIndex: 51,
+                        }}
+                      >
+                        <div className="relative bg-white rounded-full px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.12)] border border-gray-100">
+                          <span
+                            className="text-[11px] font-bold"
+                            style={{
+                              background: 'linear-gradient(90deg, #111111, #0052B5, #111111)',
+                              backgroundSize: '200% 100%',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text',
+                              animation: 'textGradientShift 2.5s ease-in-out infinite',
+                            }}
+                          >
+                            문의하기
+                          </span>
+                          <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] w-2 h-2 bg-white border-r border-b border-gray-100 rotate-45" />
+                        </div>
+                      </div>
+                    )}
                   </button>
                   );
                 })}
