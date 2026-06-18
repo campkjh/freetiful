@@ -692,7 +692,11 @@ class ViewController: UIViewController,
             showsModeToggle: false,
             isProMode: false
         )
-        nativeNavBar.setBadges(currentNavBadges)
+        // 현재 보고 있는 탭의 뱃지는 즉시 숨김(새요청/채팅 진입 = 확인) — 웹 카운트 갱신 지연과 무관하게 바로 사라짐
+        var displayBadges = currentNavBadges
+        if currentNativePath == "/pro-dashboard/inquiries" { displayBadges["requests"] = 0 }
+        if currentNativePath == "/chat" || currentNativePath.hasPrefix("/chat/") { displayBadges["chat"] = 0 }
+        nativeNavBar.setBadges(displayBadges)
 
         let hidden = currentNativeHasBlockingOverlay || shouldHideNativeNavigation(path: currentNativePath)
         nativeNavBar.setVisible(!hidden, animated: animated)
