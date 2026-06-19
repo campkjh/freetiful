@@ -281,7 +281,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = "Freetiful App/Freetiful App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = US45855997;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Freetiful App/Info.plist";
@@ -323,7 +323,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = "Freetiful App/Freetiful App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = US45855997;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Freetiful App/Info.plist";
@@ -480,7 +480,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = US45855997;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FreetifulWidgets/Info.plist;
@@ -506,7 +506,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = US45855997;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FreetifulWidgets/Info.plist;
