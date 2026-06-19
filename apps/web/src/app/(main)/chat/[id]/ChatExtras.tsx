@@ -1320,13 +1320,14 @@ export default function ChatExtras(props: ChatExtrasProps) {
     setQuoteEventDate((cur) => cur || toDateInput(mr?.eventDate || lq?.eventDate || raw.date));
     setQuoteEventTime((cur) => cur || toTimeInput(mr?.eventTime || lq?.eventTime || raw.timeStart));
     setQuoteEventLocation((cur) => cur || mr?.eventLocation || lq?.eventLocation || raw.location || '');
-    setQuoteEventName((cur) => cur || lq?.title || raw.eventName || mr?.eventCategory?.name || '');
+    // 행사명 기본값: '{고객명}님의 행사' (예: 차보경님의 행사). 고객명 없으면 기존 폴백.
+    setQuoteEventName((cur) => cur || (chatPartner?.name ? `${chatPartner.name}님의 행사` : '') || lq?.title || raw.eventName || mr?.eventCategory?.name || '');
     // 플랜 자동 선택 — rawUserInput 의 planKey 또는 wedding_part1 / wedding_part12 같은 라벨 힌트
     const planHint = raw.planKey || raw.plan;
     if (planHint && typeof planHint === 'string') {
       setQuotePlan((cur) => (PLAN_KEYS.includes(planHint) ? planHint : cur));
     }
-  }, [showQuoteModal, roomMeta]);
+  }, [showQuoteModal, roomMeta, chatPartner]);
   // 추가 옵션 (프로가 견적 보낼 때 옵션을 추가해 총액을 올릴 수 있음)
   const [quoteOptions, setQuoteOptions] = useState<{ name: string; price: number }[]>([]);
   const [quoteSending, setQuoteSending] = useState(false);
@@ -1991,7 +1992,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
     const toTime = (v: any): string => { if (!v) return ''; if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5); try { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } catch { return ''; } };
     const plan = PLAN_DATA[quotePlan] || Object.values(PLAN_DATA)[0];
     return {
-      eventName: lq?.title || raw.eventName || mr?.eventCategory?.name || '',
+      // 행사명 기본값: '{고객명}님의 행사' (네이티브 견적폼도 이 값을 사용)
+      eventName: (chatPartner?.name ? `${chatPartner.name}님의 행사` : '') || lq?.title || raw.eventName || mr?.eventCategory?.name || '',
       eventDate: toDate(mr?.eventDate || lq?.eventDate || raw.date),
       eventTime: toTime(mr?.eventTime || lq?.eventTime || raw.timeStart),
       eventLocation: mr?.eventLocation || lq?.eventLocation || raw.location || '',
