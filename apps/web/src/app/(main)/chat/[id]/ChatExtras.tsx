@@ -1762,6 +1762,27 @@ export default function ChatExtras(props: ChatExtrasProps) {
       attachItems, menuItems, invokeAttach, invokeMenu,
       sendLocation: (lat: number, lng: number) => sendLocationMessage(Number(lat), Number(lng)),
       getQuoteDefaults: () => computeQuoteDefaults(),
+      // 네이티브 ⋮ → '고객 정보 보기' 모달용 — 견적서 폼과 독립적으로 고객 요청 정보 제공
+      getRequestInfo: () => {
+        const mr: any = roomMeta?.matchRequest;
+        const lq: any = roomMeta?.latestQuotation;
+        if (!mr && !lq) return null;
+        const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+        const toTime = (v: any): string => { if (!v) return ''; if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5); try { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } catch { return ''; } };
+        const toDate = (v: any): string => { if (!v) return ''; try { const d = new Date(v); return Number.isNaN(d.getTime()) ? (typeof v === 'string' ? v.slice(0, 10) : '') : d.toISOString().slice(0, 10); } catch { return ''; } };
+        return {
+          customerName: chatPartner?.name || '고객',
+          customerImage: chatPartner?.profileImageUrl || '',
+          eventName: lq?.title || raw.eventName || mr?.eventCategory?.name || '',
+          eventDate: toDate(mr?.eventDate || lq?.eventDate || raw.date),
+          eventTime: toTime(mr?.eventTime || lq?.eventTime || raw.timeStart),
+          eventLocation: mr?.eventLocation || lq?.eventLocation || raw.location || '',
+          planLabel: raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부+2부' : raw.planKey === 'wedding_part1' ? '1부' : ''),
+          categoryName: mr?.category?.name || mr?.eventCategory?.name || raw.categoryName || '',
+          memo: raw.memo || raw.note || '',
+          latestAmount: lq?.amount != null ? Number(lq.amount) : 0,
+        };
+      },
       submitQuote: (data: any) => {
         try {
           flushSync(() => {

@@ -57,6 +57,7 @@ export default function SettingsPage() {
   const [profileImage, setProfileImage] = useState(() => authUser?.profileImageUrl || '');
   const [selectedProfileImageFile, setSelectedProfileImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);   // 회원탈퇴 확인 모달 (confirm() 대신)
 
   // 연결된 소셜 계정 감지 — email prefix 기반 (kakao_*, naver_*, google_*, apple_*)
   const [connectedProviders, setConnectedProviders] = useState<Set<string>>(new Set());
@@ -321,29 +322,40 @@ export default function SettingsPage() {
 
       <div className="px-4 pb-10 text-center">
         <button
-          onClick={() => {
-            if (!confirm('정말 탈퇴하시겠습니까?\n탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.')) return;
-            if (!confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
-            if (authUser) {
-              usersApi.deleteAccount()
-                .then(() => {
-                  useAuthStore.getState().logout();
-                  localStorage.clear();
-                  toast.success('회원 탈퇴가 완료되었습니다');
-                  router.push('/');
-                })
-                .catch(() => toast.error('탈퇴 처리에 실패했습니다'));
-            } else {
-              localStorage.clear();
-              toast.success('회원 탈퇴가 완료되었습니다');
-              router.push('/');
-            }
-          }}
+          type="button"
+          onClick={() => setShowWithdraw(true)}
           className="text-[13px] text-red-400 font-medium"
         >
           회원 탈퇴
         </button>
       </div>
+
+      {/* 회원탈퇴 확인 모달 — confirm() 대신(네이티브 WKWebView 빌드 무관하게 동작) */}
+      {showWithdraw && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center px-6" onClick={() => setShowWithdraw(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[16px] font-bold text-gray-900 text-center mb-2">정말 탈퇴하시겠어요?</p>
+            <p className="text-[13px] text-gray-500 text-center mb-5 leading-relaxed">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowWithdraw(false)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform">아니오</button>
+              <button
+                onClick={() => {
+                  setShowWithdraw(false);
+                  if (authUser) {
+                    usersApi.deleteAccount()
+                      .then(() => { useAuthStore.getState().logout(); localStorage.clear(); toast.success('회원 탈퇴가 완료되었습니다'); router.push('/'); })
+                      .catch(() => toast.error('탈퇴 처리에 실패했습니다'));
+                  } else {
+                    localStorage.clear(); toast.success('회원 탈퇴가 완료되었습니다'); router.push('/');
+                  }
+                }}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+              >탈퇴하기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── 연결 끊기 확인 모달 ─────────────────────────────────────── */}
       {disconnectTarget && (
