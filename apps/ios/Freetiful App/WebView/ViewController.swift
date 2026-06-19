@@ -1033,14 +1033,17 @@ class ViewController: UIViewController,
         refreshNativeCustomerRequestInfo()   // ⋮ → '고객 정보 보기' 모달용 — 견적폼 닫아도 유지
     }
 
-    // 고객 요청(견적) 정보를 웹 브리지에서 받아 VC 에 캐시 → 견적폼 lifecycle 과 무관하게 보존
+    // 고객 요청(견적) 정보를 웹 브리지에서 받아 VC 에 캐시(폴백용)
     private func refreshNativeCustomerRequestInfo() {
-        guard nativeChatState.isPro else { nativeCustomerRequestInfo = nil; return }
+        fetchCustomerRequestInfo { [weak self] info in if let info = info { self?.nativeCustomerRequestInfo = info } }
+    }
+    // 항상 최신 roomMeta 로 새로 패치 — 초기(roomMeta 미로드) 캐시가 날짜/장소 미정으로 남던 버그 방지
+    private func fetchCustomerRequestInfo(_ done: @escaping (NativeCustomerRequestModal.Info?) -> Void) {
+        guard nativeChatState.isPro else { done(nil); return }
         let js = "(function(){ try { return JSON.stringify((window.__freetifulChatActions && window.__freetifulChatActions.getRequestInfo) ? window.__freetifulChatActions.getRequestInfo() : null); } catch(e){ return 'null'; } })();"
-        webView.evaluateJavaScript(js) { [weak self] result, _ in
-            guard let self = self,
-                  let s = result as? String, s != "null", let data = s.data(using: .utf8),
-                  let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        webView.evaluateJavaScript(js) { result, _ in
+            guard let s = result as? String, s != "null", let data = s.data(using: .utf8),
+                  let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { done(nil); return }
             var i = NativeCustomerRequestModal.Info()
             i.customerName = (o["customerName"] as? String) ?? ""
             i.customerImage = (o["customerImage"] as? String) ?? ""
@@ -1052,7 +1055,7 @@ class ViewController: UIViewController,
             i.categoryName = (o["categoryName"] as? String) ?? ""
             i.memo = (o["memo"] as? String) ?? ""
             i.latestAmount = (o["latestAmount"] as? Int) ?? Int((o["latestAmount"] as? Double) ?? 0)
-            self.nativeCustomerRequestInfo = i
+            done(i)
         }
     }
 
@@ -2244,18 +2247,17 @@ class ViewController: UIViewController,
             return
         }
         if id == "profile", nativeChatState.isPro {
-            // 사회자 → 고객 견적 정보를 네이티브 모달로 표시 (견적폼 닫아도 ⋮ 에서 다시 볼 수 있음)
-            if let info = nativeCustomerRequestInfo {
-                present(NativeCustomerRequestModal(info: info), animated: true)
-            } else {
-                refreshNativeCustomerRequestInfo()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                    guard let self = self else { return }
-                    if let info = self.nativeCustomerRequestInfo {
-                        self.present(NativeCustomerRequestModal(info: info), animated: true)
-                    } else {
-                        self.showNativeToast("고객 요청 정보를 불러오지 못했습니다")
-                    }
+            // 사회자 → 고객 견적 정보를 네이티브 모달로 표시. 탭마다 최신 roomMeta 로 새로 패치
+            // (초기 캐시는 roomMeta 미로드 상태라 날짜/장소가 미정으로 비어있을 수 있음).
+            fetchCustomerRequestInfo { [weak self] info in
+                guard let self = self else { return }
+                if let info = info {
+                    self.nativeCustomerRequestInfo = info
+                    self.present(NativeCustomerRequestModal(info: info), animated: true)
+                } else if let cached = self.nativeCustomerRequestInfo {
+                    self.present(NativeCustomerRequestModal(info: cached), animated: true)
+                } else {
+                    self.showNativeToast("고객 요청 정보를 불러오지 못했습니다")
                 }
             }
             return
