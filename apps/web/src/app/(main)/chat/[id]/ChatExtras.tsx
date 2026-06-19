@@ -2230,18 +2230,19 @@ export default function ChatExtras(props: ChatExtrasProps) {
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <h2 className="text-[18px] font-bold text-gray-900 mb-4">견적서 작성</h2>
 
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">견적 금액</p>
+            {/* 네이티브 견적서 폼과 동일한 인풋/내용 (네이티브가 기준) */}
+            <p className="text-[12px] font-bold text-gray-500 mb-1.5">견적 금액</p>
             <input
               type="text"
               inputMode="numeric"
               value={quoteCustomAmount}
               onChange={(e) => setQuoteCustomAmount(e.target.value.replace(/[^\d]/g, ''))}
-              placeholder="직접 입력하지 않으면 선택 플랜 금액이 적용됩니다"
+              placeholder="직접 입력 시 선택 플랜 금액 대신 적용"
               className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-4"
             />
 
-            {/* ─── 행사 정보 (행사일이 스케줄링에 사용됨) ─── */}
-            <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider mb-2">행사 정보</p>
+            {/* ─── 행사 정보 ─── */}
+            <p className="text-[12px] font-bold text-gray-500 mb-1.5">행사 정보</p>
             <div className="space-y-2 mb-4">
               <input
                 type="text"
@@ -2251,19 +2252,25 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
               />
               <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={quoteEventDate}
-                  onChange={(e) => setQuoteEventDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
-                />
-                <input
-                  type="time"
-                  value={quoteEventTime}
-                  onChange={(e) => setQuoteEventTime(e.target.value)}
-                  className="w-[130px] h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
-                />
+                <div className="flex-1">
+                  <p className="text-[12px] font-bold text-gray-500 mb-1">행사일</p>
+                  <input
+                    type="date"
+                    value={quoteEventDate}
+                    onChange={(e) => setQuoteEventDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[12px] font-bold text-gray-500 mb-1">시간</p>
+                  <input
+                    type="time"
+                    value={quoteEventTime}
+                    onChange={(e) => setQuoteEventTime(e.target.value)}
+                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
+                  />
+                </div>
               </div>
               <input
                 type="text"
@@ -2272,21 +2279,13 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 placeholder="행사 장소 (예: 그랜드 워커힐 서울)"
                 className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
               />
-              {!quoteEventDate && (
-                <p className="text-[11px] text-amber-600 flex items-center gap-1">
-                  ⚠️ 행사일을 설정해야 스케줄에 자동 등록됩니다
-                </p>
-              )}
             </div>
 
-            {/* 총액 표시 */}
+            {/* 총 견적 (네이티브와 동일: '총 견적 · {플랜}' + 총액) */}
             <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-4">
-              <div>
-                <p className="text-[11px] text-gray-400">
-                  기본 견적 {quoteBaseAmount.toLocaleString()}원
-                  {quoteCustomAmount.trim() ? ' · 직접 입력' : ` · ${PLAN_DATA[quotePlan]?.label || ''}`}
-                </p>
-              </div>
+              <span className="text-[12px] font-bold text-gray-500">
+                {selectedPlan?.label ? `총 견적 · ${selectedPlan.label}` : '총 견적'}
+              </span>
               <p className="text-[18px] font-bold text-[#3180F7]">
                 {quoteTotalAmount.toLocaleString()}원
               </p>
