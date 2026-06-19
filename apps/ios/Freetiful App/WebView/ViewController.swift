@@ -714,8 +714,12 @@ class ViewController: UIViewController,
         // 최상위 탭(홈/Biz/문의목록/채팅/마이)에선 WKWebView 자체 스와이프백을 끔 —
         // 탭은 "뒤로" 개념이 없어 raw history goBack 이 엉뚱한 이전 탭/구버전 렌더로 가던 버그 방지.
         // 서브페이지(상세 등)에선 켜둠. 네이티브 오버레이는 별도 엣지팬(handleBackEdgePan)이 처리.
-        webView.allowsBackForwardNavigationGestures = !isTopLevelTab(currentNativePath)
+        webView.allowsBackForwardNavigationGestures = !isTopLevelTab(currentNativePath) && !backSwipeOverlayActive()
         updateNativeChatVisibility()
+        // updateNativeChatVisibility 가 isOnProDetail 등 오버레이 플래그를 갱신 → 최신값으로 재확정.
+        // 네이티브 오버레이(사회자 상세 등) 화면에선 WKWebView 스와이프를 꺼야 함.
+        // (안 끄면 웹 레이어만 스와이프 애니메이션되고 불투명 오버레이는 그대로라 '현재 페이지가 뒤에 보이는' 버그)
+        webView.allowsBackForwardNavigationGestures = !isTopLevelTab(currentNativePath) && !backSwipeOverlayActive()
 
         // 비즈 메인 페이지: 네이티브 글래스 하단 네비 표출 (웹 하단 네비 숨김은 CSS로)
         let onBiz = (currentNativePath == "/biz" || currentNativePath == "/biz/")
@@ -738,7 +742,10 @@ class ViewController: UIViewController,
     // 하단 네비 최상위 탭 경로 — "뒤로가기" 개념이 없는 화면들
     private func isTopLevelTab(_ rawPath: String) -> Bool {
         let path = rawPath.split(separator: "?").first.map(String.init) ?? rawPath
-        return ["/main", "/biz", "/biz/", "/inquiries", "/pro-dashboard/inquiries", "/chat", "/my"].contains(path)
+        // /biz 전체(서브섹션 /biz/clients, /biz/faq 등 포함)는 WKWebView 스와이프백 금지 —
+        // 서브페이지가 최상위로 인식 안 되면 스와이프가 켜져 오염된 SPA 히스토리(직전 /inquiries 등)로 가던 버그.
+        if path == "/biz" || path.hasPrefix("/biz/") { return true }
+        return ["/main", "/inquiries", "/pro-dashboard/inquiries", "/chat", "/my"].contains(path)
     }
 
     private func shouldHideNativeNavigation(path rawPath: String) -> Bool {
@@ -2059,6 +2066,12 @@ class ViewController: UIViewController,
         // 상세(사회자/업체/마이 하위) → 직전 브라우즈 화면(리스트/홈)
         if isDetailPath(p) {
             navigateNativeWeb(to: lastBrowsePath, replace: true)
+            return
+        }
+        // 문의목록/알림/검색 등 네이티브 자체헤더 화면 + 최상위 탭: raw goBack 은 오염된 SPA 히스토리
+        // (예: 문의내역 '<' → 엉뚱하게 비즈)로 가므로 항상 홈으로. (최상위 탭 스와이프백 동작과 일치)
+        if isTopLevelTab(p) || p == "/notifications" || p == "/search" {
+            navigateNativeWeb(to: "/main", replace: true)
             return
         }
         // 그 외 — 기존 동작 유지

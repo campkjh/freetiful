@@ -17,6 +17,8 @@ struct NativeLoginView: View {
     @State private var appleCoordinator: AppleNativeLoginCoordinator?
     // 로그인 성공으로 닫힌 건지, 드래그/취소로 닫힌 건지 구분
     @State private var didLoginSuccessfully = false
+    // 네이버 인증창 진행 중 플래그 — 콜백 없이 복귀(뒤로가기) 시 무한로딩 해제용
+    @State private var naverInFlight = false
     // 하단에서 올라오는 모달 애니메이션
     @State private var sheetOffset: CGFloat = 900
     @State private var dimOpacity: Double = 0
@@ -92,6 +94,17 @@ struct NativeLoginView: View {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                 sheetOffset = 0
                 dimOpacity = 1
+            }
+        }
+        // 네이버 인증창에서 콜백 없이(뒤로가기/취소) 앱 복귀 시 무한로딩 해제 안전망.
+        // 정상 콜백(success/failure)이 naverInFlight 를 먼저 끄므로, 지연 후에도 남아있으면 취소로 간주.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            guard naverInFlight else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                if naverInFlight && !didLoginSuccessfully {
+                    naverInFlight = false
+                    isLoading = false
+                }
             }
         }
         // OAuth 앱 전환 중 시트가 잠깐 사라질 수 있어 로딩 중에는 홈 이동을 막는다.
@@ -184,16 +197,17 @@ struct NativeLoginView: View {
     // MARK: - Naver (/auth/login/naver/native — accessToken)
     func handleNaverLogin() {
         isLoading = true
+        naverInFlight = true
         let coordinator = NaverNativeLoginCoordinator { result in
             DispatchQueue.main.async {
+                self.naverInFlight = false
                 switch result {
                 case .success(let accessToken):
                     self.callAPI(endpoint: "/auth/login/naver/native", body: ["accessToken": accessToken])
                 case .failure(let error):
-                    // 취소/실패 → 홈으로
+                    // 취소/실패 → 로딩만 해제하고 시트 유지(다른 방법으로 재시도 가능). 닫기는 드래그/배경탭.
                     print("❌ 네이버 로그인 취소·실패:", error)
                     self.isLoading = false
-                    self.goHome()
                 }
                 self.naverCoordinator = nil
             }
@@ -338,6 +352,12 @@ class NaverNativeLoginCoordinator: NSObject, NaverThirdPartyLoginConnectionDeleg
     func oauth20ConnectionDidFinishDeleteToken() {}
     func oauth20Connection(_ oauthConnection: NaverThirdPartyLoginConnection?, didFailWithError error: Error?) {
         completion(.failure(error ?? NSError(domain: "Naver", code: -1)))
+    }
+    // 사용자가 네이버 인증화면에서 뒤로가기/취소(CANCELBYUSER=2 등) → didFailWithError 가 아니라 이 옵셔널 콜백으로 옴.
+    // 미구현 시 completion 이 안 불려 무한로딩이 됐음.
+    func oauth20Connection(_ oauthConnection: NaverThirdPartyLoginConnection?, didFailAuthorizationWithReceive receiveType: THIRDPARTYLOGIN_RECEIVE_TYPE) {
+        completion(.failure(NSError(domain: "Naver", code: Int(receiveType.rawValue),
+                                    userInfo: [NSLocalizedDescriptionKey: "네이버 로그인 취소/실패 (type \(receiveType.rawValue))"])))
     }
 }
 

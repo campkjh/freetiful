@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { prosApi } from '@/lib/api/pros.api';
+import { usersApi } from '@/lib/api/users.api';
 import {
   WEDDING_OPTION_SUGGESTIONS,
   WEDDING_PLAN_TEMPLATES,
@@ -311,6 +312,7 @@ export default function ProEditPage() {
   const authUser = useAuthStore((s) => s.user);
 
   /* ── State ── */
+  const [showWithdraw, setShowWithdraw] = useState(false);   // 회원탈퇴 확인 모달 (confirm() 대신 — WKWebView 의존 제거)
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState('');
@@ -1814,6 +1816,36 @@ export default function ProEditPage() {
           {saving ? '저장 중...' : '저장하기'}
         </button>
       </div>
+
+      {/* ─── 회원 탈퇴 (프로 계정도 탈퇴 가능하도록) ─── */}
+      <div className="px-4 pb-10 text-center">
+        <button type="button" onClick={() => setShowWithdraw(true)} className="text-[13px] text-red-400 font-medium">
+          회원 탈퇴
+        </button>
+      </div>
+
+      {/* 회원탈퇴 확인 모달 — confirm() 대신(네이티브 WKWebView 빌드 무관하게 동작) */}
+      {showWithdraw && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center px-6" onClick={() => setShowWithdraw(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[16px] font-bold text-gray-900 text-center mb-2">정말 탈퇴하시겠어요?</p>
+            <p className="text-[13px] text-gray-500 text-center mb-5 leading-relaxed">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowWithdraw(false)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform">아니오</button>
+              <button
+                onClick={() => {
+                  setShowWithdraw(false);
+                  usersApi.deleteAccount()
+                    .then(() => { useAuthStore.getState().logout(); try { localStorage.clear(); } catch {} router.push('/'); })
+                    .catch(() => { useAuthStore.getState().logout(); try { localStorage.clear(); } catch {} router.push('/'); });
+                }}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+              >탈퇴하기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── 사회자분류 바텀시트 ─── */}
       <>
