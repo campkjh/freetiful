@@ -974,7 +974,7 @@ class ViewController: UIViewController,
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         if isOnChatList {
-            let top = nativeChatListBar.frame.height > 0 ? nativeChatListBar.frame.height : (view.safeAreaInsets.top + 92)
+            let top = nativeChatListBar.frame.height > 0 ? nativeChatListBar.frame.height - 8 : (view.safeAreaInsets.top + 84)
             nativeChatListContent.setInsets(top: top, bottom: 92)
             if isOnInquiry { nativeInquiryContent.setInsets(top: top, bottom: 92) }
         }
@@ -1132,7 +1132,7 @@ class ViewController: UIViewController,
             view.bringSubviewToFront(nativeMyContent)
             view.bringSubviewToFront(nativeMyHeader)
             view.bringSubviewToFront(nativeNavBar)   // 하단 네비바가 본문 위에 보이도록
-            nativeMyContent.setInsets(top: view.safeAreaInsets.top + 46, bottom: 92)
+            nativeMyContent.setInsets(top: view.safeAreaInsets.top + 36, bottom: 92)   // 헤더 그라데이션 마스크라 타이틀 바로 아래로 당김(+8 스택 패딩 보정)
             nativeMyContent.setPartnerRowHidden(currentNativeActualIsPro)   // 사회자면 파트너 신청 숨김(웹과 동일)
             // 브리지 준비 타이밍 보강 — 프로필 몇 번 재요청 (로그인 직후 리로드 하이드레이션까지 커버)
             for delay in [0.0, 0.4, 1.2, 2.5, 5.0, 10.0] {
@@ -1391,7 +1391,7 @@ class ViewController: UIViewController,
         isOnInquiry = onInquiryNative
         nativeChatListContent.isHidden = !onChatListNative
         nativeInquiryContent.isHidden = !onInquiryNative
-        let listTop = nativeChatListBar.frame.height > 0 ? nativeChatListBar.frame.height : (view.safeAreaInsets.top + 92)
+        let listTop = nativeChatListBar.frame.height > 0 ? nativeChatListBar.frame.height - 8 : (view.safeAreaInsets.top + 84)   // 탭 알약 바로 아래로 당김(바 하단 10pt 패딩 축소)
         if onChatListNative {
             if enteringChat {
                 // 탭바 즉시 표시(웹 왕복 기다리지 않음) + 캐시 행 즉시 렌더
