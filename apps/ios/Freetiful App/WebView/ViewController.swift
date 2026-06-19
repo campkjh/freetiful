@@ -64,6 +64,7 @@ class ViewController: UIViewController,
     private let nativeChatInputBar = NativeChatInputBar()
     private var nativeChatInputBottom: NSLayoutConstraint?
     private var nativeChatState = NativeChatState()
+    private var nativeCustomerRequestInfo: NativeCustomerRequestModal.Info?   // ⋮ → 고객 견적 정보 모달용 캐시
     private var isOnChatDetail = false
     private let nativeChatListBar = NativeChatListBar()
     private let nativeMyHeader = NativeSimpleGlassHeader()
@@ -1022,6 +1023,30 @@ class ViewController: UIViewController,
         // 메뉴 항목은 네이티브에서 직접 구성 — 웹 배포/캐시 타이밍과 무관하게 항상 표시
         nativeChatInputBar.setAttachItems(buildAttachItems(isPro: s.isPro))
         nativeChatHeader.setMenuItems(buildMenuItems(isPro: s.isPro, muted: s.muted))
+        refreshNativeCustomerRequestInfo()   // ⋮ → '고객 정보 보기' 모달용 — 견적폼 닫아도 유지
+    }
+
+    // 고객 요청(견적) 정보를 웹 브리지에서 받아 VC 에 캐시 → 견적폼 lifecycle 과 무관하게 보존
+    private func refreshNativeCustomerRequestInfo() {
+        guard nativeChatState.isPro else { nativeCustomerRequestInfo = nil; return }
+        let js = "(function(){ try { return JSON.stringify((window.__freetifulChatActions && window.__freetifulChatActions.getRequestInfo) ? window.__freetifulChatActions.getRequestInfo() : null); } catch(e){ return 'null'; } })();"
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            guard let self = self,
+                  let s = result as? String, s != "null", let data = s.data(using: .utf8),
+                  let o = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+            var i = NativeCustomerRequestModal.Info()
+            i.customerName = (o["customerName"] as? String) ?? ""
+            i.customerImage = (o["customerImage"] as? String) ?? ""
+            i.eventName = (o["eventName"] as? String) ?? ""
+            i.eventDate = (o["eventDate"] as? String) ?? ""
+            i.eventTime = (o["eventTime"] as? String) ?? ""
+            i.eventLocation = (o["eventLocation"] as? String) ?? ""
+            i.planLabel = (o["planLabel"] as? String) ?? ""
+            i.categoryName = (o["categoryName"] as? String) ?? ""
+            i.memo = (o["memo"] as? String) ?? ""
+            i.latestAmount = (o["latestAmount"] as? Int) ?? Int((o["latestAmount"] as? Double) ?? 0)
+            self.nativeCustomerRequestInfo = i
+        }
     }
 
     private func buildAttachItems(isPro: Bool) -> [ChatMenuItem] {
@@ -1082,7 +1107,7 @@ class ViewController: UIViewController,
                 hasLoadedChatMessagesOnce = false // 방 전환마다 첫 로드 시 맨 아래로
                 lastChatDetailPath = currentNativePath
             }
-            let topInset = view.safeAreaInsets.top + 52 + 8 // 글래스 헤더 높이 + 여백
+            let topInset = view.safeAreaInsets.top + 52 + 2 // 글래스 헤더 높이 + 여백(타이트)
             nativeChatMessages.setInsets(top: topInset, bottom: 10)
             requestNativeChatMessages()
         }
@@ -1107,7 +1132,7 @@ class ViewController: UIViewController,
             view.bringSubviewToFront(nativeMyContent)
             view.bringSubviewToFront(nativeMyHeader)
             view.bringSubviewToFront(nativeNavBar)   // 하단 네비바가 본문 위에 보이도록
-            nativeMyContent.setInsets(top: view.safeAreaInsets.top + 56, bottom: 92)
+            nativeMyContent.setInsets(top: view.safeAreaInsets.top + 46, bottom: 92)
             nativeMyContent.setPartnerRowHidden(currentNativeActualIsPro)   // 사회자면 파트너 신청 숨김(웹과 동일)
             // 브리지 준비 타이밍 보강 — 프로필 몇 번 재요청 (로그인 직후 리로드 하이드레이션까지 커버)
             for delay in [0.0, 0.4, 1.2, 2.5, 5.0, 10.0] {
@@ -2206,9 +2231,20 @@ class ViewController: UIViewController,
             return
         }
         if id == "profile", nativeChatState.isPro {
-            // 사회자 → 고객 요청 정보는 대화 상단 안내 카드에 있음
-            nativeChatMessages.scrollToTop(animated: true)
-            showNativeToast("대화 상단에서 고객 요청 정보를 확인하세요")
+            // 사회자 → 고객 견적 정보를 네이티브 모달로 표시 (견적폼 닫아도 ⋮ 에서 다시 볼 수 있음)
+            if let info = nativeCustomerRequestInfo {
+                present(NativeCustomerRequestModal(info: info), animated: true)
+            } else {
+                refreshNativeCustomerRequestInfo()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                    guard let self = self else { return }
+                    if let info = self.nativeCustomerRequestInfo {
+                        self.present(NativeCustomerRequestModal(info: info), animated: true)
+                    } else {
+                        self.showNativeToast("고객 요청 정보를 불러오지 못했습니다")
+                    }
+                }
+            }
             return
         }
         let js = "window.__freetifulChatActions && window.__freetifulChatActions.invokeMenu(\(jsLiteral(id)));"

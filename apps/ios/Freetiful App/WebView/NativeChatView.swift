@@ -494,3 +494,121 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         return false
     }
 }
+
+// MARK: - 고객 견적 정보 모달 (사회자가 채팅방 ⋮ → '고객 정보 보기')
+// 견적서 작성 폼을 닫아도 고객 요청 정보를 다시 볼 수 있도록 ViewController 가 캐시한 Info 로 표시.
+final class NativeCustomerRequestModal: UIViewController {
+    struct Info {
+        var customerName = ""; var customerImage = ""
+        var eventName = ""; var eventDate = ""; var eventTime = ""
+        var eventLocation = ""; var planLabel = ""; var categoryName = ""
+        var memo = ""; var latestAmount = 0
+    }
+    private let info: Info
+    private let dimView = UIView()
+    private let card = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
+
+    init(info: Info) {
+        self.info = info
+        super.init(nibName: nil, bundle: nil)
+        modalPresentationStyle = .overFullScreen
+        modalTransitionStyle = .crossDissolve
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .clear
+
+        dimView.translatesAutoresizingMaskIntoConstraints = false
+        dimView.backgroundColor = UIColor.black.withAlphaComponent(0.4)
+        dimView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(close)))
+        view.addSubview(dimView)
+
+        card.translatesAutoresizingMaskIntoConstraints = false
+        card.clipsToBounds = true
+        card.layer.cornerRadius = 24
+        card.layer.cornerCurve = .continuous
+        card.layer.borderWidth = 0.5
+        card.layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
+        view.addSubview(card)
+
+        let whiteTint = UIView()
+        whiteTint.translatesAutoresizingMaskIntoConstraints = false
+        whiteTint.backgroundColor = UIColor.white.withAlphaComponent(0.32)
+        whiteTint.isUserInteractionEnabled = false
+        card.contentView.addSubview(whiteTint)
+
+        let title = UILabel()
+        title.text = "고객 견적 정보"
+        title.font = .systemFont(ofSize: 18, weight: .bold)
+        title.textColor = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
+
+        let name = UILabel()
+        name.text = info.customerName.isEmpty ? "고객" : info.customerName
+        name.font = .systemFont(ofSize: 16, weight: .semibold)
+        name.textColor = UIColor(white: 0.1, alpha: 1)
+
+        func row(_ icon: String, _ value: String) -> UIView? {
+            let v = value.trimmingCharacters(in: .whitespaces)
+            guard !v.isEmpty else { return nil }
+            let l = UILabel()
+            l.text = "\(icon)  \(v)"
+            l.font = .systemFont(ofSize: 14.5)
+            l.textColor = UIColor(white: 0.28, alpha: 1)
+            l.numberOfLines = 0
+            return l
+        }
+        let dateLine = [info.eventDate, info.eventTime].filter { !$0.isEmpty }.joined(separator: " ")
+        let amountStr = info.latestAmount > 0 ? "최근 견적 \(NumberFormatter.localizedString(from: NSNumber(value: info.latestAmount), number: .decimal))원" : ""
+        var rows: [UIView] = [title, name]
+        rows += [
+            row("📋", info.eventName),
+            row("📅", dateLine.isEmpty ? "일정 미정" : dateLine),
+            row("📍", info.eventLocation.isEmpty ? "장소 미정" : info.eventLocation),
+            row("🏷", info.planLabel),
+            row("🗂", info.categoryName),
+            row("✏️", info.memo),
+            row("💰", amountStr),
+        ].compactMap { $0 }
+
+        let closeBtn = UIButton(type: .system)
+        var cc = UIButton.Configuration.gray()
+        cc.title = "닫기"
+        cc.cornerStyle = .large
+        cc.baseForegroundColor = UIColor(white: 0.2, alpha: 1)
+        cc.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+        closeBtn.configuration = cc
+        closeBtn.addTarget(self, action: #selector(close), for: .touchUpInside)
+        rows.append(closeBtn)
+
+        let col = UIStackView(arrangedSubviews: rows)
+        col.axis = .vertical
+        col.spacing = 11
+        col.setCustomSpacing(4, after: title)
+        col.setCustomSpacing(16, after: name)
+        col.translatesAutoresizingMaskIntoConstraints = false
+        card.contentView.addSubview(col)
+
+        NSLayoutConstraint.activate([
+            dimView.topAnchor.constraint(equalTo: view.topAnchor),
+            dimView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            dimView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            dimView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
+            whiteTint.topAnchor.constraint(equalTo: card.contentView.topAnchor),
+            whiteTint.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
+            whiteTint.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor),
+            whiteTint.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor),
+            col.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 22),
+            col.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor, constant: -20),
+            col.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor, constant: 20),
+            col.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor, constant: -20),
+        ])
+    }
+
+    @objc private func close() { dismiss(animated: true) }
+}

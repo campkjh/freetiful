@@ -68,8 +68,11 @@ final class NativeHomeAllView: UIView, UIScrollViewDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func setInsets(top: CGFloat, bottom: CGFloat) {
+        // .never 라 인셋 변경 시 contentOffset 자동보정 안 됨 → 최상단이면 새 top 으로 스냅(초기 진입 시 콘텐츠가 탭 뒤로 올라붙는 문제 방지)
+        let wasAtTop = scrollView.contentOffset.y <= -scrollView.contentInset.top + 1
         scrollView.contentInset = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
         scrollView.verticalScrollIndicatorInsets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
+        if wasAtTop { scrollView.contentOffset.y = -top }
     }
 
     func scrollToTop() {

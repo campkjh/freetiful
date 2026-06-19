@@ -12,6 +12,7 @@ final class NativeProInquiryFormViewController: UIViewController, UITextFieldDel
     private let dimView = UIView()
     private let card = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
     private var cardBottom: NSLayoutConstraint?
+    private var colBottom: NSLayoutConstraint?
 
     private let nameField = UITextField()
     private let phoneField = UITextField()
@@ -138,9 +139,12 @@ final class NativeProInquiryFormViewController: UIViewController, UITextFieldDel
             col.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 32),
             col.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor, constant: 20),
             col.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor, constant: -20),
-            col.bottomAnchor.constraint(equalTo: card.contentView.safeAreaLayoutGuide.bottomAnchor, constant: -16),
             sendButton.heightAnchor.constraint(equalToConstant: 54),
         ])
+        // 콘텐츠 하단은 (세이프에어리어 가이드가 아닌) 카드 실제 하단에 고정 → 키보드 시 카드 들어올려도 콘텐츠 높이 안 변함(점프 방지)
+        let colB = col.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor, constant: -16)
+        colBottom = colB
+        colB.isActive = true
 
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
     }
@@ -148,6 +152,7 @@ final class NativeProInquiryFormViewController: UIViewController, UITextFieldDel
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         cardBottom?.constant = 0
+        colBottom?.constant = -(16 + view.safeAreaInsets.bottom)   // 휴식 상태: 홈 인디케이터 여백 확보
         UIView.animate(withDuration: 0.32, delay: 0, options: [.curveEaseOut]) {
             self.view.layoutIfNeeded()
             self.dimView.backgroundColor = UIColor.black.withAlphaComponent(0.35)
@@ -158,8 +163,13 @@ final class NativeProInquiryFormViewController: UIViewController, UITextFieldDel
         guard let frame = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
         let local = view.convert(frame, from: nil)
         let overlap = max(0, view.bounds.height - local.minY)
-        cardBottom?.constant = -overlap
-        UIView.animate(withDuration: 0.25) { self.view.layoutIfNeeded() }
+        let up = overlap > 0
+        // 카드를 키보드 위 12pt 까지 들어올리고, 콘텐츠 하단여백은 키보드 유무에 맞춤(세이프에어리어 붕괴 점프 방지)
+        cardBottom?.constant = up ? -(overlap + 12) : 0
+        colBottom?.constant = up ? -16 : -(16 + view.safeAreaInsets.bottom)
+        let dur = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+        let curve = (note.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt) ?? UInt(UIView.AnimationCurve.easeInOut.rawValue)
+        UIView.animate(withDuration: dur, delay: 0, options: UIView.AnimationOptions(rawValue: curve << 16)) { self.view.layoutIfNeeded() }
     }
 
     private func configField(_ f: UITextField, placeholder: String) {

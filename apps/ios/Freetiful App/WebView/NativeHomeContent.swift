@@ -50,7 +50,7 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
     private var homePillShown = false
 
     // 헤더+탭을 하나의 그라데이션 블러로 덮음(웨딩파트너 list 패리티). 콘텐츠는 그 뒤로 스크롤.
-    private let tabHeight: CGFloat = 54
+    private let tabHeight: CGFloat = 46
     private let topBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
     private let topBlurMask = CAGradientLayer()
     private var topBlurHeight: NSLayoutConstraint!
@@ -76,8 +76,10 @@ final class NativeHomeContent: UIView, UIScrollViewDelegate {
         // 콘텐츠는 탭 아래에서 시작하되, 스크롤 시 탭/헤더 뒤로 지나감
         homeAll.setInsets(top: top + tabHeight, bottom: bottom)
         for s in catScrolls {
+            let wasAtTop = s.contentOffset.y <= -s.contentInset.top + 1
             s.contentInset = UIEdgeInsets(top: top + tabHeight, left: 0, bottom: bottom, right: 0)
             s.verticalScrollIndicatorInsets = UIEdgeInsets(top: top + tabHeight, left: 0, bottom: bottom, right: 0)
+            if wasAtTop { s.contentOffset.y = -(top + tabHeight) }
         }
     }
 

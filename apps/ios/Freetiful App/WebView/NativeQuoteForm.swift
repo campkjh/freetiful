@@ -21,6 +21,7 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
     private let dimView = UIView()
     private let card = UIVisualEffectView(effect: LiquidGlassEffectFactory.navigationEffect())
     private var cardBottom: NSLayoutConstraint?
+    private var colBottom: NSLayoutConstraint?
 
     private let amountField = UITextField()
     private let nameField = UITextField()
@@ -163,7 +164,6 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
             stack.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 16),
             stack.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor, constant: -20),
-            stack.bottomAnchor.constraint(equalTo: card.contentView.safeAreaLayoutGuide.bottomAnchor, constant: -16),
 
             amountField.heightAnchor.constraint(equalToConstant: 50),
             nameField.heightAnchor.constraint(equalToConstant: 50),
@@ -171,9 +171,16 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
             sendButton.heightAnchor.constraint(equalToConstant: 54),
         ])
 
+        // 콘텐츠 하단은 카드 실제 하단에 고정(세이프에어리어 가이드 X) → 키보드 시 카드 들어올려도 점프 없음
+        let colB = stack.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor, constant: -16)
+        colBottom = colB
+        colB.isActive = true
+
         // 슬라이드 업을 위해 카드 bottom 을 화면 아래에서 시작
         cardBottom = card.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: 600)
         cardBottom?.isActive = true
+
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
 
         updateTotal()
     }
@@ -181,10 +188,24 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         cardBottom?.constant = 0
+        colBottom?.constant = -(16 + view.safeAreaInsets.bottom)   // 휴식: 홈 인디케이터 여백
         UIView.animate(withDuration: 0.36, delay: 0, usingSpringWithDamping: 0.86, initialSpringVelocity: 0.4, options: [.allowUserInteraction]) {
             self.dimView.backgroundColor = UIColor.black.withAlphaComponent(0.4)
             self.view.layoutIfNeeded()
         }
+    }
+
+    @objc private func keyboardWillChange(_ note: Notification) {
+        guard let frame = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
+        let local = view.convert(frame, from: nil)
+        let overlap = max(0, view.bounds.height - local.minY)
+        let up = overlap > 0
+        // 행사장소 등 하단 입력칸이 키보드에 가리지 않도록 카드를 키보드 위 12pt 로 들어올림
+        cardBottom?.constant = up ? -(overlap + 12) : 0
+        colBottom?.constant = up ? -16 : -(16 + view.safeAreaInsets.bottom)
+        let dur = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+        let curve = (note.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt) ?? UInt(UIView.AnimationCurve.easeInOut.rawValue)
+        UIView.animate(withDuration: dur, delay: 0, options: UIView.AnimationOptions(rawValue: curve << 16)) { self.view.layoutIfNeeded() }
     }
 
     // MARK: - helpers
