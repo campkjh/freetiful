@@ -1273,9 +1273,31 @@ export default function ChatRoomPage() {
                           onClick={(e) => { e.stopPropagation(); setImagePreview(msg.content); }}
                         />
                       </div>
-                    ) : msg.type === 'file' ? (
+                    ) : msg.type === 'video' ? (
                       <div
-                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ WebkitTouchCallout: 'none' }}
+                        onPointerDown={(e) => handleLongPressStart(e, msg)}
+                        onPointerUp={handleLongPressCancel}
+                        onPointerLeave={handleLongPressCancel}
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        <video
+                          src={msg.content}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="max-h-[340px] max-w-full rounded-2xl object-cover sm:max-w-[260px]"
+                          style={{ WebkitTouchCallout: 'none' }}
+                        />
+                      </div>
+                    ) : msg.type === 'file' ? (
+                      <a
+                        href={msg.content && /^https?:|^\/uploads\//.test(msg.content) ? msg.content : undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download={msg.fileName || undefined}
+                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none no-underline ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1284,7 +1306,7 @@ export default function ChatRoomPage() {
                       >
                         <FileText size={18} />
                         <span className="min-w-0 break-all text-[15px]">{msg.fileName || msg.content}</span>
-                      </div>
+                      </a>
                     ) : msg.type === 'location' ? (
                       <div
                         className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}

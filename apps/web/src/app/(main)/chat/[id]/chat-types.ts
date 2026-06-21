@@ -39,7 +39,7 @@ export interface Message {
   id: string;
   senderId: string;
   content: string;
-  type: 'text' | 'image' | 'file' | 'location' | 'system' | 'voice';
+  type: 'text' | 'image' | 'video' | 'file' | 'location' | 'system' | 'voice';
   createdAt: string;
   isRead: boolean;
   fileName?: string;

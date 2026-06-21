@@ -1068,7 +1068,6 @@ class ViewController: UIViewController,
             ChatMenuItem(id: "camera", label: "카메라", sf: "camera.fill", destructive: false),
             ChatMenuItem(id: "photo", label: "사진", sf: "photo.fill", destructive: false),
             ChatMenuItem(id: "file", label: "파일", sf: "doc.fill", destructive: false),
-            ChatMenuItem(id: "location", label: "위치", sf: "mappin.and.ellipse", destructive: false),
         ])
         return items
     }

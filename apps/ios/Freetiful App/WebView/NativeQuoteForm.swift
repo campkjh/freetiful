@@ -90,6 +90,14 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
         configField(amountField, placeholder: "직접 입력 시 선택 플랜 금액 대신 적용")
         amountField.keyboardType = .numberPad
         amountField.addTarget(self, action: #selector(amountChanged), for: .editingChanged)
+        // numberPad 는 return/완료 키가 없어 키보드가 안 내려감 → 상단 "완료" 툴바 추가
+        let amountToolbar = UIToolbar()
+        amountToolbar.sizeToFit()
+        amountToolbar.items = [
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            UIBarButtonItem(title: "완료", style: .done, target: self, action: #selector(dismissKeyboard)),
+        ]
+        amountField.inputAccessoryView = amountToolbar
 
         let infoCaption = makeCaption("행사 정보")
         configField(nameField, placeholder: "행사명 (예: 김철수·이영희 결혼식)")
@@ -276,6 +284,8 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
     }
 
     @objc private func amountChanged() { updateTotal() }
+
+    @objc private func dismissKeyboard() { view.endEditing(true) }
 
     @objc private func dismissSelf() {
         view.endEditing(true)

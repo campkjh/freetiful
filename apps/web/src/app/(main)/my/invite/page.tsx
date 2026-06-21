@@ -149,6 +149,8 @@ function ClaimModal({
   onClose: () => void;
   onSubmit: () => void;
 }) {
+  const [agreed, setAgreed] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
   if (!open) return null;
 
   return (
@@ -197,10 +199,53 @@ function ClaimModal({
           />
         </div>
 
+        {/* ── 개인정보 수집·이용 동의 (체크해야 계좌등록 가능) ── */}
+        <div className="mt-4 rounded-[16px] border border-[#E4E9F0] bg-[#FAFBFD] px-4 py-3.5">
+          <label className="flex cursor-pointer select-none items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 h-[19px] w-[19px] shrink-0 accent-[#4482FF]"
+            />
+            <span className="text-[14px] font-semibold leading-[1.45] tracking-[-0.02em] text-[#2B313D]">
+              <span className="text-[#4482FF]">[필수]</span> 개인정보 수집·이용 동의
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowConsent((v) => !v)}
+            className="mt-2 text-[12px] font-semibold tracking-[-0.02em] text-[#8A93A5] underline underline-offset-2"
+          >
+            {showConsent ? '약관 접기' : '약관 자세히 보기'}
+          </button>
+          {showConsent && (
+            <div className="mt-2.5 space-y-2.5 rounded-[12px] bg-white px-3.5 py-3 text-[12px] leading-[1.55] tracking-[-0.02em] text-[#5B6472]">
+              <div>
+                <p className="font-bold text-[#2B313D]">1. 수집하는 개인정보 항목</p>
+                <p>수집 항목: 계좌번호, 은행명, 이름</p>
+              </div>
+              <div>
+                <p className="font-bold text-[#2B313D]">2. 개인정보 수집·이용 목적</p>
+                <p>프리티풀 서비스 제공 및 회원 관리</p>
+                <p>이벤트 혜택 관리</p>
+              </div>
+              <div>
+                <p className="font-bold text-[#2B313D]">3. 개인정보 보유·이용 기간</p>
+                <p>회원 탈퇴 시 또는 서비스 종료 시까지 보유하며, 관련 법령에 따라 일정 기간 보관될 수 있습니다.</p>
+              </div>
+              <div>
+                <p className="font-bold text-[#2B313D]">4. 동의 거부 권리 및 불이익</p>
+                <p>개인정보 수집·이용에 동의하지 않을 권리가 있으나, 동의를 거부하실 경우 서비스 이용이 제한될 수 있습니다.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={onSubmit}
-          disabled={submitting}
+          disabled={submitting || !agreed}
           className="mt-4 inline-flex h-[56px] w-full items-center justify-center gap-2 rounded-[18px] bg-[#4482FF] text-[18px] font-bold tracking-[-0.035em] text-white disabled:opacity-60"
         >
           {submitting && <Loader2 size={19} className="animate-spin" />}

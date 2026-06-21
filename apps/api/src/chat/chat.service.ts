@@ -1242,6 +1242,25 @@ export class ChatService implements OnModuleInit {
       }
     }
 
+    // video / file 타입 base64 data URL → 이미지 변환 없이 원본 저장 후 공개 URL 로 대체
+    if (
+      (dto.type === 'video' || dto.type === 'file') &&
+      dto.content &&
+      dto.content.startsWith('data:')
+    ) {
+      try {
+        const match = dto.content.match(/^data:([^;]+);base64,(.+)$/i);
+        if (match) {
+          const mime = match[1];
+          const buffer = Buffer.from(match[2], 'base64');
+          const originalName = (dto as any)?.metadata?.fileName as string | undefined;
+          finalContent = await this.imageService.saveRawMedia(buffer, mime, originalName);
+        }
+      } catch (e) {
+        // 저장 실패해도 content 는 그대로 둠 (클라이언트에서 에러 처리)
+      }
+    }
+
     const participantIdsPromise = this.getRoomParticipantUserIds(roomId);
     const message = await this.prisma.message.create({
       data: {
