@@ -28,6 +28,7 @@ function toBoolean(value: unknown) {
 export enum MessageTypeEnum {
   text = 'text',
   image = 'image',
+  video = 'video',
   file = 'file',
   location = 'location',
   link = 'link',

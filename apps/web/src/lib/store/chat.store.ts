@@ -132,19 +132,22 @@ function getRoomFlagsFromPayload(data: SendMessagePayload): Partial<ChatRoomItem
 }
 
 function getPreviewContent(data: SendMessagePayload) {
-  if (typeof data.content === 'string' && data.content.trim()) return data.content;
+  // 미디어 타입은 content(=base64/URL) 대신 항상 사람이 읽을 수 있는 라벨을 노출
   switch (data.type) {
     case 'image':
       return '사진을 보냈습니다';
-    case 'file':
-      return '파일을 보냈습니다';
+    case 'video':
+      return '동영상을 보냈습니다';
+    case 'file': {
+      const name = (data as any)?.metadata?.fileName;
+      return name ? `파일: ${name}` : '파일을 보냈습니다';
+    }
     case 'location':
       return '위치를 공유했습니다';
-    case 'system':
-      return '안내 메시지를 보냈습니다';
-    default:
-      return '메시지를 보냈습니다';
   }
+  if (typeof data.content === 'string' && data.content.trim()) return data.content;
+  if (data.type === 'system') return '안내 메시지를 보냈습니다';
+  return '메시지를 보냈습니다';
 }
 
 function ensureClientMessageId(data: SendMessagePayload): SendMessagePayload {

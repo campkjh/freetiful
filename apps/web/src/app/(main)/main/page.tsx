@@ -1080,7 +1080,7 @@ function SimpleMatchRequestModal({
 
   if (!open) return null;
 
-  const title = requestType === 'wedding' ? '전문결혼식 사회자 요청' : '전문행사 사회자 요청';
+  const title = requestType === 'wedding' ? '결혼식전문 사회자 요청' : '행사전문 사회자 요청';
   const categoryName = requestType === 'wedding' ? '결혼식사회자' : '전문행사사회자';
   const eventName = requestType === 'wedding' ? '결혼식' : '행사';
 
@@ -1152,7 +1152,7 @@ function SimpleMatchRequestModal({
             <input
               value={location}
               onChange={(event) => setLocation(event.target.value)}
-              placeholder="예: 서울 중구 프리티풀웨딩홀"
+              placeholder="예시: 서울 강남구 코엑스홀"
               className="h-[52px] w-full rounded-2xl border border-[#E5E8EF] bg-white px-4 text-[16px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
             />
           </label>

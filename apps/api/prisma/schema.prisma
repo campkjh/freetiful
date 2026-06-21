@@ -60,6 +60,7 @@ enum QuotationStatus {
 enum MessageType {
   text
   image
+  video
   file
   voice
   location

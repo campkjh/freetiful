@@ -117,6 +117,26 @@ export class ImageService {
   }
 
   /**
+   * 이미지 변환 없이 원본 미디어(동영상/일반 파일)를 저장하고 공개 URL 을 반환한다.
+   * 채팅의 동영상/파일 첨부 전송에 사용. Supabase 가 있으면 클라우드, 없으면 파일시스템.
+   */
+  async saveRawMedia(buffer: Buffer, mimeType: string, originalName?: string): Promise<string> {
+    const extFromName = originalName && originalName.includes('.')
+      ? originalName.split('.').pop()!.toLowerCase().replace(/[^a-z0-9]/g, '')
+      : '';
+    const extFromMime = (mimeType?.split('/')[1] || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const ext = (extFromName || extFromMime || 'bin').slice(0, 8);
+    const filename = `chat-${randomUUID()}.${ext}`;
+    if (this.supabase) {
+      const url = await this.uploadToSupabase(filename, buffer, mimeType || 'application/octet-stream');
+      if (url) return url;
+    }
+    await fs.mkdir(this.uploadDir, { recursive: true }).catch(() => {});
+    await fs.writeFile(path.join(this.uploadDir, filename), buffer);
+    return `${this.publicPath}/${filename}`;
+  }
+
+  /**
    * Process, validate, and convert an uploaded image
    * - WebP conversion
    * - Face detection (basic skin/face region heuristic)

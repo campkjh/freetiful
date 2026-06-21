@@ -148,6 +148,13 @@ export class MatchService {
       },
     });
 
+    // 알림 멘트에 쓸 고객명 조회
+    const requester = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+    const customerName = requester?.name?.trim() || '고객';
+
     // 선택한 전문가가 있으면 해당 전문가에게만, 없으면 카테고리 일치 전문가에게 fan-out.
     // 전달 레코드가 만들어진 뒤 성공 응답을 보내야 전문가 홈/새요청에 즉시 보인다.
     await this.fanoutMatchRequestToPros(
@@ -155,6 +162,7 @@ export class MatchService {
       category.id,
       category.name,
       data.selectedProProfileIds,
+      customerName,
     );
 
     this.chatRealtimeService.emitMatchUpdated([userId], {
@@ -315,6 +323,7 @@ export class MatchService {
     categoryId: string,
     categoryName: string,
     selectedProProfileIds?: string[],
+    customerName?: string,
   ) {
     let deliveryTargets: Array<{ proProfileId: string; userId: string }> = [];
 
@@ -387,8 +396,8 @@ export class MatchService {
         .createNotification(
           proUserId,
           'system' as any,
-          '새 요청이 도착했습니다',
-          `고객님이 ${categoryName || '서비스'} 요청을 보냈습니다.`,
+          '새로운 섭외 요청',
+          `${customerName || '고객'}님에게 새로운 섭외 요청이 도착했습니다.`,
           { type: 'match_request', matchRequestId },
         )
         .catch(() => {});

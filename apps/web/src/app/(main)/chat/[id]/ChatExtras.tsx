@@ -1578,14 +1578,21 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
   const handleImageSend = async (file: File) => {
     setShowAttach(false);
-    const tempId = `tmp-${Date.now()}`;
+    const isVideo = (file.type || '').startsWith('video');
+    const msgType = isVideo ? 'video' : 'image';
+    // 동영상 용량 가드 (base64 업로드라 너무 크면 서버 본문 한도 초과) — 30MB 초과 차단
+    if (isVideo && file.size > 30 * 1024 * 1024) {
+      toast.error('동영상은 30MB 이하만 전송할 수 있습니다');
+      return;
+    }
+    const tempId = `tmp-${Date.now()}-${Math.round(file.size % 100000)}`;
     const localUrl = URL.createObjectURL(file);
     // 낙관적 UI: 로컬 미리보기 먼저 표시
     setMessages((prev) => [...prev, {
       id: tempId,
       senderId: MY_ID,
       content: localUrl,
-      type: 'image',
+      type: msgType,
       createdAt: new Date().toISOString(),
       isRead: false,
       isNew: true,
@@ -1603,8 +1610,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
       });
       // 서버에 전송 → 서버가 디스크 저장 후 공개 URL 로 content 대체
       const saved = (
-        await useChatStore.getState().sendMessage({ type: 'image', content: dataUrl }).catch(() => null)
-      ) || ((await chatApi.sendMessage(roomId, { type: 'image', content: dataUrl })).data as any);
+        await useChatStore.getState().sendMessage({ type: msgType, content: dataUrl }).catch(() => null)
+      ) || ((await chatApi.sendMessage(roomId, { type: msgType, content: dataUrl })).data as any);
       // 임시 메시지를 서버 응답으로 교체 (senderId, content 는 서버 값)
       setMessages((prev) => prev.map((m) => m.id === tempId ? {
         ...m,
@@ -1621,24 +1628,39 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
   const handleFileSend = async (file: File) => {
     setShowAttach(false);
-    const saved = await useChatStore.getState().sendMessage({
-      type: 'file',
-      content: file.name,
-      metadata: { fileName: file.name, fileSize: file.size, mimeType: file.type },
-    }).catch(() => null);
-    if (saved) {
-      setMessages((prev) => prev.some((m) => m.id === saved.id) ? prev : [...prev, {
-        id: saved.id,
-        senderId: saved.senderId,
-        content: saved.content || file.name,
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error('파일은 30MB 이하만 전송할 수 있습니다');
+      return;
+    }
+    try {
+      // file → base64 data URL (서버가 디스크/스토리지에 저장 후 공개 URL 반환)
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result as string);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      const saved = await useChatStore.getState().sendMessage({
         type: 'file',
-        createdAt: saved.createdAt,
-        isRead: saved.isRead,
-        fileName: file.name,
-        isNew: true,
-      }]);
-      toast.success(`${file.name} 전송 완료`);
-    } else {
+        content: dataUrl,
+        metadata: { fileName: file.name, fileSize: file.size, mimeType: file.type },
+      }).catch(() => null);
+      if (saved) {
+        setMessages((prev) => prev.some((m) => m.id === saved.id) ? prev : [...prev, {
+          id: saved.id,
+          senderId: saved.senderId,
+          content: saved.content || file.name,
+          type: 'file',
+          createdAt: saved.createdAt,
+          isRead: saved.isRead,
+          fileName: file.name,
+          isNew: true,
+        }]);
+        toast.success(`${file.name} 전송 완료`);
+      } else {
+        toast.error('파일 전송 실패');
+      }
+    } catch {
       toast.error('파일 전송 실패');
     }
   };
@@ -1705,7 +1727,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
       { id: 'photo', label: '사진', sf: 'photo.fill' },
       { id: 'emoji', label: '이모티콘', sf: 'face.smiling' },
       { id: 'file', label: '파일', sf: 'doc.fill' },
-      { id: 'location', label: '위치', sf: 'mappin.and.ellipse' },
       { id: 'audio', label: '오디오', sf: 'music.note' },
     ];
     const menuItems = [
@@ -2009,7 +2030,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
     { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
     { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
-    { icon: <MapPin size={24} className="text-white" />, bg: 'bg-slate-700', label: '위치', action: handleLocationSend },
     { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
   ];
 
@@ -2228,7 +2248,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       {/* ─── 견적서 작성 모달 (사회자 전용) ─── */}
       {showQuoteModal && (
         <div className="fixed inset-0 z-[100] flex items-end bg-black/40" onClick={() => setShowQuoteModal(false)}>
-          <div className="bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} style={{ animation: 'sheetUp 0.3s ease' }}>
+          <div className="bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto" onClick={(e) => { e.stopPropagation(); const t = e.target as HTMLElement; if (!t.closest('input,textarea,select,button,a')) (document.activeElement as HTMLElement | null)?.blur(); }} style={{ animation: 'sheetUp 0.3s ease' }}>
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <h2 className="text-[18px] font-bold text-gray-900 mb-4">견적서 작성</h2>
 
@@ -2414,8 +2434,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
         </div>
       )}
 
-      {/* 숨겨진 파일 인풋 */}
-      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageSend(f); e.target.value = ''; }} />
+      {/* 숨겨진 파일 인풋 — 사진/동영상 다중 선택 가능 */}
+      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ''; (async () => { for (const f of files) await handleImageSend(f); })(); }} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageSend(f); e.target.value = ''; }} />
 
       {/* ─── Recording UI (input bar replacement handled by parent, but we provide startRecording/stopRecording) ─── */}
