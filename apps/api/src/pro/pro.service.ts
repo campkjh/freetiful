@@ -819,6 +819,8 @@ export class ProService implements OnModuleInit {
       regions?: string[];
       /** 자유 태그 (즉시출근, 풀타임 가능, 출장 가능 등) */
       tags?: string[];
+      /** 프로필 노출 숨김 여부 */
+      isProfileHidden?: boolean;
     },
   ) {
     // 전화번호만 업데이트 가능. 이름은 User.name (가입 시 설정) 을 그대로 사용 —
@@ -838,6 +840,7 @@ export class ProService implements OnModuleInit {
       ...(data.awards !== undefined ? { awards: data.awards } : {}),
       ...(data.youtubeUrl !== undefined ? { youtubeUrl: data.youtubeUrl } : {}),
       ...(data.detailHtml !== undefined ? { detailHtml: data.detailHtml } : {}),
+      ...(data.isProfileHidden !== undefined ? { isProfileHidden: data.isProfileHidden } : {}),
       ...(Array.isArray(data.tags) ? { tags: Array.from(new Set(data.tags.filter(Boolean))) } : {}),
     };
 
@@ -916,7 +919,10 @@ export class ProService implements OnModuleInit {
       }
     }
 
-    // Services / FAQs / Languages 는 각각 하나의 트랜잭션으로 delete+create 처리 (동시 재제출 race condition 방지)
+    // 관계 데이터(서비스/FAQ/언어/카테고리/지역)는 서로 독립 테이블 → createMany + 병렬 처리로 저장 속도 개선.
+    // 각 블록은 자체 트랜잭션(delete+createMany)이라 동시 재제출 race 도 안전.
+    const relationOps: Promise<unknown>[] = [];
+
     if (Array.isArray(data.services)) {
       // 중복 타이틀 제거 (같은 title 은 마지막 것만 유지)
       const seen = new Set<string>();
@@ -925,21 +931,19 @@ export class ProService implements OnModuleInit {
         seen.add(s.title);
         return true;
       }).reverse();
-      await this.prisma.$transaction([
+      relationOps.push(this.prisma.$transaction([
         this.prisma.proService.deleteMany({ where: { proProfileId: profile.id } }),
-        ...unique.map((s, i) =>
-          this.prisma.proService.create({
-            data: {
-              proProfileId: profile.id,
-              title: s.title,
-              description: s.description ?? null,
-              basePrice: s.basePrice ?? null,
-              displayOrder: i,
-              isActive: true,
-            },
-          }),
-        ),
-      ]);
+        this.prisma.proService.createMany({
+          data: unique.map((s, i) => ({
+            proProfileId: profile.id,
+            title: s.title,
+            description: s.description ?? null,
+            basePrice: s.basePrice ?? null,
+            displayOrder: i,
+            isActive: true,
+          })),
+        }),
+      ]));
     }
 
     if (Array.isArray(data.faqs)) {
@@ -950,90 +954,94 @@ export class ProService implements OnModuleInit {
         seen.add(f.question);
         return true;
       });
-      await this.prisma.$transaction([
+      relationOps.push(this.prisma.$transaction([
         this.prisma.proFaq.deleteMany({ where: { proProfileId: profile.id } }),
-        ...unique.map((f, i) =>
-          this.prisma.proFaq.create({
-            data: {
-              proProfileId: profile.id,
-              question: f.question,
-              answer: f.answer,
-              displayOrder: i,
-            },
-          }),
-        ),
-      ]);
+        this.prisma.proFaq.createMany({
+          data: unique.map((f, i) => ({
+            proProfileId: profile.id,
+            question: f.question,
+            answer: f.answer,
+            displayOrder: i,
+          })),
+        }),
+      ]));
     }
 
     if (Array.isArray(data.languages)) {
       const unique = Array.from(new Set(data.languages.filter(Boolean)));
-      await this.prisma.$transaction([
+      relationOps.push(this.prisma.$transaction([
         this.prisma.proLanguage.deleteMany({ where: { proProfileId: profile.id } }),
-        ...unique.map((code) =>
-          this.prisma.proLanguage.create({
-            data: { proProfileId: profile.id, languageCode: code },
-          }),
-        ),
-      ]);
+        this.prisma.proLanguage.createMany({
+          data: unique.map((code) => ({ proProfileId: profile.id, languageCode: code })),
+        }),
+      ]));
     }
 
     // 카테고리: 프로가 선택한 타입(사회자/쇼호스트/축가·연주)을 ProCategory 에 저장
     if (typeof data.category === 'string' && data.category.trim()) {
       const categoryName = data.category.trim();
-      // 'pro' 타입의 Category 를 이름으로 찾거나 생성
-      let category = await this.prisma.category.findFirst({
-        where: { type: 'pro', name: categoryName },
-        select: { id: true },
-      });
-      if (!category) {
-        category = await this.prisma.category.create({
-          data: { type: 'pro', name: categoryName, isActive: true },
+      relationOps.push((async () => {
+        // 'pro' 타입의 Category 를 이름으로 찾거나 생성
+        let category = await this.prisma.category.findFirst({
+          where: { type: 'pro', name: categoryName },
           select: { id: true },
         });
-      }
-      await this.prisma.$transaction([
-        this.prisma.proCategory.deleteMany({ where: { proProfileId: profile.id } }),
-        this.prisma.proCategory.create({
-          data: { proProfileId: profile.id, categoryId: category.id },
-        }),
-      ]);
+        if (!category) {
+          category = await this.prisma.category.create({
+            data: { type: 'pro', name: categoryName, isActive: true },
+            select: { id: true },
+          });
+        }
+        await this.prisma.$transaction([
+          this.prisma.proCategory.deleteMany({ where: { proProfileId: profile.id } }),
+          this.prisma.proCategory.create({
+            data: { proProfileId: profile.id, categoryId: category.id },
+          }),
+        ]);
+      })());
     }
 
-    // 지역: 프로가 선택한 활동 지역 배열을 ProRegion 에 저장
+    // 지역: 이름 일괄 조회(findMany)로 N+1 제거 → 없는 것만 생성 → createMany 로 관계 재작성
     if (Array.isArray(data.regions)) {
       const uniqueRegions = Array.from(new Set(data.regions.filter(Boolean).map((r) => r.trim())));
       const isNationwideRegion = (name: string) => name === '전국' || name === '전국가능' || name.startsWith('전국');
       const isNationwide = uniqueRegions.length === 0 || uniqueRegions.some(isNationwideRegion);
-      const regionRecords: { id: string }[] = [];
-      for (const name of uniqueRegions) {
-        const canonicalName = isNationwideRegion(name) ? '전국' : name;
-        let region = await this.prisma.region.findFirst({
-          where: isNationwideRegion(name)
-            ? { OR: [{ name: canonicalName }, { isNationwide: true }, { name: { startsWith: '전국' } }] }
-            : { name: canonicalName },
-          select: { id: true },
+      relationOps.push((async () => {
+        const canonicalNames = Array.from(new Set(uniqueRegions.map((n) => (isNationwideRegion(n) ? '전국' : n))));
+        const wantsNationwide = uniqueRegions.some(isNationwideRegion);
+        const existing = await this.prisma.region.findMany({
+          where: wantsNationwide
+            ? { OR: [{ name: { in: canonicalNames } }, { isNationwide: true }, { name: { startsWith: '전국' } }] }
+            : { name: { in: canonicalNames } },
+          select: { id: true, name: true, isNationwide: true },
         });
-        if (!region) {
-          region = await this.prisma.region.create({
-            data: { name: canonicalName, isNationwide: isNationwideRegion(name) },
+        const byName = new Map(existing.map((r) => [r.name, r]));
+        const nationwideRow = existing.find((r) => r.isNationwide || r.name.startsWith('전국'));
+        const regionIds: string[] = [];
+        for (const canonical of canonicalNames) {
+          const row = canonical === '전국' ? (nationwideRow || byName.get('전국')) : byName.get(canonical);
+          if (row) { regionIds.push(row.id); continue; }
+          const created = await this.prisma.region.create({
+            data: { name: canonical, isNationwide: canonical === '전국' },
             select: { id: true },
           });
+          regionIds.push(created.id);
         }
-        regionRecords.push(region);
-      }
-      await this.prisma.$transaction([
-        this.prisma.proRegion.deleteMany({ where: { proProfileId: profile.id } }),
-        ...regionRecords.map((r) =>
-          this.prisma.proRegion.create({
-            data: { proProfileId: profile.id, regionId: r.id },
+        const uniqueRegionIds = Array.from(new Set(regionIds));
+        await this.prisma.$transaction([
+          this.prisma.proRegion.deleteMany({ where: { proProfileId: profile.id } }),
+          this.prisma.proRegion.createMany({
+            data: uniqueRegionIds.map((regionId) => ({ proProfileId: profile.id, regionId })),
           }),
-        ),
-        this.prisma.proProfile.update({
-          where: { id: profile.id },
-          data: { isNationwide },
-        }),
-      ]);
+          this.prisma.proProfile.update({
+            where: { id: profile.id },
+            data: { isNationwide },
+          }),
+        ]);
+      })());
     }
+
+    await Promise.all(relationOps);
 
     // 프로필 저장 직후 — User.profileImageUrl 을 최신 대표 ProProfileImage 로 강제 동기화
     // (카카오 가입자가 프로로 전환하면 Kakao 기본 프로필 → 프로 대표 사진으로 바뀜)

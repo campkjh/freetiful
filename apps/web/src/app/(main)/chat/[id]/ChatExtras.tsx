@@ -1976,63 +1976,37 @@ export default function ChatExtras(props: ChatExtrasProps) {
       } as any);
       const quotationId = (created as any)?.id;
 
-      // 2) 채팅방에 견적 카드 메시지 전송 (상대가 결제 버튼 누를 수 있게 metadata 포함)
+      // 2) 견적 카드 system payload 구성
       const myProImage = useAuthStore.getState().user?.profileImageUrl || null;
-      let savedQuoteMessage: any = null;
-      if (roomId && !roomId.startsWith('pending-')) {
-        const quoteMessagePayload = {
-          type: 'system' as any,
-          content: `💰 견적서 발송: ${totalAmount.toLocaleString()}원`,
-          metadata: {
-            system: {
-              kind: 'quote',
-              plan: quotePlan,
-              eventName: quoteEventName || '행사 진행',
-              amount: totalAmount,
-              basePrice: baseAmount,
-              options: quoteOptions,
-              eventDate: quoteEventDate,
-              eventTime: quoteEventTime,
-              eventLocation: quoteEventLocation,
-              items: plan.items,
-              quotationId,
-              proImage: myProImage,
-            },
-          },
-        };
-        savedQuoteMessage = await useChatStore.getState().sendMessage(quoteMessagePayload).catch(() => null);
-        if (!savedQuoteMessage) {
-          const sent = await chatApi.sendMessage(roomId, quoteMessagePayload as any).catch(() => null);
-          savedQuoteMessage = sent?.data ?? null;
-        }
-      }
+      const quoteSystem = {
+        kind: 'quote' as const,
+        plan: quotePlan,
+        eventName: quoteEventName || '행사 진행',
+        amount: totalAmount,
+        basePrice: baseAmount,
+        options: quoteOptions,
+        eventDate: quoteEventDate,
+        eventTime: quoteEventTime,
+        eventLocation: quoteEventLocation,
+        items: plan.items,
+        quotationId,
+        proImage: myProImage,
+      };
 
-      // 3) 로컬 UI에도 즉시 반영 — 단, store.sendMessage 경로가 이미 wsMessages 에
-      //    추가했을 수 있으므로 같은 id 가 있으면 스킵해 중복 카드 방지.
-      const targetId = savedQuoteMessage?.id || `opt-quote-${Date.now()}`;
+      // 3) 로컬 UI 즉시 반영(낙관적 카드) — quotationId 기준 dedup 으로 실제 카드와 자동 병합
       const quoteMsg: Message = {
-        id: targetId,
+        id: `opt-quote-${Date.now()}`,
         senderId: MY_ID,
         content: '견적서 발송',
         type: 'system',
-        createdAt: savedQuoteMessage?.createdAt || new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         isRead: false,
-        system: {
-          kind: 'quote',
-          plan: quotePlan,
-          eventName: quoteEventName || '행사 진행',
-          amount: totalAmount,
-          basePrice: baseAmount,
-          options: quoteOptions,
-          eventDate: quoteEventDate,
-          eventTime: quoteEventTime,
-          eventLocation: quoteEventLocation,
-          items: plan.items,
-          quotationId,
-          proImage: myProImage,
-        } as any,
+        system: quoteSystem as any,
       };
-      setMessages(prev => prev.some((m) => m.id === targetId) ? prev : [...prev, quoteMsg]);
+      setMessages(prev => [...prev, quoteMsg]);
+
+      // 4) 모달 닫기 + 성공 표시 — 카드 전송 응답을 기다리지 않아 체감 지연(약 30초) 제거.
+      //    Quotation 은 이미 생성됐고, 카드 전송은 백그라운드에서 처리한다.
       setShowQuoteModal(false);
       setQuoteEventName('');
       setQuoteEventDate('');
@@ -2044,6 +2018,17 @@ export default function ChatExtras(props: ChatExtrasProps) {
       setNewOptName('');
       setNewOptPrice('');
       toast.success('견적서가 발송되었습니다');
+
+      // 5) 채팅방 견적 카드 전송 — 백그라운드(fire-and-forget). 실패해도 견적은 유지됨.
+      if (roomId && !roomId.startsWith('pending-')) {
+        const quoteMessagePayload = {
+          type: 'system' as any,
+          content: `💰 견적서 발송: ${totalAmount.toLocaleString()}원`,
+          metadata: { system: quoteSystem },
+        };
+        void useChatStore.getState().sendMessage(quoteMessagePayload)
+          .catch(() => chatApi.sendMessage(roomId, quoteMessagePayload as any).then((r) => r?.data).catch(() => null));
+      }
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || '발송 실패';
       toast.error(`견적서 발송 실패: ${msg}`);
