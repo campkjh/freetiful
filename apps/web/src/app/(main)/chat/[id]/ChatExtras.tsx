@@ -2513,8 +2513,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
       )}
 
       {/* 숨겨진 파일 인풋 — 사진/동영상 다중 선택 가능 */}
-      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ''; (async () => { for (const f of files) await handleImageSend(f); })(); }} />
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageSend(f); e.target.value = ''; }} />
+      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => { const input = e.target; const files = Array.from(input.files || []); (async () => { try { for (const f of files) await handleImageSend(f); } finally { input.value = ''; } })(); }} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const input = e.target; const f = input.files?.[0]; if (!f) return; (async () => { try { await handleImageSend(f); } finally { input.value = ''; } })(); }} />
 
       {/* ─── Recording UI (input bar replacement handled by parent, but we provide startRecording/stopRecording) ─── */}
       {/* The recording bar is rendered in the parent page.tsx since it replaces the input bar */}
