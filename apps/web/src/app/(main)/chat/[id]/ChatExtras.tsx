@@ -1610,13 +1610,48 @@ export default function ChatExtras(props: ChatExtrasProps) {
     }]);
 
     try {
-      // file → base64 data URL
-      const dataUrl = await new Promise<string>((res, rej) => {
+      const readDataUrl = (f: File) => new Promise<string>((res, rej) => {
         const r = new FileReader();
         r.onload = () => res(r.result as string);
         r.onerror = rej;
-        r.readAsDataURL(file);
+        r.readAsDataURL(f);
       });
+      const withForcedMime = (url: string, mime: string) => {
+        if (new RegExp(`^data:${mime.split('/')[0]}\\/`, 'i').test(url)) return url;
+        const i = url.indexOf(',');
+        return `data:${mime};base64,${i >= 0 ? url.slice(i + 1) : url}`;
+      };
+      // 이미지는 캔버스로 JPEG 재인코딩 → 아이폰 HEIC/빈-mime/대용량 문제 해결(+업로드 용량 축소).
+      // 동영상은 원본 그대로(빈 mime 면 video/mp4 로 보정).
+      let dataUrl: string;
+      if (isVideo) {
+        dataUrl = withForcedMime(await readDataUrl(file), file.type?.startsWith('video') ? file.type : 'video/mp4');
+      } else {
+        dataUrl = await (async () => {
+          try {
+            const objUrl = URL.createObjectURL(file);
+            const img = document.createElement('img');
+            img.decoding = 'async';
+            img.src = objUrl;
+            await img.decode();
+            let w = img.naturalWidth, h = img.naturalHeight;
+            const maxDim = 1600;
+            if (Math.max(w, h) > maxDim) { const s = maxDim / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx || !w || !h) throw new Error('no-canvas');
+            ctx.drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(objUrl);
+            const out = canvas.toDataURL('image/jpeg', 0.9);
+            if (!out.startsWith('data:image/')) throw new Error('encode-failed');
+            return out;
+          } catch {
+            // 캔버스 디코드 실패 시 원본 base64 + image/jpeg mime 보정 (서버 sharp 가 실제 포맷 판별)
+            return withForcedMime(await readDataUrl(file), 'image/jpeg');
+          }
+        })();
+      }
       // 서버에 전송(업로드 진행률 추적) → 서버가 DB 저장 후 공개 URL 로 content 대체
       const resp = await chatApi.sendMessage(roomId, { type: msgType, content: dataUrl }, {
         onUploadProgress: (e) => {

@@ -1238,7 +1238,12 @@ export class ChatService implements OnModuleInit {
           finalContent = processed.webpPath || processed.path;
         }
       } catch (e) {
-        // 저장 실패해도 content 는 그대로 둠 (클라이언트에서 에러 처리)
+        // processImage 실패(미지원 포맷 등) → 원본을 DB 에 저장해 /uploads/:id 로라도 서빙
+        // (거대한 base64 를 content 로 흘리면 렌더 안 되고 DB·실시간 부하)
+        try {
+          const m2 = dto.content.match(/^data:([^;]+);base64,(.+)$/i);
+          if (m2) finalContent = await this.imageService.saveRawMedia(Buffer.from(m2[2], 'base64'), m2[1]);
+        } catch {}
       }
     }
 
