@@ -51,6 +51,10 @@ export interface Message {
   reaction?: string | null;
   isNew?: boolean;
   system?: SystemPayload;
+  // 미디어 업로드 진행률 (낙관적 메시지에서만 사용): 0~100, 완료 시 undefined
+  uploadProgress?: number;
+  // 원본 파일 크기(byte) — 업로드 진행 오버레이에 "X.X / Y.Y MB" 표기용
+  uploadBytesTotal?: number;
 }
 
 export interface ChatPartner {

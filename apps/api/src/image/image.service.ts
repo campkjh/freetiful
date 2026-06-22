@@ -118,7 +118,10 @@ export class ImageService {
 
   /**
    * 이미지 변환 없이 원본 미디어(동영상/일반 파일)를 저장하고 공개 URL 을 반환한다.
-   * 채팅의 동영상/파일 첨부 전송에 사용. Supabase 가 있으면 클라우드, 없으면 파일시스템.
+   * 채팅의 동영상/파일 첨부 전송에 사용.
+   * 저장 우선순위: Supabase → DB(bytea, Railway Postgres 영구) → 로컬 디스크(개발 폴백).
+   * ※ processImage 와 동일하게 DB 저장을 써야 /uploads/:id 컨트롤러가 서빙 가능하고
+   *   재배포에도 유실되지 않음. (예전엔 fs 에만 써서 /uploads/chat-xxx.ext 가 404 나던 버그)
    */
   async saveRawMedia(buffer: Buffer, mimeType: string, originalName?: string): Promise<string> {
     const extFromName = originalName && originalName.includes('.')
@@ -126,11 +129,20 @@ export class ImageService {
       : '';
     const extFromMime = (mimeType?.split('/')[1] || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     const ext = (extFromName || extFromMime || 'bin').slice(0, 8);
-    const filename = `chat-${randomUUID()}.${ext}`;
+    const contentType = mimeType || 'application/octet-stream';
+    // 1) Supabase Storage
     if (this.supabase) {
-      const url = await this.uploadToSupabase(filename, buffer, mimeType || 'application/octet-stream');
+      const url = await this.uploadToSupabase(`chat-${randomUUID()}.${ext}`, buffer, contentType);
       if (url) return url;
     }
+    // 2) DB(bytea) — 영구저장, UploadController 가 /uploads/:id 로 mimeType 과 함께 서빙
+    try {
+      return await this.saveToDb(buffer, contentType);
+    } catch (e: any) {
+      this.logger.warn(`saveRawMedia DB save failed, falling back to filesystem: ${e?.message || e}`);
+    }
+    // 3) 로컬 디스크 (개발용 폴백 — 프로덕션 재배포 시 유실됨)
+    const filename = `chat-${randomUUID()}.${ext}`;
     await fs.mkdir(this.uploadDir, { recursive: true }).catch(() => {});
     await fs.writeFile(path.join(this.uploadDir, filename), buffer);
     return `${this.publicPath}/${filename}`;

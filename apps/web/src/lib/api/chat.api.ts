@@ -107,8 +107,12 @@ export const chatApi = {
   getMessages: (roomId: string, params?: { search?: string; before?: string; after?: string; limit?: number; cursor?: string }) =>
     apiClient.get<{ data: MessageItem[]; hasMore: boolean; cursor: string | null }>(`${BASE}/rooms/${roomId}/messages`, { params }),
 
-  sendMessage: (roomId: string, data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string }) =>
-    apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data),
+  sendMessage: (
+    roomId: string,
+    data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string },
+    config?: { onUploadProgress?: (e: { loaded: number; total?: number }) => void },
+  ) =>
+    apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data, config),
 
   uploadAudio: (roomId: string, blob: Blob, mimeType: string) => {
     const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
