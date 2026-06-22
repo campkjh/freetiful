@@ -522,7 +522,7 @@ export default function ProEditPage() {
     safeSetLocalStorage('freetiful-my-pro-id', p.id);
     if (p.shortIntro) setIntro(p.shortIntro);
     setIsProfileHidden(Boolean(p.isProfileHidden));
-    if (typeof p.careerYears === 'number' && p.careerYears > 0) setCareerYears(p.careerYears);
+    if (typeof p.careerYears === 'number' && p.careerYears >= 0) setCareerYears(p.careerYears);
     if (p.awards) setAwards(p.awards);
     if (Array.isArray(p.tags)) {
       const specialty = p.tags.filter((t: string) => ALL_CATEGORIES.includes(t));
@@ -816,8 +816,8 @@ export default function ProEditPage() {
         if (!file) return [];
         return [() => uploadWithRetry(file).then((uploaded) => ({ index, uploaded }))];
       });
-      // 모바일/저속 네트워크 안정성을 위해 1장씩 순차 업로드
-      const uploadedResults = await uploadPhotosWithLimit(uploadTasks, 1);
+      // 업로드 속도 개선: 최대 3장 동시(재시도/백오프는 uploadWithRetry 가 유지)
+      const uploadedResults = await uploadPhotosWithLimit(uploadTasks, Math.max(1, Math.min(3, uploadTasks.length)));
       const uploadedByIndex = new Map(uploadedResults.map(({ index, uploaded }) => [index, uploaded]));
 
       const finalItems = items
@@ -920,7 +920,7 @@ export default function ProEditPage() {
         gender,
         shortIntro: intro,
         mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : '',
-        careerYears: careerYears || undefined,
+        careerYears,
         awards,
         detailHtml: currentDetailHtml,
         youtubeUrl: videos.filter(Boolean).join('\n'),   // 여러 영상 — 개행 조인(단일 데이터 호환)
@@ -966,7 +966,7 @@ export default function ProEditPage() {
         gender,
         shortIntro: intro,
         mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : '',
-        careerYears: careerYears || undefined,
+        careerYears,
         awards,
         detailHtml: currentDetailHtml,
         youtubeUrl: videos.filter(Boolean).join('\n'),   // 여러 영상 — 개행 조인(단일 데이터 호환)
@@ -1359,186 +1359,6 @@ export default function ProEditPage() {
         )}
       </Section>
 
-      {/* ─── 가격 설정 (플랜 + 옵션) ─── */}
-      <Section title="가격 설정">
-        <div className="space-y-4">
-          {planTemplates.length === 0 ? (
-            <p className="text-[13px] text-gray-400">결혼식 사회 플랜을 불러오는 중입니다…</p>
-          ) : (
-            <>
-              <div>
-                <p className="text-[12px] font-bold text-gray-500 mb-2">제공 예식 플랜</p>
-                <div className="space-y-2">
-                  {planTemplates.map((t) => {
-                    const key = t.planKey.toLowerCase();
-                    const enabled = enabledPlans.has(key);
-                    return (
-                      <button
-                        key={t.planKey}
-                        onClick={() => {
-                          setEnabledPlans((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(key)) {
-                              if (next.size > 1) next.delete(key);
-                            } else {
-                              next.add(key);
-                            }
-                            return next;
-                          });
-                          if (!enabled) setActivePlanTab(key);
-                        }}
-                        className="w-full flex items-center justify-between p-3 rounded-xl border-2 transition-colors"
-                        style={{
-                          borderColor: enabled ? '#3180F7' : '#E5E7EB',
-                          backgroundColor: enabled ? '#EFF6FF' : '#FFFFFF',
-                        }}
-                      >
-                        <div className="text-left">
-                          <p className={`text-[14px] font-bold ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>{t.label}</p>
-                          <p className={`text-[12px] ${enabled ? 'text-gray-500' : 'text-gray-300'}`}>
-                            {t.description} · 설정가 {(planPrices[key] ?? 0) > 0 ? `${(planPrices[key] ?? 0).toLocaleString()}원` : '문의시 제공'}
-                          </p>
-                        </div>
-                        <div
-                          className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: enabled ? '#3180F7' : '#E5E7EB' }}
-                        >
-                          {enabled && <Check size={12} className="text-white stroke-[3]" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {enabledPlans.size > 0 && (
-                <div>
-                  <p className="text-[12px] font-bold text-gray-500 mb-2">플랜별 가격/옵션</p>
-                  {/* Plan tabs */}
-                  <div className="flex gap-1.5 overflow-x-auto scrollbar-hide mb-3">
-                    {planTemplates.filter((t) => enabledPlans.has(t.planKey.toLowerCase())).map((t) => {
-                      const key = t.planKey.toLowerCase();
-                      const active = activePlanTab === key;
-                      return (
-                        <button
-                          key={t.planKey}
-                          onClick={() => setActivePlanTab(key)}
-                          className={`shrink-0 px-3.5 py-1.5 text-[12px] font-bold rounded-full transition-colors ${active ? 'bg-[#3180F7] text-white' : 'bg-gray-100 text-gray-500'}`}
-                        >
-                          {t.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Active plan detail */}
-                  {(() => {
-                    const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === activePlanTab);
-                    if (!tpl) return null;
-                    const key = tpl.planKey.toLowerCase();
-                    const opts = customOptions[key] || [];
-                    return (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-[11px] font-bold text-gray-400 mb-1.5">가격 (원)</label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={10000}
-                            value={planPrices[key] ?? 0}
-                            onChange={(e) => updatePlanPrice(key, e.target.value)}
-                            placeholder="0"
-                            className="w-full h-11 border border-gray-100 bg-gray-50 rounded-xl px-4 text-[16px] font-bold text-gray-900 outline-none focus:border-[#3180F7] transition-colors"
-                          />
-                          <p className="mt-1.5 text-[11px] font-medium text-gray-400">0원으로 저장하면 고객 화면에 문의시 제공으로 표시됩니다.</p>
-                        </div>
-
-                        {tpl.includedItems.length > 0 && (
-                          <div>
-                            <label className="block text-[11px] font-bold text-gray-400 mb-1.5">공통 포함 (템플릿)</label>
-                            <div className="flex flex-wrap gap-1.5">
-                              {tpl.includedItems.map((it) => (
-                                <span key={it} className="px-2.5 py-1 rounded-full bg-gray-100 text-[12px] text-gray-600">{it}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="block text-[11px] font-bold text-gray-400 mb-1.5">추가 옵션</label>
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {WEDDING_OPTION_SUGGESTIONS.map((suggestion) => (
-                              <button
-                                key={`${suggestion.name}-${suggestion.price}`}
-                                type="button"
-                                onClick={() => {
-                                  setNewOptName(suggestion.name);
-                                  setNewOptPrice(suggestion.price > 0 ? String(suggestion.price) : '');
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-gray-100 text-[12px] font-semibold text-gray-600"
-                              >
-                                {suggestion.name}
-                              </button>
-                            ))}
-                          </div>
-                          {opts.length > 0 && (
-                            <div className="space-y-1 mb-2">
-                              {opts.map((opt, i) => (
-                                <div key={i} className="flex items-center gap-2 py-1">
-                                  <span className="text-[13px] text-gray-700 flex-1">{opt.name}</span>
-                                  {opt.price > 0 && (
-                                    <span className="text-[12px] text-gray-500">+{opt.price.toLocaleString()}원</span>
-                                  )}
-                                  <button
-                                    onClick={() => setCustomOptions((prev) => ({ ...prev, [key]: (prev[key] || []).filter((_, j) => j !== i) }))}
-                                    className="text-gray-300"
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={newOptName}
-                              onChange={(e) => setNewOptName(e.target.value)}
-                              placeholder="예: 출장비"
-                              className="flex-1 h-10 border border-gray-200 rounded-xl px-3 text-[14px] text-gray-900 outline-none focus:border-[#3180F7]"
-                            />
-                            <input
-                              type="number"
-                              value={newOptPrice}
-                              onChange={(e) => setNewOptPrice(e.target.value)}
-                              placeholder="가격"
-                              className="w-24 h-10 border border-gray-200 rounded-xl px-3 text-[14px] text-gray-900 outline-none focus:border-[#3180F7]"
-                            />
-                            <button
-                              onClick={() => {
-                                if (!newOptName.trim()) return;
-                                setCustomOptions((prev) => ({
-                                  ...prev,
-                                  [key]: [...(prev[key] || []), { name: newOptName.trim(), price: parseInt(newOptPrice) || 0 }],
-                                }));
-                                setNewOptName('');
-                                setNewOptPrice('');
-                              }}
-                              className="h-10 px-3 rounded-xl bg-[#3180F7] text-white text-[13px] font-bold"
-                            >
-                              추가
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </Section>
 
       {/* ─── 9. 수상내역 ─── */}
       <Section title="수상내역">

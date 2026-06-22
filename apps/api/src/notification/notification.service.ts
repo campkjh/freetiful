@@ -122,7 +122,7 @@ export class NotificationService {
       const res = await axios.post(
         'https://onesignal.com/api/v1/notifications',
         { ...payloadBase, include_aliases: { external_id: [userId] } },
-        { headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' } },
+        { headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' }, timeout: 5000 },
       );
       const hasId = !!res.data?.id;
       const recipients = Number(res.data?.recipients || 0);
@@ -156,7 +156,7 @@ export class NotificationService {
       const res = await axios.post(
         'https://onesignal.com/api/v1/notifications',
         { ...payloadBase, include_subscription_ids: subscriptionIds },
-        { headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' } },
+        { headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' }, timeout: 5000 },
       );
       this.logger.log(
         `[OneSignal] subscription_id fallback ${userId} subs=${subscriptionIds.length} → id=${res.data?.id} recipients=${res.data?.recipients ?? 'n/a'}`,

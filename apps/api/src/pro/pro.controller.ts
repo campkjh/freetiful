@@ -104,6 +104,7 @@ export class ProController {
       category?: string;
       regions?: string[];
       tags?: string[];
+      isProfileHidden?: boolean;
     },
   ) {
     return this.proService.submitRegistration(req.user.id, body);
