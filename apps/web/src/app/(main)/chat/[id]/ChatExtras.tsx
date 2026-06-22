@@ -1627,28 +1627,36 @@ export default function ChatExtras(props: ChatExtrasProps) {
       if (isVideo) {
         dataUrl = withForcedMime(await readDataUrl(file), file.type?.startsWith('video') ? file.type : 'video/mp4');
       } else {
+        // 캔버스 디코드는 img.decode() 가 WKWebView 에서 무한 대기하는 사례가 있어
+        // onload/onerror + 4초 타임아웃으로 절대 멈추지 않게 하고, 실패 시 원본 전송으로 폴백.
+        const fallback = async () => withForcedMime(await readDataUrl(file), 'image/jpeg');
         dataUrl = await (async () => {
+          const objUrl = URL.createObjectURL(file);
           try {
-            const objUrl = URL.createObjectURL(file);
             const img = document.createElement('img');
-            img.decoding = 'async';
-            img.src = objUrl;
-            await img.decode();
+            const ok = await new Promise<boolean>((resolve) => {
+              let done = false;
+              const finish = (v: boolean) => { if (!done) { done = true; resolve(v); } };
+              img.onload = () => finish(true);
+              img.onerror = () => finish(false);
+              setTimeout(() => finish(false), 4000);
+              img.src = objUrl;
+            });
+            if (!ok || !img.naturalWidth || !img.naturalHeight) return await fallback();
             let w = img.naturalWidth, h = img.naturalHeight;
             const maxDim = 1600;
             if (Math.max(w, h) > maxDim) { const s = maxDim / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
             const canvas = document.createElement('canvas');
             canvas.width = w; canvas.height = h;
             const ctx = canvas.getContext('2d');
-            if (!ctx || !w || !h) throw new Error('no-canvas');
+            if (!ctx) return await fallback();
             ctx.drawImage(img, 0, 0, w, h);
-            URL.revokeObjectURL(objUrl);
             const out = canvas.toDataURL('image/jpeg', 0.9);
-            if (!out.startsWith('data:image/')) throw new Error('encode-failed');
-            return out;
+            return out.startsWith('data:image/') ? out : await fallback();
           } catch {
-            // 캔버스 디코드 실패 시 원본 base64 + image/jpeg mime 보정 (서버 sharp 가 실제 포맷 판별)
-            return withForcedMime(await readDataUrl(file), 'image/jpeg');
+            return await fallback();
+          } finally {
+            try { URL.revokeObjectURL(objUrl); } catch {}
           }
         })();
       }
