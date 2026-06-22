@@ -1578,16 +1578,25 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
   const handleImageSend = async (file: File) => {
     setShowAttach(false);
-    const isVideo = (file.type || '').startsWith('video');
+    // iOS WebView 는 동영상의 file.type 이 비는 경우가 있어 확장자도 함께 검사
+    const nameLc = (file.name || '').toLowerCase();
+    const isVideo = (file.type || '').startsWith('video') || /\.(mp4|mov|m4v|webm|avi|mkv|3gp|qt)$/i.test(nameLc);
     const msgType = isVideo ? 'video' : 'image';
-    // 동영상 용량 가드 (base64 업로드라 너무 크면 서버 본문 한도 초과) — 30MB 초과 차단
-    if (isVideo && file.size > 30 * 1024 * 1024) {
-      toast.error('동영상은 30MB 이하만 전송할 수 있습니다');
+    const label = isVideo ? '동영상' : '이미지';
+    // 용량 가드 (base64 업로드라 너무 크면 서버 본문 한도 초과) — 30MB 초과 차단
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error(`${label}은 30MB 이하만 전송할 수 있습니다`);
+      return;
+    }
+    // 방이 아직 준비 전(pending-)이면 낙관적 메시지를 넣기 전에 차단 — 안 그러면 멈춘 0% 버블이 남음
+    const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+    if (!roomId || roomId.startsWith('pending-')) {
+      toast.error('채팅방을 준비 중입니다. 잠시 후 다시 시도해주세요');
       return;
     }
     const tempId = `tmp-${Date.now()}-${Math.round(file.size % 100000)}`;
     const localUrl = URL.createObjectURL(file);
-    // 낙관적 UI: 로컬 미리보기 먼저 표시
+    // 낙관적 UI: 로컬 미리보기 + 업로드 진행률(원형) 표시
     setMessages((prev) => [...prev, {
       id: tempId,
       senderId: MY_ID,
@@ -1596,11 +1605,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
       createdAt: new Date().toISOString(),
       isRead: false,
       isNew: true,
+      uploadProgress: 0,
+      uploadBytesTotal: file.size,
     }]);
 
     try {
-      const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
-      if (!roomId || roomId.startsWith('pending-')) return;
       // file → base64 data URL
       const dataUrl = await new Promise<string>((res, rej) => {
         const r = new FileReader();
@@ -1608,21 +1617,36 @@ export default function ChatExtras(props: ChatExtrasProps) {
         r.onerror = rej;
         r.readAsDataURL(file);
       });
-      // 서버에 전송 → 서버가 디스크 저장 후 공개 URL 로 content 대체
-      const saved = (
-        await useChatStore.getState().sendMessage({ type: msgType, content: dataUrl }).catch(() => null)
-      ) || ((await chatApi.sendMessage(roomId, { type: msgType, content: dataUrl })).data as any);
-      // 임시 메시지를 서버 응답으로 교체 (senderId, content 는 서버 값)
-      setMessages((prev) => prev.map((m) => m.id === tempId ? {
-        ...m,
-        id: saved.id,
-        content: saved.content || localUrl,
-        isNew: false,
-      } : m));
+      // 서버에 전송(업로드 진행률 추적) → 서버가 DB 저장 후 공개 URL 로 content 대체
+      const resp = await chatApi.sendMessage(roomId, { type: msgType, content: dataUrl }, {
+        onUploadProgress: (e) => {
+          if (!e.total) return;
+          const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, uploadProgress: pct } : m));
+        },
+      });
+      const saved = resp.data as any;
+      // 임시 메시지를 서버 응답으로 교체 (실시간 echo 가 먼저 들어왔으면 임시본만 제거)
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== tempId);
+        return prev.map((m) => m.id === tempId ? {
+          ...m,
+          id: saved.id,
+          content: saved.content || localUrl,
+          type: (saved.type as Message['type']) || msgType,
+          isNew: false,
+          uploadProgress: undefined,
+          uploadBytesTotal: undefined,
+        } : m);
+      });
+      try { URL.revokeObjectURL(localUrl); } catch {}
+      // WS 끊겼을 때를 대비해 방 목록(최근메시지/정렬) 갱신 — 텍스트 전송의 REST 폴백과 동등
+      useChatStore.getState().fetchRooms({ limit: 50, force: true }).catch(() => {});
     } catch (e: any) {
-      toast.error(`이미지 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
+      toast.error(`${label} 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
       // 실패한 임시 메시지 제거
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      try { URL.revokeObjectURL(localUrl); } catch {}
     }
   };
 
@@ -1632,36 +1656,62 @@ export default function ChatExtras(props: ChatExtrasProps) {
       toast.error('파일은 30MB 이하만 전송할 수 있습니다');
       return;
     }
+    // 방이 아직 준비 전(pending-)이면 낙관적 메시지를 넣기 전에 차단
+    const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
+    if (!roomId || roomId.startsWith('pending-')) {
+      toast.error('채팅방을 준비 중입니다. 잠시 후 다시 시도해주세요');
+      return;
+    }
+    const tempId = `tmp-${Date.now()}-${Math.round(file.size % 100000)}`;
+    // 낙관적 UI: 파일칩 + 업로드 진행률
+    setMessages((prev) => [...prev, {
+      id: tempId,
+      senderId: MY_ID,
+      content: file.name,
+      type: 'file',
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      fileName: file.name,
+      isNew: true,
+      uploadProgress: 0,
+      uploadBytesTotal: file.size,
+    }]);
     try {
-      // file → base64 data URL (서버가 디스크/스토리지에 저장 후 공개 URL 반환)
+      // file → base64 data URL (서버가 DB 저장 후 공개 URL 반환)
       const dataUrl = await new Promise<string>((res, rej) => {
         const r = new FileReader();
         r.onload = () => res(r.result as string);
         r.onerror = rej;
         r.readAsDataURL(file);
       });
-      const saved = await useChatStore.getState().sendMessage({
+      const resp = await chatApi.sendMessage(roomId, {
         type: 'file',
         content: dataUrl,
         metadata: { fileName: file.name, fileSize: file.size, mimeType: file.type },
-      }).catch(() => null);
-      if (saved) {
-        setMessages((prev) => prev.some((m) => m.id === saved.id) ? prev : [...prev, {
+      }, {
+        onUploadProgress: (e) => {
+          if (!e.total) return;
+          const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, uploadProgress: pct } : m));
+        },
+      });
+      const saved = resp.data as any;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== tempId);
+        return prev.map((m) => m.id === tempId ? {
+          ...m,
           id: saved.id,
-          senderId: saved.senderId,
           content: saved.content || file.name,
-          type: 'file',
-          createdAt: saved.createdAt,
-          isRead: saved.isRead,
-          fileName: file.name,
-          isNew: true,
-        }]);
-        toast.success(`${file.name} 전송 완료`);
-      } else {
-        toast.error('파일 전송 실패');
-      }
-    } catch {
-      toast.error('파일 전송 실패');
+          isNew: false,
+          uploadProgress: undefined,
+          uploadBytesTotal: undefined,
+        } : m);
+      });
+      useChatStore.getState().fetchRooms({ limit: 50, force: true }).catch(() => {});
+      toast.success(`${file.name} 전송 완료`);
+    } catch (e: any) {
+      toast.error(`파일 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
   };
 

@@ -74,6 +74,28 @@ function absChatUrl(u: string): string {
   return u;
 }
 
+// 미디어 업로드 진행 오버레이 (원형 게이지 + % + 전송량/총용량 MB)
+function MediaUploadOverlay({ progress, totalBytes }: { progress?: number; totalBytes?: number }) {
+  if (progress == null || progress >= 100) return null;
+  const R = 22;
+  const C = 2 * Math.PI * R;
+  const mb = (n: number) => (n / 1048576).toFixed(1);
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center rounded-2xl bg-black/45 backdrop-blur-[1px]">
+      <svg width="54" height="54" viewBox="0 0 54 54" className="-rotate-90">
+        <circle cx="27" cy="27" r={R} fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth="4" />
+        <circle cx="27" cy="27" r={R} fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round"
+          strokeDasharray={C} strokeDashoffset={C * (1 - progress / 100)}
+          style={{ transition: 'stroke-dashoffset 0.2s linear' }} />
+      </svg>
+      <span className="mt-1 text-[13px] font-bold text-white tabular-nums">{Math.round(progress)}%</span>
+      {totalBytes ? (
+        <span className="text-[10px] font-medium text-white/85 tabular-nums">{mb(totalBytes * progress / 100)} / {mb(totalBytes)}MB</span>
+      ) : null}
+    </div>
+  );
+}
+
 function formatDateDivider(dateStr: string) {
   const d = new Date(dateStr);
   const now = new Date();
@@ -101,7 +123,7 @@ function messageTime(message: Pick<Message, 'createdAt'>) {
 // 낙관적(옵티미스틱) 임시 메시지 식별 — 페이지(opt-)와 스토어(pending-) 두 컨벤션 모두.
 // 실제 서버 메시지는 UUID라 프리픽스가 없어 절대 매칭되지 않는다.
 function isOptimisticId(id: string) {
-  return id.startsWith('opt-') || id.startsWith('pending-');
+  return id.startsWith('opt-') || id.startsWith('pending-') || id.startsWith('tmp-');
 }
 
 // 같은 견적(quotationId)에 카드가 두 번(스토어 낙관적 + 로컬 insert) 들어오는 중복 제거.
@@ -1257,7 +1279,7 @@ export default function ChatRoomPage() {
                     {/* Message bubble */}
                     {msg.type === 'image' ? (
                       <div
-                        className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`relative select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1265,17 +1287,18 @@ export default function ChatRoomPage() {
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         <img
-                          src={msg.content}
+                          src={absChatUrl(msg.content)}
                           alt=""
                           draggable={false}
                           className="max-h-[340px] max-w-full rounded-2xl object-cover cursor-pointer select-none sm:max-w-[260px]"
                           style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
-                          onClick={(e) => { e.stopPropagation(); setImagePreview(msg.content); }}
+                          onClick={(e) => { e.stopPropagation(); if (msg.uploadProgress == null) setImagePreview(absChatUrl(msg.content)); }}
                         />
+                        <MediaUploadOverlay progress={msg.uploadProgress} totalBytes={msg.uploadBytesTotal} />
                       </div>
                     ) : msg.type === 'video' ? (
                       <div
-                        className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`relative select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1283,17 +1306,18 @@ export default function ChatRoomPage() {
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         <video
-                          src={msg.content}
-                          controls
+                          src={absChatUrl(msg.content)}
+                          controls={msg.uploadProgress == null}
                           playsInline
                           preload="metadata"
                           className="max-h-[340px] max-w-full rounded-2xl object-cover sm:max-w-[260px]"
                           style={{ WebkitTouchCallout: 'none' }}
                         />
+                        <MediaUploadOverlay progress={msg.uploadProgress} totalBytes={msg.uploadBytesTotal} />
                       </div>
                     ) : msg.type === 'file' ? (
                       <a
-                        href={msg.content && /^https?:|^\/uploads\//.test(msg.content) ? msg.content : undefined}
+                        href={msg.content && /^https?:|^\/uploads\//.test(msg.content) ? absChatUrl(msg.content) : undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         download={msg.fileName || undefined}
@@ -1306,6 +1330,9 @@ export default function ChatRoomPage() {
                       >
                         <FileText size={18} />
                         <span className="min-w-0 break-all text-[15px]">{msg.fileName || msg.content}</span>
+                        {msg.uploadProgress != null && msg.uploadProgress < 100 && (
+                          <span className="shrink-0 text-[12px] font-bold tabular-nums opacity-80">{Math.round(msg.uploadProgress)}%</span>
+                        )}
                       </a>
                     ) : msg.type === 'location' ? (
                       <div

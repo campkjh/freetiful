@@ -1257,7 +1257,8 @@ export class ChatService implements OnModuleInit {
           finalContent = await this.imageService.saveRawMedia(buffer, mime, originalName);
         }
       } catch (e) {
-        // 저장 실패해도 content 는 그대로 둠 (클라이언트에서 에러 처리)
+        // 저장 실패 시 거대한 base64 를 그대로 DB/실시간에 흘리지 않도록 전송 자체를 실패시킴
+        throw new BadRequestException('미디어 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
     }
 
