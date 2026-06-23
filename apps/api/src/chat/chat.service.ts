@@ -1271,6 +1271,8 @@ export class ChatService implements OnModuleInit {
       }
     }
 
+    // [임시 진단] 미디어 전송 디버깅: 도착한 type/입력길이/저장된 content 형태 확인 (추후 제거)
+    console.log(`[sendMessage] type=${dto.type} inLen=${(dto.content || '').length} outPrefix=${(finalContent || '').slice(0, 50)}`);
     const participantIdsPromise = this.getRoomParticipantUserIds(roomId);
     const message = await this.prisma.message.create({
       data: {
