@@ -465,7 +465,7 @@ export default function ChatRoomPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hasInitialScrolledRef = useRef(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -925,8 +925,16 @@ export default function ChatRoomPage() {
     window.dispatchEvent(new Event('freetiful:chat-messages'));
   }, [messages]);
 
+  // 입력창 자동 높이 — 내용이 가로폭을 넘으면 줄바꿈되며 height 가 늘어남(최대 120px 후 스크롤)
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }, [input]);
+
   // ─── Input change + mention detection ───
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
 
@@ -1613,22 +1621,23 @@ export default function ChatRoomPage() {
                 <Plus size={24} className="text-gray-600" />
               </button>
 
-              <div className="flex h-12 min-w-0 flex-1 items-center rounded-full border border-gray-200/60 bg-white/90 pl-5 pr-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl">
-                <input
+              <div className="flex min-h-[48px] min-w-0 flex-1 items-end rounded-[24px] border border-gray-200/60 bg-white/90 pl-5 pr-1.5 py-[7px] shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl">
+                <textarea
                   ref={inputRef}
-                  type="text"
+                  rows={1}
                   value={input}
                   onChange={handleInputChange}
                   onKeyDown={(e) => {
                     // Korean IME: composition 중 Enter 는 마지막 자모 결합 trigger 라 send 하면 글자 중복 발생
                     // (예: "테스트" + Enter → composition 의 "트" 가 한 번 더 인풋에 남아 다음 send 에 포함됨)
+                    // Shift+Enter 는 줄바꿈(기본동작 유지), Enter 만 전송.
                     if (e.key !== 'Enter' || e.shiftKey) return;
                     if (e.nativeEvent.isComposing || (e as any).keyCode === 229) return;
                     e.preventDefault();
                     handleSend();
                   }}
                   placeholder="메시지 (@ 으로 멘션)"
-                  className="flex-1 min-w-0 bg-transparent text-[16px] focus:outline-none placeholder:text-gray-400 leading-[1.3]"
+                  className="flex-1 min-w-0 resize-none self-center bg-transparent py-[3px] text-[16px] leading-[1.35] focus:outline-none placeholder:text-gray-400 max-h-[120px] overflow-y-auto"
                 />
                 {input.trim() ? (
                   <button
