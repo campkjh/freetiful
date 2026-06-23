@@ -1229,7 +1229,7 @@ export interface ChatExtrasProps {
   mentionQuery: string | null;
   setMentionQuery: React.Dispatch<React.SetStateAction<string | null>>;
   // Refs
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   cameraInputRef: React.RefObject<HTMLInputElement | null>;
   // 고객의 매칭 요청 + 최신 견적 (사회자가 견적 작성 시 자동 채움용)
@@ -2311,7 +2311,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   // We need to set the input value via a native input event or parent callback
                   // For simplicity, dispatch an event
                   if (inputRef.current) {
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
                     nativeInputValueSetter?.call(inputRef.current, newTextBefore + textAfter);
                     inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
                   }
