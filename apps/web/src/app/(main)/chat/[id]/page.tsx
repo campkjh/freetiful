@@ -196,12 +196,12 @@ function mergeFetchedMessages(current: Message[], fetched: Message[], requestedA
     return messageTime(message) >= requestedAt - 60_000;
   });
 
-  // 사진 "떴다 사라짐" 방지: 로컬에 이미 렌더 중인 data URL(확실히 보임) 이 있는 메시지는,
+  // 사진 "떴다 사라짐" 방지: 로컬에 이미 렌더 중인 data URL(확실히 보임) 이 있는 *이미지* 는,
   // 서버 재조회본의 /uploads 콘텐츠로 갈아끼우지 않고 로컬 data URL 을 유지한다.
-  // (서버 URL 이 일시적으로 안 떠도 세션 동안 이미지가 사라지지 않음. id/시각만 서버것 채택.)
+  // (단 동영상은 제외 — data:video 는 iOS 가 재생 못해서 반드시 서버 /uploads(Range) 로 가야 함.)
   const localDataById = new Map(
     current
-      .filter((m) => typeof m.content === 'string' && m.content.startsWith('data:'))
+      .filter((m) => m.type === 'image' && typeof m.content === 'string' && m.content.startsWith('data:'))
       .map((m) => [m.id, m.content]),
   );
   const fetchedMerged = fetched.map((m) =>
@@ -987,6 +987,8 @@ export default function ChatRoomPage() {
         : prev.map((m) => m.id === msg.id ? {
             ...m,
             id: saved.id,
+            // 동영상은 서버 /uploads(Range 재생) 로 교체, 이미지는 data URL 유지
+            content: msg.type === 'video' && saved.content ? saved.content : m.content,
             createdAt: saved.createdAt || m.createdAt,
             uploadProgress: undefined,
             uploadFailed: false,

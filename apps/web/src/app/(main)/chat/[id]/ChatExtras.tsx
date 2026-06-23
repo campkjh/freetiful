@@ -1680,7 +1680,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
         return prev.map((m) => m.id === tempId ? {
           ...m,
           id: saved.id,
-          // content(data URL) 유지: 렌더 보장 + createdAt 을 서버시각으로 갱신해 목록 prune 회피
+          // 이미지: data URL 유지(확실히 렌더). 동영상: data:video 는 iOS <video> 가 재생을 못하므로
+          //   반드시 서버 /uploads URL 로 교체해야 Range 재생됨(빈 영상칸 방지).
+          content: isVideo && saved.content ? saved.content : m.content,
           createdAt: saved.createdAt || m.createdAt,
           type: (saved.type as Message['type']) || msgType,
           isNew: false,
