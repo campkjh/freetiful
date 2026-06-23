@@ -116,6 +116,22 @@ export class ChatController {
     return this.chatService.uploadImage(roomId, req.user.id, file);
   }
 
+  // 채팅 미디어(사진/영상/파일) 멀티파트 업로드 → 공개 URL 반환.
+  // base64 JSON POST 는 WKWebView(iOS 네이티브앱)가 큰 본문을 끊어 'request aborted' 나므로
+  // 바이너리 멀티파트로 업로드해야 안정적. 업로드 후 클라가 content=URL 로 메시지를 보낸다.
+  @Post('rooms/:roomId/media')
+  @ApiOperation({ summary: '채팅 미디어(사진/영상/파일) 업로드' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
+  uploadMedia(
+    @Req() req,
+    @Param('roomId') roomId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('type') type: string,
+  ) {
+    return this.chatService.uploadMedia(roomId, req.user.id, file, type);
+  }
+
   @Put('messages/:messageId')
   @ApiOperation({ summary: '메시지 수정' })
   editMessage(@Req() req, @Param('messageId') messageId: string, @Body() dto: EditMessageDto) {

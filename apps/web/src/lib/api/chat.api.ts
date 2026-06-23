@@ -129,6 +129,24 @@ export const chatApi = {
     );
   },
 
+  // 미디어(사진/영상/파일) 멀티파트 업로드 → { url }. base64 JSON POST 가 WKWebView 에서 끊기는
+  // 문제 회피용 — 바이너리로 올리고, 반환된 URL 로 sendMessage 한다.
+  uploadMedia: (
+    roomId: string,
+    file: File,
+    type: string,
+    config?: { onUploadProgress?: (e: { loaded: number; total?: number }) => void },
+  ) => {
+    const form = new FormData();
+    form.append('file', file, file.name || 'media');
+    form.append('type', type);
+    return apiClient.post<{ url: string }>(
+      `${BASE}/rooms/${roomId}/media`,
+      form,
+      { headers: { 'Content-Type': null as any }, timeout: 120000, onUploadProgress: config?.onUploadProgress },
+    );
+  },
+
   editMessage: (messageId: string, content: string) =>
     apiClient.put(`${BASE}/messages/${messageId}`, { content }),
 
