@@ -298,6 +298,14 @@ class ViewController: UIViewController,
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
 
+        // 앱 시작 시 WKWebView 디스크/메모리 캐시 1회 비움 — 옛 JS 번들 고착으로 배포 수정이
+        // 앱에 반영 안 되던 문제 방지(채팅 사진 등 웹 수정 즉시 반영)
+        WKWebsiteDataStore.default().removeData(
+            ofTypes: [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache],
+            modifiedSince: Date(timeIntervalSince1970: 0),
+            completionHandler: {}
+        )
+
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -2468,7 +2476,10 @@ class ViewController: UIViewController,
     }
 
     private func loadHome() {
-        webView.load(URLRequest(url: URL(string: "\(kWebBase)/")!))
+        // 캐시 무시 로드 — WKWebView 가 옛 JS 번들을 붙잡고 있어 배포한 수정이 앱에 반영 안 되던 문제 방지
+        var homeReq = URLRequest(url: URL(string: "\(kWebBase)/")!)
+        homeReq.cachePolicy = .reloadIgnoringLocalCacheData
+        webView.load(homeReq)
         // 스플래시를 웹 셸 로딩과 무관하게 조기 해제 + 네이티브 홈 표출 (기본 홈 랜딩)
         // → 콜드스타트여도 네이티브 홈(디스크 캐시/로딩표시)이 바로 보임
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.revealNativeHomeEarly() }
