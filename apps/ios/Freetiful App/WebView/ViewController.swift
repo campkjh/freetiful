@@ -1747,7 +1747,9 @@ class ViewController: UIViewController,
                 quoteEventName: (d["quoteEventName"] as? String) ?? "",
                 quotePlanLabel: (d["quotePlanLabel"] as? String) ?? "",
                 quoteProImage: (d["quoteProImage"] as? String) ?? "",
-                quoteIsLatest: (d["quoteIsLatest"] as? Bool) ?? false
+                quoteIsLatest: (d["quoteIsLatest"] as? Bool) ?? false,
+                uploadProgress: (d["uploadProgress"] as? Double) ?? Double((d["uploadProgress"] as? Int) ?? -1),
+                uploadBytesTotal: (d["uploadBytesTotal"] as? Double) ?? Double((d["uploadBytesTotal"] as? Int) ?? 0)
             )
         }
         nativeChatMessages.setMessages(msgs, forceScroll: !hasLoadedChatMessagesOnce)

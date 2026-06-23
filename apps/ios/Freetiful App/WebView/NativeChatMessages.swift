@@ -54,6 +54,8 @@ struct NativeChatMessage {
     var quotePlanLabel: String = ""
     var quoteProImage: String = ""
     var quoteIsLatest: Bool = false
+    var uploadProgress: Double = -1   // -1 = 업로드 아님, 0~100 = 업로드 진행중
+    var uploadBytesTotal: Double = 0  // 원본 용량(byte) — "X.X / Y.Y MB" 표기용
 }
 
 protocol NativeChatMessagesDelegate: AnyObject {
@@ -434,6 +436,78 @@ final class NativeChatBubbleCell: UITableViewCell {
     }
 }
 
+// MARK: - 업로드 진행 오버레이 (카톡식: 딤드 + 원형 게이지 + MB)
+final class ChatUploadOverlay: UIView {
+    private let track = CAShapeLayer()
+    private let ring = CAShapeLayer()
+    private let pctLabel = UILabel()
+    private let mbLabel = UILabel()
+    private let radius: CGFloat = 22
+
+    override init(frame: CGRect) { super.init(frame: frame); setup() }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func setup() {
+        isUserInteractionEnabled = false
+        backgroundColor = UIColor(white: 0, alpha: 0.42)
+        layer.cornerRadius = 16
+        layer.cornerCurve = .continuous
+        clipsToBounds = true
+
+        track.fillColor = UIColor.clear.cgColor
+        track.strokeColor = UIColor(white: 1, alpha: 0.30).cgColor
+        track.lineWidth = 4
+        layer.addSublayer(track)
+
+        ring.fillColor = UIColor.clear.cgColor
+        ring.strokeColor = UIColor.white.cgColor
+        ring.lineWidth = 4
+        ring.lineCap = .round
+        ring.strokeEnd = 0
+        layer.addSublayer(ring)
+
+        pctLabel.font = .systemFont(ofSize: 13, weight: .bold)
+        pctLabel.textColor = .white
+        pctLabel.textAlignment = .center
+        pctLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(pctLabel)
+
+        mbLabel.font = .systemFont(ofSize: 10, weight: .medium)
+        mbLabel.textColor = UIColor(white: 1, alpha: 0.85)
+        mbLabel.textAlignment = .center
+        mbLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(mbLabel)
+
+        NSLayoutConstraint.activate([
+            pctLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            pctLabel.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -1),
+            mbLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            mbLabel.topAnchor.constraint(equalTo: pctLabel.bottomAnchor, constant: 1),
+        ])
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let path = UIBezierPath(arcCenter: center, radius: radius, startAngle: -.pi / 2, endAngle: .pi * 1.5, clockwise: true)
+        track.path = path.cgPath
+        ring.path = path.cgPath
+    }
+
+    func update(progress: Double, totalBytes: Double) {
+        let p = max(0, min(100, progress)) / 100.0
+        ring.strokeEnd = CGFloat(p)
+        pctLabel.text = "\(Int(progress.rounded()))%"
+        if totalBytes > 0 {
+            let mb = totalBytes / 1_048_576.0
+            mbLabel.isHidden = false
+            mbLabel.text = String(format: "%.1f / %.1f MB", mb * p, mb)
+        } else {
+            mbLabel.isHidden = true
+        }
+    }
+}
+
 // MARK: - 이미지 말풍선 셀
 final class NativeChatImageCell: UITableViewCell {
     var onTap: ((String) -> Void)?
@@ -444,6 +518,7 @@ final class NativeChatImageCell: UITableViewCell {
     private var timeLeadingC: NSLayoutConstraint!
     private var timeTrailingC: NSLayoutConstraint!
     private var currentURL = ""
+    private let uploadOverlay = ChatUploadOverlay()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -466,6 +541,10 @@ final class NativeChatImageCell: UITableViewCell {
         photo.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
         contentView.addSubview(photo)
 
+        uploadOverlay.translatesAutoresizingMaskIntoConstraints = false
+        uploadOverlay.isHidden = true
+        contentView.addSubview(uploadOverlay)
+
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
         timeLabel.font = .systemFont(ofSize: 10.5)
         timeLabel.textColor = UIColor(white: 0.6, alpha: 1)
@@ -480,6 +559,10 @@ final class NativeChatImageCell: UITableViewCell {
             photo.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             photo.widthAnchor.constraint(equalToConstant: 220),
             photo.heightAnchor.constraint(equalToConstant: 220),
+            uploadOverlay.leadingAnchor.constraint(equalTo: photo.leadingAnchor),
+            uploadOverlay.trailingAnchor.constraint(equalTo: photo.trailingAnchor),
+            uploadOverlay.topAnchor.constraint(equalTo: photo.topAnchor),
+            uploadOverlay.bottomAnchor.constraint(equalTo: photo.bottomAnchor),
             timeLabel.topAnchor.constraint(equalTo: photo.bottomAnchor, constant: 2),
             timeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
         ])
@@ -497,7 +580,10 @@ final class NativeChatImageCell: UITableViewCell {
             photo.image = nil
             NativeChatImageLoader.load(m.imageUrl, into: photo, fallback: nil)
         }
-        photo.alpha = m.pending ? 0.6 : 1.0
+        let uploading = m.uploadProgress >= 0 && m.uploadProgress < 100
+        uploadOverlay.isHidden = !uploading
+        if uploading { uploadOverlay.update(progress: m.uploadProgress, totalBytes: m.uploadBytesTotal) }
+        photo.alpha = uploading ? 1.0 : (m.pending ? 0.6 : 1.0)
         let reactionPrefix = m.reaction.isEmpty ? "" : "\(m.reaction) "
         timeLabel.text = reactionPrefix + NativeChatImageCell.formatTime(m.createdAt)
 
@@ -534,6 +620,7 @@ final class NativeChatVideoCell: UITableViewCell {
     private var timeLeadingC: NSLayoutConstraint!
     private var timeTrailingC: NSLayoutConstraint!
     private var currentURL = ""
+    private let uploadOverlay = ChatUploadOverlay()
     private static var posterCache: [String: UIImage] = [:]
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -568,6 +655,10 @@ final class NativeChatVideoCell: UITableViewCell {
         playIcon.layer.shadowOffset = .zero
         contentView.addSubview(playIcon)
 
+        uploadOverlay.translatesAutoresizingMaskIntoConstraints = false
+        uploadOverlay.isHidden = true
+        contentView.addSubview(uploadOverlay)
+
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
         timeLabel.font = .systemFont(ofSize: 10.5)
         timeLabel.textColor = UIColor(white: 0.6, alpha: 1)
@@ -586,6 +677,10 @@ final class NativeChatVideoCell: UITableViewCell {
             playIcon.centerYAnchor.constraint(equalTo: photo.centerYAnchor),
             playIcon.widthAnchor.constraint(equalToConstant: 54),
             playIcon.heightAnchor.constraint(equalToConstant: 54),
+            uploadOverlay.leadingAnchor.constraint(equalTo: photo.leadingAnchor),
+            uploadOverlay.trailingAnchor.constraint(equalTo: photo.trailingAnchor),
+            uploadOverlay.topAnchor.constraint(equalTo: photo.topAnchor),
+            uploadOverlay.bottomAnchor.constraint(equalTo: photo.bottomAnchor),
             timeLabel.topAnchor.constraint(equalTo: photo.bottomAnchor, constant: 2),
             timeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
         ])
@@ -605,7 +700,11 @@ final class NativeChatVideoCell: UITableViewCell {
             photo.backgroundColor = UIColor(white: 0.82, alpha: 1)
             loadPoster(url)
         }
-        photo.alpha = m.pending ? 0.6 : 1.0
+        let uploading = m.uploadProgress >= 0 && m.uploadProgress < 100
+        uploadOverlay.isHidden = !uploading
+        playIcon.isHidden = uploading   // 업로드 중엔 재생버튼 대신 게이지
+        if uploading { uploadOverlay.update(progress: m.uploadProgress, totalBytes: m.uploadBytesTotal) }
+        photo.alpha = uploading ? 1.0 : (m.pending ? 0.6 : 1.0)
         let reactionPrefix = m.reaction.isEmpty ? "" : "\(m.reaction) "
         timeLabel.text = reactionPrefix + NativeChatVideoCell.formatTime(m.createdAt)
 

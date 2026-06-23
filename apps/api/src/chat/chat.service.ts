@@ -1322,7 +1322,12 @@ export class ChatService implements OnModuleInit {
         this.invalidateRoomsCache(participantId);
       }
       const senderName = message.sender?.name || '상대방';
-      const preview = (finalContent || '').slice(0, 40);
+      // 미디어 등은 URL/base64 원문 대신 라벨로 (푸시 알림 미리보기)
+      const previewByType: Record<string, string> = {
+        image: '사진을 보냈습니다', video: '동영상을 보냈습니다', file: '파일을 보냈습니다',
+        audio: '음성 메시지를 보냈습니다', voice: '음성 메시지를 보냈습니다', location: '위치를 공유했습니다',
+      };
+      const preview = previewByType[dto.type] || (finalContent || '').slice(0, 40);
       for (const receiverId of receiverIds) {
         this.notificationService.createNotification(
           receiverId,
