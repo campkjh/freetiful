@@ -40,6 +40,22 @@ const ClientAvatar = ({ name }: { name: string }) => (
   </div>
 );
 
+// 채팅 목록 미리보기 — 사진/영상/파일 등은 URL/base64 원문 대신 라벨로 표시
+function lastMsgPreview(lm: { type?: string; content?: string | null } | null | undefined): string {
+  if (!lm) return '';
+  switch (lm.type) {
+    case 'image': return '사진을 보냈습니다';
+    case 'video': return '동영상을 보냈습니다';
+    case 'file': return '파일을 보냈습니다';
+    case 'audio':
+    case 'voice': return '음성 메시지를 보냈습니다';
+    case 'location': return '위치를 공유했습니다';
+    case 'quotation':
+    case 'quote': return '견적서를 보냈습니다';
+    default: return lm.content || '';
+  }
+}
+
 function mapApiRoomToChatRoom(r: any): ChatRoom {
   return {
     id: r.id,
@@ -51,7 +67,7 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
       role: r.iAmPro ? '고객' : (r.otherUser.category || '사회자'),
       profileImageUrl: r.otherUser.profileImageUrl || '',
     },
-    lastMessage: r.lastMessage?.content || '',
+    lastMessage: lastMsgPreview(r.lastMessage),
     lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
     unreadCount: r.unreadCount,
     isPinned: false,

@@ -839,7 +839,10 @@ export default function ChatRoomPage() {
         replyContent: m.replyTo?.content || '',
         reaction: m.reaction || '',
         fileName: m.fileName || '',
-        pending: m.id.startsWith('opt-') || m.id.startsWith('pending-'),
+        pending: m.id.startsWith('opt-') || m.id.startsWith('pending-') || m.id.startsWith('tmp-'),
+        // 업로드 진행률(낙관적 미디어) — 네이티브 셀에서 카톡식 게이지+MB 표시용. -1 = 업로드 아님.
+        uploadProgress: typeof m.uploadProgress === 'number' ? m.uploadProgress : -1,
+        uploadBytesTotal: typeof m.uploadBytesTotal === 'number' ? m.uploadBytesTotal : 0,
         systemKind: m.system?.kind || '',
         quoteAmount: m.system?.amount || 0,
         quoteTitle: m.system?.title || '',
