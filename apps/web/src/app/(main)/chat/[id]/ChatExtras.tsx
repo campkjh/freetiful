@@ -1595,40 +1595,25 @@ export default function ChatExtras(props: ChatExtrasProps) {
       return;
     }
     const tempId = `tmp-${Date.now()}-${Math.round(file.size % 100000)}`;
-    const localUrl = URL.createObjectURL(file);
-    // 낙관적 UI: 로컬 미리보기 + 업로드 진행률(원형) 표시
-    setMessages((prev) => [...prev, {
-      id: tempId,
-      senderId: MY_ID,
-      content: localUrl,
-      type: msgType,
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      isNew: true,
-      uploadProgress: 0,
-      uploadBytesTotal: file.size,
-    }]);
-
+    const readDataUrl = (f: File) => new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result as string);
+      r.onerror = rej;
+      r.readAsDataURL(f);
+    });
+    const withForcedMime = (url: string, mime: string) => {
+      if (new RegExp(`^data:${mime.split('/')[0]}\\/`, 'i').test(url)) return url;
+      const i = url.indexOf(',');
+      return `data:${mime};base64,${i >= 0 ? url.slice(i + 1) : url}`;
+    };
+    // 1) 변환을 먼저 — 낙관적 미리보기를 blob(네이티브에서 렌더 불안정) 대신 "항상 렌더되는 data URL" 로.
+    //    이미지: 캔버스 JPEG 재인코딩(HEIC/빈mime/대용량 해결, onload+4초 타임아웃으로 hang 방지).
+    //    동영상: 원본 + mime 보정.
+    let dataUrl: string;
     try {
-      const readDataUrl = (f: File) => new Promise<string>((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(r.result as string);
-        r.onerror = rej;
-        r.readAsDataURL(f);
-      });
-      const withForcedMime = (url: string, mime: string) => {
-        if (new RegExp(`^data:${mime.split('/')[0]}\\/`, 'i').test(url)) return url;
-        const i = url.indexOf(',');
-        return `data:${mime};base64,${i >= 0 ? url.slice(i + 1) : url}`;
-      };
-      // 이미지는 캔버스로 JPEG 재인코딩 → 아이폰 HEIC/빈-mime/대용량 문제 해결(+업로드 용량 축소).
-      // 동영상은 원본 그대로(빈 mime 면 video/mp4 로 보정).
-      let dataUrl: string;
       if (isVideo) {
         dataUrl = withForcedMime(await readDataUrl(file), file.type?.startsWith('video') ? file.type : 'video/mp4');
       } else {
-        // 캔버스 디코드는 img.decode() 가 WKWebView 에서 무한 대기하는 사례가 있어
-        // onload/onerror + 4초 타임아웃으로 절대 멈추지 않게 하고, 실패 시 원본 전송으로 폴백.
         const fallback = async () => withForcedMime(await readDataUrl(file), 'image/jpeg');
         dataUrl = await (async () => {
           const objUrl = URL.createObjectURL(file);
@@ -1660,7 +1645,27 @@ export default function ChatExtras(props: ChatExtrasProps) {
           }
         })();
       }
-      // 서버에 전송(업로드 진행률 추적) → 서버가 DB 저장 후 공개 URL 로 content 대체
+    } catch (e: any) {
+      toast.error(`${label} 처리 실패: ${e?.message || ''}`);
+      return;
+    }
+
+    // 2) 낙관적 메시지 — 변환된 data URL(확실히 렌더됨) + 업로드 진행률(원형)
+    setMessages((prev) => [...prev, {
+      id: tempId,
+      senderId: MY_ID,
+      content: dataUrl,
+      type: msgType,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      isNew: true,
+      uploadProgress: 0,
+      uploadBytesTotal: file.size,
+    }]);
+
+    try {
+      // 3) 서버 전송(진행률). 성공해도 로컬 content 는 data URL 유지 → 세션 동안 회색 안 됨.
+      //    서버 저장본(/uploads)은 다음 재조회/재진입 때 반영된다.
       const resp = await chatApi.sendMessage(roomId, { type: msgType, content: dataUrl }, {
         onUploadProgress: (e) => {
           if (!e.total) return;
@@ -1669,27 +1674,23 @@ export default function ChatExtras(props: ChatExtrasProps) {
         },
       });
       const saved = resp.data as any;
-      // 임시 메시지를 서버 응답으로 교체 (실시간 echo 가 먼저 들어왔으면 임시본만 제거)
       setMessages((prev) => {
         if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== tempId);
         return prev.map((m) => m.id === tempId ? {
           ...m,
           id: saved.id,
-          content: saved.content || localUrl,
+          // content(data URL) 유지: 렌더 보장 + createdAt 을 서버시각으로 갱신해 목록 prune 회피
+          createdAt: saved.createdAt || m.createdAt,
           type: (saved.type as Message['type']) || msgType,
           isNew: false,
           uploadProgress: undefined,
           uploadBytesTotal: undefined,
         } : m);
       });
-      try { URL.revokeObjectURL(localUrl); } catch {}
-      // WS 끊겼을 때를 대비해 방 목록(최근메시지/정렬) 갱신 — 텍스트 전송의 REST 폴백과 동등
       useChatStore.getState().fetchRooms({ limit: 50, force: true }).catch(() => {});
     } catch (e: any) {
       toast.error(`${label} 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
-      // 실패한 임시 메시지 제거
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      try { URL.revokeObjectURL(localUrl); } catch {}
     }
   };
 
