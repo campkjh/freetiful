@@ -365,7 +365,13 @@ export default function ChatRoomPage() {
     const vv = window.visualViewport;
     if (!vv) return;
     const update = () => {
-      setKeyboardOffset(Math.max(0, window.innerHeight - vv.height));
+      const next = Math.max(0, window.innerHeight - vv.height);
+      setKeyboardOffset(next);
+      // 키보드가 올라오면 마지막 메시지가 가리지 않게 맨 아래로 스크롤
+      if (next > 0) {
+        const c = scrollContainerRef.current;
+        if (c) requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
+      }
     };
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
@@ -1128,7 +1134,8 @@ export default function ChatRoomPage() {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
-          paddingBottom: 80,
+          // interactive-widget 미지원 구형 안드로이드 폴백 — 키보드 높이만큼 하단 패딩 추가해 마지막 메시지 가림 방지
+          paddingBottom: 80 + keyboardOffset,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
           paddingTop: roomMeta?.latestQuotation?.status === 'paid'
@@ -1317,26 +1324,32 @@ export default function ChatRoomPage() {
                         />
                         <MediaUploadOverlay progress={msg.uploadProgress} totalBytes={msg.uploadBytesTotal} />
                       </div>
-                    ) : msg.type === 'file' ? (
+                    ) : msg.type === 'file' ? (() => {
+                      // 옛 휘발성 fs 경로(/uploads/chat-xxx.ext)로 저장됐던 파일은 서버 재배포로 유실됨 → 404 대신 '만료' 표시
+                      const expired = !!msg.content && /^\/uploads\/chat-.*\.[a-z0-9]+$/i.test(msg.content);
+                      const href = !expired && msg.content && /^https?:|^\/uploads\//.test(msg.content) ? absChatUrl(msg.content) : undefined;
+                      return (
                       <a
-                        href={msg.content && /^https?:|^\/uploads\//.test(msg.content) ? absChatUrl(msg.content) : undefined}
+                        href={href}
                         target="_blank"
                         rel="noopener noreferrer"
                         download={msg.fileName || undefined}
-                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none no-underline ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none no-underline ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
+                        onClick={expired ? (e) => e.preventDefault() : undefined}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         <FileText size={18} />
-                        <span className="min-w-0 break-all text-[15px]">{msg.fileName || msg.content}</span>
+                        <span className="min-w-0 break-all text-[15px]">{msg.fileName || msg.content}{expired ? ' · 만료됨' : ''}</span>
                         {msg.uploadProgress != null && msg.uploadProgress < 100 && (
                           <span className="shrink-0 text-[12px] font-bold tabular-nums opacity-80">{Math.round(msg.uploadProgress)}%</span>
                         )}
                       </a>
-                    ) : msg.type === 'location' ? (
+                      );
+                    })() : msg.type === 'location' ? (
                       <div
                         className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ transformOrigin: mine ? 'right bottom' : 'left bottom', WebkitTouchCallout: 'none' }}

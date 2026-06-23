@@ -27,6 +27,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  // 키보드가 뜰 때 Android 가 레이아웃 높이를 줄이도록(resizes-content) — 미설정 시
+  // 기본 resizes-visual 이라 고정 inset-0 컨테이너가 키보드에 가려진다. (채팅 입력창 가림 해결)
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
