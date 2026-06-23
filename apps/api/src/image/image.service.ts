@@ -236,8 +236,10 @@ export class ImageService {
     const webpFilename = `${id}.webp`;
     const originalFilename = `${id}_original${path.extname(file.originalname)}`;
 
+    // requireFace 가 아닐 때(채팅 이미지 등)는 detectFace(전체해상도 sharp 디코드 3회)를 건너뛰어
+    // 처리 지연을 줄인다 → 업로드가 15s 타임아웃에 걸려 '사진 사라짐' 나는 것 완화.
     const [hasFace, webpBuffer] = await Promise.all([
-      this.detectFace(file.buffer),
+      requireFace ? this.detectFace(file.buffer) : Promise.resolve(false),
       pipeline.webp({ quality, effort: 4 }).toBuffer(),
     ]);
 

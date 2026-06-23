@@ -24,6 +24,10 @@ type PushSettingKey =
 export class PushService {
   private readonly logger = new Logger(PushService.name);
   private vapidConfigured = false;
+  // OneSignal 429 폭주 방지: 429 응답 시 이 시각까지 모든 OneSignal 동기화 호출 차단
+  private oneSignalCooldownUntil = 0;
+  // 같은 user:token 의 중복 동기화 차단 (클라가 register 를 반복 호출해도 한 번만)
+  private readonly recentOneSignalSync = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -97,8 +101,24 @@ export class PushService {
     // + 4) 같은 유저에 달린 ghost subscription 정리
     const { appId, restKey } = this.getOneSignalConfig();
     if (appId && restKey) {
-      await this.linkExternalId(appId, restKey, normalizedPlayerId, userId);
-      await this.cleanupGhostSubscriptions(appId, restKey, userId, normalizedPlayerId);
+      // 클라이언트가 register 를 초당 수백번 호출 → OneSignal 429 폭주(로그 도배 + API 지연,
+      // 채팅 업로드까지 느려져 '사진 사라짐' 유발)를 막는다:
+      // (1) 같은 user:token 은 10분 내 재동기화 스킵 (2) 429 쿨다운 중엔 스킵 (3) await 안 함(응답 지연 X)
+      const syncKey = `${userId}:${normalizedPlayerId}`;
+      const now = Date.now();
+      const lastSync = this.recentOneSignalSync.get(syncKey) || 0;
+      if (now > this.oneSignalCooldownUntil && now - lastSync > 10 * 60 * 1000) {
+        this.recentOneSignalSync.set(syncKey, now);
+        if (this.recentOneSignalSync.size > 5000) this.recentOneSignalSync.clear();
+        void (async () => {
+          try {
+            await this.linkExternalId(appId, restKey, normalizedPlayerId, userId);
+            await this.cleanupGhostSubscriptions(appId, restKey, userId, normalizedPlayerId);
+          } catch {
+            /* fire-and-forget */
+          }
+        })();
+      }
     }
 
     return record;
@@ -115,13 +135,14 @@ export class PushService {
       const res = await axios.patch(
         `https://api.onesignal.com/apps/${appId}/users/by/subscriptions/${subscriptionId}/identity`,
         { identity: { external_id: externalId } },
-        { headers: { Authorization: `Key ${restKey}`, 'Content-Type': 'application/json' } },
+        { headers: { Authorization: `Key ${restKey}`, 'Content-Type': 'application/json' }, timeout: 5000 },
       );
       this.logger.log(
         `[linkExternalId] ${externalId} → sub=${subscriptionId.slice(0, 12)} status=${res.status}`,
       );
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: unknown } };
+      if (err.response?.status === 429) this.oneSignalCooldownUntil = Date.now() + 60_000;
       this.logger.warn(
         `[linkExternalId] FAIL ${externalId} status=${err.response?.status} data=${JSON.stringify(err.response?.data)}`,
       );
@@ -138,7 +159,7 @@ export class PushService {
     try {
       const userRes = await axios.get(
         `https://api.onesignal.com/apps/${appId}/users/by/external_id/${externalId}`,
-        { headers: { Authorization: `Key ${restKey}` } },
+        { headers: { Authorization: `Key ${restKey}` }, timeout: 5000 },
       );
       const subs: OneSignalSub[] = userRes.data?.subscriptions || [];
       const toDelete: string[] = [];
@@ -158,7 +179,7 @@ export class PushService {
         try {
           await axios.delete(
             `https://api.onesignal.com/apps/${appId}/subscriptions/${subId}`,
-            { headers: { Authorization: `Key ${restKey}` } },
+            { headers: { Authorization: `Key ${restKey}` }, timeout: 5000 },
           );
           removed++;
         } catch {}
@@ -178,6 +199,7 @@ export class PushService {
       }
     } catch (e: unknown) {
       const err = e as { response?: { status?: number } };
+      if (err.response?.status === 429) this.oneSignalCooldownUntil = Date.now() + 60_000;
       if (err.response?.status !== 404) {
         this.logger.warn(`[cleanupGhosts] FAIL ${externalId} ${String(e).slice(0, 200)}`);
       }

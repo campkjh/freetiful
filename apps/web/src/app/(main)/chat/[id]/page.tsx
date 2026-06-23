@@ -96,6 +96,31 @@ function MediaUploadOverlay({ progress, totalBytes }: { progress?: number; total
   );
 }
 
+// 업로드 실패 오버레이 — 사진/영상이 사라지는 대신 '전송 실패 · 탭하여 재시도'로 유지.
+function FailedMediaOverlay({ onRetry }: { onRetry: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onRetry(); }}
+      className="absolute inset-0 z-[3] flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-black/55 text-white active:bg-black/65"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9" stroke="#fff" strokeWidth="1.6" />
+        <path d="M12 7.5v5M12 16h.01" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+      <span className="text-[12px] font-bold">전송 실패</span>
+      <span className="text-[10px] font-medium opacity-90">탭하여 재시도</span>
+    </button>
+  );
+}
+
+// 서버 /uploads URL 이 일시적으로 안 뜰 때 빈칸(사라진 것처럼 보임) 대신 회색 자리표시
+const BROKEN_IMG_PLACEHOLDER =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="220" height="160"><rect width="100%" height="100%" rx="16" fill="#e5e7eb"/><text x="50%" y="50%" font-family="sans-serif" font-size="13" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">이미지를 불러올 수 없습니다</text></svg>',
+  );
+
 function formatDateDivider(dateStr: string) {
   const d = new Date(dateStr);
   const now = new Date();
@@ -171,7 +196,19 @@ function mergeFetchedMessages(current: Message[], fetched: Message[], requestedA
     return messageTime(message) >= requestedAt - 60_000;
   });
 
-  return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
+  // 사진 "떴다 사라짐" 방지: 로컬에 이미 렌더 중인 data URL(확실히 보임) 이 있는 메시지는,
+  // 서버 재조회본의 /uploads 콘텐츠로 갈아끼우지 않고 로컬 data URL 을 유지한다.
+  // (서버 URL 이 일시적으로 안 떠도 세션 동안 이미지가 사라지지 않음. id/시각만 서버것 채택.)
+  const localDataById = new Map(
+    current
+      .filter((m) => typeof m.content === 'string' && m.content.startsWith('data:'))
+      .map((m) => [m.id, m.content]),
+  );
+  const fetchedMerged = fetched.map((m) =>
+    localDataById.has(m.id) ? { ...m, content: localDataById.get(m.id) as string } : m,
+  );
+
+  return [...fetchedMerged, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
 }
 
 // Simple inline text with @mention highlighting
@@ -929,6 +966,37 @@ export default function ChatRoomPage() {
     }
   };
 
+  // 업로드 실패(uploadFailed)한 사진/영상/파일 버블을 탭하면 재전송. 버블은 data URL 을
+  // 유지하고 있으므로 그 내용을 그대로 다시 POST 한다. (사진 사라짐 대신 '재시도'로 복구)
+  const retryFailedMedia = async (msg: Message) => {
+    if (!msg.content) return;
+    setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, uploadFailed: false, uploadProgress: 0 } : m));
+    try {
+      const resp = await chatApi.sendMessage(
+        roomId,
+        {
+          type: msg.type,
+          content: msg.content,
+          ...(msg.type === 'file' ? { metadata: { fileName: msg.fileName } } : {}),
+        },
+        { timeout: 60000 },
+      );
+      const saved: any = resp.data;
+      setMessages((prev) => prev.some((m) => m.id === saved.id)
+        ? prev.filter((m) => m.id !== msg.id)
+        : prev.map((m) => m.id === msg.id ? {
+            ...m,
+            id: saved.id,
+            createdAt: saved.createdAt || m.createdAt,
+            uploadProgress: undefined,
+            uploadFailed: false,
+          } : m));
+      useChatStore.getState().fetchRooms({ limit: 50, force: true }).catch(() => {});
+    } catch {
+      setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, uploadProgress: undefined, uploadFailed: true } : m));
+    }
+  };
+
   const handleVoicePlay = (msg: Message) => {
     if (playingVoice === msg.id) {
       voiceAudioRef.current?.pause();
@@ -1301,9 +1369,11 @@ export default function ChatRoomPage() {
                           draggable={false}
                           className="max-h-[340px] max-w-full rounded-2xl object-cover cursor-pointer select-none sm:max-w-[260px]"
                           style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
-                          onClick={(e) => { e.stopPropagation(); if (msg.uploadProgress == null) setImagePreview(absChatUrl(msg.content)); }}
+                          onClick={(e) => { e.stopPropagation(); if (msg.uploadProgress == null && !msg.uploadFailed) setImagePreview(absChatUrl(msg.content)); }}
+                          onError={(e) => { const t = e.currentTarget; if (!t.src.startsWith('data:') && !t.dataset.fb) { t.dataset.fb = '1'; t.src = BROKEN_IMG_PLACEHOLDER; } }}
                         />
                         <MediaUploadOverlay progress={msg.uploadProgress} totalBytes={msg.uploadBytesTotal} />
+                        {msg.uploadFailed ? <FailedMediaOverlay onRetry={() => retryFailedMedia(msg)} /> : null}
                       </div>
                     ) : msg.type === 'video' ? (
                       <div
@@ -1323,6 +1393,7 @@ export default function ChatRoomPage() {
                           style={{ WebkitTouchCallout: 'none' }}
                         />
                         <MediaUploadOverlay progress={msg.uploadProgress} totalBytes={msg.uploadBytesTotal} />
+                        {msg.uploadFailed ? <FailedMediaOverlay onRetry={() => retryFailedMedia(msg)} /> : null}
                       </div>
                     ) : msg.type === 'file' ? (() => {
                       // 옛 휘발성 fs 경로(/uploads/chat-xxx.ext)로 저장됐던 파일은 서버 재배포로 유실됨 → 404 대신 '만료' 표시

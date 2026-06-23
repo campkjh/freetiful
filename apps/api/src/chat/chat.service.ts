@@ -1239,11 +1239,15 @@ export class ChatService implements OnModuleInit {
         }
       } catch (e) {
         // processImage 실패(미지원 포맷 등) → 원본을 DB 에 저장해 /uploads/:id 로라도 서빙
-        // (거대한 base64 를 content 로 흘리면 렌더 안 되고 DB·실시간 부하)
         try {
           const m2 = dto.content.match(/^data:([^;]+);base64,(.+)$/i);
           if (m2) finalContent = await this.imageService.saveRawMedia(Buffer.from(m2[2], 'base64'), m2[1]);
-        } catch {}
+          else throw e;
+        } catch {
+          // 거대한 base64 를 content 로 흘리면(렌더 안 됨/DB·실시간 부하) 차라리 전송 실패 →
+          // 클라이언트가 버블을 '전송 실패·재시도'로 유지(사진 사라짐 대신).
+          throw new BadRequestException('이미지 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        }
       }
     }
 
