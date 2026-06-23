@@ -1368,6 +1368,34 @@ export class ChatService implements OnModuleInit {
     };
   }
 
+  // 멀티파트 미디어 업로드 → 공개 /uploads URL 반환 (메시지는 클라가 별도로 content=URL 로 전송).
+  // 이미지: processImage(webp 변환), 동영상/파일: saveRawMedia(원본 DB 저장). 모두 DB 영구저장.
+  async uploadMedia(roomId: string, userId: string, file: Express.Multer.File, type?: string) {
+    await this.verifyMembership(roomId, userId);
+    if (!file || !file.buffer) {
+      throw new BadRequestException('파일이 필요합니다.');
+    }
+    const mime = file.mimetype || '';
+    const isImage = type === 'image' || mime.startsWith('image/');
+    if (isImage) {
+      try {
+        const processed = await this.imageService.processImage(file, {
+          requireFace: false,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          quality: 85,
+        });
+        return { url: processed.webpPath || processed.path };
+      } catch {
+        // 미지원 포맷 등 → 원본 그대로 저장
+        const url = await this.imageService.saveRawMedia(file.buffer, mime || 'image/jpeg', file.originalname);
+        return { url };
+      }
+    }
+    const url = await this.imageService.saveRawMedia(file.buffer, mime || 'application/octet-stream', file.originalname);
+    return { url };
+  }
+
   async getRoomMemberIds(roomId: string) {
     return this.getRoomParticipantUserIds(roomId);
   }

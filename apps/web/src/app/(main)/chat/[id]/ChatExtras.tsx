@@ -1664,25 +1664,27 @@ export default function ChatExtras(props: ChatExtrasProps) {
     }]);
 
     try {
-      // 3) 서버 전송(진행률). 성공해도 로컬 content 는 data URL 유지 → 세션 동안 회색 안 됨.
-      //    서버 저장본(/uploads)은 다음 재조회/재진입 때 반영된다.
-      const resp = await chatApi.sendMessage(roomId, { type: msgType, content: dataUrl }, {
-        timeout: 60000, // 미디어 업로드: 기본 15s → 60s (느린 회선 abort 로 인한 '사진 사라짐' 방지)
+      // 3) 바이너리 멀티파트 업로드 → URL 획득. (WKWebView 가 큰 base64 JSON 본문을 중간에
+      //    끊어 'request aborted' 나던 문제 회피: 미디어는 멀티파트로 올리고 메시지는 URL 만 전송.)
+      const up = await chatApi.uploadMedia(roomId, file, msgType, {
         onUploadProgress: (e) => {
           if (!e.total) return;
           const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
           setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, uploadProgress: pct } : m));
         },
       });
+      const mediaUrl = (up.data as any)?.url;
+      if (!mediaUrl) throw new Error('업로드 URL 을 받지 못했습니다');
+      // 4) 작은 본문(content=URL)으로 메시지 전송 → WKWebView 안정
+      const resp = await chatApi.sendMessage(roomId, { type: msgType, content: mediaUrl });
       const saved = resp.data as any;
       setMessages((prev) => {
         if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== tempId);
         return prev.map((m) => m.id === tempId ? {
           ...m,
           id: saved.id,
-          // 이미지: data URL 유지(확실히 렌더). 동영상: data:video 는 iOS <video> 가 재생을 못하므로
-          //   반드시 서버 /uploads URL 로 교체해야 Range 재생됨(빈 영상칸 방지).
-          content: isVideo && saved.content ? saved.content : m.content,
+          // 이미지: data URL 미리보기 유지(확실히 렌더). 동영상: 서버 /uploads URL 로 교체(Range 재생).
+          content: isVideo ? (saved.content || mediaUrl) : m.content,
           createdAt: saved.createdAt || m.createdAt,
           type: (saved.type as Message['type']) || msgType,
           isNew: false,
@@ -1728,24 +1730,20 @@ export default function ChatExtras(props: ChatExtrasProps) {
       uploadBytesTotal: file.size,
     }]);
     try {
-      // file → base64 data URL (서버가 DB 저장 후 공개 URL 반환)
-      const dataUrl = await new Promise<string>((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(r.result as string);
-        r.onerror = rej;
-        r.readAsDataURL(file);
-      });
-      const resp = await chatApi.sendMessage(roomId, {
-        type: 'file',
-        content: dataUrl,
-        metadata: { fileName: file.name, fileSize: file.size, mimeType: file.type },
-      }, {
-        timeout: 60000, // 미디어 업로드: 기본 15s → 60s
+      // 바이너리 멀티파트 업로드 → URL (WKWebView base64 본문 끊김 회피), 이후 content=URL 로 전송
+      const up = await chatApi.uploadMedia(roomId, file, 'file', {
         onUploadProgress: (e) => {
           if (!e.total) return;
           const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
           setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, uploadProgress: pct } : m));
         },
+      });
+      const mediaUrl = (up.data as any)?.url;
+      if (!mediaUrl) throw new Error('업로드 URL 을 받지 못했습니다');
+      const resp = await chatApi.sendMessage(roomId, {
+        type: 'file',
+        content: mediaUrl,
+        metadata: { fileName: file.name, fileSize: file.size, mimeType: file.type },
       });
       const saved = resp.data as any;
       setMessages((prev) => {
@@ -1753,7 +1751,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
         return prev.map((m) => m.id === tempId ? {
           ...m,
           id: saved.id,
-          content: saved.content || file.name,
+          content: saved.content || mediaUrl,
           isNew: false,
           uploadProgress: undefined,
           uploadBytesTotal: undefined,
