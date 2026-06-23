@@ -117,6 +117,16 @@ export default function PurchaseHistoryPage() {
     }
   }, [authUser]);
 
+  // 결제 후 진입 시 WKWebView 히스토리에 외부 결제 URL/소비된 페이지가 남아, 뒤로 스와이프하면
+  // 그 죽은 페이지로 가서 "페이지를 찾을 수 없습니다"(404)가 났다. 구매내역은 /my 의 하위 페이지이므로
+  // 뒤로가기(스와이프)를 가로채 안전한 /my 로 보낸다.
+  useEffect(() => {
+    window.history.pushState(null, '', window.location.href);
+    const onPop = () => { router.replace('/my'); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [router]);
+
   const filtered = (purchases || []).filter((p) => filter === 'all' || p.status === filter);
 
   return (
@@ -124,7 +134,7 @@ export default function PurchaseHistoryPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white" data-native-back-header>
         <div className="flex items-center h-[52px] px-4">
-          <button onClick={() => router.back()} className="p-1 -ml-1">
+          <button onClick={() => router.replace('/my')} className="p-1 -ml-1">
             <ChevronLeft size={24} />
           </button>
           <h1 className="text-[18px] font-bold ml-2">구매 내역</h1>
