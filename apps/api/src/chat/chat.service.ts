@@ -1271,6 +1271,8 @@ export class ChatService implements OnModuleInit {
       }
     }
 
+    // [임시 진단] 채팅 미디어 전송 디버깅 (추후 제거)
+    console.log(`[sendMessage] user=${userId.slice(0,8)} room=${roomId.slice(0,8)} type=${dto.type} inLen=${(dto.content || '').length} out=${(finalContent || '').slice(0, 48)}`);
     const participantIdsPromise = this.getRoomParticipantUserIds(roomId);
     const message = await this.prisma.message.create({
       data: {
