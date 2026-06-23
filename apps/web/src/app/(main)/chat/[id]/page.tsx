@@ -166,7 +166,9 @@ function mergeFetchedMessages(current: Message[], fetched: Message[], requestedA
     if (fetchedIds.has(message.id)) return false;
     if (hasFetchedEquivalent(message, fetched)) return false;
     if (isOptimisticId(message.id)) return true;
-    return messageTime(message) >= requestedAt - 2_000;
+    // 방금 보낸(서버 저장 완료) 메시지가 getMessages 캐시 지연으로 목록에 아직 없을 때
+    // 2초 창은 너무 좁아 이미지(업로드 수초 소요)가 잘려 사라지던 문제 → 60초로 확대.
+    return messageTime(message) >= requestedAt - 60_000;
   });
 
   return [...fetched, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
