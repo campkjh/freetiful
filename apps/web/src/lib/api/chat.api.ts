@@ -110,7 +110,9 @@ export const chatApi = {
   sendMessage: (
     roomId: string,
     data: { type: string; content?: string; metadata?: Record<string, unknown>; replyToId?: string },
-    config?: { onUploadProgress?: (e: { loaded: number; total?: number }) => void },
+    // timeout: 미디어(이미지/영상/파일)는 base64 업로드가 수초~수십초 걸려 기본 15s 로는
+    // 느린 회선에서 abort→낙관적 버블 삭제(사진 사라짐)가 났다. 호출부에서 60s 등으로 올린다.
+    config?: { onUploadProgress?: (e: { loaded: number; total?: number }) => void; timeout?: number },
   ) =>
     apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data, config),
 

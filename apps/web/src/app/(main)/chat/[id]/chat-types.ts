@@ -55,6 +55,8 @@ export interface Message {
   uploadProgress?: number;
   // 원본 파일 크기(byte) — 업로드 진행 오버레이에 "X.X / Y.Y MB" 표기용
   uploadBytesTotal?: number;
+  // 업로드 실패 — 버블을 지우지 않고(사진 사라짐 방지) '전송 실패·재시도' 상태로 유지
+  uploadFailed?: boolean;
 }
 
 export interface ChatPartner {

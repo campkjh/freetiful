@@ -1667,6 +1667,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       // 3) 서버 전송(진행률). 성공해도 로컬 content 는 data URL 유지 → 세션 동안 회색 안 됨.
       //    서버 저장본(/uploads)은 다음 재조회/재진입 때 반영된다.
       const resp = await chatApi.sendMessage(roomId, { type: msgType, content: dataUrl }, {
+        timeout: 60000, // 미디어 업로드: 기본 15s → 60s (느린 회선 abort 로 인한 '사진 사라짐' 방지)
         onUploadProgress: (e) => {
           if (!e.total) return;
           const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
@@ -1690,7 +1691,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
       useChatStore.getState().fetchRooms({ limit: 50, force: true }).catch(() => {});
     } catch (e: any) {
       toast.error(`${label} 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
-      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      // 사진/영상이 "떴다 사라짐" 방지: 실패해도 버블을 지우지 않고 data URL(확실히 렌더됨)을
+      // 유지한 채 '전송 실패·탭하여 재시도' 상태로 둔다. (재시도는 page.tsx retryFailedMedia)
+      setMessages((prev) => prev.map((m) => m.id === tempId
+        ? { ...m, uploadProgress: undefined, uploadBytesTotal: undefined, uploadFailed: true }
+        : m));
     }
   };
 
@@ -1733,6 +1738,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
         content: dataUrl,
         metadata: { fileName: file.name, fileSize: file.size, mimeType: file.type },
       }, {
+        timeout: 60000, // 미디어 업로드: 기본 15s → 60s
         onUploadProgress: (e) => {
           if (!e.total) return;
           const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
@@ -1755,7 +1761,10 @@ export default function ChatExtras(props: ChatExtrasProps) {
       toast.success(`${file.name} 전송 완료`);
     } catch (e: any) {
       toast.error(`파일 전송 실패: ${e?.response?.data?.message || e?.message || ''}`);
-      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      // 실패해도 버블 유지(파일칩 + '전송 실패·재시도'), 지우지 않음
+      setMessages((prev) => prev.map((m) => m.id === tempId
+        ? { ...m, uploadProgress: undefined, uploadBytesTotal: undefined, uploadFailed: true }
+        : m));
     }
   };
 
