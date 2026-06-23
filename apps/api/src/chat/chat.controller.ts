@@ -122,7 +122,7 @@ export class ChatController {
   @Post('rooms/:roomId/media')
   @ApiOperation({ summary: '채팅 미디어(사진/영상/파일) 업로드' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }))
   uploadMedia(
     @Req() req,
     @Param('roomId') roomId: string,

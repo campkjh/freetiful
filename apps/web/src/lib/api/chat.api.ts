@@ -143,7 +143,7 @@ export const chatApi = {
     return apiClient.post<{ url: string }>(
       `${BASE}/rooms/${roomId}/media`,
       form,
-      { headers: { 'Content-Type': null as any }, timeout: 120000, onUploadProgress: config?.onUploadProgress },
+      { headers: { 'Content-Type': null as any }, timeout: 300000, onUploadProgress: config?.onUploadProgress },
     );
   },
 

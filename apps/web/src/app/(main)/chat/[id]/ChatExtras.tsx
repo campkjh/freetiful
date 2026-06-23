@@ -1583,9 +1583,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
     const isVideo = (file.type || '').startsWith('video') || /\.(mp4|mov|m4v|webm|avi|mkv|3gp|qt)$/i.test(nameLc);
     const msgType = isVideo ? 'video' : 'image';
     const label = isVideo ? '동영상' : '이미지';
-    // 용량 가드 (base64 업로드라 너무 크면 서버 본문 한도 초과) — 30MB 초과 차단
-    if (file.size > 30 * 1024 * 1024) {
-      toast.error(`${label}은 30MB 이하만 전송할 수 있습니다`);
+    // 용량 가드 — 멀티파트 바이너리 업로드라 100MB 까지 허용(영상). 초과 시 차단.
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error(`${label}은 100MB 이하만 전송할 수 있습니다`);
       return;
     }
     // 방이 아직 준비 전(pending-)이면 낙관적 메시지를 넣기 전에 차단 — 안 그러면 멈춘 0% 버블이 남음
@@ -1612,7 +1612,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
     let dataUrl: string;
     try {
       if (isVideo) {
-        dataUrl = withForcedMime(await readDataUrl(file), file.type?.startsWith('video') ? file.type : 'video/mp4');
+        // 동영상: 거대 base64(readAsDataURL)는 대용량에서 OOM/hang → 가벼운 blob URL 로 미리보기.
+        //   (전송 자체는 아래 uploadMedia 가 원본 파일을 바이너리로 올림. 성공 시 /uploads 로 교체.)
+        dataUrl = URL.createObjectURL(file);
       } else {
         const fallback = async () => withForcedMime(await readDataUrl(file), 'image/jpeg');
         dataUrl = await (async () => {
