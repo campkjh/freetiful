@@ -1885,8 +1885,25 @@ export default function ChatExtras(props: ChatExtrasProps) {
         }
       }
     };
+    // 네이티브 PHPicker(+버튼→사진) 가 고른 미디어를 청크 base64 로 전달 → File 재구성 후
+    // 일반 업로드 경로(handleImageSend: 낙관+게이지+직접업로드)로. 한방 거대 주입/큰 본문 회피.
+    const nativeMediaBuf: Record<string, { mime: string; name: string; parts: string[] }> = {};
+    const nativeMediaBegin = (id: string, mime: string, name: string) => { nativeMediaBuf[id] = { mime: mime || '', name: name || 'media', parts: [] }; };
+    const nativeMediaChunk = (id: string, b64: string) => { const e = nativeMediaBuf[id]; if (e) e.parts.push(b64); };
+    const nativeMediaEnd = (id: string) => {
+      const e = nativeMediaBuf[id];
+      if (!e) return;
+      delete nativeMediaBuf[id];
+      try {
+        const bin = atob(e.parts.join(''));
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        handleImageSend(new File([bytes], e.name, { type: e.mime || 'application/octet-stream' }));
+      } catch { toast.error('미디어를 불러오지 못했습니다'); }
+    };
     w.__freetifulChatActions = {
       attachItems, menuItems, invokeAttach, invokeMenu,
+      nativeMediaBegin, nativeMediaChunk, nativeMediaEnd,
       sendLocation: (lat: number, lng: number) => sendLocationMessage(Number(lat), Number(lng)),
       getQuoteDefaults: () => computeQuoteDefaults(),
       // 네이티브 ⋮ → '고객 정보 보기' 모달용 — 견적서 폼과 독립적으로 고객 요청 정보 제공

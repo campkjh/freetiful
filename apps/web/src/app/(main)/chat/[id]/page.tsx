@@ -843,6 +843,7 @@ export default function ChatRoomPage() {
         // 업로드 진행률(낙관적 미디어) — 네이티브 셀에서 카톡식 게이지+MB 표시용. -1 = 업로드 아님.
         uploadProgress: typeof m.uploadProgress === 'number' ? m.uploadProgress : -1,
         uploadBytesTotal: typeof m.uploadBytesTotal === 'number' ? m.uploadBytesTotal : 0,
+        uploadFailed: !!m.uploadFailed,
         systemKind: m.system?.kind || '',
         quoteAmount: m.system?.amount || 0,
         quoteTitle: m.system?.title || '',
@@ -874,6 +875,14 @@ export default function ChatRoomPage() {
       reactMessage: (id: string, emoji: string) => {
         try { useChatStore.getState().addReaction(id, emoji); } catch {}
         setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, reaction: m.reaction === emoji ? null : emoji } : m)));
+      },
+      // 업로드 실패 미디어 — 네이티브 셀의 재전송/삭제 버튼에서 호출
+      retryMedia: (id: string) => {
+        const m = messagesRef.current.find((x) => x.id === id);
+        if (m) retryFailedMedia(m);
+      },
+      deleteMedia: (id: string) => {
+        setMessages((prev) => prev.filter((x) => x.id !== id));
       },
       // 견적 카드 탭 → 결제 페이지로 (고객만; 사회자는 무시)
       openQuotePayment: (quotationId: string) => {

@@ -56,6 +56,7 @@ struct NativeChatMessage {
     var quoteIsLatest: Bool = false
     var uploadProgress: Double = -1   // -1 = 업로드 아님, 0~100 = 업로드 진행중
     var uploadBytesTotal: Double = 0  // 원본 용량(byte) — "X.X / Y.Y MB" 표기용
+    var uploadFailed: Bool = false    // 업로드 실패 → 재전송/삭제 버튼 표시
 }
 
 protocol NativeChatMessagesDelegate: AnyObject {
@@ -70,6 +71,9 @@ protocol NativeChatMessagesDelegate: AnyObject {
     func chatMessagesImageTap(_ url: String)
     // 동영상 탭 → 플레이어
     func chatMessagesVideoTap(_ url: String)
+    // 업로드 실패 미디어 — 재전송 / 삭제
+    func chatMessagesRetryMedia(_ id: String)
+    func chatMessagesDeleteMedia(_ id: String)
 }
 
 // 네이티브 채팅 본문 (UITableView) — 글래스 헤더 아래 / 입력바 위
@@ -274,12 +278,16 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
             let cell = tableView.dequeueReusableCell(withIdentifier: "image", for: indexPath) as! NativeChatImageCell
             cell.configure(m)
             cell.onTap = { [weak self] url in self?.delegate?.chatMessagesImageTap(url) }
+            cell.onRetry = { [weak self] id in self?.delegate?.chatMessagesRetryMedia(id) }
+            cell.onDelete = { [weak self] id in self?.delegate?.chatMessagesDeleteMedia(id) }
             return cell
         }
         if m.type == "video" {
             let cell = tableView.dequeueReusableCell(withIdentifier: "video", for: indexPath) as! NativeChatVideoCell
             cell.configure(m)
             cell.onTap = { [weak self] url in self?.delegate?.chatMessagesVideoTap(url) }
+            cell.onRetry = { [weak self] id in self?.delegate?.chatMessagesRetryMedia(id) }
+            cell.onDelete = { [weak self] id in self?.delegate?.chatMessagesDeleteMedia(id) }
             return cell
         }
         let cell = tableView.dequeueReusableCell(withIdentifier: "bubble", for: indexPath) as! NativeChatBubbleCell
@@ -480,9 +488,9 @@ final class ChatUploadOverlay: UIView {
 
         NSLayoutConstraint.activate([
             pctLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            pctLabel.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -1),
+            pctLabel.centerYAnchor.constraint(equalTo: centerYAnchor),  // % 는 원 정중앙
             mbLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            mbLabel.topAnchor.constraint(equalTo: pctLabel.bottomAnchor, constant: 1),
+            mbLabel.topAnchor.constraint(equalTo: centerYAnchor, constant: radius + 10),  // MB 는 원 아래(겹침 방지)
         ])
     }
 
@@ -508,9 +516,82 @@ final class ChatUploadOverlay: UIView {
     }
 }
 
+// MARK: - 업로드 실패 오버레이 (카톡식: 재전송 / 삭제)
+final class ChatFailedOverlay: UIView {
+    var onRetry: (() -> Void)?
+    var onDelete: (() -> Void)?
+    private let retryBtn = UIButton(type: .system)
+    private let deleteBtn = UIButton(type: .system)
+
+    override init(frame: CGRect) { super.init(frame: frame); setup() }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func setup() {
+        backgroundColor = UIColor(white: 0, alpha: 0.5)
+        layer.cornerRadius = 16
+        layer.cornerCurve = .continuous
+        clipsToBounds = true
+
+        let icon = UIImageView(image: UIImage(systemName: "exclamationmark.triangle.fill"))
+        icon.tintColor = UIColor(red: 1.0, green: 0.45, blue: 0.4, alpha: 1)
+        icon.contentMode = .scaleAspectFit
+        icon.translatesAutoresizingMaskIntoConstraints = false
+
+        let label = UILabel()
+        label.text = "전송 실패"
+        label.font = .systemFont(ofSize: 12, weight: .semibold)
+        label.textColor = .white
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+
+        configureSmallButton(retryBtn, title: "재전송", sf: "arrow.clockwise", filled: true)
+        configureSmallButton(deleteBtn, title: "삭제", sf: "trash", filled: false)
+        retryBtn.addTarget(self, action: #selector(tapRetry), for: .touchUpInside)
+        deleteBtn.addTarget(self, action: #selector(tapDelete), for: .touchUpInside)
+
+        let btnRow = UIStackView(arrangedSubviews: [retryBtn, deleteBtn])
+        btnRow.axis = .horizontal
+        btnRow.spacing = 8
+
+        let stack = UIStackView(arrangedSubviews: [icon, label, btnRow])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 7
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            icon.widthAnchor.constraint(equalToConstant: 26),
+            icon.heightAnchor.constraint(equalToConstant: 26),
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    private func configureSmallButton(_ b: UIButton, title: String, sf: String, filled: Bool) {
+        var cfg = UIButton.Configuration.filled()
+        cfg.image = UIImage(systemName: sf, withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))
+        cfg.imagePadding = 4
+        cfg.cornerStyle = .capsule
+        cfg.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
+        cfg.baseBackgroundColor = filled ? .white : UIColor(white: 1, alpha: 0.22)
+        cfg.baseForegroundColor = filled ? UIColor(white: 0.1, alpha: 1) : .white
+        var ac = AttributeContainer()
+        ac.font = .systemFont(ofSize: 12, weight: .semibold)
+        cfg.attributedTitle = AttributedString(title, attributes: ac)
+        b.configuration = cfg
+        b.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    @objc private func tapRetry() { Haptics.tap(); onRetry?() }
+    @objc private func tapDelete() { Haptics.tap(); onDelete?() }
+}
+
 // MARK: - 이미지 말풍선 셀
 final class NativeChatImageCell: UITableViewCell {
     var onTap: ((String) -> Void)?
+    var onRetry: ((String) -> Void)?
+    var onDelete: ((String) -> Void)?
     private let photo = UIImageView()
     private let timeLabel = UILabel()
     private var leadingC: NSLayoutConstraint!
@@ -518,7 +599,9 @@ final class NativeChatImageCell: UITableViewCell {
     private var timeLeadingC: NSLayoutConstraint!
     private var timeTrailingC: NSLayoutConstraint!
     private var currentURL = ""
+    private var msgId = ""
     private let uploadOverlay = ChatUploadOverlay()
+    private let failedOverlay = ChatFailedOverlay()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -545,6 +628,12 @@ final class NativeChatImageCell: UITableViewCell {
         uploadOverlay.isHidden = true
         contentView.addSubview(uploadOverlay)
 
+        failedOverlay.translatesAutoresizingMaskIntoConstraints = false
+        failedOverlay.isHidden = true
+        failedOverlay.onRetry = { [weak self] in guard let self = self else { return }; self.onRetry?(self.msgId) }
+        failedOverlay.onDelete = { [weak self] in guard let self = self else { return }; self.onDelete?(self.msgId) }
+        contentView.addSubview(failedOverlay)
+
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
         timeLabel.font = .systemFont(ofSize: 10.5)
         timeLabel.textColor = UIColor(white: 0.6, alpha: 1)
@@ -563,6 +652,10 @@ final class NativeChatImageCell: UITableViewCell {
             uploadOverlay.trailingAnchor.constraint(equalTo: photo.trailingAnchor),
             uploadOverlay.topAnchor.constraint(equalTo: photo.topAnchor),
             uploadOverlay.bottomAnchor.constraint(equalTo: photo.bottomAnchor),
+            failedOverlay.leadingAnchor.constraint(equalTo: photo.leadingAnchor),
+            failedOverlay.trailingAnchor.constraint(equalTo: photo.trailingAnchor),
+            failedOverlay.topAnchor.constraint(equalTo: photo.topAnchor),
+            failedOverlay.bottomAnchor.constraint(equalTo: photo.bottomAnchor),
             timeLabel.topAnchor.constraint(equalTo: photo.bottomAnchor, constant: 2),
             timeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
         ])
@@ -575,15 +668,17 @@ final class NativeChatImageCell: UITableViewCell {
     }
 
     func configure(_ m: NativeChatMessage) {
+        msgId = m.id
         if m.imageUrl != currentURL {
             currentURL = m.imageUrl
             photo.image = nil
             NativeChatImageLoader.load(m.imageUrl, into: photo, fallback: nil)
         }
         let uploading = m.uploadProgress >= 0 && m.uploadProgress < 100
-        uploadOverlay.isHidden = !uploading
+        uploadOverlay.isHidden = !uploading || m.uploadFailed
         if uploading { uploadOverlay.update(progress: m.uploadProgress, totalBytes: m.uploadBytesTotal) }
-        photo.alpha = uploading ? 1.0 : (m.pending ? 0.6 : 1.0)
+        failedOverlay.isHidden = !m.uploadFailed
+        photo.alpha = (uploading || m.uploadFailed) ? 1.0 : (m.pending ? 0.6 : 1.0)
         let reactionPrefix = m.reaction.isEmpty ? "" : "\(m.reaction) "
         timeLabel.text = reactionPrefix + NativeChatImageCell.formatTime(m.createdAt)
 
@@ -612,6 +707,8 @@ final class NativeChatImageCell: UITableViewCell {
 // MARK: - 동영상 말풍선 셀 (포스터 + 재생버튼, 탭 → 플레이어)
 final class NativeChatVideoCell: UITableViewCell {
     var onTap: ((String) -> Void)?
+    var onRetry: ((String) -> Void)?
+    var onDelete: ((String) -> Void)?
     private let photo = UIImageView()
     private let playIcon = UIImageView()
     private let timeLabel = UILabel()
@@ -620,7 +717,9 @@ final class NativeChatVideoCell: UITableViewCell {
     private var timeLeadingC: NSLayoutConstraint!
     private var timeTrailingC: NSLayoutConstraint!
     private var currentURL = ""
+    private var msgId = ""
     private let uploadOverlay = ChatUploadOverlay()
+    private let failedOverlay = ChatFailedOverlay()
     private static var posterCache: [String: UIImage] = [:]
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -659,6 +758,12 @@ final class NativeChatVideoCell: UITableViewCell {
         uploadOverlay.isHidden = true
         contentView.addSubview(uploadOverlay)
 
+        failedOverlay.translatesAutoresizingMaskIntoConstraints = false
+        failedOverlay.isHidden = true
+        failedOverlay.onRetry = { [weak self] in guard let self = self else { return }; self.onRetry?(self.msgId) }
+        failedOverlay.onDelete = { [weak self] in guard let self = self else { return }; self.onDelete?(self.msgId) }
+        contentView.addSubview(failedOverlay)
+
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
         timeLabel.font = .systemFont(ofSize: 10.5)
         timeLabel.textColor = UIColor(white: 0.6, alpha: 1)
@@ -681,6 +786,10 @@ final class NativeChatVideoCell: UITableViewCell {
             uploadOverlay.trailingAnchor.constraint(equalTo: photo.trailingAnchor),
             uploadOverlay.topAnchor.constraint(equalTo: photo.topAnchor),
             uploadOverlay.bottomAnchor.constraint(equalTo: photo.bottomAnchor),
+            failedOverlay.leadingAnchor.constraint(equalTo: photo.leadingAnchor),
+            failedOverlay.trailingAnchor.constraint(equalTo: photo.trailingAnchor),
+            failedOverlay.topAnchor.constraint(equalTo: photo.topAnchor),
+            failedOverlay.bottomAnchor.constraint(equalTo: photo.bottomAnchor),
             timeLabel.topAnchor.constraint(equalTo: photo.bottomAnchor, constant: 2),
             timeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
         ])
@@ -693,6 +802,7 @@ final class NativeChatVideoCell: UITableViewCell {
     }
 
     func configure(_ m: NativeChatMessage) {
+        msgId = m.id
         let url = m.imageUrl.isEmpty ? m.content : m.imageUrl
         if url != currentURL {
             currentURL = url
@@ -700,11 +810,12 @@ final class NativeChatVideoCell: UITableViewCell {
             photo.backgroundColor = UIColor(white: 0.82, alpha: 1)
             loadPoster(url)
         }
+        failedOverlay.isHidden = !m.uploadFailed
         let uploading = m.uploadProgress >= 0 && m.uploadProgress < 100
-        uploadOverlay.isHidden = !uploading
-        playIcon.isHidden = uploading   // 업로드 중엔 재생버튼 대신 게이지
+        uploadOverlay.isHidden = !uploading || m.uploadFailed
+        playIcon.isHidden = uploading || m.uploadFailed   // 업로드 중/실패 시 재생버튼 숨김
         if uploading { uploadOverlay.update(progress: m.uploadProgress, totalBytes: m.uploadBytesTotal) }
-        photo.alpha = uploading ? 1.0 : (m.pending ? 0.6 : 1.0)
+        photo.alpha = (uploading || m.uploadFailed) ? 1.0 : (m.pending ? 0.6 : 1.0)
         let reactionPrefix = m.reaction.isEmpty ? "" : "\(m.reaction) "
         timeLabel.text = reactionPrefix + NativeChatVideoCell.formatTime(m.createdAt)
 
@@ -734,17 +845,28 @@ final class NativeChatVideoCell: UITableViewCell {
         if let cached = NativeChatVideoCell.posterCache[full] { photo.image = cached; return }
         guard let url = URL(string: full) else { return }
         let want = currentURL
-        DispatchQueue.global(qos: .userInitiated).async {
-            let asset = AVURLAsset(url: url)
-            let gen = AVAssetImageGenerator(asset: asset)
-            gen.appliesPreferredTrackTransform = true
-            gen.maximumSize = CGSize(width: 440, height: 440)
-            let time = CMTime(seconds: 0.1, preferredTimescale: 600)
-            let cg = try? gen.copyCGImage(at: time, actualTime: nil)
+        // 원격(/uploads) 자산은 동기 copyCGImage 가 트랙 미로딩으로 nil 나기 일쑤 →
+        // 트랙을 비동기 로딩하는 generateCGImageAsynchronously(iOS16+) 로 생성. 허용오차를 둬 키프레임 빨리 잡음.
+        let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: false])
+        let gen = AVAssetImageGenerator(asset: asset)
+        gen.appliesPreferredTrackTransform = true
+        gen.maximumSize = CGSize(width: 440, height: 440)
+        gen.requestedTimeToleranceBefore = CMTime(seconds: 1.5, preferredTimescale: 600)
+        gen.requestedTimeToleranceAfter = CMTime(seconds: 1.5, preferredTimescale: 600)
+        let time = CMTime(seconds: 0.0, preferredTimescale: 600)
+        let apply: (CGImage?) -> Void = { [weak self] cg in
             let img = cg.map { UIImage(cgImage: $0) }
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 if let img = img { NativeChatVideoCell.posterCache[full] = img }
                 if self.currentURL == want, let img = img { self.photo.image = img }
+            }
+        }
+        if #available(iOS 16.0, *) {
+            gen.generateCGImageAsynchronously(for: time) { cg, _, _ in apply(cg) }
+        } else {
+            DispatchQueue.global(qos: .userInitiated).async {
+                apply(try? gen.copyCGImage(at: time, actualTime: nil))
             }
         }
     }

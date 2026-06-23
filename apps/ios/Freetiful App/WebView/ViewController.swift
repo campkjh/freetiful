@@ -11,6 +11,8 @@ import Lottie
 import OneSignalFramework
 import SafariServices
 import AVKit
+import PhotosUI
+import UniformTypeIdentifiers
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 private let kAPIBase  = "https://freetiful.com/api/v1"   // 프리티풀 API
@@ -1749,7 +1751,8 @@ class ViewController: UIViewController,
                 quoteProImage: (d["quoteProImage"] as? String) ?? "",
                 quoteIsLatest: (d["quoteIsLatest"] as? Bool) ?? false,
                 uploadProgress: (d["uploadProgress"] as? Double) ?? Double((d["uploadProgress"] as? Int) ?? -1),
-                uploadBytesTotal: (d["uploadBytesTotal"] as? Double) ?? Double((d["uploadBytesTotal"] as? Int) ?? 0)
+                uploadBytesTotal: (d["uploadBytesTotal"] as? Double) ?? Double((d["uploadBytesTotal"] as? Int) ?? 0),
+                uploadFailed: (d["uploadFailed"] as? Bool) ?? false
             )
         }
         nativeChatMessages.setMessages(msgs, forceScroll: !hasLoadedChatMessagesOnce)
@@ -1793,6 +1796,15 @@ class ViewController: UIViewController,
         let vc = AVPlayerViewController()
         vc.player = AVPlayer(url: videoURL)
         present(vc, animated: true) { vc.player?.play() }
+    }
+
+    func chatMessagesRetryMedia(_ id: String) {
+        Haptics.tap()
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.retryMedia && window.__freetifulChat.retryMedia(\(jsLiteral(id)));", completionHandler: nil)
+    }
+    func chatMessagesDeleteMedia(_ id: String) {
+        Haptics.tap()
+        webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.deleteMedia && window.__freetifulChat.deleteMedia(\(jsLiteral(id)));", completionHandler: nil)
     }
 
     // MARK: - NativeHomeHeaderDelegate
@@ -2198,6 +2210,11 @@ class ViewController: UIViewController,
             requestNativeLocationForChat()
             return
         }
+        if id == "photo" {
+            // 웹 file input(→ iOS 사진/카메라/파일 액션시트 한 번 더) 대신 PHPicker 로 바로 사진첩
+            presentNativePhotoPicker()
+            return
+        }
         // ChatExtras(lazy) 미마운트 레이스 — 브리지 없으면 0.6s 후 1회 재시도
         let js = "(function(){ if (window.__freetifulChatActions) { window.__freetifulChatActions.invokeAttach(\(jsLiteral(id))); return true; } return false; })();"
         webView.evaluateJavaScript(js) { [weak self] ok, _ in
@@ -2220,6 +2237,36 @@ class ViewController: UIViewController,
         chatLocationManager.delegate = self
         if status == .notDetermined { chatLocationManager.requestWhenInUseAuthorization() }
         else { chatLocationManager.requestLocation() }
+    }
+
+    // + → 사진: 시스템 액션시트 거치지 않고 PHPicker 로 바로 사진첩(사진/영상)
+    private func presentNativePhotoPicker() {
+        var config = PHPickerConfiguration()
+        config.selectionLimit = 1
+        config.filter = .any(of: [.images, .videos])
+        config.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    // 고른 미디어 → 청크 base64 로 웹에 전달(웹이 File 재구성 후 낙관+게이지+직접업로드)
+    private func sendNativeMediaToWeb(data: Data, mime: String, name: String) {
+        let b64 = data.base64EncodedString()
+        let id = UUID().uuidString
+        let chunkSize = 700_000
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.nativeMediaBegin(\(self.jsLiteral(id)), \(self.jsLiteral(mime)), \(self.jsLiteral(name)));", completionHandler: nil)
+            var idx = b64.startIndex
+            while idx < b64.endIndex {
+                let end = b64.index(idx, offsetBy: chunkSize, limitedBy: b64.endIndex) ?? b64.endIndex
+                let chunk = String(b64[idx..<end])
+                self.webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.nativeMediaChunk(\(self.jsLiteral(id)), \(self.jsLiteral(chunk)));", completionHandler: nil)
+                idx = end
+            }
+            self.webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.nativeMediaEnd(\(self.jsLiteral(id)));", completionHandler: nil)
+        }
     }
 
     private func presentNativeQuoteForm() {
@@ -3124,5 +3171,26 @@ extension ViewController {
             completionHandler(alert?.textFields?.first?.text)
         })
         presentJSPanel(alert) { completionHandler(nil) }
+    }
+}
+
+// MARK: - PHPicker (+ → 사진 → 사진첩 바로)
+extension ViewController: PHPickerViewControllerDelegate {
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        guard let provider = results.first?.itemProvider else { return }
+        if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+            provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, _ in
+                guard let url = url, let data = try? Data(contentsOf: url) else { return }
+                let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension.lowercased()
+                let mime = UTType(filenameExtension: ext)?.preferredMIMEType ?? "video/mp4"
+                self?.sendNativeMediaToWeb(data: data, mime: mime, name: "video.\(ext)")
+            }
+        } else if provider.canLoadObject(ofClass: UIImage.self) {
+            provider.loadObject(ofClass: UIImage.self) { [weak self] obj, _ in
+                guard let image = obj as? UIImage, let data = image.jpegData(compressionQuality: 0.85) else { return }
+                self?.sendNativeMediaToWeb(data: data, mime: "image/jpeg", name: "photo.jpg")
+            }
+        }
     }
 }
