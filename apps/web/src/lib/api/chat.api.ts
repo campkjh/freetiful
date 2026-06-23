@@ -2,6 +2,10 @@ import { apiClient } from './client';
 
 const BASE = '/api/v1/chat';
 
+// 미디어 업로드는 Vercel 프록시(외부 rewrite)가 큰 본문(영상 등)을 전달 못해 502 나므로
+// Railway origin 으로 직접 올린다(CORS 허용됨). 작은 사진은 프록시도 되지만 일관성+대용량 위해 직접.
+const MEDIA_UPLOAD_BASE = process.env.NEXT_PUBLIC_DIRECT_API_URL || 'https://affectionate-smile-production-6535.up.railway.app';
+
 // ─── Chat Rooms ──────────────────────────────────────────────────────────────
 
 export interface ChatRoomItem {
@@ -141,7 +145,7 @@ export const chatApi = {
     form.append('file', file, file.name || 'media');
     form.append('type', type);
     return apiClient.post<{ url: string }>(
-      `${BASE}/rooms/${roomId}/media`,
+      `${MEDIA_UPLOAD_BASE}${BASE}/rooms/${roomId}/media`,
       form,
       { headers: { 'Content-Type': null as any }, timeout: 300000, onUploadProgress: config?.onUploadProgress },
     );
