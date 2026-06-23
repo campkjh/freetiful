@@ -24,10 +24,17 @@ export class UploadController {
     const buf = Buffer.from(file.data);
     const mime = file.mimeType || 'application/octet-stream';
     res.setHeader('Content-Type', mime);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     // iOS WebKit 은 <video> 재생 시 Range 요청을 보내고, 206(부분응답)이 없으면 재생을 거부한다
     // → 동영상 말풍선이 빈칸으로 뜨던 원인. Range 를 지원해 부분 응답을 돌려준다.
     res.setHeader('Accept-Ranges', 'bytes');
+    // 동영상은 공유 CDN(Vercel)이 전체를 캐시한 뒤 Range 요청에 200+부분바디로 응답해
+    // iOS 가 "100바이트짜리 영상"으로 오인 → 재생 실패. 그래서 영상은 CDN 캐시를 끄고
+    // 항상 origin 이 직접 206 을 돌려주게 한다. (이미지는 그대로 장기 캐시)
+    if (mime.startsWith('video/')) {
+      res.setHeader('Cache-Control', 'no-store');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
 
     const rangeHeader = req.headers.range;
     if (rangeHeader) {
