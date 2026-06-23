@@ -82,7 +82,11 @@ export default function PurchaseHistoryPage() {
     if (authUser) {
       apiClient.get('/api/v1/payment', { params: { limit: 50 } })
         .then((res) => {
-          const data = res.data?.data || [];
+          // 구매내역 = 실제 결제된 건만. pending(결제창까지만 가고 미완료/취소)·failed 는 제외해야
+          // '결제완료' 오표시를 막는다. (결제대기는 마이페이지 '결제/환불내역'에서 확인)
+          const data = (res.data?.data || []).filter((p: any) =>
+            ['completed', 'escrowed', 'settled', 'refunded'].includes(p.status),
+          );
           const mapped: PurchaseItem[] = data.map((p: any) => {
             const q = Array.isArray(p.quotations) ? p.quotations[0] : p.quotation;
             const eventDate = q?.eventDate ? new Date(q.eventDate) : new Date(p.createdAt);
@@ -90,7 +94,7 @@ export default function PurchaseHistoryPage() {
             let status: PurchaseItem['status'];
             if (p.status === 'refunded') status = 'refunded';
             else if (p.status === 'completed') status = eventDate < now ? 'completed' : 'upcoming';
-            else status = 'paid';
+            else status = 'paid'; // escrowed/settled = 결제완료 (pending/failed 는 위에서 제외됨)
             return {
               id: p.id,
               proName: q?.proProfile?.user?.name || '',

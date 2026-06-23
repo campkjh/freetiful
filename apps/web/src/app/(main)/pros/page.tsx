@@ -88,11 +88,20 @@ function ProListCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const prefetchStarted = useRef(false);
-  const [visible, setVisible] = useState(false);
+  // 처음에 false 로 두면(=opacity-0) IntersectionObserver 가 안 뜨거나 8% 교차에
+  // 도달 못한 카드(Android WebView/빠른 스크롤)가 영구히 투명 → 이미지가 부분적으로
+  // 안 보임. 첫 화면에 들어오는 카드는 바로 보이게 하고, 관찰자는 "등장 모션"만 담당.
+  const [visible, setVisible] = useState(index < PAGE_SIZE);
 
   useEffect(() => {
+    if (visible) return;
     const el = ref.current;
     if (!el) return;
+    // IntersectionObserver 미지원 환경 안전장치
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      return;
+    }
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -100,11 +109,17 @@ function ProListCard({
           observer.disconnect();
         }
       },
-      { rootMargin: '120px 0px', threshold: 0.08 },
+      { rootMargin: '120px 0px', threshold: 0 },
     );
     observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+    // 관찰자가 어떤 이유로든 콜백을 못 쏘는 경우(레이아웃 타이밍/WebView 버그)에도
+    // 카드가 영구 투명으로 남지 않도록 한 번 강제 노출.
+    const fallback = window.setTimeout(() => setVisible(true), 600);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(fallback);
+    };
+  }, [visible]);
 
   const warmDetail = () => {
     if (prefetchStarted.current || pro.id === 'my-pro') return;
@@ -675,7 +690,7 @@ function ProsListContent() {
       </div>
     </div>
 
-    <div className="min-h-screen bg-white lg:hidden" style={{ letterSpacing: '-0.02em' }}>
+    <div className="min-h-screen bg-white lg:hidden" style={{ letterSpacing: '-0.02em', overscrollBehaviorY: 'contain' }}>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white">
         <div className="h-[52px] flex items-center px-4 gap-3">

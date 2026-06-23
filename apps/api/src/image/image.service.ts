@@ -139,9 +139,12 @@ export class ImageService {
     try {
       return await this.saveToDb(buffer, contentType);
     } catch (e: any) {
-      this.logger.warn(`saveRawMedia DB save failed, falling back to filesystem: ${e?.message || e}`);
+      this.logger.warn(`saveRawMedia DB save failed: ${e?.message || e}`);
+      // 프로덕션에선 휘발성 fs 로 폴백하면 재배포 시 파일이 사라져 나중에 404("전에 올린 파일") 가
+      // 난다 → 차라리 던져서 전송을 실패 처리(클라이언트가 재시도). fs 폴백은 개발 환경 전용.
+      if (process.env.NODE_ENV === 'production') throw e;
     }
-    // 3) 로컬 디스크 (개발용 폴백 — 프로덕션 재배포 시 유실됨)
+    // 3) 로컬 디스크 (개발용 폴백)
     const filename = `chat-${randomUUID()}.${ext}`;
     await fs.mkdir(this.uploadDir, { recursive: true }).catch(() => {});
     await fs.writeFile(path.join(this.uploadDir, filename), buffer);
