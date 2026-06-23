@@ -1,5 +1,6 @@
 import UIKit
 import CoreMotion
+import AVFoundation
 
 // 디바이스 모션(자이로) 공유 제공 — 견적 카드 사진 3D 틸트용
 final class MotionTilt {
@@ -65,6 +66,8 @@ protocol NativeChatMessagesDelegate: AnyObject {
     func chatMessagesQuoteTap(_ quotationId: String)
     // 이미지 탭 → 전체화면 확대
     func chatMessagesImageTap(_ url: String)
+    // 동영상 탭 → 플레이어
+    func chatMessagesVideoTap(_ url: String)
 }
 
 // 네이티브 채팅 본문 (UITableView) — 글래스 헤더 아래 / 입력바 위
@@ -93,6 +96,7 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         tableView.showsVerticalScrollIndicator = true
         tableView.register(NativeChatBubbleCell.self, forCellReuseIdentifier: "bubble")
         tableView.register(NativeChatImageCell.self, forCellReuseIdentifier: "image")
+        tableView.register(NativeChatVideoCell.self, forCellReuseIdentifier: "video")
         tableView.register(NativeChatQuoteCell.self, forCellReuseIdentifier: "quote")
         tableView.register(NativeChatSystemCell.self, forCellReuseIdentifier: "system")
         addSubview(tableView)
@@ -270,6 +274,12 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
             cell.onTap = { [weak self] url in self?.delegate?.chatMessagesImageTap(url) }
             return cell
         }
+        if m.type == "video" {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "video", for: indexPath) as! NativeChatVideoCell
+            cell.configure(m)
+            cell.onTap = { [weak self] url in self?.delegate?.chatMessagesVideoTap(url) }
+            return cell
+        }
         let cell = tableView.dequeueReusableCell(withIdentifier: "bubble", for: indexPath) as! NativeChatBubbleCell
         cell.configure(m)
         return cell
@@ -406,6 +416,7 @@ final class NativeChatBubbleCell: UITableViewCell {
         switch m.type {
         case "text": return m.content
         case "image": return "[사진]"
+        case "video": return "[동영상]"
         case "file": return m.content.isEmpty ? "[파일]" : "[파일] \(m.content)"
         case "audio": return "[음성 메시지]"
         case "location": return "[위치]"
@@ -500,6 +511,142 @@ final class NativeChatImageCell: UITableViewCell {
         } else {
             leadingC.isActive = true
             timeLeadingC.isActive = true
+        }
+    }
+
+    private static func formatTime(_ iso: String) -> String {
+        guard !iso.isEmpty else { return "" }
+        let date = NativeChatBubbleCell.isoParserFrac.date(from: iso)
+            ?? NativeChatBubbleCell.isoParser.date(from: iso)
+        guard let date else { return "" }
+        return NativeChatBubbleCell.timeFormatter.string(from: date)
+    }
+}
+
+// MARK: - 동영상 말풍선 셀 (포스터 + 재생버튼, 탭 → 플레이어)
+final class NativeChatVideoCell: UITableViewCell {
+    var onTap: ((String) -> Void)?
+    private let photo = UIImageView()
+    private let playIcon = UIImageView()
+    private let timeLabel = UILabel()
+    private var leadingC: NSLayoutConstraint!
+    private var trailingC: NSLayoutConstraint!
+    private var timeLeadingC: NSLayoutConstraint!
+    private var timeTrailingC: NSLayoutConstraint!
+    private var currentURL = ""
+    private static var posterCache: [String: UIImage] = [:]
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func setup() {
+        selectionStyle = .none
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+
+        photo.translatesAutoresizingMaskIntoConstraints = false
+        photo.contentMode = .scaleAspectFill
+        photo.clipsToBounds = true
+        photo.layer.cornerRadius = 16
+        photo.layer.cornerCurve = .continuous
+        photo.backgroundColor = UIColor(white: 0.82, alpha: 1)
+        photo.isUserInteractionEnabled = true
+        photo.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
+        contentView.addSubview(photo)
+
+        playIcon.translatesAutoresizingMaskIntoConstraints = false
+        playIcon.image = UIImage(systemName: "play.circle.fill")
+        playIcon.tintColor = UIColor(white: 1, alpha: 0.95)
+        playIcon.contentMode = .scaleAspectFit
+        playIcon.isUserInteractionEnabled = false
+        playIcon.layer.shadowColor = UIColor.black.cgColor
+        playIcon.layer.shadowOpacity = 0.35
+        playIcon.layer.shadowRadius = 6
+        playIcon.layer.shadowOffset = .zero
+        contentView.addSubview(playIcon)
+
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
+        timeLabel.font = .systemFont(ofSize: 10.5)
+        timeLabel.textColor = UIColor(white: 0.6, alpha: 1)
+        contentView.addSubview(timeLabel)
+
+        leadingC = photo.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14)
+        trailingC = photo.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14)
+        timeLeadingC = timeLabel.leadingAnchor.constraint(equalTo: photo.leadingAnchor, constant: 2)
+        timeTrailingC = timeLabel.trailingAnchor.constraint(equalTo: photo.trailingAnchor, constant: -2)
+
+        NSLayoutConstraint.activate([
+            photo.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
+            photo.widthAnchor.constraint(equalToConstant: 220),
+            photo.heightAnchor.constraint(equalToConstant: 220),
+            playIcon.centerXAnchor.constraint(equalTo: photo.centerXAnchor),
+            playIcon.centerYAnchor.constraint(equalTo: photo.centerYAnchor),
+            playIcon.widthAnchor.constraint(equalToConstant: 54),
+            playIcon.heightAnchor.constraint(equalToConstant: 54),
+            timeLabel.topAnchor.constraint(equalTo: photo.bottomAnchor, constant: 2),
+            timeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
+        ])
+    }
+
+    @objc private func handleTap() {
+        guard !currentURL.isEmpty else { return }
+        Haptics.tap()
+        onTap?(currentURL)
+    }
+
+    func configure(_ m: NativeChatMessage) {
+        let url = m.imageUrl.isEmpty ? m.content : m.imageUrl
+        if url != currentURL {
+            currentURL = url
+            photo.image = nil
+            photo.backgroundColor = UIColor(white: 0.82, alpha: 1)
+            loadPoster(url)
+        }
+        photo.alpha = m.pending ? 0.6 : 1.0
+        let reactionPrefix = m.reaction.isEmpty ? "" : "\(m.reaction) "
+        timeLabel.text = reactionPrefix + NativeChatVideoCell.formatTime(m.createdAt)
+
+        leadingC.isActive = false
+        trailingC.isActive = false
+        timeLeadingC.isActive = false
+        timeTrailingC.isActive = false
+        if m.mine {
+            trailingC.isActive = true
+            timeTrailingC.isActive = true
+        } else {
+            leadingC.isActive = true
+            timeLeadingC.isActive = true
+        }
+    }
+
+    private func loadPoster(_ urlString: String) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        // data:video 는 포스터 생성 불가 → 회색 배경 + 재생아이콘만 유지(곧 서버 /uploads URL 로 교체됨)
+        if trimmed.hasPrefix("data:") { return }
+        let full: String
+        if trimmed.hasPrefix("http") { full = trimmed }
+        else if trimmed.hasPrefix("/") { full = "https://freetiful.com\(trimmed)" }
+        else { full = "https://freetiful.com/\(trimmed)" }
+
+        if let cached = NativeChatVideoCell.posterCache[full] { photo.image = cached; return }
+        guard let url = URL(string: full) else { return }
+        let want = currentURL
+        DispatchQueue.global(qos: .userInitiated).async {
+            let asset = AVURLAsset(url: url)
+            let gen = AVAssetImageGenerator(asset: asset)
+            gen.appliesPreferredTrackTransform = true
+            gen.maximumSize = CGSize(width: 440, height: 440)
+            let time = CMTime(seconds: 0.1, preferredTimescale: 600)
+            let cg = try? gen.copyCGImage(at: time, actualTime: nil)
+            let img = cg.map { UIImage(cgImage: $0) }
+            DispatchQueue.main.async {
+                if let img = img { NativeChatVideoCell.posterCache[full] = img }
+                if self.currentURL == want, let img = img { self.photo.image = img }
+            }
         }
     }
 

@@ -333,7 +333,7 @@ final class NativeChatHeaderView: UIView {
 }
 
 // MARK: - 네이티브 채팅 입력바 (플로팅 글래스: 첨부 / 견적 / 입력+전송·음성)
-final class NativeChatInputBar: UIView, UITextFieldDelegate {
+final class NativeChatInputBar: UIView, UITextViewDelegate {
     weak var delegate: NativeChatBarsDelegate?
 
     private let row = UIStackView()
@@ -343,9 +343,13 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
 
     private let attachButton = UIButton(type: .system)
     private let quoteButton = UIButton(type: .system)
-    let textField = UITextField()
+    let textView = UITextView()
+    private let placeholderLabel = UILabel()
     private let sendButton = UIButton(type: .system)
     private let voiceButton = UIButton(type: .system)
+    private var fieldHeightC: NSLayoutConstraint!
+    private let minFieldHeight: CGFloat = 46
+    private let maxFieldHeight: CGFloat = 122  // 약 5줄까지 늘어난 뒤 내부 스크롤
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -376,17 +380,24 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         quotePill.isHidden = true
         quotePill.setContent(quoteButton)
 
-        // 입력 필드 (글래스 캡슐)
-        textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.placeholder = "메시지"
-        textField.font = .systemFont(ofSize: 16)
-        textField.textColor = UIColor(white: 0.1, alpha: 1)
-        textField.backgroundColor = .clear
-        textField.returnKeyType = .send
-        textField.delegate = self
-        textField.enablesReturnKeyAutomatically = true
-        textField.addTarget(self, action: #selector(textChanged), for: .editingChanged)
-        fieldPill.contentView.addSubview(textField)
+        // 입력 필드 (글래스 캡슐) — UITextView 로 멀티라인 자동높이(줄바꿈 시 height 증가)
+        textView.translatesAutoresizingMaskIntoConstraints = false
+        textView.font = .systemFont(ofSize: 16)
+        textView.textColor = UIColor(white: 0.1, alpha: 1)
+        textView.backgroundColor = .clear
+        textView.delegate = self
+        textView.isScrollEnabled = false
+        textView.returnKeyType = .send
+        textView.textContainerInset = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
+        textView.textContainer.lineFragmentPadding = 0
+        fieldPill.contentView.addSubview(textView)
+
+        placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
+        placeholderLabel.text = "메시지"
+        placeholderLabel.font = .systemFont(ofSize: 16)
+        placeholderLabel.textColor = UIColor(white: 0.6, alpha: 1)
+        placeholderLabel.isUserInteractionEnabled = false
+        fieldPill.contentView.addSubview(placeholderLabel)
 
         var sendCfg = UIButton.Configuration.filled()
         sendCfg.image = UIImage(systemName: "arrow.up", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold))
@@ -407,10 +418,10 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
         voiceButton.addTarget(self, action: #selector(tapVoice), for: .touchUpInside)
         fieldPill.contentView.addSubview(voiceButton)
 
-        // 행 구성
+        // 행 구성 — 입력창이 커지면 + / 견적 / 전송 버튼은 하단 정렬 유지
         row.translatesAutoresizingMaskIntoConstraints = false
         row.axis = .horizontal
-        row.alignment = .center
+        row.alignment = .bottom
         row.spacing = 8
         row.addArrangedSubview(attachPill)
         row.addArrangedSubview(quotePill)
@@ -419,6 +430,8 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
 
         fieldPill.setContentHuggingPriority(.defaultLow, for: .horizontal)
         fieldPill.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        fieldHeightC = fieldPill.heightAnchor.constraint(equalToConstant: minFieldHeight)
 
         NSLayoutConstraint.activate([
             row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
@@ -430,23 +443,28 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
             attachPill.heightAnchor.constraint(equalToConstant: 46),
             quotePill.widthAnchor.constraint(equalToConstant: 46),
             quotePill.heightAnchor.constraint(equalToConstant: 46),
-            fieldPill.heightAnchor.constraint(equalToConstant: 46),
+            fieldHeightC,
 
-            textField.leadingAnchor.constraint(equalTo: fieldPill.contentView.leadingAnchor, constant: 18),
-            textField.topAnchor.constraint(equalTo: fieldPill.contentView.topAnchor),
-            textField.bottomAnchor.constraint(equalTo: fieldPill.contentView.bottomAnchor),
-            textField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -6),
+            textView.leadingAnchor.constraint(equalTo: fieldPill.contentView.leadingAnchor, constant: 18),
+            textView.topAnchor.constraint(equalTo: fieldPill.contentView.topAnchor),
+            textView.bottomAnchor.constraint(equalTo: fieldPill.contentView.bottomAnchor),
+            textView.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -6),
+
+            placeholderLabel.leadingAnchor.constraint(equalTo: textView.leadingAnchor),
+            placeholderLabel.centerYAnchor.constraint(equalTo: fieldPill.contentView.centerYAnchor),
 
             sendButton.trailingAnchor.constraint(equalTo: fieldPill.contentView.trailingAnchor, constant: -5),
-            sendButton.centerYAnchor.constraint(equalTo: fieldPill.contentView.centerYAnchor),
+            sendButton.bottomAnchor.constraint(equalTo: fieldPill.contentView.bottomAnchor, constant: -5),
             sendButton.widthAnchor.constraint(equalToConstant: 36),
             sendButton.heightAnchor.constraint(equalToConstant: 36),
 
             voiceButton.trailingAnchor.constraint(equalTo: fieldPill.contentView.trailingAnchor, constant: -7),
-            voiceButton.centerYAnchor.constraint(equalTo: fieldPill.contentView.centerYAnchor),
+            voiceButton.bottomAnchor.constraint(equalTo: fieldPill.contentView.bottomAnchor, constant: -7),
             voiceButton.widthAnchor.constraint(equalToConstant: 32),
             voiceButton.heightAnchor.constraint(equalToConstant: 32),
         ])
+
+        updateSendVoiceVisibility()
     }
 
     func apply(_ s: NativeChatState) {
@@ -470,28 +488,48 @@ final class NativeChatInputBar: UIView, UITextFieldDelegate {
     }
 
     private func updateSendVoiceVisibility() {
-        let hasText = !(textField.text ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        let hasText = !textView.text.trimmingCharacters(in: .whitespaces).isEmpty
         sendButton.isHidden = !hasText
         voiceButton.isHidden = hasText
+        placeholderLabel.isHidden = hasText
     }
 
-    @objc private func textChanged() { updateSendVoiceVisibility() }
+    // 내용에 맞춰 입력창 높이 재계산 (줄바꿈 시 커지고, 최대 높이 넘으면 내부 스크롤)
+    private func recalcHeight() {
+        let w = textView.bounds.width
+        guard w > 0 else { return }
+        let fit = textView.sizeThatFits(CGSize(width: w, height: .greatestFiniteMagnitude)).height
+        let target = min(max(ceil(fit), minFieldHeight), maxFieldHeight)
+        textView.isScrollEnabled = fit > maxFieldHeight
+        if abs(fieldHeightC.constant - target) > 0.5 {
+            fieldHeightC.constant = target
+            UIView.animate(withDuration: 0.12) { self.superview?.layoutIfNeeded() }
+        }
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        updateSendVoiceVisibility()
+        recalcHeight()
+    }
+
+    // Return 키 = 전송 (줄바꿈은 가로폭 초과 시 자동), Send 버튼도 동일
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        if text == "\n" { commitSend(); return false }
+        return true
+    }
+
     @objc private func tapSend() { commitSend() }
     @objc private func tapQuote() { Haptics.tap(); delegate?.chatBarsDidTapQuote() }
     @objc private func tapVoice() { Haptics.tap(); delegate?.chatBarsDidTapVoice() }
 
     private func commitSend() {
-        let text = (textField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = textView.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         Haptics.tap()
         delegate?.chatBarsDidSend(text)
-        textField.text = ""
+        textView.text = ""
         updateSendVoiceVisibility()
-    }
-
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        commitSend()
-        return false
+        recalcHeight()
     }
 }
 

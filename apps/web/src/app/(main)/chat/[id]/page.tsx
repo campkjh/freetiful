@@ -831,7 +831,7 @@ export default function ChatRoomPage() {
         id: m.id,
         mine: m.senderId === myIdRef.current,
         content: m.content || '',
-        imageUrl: m.type === 'image' ? absChatUrl(m.content || '') : '',
+        imageUrl: (m.type === 'image' || m.type === 'video') ? absChatUrl(m.content || '') : '',
         type: m.type,
         createdAt: m.createdAt,
         isRead: !!m.isRead,
@@ -932,6 +932,14 @@ export default function ChatRoomPage() {
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   }, [input]);
+
+  // 보낸 사진/영상이 방을 나갔다 재진입할 때 사라지지 않도록 — messages 변할 때마다 캐시 저장.
+  // (기존엔 getMessages 응답 때만 저장돼서 방금 보낸 낙관적 미디어가 재진입 시 유실됐다.
+  //  네이티브 채팅도 이 캐시/재조회 결과를 미러링하므로 동일하게 사라졌다.)
+  useEffect(() => {
+    if (!roomId || roomId.startsWith('pending-') || messages.length === 0) return;
+    saveMsgCache(roomId, messages);
+  }, [messages, roomId]);
 
   // ─── Input change + mention detection ───
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

@@ -10,6 +10,7 @@ import AuthenticationServices
 import Lottie
 import OneSignalFramework
 import SafariServices
+import AVKit
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 private let kAPIBase  = "https://freetiful.com/api/v1"   // 프리티풀 API
@@ -1777,6 +1778,19 @@ class ViewController: UIViewController,
     func chatMessagesImageTap(_ url: String) {
         guard !url.isEmpty else { return }
         present(NativeImageViewer(url: url), animated: true)
+    }
+
+    func chatMessagesVideoTap(_ url: String) {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let full: String
+        if trimmed.hasPrefix("http") || trimmed.hasPrefix("data:") { full = trimmed }
+        else if trimmed.hasPrefix("/") { full = "\(kWebBase)\(trimmed)" }
+        else { full = "\(kWebBase)/\(trimmed)" }
+        guard let videoURL = URL(string: full) else { return }
+        let vc = AVPlayerViewController()
+        vc.player = AVPlayer(url: videoURL)
+        present(vc, animated: true) { vc.player?.play() }
     }
 
     // MARK: - NativeHomeHeaderDelegate
