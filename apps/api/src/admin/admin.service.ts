@@ -2637,4 +2637,108 @@ export class AdminService {
 
     this.logger.log(`Pro daily reminder sent to ${pros.length} pros (미확인 요청 보유)`);
   }
+
+  // 채팅 매칭 현황 — 어떤 사회자(pro)와 어떤 유저(user)가 연결되어 채팅했는지 + 매칭률
+  async getChatConnections(params: {
+    page?: number; limit?: number; search?: string; status?: string; startDate?: string; endDate?: string;
+  }) {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+
+    const where: any = {};
+    this.applyCreatedAtRange(where, params);
+    if (params.search) {
+      where.OR = [
+        { user: { name: { contains: params.search, mode: 'insensitive' } } },
+        { user: { phone: { contains: params.search } } },
+        { proProfile: { user: { name: { contains: params.search, mode: 'insensitive' } } } },
+      ];
+    }
+    // 필터: chatted=대화 오감 / quoted=견적발송 / paid=결제완료
+    if (params.status === 'chatted') where.lastMessageAt = { not: null };
+    else if (params.status === 'quoted') where.quotations = { some: {} };
+    else if (params.status === 'paid') where.quotations = { some: { status: 'paid' } };
+
+    const [rooms, total] = await Promise.all([
+      this.prisma.chatRoom.findMany({
+        where,
+        select: {
+          id: true,
+          createdAt: true,
+          lastMessageAt: true,
+          matchRequestId: true,
+          user: { select: { id: true, name: true, phone: true, email: true } },
+          proProfile: { select: { id: true, user: { select: { id: true, name: true } } } },
+          _count: { select: { messages: true } },
+          quotations: { select: { status: true, amount: true }, orderBy: { createdAt: 'desc' } },
+        },
+        orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.chatRoom.count({ where }),
+    ]);
+
+    // 이 페이지 방들의 양방향 대화 여부 — 방별 메시지 발신자 distinct
+    const roomIds = rooms.map((r) => r.id);
+    const senders = roomIds.length
+      ? await this.prisma.message.findMany({
+          where: { roomId: { in: roomIds }, isDeleted: false },
+          select: { roomId: true, senderId: true },
+          distinct: ['roomId', 'senderId'],
+        })
+      : [];
+    const senderSet = new Map<string, Set<string>>();
+    for (const s of senders) {
+      if (!senderSet.has(s.roomId)) senderSet.set(s.roomId, new Set());
+      senderSet.get(s.roomId)!.add(s.senderId);
+    }
+
+    // 전체 매칭률 (검색/필터 무관, 기간만 반영)
+    const baseWhere: any = {};
+    this.applyCreatedAtRange(baseWhere, params);
+    const [totalAll, chattedAll, quotedAll, paidAll] = await Promise.all([
+      this.prisma.chatRoom.count({ where: baseWhere }),
+      this.prisma.chatRoom.count({ where: { ...baseWhere, lastMessageAt: { not: null } } }),
+      this.prisma.chatRoom.count({ where: { ...baseWhere, quotations: { some: {} } } }),
+      this.prisma.chatRoom.count({ where: { ...baseWhere, quotations: { some: { status: 'paid' } } } }),
+    ]);
+
+    return {
+      data: rooms.map((r) => {
+        const set = senderSet.get(r.id) || new Set<string>();
+        const userSent = !!r.user?.id && set.has(r.user.id);
+        const proSent = !!r.proProfile?.user?.id && set.has(r.proProfile.user.id);
+        const latestQuote = r.quotations[0];
+        return {
+          id: r.id,
+          userId: r.user?.id || null,
+          userName: r.user?.name || '-',
+          userContact: r.user?.phone || r.user?.email || '',
+          proProfileId: r.proProfile?.id || null,
+          proName: r.proProfile?.user?.name || '-',
+          fromMatch: !!r.matchRequestId,
+          messageCount: r._count.messages,
+          twoWay: userSent && proSent,
+          quotationStatus: latestQuote?.status || null,
+          quotationAmount: latestQuote?.amount ?? null,
+          paid: r.quotations.some((q) => q.status === 'paid'),
+          createdAt: r.createdAt,
+          lastMessageAt: r.lastMessageAt,
+        };
+      }),
+      total,
+      page,
+      limit,
+      stats: {
+        totalConnections: totalAll,
+        chatted: chattedAll,
+        chatRate: totalAll ? Math.round((chattedAll / totalAll) * 1000) / 10 : 0,
+        quoted: quotedAll,
+        quoteRate: totalAll ? Math.round((quotedAll / totalAll) * 1000) / 10 : 0,
+        paid: paidAll,
+        paidRate: totalAll ? Math.round((paidAll / totalAll) * 1000) / 10 : 0,
+      },
+    };
+  }
 }
