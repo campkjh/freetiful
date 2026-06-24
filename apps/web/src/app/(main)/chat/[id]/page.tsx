@@ -398,11 +398,12 @@ export default function ChatRoomPage() {
   // iOS WKWebView: fixed 요소가 visual viewport 자동 추적하므로 스킵
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   useEffect(() => {
-    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+    // iOS Safari 도 포함 — 키보드 올라오면 컨테이너 자체를 보이는 영역(visualViewport)만큼 줄여
+    // 메시지 목록이 키보드 위로 들어오게. (iOS 는 innerHeight 유지·vv.height 만 줄어 계산 동일)
     const vv = window.visualViewport;
     if (!vv) return;
     const update = () => {
-      const next = Math.max(0, window.innerHeight - vv.height);
+      const next = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
       setKeyboardOffset(next);
       // 키보드가 올라오면 마지막 메시지가 가리지 않게 맨 아래로 스크롤
       if (next > 0) {
@@ -1135,7 +1136,7 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]" style={{ bottom: keyboardOffset }}>
       {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
       <div
         data-native-chat-gradient
@@ -1233,7 +1234,7 @@ export default function ChatRoomPage() {
         className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
           // interactive-widget 미지원 구형 안드로이드 폴백 — 키보드 높이만큼 하단 패딩 추가해 마지막 메시지 가림 방지
-          paddingBottom: 80 + keyboardOffset,
+          paddingBottom: 80,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
           paddingTop: roomMeta?.latestQuotation?.status === 'paid'
@@ -1574,13 +1575,13 @@ export default function ChatRoomPage() {
       <div
         className="absolute inset-x-0 h-16 pointer-events-none z-20"
         style={{
-          bottom: keyboardOffset,
+          bottom: 0,
           background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0) 100%)',
         }}
       />
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
-      <div data-native-chat-footer className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: keyboardOffset }}>
+      <div data-native-chat-footer className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: 0 }}>
         <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pt-1 sm:px-0">
           {isRecording ? (
             // Recording UI
