@@ -948,6 +948,9 @@ img:not([src]) {
     /* Android Chrome 자동 텍스트 확대 방지 (iOS는 기본값으로 OK) */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* 문서 스크롤러(html)도 체이닝 차단 — body 만으론 html 이 스크롤러일 때 새는 걸 못 막음
+       (카테고리 스와이프 패널 끝까지 스크롤 시 뒤 홈 화면이 따라 스크롤되던 문제) */
+    overscroll-behavior-y: contain;
   }
 
   /* Android Chrome 에서 100vh 는 툴바 유무에 따라 계산이 튄다.

@@ -1251,7 +1251,7 @@ function HomeProTabCard({ pro, langMode }: { pro: any; langMode: boolean }) {
     >
       <div className="h-[88px] w-[66px] shrink-0 overflow-hidden rounded-[20px] bg-[#EBEBEB]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {img ? <img src={img} alt={name} className="h-full w-full object-cover" draggable={false} /> : null}
+        {img ? <img src={img} alt={name} className="h-full w-full object-cover" draggable={false} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /> : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-[5px]">
         <p className="max-w-full truncate text-[16px] font-bold text-[#1A1A1A]">{name}</p>
@@ -1434,7 +1434,7 @@ function HomeSwipeTabs() {
             const near = Math.abs(panel - tab) <= 1;
             const list = near ? filterByTab(panel, pros).slice(0, 100) : [];
             return (
-              <div key={panel} className="h-full w-1/4 shrink-0 overflow-y-auto bg-white px-4 pb-28 pt-[14px]">
+              <div key={panel} className="h-full w-1/4 shrink-0 overflow-y-auto overscroll-contain bg-white px-4 pb-28 pt-[14px]">
                 {!near ? null : !loaded ? (
                   <div className="py-24 text-center text-[14px] text-[#999]">불러오는 중…</div>
                 ) : list.length === 0 ? (

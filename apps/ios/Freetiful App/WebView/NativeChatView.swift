@@ -42,6 +42,7 @@ struct ChatMenuItem {
 // 원격 이미지 로더 (메모리 + 디스크 캐시 — 세션 간 유지로 재다운로드 제거)
 enum NativeChatImageLoader {
     private static var cache: [String: UIImage] = [:]
+    private static var loadTokenKey: UInt8 = 0
     private static let diskDir: URL = {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("ftImgCache", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -57,6 +58,9 @@ enum NativeChatImageLoader {
     static func load(_ urlString: String, into imageView: UIImageView, fallback: UIImage?) {
         imageView.image = fallback
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 셀 재사용 레이스 가드: imageView 가 요청한 최신 URL 토큰 기록 → 비동기 완료 때 토큰 일치 시에만 반영
+        //   (재사용된 셀에 이전 in-flight 로드 결과가 덮어써 '엉뚱한 사진' 뜨던 버그 방지)
+        objc_setAssociatedObject(imageView, &loadTokenKey, trimmed, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         // 빈 값이거나 SVG(기본 프로필 이미지)면 네이티브 플레이스홀더 유지 — UIImage 는 SVG 디코드 불가
         guard !trimmed.isEmpty, !trimmed.lowercased().hasSuffix(".svg") else { return }
         // data: URI (배너 등 인라인 base64) — URLSession 미지원이라 직접 디코드
@@ -85,7 +89,10 @@ enum NativeChatImageLoader {
         DispatchQueue.global(qos: .userInitiated).async {
             // 1) 디스크 캐시 즉시
             if let data = try? Data(contentsOf: path), let image = UIImage(data: data) {
-                DispatchQueue.main.async { cache[full] = image; weakIV?.image = image }
+                DispatchQueue.main.async {
+                    cache[full] = image
+                    if let iv = weakIV, (objc_getAssociatedObject(iv, &loadTokenKey) as? String) == trimmed { iv.image = image }
+                }
                 return
             }
             // 2) 다운로드 → 디스크+메모리 저장
@@ -93,7 +100,10 @@ enum NativeChatImageLoader {
             URLSession.shared.dataTask(with: url) { data, _, _ in
                 guard let data = data, let image = UIImage(data: data) else { return }
                 try? data.write(to: path, options: .atomic)
-                DispatchQueue.main.async { cache[full] = image; weakIV?.image = image }
+                DispatchQueue.main.async {
+                    cache[full] = image
+                    if let iv = weakIV, (objc_getAssociatedObject(iv, &loadTokenKey) as? String) == trimmed { iv.image = image }
+                }
             }.resume()
         }
     }

@@ -53,6 +53,10 @@ final class NativeQuoteFormViewController: UIViewController, UITextFieldDelegate
 
         card.translatesAutoresizingMaskIntoConstraints = false
         card.clipsToBounds = true
+        // 폼 빈 영역(필드/피커 외)을 누르면 숫자패드/키보드 내려감 (cancelsTouchesInView=false 라 필드 탭은 그대로)
+        let kbTap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        kbTap.cancelsTouchesInView = false
+        card.addGestureRecognizer(kbTap)
         card.layer.cornerRadius = 28
         card.layer.cornerCurve = .continuous
         card.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
