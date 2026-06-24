@@ -147,6 +147,7 @@ function ProListCard({
             alt={pro.name}
             loading={index < 4 ? 'eager' : 'lazy'}
             decoding="async"
+            onError={(e) => { const el = e.currentTarget; if (el.dataset.fb) return; const base = (pro.image || '').split('?')[0]; if (!el.dataset.retry && base) { el.dataset.retry = '1'; setTimeout(() => { el.src = `${base}?r=1`; }, 500); } else { el.dataset.fb = '1'; el.src = '/images/default-profile.png'; } }}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {pro.isNationwide && (
@@ -295,6 +296,7 @@ function DesktopProMarketCard({
             alt={pro.name}
             loading={index < 8 ? 'eager' : 'lazy'}
             decoding="async"
+            onError={(e) => { const el = e.currentTarget; if (el.dataset.fb) return; const base = (pro.image || '').split('?')[0]; if (!el.dataset.retry && base) { el.dataset.retry = '1'; setTimeout(() => { el.src = `${base}?r=1`; }, 500); } else { el.dataset.fb = '1'; el.src = '/images/default-profile.png'; } }}
             className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
           />
         </Link>

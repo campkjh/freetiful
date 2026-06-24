@@ -1251,7 +1251,13 @@ function HomeProTabCard({ pro, langMode }: { pro: any; langMode: boolean }) {
     >
       <div className="h-[88px] w-[66px] shrink-0 overflow-hidden rounded-[20px] bg-[#EBEBEB]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {img ? <img src={img} alt={name} className="h-full w-full object-cover" draggable={false} loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /> : null}
+        {img ? <img src={img} alt={name} className="h-full w-full object-cover" draggable={false} loading="lazy" decoding="async" onError={(e) => {
+          // 다수 동시 로드(Railway 부하)로 간헐 실패 → 백오프 재시도 2회 후 숨김(회색 자리)
+          const el = e.currentTarget as HTMLImageElement;
+          const tries = Number(el.dataset.retry || '0');
+          if (tries < 2) { el.dataset.retry = String(tries + 1); const base = img.split('?')[0]; setTimeout(() => { el.src = `${base}?r=${tries + 1}`; }, 500 * (tries + 1)); }
+          else { el.style.display = 'none'; }
+        }} /> : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-[5px]">
         <p className="max-w-full truncate text-[16px] font-bold text-[#1A1A1A]">{name}</p>
@@ -1307,6 +1313,18 @@ function HomeSwipeTabs() {
   };
 
   const open = tab !== 0;
+  // 카테고리 패널 열렸을 때 문서(html) 스크롤 잠금 — 패널은 fixed 오버레이라 뒤 홈이 같이
+  // 스크롤되던(체이닝 아닌 문서 자체 스크롤) 문제 차단. overscroll-contain 만으론 못 막음.
+  useEffect(() => {
+    if (!open) return;
+    const el = document.documentElement;
+    const body = document.body;
+    const prevHtml = el.style.overflow;
+    const prevBody = body.style.overflow;
+    el.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => { el.style.overflow = prevHtml; body.style.overflow = prevBody; };
+  }, [open]);
   const goTab = (i: number) => { setDragX(0); setTab(i); };
 
   // 오버레이(리스트) 페이저 스와이프 — 1↔2↔3 + 1에서 우스와이프 → 전체(홈)
