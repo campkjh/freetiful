@@ -465,4 +465,24 @@ export class AdminController {
   async getBusinessCategories() {
     return this.adminService.getBusinessCategories();
   }
+
+  // 채팅 매칭 현황 (사회자↔유저 연결/채팅 + 매칭률)
+  @Get('chat-connections')
+  async getChatConnections(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.adminService.getChatConnections({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+      status,
+      startDate,
+      endDate,
+    });
+  }
 }
