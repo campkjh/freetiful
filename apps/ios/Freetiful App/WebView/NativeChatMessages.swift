@@ -57,6 +57,7 @@ struct NativeChatMessage {
     var uploadProgress: Double = -1   // -1 = 업로드 아님, 0~100 = 업로드 진행중
     var uploadBytesTotal: Double = 0  // 원본 용량(byte) — "X.X / Y.Y MB" 표기용
     var uploadFailed: Bool = false    // 업로드 실패 → 재전송/삭제 버튼 표시
+    var fileName: String = ""         // 파일 메시지 표시용 파일명
 }
 
 protocol NativeChatMessagesDelegate: AnyObject {
@@ -74,6 +75,8 @@ protocol NativeChatMessagesDelegate: AnyObject {
     // 업로드 실패 미디어 — 재전송 / 삭제
     func chatMessagesRetryMedia(_ id: String)
     func chatMessagesDeleteMedia(_ id: String)
+    // 파일 탭 → 열기(Safari)
+    func chatMessagesFileTap(_ url: String)
 }
 
 // 네이티브 채팅 본문 (UITableView) — 글래스 헤더 아래 / 입력바 위
@@ -103,6 +106,7 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         tableView.register(NativeChatBubbleCell.self, forCellReuseIdentifier: "bubble")
         tableView.register(NativeChatImageCell.self, forCellReuseIdentifier: "image")
         tableView.register(NativeChatVideoCell.self, forCellReuseIdentifier: "video")
+        tableView.register(NativeChatFileCell.self, forCellReuseIdentifier: "file")
         tableView.register(NativeChatQuoteCell.self, forCellReuseIdentifier: "quote")
         tableView.register(NativeChatSystemCell.self, forCellReuseIdentifier: "system")
         addSubview(tableView)
@@ -288,6 +292,12 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
             cell.onTap = { [weak self] url in self?.delegate?.chatMessagesVideoTap(url) }
             cell.onRetry = { [weak self] id in self?.delegate?.chatMessagesRetryMedia(id) }
             cell.onDelete = { [weak self] id in self?.delegate?.chatMessagesDeleteMedia(id) }
+            return cell
+        }
+        if m.type == "file" {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "file", for: indexPath) as! NativeChatFileCell
+            cell.configure(m)
+            cell.onTap = { [weak self] url in self?.delegate?.chatMessagesFileTap(url) }
             return cell
         }
         let cell = tableView.dequeueReusableCell(withIdentifier: "bubble", for: indexPath) as! NativeChatBubbleCell
@@ -869,6 +879,110 @@ final class NativeChatVideoCell: UITableViewCell {
                 apply(try? gen.copyCGImage(at: time, actualTime: nil))
             }
         }
+    }
+
+    private static func formatTime(_ iso: String) -> String {
+        guard !iso.isEmpty else { return "" }
+        let date = NativeChatBubbleCell.isoParserFrac.date(from: iso)
+            ?? NativeChatBubbleCell.isoParser.date(from: iso)
+        guard let date else { return "" }
+        return NativeChatBubbleCell.timeFormatter.string(from: date)
+    }
+}
+
+// MARK: - 파일 말풍선 셀 (문서 아이콘 + 파일명, 탭 → 열기)
+final class NativeChatFileCell: UITableViewCell {
+    var onTap: ((String) -> Void)?
+    private let bubble = UIView()
+    private let icon = UIImageView()
+    private let nameLabel = UILabel()
+    private let timeLabel = UILabel()
+    private var fileURL = ""
+    private var leadingC: NSLayoutConstraint!
+    private var trailingC: NSLayoutConstraint!
+    private var timeLeadingC: NSLayoutConstraint!
+    private var timeTrailingC: NSLayoutConstraint!
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setup()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func setup() {
+        selectionStyle = .none
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+
+        bubble.translatesAutoresizingMaskIntoConstraints = false
+        bubble.layer.cornerRadius = 20
+        bubble.layer.cornerCurve = .continuous
+        bubble.isUserInteractionEnabled = true
+        bubble.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap)))
+        contentView.addSubview(bubble)
+
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.image = UIImage(systemName: "doc.fill")
+        icon.contentMode = .scaleAspectFit
+        icon.setContentHuggingPriority(.required, for: .horizontal)
+        icon.setContentCompressionResistancePriority(.required, for: .horizontal)
+        bubble.addSubview(icon)
+
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        nameLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        nameLabel.numberOfLines = 2
+        bubble.addSubview(nameLabel)
+
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
+        timeLabel.font = .systemFont(ofSize: 10.5)
+        timeLabel.textColor = UIColor(white: 0.6, alpha: 1)
+        contentView.addSubview(timeLabel)
+
+        leadingC = bubble.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14)
+        trailingC = bubble.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14)
+        timeLeadingC = timeLabel.leadingAnchor.constraint(equalTo: bubble.leadingAnchor, constant: 2)
+        timeTrailingC = timeLabel.trailingAnchor.constraint(equalTo: bubble.trailingAnchor, constant: -2)
+
+        NSLayoutConstraint.activate([
+            bubble.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
+            bubble.widthAnchor.constraint(lessThanOrEqualToConstant: 260),
+            icon.leadingAnchor.constraint(equalTo: bubble.leadingAnchor, constant: 14),
+            icon.centerYAnchor.constraint(equalTo: bubble.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 20),
+            icon.heightAnchor.constraint(equalToConstant: 22),
+            nameLabel.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 10),
+            nameLabel.trailingAnchor.constraint(equalTo: bubble.trailingAnchor, constant: -14),
+            nameLabel.topAnchor.constraint(equalTo: bubble.topAnchor, constant: 12),
+            nameLabel.bottomAnchor.constraint(equalTo: bubble.bottomAnchor, constant: -12),
+            timeLabel.topAnchor.constraint(equalTo: bubble.bottomAnchor, constant: 2),
+            timeLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
+        ])
+    }
+
+    @objc private func handleTap() {
+        guard !fileURL.isEmpty else { return }
+        Haptics.tap()
+        onTap?(fileURL)
+    }
+
+    func configure(_ m: NativeChatMessage) {
+        fileURL = m.content
+        nameLabel.text = m.fileName.isEmpty ? "파일" : m.fileName
+        if m.mine {
+            bubble.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1)
+            icon.tintColor = .white
+            nameLabel.textColor = .white
+        } else {
+            bubble.backgroundColor = .white
+            icon.tintColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1)
+            nameLabel.textColor = UIColor(white: 0.1, alpha: 1)
+        }
+        timeLabel.text = NativeChatFileCell.formatTime(m.createdAt)
+
+        leadingC.isActive = false; trailingC.isActive = false
+        timeLeadingC.isActive = false; timeTrailingC.isActive = false
+        if m.mine { trailingC.isActive = true; timeTrailingC.isActive = true }
+        else { leadingC.isActive = true; timeLeadingC.isActive = true }
     }
 
     private static func formatTime(_ iso: String) -> String {

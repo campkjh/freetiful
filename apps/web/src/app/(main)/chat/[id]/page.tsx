@@ -1430,6 +1430,8 @@ export default function ChatRoomPage() {
                       // 옛 휘발성 fs 경로(/uploads/chat-xxx.ext)로 저장됐던 파일은 서버 재배포로 유실됨 → 404 대신 '만료' 표시
                       const expired = !!msg.content && /^\/uploads\/chat-.*\.[a-z0-9]+$/i.test(msg.content);
                       const href = !expired && msg.content && /^https?:|^\/uploads\//.test(msg.content) ? absChatUrl(msg.content) : undefined;
+                      // 파일이 이미지면 새 탭(원본=엄청 확대) 대신 화면맞춤 뷰어로 연다
+                      const isImageFile = /\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test((msg.fileName || msg.content || '').toLowerCase());
                       return (
                       <a
                         href={href}
@@ -1438,7 +1440,7 @@ export default function ChatRoomPage() {
                         download={msg.fileName || undefined}
                         className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none no-underline ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
-                        onClick={expired ? (e) => e.preventDefault() : undefined}
+                        onClick={(e) => { if (expired) { e.preventDefault(); return; } if (isImageFile && href) { e.preventDefault(); setImagePreview(href); } }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}

@@ -1752,7 +1752,8 @@ class ViewController: UIViewController,
                 quoteIsLatest: (d["quoteIsLatest"] as? Bool) ?? false,
                 uploadProgress: (d["uploadProgress"] as? Double) ?? Double((d["uploadProgress"] as? Int) ?? -1),
                 uploadBytesTotal: (d["uploadBytesTotal"] as? Double) ?? Double((d["uploadBytesTotal"] as? Int) ?? 0),
-                uploadFailed: (d["uploadFailed"] as? Bool) ?? false
+                uploadFailed: (d["uploadFailed"] as? Bool) ?? false,
+                fileName: (d["fileName"] as? String) ?? ""
             )
         }
         nativeChatMessages.setMessages(msgs, forceScroll: !hasLoadedChatMessagesOnce)
@@ -1805,6 +1806,18 @@ class ViewController: UIViewController,
     func chatMessagesDeleteMedia(_ id: String) {
         Haptics.tap()
         webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.deleteMedia && window.__freetifulChat.deleteMedia(\(jsLiteral(id)));", completionHandler: nil)
+    }
+
+    func chatMessagesFileTap(_ url: String) {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let full: String
+        if trimmed.hasPrefix("http") { full = trimmed }
+        else if trimmed.hasPrefix("/") { full = "\(kWebBase)\(trimmed)" }
+        else { full = "\(kWebBase)/\(trimmed)" }
+        guard let u = URL(string: full), u.scheme == "http" || u.scheme == "https" else { return }
+        Haptics.tap()
+        present(SFSafariViewController(url: u), animated: true)
     }
 
     // MARK: - NativeHomeHeaderDelegate

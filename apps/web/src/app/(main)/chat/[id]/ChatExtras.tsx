@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { flushSync } from 'react-dom';
+import { flushSync, createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   X, Copy, Reply, Trash2, MoreVertical,
@@ -25,6 +25,47 @@ export type { Message, ChatPartner, SystemPayload };
 // ─── Helpers ───
 
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
+
+// 이미지 전체보기 — body 로 포털(채팅 fixed 컨테이너 스태킹 컨텍스트 탈출, 안드 WebView 에서 안 뜨던 문제),
+// 화면 맞춤(object-contain), 로딩/실패 폴백, 연 직후 고스트 탭으로 즉시 닫힘 방지(가드).
+function ChatImageViewer({ url, onClose }: { url: string; onClose: () => void }) {
+  const [errored, setErrored] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const openedAt = useRef(0);
+  useEffect(() => { openedAt.current = Date.now(); setErrored(false); setLoaded(false); }, [url]);
+  const guardedClose = () => { if (Date.now() - openedAt.current > 300) onClose(); };
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90"
+      style={{ touchAction: 'none' }}
+      onClick={guardedClose}
+    >
+      <button onClick={onClose} className="absolute right-4 top-4 z-10 text-white" aria-label="닫기"><X size={28} /></button>
+      {!errored ? (
+        <img
+          src={url}
+          alt=""
+          className="max-h-[92vh] max-w-[94vw] select-none rounded-lg object-contain"
+          onClick={(e) => e.stopPropagation()}
+          onLoad={() => setLoaded(true)}
+          onError={() => setErrored(true)}
+        />
+      ) : (
+        <div className="flex flex-col items-center gap-3 px-8 text-center" onClick={(e) => e.stopPropagation()}>
+          <p className="text-[15px] font-semibold text-white/90">이미지를 불러올 수 없습니다</p>
+          {/^https?:|^\/uploads\//.test(url) && (
+            <a href={url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-white/15 px-4 py-2 text-[13px] font-bold text-white">원본 열기</a>
+          )}
+        </div>
+      )}
+      {!loaded && !errored && (
+        <div className="pointer-events-none absolute h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+      )}
+    </div>,
+    document.body,
+  );
+}
 
 // 옵션명 AI 추천 (키워드 기반) — 입력 단어에 매칭되는 추천 태그를 보여줌
 const OPTION_SUGGESTIONS: { name: string; price: number; keywords: string[] }[] = [
@@ -2472,13 +2513,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
         </>
       )}
 
-      {/* ─── 이미지 프리뷰 ─── */}
-      {imagePreview && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setImagePreview(null)}>
-          <button onClick={() => setImagePreview(null)} className="absolute top-4 right-4 text-white"><X size={28} /></button>
-          <img src={imagePreview} alt="" className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
-        </div>
-      )}
+      {/* ─── 이미지 전체보기 (포털 + 화면맞춤 + 실패 폴백) ─── */}
+      {imagePreview && <ChatImageViewer url={imagePreview} onClose={() => setImagePreview(null)} />}
 
       {/* ─── 위치 선택 모달 ─── */}
       {showLocationPicker && (
