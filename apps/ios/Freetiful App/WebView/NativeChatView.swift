@@ -397,7 +397,7 @@ final class NativeChatInputBar: UIView, UITextViewDelegate {
         textView.backgroundColor = .clear
         textView.delegate = self
         textView.isScrollEnabled = false
-        textView.returnKeyType = .send
+        textView.returnKeyType = .default   // 리턴 키 = 줄바꿈 (전송은 전송 버튼)
         textView.textContainerInset = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
         textView.textContainer.lineFragmentPadding = 0
         fieldPill.contentView.addSubview(textView)
@@ -520,12 +520,6 @@ final class NativeChatInputBar: UIView, UITextViewDelegate {
     func textViewDidChange(_ textView: UITextView) {
         updateSendVoiceVisibility()
         recalcHeight()
-    }
-
-    // Return 키 = 전송 (줄바꿈은 가로폭 초과 시 자동), Send 버튼도 동일
-    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-        if text == "\n" { commitSend(); return false }
-        return true
     }
 
     @objc private func tapSend() { commitSend() }
