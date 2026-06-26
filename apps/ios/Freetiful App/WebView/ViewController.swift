@@ -122,6 +122,12 @@ class ViewController: UIViewController,
     private var webViewBottomFull: NSLayoutConstraint?
     private var currentNativePath = "/" {
         didSet {
+            // 앞으로 이동(깊어짐) 시 직전 화면 스냅샷 push, 뒤로(얕아짐) 시 pop — 인터랙티브 back 의 이전화면 재료
+            if oldValue != currentNativePath {
+                let od = navDepth(oldValue), nd = navDepth(currentNativePath)
+                if nd > od { pushScreenSnapshotForForwardNav() }
+                else if nd < od, !screenSnapshots.isEmpty { screenSnapshots.removeLast() }
+            }
             // 프로필 편집(/pro-edit)을 떠나면(저장 가능성) 상세 캐시 무효화 + 네이티브 상세 재로딩 강제
             // + 홈/카테고리 리스트도 신선 데이터로 재로딩 → 사회자가 프로필 수정하면 전 화면 즉시 반영
             if oldValue.contains("/pro-edit"), !currentNativePath.contains("/pro-edit") {
@@ -211,6 +217,22 @@ class ViewController: UIViewController,
     // - 웹 페이지: WKWebView 자체 인터랙티브 슬라이드(allowsBackForwardNavigationGestures)
     // - 네이티브 오버레이(상세/채팅/알림 등): 손가락 따라 슬라이드되는 인터랙티브 back
     private var backSwipeViews: [UIView] = []
+    // 네이티브 인터랙티브 back: 앞으로 이동할 때마다 직전 화면 스냅샷을 쌓아두고,
+    // 뒤로 스와이프 시 오버레이 뒤로 '진짜 이전 화면'을 패럴랙스로 드러낸다(웹 같은페이지 노출 방지).
+    private var screenSnapshots: [UIView] = []
+    private var backSwipePrevSnap: UIView?
+    private var backSwipeDim: UIView?
+    private func navDepth(_ path: String) -> Int {
+        if isTopLevelTab(path) { return 0 }
+        if isDetailPath(path) { return 2 }
+        return 1
+    }
+    private func pushScreenSnapshotForForwardNav() {
+        if let snap = view.snapshotView(afterScreenUpdates: false) {
+            screenSnapshots.append(snap)
+            if screenSnapshots.count > 8 { screenSnapshots.removeFirst() }
+        }
+    }
     private func setupBackSwipe() {
         let edge = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(handleBackEdgePan(_:)))
         edge.edges = .left
@@ -235,20 +257,52 @@ class ViewController: UIViewController,
         isOnChatDetail || isOnProDetail || isOnBizDetail || isOnReviewList || isOnCategoryList || isOnNotifications || isOnCustomerInquiries || isOnHelp || isOnSearch
     }
     @objc private func handleBackEdgePan(_ g: UIScreenEdgePanGestureRecognizer) {
+        let w = view.bounds.width
         let tx = max(0, g.translation(in: view).x)
+        let parallax = w * 0.3   // 이전 화면이 30% 만큼 뒤따라오는 iOS 패럴랙스
         switch g.state {
         case .began:
             backSwipeViews = currentOverlayViews()
+            // 직전 화면 스냅샷을 오버레이 뒤(웹 위)에 깔아 '진짜 이전 화면'이 드러나게 + 살짝 어둡게
+            if let snap = screenSnapshots.last, let firstOverlay = backSwipeViews.first {
+                snap.frame = view.bounds
+                snap.transform = CGAffineTransform(translationX: -parallax, y: 0)
+                view.insertSubview(snap, belowSubview: firstOverlay)
+                let dim = UIView(frame: view.bounds)
+                dim.backgroundColor = UIColor(white: 0, alpha: 0.16)
+                dim.isUserInteractionEnabled = false
+                view.insertSubview(dim, aboveSubview: snap)
+                backSwipePrevSnap = snap
+                backSwipeDim = dim
+            }
+            // 슬라이드되는 화면 좌측 그림자(네이티브 느낌)
+            if let f = backSwipeViews.first {
+                f.layer.shadowColor = UIColor.black.cgColor
+                f.layer.shadowOpacity = 0.18
+                f.layer.shadowRadius = 8
+                f.layer.shadowOffset = CGSize(width: -3, height: 0)
+            }
         case .changed:
+            let p = min(1, tx / max(1, w))
             for v in backSwipeViews { v.transform = CGAffineTransform(translationX: tx, y: 0) }
+            backSwipePrevSnap?.transform = CGAffineTransform(translationX: -parallax * (1 - p), y: 0)
+            backSwipeDim?.alpha = CGFloat(1 - p)
         case .ended, .cancelled, .failed:
-            let w = view.bounds.width
             let complete = tx > w * 0.32 || g.velocity(in: view).x > 700
             let views = backSwipeViews
             backSwipeViews = []
+            let snap = backSwipePrevSnap; let dim = backSwipeDim
+            backSwipePrevSnap = nil; backSwipeDim = nil
+            let cleanup = {
+                for v in views { v.layer.shadowOpacity = 0 }
+                snap?.removeFromSuperview(); snap?.transform = .identity
+                dim?.removeFromSuperview()
+            }
             if complete {
-                UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseOut], animations: {
+                UIView.animate(withDuration: 0.24, delay: 0, options: [.curveEaseOut], animations: {
                     for v in views { v.transform = CGAffineTransform(translationX: w, y: 0) }
+                    snap?.transform = .identity   // 이전 화면 완전히 자리잡음
+                    dim?.alpha = 0
                 }, completion: { _ in
                     // 숨긴 뒤 transform 리셋 → 원위치로 튀는 깜빡임 방지 (경로 옵저버가 곧 가시성 재설정)
                     for v in views { v.isHidden = true; v.transform = .identity }
@@ -260,9 +314,15 @@ class ViewController: UIViewController,
                     } else {
                         self.backHeaderTapBack()
                     }
+                    // 실제 이전 화면이 재렌더된 뒤 스냅샷 제거(깜빡임 방지)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) { cleanup() }
                 })
             } else {
-                UIView.animate(withDuration: 0.2) { for v in views { v.transform = .identity } }
+                UIView.animate(withDuration: 0.2, animations: {
+                    for v in views { v.transform = .identity }
+                    snap?.transform = CGAffineTransform(translationX: -parallax, y: 0)
+                    dim?.alpha = 1
+                }, completion: { _ in cleanup() })
             }
         default: break
         }
