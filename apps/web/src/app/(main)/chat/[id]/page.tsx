@@ -64,13 +64,11 @@ function mapCachedMessage(m: MessageItem | Message): Message {
 }
 
 // 네이티브 메시지 리스트(B3)용: 상대경로 /uploads 이미지를 API 절대경로로 (네이티브 UIImage 로딩 가능하게)
-const CHAT_UPLOADS_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '')
-  .replace(/\/+$/, '')
-  .replace(/\/api\/v1$/, '')
-  .replace(/\/api$/, '');
 function absChatUrl(u: string): string {
   if (!u) return '';
-  if (CHAT_UPLOADS_ORIGIN && u.startsWith('/uploads/')) return `${CHAT_UPLOADS_ORIGIN}${u}`;
+  // /uploads 는 동일 출처(상대경로) 그대로 — 절대 타출처 URL 로 만들면 업로드 응답의
+  // cross-origin-resource-policy: same-origin 때문에 브라우저가 <img>/<video> 로딩을 차단함(200 이어도 안 뜸).
+  // 네이티브 브릿지는 상대경로를 freetiful.com 으로 해석하므로 그대로 동작.
   return u;
 }
 

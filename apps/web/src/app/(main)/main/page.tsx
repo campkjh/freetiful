@@ -1214,12 +1214,14 @@ const HomeGlyph = ({ className }: { className?: string }) => (
 const HOME_SWIPE_TABS = ['전체', '결혼식사회자', '행사사회자', '외국어사회자'];
 
 function homeProImg(p: any): string {
-  const ORIGIN = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '').replace(/\/api\/v1$/, '').replace(/\/api$/, '');
   const raw =
     p.image || p.profileImageUrl || p.mainImage ||
     (Array.isArray(p.images) ? (typeof p.images[0] === 'string' ? p.images[0] : p.images?.[0]?.imageUrl) : '') ||
     p.user?.profileImageUrl || '';
-  return raw && ORIGIN && raw.startsWith('/uploads/') ? `${ORIGIN}${raw}` : (raw || '');
+  // /uploads 는 동일 출처(상대경로) 그대로 — 절대 URL(타 출처)로 만들면 업로드 응답의
+  // cross-origin-resource-policy: same-origin 때문에 브라우저가 <img> 로딩을 차단함(200 이어도 안 뜸).
+  // /images·외부 CDN(http...) 는 원본 그대로 둔다.
+  return raw || '';
 }
 
 const LANG_LABELS: Record<string, string> = {
