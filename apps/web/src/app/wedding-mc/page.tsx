@@ -584,7 +584,7 @@ export default function WeddingMcLandingPage() {
               </h2>
               <p className="mt-2 text-[13px] text-[#9AA4B2]">방송 3사 및 JTBC YTN등 공인</p>
               <div className="mt-5 grid grid-cols-2 gap-2.5">
-                <img src="/images/wedding-mc/redesign/proof-kbs-gangwon.png" alt="KBS 강원 날씨 캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
+                <img src="/images/wedding-mc/redesign/proof-kim-yuseok.jpg" alt="김유석 아나운서" className="aspect-square w-full rounded-[30px] object-cover" />
                 <img src="/images/wedding-mc/redesign/proof-yonhap.jpg" alt="연합뉴스TV 함현지 캐스터" className="aspect-square w-full rounded-[30px] object-cover" />
               </div>
               <div className="my-4 rounded-2xl bg-[#F9FAFB] px-4 py-6">
