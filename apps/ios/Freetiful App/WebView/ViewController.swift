@@ -1494,7 +1494,7 @@ class ViewController: UIViewController,
                 nativeChatListBar.exitSearch()
                 nativeChatListBar.setTitle("새 요청")
                 nativeChatListBar.setSearchHidden(true)
-                nativeChatListBar.configure(tabs: ["전체", "다수요청", "개인요청", "보관"], selected: cachedListTab("inquiry"))
+                nativeChatListBar.configure(tabs: ["전체", "모두에게", "개인요청", "보관"], selected: cachedListTab("inquiry"))
                 webInquiryRowsArrived = false
                 loadCachedInquiryRows()
                 nativeInquiryContent.scrollToTop()

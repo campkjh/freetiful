@@ -481,7 +481,7 @@ enum NativeHomeData {
             "image": (user["profileImageUrl"] as? String) ?? "/images/default-profile.png",
             "kind": kind,
             "isMulti": kind == "multi",
-            "kindLabel": kind == "multi" ? "다수요청" : "개인요청",
+            "kindLabel": kind == "multi" ? "모두에게" : "개인요청",
             "timeAgo": inquiryTimeAgo(d["deliveredAt"] as? String),
             "category": [catName, evCat].filter { !$0.isEmpty }.joined(separator: " · "),
             "parts": eventPart.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty },

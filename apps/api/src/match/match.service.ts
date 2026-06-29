@@ -620,8 +620,9 @@ export class MatchService {
         },
       });
 
-      // 거절 알림 → 고객에게
-      if (customerId) {
+      // 거절 알림 → 고객에게. 단, '모두에게'(multi) 요청은 여러 사회자에게 뿌려진 것이라
+      // 한 명이 거절해도 고객에게 푸시하지 않는다. '1:1문의'(single) 거절일 때만 기존처럼 알림.
+      if (customerId && delivery.matchRequest?.type === 'single') {
         this.notificationService.createNotification(
           customerId,
           'system' as any,

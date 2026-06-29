@@ -88,7 +88,7 @@ function postRowsToNative(mapped: any[]) {
       image: r.customerImage,
       kind: r.requestKind,
       isMulti: r.requestKind === 'multi',
-      kindLabel: r.requestKind === 'multi' ? '다수요청' : '개인요청',
+      kindLabel: r.requestKind === 'multi' ? '모두에게' : '개인요청',
       timeAgo: inquiryTimeAgo(r.deliveredAt),
       category: [r.categoryName, r.eventCategoryName].filter(Boolean).join(' · '),
       parts: r.eventPart ? String(r.eventPart).split(', ').filter(Boolean) : [],

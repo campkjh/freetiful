@@ -289,7 +289,7 @@ function DesktopProMarketCard({
 
   return (
     <article className="group min-w-0">
-      <div className="relative aspect-[16/12] overflow-hidden rounded-[10px] bg-[#F2F4F7]">
+      <div className="relative aspect-[3/4] overflow-hidden rounded-[10px] bg-[#F2F4F7]">
         <Link href={`/pros/${pro.id}`} onMouseEnter={() => discoveryApi.getProDetail(pro.id).catch(() => {})} className="block h-full w-full">
           <img
             src={pro.image || '/images/default-profile.png'}
