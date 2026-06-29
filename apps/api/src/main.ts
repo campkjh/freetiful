@@ -37,7 +37,9 @@ async function bootstrap() {
   // Serve uploaded files statically
   app.useStaticAssets(path.join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
-  app.use(helmet());
+  // 업로드 이미지/영상은 공개 리소스 — CORP 기본값(same-origin)이면 타 출처(웹뷰/다른 도메인) <img>/<video>
+  // 로딩이 차단됨(안드 채팅 미디어·홈 프로 이미지 안 뜨던 원인). 공개 정적 리소스라 cross-origin 허용.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(compression());
 
   app.enableCors({

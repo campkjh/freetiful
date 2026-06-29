@@ -170,7 +170,7 @@ function mapMatchDeliveries(items: any[]): MatchDeliveryView[] {
 
 const TABS: { key: Filter; label: string }[] = [
   { key: 'all', label: '전체' },
-  { key: 'multi', label: '다수요청' },
+  { key: 'multi', label: '모두에게' },
   { key: 'single', label: '개인요청' },
   { key: 'archived', label: '보관' },
 ];
@@ -197,10 +197,10 @@ export default function ProRequestsPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const w = window as any;
-    const KEY_TO_LABEL: Record<string, string> = { all: '전체', multi: '다수요청', single: '개인요청', archived: '보관' };
-    const LABEL_TO_KEY: Record<string, Filter> = { '전체': 'all', '다수요청': 'multi', '개인요청': 'single', '보관': 'archived' };
+    const KEY_TO_LABEL: Record<string, string> = { all: '전체', multi: '모두에게', single: '개인요청', archived: '보관' };
+    const LABEL_TO_KEY: Record<string, Filter> = { '전체': 'all', '모두에게': 'multi', '개인요청': 'single', '보관': 'archived' };
     w.__freetifulInquiryList = {
-      getState: () => ({ tab: KEY_TO_LABEL[filter] || '전체', tabs: ['전체', '다수요청', '개인요청', '보관'] }),
+      getState: () => ({ tab: KEY_TO_LABEL[filter] || '전체', tabs: ['전체', '모두에게', '개인요청', '보관'] }),
       setTab: (label: string) => setFilter(LABEL_TO_KEY[label] || 'all'),
       getItems: () => inquiryItemsRef.current,
       invokeReject: (id: string, message?: string) => { handleReject(id, message); },
@@ -327,7 +327,7 @@ export default function ProRequestsPage() {
       image: r.customerImage,
       kind: r.requestKind,
       isMulti: r.requestKind === 'multi',
-      kindLabel: r.requestKind === 'multi' ? '다수요청' : '개인요청',
+      kindLabel: r.requestKind === 'multi' ? '모두에게' : '개인요청',
       timeAgo: timeAgo(r.deliveredAt),
       category: [r.categoryName, r.eventCategoryName].filter(Boolean).join(' · '),
       parts: r.eventPart ? r.eventPart.split(', ').filter(Boolean) : [],
@@ -452,7 +452,7 @@ export default function ProRequestsPage() {
                         ? 'bg-[#EAF2FF] text-[#3180F7]'
                         : 'bg-[#F2F4F8] text-[#4E5968]'
                     }`}>
-                      {request.requestKind === 'multi' ? '다수요청' : '개인요청'}
+                      {request.requestKind === 'multi' ? '모두에게' : '개인요청'}
                     </span>
                     <strong className="truncate text-[16px] font-bold text-[#2B313D]">{request.customerName}</strong>
                     <span className="ml-auto shrink-0 text-[12px] font-normal text-[#A4ABBA]">{timeAgo(request.deliveredAt)}</span>
