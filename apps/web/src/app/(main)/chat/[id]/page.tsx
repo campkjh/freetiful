@@ -1414,7 +1414,9 @@ export default function ChatRoomPage() {
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         <video
-                          src={absChatUrl(msg.content)}
+                          // #t=0.1 미디어프래그먼트 — 모바일(특히 iOS Safari)은 이게 없으면 첫 프레임을
+                          // 디코드/표시 안 해 썸네일이 비어 보임. 0.1초 프레임으로 강제 시킹해 포스터 노출.
+                          src={(() => { const u = absChatUrl(msg.content); return u && /^(https?:|\/uploads\/)/.test(u) && !u.includes('#') ? `${u}#t=0.1` : u; })()}
                           controls={msg.uploadProgress == null}
                           playsInline
                           preload="metadata"
