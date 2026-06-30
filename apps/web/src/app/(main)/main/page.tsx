@@ -1374,16 +1374,22 @@ function HomeSwipeTabs() {
         if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
         s.locked = Math.abs(dx) > Math.abs(dy) * 1.3 ? 1 : -1;
       }
+      if (s.locked !== 1) return;
+      // 가로 스와이프 — 안드 웹뷰/브라우저의 뒤로가기 제스처·세로스크롤 가로채기 방지(non-passive preventDefault)
+      // + 손가락 따라 패널을 끌어와(인터랙티브 드래그) '플로팅 덮기'가 아니라 페이지가 스와이프되게.
+      e.preventDefault();
+      setDragX(dx < 0 ? dx : dx * 0.3); // 탭0: 왼쪽(다음 탭)만 따라가고 오른쪽은 저항
     };
     const onEnd = (e: TouchEvent) => {
-      if (!s || s.ignore || s.locked !== 1) { s = null; return; }
+      if (!s || s.ignore || s.locked !== 1) { s = null; setDragX(0); return; }
       const t = e.changedTouches[0];
       const dx = t.clientX - s.x; const dy = t.clientY - s.y;
       s = null;
-      if (dx < -60 && Math.abs(dx) > Math.abs(dy)) setTab(1);
+      setDragX(0);
+      if (dx < -50 && Math.abs(dx) > Math.abs(dy)) setTab(1);
     };
     window.addEventListener('touchstart', onStart, { passive: true });
-    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: false });
     window.addEventListener('touchend', onEnd, { passive: true });
     return () => {
       window.removeEventListener('touchstart', onStart);
