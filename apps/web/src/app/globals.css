@@ -1405,6 +1405,11 @@ body::after {
   .pb-safe {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
+  /* 안드 웹뷰는 콘텐츠가 시스템 네비바 위로 이미 인셋되는데 env(safe-area-inset-bottom) 까지
+     더해져 하단 안전영역이 2중 적용 → 하단 네비바가 과도하게 떠 보임. 안드에선 env 빼고 고정값. */
+  html[data-platform="android"] .pb-safe {
+    padding-bottom: 0.5rem;
+  }
   .pt-safe {
     padding-top: max(0.75rem, env(safe-area-inset-top));
   }
