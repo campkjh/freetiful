@@ -2313,7 +2313,9 @@ export default function HomePage() {
         {/* 카테고리 탭 (전체/결혼식/행사/외국어) + 좌우 스와이프 — 네이티브 홈과 동일 */}
         <HomeSwipeTabs />
 
-        <div data-hswipe-ignore>
+        {/* 카테고리 아이콘 영역도 홈 탭 좌우 스와이프 허용(현재 1페이지라 자체 가로스크롤 없음).
+            탭은 그대로 동작, 가로 스와이프만 탭 페이저로. (배너는 자체 캐러셀이라 계속 제외) */}
+        <div>
           <CategorySwiper />
         </div>
 
