@@ -188,9 +188,11 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-white" style={{ letterSpacing: '-0.02em' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-100">
+    // 풀스크린 오버레이(fixed inset-0) — 안드 웹뷰에서 (main) 레이아웃/sticky 와 얽혀
+    // 폭이 고정되어 보이거나 헤더(뒤로가기)가 가려지던 문제 방지. 채팅 화면과 동일한 견고한 구조.
+    <div className="fixed inset-0 z-[60] flex flex-col bg-white" style={{ letterSpacing: '-0.02em' }}>
+      {/* Header — 항상 최상단 고정 + 상태바 세이프에어리어 */}
+      <div className="shrink-0 bg-white border-b border-gray-100" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="h-[52px] flex items-center px-4 gap-3">
           <button onClick={() => router.back()} className="p-1 -ml-2 shrink-0 active:scale-90 transition-transform">
             <ChevronLeft size={24} className="text-gray-800" />
