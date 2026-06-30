@@ -197,7 +197,7 @@ export default function SearchPage() {
           <button onClick={() => router.back()} className="p-1 -ml-2 shrink-0 active:scale-90 transition-transform">
             <ChevronLeft size={24} className="text-gray-800" />
           </button>
-          <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2">
+          <div className="flex-1 min-w-0 flex items-center gap-2 bg-gray-100 rounded-full px-3 py-2">
             <Search size={16} className="text-gray-400 shrink-0" />
             <input
               ref={inputRef}
@@ -206,7 +206,7 @@ export default function SearchPage() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               placeholder="이름, 소개, 카테고리로 검색"
-              className="flex-1 bg-transparent text-[16px] text-gray-900 placeholder-gray-400 outline-none"
+              className="flex-1 min-w-0 w-full bg-transparent text-[16px] text-gray-900 placeholder-gray-400 outline-none"
             />
             {query && (
               <button onClick={() => setQuery('')} className="p-0.5">
