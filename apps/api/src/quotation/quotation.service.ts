@@ -8,7 +8,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 
-const MIN_QUOTATION_TOTAL_AMOUNT = 300000;
+// 견적 금액 하한 제거(무제한). 결제/환불 계산이 깨지지 않도록 양수(>0)만 요구.
+const MIN_QUOTATION_TOTAL_AMOUNT = 1;
 
 @Injectable()
 export class QuotationService {
@@ -103,7 +104,7 @@ export class QuotationService {
     },
   ) {
     if (!Number.isFinite(Number(data.amount)) || Number(data.amount) < MIN_QUOTATION_TOTAL_AMOUNT) {
-      throw new BadRequestException('견적금액은 최소 30만원부터 발송할 수 있습니다.');
+      throw new BadRequestException('견적금액을 올바르게 입력해주세요.');
     }
 
     // 전문가 프로필 확인
