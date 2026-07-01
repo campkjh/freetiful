@@ -614,7 +614,7 @@ export class MatchService {
     } else {
       const result = await this.prisma.matchDelivery.update({
         where: { id: matchDeliveryId },
-        data: { status: 'declined' },
+        data: { status: 'declined', declineReason: message?.trim() || null },
         include: {
           matchRequest: { include: { category: true, eventCategory: true } },
         },

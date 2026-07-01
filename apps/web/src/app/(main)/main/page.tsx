@@ -1267,7 +1267,14 @@ function HomeProTabCard({ pro, langMode }: { pro: any; langMode: boolean }) {
           <span className="rounded-md bg-[#EBF2FF] px-[7px] py-[3px] text-[11px] font-semibold text-[#3080F7]">
             {careerYears > 0 ? `경력 ${careerYears}년` : '프로'}
           </span>
-          {rating > 0 && <span className="text-[12px] font-medium text-[#3080F7]">★ {rating.toFixed(1)} ({reviewCount})</span>}
+          {rating > 0 && (
+            <span className="inline-flex items-center gap-[3px] text-[12px] font-medium text-[#3080F7]">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
+              </svg>
+              {rating.toFixed(1)} ({reviewCount})
+            </span>
+          )}
         </div>
         {intro ? <p className="max-w-full truncate text-[12.5px] text-[#808080]">{intro}</p> : null}
         {chips.length > 0 && (

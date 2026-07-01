@@ -121,14 +121,16 @@ const BROKEN_IMG_PLACEHOLDER =
 
 function formatDateDivider(dateStr: string) {
   const d = new Date(dateStr);
+  // 안드 WebView 는 JS 타임존이 UTC 로 잡히는 경우가 있어 KST(Asia/Seoul) 고정으로 표시한다.
+  const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Seoul' });
+  // 오늘/어제 판정도 KST 날짜키(YYYY-MM-DD)로 — 자정 경계에서 라벨이 어긋나지 않게.
+  const kstKey = (dt: Date) => dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
   const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
-  const isYesterday = d.toDateString() === new Date(now.getTime() - 86400000).toDateString();
-
-  const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true });
-  if (isToday) return `(오늘) ${time}`;
-  if (isYesterday) return `(어제) ${time}`;
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${time}`;
+  const dKey = kstKey(d);
+  if (dKey === kstKey(now)) return `(오늘) ${time}`;
+  if (dKey === kstKey(new Date(now.getTime() - 86400000))) return `(어제) ${time}`;
+  const [, mm, dd] = dKey.split('-');
+  return `${Number(mm)}월 ${Number(dd)}일 ${time}`;
 }
 
 function shouldShowDateDivider(messages: Message[], index: number) {

@@ -1410,6 +1410,26 @@ body::after {
   html[data-platform="android"] .pb-safe {
     padding-bottom: 0.5rem;
   }
+  /* 안드 WebView 네이티브 date/time 위젯이 축소 불가한 내재 폭을 가져 좁은 컬럼에서 잘림.
+     문의 모달 행사일시 인풋(inquiry-datetime-input) 내부 위젯 폭을 0으로 정규화해 잘림 방지. */
+  html[data-platform="android"] .inquiry-datetime-input {
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    overflow: hidden;
+  }
+  html[data-platform="android"] .inquiry-datetime-input::-webkit-date-and-time-value {
+    text-align: left;
+    min-width: 0;
+  }
+  html[data-platform="android"] .inquiry-datetime-input::-webkit-datetime-edit {
+    padding: 0;
+    min-width: 0;
+  }
+  html[data-platform="android"] .inquiry-datetime-input::-webkit-calendar-picker-indicator {
+    margin-left: 2px;
+    padding: 0;
+  }
   .pt-safe {
     padding-top: max(0.75rem, env(safe-area-inset-top));
   }

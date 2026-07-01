@@ -1102,6 +1102,14 @@ export default function ProDetailPage() {
   const [descExpanded, setDescExpanded] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
+  // 서비스 설명 본문(dangerouslySetInnerHTML)의 <img> 클릭 시 확대 모달 — 이벤트 위임.
+  const zoomOnImgClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement;
+    if (t.tagName === 'IMG' && !t.closest('a')) {
+      const src = (t as HTMLImageElement).currentSrc || (t as HTMLImageElement).src;
+      if (src) setImageModal(src);
+    }
+  };
   const [shareModal, setShareModal] = useState(false);
   const [reviewsModal, setReviewsModal] = useState(false);
   const [phoneModal, setPhoneModal] = useState(false);
@@ -1645,7 +1653,7 @@ export default function ProDetailPage() {
                   <section id="desktop-desc" className="mb-9 rounded-lg border border-gray-200 p-6">
                     <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
                       <h3 className="text-[19px] font-bold text-gray-950">사회자 소개</h3>
-                      <div className="pro-detail-html text-[14px] leading-[1.8] text-gray-800" dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
+                      <div className="pro-detail-html text-[14px] leading-[1.8] text-gray-800 [&_img]:cursor-zoom-in" onClick={zoomOnImgClick} dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
                     </div>
                   </section>
                 )}
@@ -2112,7 +2120,7 @@ export default function ProDetailPage() {
         )}
 
         {/* Description text */}
-        <div className={`pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`}>
+        <div className={`pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`} onClick={zoomOnImgClick}>
           <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
           {!descExpanded && (
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
@@ -2512,20 +2520,20 @@ export default function ProDetailPage() {
               </label>
               <div>
                 <span className="mb-1.5 block text-[12px] font-bold text-[#6B7684]">행사일시</span>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   <input
                     type="date"
                     value={inquiryDate}
                     onChange={(event) => setInquiryDate(event.target.value)}
                     disabled={openingChat}
-                    className="h-[52px] min-w-0 rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[14px] font-semibold text-[#2B313D] outline-none transition focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
+                    className="inquiry-datetime-input h-[52px] min-w-0 rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[14px] font-semibold text-[#2B313D] outline-none transition focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
                   />
                   <input
                     type="time"
                     value={inquiryTime}
                     onChange={(event) => setInquiryTime(event.target.value)}
                     disabled={openingChat}
-                    className="h-[52px] min-w-0 rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[14px] font-semibold text-[#2B313D] outline-none transition focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
+                    className="inquiry-datetime-input h-[52px] min-w-0 rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[14px] font-semibold text-[#2B313D] outline-none transition focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
                   />
                 </div>
               </div>
