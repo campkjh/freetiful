@@ -15,10 +15,36 @@
 		FCD78D022F3AF3A400C3EA28 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = FCD78D012F3AF3A400C3EA28 /* GoogleSignIn */; };
 		FCD78D042F3AF3A400C3EA28 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FCD78D032F3AF3A400C3EA28 /* GoogleSignInSwift */; };
 		FCD78D242F3B098F00C3EA28 /* NaverThirdPartyLogin in Frameworks */ = {isa = PBXBuildFile; productRef = FCD78D232F3B098F00C3EA28 /* NaverThirdPartyLogin */; };
+		AA00FACE000000000000000E /* FreetifulWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA00FACE0000000000000001 /* FreetifulWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA00FACE000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FCC27DF92DB9FDCB00563728 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA00FACE0000000000000004;
+			remoteInfo = FreetifulWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA00FACE000000000000000D /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AA00FACE000000000000000E /* FreetifulWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		FCB87AD32DDB04CD00707751 /* Freetiful App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Freetiful App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA00FACE0000000000000001 /* FreetifulWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FreetifulWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -29,6 +55,13 @@
 			);
 			target = FCC27E002DB9FDCB00563728 /* Freetiful App */;
 		};
+		AA00FACE0000000000000003 /* Exceptions for "FreetifulWidgets" folder in "FreetifulWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AA00FACE0000000000000004 /* FreetifulWidgets */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -38,6 +71,14 @@
 				FCC27E132DB9FDCC00563728 /* Exceptions for "Freetiful App" folder in "Freetiful App" target */,
 			);
 			path = "Freetiful App";
+			sourceTree = "<group>";
+		};
+		AA00FACE0000000000000002 /* FreetifulWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA00FACE0000000000000003 /* Exceptions for "FreetifulWidgets" folder in "FreetifulWidgets" target */,
+			);
+			path = FreetifulWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -58,6 +99,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA00FACE0000000000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -73,6 +121,8 @@
 			children = (
 				FCC27E032DB9FDCB00563728 /* Freetiful App */,
 				FCB87AD32DDB04CD00707751 /* Freetiful App.app */,
+				AA00FACE0000000000000002 /* FreetifulWidgets */,
+				AA00FACE0000000000000001 /* FreetifulWidgets.appex */,
 				FC4BEFF22F7CCEB500EF5E98 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -87,10 +137,12 @@
 				FCC27DFD2DB9FDCB00563728 /* Sources */,
 				FCC27DFE2DB9FDCB00563728 /* Frameworks */,
 				FCC27DFF2DB9FDCB00563728 /* Resources */,
+				AA00FACE000000000000000D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AA00FACE000000000000000C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				FCC27E032DB9FDCB00563728 /* Freetiful App */,
@@ -110,6 +162,28 @@
 			productReference = FCB87AD32DDB04CD00707751 /* Freetiful App.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AA00FACE0000000000000004 /* FreetifulWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA00FACE0000000000000008 /* Build configuration list for PBXNativeTarget "FreetifulWidgets" */;
+			buildPhases = (
+				AA00FACE0000000000000005 /* Sources */,
+				AA00FACE0000000000000006 /* Frameworks */,
+				AA00FACE0000000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AA00FACE0000000000000002 /* FreetifulWidgets */,
+			);
+			name = FreetifulWidgets;
+			packageProductDependencies = (
+			);
+			productName = FreetifulWidgets;
+			productReference = AA00FACE0000000000000001 /* FreetifulWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -121,6 +195,9 @@
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					FCC27E002DB9FDCB00563728 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					AA00FACE0000000000000004 = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
@@ -148,12 +225,20 @@
 			projectRoot = "";
 			targets = (
 				FCC27E002DB9FDCB00563728 /* Freetiful App */,
+				AA00FACE0000000000000004 /* FreetifulWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		FCC27DFF2DB9FDCB00563728 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA00FACE0000000000000007 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -170,7 +255,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AA00FACE0000000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AA00FACE000000000000000C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA00FACE0000000000000004 /* FreetifulWidgets */;
+			targetProxy = AA00FACE000000000000000B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		FCC27E152DB9FDCC00563728 /* Debug */ = {
@@ -181,12 +281,15 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = "Freetiful App/Freetiful App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = US45855997;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Freetiful App/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "프리티풀";
 				INFOPLIST_KEY_NSCameraUsageDescription = "프리티풀에서 원활한 서비스 이용을 위해서는 카메라 및 사진첩 접근 허용이 필요합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "채팅에서 내 위치를 공유할 때 현재 위치 접근이 필요합니다.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "음성 메시지 녹음을 위해 마이크 접근이 필요합니다.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -199,7 +302,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 2.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "freetiful-inc.Freetiful-App";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -220,12 +323,15 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = "Freetiful App/Freetiful App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = US45855997;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Freetiful App/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "프리티풀";
 				INFOPLIST_KEY_NSCameraUsageDescription = "프리티풀에서 원활한 서비스 이용을 위해서는 카메라 및 사진첩 접근 허용이 필요합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "채팅에서 내 위치를 공유할 때 현재 위치 접근이 필요합니다.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "음성 메시지 녹음을 위해 마이크 접근이 필요합니다.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -238,7 +344,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 2.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "freetiful-inc.Freetiful-App";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -370,6 +476,58 @@
 			};
 			name = Release;
 		};
+		AA00FACE0000000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 13;
+				DEVELOPMENT_TEAM = US45855997;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FreetifulWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "프리티풀";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "freetiful-inc.Freetiful-App.FreetifulWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA00FACE000000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 13;
+				DEVELOPMENT_TEAM = US45855997;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FreetifulWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "프리티풀";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = "freetiful-inc.Freetiful-App.FreetifulWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -387,6 +545,15 @@
 			buildConfigurations = (
 				FCC27E152DB9FDCC00563728 /* Debug */,
 				FCC27E162DB9FDCC00563728 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA00FACE0000000000000008 /* Build configuration list for PBXNativeTarget "FreetifulWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA00FACE0000000000000009 /* Debug */,
+				AA00FACE000000000000000A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
