@@ -7,7 +7,7 @@ import {
   X, Copy, Reply, Trash2, MoreVertical,
   MapPin, FileText, Music, Smile, Plus, Search, Bell, BellOff,
   Flag, Pin, TextSelect, PinOff,
-  Camera, Mic, Image as ImageIcon,
+  Camera, Mic, Image as ImageIcon, Video,
   FileSignature, CreditCard, CheckCircle2, CalendarCheck,
   AlarmClock, Sparkles, Star, RefreshCw, XCircle, Clock,
 } from 'lucide-react';
@@ -2176,6 +2176,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
     { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => cameraInputRef.current?.click() },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
+    { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상', action: () => { setShowAttach(false); const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'video/*'; inp.multiple = true; inp.onchange = (e) => { const files = Array.from((e.target as HTMLInputElement).files || []); (async () => { for (const f of files) await handleImageSend(f); })(); }; inp.click(); } },
     { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
     { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
     { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
@@ -2578,7 +2579,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
       )}
 
       {/* 숨겨진 파일 인풋 — 사진/동영상 다중 선택 가능 */}
-      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => { const input = e.target; const files = Array.from(input.files || []); (async () => { try { for (const f of files) await handleImageSend(f); } finally { input.value = ''; } })(); }} />
+      {/* 사진=이미지 전용(image/*) — 안드는 image/*+video/* 혼합 accept 면 갤러리 대신 카메라/파일 선택기가
+          뜨고 다중선택도 안 되던 문제. 영상은 별도 '동영상' 메뉴(video/*)로 분리. */}
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const input = e.target; const files = Array.from(input.files || []); (async () => { try { for (const f of files) await handleImageSend(f); } finally { input.value = ''; } })(); }} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const input = e.target; const f = input.files?.[0]; if (!f) return; (async () => { try { await handleImageSend(f); } finally { input.value = ''; } })(); }} />
 
       {/* ─── Recording UI (input bar replacement handled by parent, but we provide startRecording/stopRecording) ─── */}
