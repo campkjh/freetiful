@@ -2698,10 +2698,24 @@ export class AdminService {
       a.senders.add(m.senderId);
       const meta = roomMeta.get(m.roomId);
       if (meta?.customerId && m.senderId === meta.customerId && !a.firstCustomerAt) a.firstCustomerAt = m.createdAt;
-      if (meta?.proUserId && m.senderId === meta.proUserId && a.firstCustomerAt && !a.firstProReplyAt && m.createdAt >= a.firstCustomerAt) a.firstProReplyAt = m.createdAt;
+      if (meta?.proUserId && m.senderId === meta.proUserId && !a.firstProReplyAt) a.firstProReplyAt = m.createdAt;
     }
     const senderSet = new Map<string, Set<string>>();
     for (const [rid, a] of agg) senderSet.set(rid, a.senders);
+
+    // 매칭의뢰 배달 시각 — 방이 매칭 기반이면 배달(deliveredAt) → 답장(repliedAt) 기준으로 요청/응답시간 계산
+    const matchRooms = rooms.filter((r) => r.matchRequestId && r.proProfile?.id);
+    const deliveries = matchRooms.length
+      ? await this.prisma.matchDelivery.findMany({
+          where: {
+            matchRequestId: { in: [...new Set(matchRooms.map((r) => r.matchRequestId as string))] },
+            proProfileId: { in: [...new Set(matchRooms.map((r) => r.proProfile!.id))] },
+          },
+          select: { matchRequestId: true, proProfileId: true, deliveredAt: true, repliedAt: true, status: true },
+        })
+      : [];
+    const deliveryMap = new Map<string, { deliveredAt: Date; repliedAt: Date | null; status: string }>();
+    for (const d of deliveries) deliveryMap.set(`${d.matchRequestId}::${d.proProfileId}`, { deliveredAt: d.deliveredAt, repliedAt: d.repliedAt, status: d.status });
 
     // 전체 매칭률 (검색/필터 무관, 기간만 반영)
     const baseWhere: any = {};
@@ -2719,8 +2733,12 @@ export class AdminService {
         const set = a?.senders || new Set<string>();
         const userSent = !!r.user?.id && set.has(r.user.id);
         const proSent = !!r.proProfile?.user?.id && set.has(r.proProfile.user.id);
-        const responseMs = a?.firstCustomerAt && a?.firstProReplyAt
-          ? new Date(a.firstProReplyAt).getTime() - new Date(a.firstCustomerAt).getTime()
+        // 요청/답장 시각: 매칭 배달이 있으면 배달(deliveredAt→repliedAt) 기준, 없으면 고객 첫 메시지 → 사회자 첫 메시지.
+        const delivery = r.matchRequestId && r.proProfile?.id ? deliveryMap.get(`${r.matchRequestId}::${r.proProfile.id}`) : undefined;
+        const requestAt = delivery?.deliveredAt || a?.firstCustomerAt || r.createdAt;
+        const replyAt = delivery?.repliedAt || a?.firstProReplyAt || null;
+        const responseMs = replyAt && new Date(replyAt) >= new Date(requestAt)
+          ? new Date(replyAt).getTime() - new Date(requestAt).getTime()
           : null;
         const latestQuote = r.quotations[0];
         return {
@@ -2738,8 +2756,9 @@ export class AdminService {
           paid: r.quotations.some((q) => q.status === 'paid'),
           createdAt: r.createdAt,
           lastMessageAt: r.lastMessageAt,
-          firstCustomerAt: a?.firstCustomerAt || null,   // 고객 첫 요청 시각
-          firstProReplyAt: a?.firstProReplyAt || null,   // 사회자 첫 답장 시각
+          firstCustomerAt: requestAt,                    // 요청 도착 시각(매칭 배달 우선)
+          firstProReplyAt: replyAt,                      // 사회자 답장 시각
+          matchStatus: delivery?.status || null,         // 매칭 배달 상태(declined=거절 등)
           responseMs,                                    // 응답까지 걸린 시간(ms)
         };
       }),
@@ -2758,33 +2777,41 @@ export class AdminService {
     };
   }
 
-  // 사회자별 평균/중앙 응답시간(고객 첫 요청 → 사회자 첫 답장) — 상단 분석 그래프용
-  async getChatResponseStats(limit = 15) {
+  // 사회자별 응답 통계 — 매칭의뢰(요청) 대비 응답/거절/미응답 + 평균·중앙 응답시간(요청 도착 → 답장).
+  // 데이터 원천: match_deliveries (deliveredAt=요청 도착, repliedAt=답장, status=declined 거절). 상단 분석 그래프용.
+  async getChatResponseStats(limit = 60) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
-      WITH rr AS (
-        SELECT cr."proProfileId" AS pro_id, pp."userId" AS pro_user_id,
-          (SELECT MIN(m."createdAt") FROM messages m WHERE m."roomId"=cr.id AND m."senderId"=cr."userId" AND m."isDeleted"=false) AS cust_at,
-          (SELECT MIN(m."createdAt") FROM messages m WHERE m."roomId"=cr.id AND m."senderId"=pp."userId" AND m."isDeleted"=false) AS pro_at
-        FROM chat_rooms cr JOIN pro_profiles pp ON pp.id = cr."proProfileId"
-      )
-      SELECT rr.pro_id, u.name AS pro_name,
-        COUNT(*) FILTER (WHERE rr.cust_at IS NOT NULL AND rr.pro_at IS NOT NULL AND rr.pro_at >= rr.cust_at) AS replied,
-        AVG(EXTRACT(EPOCH FROM (rr.pro_at - rr.cust_at))) FILTER (WHERE rr.cust_at IS NOT NULL AND rr.pro_at IS NOT NULL AND rr.pro_at >= rr.cust_at) AS avg_sec,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (rr.pro_at - rr.cust_at))) FILTER (WHERE rr.cust_at IS NOT NULL AND rr.pro_at IS NOT NULL AND rr.pro_at >= rr.cust_at) AS median_sec
-      FROM rr JOIN users u ON u.id = rr.pro_user_id
-      GROUP BY rr.pro_id, u.name
-      HAVING COUNT(*) FILTER (WHERE rr.cust_at IS NOT NULL AND rr.pro_at IS NOT NULL AND rr.pro_at >= rr.cust_at) > 0
-      ORDER BY median_sec ASC NULLS LAST
-      LIMIT ${Math.max(1, Math.min(50, limit))}
+      SELECT md."proProfileId" AS pro_id, u.name AS pro_name,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE md."repliedAt" IS NOT NULL) AS replied,
+        COUNT(*) FILTER (WHERE md.status = 'declined') AS declined,
+        AVG(EXTRACT(EPOCH FROM (md."repliedAt" - md."deliveredAt"))) FILTER (WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= md."deliveredAt") AS avg_sec,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (md."repliedAt" - md."deliveredAt"))) FILTER (WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= md."deliveredAt") AS median_sec
+      FROM match_deliveries md
+      JOIN pro_profiles pp ON pp.id = md."proProfileId"
+      JOIN users u ON u.id = pp."userId"
+      GROUP BY md."proProfileId", u.name
+      HAVING COUNT(*) > 0
+      ORDER BY replied DESC, median_sec ASC NULLS LAST, total DESC
+      LIMIT ${Math.max(1, Math.min(120, limit))}
     `);
     return {
-      data: rows.map((r) => ({
-        proProfileId: r.pro_id,
-        proName: r.pro_name || '-',
-        repliedCount: Number(r.replied) || 0,
-        avgSec: r.avg_sec != null ? Math.round(Number(r.avg_sec)) : null,
-        medianSec: r.median_sec != null ? Math.round(Number(r.median_sec)) : null,
-      })),
+      data: rows.map((r) => {
+        const total = Number(r.total) || 0;
+        const responded = Number(r.replied) || 0;
+        const declined = Number(r.declined) || 0;
+        return {
+          proProfileId: r.pro_id,
+          proName: r.pro_name || '-',
+          totalRooms: total,
+          responded,
+          declined,
+          notResponded: Math.max(0, total - responded),
+          repliedCount: responded,
+          avgSec: r.avg_sec != null ? Math.round(Number(r.avg_sec)) : null,
+          medianSec: r.median_sec != null ? Math.round(Number(r.median_sec)) : null,
+        };
+      }),
     };
   }
 

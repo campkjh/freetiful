@@ -25,6 +25,7 @@ interface ConnRow {
   lastMessageAt: string | null;
   firstCustomerAt: string | null;
   firstProReplyAt: string | null;
+  matchStatus: string | null;
   responseMs: number | null;
 }
 
@@ -35,7 +36,7 @@ interface ConnStats {
   paid: number; paidRate: number;
 }
 
-interface RespStat { proProfileId: string; proName: string; repliedCount: number; avgSec: number | null; medianSec: number | null; }
+interface RespStat { proProfileId: string; proName: string; totalRooms: number; responded: number; declined: number; notResponded: number; repliedCount: number; avgSec: number | null; medianSec: number | null; }
 
 interface HistoryMsg { id: string; fromPro: boolean; type: string; content: string | null; fileName: string | null; createdAt: string; }
 
@@ -165,8 +166,6 @@ export default function ChatConnectionsPage() {
     { label: '결제 전환율', value: `${stats.paidRate}%`, sub: `${stats.paid.toLocaleString()}건 결제 완료`, tone: 'text-[#16A34A]' },
   ] : [];
 
-  const maxMedian = respStats && respStats.length ? Math.max(...respStats.map((r) => r.medianSec || 0), 1) : 1;
-
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3 px-1">
@@ -208,8 +207,8 @@ export default function ChatConnectionsPage() {
       <div className="admin-card-soft p-5">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <Zap size={16} className="text-[#3182F6]" />
-          <h2 className="text-[15px] font-black text-[#191F28]">사회자별 응답 속도</h2>
-          <span className="text-[11px] font-medium text-[#8B95A1]">고객 첫 요청 → 사회자 첫 답장 (중앙값, 빠른 순)</span>
+          <h2 className="text-[15px] font-black text-[#191F28]">사회자별 응답 현황</h2>
+          <span className="text-[11px] font-medium text-[#8B95A1]">매칭의뢰 도착 → 답장 기준 · 응답률 + 통상 응답시간(중앙값) · 요청 많은 순</span>
         </div>
         {/* 등급 범례 */}
         <div className="mb-3 flex flex-wrap gap-1.5">
@@ -225,19 +224,35 @@ export default function ChatConnectionsPage() {
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">응답 데이터가 아직 없습니다</div>
         ) : (
           <div className="mt-1 space-y-2">
+            {/* 컬럼 헤더 */}
+            <div className="flex items-center gap-2.5 px-0.5 text-[10px] font-bold text-[#B0B8C1]">
+              <div className="w-16 shrink-0">사회자</div>
+              <div className="flex-1">응답률 (응답 / 요청)</div>
+              <div className="w-[150px] shrink-0 text-right">거절 · 미응답</div>
+              <div className="w-16 shrink-0 text-right">응답시간</div>
+              <div className="w-[66px] shrink-0 text-center">등급</div>
+            </div>
             {respStats.map((r) => {
               const g = respGrade(r.medianSec);
+              const rate = r.totalRooms ? Math.round((r.responded / r.totalRooms) * 100) : 0;
+              const ignored = Math.max(0, r.notResponded - (r.declined || 0));
               return (
                 <div key={r.proProfileId} className="flex items-center gap-2.5">
                   <div className="w-16 shrink-0 truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</div>
                   <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-[#F2F4F6]">
-                    <div className="h-full rounded-md transition-all" style={{ width: `${Math.max(4, Math.round(((r.medianSec || 0) / maxMedian) * 100))}%`, backgroundColor: g.hex }} />
+                    <div className="h-full rounded-md bg-[#3182F6] transition-all" style={{ width: `${Math.max(rate === 0 ? 0 : 6, rate)}%` }} />
+                    <span className="absolute inset-0 flex items-center px-2 text-[10.5px] font-bold text-[#191F28]">
+                      응답 {r.responded}/{r.totalRooms} · {rate}%
+                    </span>
+                  </div>
+                  <div className="flex w-[150px] shrink-0 items-center justify-end gap-1 text-[10.5px] font-bold">
+                    <span className="rounded px-1.5 py-0.5" style={{ color: '#B45309', backgroundColor: '#FEF3C7' }}>거절 {r.declined || 0}</span>
+                    <span className="rounded px-1.5 py-0.5" style={{ color: ignored > 0 ? '#B91C1C' : '#B0B8C1', backgroundColor: ignored > 0 ? '#FEE2E2' : '#F2F4F6' }}>무응답 {ignored}</span>
                   </div>
                   <div className="w-16 shrink-0 text-right text-[12.5px] font-bold" style={{ color: g.hex }}>{fmtSec(r.medianSec)}</div>
                   <div className="w-[66px] shrink-0 text-center">
                     <span className="rounded-md px-2 py-0.5 text-[11px] font-black" style={{ color: g.hex, backgroundColor: g.hex + '1a' }}>{g.label}</span>
                   </div>
-                  <div className="w-10 shrink-0 text-right text-[11px] font-medium text-[#8B95A1]">{r.repliedCount}건</div>
                 </div>
               );
             })}
@@ -307,7 +322,7 @@ export default function ChatConnectionsPage() {
                       {r.fromMatch ? '모두에게' : '1:1문의'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-[#4E5968]">{fmtDate(r.firstCustomerAt)}</td>
+                  <td className="px-4 py-3 text-[12px] text-[#4E5968]">{fmtDate(r.firstCustomerAt || r.createdAt)}</td>
                   <td className="px-4 py-3 text-[12px] text-[#4E5968]">{fmtDate(r.firstProReplyAt)}</td>
                   <td className="px-4 py-3 text-center">
                     {r.responseMs != null
@@ -316,7 +331,9 @@ export default function ChatConnectionsPage() {
                             <Clock size={11} />{fmtDuration(r.responseMs)} · {g.label}
                           </span>
                         ); })()
-                      : <span className="text-[11px] font-semibold text-[#C4CCD4]">{r.twoWay ? '-' : (r.messageCount > 0 ? '무응답' : '대화없음')}</span>}
+                      : r.matchStatus === 'declined'
+                        ? <span className="rounded-md bg-[#FEF3C7] px-2 py-0.5 text-[11px] font-bold text-[#B45309]">거절</span>
+                        : <span className="text-[11px] font-semibold text-[#C4CCD4]">{r.twoWay ? '-' : (r.messageCount > 0 ? '무응답' : '대화없음')}</span>}
                   </td>
                   <td className="px-4 py-3">
                     {r.quotationStatus
