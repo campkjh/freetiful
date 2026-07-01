@@ -16,6 +16,11 @@ interface ConnRow {
   proProfileId: string | null;
   proName: string;
   fromMatch: boolean;
+  matchType: 'multi' | 'single';
+  eventLabel: string | null;
+  eventDate: string | null;
+  eventTime: string | null;
+  eventLocation: string | null;
   messageCount: number;
   twoWay: boolean;
   quotationStatus: string | null;
@@ -72,6 +77,19 @@ function fmtDuration(ms: number | null): string {
   return hrem ? `${day}일 ${hrem}시간` : `${day}일`;
 }
 const fmtSec = (sec: number | null) => (sec == null ? '-' : fmtDuration(sec * 1000));
+
+// 행사일: '몇월 몇일'(+시간) — 고객이 입력한 DB값 그대로. eventDate는 @db.Date 라 UTC 자정 → KST 변환 시 하루 밀리지 않게 UTC 필드 사용.
+function fmtEventDate(s: string | null, time: string | null): string {
+  if (!s) return '';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  const md = `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
+  if (time) {
+    const t = new Date(time);
+    if (!Number.isNaN(t.getTime())) return `${md} ${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
+  }
+  return md;
+}
 
 // 응답 속도 등급 (중앙값 기준): 5분↓ 최고 / 20분↓ 양호 / 30분↓ 관심 / 1시간↓ 유저이탈 / 2시간↓ 주의 / 그이상 단도리
 function respGrade(sec: number | null): { label: string; hex: string } {
@@ -296,12 +314,13 @@ export default function ChatConnectionsPage() {
       {/* 연결 목록 (행 클릭 → 대화 내역) */}
       <div className="admin-card-soft overflow-hidden p-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-left text-[13px]">
+          <table className="w-full min-w-[1150px] text-left text-[13px]">
             <thead>
               <tr className="border-b border-[#EEF1F4] bg-[#FAFBFC] text-[11px] font-bold uppercase tracking-wide text-[#8B95A1]">
                 <th className="px-4 py-3">유저</th>
                 <th className="px-4 py-3">사회자</th>
-                <th className="px-4 py-3">매칭경로</th>
+                <th className="px-4 py-3">문의유형</th>
+                <th className="px-4 py-3">행사 정보</th>
                 <th className="px-4 py-3">요청 시각</th>
                 <th className="px-4 py-3">답장 시각</th>
                 <th className="px-4 py-3 text-center">응답시간</th>
@@ -318,9 +337,18 @@ export default function ChatConnectionsPage() {
                   </td>
                   <td className="px-4 py-3 font-bold text-[#191F28]">{r.proName}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${r.fromMatch ? 'bg-[#EBF2FF] text-[#3182F6]' : 'bg-[#F2F4F6] text-[#6B7684]'}`}>
-                      {r.fromMatch ? '모두에게' : '1:1문의'}
+                    <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${r.matchType === 'multi' ? 'bg-[#EBF2FF] text-[#3182F6]' : 'bg-[#FFF1E9] text-[#F97316]'}`}>
+                      {r.matchType === 'multi' ? '모두에게' : '1:1문의'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.eventDate || r.eventLabel ? (
+                      <div className="text-[12px] leading-tight">
+                        <span className="font-bold text-[#191F28]">{fmtEventDate(r.eventDate, r.eventTime) || '날짜미정'}</span>
+                        {r.eventLabel && <span className="ml-1 text-[#6B7684]">· {r.eventLabel}</span>}
+                        {r.eventLocation && <p className="text-[11px] text-[#8B95A1]">{r.eventLocation}</p>}
+                      </div>
+                    ) : <span className="text-[#C4CCD4]">-</span>}
                   </td>
                   <td className="px-4 py-3 text-[12px] text-[#4E5968]">{fmtDate(r.firstCustomerAt || r.createdAt)}</td>
                   <td className="px-4 py-3 text-[12px] text-[#4E5968]">{fmtDate(r.firstProReplyAt)}</td>
