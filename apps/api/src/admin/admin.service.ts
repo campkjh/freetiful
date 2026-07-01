@@ -2667,12 +2667,26 @@ export class AdminService {
           createdAt: true,
           lastMessageAt: true,
           matchRequestId: true,
+          // 견적문의(매칭요청) 원본: 1:1(single)/모두에게(multi) 구분 + 고객이 입력한 행사 정보 그대로
+          matchRequest: {
+            select: {
+              type: true,
+              eventDate: true,
+              eventTime: true,
+              eventLocation: true,
+              createdAt: true,
+              rawUserInput: true,
+              category: { select: { name: true } },
+              eventCategory: { select: { name: true } },
+            },
+          },
           user: { select: { id: true, name: true, phone: true, email: true } },
           proProfile: { select: { id: true, user: { select: { id: true, name: true } } } },
           _count: { select: { messages: true } },
           quotations: { select: { status: true, amount: true }, orderBy: { createdAt: 'desc' } },
         },
-        orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+        // 고객이 견적문의한 최신 순(연결 생성 시각 내림차순)
+        orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -2741,6 +2755,20 @@ export class AdminService {
           ? new Date(replyAt).getTime() - new Date(requestAt).getTime()
           : null;
         const latestQuote = r.quotations[0];
+        const mr = r.matchRequest;
+        // 매칭요청 타입: multi=모두에게, single=1:1문의. 매칭요청 없는 방(순수 직접채팅)은 1:1문의로 취급.
+        const matchType = mr?.type === 'multi' ? 'multi' : 'single';
+        // 고객이 입력한 행사 정보 그대로 — rawUserInput(원본 폼) 우선, 없으면 구조화 필드.
+        const raw: any = (mr?.rawUserInput && typeof mr.rawUserInput === 'object') ? mr.rawUserInput : {};
+        const rawStr = (v: any) => (typeof v === 'string' && v.trim() ? v.trim() : '');
+        const rawCat = rawStr(raw.resolvedCategoryName) || rawStr(raw.categoryName) || mr?.eventCategory?.name || mr?.category?.name || '';
+        const eventName = rawStr(raw.eventName);
+        const eventPart = rawStr(raw.eventPart);
+        // "무슨 행사": 행사명(있으면) / 카테고리 + 예식부(1부예식 등)
+        const eventLabel = [eventName || rawCat, eventPart && eventPart !== eventName ? eventPart : ''].filter(Boolean).join(' · ') || null;
+        const eventLocation = rawStr(raw.location) || rawStr(raw.addressDetail) || mr?.eventLocation || null;
+        // 행사일: 구조화 eventDate 우선, 없으면 rawUserInput.date/eventDateTime
+        const eventDateVal = mr?.eventDate || (rawStr(raw.date) ? new Date(rawStr(raw.date)) : (rawStr(raw.eventDateTime) ? new Date(rawStr(raw.eventDateTime)) : null));
         return {
           id: r.id,
           userId: r.user?.id || null,
@@ -2749,6 +2777,11 @@ export class AdminService {
           proProfileId: r.proProfile?.id || null,
           proName: r.proProfile?.user?.name || '-',
           fromMatch: !!r.matchRequestId,
+          matchType,                                     // multi=모두에게 / single=1:1문의
+          eventLabel,                                    // 무슨 행사(행사명/카테고리+예식부)
+          eventDate: eventDateVal,                       // 행사일(고객 입력 DB값)
+          eventTime: mr?.eventTime || null,              // 행사 시간(고객 입력 DB값)
+          eventLocation,                                 // 행사 장소(고객 입력 DB값)
           messageCount: r._count.messages,
           twoWay: userSent && proSent,
           quotationStatus: latestQuote?.status || null,
