@@ -2679,20 +2679,29 @@ export class AdminService {
       this.prisma.chatRoom.count({ where }),
     ]);
 
-    // 이 페이지 방들의 양방향 대화 여부 — 방별 메시지 발신자 distinct
+    // 이 페이지 방들의 메시지 — 양방향 여부 + 응답시간(고객 첫 요청 → 사회자 첫 답장) 계산
     const roomIds = rooms.map((r) => r.id);
-    const senders = roomIds.length
+    const roomMeta = new Map(
+      rooms.map((r) => [r.id, { customerId: r.user?.id, proUserId: r.proProfile?.user?.id }]),
+    );
+    const msgs = roomIds.length
       ? await this.prisma.message.findMany({
           where: { roomId: { in: roomIds }, isDeleted: false },
-          select: { roomId: true, senderId: true },
-          distinct: ['roomId', 'senderId'],
+          select: { roomId: true, senderId: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
         })
       : [];
-    const senderSet = new Map<string, Set<string>>();
-    for (const s of senders) {
-      if (!senderSet.has(s.roomId)) senderSet.set(s.roomId, new Set());
-      senderSet.get(s.roomId)!.add(s.senderId);
+    const agg = new Map<string, { senders: Set<string>; firstCustomerAt: Date | null; firstProReplyAt: Date | null }>();
+    for (const m of msgs) {
+      let a = agg.get(m.roomId);
+      if (!a) { a = { senders: new Set(), firstCustomerAt: null, firstProReplyAt: null }; agg.set(m.roomId, a); }
+      a.senders.add(m.senderId);
+      const meta = roomMeta.get(m.roomId);
+      if (meta?.customerId && m.senderId === meta.customerId && !a.firstCustomerAt) a.firstCustomerAt = m.createdAt;
+      if (meta?.proUserId && m.senderId === meta.proUserId && a.firstCustomerAt && !a.firstProReplyAt && m.createdAt >= a.firstCustomerAt) a.firstProReplyAt = m.createdAt;
     }
+    const senderSet = new Map<string, Set<string>>();
+    for (const [rid, a] of agg) senderSet.set(rid, a.senders);
 
     // 전체 매칭률 (검색/필터 무관, 기간만 반영)
     const baseWhere: any = {};
@@ -2706,9 +2715,13 @@ export class AdminService {
 
     return {
       data: rooms.map((r) => {
-        const set = senderSet.get(r.id) || new Set<string>();
+        const a = agg.get(r.id);
+        const set = a?.senders || new Set<string>();
         const userSent = !!r.user?.id && set.has(r.user.id);
         const proSent = !!r.proProfile?.user?.id && set.has(r.proProfile.user.id);
+        const responseMs = a?.firstCustomerAt && a?.firstProReplyAt
+          ? new Date(a.firstProReplyAt).getTime() - new Date(a.firstCustomerAt).getTime()
+          : null;
         const latestQuote = r.quotations[0];
         return {
           id: r.id,
@@ -2725,6 +2738,9 @@ export class AdminService {
           paid: r.quotations.some((q) => q.status === 'paid'),
           createdAt: r.createdAt,
           lastMessageAt: r.lastMessageAt,
+          firstCustomerAt: a?.firstCustomerAt || null,   // 고객 첫 요청 시각
+          firstProReplyAt: a?.firstProReplyAt || null,   // 사회자 첫 답장 시각
+          responseMs,                                    // 응답까지 걸린 시간(ms)
         };
       }),
       total,
@@ -2739,6 +2755,70 @@ export class AdminService {
         paid: paidAll,
         paidRate: totalAll ? Math.round((paidAll / totalAll) * 1000) / 10 : 0,
       },
+    };
+  }
+
+  // 사회자별 평균/중앙 응답시간(고객 첫 요청 → 사회자 첫 답장) — 상단 분석 그래프용
+  async getChatResponseStats(limit = 15) {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
+      WITH rr AS (
+        SELECT cr."proProfileId" AS pro_id, pp."userId" AS pro_user_id,
+          (SELECT MIN(m."createdAt") FROM messages m WHERE m."roomId"=cr.id AND m."senderId"=cr."userId" AND m."isDeleted"=false) AS cust_at,
+          (SELECT MIN(m."createdAt") FROM messages m WHERE m."roomId"=cr.id AND m."senderId"=pp."userId" AND m."isDeleted"=false) AS pro_at
+        FROM chat_rooms cr JOIN pro_profiles pp ON pp.id = cr."proProfileId"
+      )
+      SELECT rr.pro_id, u.name AS pro_name,
+        COUNT(*) FILTER (WHERE rr.cust_at IS NOT NULL AND rr.pro_at IS NOT NULL AND rr.pro_at >= rr.cust_at) AS replied,
+        AVG(EXTRACT(EPOCH FROM (rr.pro_at - rr.cust_at))) FILTER (WHERE rr.cust_at IS NOT NULL AND rr.pro_at IS NOT NULL AND rr.pro_at >= rr.cust_at) AS avg_sec,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (rr.pro_at - rr.cust_at))) FILTER (WHERE rr.cust_at IS NOT NULL AND rr.pro_at IS NOT NULL AND rr.pro_at >= rr.cust_at) AS median_sec
+      FROM rr JOIN users u ON u.id = rr.pro_user_id
+      GROUP BY rr.pro_id, u.name
+      HAVING COUNT(*) FILTER (WHERE rr.cust_at IS NOT NULL AND rr.pro_at IS NOT NULL AND rr.pro_at >= rr.cust_at) > 0
+      ORDER BY median_sec ASC NULLS LAST
+      LIMIT ${Math.max(1, Math.min(50, limit))}
+    `);
+    return {
+      data: rows.map((r) => ({
+        proProfileId: r.pro_id,
+        proName: r.pro_name || '-',
+        repliedCount: Number(r.replied) || 0,
+        avgSec: r.avg_sec != null ? Math.round(Number(r.avg_sec)) : null,
+        medianSec: r.median_sec != null ? Math.round(Number(r.median_sec)) : null,
+      })),
+    };
+  }
+
+  // 특정 연결(방)의 대화 내역 — 셀 클릭 시 채팅 히스토리 모달
+  async getChatRoomMessages(roomId: string) {
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId },
+      select: {
+        userId: true,
+        user: { select: { name: true } },
+        proProfile: { select: { userId: true, user: { select: { name: true } } } },
+      },
+    });
+    if (!room) return { messages: [], customerName: null, proName: null, proUserId: null, customerId: null };
+    const proUserId = room.proProfile?.userId || null;
+    const messages = await this.prisma.message.findMany({
+      where: { roomId, isDeleted: false },
+      select: { id: true, senderId: true, type: true, content: true, metadata: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+      take: 500,
+    });
+    return {
+      customerId: room.userId,
+      customerName: room.user?.name || '고객',
+      proUserId,
+      proName: room.proProfile?.user?.name || '사회자',
+      messages: messages.map((m) => ({
+        id: m.id,
+        fromPro: m.senderId === proUserId,
+        type: m.type,
+        content: m.content,
+        fileName: (m.metadata as any)?.fileName || null,
+        createdAt: m.createdAt,
+      })),
     };
   }
 }

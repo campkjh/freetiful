@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Search, RefreshCw, MessageSquare, ArrowLeftRight } from 'lucide-react';
+import { ArrowLeft, Search, RefreshCw, MessageSquare, Clock, X, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -23,6 +23,9 @@ interface ConnRow {
   paid: boolean;
   createdAt: string;
   lastMessageAt: string | null;
+  firstCustomerAt: string | null;
+  firstProReplyAt: string | null;
+  responseMs: number | null;
 }
 
 interface ConnStats {
@@ -31,6 +34,10 @@ interface ConnStats {
   quoted: number; quoteRate: number;
   paid: number; paidRate: number;
 }
+
+interface RespStat { proProfileId: string; proName: string; repliedCount: number; avgSec: number | null; medianSec: number | null; }
+
+interface HistoryMsg { id: string; fromPro: boolean; type: string; content: string | null; fileName: string | null; createdAt: string; }
 
 const STATUS_TABS: { id: string; label: string }[] = [
   { id: '전체', label: '전체' },
@@ -52,9 +59,35 @@ function fmtDate(s: string | null) {
   return d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function fmtDuration(ms: number | null): string {
+  if (ms == null) return '-';
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return '즉시';
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}분`;
+  const hr = Math.floor(min / 60); const rem = min % 60;
+  if (hr < 24) return rem ? `${hr}시간 ${rem}분` : `${hr}시간`;
+  const day = Math.floor(hr / 24); const hrem = hr % 24;
+  return hrem ? `${day}일 ${hrem}시간` : `${day}일`;
+}
+const fmtSec = (sec: number | null) => (sec == null ? '-' : fmtDuration(sec * 1000));
+
+// 응답 속도 색상 — 10분 내=초록, 1시간 내=파랑, 6시간 내=주황, 그 외=회색
+function respTone(ms: number | null): string {
+  if (ms == null) return 'bg-[#F2F4F6] text-[#B0B8C1]';
+  const min = ms / 60000;
+  if (min <= 10) return 'bg-[#E7F7EE] text-[#16A34A]';
+  if (min <= 60) return 'bg-[#EBF2FF] text-[#3182F6]';
+  if (min <= 360) return 'bg-[#FFF3E0] text-[#E8850C]';
+  return 'bg-[#F2F4F6] text-[#6B7684]';
+}
+
+const MSG_TYPE_LABEL: Record<string, string> = { image: '[사진]', video: '[동영상]', file: '[파일]', audio: '[음성]', location: '[위치]', voice: '[음성]' };
+
 export default function ChatConnectionsPage() {
   const [rows, setRows] = useState<ConnRow[]>([]);
   const [stats, setStats] = useState<ConnStats | null>(null);
+  const [respStats, setRespStats] = useState<RespStat[] | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -63,6 +96,11 @@ export default function ChatConnectionsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
+
+  // 채팅 히스토리 모달
+  const [historyRow, setHistoryRow] = useState<ConnRow | null>(null);
+  const [historyMsgs, setHistoryMsgs] = useState<HistoryMsg[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const fetchData = useCallback(async (p = 1, s = search, st = status, range = dateRange, append = false) => {
     if (append) setLoadingMore(true); else setLoading(true);
@@ -88,7 +126,27 @@ export default function ChatConnectionsPage() {
     }
   }, [search, status, dateRange]);
 
-  useEffect(() => { fetchData(1, '', '전체', { startDate: '', endDate: '' }); /* eslint-disable-next-line */ }, []);
+  const fetchRespStats = useCallback(async () => {
+    try {
+      const data = await adminFetch('GET', '/api/v1/admin/chat-response-stats?limit=15', undefined, { cache: false });
+      setRespStats(Array.isArray(data?.data) ? data.data : []);
+    } catch { setRespStats([]); }
+  }, []);
+
+  const openHistory = useCallback(async (row: ConnRow) => {
+    setHistoryRow(row);
+    setHistoryMsgs(null);
+    setHistoryLoading(true);
+    try {
+      const data = await adminFetch('GET', `/api/v1/admin/chat-connections/${row.id}/messages`, undefined, { cache: false });
+      setHistoryMsgs(Array.isArray(data?.messages) ? data.messages : []);
+    } catch (e: any) {
+      toast.error(`대화 내역 로드 실패: ${extractAdminError(e).message}`);
+      setHistoryMsgs([]);
+    } finally { setHistoryLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchData(1, '', '전체', { startDate: '', endDate: '' }); fetchRespStats(); /* eslint-disable-next-line */ }, []);
 
   const statCards = stats ? [
     { label: '전체 연결', value: stats.totalConnections.toLocaleString(), sub: '사회자↔유저 채팅방', tone: 'text-[#191F28]' },
@@ -96,6 +154,8 @@ export default function ChatConnectionsPage() {
     { label: '견적 전환율', value: `${stats.quoteRate}%`, sub: `${stats.quoted.toLocaleString()}건 견적 발송`, tone: 'text-[#8B5CF6]' },
     { label: '결제 전환율', value: `${stats.paidRate}%`, sub: `${stats.paid.toLocaleString()}건 결제 완료`, tone: 'text-[#16A34A]' },
   ] : [];
+
+  const maxMedian = respStats && respStats.length ? Math.max(...respStats.map((r) => r.medianSec || 0), 1) : 1;
 
   return (
     <div className="space-y-5">
@@ -109,7 +169,7 @@ export default function ChatConnectionsPage() {
         </div>
         <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}건</span>
         <button
-          onClick={() => fetchData(1, search, status, dateRange)}
+          onClick={() => { fetchData(1, search, status, dateRange); fetchRespStats(); }}
           disabled={loading}
           className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
           title="새로고침"
@@ -132,6 +192,36 @@ export default function ChatConnectionsPage() {
         {!stats && Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="admin-card-soft h-[104px] animate-pulse bg-[#F2F4F6]" />
         ))}
+      </div>
+
+      {/* 사회자별 응답시간 분석 그래프 (통상 얼마 만에 답장하는지 — 중앙값) */}
+      <div className="admin-card-soft p-5">
+        <div className="mb-1 flex items-center gap-2">
+          <Zap size={16} className="text-[#3182F6]" />
+          <h2 className="text-[15px] font-black text-[#191F28]">사회자별 응답 속도</h2>
+          <span className="text-[11px] font-medium text-[#8B95A1]">고객 첫 요청 → 사회자 첫 답장 (중앙값, 빠른 순)</span>
+        </div>
+        {respStats == null ? (
+          <div className="py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>
+        ) : respStats.length === 0 ? (
+          <div className="py-8 text-center text-[13px] text-[#8B95A1]">응답 데이터가 아직 없습니다</div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {respStats.map((r) => (
+              <div key={r.proProfileId} className="flex items-center gap-3">
+                <div className="w-20 shrink-0 truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</div>
+                <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-[#F2F4F6]">
+                  <div
+                    className="h-full rounded-md bg-gradient-to-r from-[#3182F6] to-[#6EA8FF]"
+                    style={{ width: `${Math.max(4, Math.round(((r.medianSec || 0) / maxMedian) * 100))}%` }}
+                  />
+                </div>
+                <div className="w-24 shrink-0 text-right text-[12.5px] font-bold text-[#3182F6]">{fmtSec(r.medianSec)}</div>
+                <div className="w-16 shrink-0 text-right text-[11px] font-medium text-[#8B95A1]">{r.repliedCount}건</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 검색 + 상태 필터 */}
@@ -167,46 +257,41 @@ export default function ChatConnectionsPage() {
         onApply={(range) => { setDateRange(range); setPage(1); fetchData(1, search, status, range); }}
       />
 
-      {/* 연결 목록 */}
+      {/* 연결 목록 (행 클릭 → 대화 내역) */}
       <div className="admin-card-soft overflow-hidden p-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-[13px]">
+          <table className="w-full min-w-[1000px] text-left text-[13px]">
             <thead>
               <tr className="border-b border-[#EEF1F4] bg-[#FAFBFC] text-[11px] font-bold uppercase tracking-wide text-[#8B95A1]">
                 <th className="px-4 py-3">유저</th>
                 <th className="px-4 py-3">사회자</th>
                 <th className="px-4 py-3">매칭경로</th>
-                <th className="px-4 py-3 text-center">메시지</th>
-                <th className="px-4 py-3 text-center">양방향</th>
+                <th className="px-4 py-3">요청 시각</th>
+                <th className="px-4 py-3">답장 시각</th>
+                <th className="px-4 py-3 text-center">응답시간</th>
                 <th className="px-4 py-3">견적</th>
                 <th className="px-4 py-3 text-center">결제</th>
-                <th className="px-4 py-3">최근 대화</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-[#F2F4F6] hover:bg-[#FAFBFC]">
+                <tr key={r.id} onClick={() => openHistory(r)} className="cursor-pointer border-b border-[#F2F4F6] hover:bg-[#F4F8FF]">
                   <td className="px-4 py-3">
-                    {r.userId ? (
-                      <Link href={`/admin/users/${r.userId}`} className="font-bold text-[#191F28] hover:text-[#3182F6]">{r.userName}</Link>
-                    ) : <span className="font-bold text-[#191F28]">{r.userName}</span>}
+                    <span className="font-bold text-[#191F28]">{r.userName}</span>
                     {r.userContact && <p className="text-[11px] text-[#8B95A1]">{r.userContact}</p>}
                   </td>
                   <td className="px-4 py-3 font-bold text-[#191F28]">{r.proName}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${r.fromMatch ? 'bg-[#EBF2FF] text-[#3182F6]' : 'bg-[#F2F4F6] text-[#6B7684]'}`}>
-                      {r.fromMatch ? '매칭요청' : '직접문의'}
+                      {r.fromMatch ? '모두에게' : '1:1문의'}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-[12px] text-[#4E5968]">{fmtDate(r.firstCustomerAt)}</td>
+                  <td className="px-4 py-3 text-[12px] text-[#4E5968]">{fmtDate(r.firstProReplyAt)}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className="inline-flex items-center gap-1 font-semibold text-[#4E5968]">
-                      <MessageSquare size={12} className="text-[#B0B8C1]" />{r.messageCount}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {r.twoWay
-                      ? <span className="inline-flex items-center gap-1 rounded-md bg-[#E7F7EE] px-2 py-0.5 text-[11px] font-bold text-[#16A34A]"><ArrowLeftRight size={11} />성사</span>
-                      : <span className="text-[11px] font-semibold text-[#B0B8C1]">{r.messageCount > 0 ? '일방' : '대화없음'}</span>}
+                    {r.responseMs != null
+                      ? <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${respTone(r.responseMs)}`}><Clock size={11} />{fmtDuration(r.responseMs)}</span>
+                      : <span className="text-[11px] font-semibold text-[#C4CCD4]">{r.twoWay ? '-' : (r.messageCount > 0 ? '무응답' : '대화없음')}</span>}
                   </td>
                   <td className="px-4 py-3">
                     {r.quotationStatus
@@ -218,7 +303,6 @@ export default function ChatConnectionsPage() {
                       ? <span className="rounded-md bg-[#E7F7EE] px-2 py-0.5 text-[11px] font-bold text-[#16A34A]">완료</span>
                       : <span className="text-[#C4CCD4]">-</span>}
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-[#6B7684]">{fmtDate(r.lastMessageAt)}</td>
                 </tr>
               ))}
               {!loading && rows.length === 0 && (
@@ -241,6 +325,43 @@ export default function ChatConnectionsPage() {
           >
             {loadingMore ? '불러오는 중…' : `더 보기 (${rows.length}/${total.toLocaleString()})`}
           </button>
+        </div>
+      )}
+
+      {/* 대화 내역 모달 */}
+      {historyRow && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setHistoryRow(null)}>
+          <div className="flex max-h-[86vh] w-full max-w-[560px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 border-b border-[#EEF1F4] px-5 py-4">
+              <MessageSquare size={18} className="text-[#3182F6]" />
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-black text-[#191F28]">{historyRow.userName} <span className="text-[#B0B8C1]">↔</span> {historyRow.proName}</p>
+                <p className="text-[11px] font-medium text-[#8B95A1]">
+                  {historyRow.responseMs != null ? `응답시간 ${fmtDuration(historyRow.responseMs)} · ` : ''}메시지 {historyRow.messageCount}개
+                </p>
+              </div>
+              <button onClick={() => setHistoryRow(null)} className="ml-auto rounded-full p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6]"><X size={20} /></button>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto bg-[#F7F8FA] px-4 py-4">
+              {historyLoading || historyMsgs == null ? (
+                <p className="py-16 text-center text-[13px] text-[#8B95A1]">불러오는 중…</p>
+              ) : historyMsgs.length === 0 ? (
+                <p className="py-16 text-center text-[13px] text-[#8B95A1]">대화 내역이 없습니다</p>
+              ) : historyMsgs.map((m) => (
+                <div key={m.id} className={`flex ${m.fromPro ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[76%] ${m.fromPro ? 'items-end' : 'items-start'} flex flex-col`}>
+                    <span className="mb-0.5 px-1 text-[10px] font-bold text-[#B0B8C1]">{m.fromPro ? historyRow.proName : historyRow.userName}</span>
+                    <div className={`rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed ${m.fromPro ? 'bg-[#3182F6] text-white' : 'bg-white text-[#191F28] shadow-sm'}`}>
+                      {m.type === 'text' || m.type === 'system'
+                        ? <span className="whitespace-pre-wrap break-words">{m.content}</span>
+                        : <span className="font-semibold opacity-90">{MSG_TYPE_LABEL[m.type] || `[${m.type}]`}{m.fileName ? ` ${m.fileName}` : ''}</span>}
+                    </div>
+                    <span className="mt-0.5 px-1 text-[9.5px] text-[#B0B8C1]">{fmtDate(m.createdAt)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
