@@ -703,7 +703,7 @@ function ProsListContent() {
             {showSearch ? (
               <div
                 key="search-input"
-                className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3.5 py-2 ml-1"
+                className="flex-1 min-w-0 flex items-center gap-2 bg-gray-100 rounded-full px-3.5 py-2 ml-1"
               >
                 <Search size={18} className="text-gray-400 shrink-0" />
                 <input
@@ -712,7 +712,7 @@ function ProsListContent() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="이름, 소개로 검색"
-                  className="flex-1 bg-transparent text-[16px] text-gray-900 placeholder-gray-400 outline-none"
+                  className="flex-1 min-w-0 w-full bg-transparent text-[16px] text-gray-900 placeholder-gray-400 outline-none"
                 />
                 <button
                   onClick={() => { setShowSearch(false); setSearchQuery(''); }}
@@ -730,7 +730,7 @@ function ProsListContent() {
               </h1>
             )}
           </>
-          <div className="flex-1" />
+          {!showSearch && <div className="flex-1" />}
           {!showSearch && (
             <button onClick={() => setShowSearch(true)} className="p-1 active:scale-90 transition-transform">
               <Search size={20} className="text-gray-600" />

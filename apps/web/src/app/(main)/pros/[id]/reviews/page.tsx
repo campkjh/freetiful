@@ -67,8 +67,8 @@ function mapApiReview(r: any): ReviewItem {
       이미지: Number(r.ratingAppearance) || 0,
     },
     content: getReviewComment(r),
-    workDays: Number(r.workDays) || 0,
-    orderRange: r.orderRange || '',
+    workDays: Number(r.workDays) || 14,
+    orderRange: r.orderRange || '협의',
     badge: r.badge || '',
     photos: getReviewPhotos(r),
     proReply: r.proReply

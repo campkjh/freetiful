@@ -189,6 +189,9 @@ export default function ProRequestsPage() {
   const inquiryItemsRef = useRef<any[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  // 웹/안드 거절 사유 입력 모달 (iOS 는 NativeRejectModal 네이티브가 담당)
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const skipRef = useRef(0);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -490,7 +493,7 @@ export default function ProRequestsPage() {
               <div className="mt-4 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => handleReject(request.id)}
+                  onClick={() => { setRejectReason(''); setRejectTarget(request.id); }}
                   disabled={initiatingChat === request.id}
                   className="h-12 flex-1 rounded-[12px] bg-[#F2F4F8] text-[18px] font-semibold text-[#4E5968] transition active:scale-95 disabled:opacity-50"
                 >
@@ -514,6 +517,40 @@ export default function ProRequestsPage() {
           </div>
         )}
       </div>
+
+      {rejectTarget && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setRejectTarget(null)}>
+          <div className="w-full max-w-[440px] rounded-t-3xl bg-white p-5 pb-8 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 sm:hidden" />
+            <h2 className="text-[17px] font-bold text-[#191F28]">거절 사유</h2>
+            <p className="mt-1 text-[13px] text-[#8B95A1]">고객에게 전달됩니다. (선택 입력)</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="예) 요청하신 날짜에 선약이 있어 진행이 어렵습니다."
+              rows={3}
+              maxLength={200}
+              className="mt-3 w-full resize-none rounded-2xl border border-[#E5E8EF] bg-[#F8FAFC] px-4 py-3 text-[15px] text-[#2B313D] outline-none focus:border-[#3180F7]"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectTarget(null)}
+                className="h-12 flex-1 rounded-[12px] bg-[#F2F4F8] text-[16px] font-semibold text-[#4E5968] transition active:scale-95"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => { const id = rejectTarget; const msg = rejectReason.trim(); setRejectTarget(null); if (id) handleReject(id, msg || undefined); }}
+                className="h-12 flex-1 rounded-[12px] bg-[#E5484D] text-[16px] font-semibold text-white transition active:scale-95"
+              >
+                거절하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

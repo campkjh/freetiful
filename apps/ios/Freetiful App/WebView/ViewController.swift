@@ -2014,6 +2014,11 @@ class ViewController: UIViewController,
         guard !id.isEmpty else { return }
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros/' + \(jsLiteral(id)) + '/reviews'));", completionHandler: nil)
     }
+    func proDetailOpenImage(_ url: String) {
+        // 서비스 설명 이미지 탭 → 전체화면 확대 뷰어(채팅과 동일 컴포넌트 재사용)
+        guard !url.isEmpty else { return }
+        present(NativeImageViewer(url: url), animated: true)
+    }
 
     // MARK: - NativeCustomerInquiriesDelegate
     func customerInquiryDidTap(_ link: String, hasRoom: Bool) {

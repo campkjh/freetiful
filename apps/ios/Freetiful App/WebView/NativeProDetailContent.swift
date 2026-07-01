@@ -4,6 +4,7 @@ protocol NativeProDetailDelegate: AnyObject {
     func proDetailInquiry(_ id: String)
     func proDetailOpen(_ id: String)
     func proDetailOpenReviews(_ id: String)
+    func proDetailOpenImage(_ url: String)
 }
 
 // MARK: - 레이더 차트 (웹 RadarChart 동일 — 6축 헥사곤)
@@ -962,14 +963,30 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             iv.clipsToBounds = true
             iv.layer.cornerRadius = 10; iv.layer.cornerCurve = .continuous
             iv.backgroundColor = UIColor(white: 0.95, alpha: 1)
+            // 탭하여 전체화면 확대 (웹과 동일 UX) — src 를 뷰에 보관해 핸들러에서 사용
+            iv.isUserInteractionEnabled = true
+            iv.accessibilityIdentifier = src
+            iv.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(descImageTapped(_:))))
             NativeChatImageLoader.load(src, into: iv, fallback: nil)
             body.addArrangedSubview(iv)
         }
         if !body.arrangedSubviews.isEmpty {
+            // 이미지가 있으면 "탭하여 확대" 안내
+            if !imgs.isEmpty {
+                let hint = UILabel()
+                hint.text = "이미지를 탭하면 확대해서 볼 수 있어요"
+                hint.font = .systemFont(ofSize: 12, weight: .medium)
+                hint.textColor = UIColor(white: 0.6, alpha: 1)
+                body.addArrangedSubview(hint)
+            }
             col.addArrangedSubview(CollapsibleContent(content: body))
         }
         pin(col, into: card, inset: 18)
         return card
+    }
+    @objc private func descImageTapped(_ g: UITapGestureRecognizer) {
+        Haptics.tap()
+        if let url = g.view?.accessibilityIdentifier, !url.isEmpty { delegate?.proDetailOpenImage(url) }
     }
     private func extractImageSrcs(_ html: String) -> [String] {
         var result: [String] = []

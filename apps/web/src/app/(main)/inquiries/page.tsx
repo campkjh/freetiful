@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Clock, MessageCircle, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, MessageCircle, CheckCircle2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { getProfileImageUrl } from '@/lib/default-profile';
 
-type InquiryStatus = '요청중' | '요청승인' | '거래완료';
+type InquiryStatus = '요청중' | '요청승인' | '거래완료' | '거절';
 
 type InquiryCard = {
   id: string;
@@ -22,6 +22,7 @@ type InquiryCard = {
   eventTime: string;
   createdAt: string;
   status: InquiryStatus;
+  declineReason?: string;
 };
 
 const CUSTOMER_INQUIRIES_CACHE_PREFIX = 'freetiful-customer-inquiries-cache-v1';
@@ -76,12 +77,14 @@ function formatTime(value?: string | null) {
 function getStatusTone(status: InquiryStatus) {
   if (status === '거래완료') return 'bg-[#EAF7EF] text-[#159947]';
   if (status === '요청승인') return 'bg-[#EAF3FF] text-[#3180F7]';
+  if (status === '거절') return 'bg-[#FDECEC] text-[#E5484D]';
   return 'bg-gray-100 text-gray-500';
 }
 
 function getStatusIcon(status: InquiryStatus) {
   if (status === '거래완료') return CheckCircle2;
   if (status === '요청승인') return MessageCircle;
+  if (status === '거절') return XCircle;
   return Clock;
 }
 
@@ -103,6 +106,7 @@ function buildCards(requests: any[]): InquiryCard[] {
       const latestQuotation = Array.isArray(room?.quotations) ? room.quotations[0] : null;
       const paid = latestQuotation?.payment?.status === 'completed' || latestQuotation?.status === 'paid';
       const approved = Boolean(room?.id) || delivery.status === 'replied';
+      const declined = delivery.status === 'declined';
       const proProfile = delivery.proProfile || room?.proProfile;
       const proUser = proProfile?.user;
       const proImage = proProfile?.images?.[0]?.imageUrl || proUser?.profileImageUrl || null;
@@ -112,7 +116,8 @@ function buildCards(requests: any[]): InquiryCard[] {
         roomId: room?.id,
         proName: proUser?.name || '사회자',
         proImage,
-        status: paid ? '거래완료' : approved ? '요청승인' : '요청중',
+        status: paid ? '거래완료' : approved ? '요청승인' : declined ? '거절' : '요청중',
+        declineReason: declined ? (delivery.declineReason || undefined) : undefined,
       } as InquiryCard;
     });
 
@@ -223,6 +228,7 @@ export default function CustomerInquiriesPage() {
       category: c.category,
       date: c.createdAt || '',
       location: c.location || '',
+      declineReason: c.declineReason || '',
       link: c.roomId ? `/chat/${c.roomId}` : '',
       hasRoom: Boolean(c.roomId),
     });
@@ -323,6 +329,11 @@ export default function CustomerInquiriesPage() {
                         <p className="truncate text-[13px] font-semibold text-gray-700">{item.location}</p>
                         <p className="mt-0.5 text-[12px] font-medium text-gray-400">{item.eventDate} · {item.eventTime}</p>
                       </div>
+                      {item.status === '거절' && item.declineReason && (
+                        <p className="mt-2 rounded-2xl bg-[#FDECEC] px-3 py-2 text-left text-[12px] leading-5 text-[#B42318]">
+                          거절 사유: {item.declineReason}
+                        </p>
+                      )}
                     </div>
                     <ChevronRight size={18} className="mt-9 shrink-0 text-gray-300" />
                   </div>

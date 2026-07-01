@@ -924,8 +924,18 @@ export default function WeddingMcLandingPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-[#F2F4F7]">
-                  {proCards.map((pro) => (
-                    <div key={pro.id} className="px-4 py-3">
+                  {proCards.map((pro) => {
+                    const isRealPro = pro.id && !String(pro.id).startsWith('fb-');
+                    const goDetail = () => { if (!isRealPro) return; setShowProModal(false); router.push(`/pros/${pro.id}`); };
+                    return (
+                    <div
+                      key={pro.id}
+                      onClick={goDetail}
+                      role={isRealPro ? 'button' : undefined}
+                      tabIndex={isRealPro ? 0 : undefined}
+                      onKeyDown={isRealPro ? (e) => { if (e.key === 'Enter') goDetail(); } : undefined}
+                      className={`px-4 py-3 ${isRealPro ? 'cursor-pointer transition active:bg-[#F7F9FC]' : ''}`}
+                    >
                       <div className="relative flex gap-3 rounded-xl">
                         <div className="relative h-[140px] w-[105px] shrink-0 overflow-hidden rounded-lg bg-gray-100">
                           <img
@@ -977,7 +987,8 @@ export default function WeddingMcLandingPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

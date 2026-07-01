@@ -525,6 +525,7 @@ model MatchDelivery {
   deliveredAt    DateTime @default(now())
   viewedAt       DateTime?
   repliedAt      DateTime?
+  declineReason  String?  // 사회자가 거절 시 남긴 사유 (고객 문의목록에 노출)
 
   matchRequest MatchRequest @relation(fields: [matchRequestId], references: [id], onDelete: Cascade)
   proProfile   ProProfile   @relation(fields: [proProfileId], references: [id])
