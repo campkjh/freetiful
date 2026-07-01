@@ -72,15 +72,25 @@ function fmtDuration(ms: number | null): string {
 }
 const fmtSec = (sec: number | null) => (sec == null ? '-' : fmtDuration(sec * 1000));
 
-// 응답 속도 색상 — 10분 내=초록, 1시간 내=파랑, 6시간 내=주황, 그 외=회색
-function respTone(ms: number | null): string {
-  if (ms == null) return 'bg-[#F2F4F6] text-[#B0B8C1]';
-  const min = ms / 60000;
-  if (min <= 10) return 'bg-[#E7F7EE] text-[#16A34A]';
-  if (min <= 60) return 'bg-[#EBF2FF] text-[#3182F6]';
-  if (min <= 360) return 'bg-[#FFF3E0] text-[#E8850C]';
-  return 'bg-[#F2F4F6] text-[#6B7684]';
+// 응답 속도 등급 (중앙값 기준): 5분↓ 최고 / 20분↓ 양호 / 30분↓ 관심 / 1시간↓ 유저이탈 / 2시간↓ 주의 / 그이상 단도리
+function respGrade(sec: number | null): { label: string; hex: string } {
+  if (sec == null) return { label: '-', hex: '#B0B8C1' };
+  const min = sec / 60;
+  if (min < 5) return { label: '최고', hex: '#16A34A' };
+  if (min < 20) return { label: '양호', hex: '#0EA5E9' };
+  if (min < 30) return { label: '관심', hex: '#EAB308' };
+  if (min < 60) return { label: '유저이탈', hex: '#F97316' };
+  if (min < 120) return { label: '주의', hex: '#EF4444' };
+  return { label: '단도리', hex: '#B91C1C' };
 }
+const GRADE_LEGEND = [
+  { label: '최고', sub: '5분↓', hex: '#16A34A' },
+  { label: '양호', sub: '20분↓', hex: '#0EA5E9' },
+  { label: '관심', sub: '30분↓', hex: '#EAB308' },
+  { label: '유저이탈', sub: '1시간↓', hex: '#F97316' },
+  { label: '주의', sub: '2시간↓', hex: '#EF4444' },
+  { label: '단도리', sub: '2시간↑', hex: '#B91C1C' },
+];
 
 const MSG_TYPE_LABEL: Record<string, string> = { image: '[사진]', video: '[동영상]', file: '[파일]', audio: '[음성]', location: '[위치]', voice: '[음성]' };
 
@@ -196,30 +206,41 @@ export default function ChatConnectionsPage() {
 
       {/* 사회자별 응답시간 분석 그래프 (통상 얼마 만에 답장하는지 — 중앙값) */}
       <div className="admin-card-soft p-5">
-        <div className="mb-1 flex items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <Zap size={16} className="text-[#3182F6]" />
           <h2 className="text-[15px] font-black text-[#191F28]">사회자별 응답 속도</h2>
           <span className="text-[11px] font-medium text-[#8B95A1]">고객 첫 요청 → 사회자 첫 답장 (중앙값, 빠른 순)</span>
+        </div>
+        {/* 등급 범례 */}
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {GRADE_LEGEND.map((g) => (
+            <span key={g.label} className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-bold" style={{ color: g.hex, backgroundColor: g.hex + '1a' }}>
+              {g.label}<span className="font-medium opacity-70">{g.sub}</span>
+            </span>
+          ))}
         </div>
         {respStats == null ? (
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>
         ) : respStats.length === 0 ? (
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">응답 데이터가 아직 없습니다</div>
         ) : (
-          <div className="mt-3 space-y-2">
-            {respStats.map((r) => (
-              <div key={r.proProfileId} className="flex items-center gap-3">
-                <div className="w-20 shrink-0 truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</div>
-                <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-[#F2F4F6]">
-                  <div
-                    className="h-full rounded-md bg-gradient-to-r from-[#3182F6] to-[#6EA8FF]"
-                    style={{ width: `${Math.max(4, Math.round(((r.medianSec || 0) / maxMedian) * 100))}%` }}
-                  />
+          <div className="mt-1 space-y-2">
+            {respStats.map((r) => {
+              const g = respGrade(r.medianSec);
+              return (
+                <div key={r.proProfileId} className="flex items-center gap-2.5">
+                  <div className="w-16 shrink-0 truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</div>
+                  <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-[#F2F4F6]">
+                    <div className="h-full rounded-md transition-all" style={{ width: `${Math.max(4, Math.round(((r.medianSec || 0) / maxMedian) * 100))}%`, backgroundColor: g.hex }} />
+                  </div>
+                  <div className="w-16 shrink-0 text-right text-[12.5px] font-bold" style={{ color: g.hex }}>{fmtSec(r.medianSec)}</div>
+                  <div className="w-[66px] shrink-0 text-center">
+                    <span className="rounded-md px-2 py-0.5 text-[11px] font-black" style={{ color: g.hex, backgroundColor: g.hex + '1a' }}>{g.label}</span>
+                  </div>
+                  <div className="w-10 shrink-0 text-right text-[11px] font-medium text-[#8B95A1]">{r.repliedCount}건</div>
                 </div>
-                <div className="w-24 shrink-0 text-right text-[12.5px] font-bold text-[#3182F6]">{fmtSec(r.medianSec)}</div>
-                <div className="w-16 shrink-0 text-right text-[11px] font-medium text-[#8B95A1]">{r.repliedCount}건</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -290,7 +311,11 @@ export default function ChatConnectionsPage() {
                   <td className="px-4 py-3 text-[12px] text-[#4E5968]">{fmtDate(r.firstProReplyAt)}</td>
                   <td className="px-4 py-3 text-center">
                     {r.responseMs != null
-                      ? <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${respTone(r.responseMs)}`}><Clock size={11} />{fmtDuration(r.responseMs)}</span>
+                      ? (() => { const g = respGrade(r.responseMs / 1000); return (
+                          <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold" style={{ color: g.hex, backgroundColor: g.hex + '1a' }}>
+                            <Clock size={11} />{fmtDuration(r.responseMs)} · {g.label}
+                          </span>
+                        ); })()
                       : <span className="text-[11px] font-semibold text-[#C4CCD4]">{r.twoWay ? '-' : (r.messageCount > 0 ? '무응답' : '대화없음')}</span>}
                   </td>
                   <td className="px-4 py-3">
