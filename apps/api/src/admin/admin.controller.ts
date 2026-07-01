@@ -485,4 +485,16 @@ export class AdminController {
       endDate,
     });
   }
+
+  // 사회자별 응답시간 분석 (상단 그래프)
+  @Get('chat-response-stats')
+  async getChatResponseStats(@Query('limit') limit?: string) {
+    return this.adminService.getChatResponseStats(limit ? Number(limit) : 15);
+  }
+
+  // 특정 연결(방)의 대화 내역 (셀 클릭 → 채팅 히스토리)
+  @Get('chat-connections/:roomId/messages')
+  async getChatRoomMessages(@Param('roomId') roomId: string) {
+    return this.adminService.getChatRoomMessages(roomId);
+  }
 }
