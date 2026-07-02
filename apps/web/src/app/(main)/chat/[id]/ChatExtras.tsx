@@ -1746,6 +1746,31 @@ export default function ChatExtras(props: ChatExtrasProps) {
     }
   };
 
+  // 파일 선택 인풋 열기 — 안드 웹뷰는 DOM 에 안 붙은(detached) input.click() 을 무시하는
+  // 기기가 있어(갤럭시 동영상/파일 안 열림) 반드시 body 에 붙였다가 정리한다.
+  const pickFilesViaInput = (opts: { accept?: string; multiple?: boolean; capture?: string }, onFiles: (files: File[]) => void) => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    if (opts.accept) inp.accept = opts.accept;
+    if (opts.multiple) inp.multiple = true;
+    if (opts.capture) inp.setAttribute('capture', opts.capture);
+    inp.style.position = 'fixed';
+    inp.style.left = '-9999px';
+    inp.style.width = '1px';
+    inp.style.height = '1px';
+    inp.style.opacity = '0';
+    const cleanup = () => { try { inp.remove(); } catch {} };
+    inp.onchange = (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      cleanup();
+      if (files.length) onFiles(files);
+    };
+    document.body.appendChild(inp);
+    inp.click();
+    // 취소 시 leak 방지 (안드/iOS 는 cancel 이벤트가 안 와서 지연 정리)
+    setTimeout(cleanup, 5 * 60_000);
+  };
+
   const handleFileSend = async (file: File) => {
     setShowAttach(false);
     if (file.size > 30 * 1024 * 1024) {
@@ -1888,10 +1913,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
         case 'photo': fileInputRef.current?.click(); break;
         case 'emoji': toast('곧 제공될 예정입니다', { icon: '😊' }); break;
         case 'file': {
-          const inp = document.createElement('input');
-          inp.type = 'file';
-          inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); };
-          inp.click();
+          // ⚠️iOS 네이티브 시트에서 오는 경로는 user-gesture 없는 evaluateJavaScript 라
+          // input.click() 이 무시될 수 있음 — iOS 는 네이티브 문서피커(chatBarsInvokeAttach)가 우선 처리.
+          pickFilesViaInput({}, (files) => { if (files[0]) handleFileSend(files[0]); });
           break;
         }
         case 'location': handleLocationSend(); break;
@@ -1939,7 +1963,10 @@ export default function ChatExtras(props: ChatExtrasProps) {
         const bin = atob(e.parts.join(''));
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        handleImageSend(new File([bytes], e.name, { type: e.mime || 'application/octet-stream' }));
+        const f = new File([bytes], e.name, { type: e.mime || 'application/octet-stream' });
+        // 이미지/영상은 미디어 경로, 그 외(PDF 등)는 파일 경로로 — 네이티브 문서피커 지원
+        const isMedia = /^(image|video)\//.test(f.type) || /\.(jpe?g|png|gif|webp|heic|mp4|mov|m4v|webm)$/i.test(f.name);
+        if (isMedia) handleImageSend(f); else handleFileSend(f);
       } catch { toast.error('미디어를 불러오지 못했습니다'); }
     };
     w.__freetifulChatActions = {
@@ -2174,11 +2201,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const ATTACH_ITEMS = [
     // 견적서 발송을 최상단으로 (프로에게 가장 중요한 액션)
     ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
-    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => { setShowAttach(false); const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment'); inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleImageSend(f); }; inp.click(); } },
+    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'image/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
-    { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상', action: () => { setShowAttach(false); const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'video/*'; inp.multiple = true; inp.onchange = (e) => { const files = Array.from((e.target as HTMLInputElement).files || []); (async () => { for (const f of files) await handleImageSend(f); })(); }; inp.click(); } },
+    { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
     { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
-    { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { const inp = document.createElement('input'); inp.type = 'file'; inp.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFileSend(f); }; inp.click(); } },
+    { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { setShowAttach(false); pickFilesViaInput({}, (files) => { if (files[0]) handleFileSend(files[0]); }); } },
     { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
   ];
 

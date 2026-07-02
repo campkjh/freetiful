@@ -17,13 +17,20 @@ export class UploadController {
     const id = rawId.replace(/\.[a-z0-9]+$/i, '');
     const file = await this.prisma.uploadedFile.findUnique({
       where: { id },
-      select: { data: true, mimeType: true },
+      select: { data: true, mimeType: true, fileName: true },
     });
     if (!file) throw new NotFoundException('파일을 찾을 수 없습니다');
 
     const buf = Buffer.from(file.data);
     const mime = file.mimeType || 'application/octet-stream';
     res.setHeader('Content-Type', mime);
+    // 파일명/타입 인식용 Content-Disposition — 미리보기 가능한 타입(브라우저/iOS 뷰어)은
+    // inline(바로 열림), 그 외는 attachment(다운로드). filename* 은 한글 파일명 RFC5987 인코딩.
+    if (file.fileName) {
+      const dispType = /^(image\/|video\/|audio\/|application\/pdf|text\/)/.test(mime) ? 'inline' : 'attachment';
+      const enc = encodeURIComponent(file.fileName).replace(/['()]/g, (c) => '%' + c.charCodeAt(0).toString(16));
+      res.setHeader('Content-Disposition', `${dispType}; filename*=UTF-8''${enc}`);
+    }
     // iOS WebKit 은 <video> 재생 시 Range 요청을 보내고, 206(부분응답)이 없으면 재생을 거부한다
     // → 동영상 말풍선이 빈칸으로 뜨던 원인. Range 를 지원해 부분 응답을 돌려준다.
     res.setHeader('Accept-Ranges', 'bytes');

@@ -55,16 +55,26 @@ export class ImageService {
   }
 
   /** DB (Postgres bytea) 에 파일 저장 후 공개 URL 경로 반환 */
-  private async saveToDb(buffer: Buffer, mimeType: string): Promise<string> {
+  private async saveToDb(buffer: Buffer, mimeType: string, fileName?: string): Promise<string> {
     const record = await this.prisma.uploadedFile.create({
       data: {
         mimeType,
         data: buffer,
         size: buffer.length,
+        fileName: fileName?.slice(0, 255) || null,
       },
       select: { id: true },
     });
     return `/uploads/${record.id}`;
+  }
+
+  /** multer originalname 은 latin1 로 디코딩돼 한글이 깨짐 → UTF-8 복원 (실패 시 원본 유지) */
+  private decodeOriginalName(name?: string): string | undefined {
+    if (!name) return undefined;
+    try {
+      const utf8 = Buffer.from(name, 'latin1').toString('utf8');
+      return utf8.includes('�') ? name : utf8;
+    } catch { return name; }
   }
 
   async onModuleInit() {
@@ -137,7 +147,7 @@ export class ImageService {
     }
     // 2) DB(bytea) — 영구저장, UploadController 가 /uploads/:id 로 mimeType 과 함께 서빙
     try {
-      return await this.saveToDb(buffer, contentType);
+      return await this.saveToDb(buffer, contentType, this.decodeOriginalName(originalName));
     } catch (e: any) {
       this.logger.warn(`saveRawMedia DB save failed: ${e?.message || e}`);
       // 프로덕션에선 휘발성 fs 로 폴백하면 재배포 시 파일이 사라져 나중에 404("전에 올린 파일") 가

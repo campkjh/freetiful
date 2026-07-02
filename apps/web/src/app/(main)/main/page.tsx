@@ -1631,13 +1631,14 @@ export default function HomePage() {
           rating: Number(p.avgRating ?? p.rating) || 0,
           reviewCount: p.reviewCount || 0,
           intro: p.shortIntro || p.mainExperience || '',
+          youtubeUrl: p.youtubeUrl || '',
         }));
         (window as any).webkit?.messageHandlers?.nativeHomeRows?.postMessage({ index, items });
       } catch {}
     };
     // 전체(홈) 네이티브 섹션 데이터 (BEST/더많은/행사 사회자 + 웨딩홀/드레스 업체)
     const proImg = (p: any) => abs(p.image || p.profileImageUrl || p.mainImage || (Array.isArray(p.images) ? (typeof p.images[0] === 'string' ? p.images[0] : p.images?.[0]?.imageUrl) : '') || p.user?.profileImageUrl || '');
-    const proCard = (p: any) => ({ id: p.id, name: p.name || p.user?.name || '사회자', image: proImg(p), careerYears: Number(p.careerYears) || 0, tags: Array.isArray(p.tags) ? p.tags.slice(0, 3) : [], isPartner: Boolean(p.isFeatured || p.showPartnersLogo) });
+    const proCard = (p: any) => ({ id: p.id, name: p.name || p.user?.name || '사회자', image: proImg(p), careerYears: Number(p.careerYears) || 0, tags: Array.isArray(p.tags) ? p.tags.slice(0, 3) : [], isPartner: Boolean(p.isFeatured || p.showPartnersLogo), youtubeUrl: p.youtubeUrl || '' });
     let bizCache: any[] | null = null;
     const fetchBusiness = async (): Promise<any[]> => {
       if (bizCache) return bizCache;
@@ -1650,7 +1651,7 @@ export default function HomePage() {
     (window as any).__freetifulHomeSectionsPost = async () => {
       try {
         const [pros, biz] = await Promise.all([fetchAllPros(), fetchBusiness()]);
-        const best = [...filterByTab(1, pros)].sort((a, b) => (Number(b.careerYears) || 0) - (Number(a.careerYears) || 0)).slice(0, 3).map((p: any) => ({ id: p.id, name: p.name || '사회자', image: proImg(p), careerYears: Number(p.careerYears) || 0 }));
+        const best = [...filterByTab(1, pros)].sort((a, b) => (Number(b.careerYears) || 0) - (Number(a.careerYears) || 0)).slice(0, 3).map((p: any) => ({ id: p.id, name: p.name || '사회자', image: proImg(p), careerYears: Number(p.careerYears) || 0, youtubeUrl: p.youtubeUrl || '' }));
         const morePros = pros.slice(0, 6).map(proCard);
         let event = filterByTab(2, pros);
         if (event.length < 9) { const ids = new Set(event.map((p: any) => p.id)); event = [...event, ...pros.filter((p: any) => !ids.has(p.id))]; }
