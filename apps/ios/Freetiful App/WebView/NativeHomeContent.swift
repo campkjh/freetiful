@@ -27,6 +27,7 @@ struct HomeProItem {
     let intro: String
     let careerYears: Int
     var tags: [String] = []
+    var youtubeUrl: String = ""
 }
 
 // 네이티브 홈 스크린 본문 (웹 홈 위에 전체 덮음) — 완성될 때까지 단계적으로 섹션 추가.
@@ -581,6 +582,8 @@ final class HomeProCell: UIControl {
         photo.isUserInteractionEnabled = false
         addSubview(photo)
         NativeChatImageLoader.load(item.image, into: photo, fallback: NativeChatHeaderView.avatarPlaceholder)
+        // 유튜브 영상 썸네일 배지 (웹 HomeProTabCard 동등)
+        addYoutubeBadge(to: self, over: photo, youtubeUrl: item.youtubeUrl)
 
         let name = UILabel()
         name.text = item.name

@@ -100,6 +100,7 @@ class ViewController: UIViewController,
     private var currentReviewProId = ""
     private let chatLocationManager = CLLocationManager()   // 채팅 위치 공유
     private var pendingLocationSend = false
+    private var docInteraction: UIDocumentInteractionController?   // 파일 미리보기 중 강한 참조 유지
     private let nativeHomeHeader = NativeHomeHeader()
     private var isOnHome = false
     private let nativeHomeContent = NativeHomeContent(imageBase: "https://freetiful.com")
@@ -1868,7 +1869,7 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.deleteMedia && window.__freetifulChat.deleteMedia(\(jsLiteral(id)));", completionHandler: nil)
     }
 
-    func chatMessagesFileTap(_ url: String) {
+    func chatMessagesFileTap(_ url: String, fileName: String) {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let full: String
@@ -1877,7 +1878,39 @@ class ViewController: UIViewController,
         else { full = "\(kWebBase)/\(trimmed)" }
         guard let u = URL(string: full), u.scheme == "http" || u.scheme == "https" else { return }
         Haptics.tap()
-        present(SFSafariViewController(url: u), animated: true)
+        // URL 이 /uploads/<uuid>(확장자 없음)라 Safari 로는 PDF 인식/저장이 안 됨 →
+        // 파일명으로 임시 저장 후 QuickLook(공유 포함) 미리보기. 실패 시 Safari 폴백.
+        showNativeToast("파일 여는 중…")
+        URLSession.shared.downloadTask(with: u) { [weak self] tmp, resp, _ in
+            guard let self = self else { return }
+            let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            guard let tmp = tmp, (200...299).contains(status) else {
+                DispatchQueue.main.async { self.present(SFSafariViewController(url: u), animated: true) }
+                return
+            }
+            var name = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if name.isEmpty { name = resp?.suggestedFilename ?? u.lastPathComponent }
+            if name.isEmpty { name = "file" }
+            // 확장자 없으면 mime 으로 보강 (QuickLook 타입 인식용)
+            if !name.contains("."), let mime = resp?.mimeType, let ext = UTType(mimeType: mime)?.preferredFilenameExtension {
+                name += ".\(ext)"
+            }
+            let dest = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+            try? FileManager.default.removeItem(at: dest)
+            do { try FileManager.default.moveItem(at: tmp, to: dest) } catch {
+                DispatchQueue.main.async { self.present(SFSafariViewController(url: u), animated: true) }
+                return
+            }
+            DispatchQueue.main.async {
+                let ic = UIDocumentInteractionController(url: dest)
+                ic.delegate = self
+                self.docInteraction = ic   // presentPreview 동안 강한 참조 유지 필요
+                if !ic.presentPreview(animated: true) {
+                    // 미리보기 불가 타입 → 공유 시트(파일에 저장/타 앱 열기)
+                    ic.presentOptionsMenu(from: self.view.bounds, in: self.view, animated: true)
+                }
+            }
+        }.resume()
     }
 
     // MARK: - NativeHomeHeaderDelegate
@@ -2293,6 +2326,12 @@ class ViewController: UIViewController,
             presentNativePhotoPicker()
             return
         }
+        if id == "file" {
+            // evaluateJavaScript 경유 input.click() 은 user-gesture 가 없어 WKWebView 가 무시
+            // → 파일 선택창이 아예 안 열리던 원인. 네이티브 문서 피커로 대체.
+            presentNativeFilePicker()
+            return
+        }
         // ChatExtras(lazy) 미마운트 레이스 — 브리지 없으면 0.6s 후 1회 재시도
         let js = "(function(){ if (window.__freetifulChatActions) { window.__freetifulChatActions.invokeAttach(\(jsLiteral(id))); return true; } return false; })();"
         webView.evaluateJavaScript(js) { [weak self] ok, _ in
@@ -2315,6 +2354,14 @@ class ViewController: UIViewController,
         chatLocationManager.delegate = self
         if status == .notDetermined { chatLocationManager.requestWhenInUseAuthorization() }
         else { chatLocationManager.requestLocation() }
+    }
+
+    // + → 파일: 네이티브 문서 피커 (PDF 등 모든 파일) → 청크 base64 브리지로 웹 전송
+    private func presentNativeFilePicker() {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.item], asCopy: true)
+        picker.allowsMultipleSelection = false
+        picker.delegate = self
+        present(picker, animated: true)
     }
 
     // + → 사진: 시스템 액션시트 거치지 않고 PHPicker 로 바로 사진첩(사진/영상)
@@ -3249,6 +3296,32 @@ extension ViewController {
             completionHandler(alert?.textFields?.first?.text)
         })
         presentJSPanel(alert) { completionHandler(nil) }
+    }
+}
+
+// MARK: - 파일 미리보기 (QuickLook via UIDocumentInteractionController)
+extension ViewController: UIDocumentInteractionControllerDelegate {
+    func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController { self }
+    func documentInteractionControllerDidEndPreview(_ controller: UIDocumentInteractionController) { docInteraction = nil }
+}
+
+// MARK: - 문서 피커 (+ → 파일 → PDF 등) — 청크 base64 브리지로 웹 handleFileSend 경로
+extension ViewController: UIDocumentPickerDelegate {
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else {
+            showNativeToast("파일을 읽지 못했습니다")
+            return
+        }
+        if data.count > 30 * 1024 * 1024 {
+            showNativeToast("파일은 30MB 이하만 전송할 수 있습니다")
+            return
+        }
+        let name = url.lastPathComponent.isEmpty ? "file" : url.lastPathComponent
+        let mime = UTType(filenameExtension: url.pathExtension.lowercased())?.preferredMIMEType ?? "application/octet-stream"
+        sendNativeMediaToWeb(data: data, mime: mime, name: name)
     }
 }
 

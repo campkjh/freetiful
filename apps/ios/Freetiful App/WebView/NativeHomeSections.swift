@@ -6,6 +6,7 @@ struct HomeBestPro {
     let name: String
     let image: String
     let careerYears: Int
+    var youtubeUrl: String = ""
 }
 struct HomeProCard {
     let id: String
@@ -14,6 +15,70 @@ struct HomeProCard {
     let careerYears: Int
     let tags: [String]
     let isPartner: Bool
+    var youtubeUrl: String = ""
+}
+
+// MARK: - 유튜브 썸네일 오버레이 (웹 HomeProTabCard 우하단 배지 동등)
+// 웹 extractYoutubeId(main/page.tsx)와 동일 파싱 — 여러 URL 개행 조인 대응, 첫 유효 id 사용.
+func firstYoutubeThumbURL(_ raw: String) -> String? {
+    guard !raw.isEmpty else { return nil }
+    for line in raw.split(whereSeparator: { $0 == "\n" || $0 == "," }) {
+        let url = line.trimmingCharacters(in: .whitespaces)
+        for marker in ["v=", "youtu.be/", "embed/", "shorts/", "live/"] {
+            if let r = url.range(of: marker) {
+                let id = url[r.upperBound...].prefix { $0 != "&" && $0 != "?" && $0 != "/" && $0 != "#" }
+                if id.count >= 8 { return "https://img.youtube.com/vi/\(id)/mqdefault.jpg" }
+            }
+        }
+    }
+    return nil
+}
+
+/// 프로필 사진(anchorView) 우하단에 유튜브 썸네일 배지를 얹는다. youtubeUrl 이 없으면 no-op.
+@discardableResult
+func addYoutubeBadge(to container: UIView, over anchorView: UIView, youtubeUrl: String) -> UIView? {
+    guard let thumb = firstYoutubeThumbURL(youtubeUrl) else { return nil }
+    let badge = UIView()
+    badge.translatesAutoresizingMaskIntoConstraints = false
+    badge.backgroundColor = .black
+    badge.layer.cornerRadius = 7
+    badge.layer.cornerCurve = .continuous
+    badge.clipsToBounds = true
+    badge.layer.borderWidth = 1.5
+    badge.layer.borderColor = UIColor.white.withAlphaComponent(0.95).cgColor
+    badge.isUserInteractionEnabled = false
+    let tv = UIImageView()
+    tv.translatesAutoresizingMaskIntoConstraints = false
+    tv.contentMode = .scaleAspectFill
+    tv.clipsToBounds = true
+    badge.addSubview(tv)
+    NativeChatImageLoader.load(thumb, into: tv, fallback: nil)
+    let play = UILabel()
+    play.text = "▶"
+    play.font = .systemFont(ofSize: 8, weight: .bold)
+    play.textColor = UIColor(white: 0.15, alpha: 1)
+    play.textAlignment = .center
+    play.backgroundColor = UIColor.white.withAlphaComponent(0.92)
+    play.layer.cornerRadius = 8
+    play.clipsToBounds = true
+    play.translatesAutoresizingMaskIntoConstraints = false
+    badge.addSubview(play)
+    container.addSubview(badge)
+    NSLayoutConstraint.activate([
+        tv.topAnchor.constraint(equalTo: badge.topAnchor),
+        tv.bottomAnchor.constraint(equalTo: badge.bottomAnchor),
+        tv.leadingAnchor.constraint(equalTo: badge.leadingAnchor),
+        tv.trailingAnchor.constraint(equalTo: badge.trailingAnchor),
+        badge.trailingAnchor.constraint(equalTo: anchorView.trailingAnchor, constant: -5),
+        badge.bottomAnchor.constraint(equalTo: anchorView.bottomAnchor, constant: -5),
+        badge.widthAnchor.constraint(equalTo: anchorView.widthAnchor, multiplier: 0.46),
+        badge.heightAnchor.constraint(equalTo: badge.widthAnchor, multiplier: 9.0 / 16.0),
+        play.centerXAnchor.constraint(equalTo: badge.centerXAnchor),
+        play.centerYAnchor.constraint(equalTo: badge.centerYAnchor),
+        play.widthAnchor.constraint(equalToConstant: 16),
+        play.heightAnchor.constraint(equalToConstant: 16),
+    ])
+    return badge
 }
 struct HomeBusiness {
     let id: String
@@ -456,6 +521,8 @@ final class HomeBestPodium: UIView {
         img.backgroundColor = UIColor(white: 0.93, alpha: 1)
         imgWrap.addSubview(img)
         NativeChatImageLoader.load(pro.image, into: img, fallback: NativeChatHeaderView.avatarPlaceholder)
+        // 유튜브 영상 썸네일 배지 (웹 동등)
+        addYoutubeBadge(to: imgWrap, over: img, youtubeUrl: pro.youtubeUrl)
 
         // 순위 메달 (원본 SVG) — 이미지 하단 중앙
         let medal = UIImageView(image: UIImage(named: "best-medal-\(rank)"))
@@ -710,6 +777,8 @@ final class HomeProGridCard: UIControl {
         img.isUserInteractionEnabled = false
         addSubview(img)
         NativeChatImageLoader.load(item.image, into: img, fallback: NativeChatHeaderView.avatarPlaceholder)
+        // 유튜브 영상 썸네일 배지 (웹 동등)
+        addYoutubeBadge(to: self, over: img, youtubeUrl: item.youtubeUrl)
 
         let name = UILabel()
         name.text = "사회자 \(item.name)"

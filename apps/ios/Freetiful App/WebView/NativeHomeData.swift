@@ -253,15 +253,19 @@ enum NativeHomeData {
                     reviewCount: intVal(p["reviewCount"]),
                     intro: (p["shortIntro"] as? String) ?? (p["mainExperience"] as? String) ?? "",
                     careerYears: intVal(p["careerYears"]),
-                    tags: Array(strArr(p["tags"]).prefix(3)))
+                    tags: Array(strArr(p["tags"]).prefix(3)),
+                    youtubeUrl: (p["youtubeUrl"] as? String) ?? "")
     }
     private static func bestPro(_ p: [String: Any]) -> HomeBestPro {
-        HomeBestPro(id: (p["id"] as? String) ?? "", name: proName(p), image: proImg(p), careerYears: intVal(p["careerYears"]))
+        HomeBestPro(id: (p["id"] as? String) ?? "", name: proName(p), image: proImg(p),
+                    careerYears: intVal(p["careerYears"]),
+                    youtubeUrl: (p["youtubeUrl"] as? String) ?? "")
     }
     private static func proCard(_ p: [String: Any]) -> HomeProCard {
         HomeProCard(id: (p["id"] as? String) ?? "", name: proName(p), image: proImg(p),
                     careerYears: intVal(p["careerYears"]), tags: Array(strArr(p["tags"]).prefix(3)),
-                    isPartner: (p["isFeatured"] as? Bool) ?? (p["showPartnersLogo"] as? Bool) ?? false)
+                    isPartner: (p["isFeatured"] as? Bool) ?? (p["showPartnersLogo"] as? Bool) ?? false,
+                    youtubeUrl: (p["youtubeUrl"] as? String) ?? "")
     }
     private static func bizMatches(_ b: [String: Any], _ cat: String) -> Bool {
         let cats = (b["categories"] as? [[String: Any]])?.compactMap { ($0["category"] as? [String: Any])?["name"] as? String } ?? strArr(b["categories"])

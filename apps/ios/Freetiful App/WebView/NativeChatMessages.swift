@@ -75,8 +75,8 @@ protocol NativeChatMessagesDelegate: AnyObject {
     // 업로드 실패 미디어 — 재전송 / 삭제
     func chatMessagesRetryMedia(_ id: String)
     func chatMessagesDeleteMedia(_ id: String)
-    // 파일 탭 → 열기(Safari)
-    func chatMessagesFileTap(_ url: String)
+    // 파일 탭 → 다운로드 후 미리보기/공유 (fileName 으로 저장돼 PDF 등 타입 인식)
+    func chatMessagesFileTap(_ url: String, fileName: String)
 }
 
 // 네이티브 채팅 본문 (UITableView) — 글래스 헤더 아래 / 입력바 위
@@ -297,7 +297,7 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         if m.type == "file" {
             let cell = tableView.dequeueReusableCell(withIdentifier: "file", for: indexPath) as! NativeChatFileCell
             cell.configure(m)
-            cell.onTap = { [weak self] url in self?.delegate?.chatMessagesFileTap(url) }
+            cell.onTap = { [weak self] url, name in self?.delegate?.chatMessagesFileTap(url, fileName: name) }
             return cell
         }
         let cell = tableView.dequeueReusableCell(withIdentifier: "bubble", for: indexPath) as! NativeChatBubbleCell
@@ -892,12 +892,13 @@ final class NativeChatVideoCell: UITableViewCell {
 
 // MARK: - 파일 말풍선 셀 (문서 아이콘 + 파일명, 탭 → 열기)
 final class NativeChatFileCell: UITableViewCell {
-    var onTap: ((String) -> Void)?
+    var onTap: ((String, String) -> Void)?
     private let bubble = UIView()
     private let icon = UIImageView()
     private let nameLabel = UILabel()
     private let timeLabel = UILabel()
     private var fileURL = ""
+    private var fileDisplayName = ""
     private var leadingC: NSLayoutConstraint!
     private var trailingC: NSLayoutConstraint!
     private var timeLeadingC: NSLayoutConstraint!
@@ -962,11 +963,12 @@ final class NativeChatFileCell: UITableViewCell {
     @objc private func handleTap() {
         guard !fileURL.isEmpty else { return }
         Haptics.tap()
-        onTap?(fileURL)
+        onTap?(fileURL, fileDisplayName)
     }
 
     func configure(_ m: NativeChatMessage) {
         fileURL = m.content
+        fileDisplayName = m.fileName
         nameLabel.text = m.fileName.isEmpty ? "파일" : m.fileName
         if m.mine {
             bubble.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1)

@@ -1439,10 +1439,31 @@ export default function ChatRoomPage() {
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        download={msg.fileName || undefined}
                         className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none no-underline ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
-                        onClick={(e) => { if (expired) { e.preventDefault(); return; } if (isImageFile && href) { e.preventDefault(); setImagePreview(href); } }}
+                        onClick={async (e) => {
+                          if (expired) { e.preventDefault(); return; }
+                          if (isImageFile && href) { e.preventDefault(); setImagePreview(href); return; }
+                          if (!href) return;
+                          // href 가 cross-origin(Railway /uploads)이라 a[download] 가 무시됨 →
+                          // fetch→blob(same-origin) 으로 다운로드 강제. 실패 시 새 탭 폴백.
+                          e.preventDefault();
+                          try {
+                            const resp = await fetch(href, { credentials: 'omit' });
+                            if (!resp.ok) throw new Error(String(resp.status));
+                            const blob = await resp.blob();
+                            const objUrl = URL.createObjectURL(blob);
+                            const dl = document.createElement('a');
+                            dl.href = objUrl;
+                            dl.download = msg.fileName || 'download';
+                            document.body.appendChild(dl);
+                            dl.click();
+                            dl.remove();
+                            setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
+                          } catch {
+                            window.open(href, '_blank', 'noopener');
+                          }
+                        }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}

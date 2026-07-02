@@ -1050,6 +1050,7 @@ model UploadedFile {
   mimeType   String
   data       Bytes    // 파일 바이너리
   size       Int
+  fileName   String?  // 원본 파일명 — /uploads 서빙 시 Content-Disposition 으로 반환(다운로드 파일명/타입 인식)
   createdAt  DateTime @default(now())
 
   @@map("uploaded_files")
