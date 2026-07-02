@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { ArrowLeft, Search, RefreshCw, MessageSquare, Clock, X, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -174,6 +175,16 @@ export default function ChatConnectionsPage() {
       setHistoryMsgs([]);
     } finally { setHistoryLoading(false); }
   }, []);
+
+  // 대화 팝업 열릴 때: ESC 로 닫기 + 배경 스크롤 잠금
+  useEffect(() => {
+    if (!historyRow) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setHistoryRow(null); };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; };
+  }, [historyRow]);
 
   useEffect(() => { fetchData(1, '', '전체', { startDate: '', endDate: '' }); fetchRespStats(); /* eslint-disable-next-line */ }, []);
 
@@ -398,41 +409,57 @@ export default function ChatConnectionsPage() {
         </div>
       )}
 
-      {/* 대화 내역 모달 */}
-      {historyRow && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setHistoryRow(null)}>
-          <div className="flex max-h-[86vh] w-full max-w-[560px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2 border-b border-[#EEF1F4] px-5 py-4">
-              <MessageSquare size={18} className="text-[#3182F6]" />
-              <div className="min-w-0">
-                <p className="truncate text-[15px] font-black text-[#191F28]">{historyRow.userName} <span className="text-[#B0B8C1]">↔</span> {historyRow.proName}</p>
-                <p className="text-[11px] font-medium text-[#8B95A1]">
-                  {historyRow.responseMs != null ? `응답시간 ${fmtDuration(historyRow.responseMs)} · ` : ''}메시지 {historyRow.messageCount}개
+      {/* 대화 내역 — 전체 팝업 (document.body 로 포털: 어드민 레이아웃 밖에서 화면 전체 오버레이) */}
+      {historyRow && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-stretch justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-6" onClick={() => setHistoryRow(null)}>
+          <div
+            className="flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[90vh] sm:max-w-[860px] sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className="flex items-start gap-3 border-b border-[#EEF1F4] px-5 py-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+              <MessageSquare size={20} className="mt-0.5 shrink-0 text-[#3182F6]" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[17px] font-black text-[#191F28]">
+                  {historyRow.userName} <span className="text-[#B0B8C1]">↔</span> {historyRow.proName}
                 </p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-[#8B95A1]">
+                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${historyRow.matchType === 'multi' ? 'bg-[#EBF2FF] text-[#3182F6]' : 'bg-[#FFF1E9] text-[#F97316]'}`}>
+                    {historyRow.matchType === 'multi' ? '모두에게' : '1:1문의'}
+                  </span>
+                  {(historyRow.eventDate || historyRow.eventLabel) && (
+                    <span>{fmtEventDate(historyRow.eventDate, historyRow.eventTime)}{historyRow.eventLabel ? ` · ${historyRow.eventLabel}` : ''}</span>
+                  )}
+                  {historyRow.responseMs != null && <span>· 응답 {fmtDuration(historyRow.responseMs)}</span>}
+                  {historyRow.quotationAmount != null && <span>· 견적 {historyRow.quotationAmount.toLocaleString()}원</span>}
+                  <span>· 메시지 {historyRow.messageCount}개</span>
+                </div>
               </div>
-              <button onClick={() => setHistoryRow(null)} className="ml-auto rounded-full p-1.5 text-[#8B95A1] hover:bg-[#F2F4F6]"><X size={20} /></button>
+              <button onClick={() => setHistoryRow(null)} className="-mr-1 shrink-0 rounded-full p-2 text-[#8B95A1] transition hover:bg-[#F2F4F6]" aria-label="닫기"><X size={22} /></button>
             </div>
-            <div className="flex-1 space-y-2 overflow-y-auto bg-[#F7F8FA] px-4 py-4">
+            {/* 대화 */}
+            <div className="flex-1 space-y-3 overflow-y-auto bg-[#F7F8FA] px-4 py-5 sm:px-6" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
               {historyLoading || historyMsgs == null ? (
-                <p className="py-16 text-center text-[13px] text-[#8B95A1]">불러오는 중…</p>
+                <p className="py-20 text-center text-[14px] text-[#8B95A1]">불러오는 중…</p>
               ) : historyMsgs.length === 0 ? (
-                <p className="py-16 text-center text-[13px] text-[#8B95A1]">대화 내역이 없습니다</p>
+                <p className="py-20 text-center text-[14px] text-[#8B95A1]">대화 내역이 없습니다</p>
               ) : historyMsgs.map((m) => (
                 <div key={m.id} className={`flex ${m.fromPro ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[76%] ${m.fromPro ? 'items-end' : 'items-start'} flex flex-col`}>
-                    <span className="mb-0.5 px-1 text-[10px] font-bold text-[#B0B8C1]">{m.fromPro ? historyRow.proName : historyRow.userName}</span>
-                    <div className={`rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed ${m.fromPro ? 'bg-[#3182F6] text-white' : 'bg-white text-[#191F28] shadow-sm'}`}>
+                  <div className={`flex max-w-[80%] flex-col ${m.fromPro ? 'items-end' : 'items-start'}`}>
+                    <span className="mb-1 px-1 text-[11px] font-bold text-[#8B95A1]">{m.fromPro ? historyRow.proName : historyRow.userName}</span>
+                    <div className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed ${m.fromPro ? 'bg-[#3182F6] text-white' : 'bg-white text-[#191F28] shadow-sm'}`}>
                       {m.type === 'text' || m.type === 'system'
                         ? <span className="whitespace-pre-wrap break-words">{m.content}</span>
                         : <span className="font-semibold opacity-90">{MSG_TYPE_LABEL[m.type] || `[${m.type}]`}{m.fileName ? ` ${m.fileName}` : ''}</span>}
                     </div>
-                    <span className="mt-0.5 px-1 text-[9.5px] text-[#B0B8C1]">{fmtDate(m.createdAt)}</span>
+                    <span className="mt-1 px-1 text-[10.5px] text-[#B0B8C1]">{fmtDate(m.createdAt)}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
