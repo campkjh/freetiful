@@ -872,6 +872,95 @@ function CompanyLogoCarousel({
   );
 }
 
+// 핀치 줌/팬/더블탭 이미지 뷰어 — 전역 viewport 가 user-scalable=no 라 브라우저 확대가 막혀 있어
+// 제스처를 직접 구현. touch-action:none 으로 스크롤 개입 차단(안드 웹뷰 preventDefault 불요).
+function ZoomableImage({ src }: { src: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const g = useRef({
+    scale: 1, tx: 0, ty: 0,
+    startDist: 0, startScale: 1,
+    panX: 0, panY: 0, startTx: 0, startTy: 0, panning: false, pinching: false,
+    lastTap: 0,
+  });
+
+  const apply = () => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const s = g.current;
+    el.style.transform = `translate(${s.tx}px, ${s.ty}px) scale(${s.scale})`;
+  };
+  const clampPan = () => {
+    const el = wrapRef.current;
+    const s = g.current;
+    if (!el) return;
+    if (s.scale <= 1) { s.tx = 0; s.ty = 0; return; }
+    const maxX = (el.offsetWidth * (s.scale - 1)) / 2;
+    const maxY = (el.offsetHeight * (s.scale - 1)) / 2;
+    s.tx = Math.min(maxX, Math.max(-maxX, s.tx));
+    s.ty = Math.min(maxY, Math.max(-maxY, s.ty));
+  };
+  const dist = (t: React.TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="max-w-[95vw] max-h-[90vh]"
+      style={{ touchAction: 'none', transformOrigin: 'center center', willChange: 'transform' }}
+      onClick={(e) => e.stopPropagation()}
+      onTouchStart={(e) => {
+        const s = g.current;
+        if (e.touches.length === 2) {
+          s.pinching = true; s.panning = false;
+          s.startDist = dist(e.touches); s.startScale = s.scale;
+        } else if (e.touches.length === 1) {
+          s.panning = s.scale > 1;
+          s.panX = e.touches[0].clientX; s.panY = e.touches[0].clientY;
+          s.startTx = s.tx; s.startTy = s.ty;
+        }
+      }}
+      onTouchMove={(e) => {
+        const s = g.current;
+        if (s.pinching && e.touches.length === 2) {
+          s.scale = Math.min(4, Math.max(1, s.startScale * (dist(e.touches) / (s.startDist || 1))));
+          clampPan(); apply();
+        } else if (s.panning && e.touches.length === 1) {
+          s.tx = s.startTx + (e.touches[0].clientX - s.panX);
+          s.ty = s.startTy + (e.touches[0].clientY - s.panY);
+          clampPan(); apply();
+        }
+      }}
+      onTouchEnd={(e) => {
+        const s = g.current;
+        if (e.touches.length === 0) {
+          // 더블탭: 300ms 내 두 번 → 1x ↔ 2.5x 토글
+          const wasPinch = s.pinching;
+          const moved = Math.abs(s.tx - s.startTx) > 8 || Math.abs(s.ty - s.startTy) > 8;
+          s.pinching = false; s.panning = false;
+          if (!wasPinch && !moved) {
+            const now = Date.now();
+            if (now - s.lastTap < 300) {
+              s.scale = s.scale > 1 ? 1 : 2.5;
+              clampPan(); apply();
+              s.lastTap = 0;
+            } else {
+              s.lastTap = now;
+            }
+          }
+          if (s.scale <= 1.02) { s.scale = 1; clampPan(); apply(); }
+        } else if (e.touches.length === 1) {
+          // 핀치 → 한 손가락 남음: 팬으로 전환
+          s.pinching = false;
+          s.panning = s.scale > 1;
+          s.panX = e.touches[0].clientX; s.panY = e.touches[0].clientY;
+          s.startTx = s.tx; s.startTy = s.ty;
+        }
+      }}
+    >
+      <Image src={src} alt="" width={1200} height={1200} className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl select-none" draggable={false} />
+    </div>
+  );
+}
+
 function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   return (
     <div className="flex items-center gap-0" style={{ fontSize: size }}>
@@ -2546,11 +2635,12 @@ export default function ProDetailPage() {
         >
           <button
             onClick={() => setImageModal(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white"
+            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white"
           >
             <X size={24} />
           </button>
-          <Image src={imageModal} alt="" width={1200} height={1200} className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl" />
+          <ZoomableImage src={imageModal} />
+          <p className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/80 backdrop-blur-sm">두 손가락으로 확대 · 두 번 탭</p>
         </div>
       )}
 

@@ -5,7 +5,7 @@ import { flushSync, createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   X, Copy, Reply, Trash2, MoreVertical,
-  MapPin, FileText, Music, Smile, Plus, Search, Bell, BellOff,
+  MapPin, FileText, Smile, Plus, Search, Bell, BellOff,
   Flag, Pin, TextSelect, PinOff,
   Camera, Mic, Image as ImageIcon, Video,
   FileSignature, CreditCard, CheckCircle2, CalendarCheck,
@@ -2205,8 +2205,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
     { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
     { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
-    { icon: <FileText size={24} className="text-white" />, bg: 'bg-slate-700', label: '파일', action: () => { setShowAttach(false); pickFilesViaInput({}, (files) => { if (files[0]) handleFileSend(files[0]); }); } },
-    { icon: <Music size={24} className="text-white" />, bg: 'bg-slate-700', label: '오디오', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '🎵' }); } },
+    // 파일/오디오 첨부는 웹(안드) 시트에서 제거(2026-07-04 요청) — iOS 네이티브 시트는 별개(ViewController), 파일 수신 렌더는 유지
   ];
 
   const mentionList = chatPartner

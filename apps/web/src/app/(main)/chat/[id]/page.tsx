@@ -281,8 +281,9 @@ function ScheduleBanner({
   const location = mr?.eventLocation || raw.location || (q as any).eventLocation;
   const eventTitle = raw.eventName || q.title || mr?.eventCategory?.name || '행사 진행';
 
+  // 행사일: naive 날짜(UTC 자정 직렬화) → 기기 타임존 무관 저장값 그대로(UTC) + 연도 표기
   const dateStr = dateSource
-    ? new Date(dateSource).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+    ? new Date(dateSource).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' })
     : '일정 미정';
   const timeShort = formatEventTimeShort(timeSource);
   const timeSuffix = timeShort ? ` · ${timeShort}` : '';
@@ -1269,7 +1270,7 @@ export default function ChatRoomPage() {
                     {eventName}
                   </p>
                   <p className="mt-1 text-[12px] text-gray-500">
-                    📅 {eventDate ? `${new Date(eventDate).toLocaleDateString('ko-KR')} ${eventTime}`.trim() : '일정 미입력'}
+                    📅 {eventDate ? `${new Date(eventDate).toLocaleDateString('ko-KR', { timeZone: 'UTC' })} ${eventTime}`.trim() : '일정 미입력'}
                   </p>
                   {eventLocation && (
                     <p className="mt-0.5 text-[12px] text-gray-500 truncate">📍 {eventLocation}</p>
@@ -1796,7 +1797,7 @@ export default function ChatRoomPage() {
                   <div className="rounded-2xl bg-gray-50 px-4 py-3">
                     <p className="text-[11px] font-bold text-gray-400">일정</p>
                     <p className="mt-1 text-[14px] font-semibold text-gray-900">
-                      {eventDate ? new Date(eventDate).toLocaleDateString('ko-KR') : '미정'}
+                      {eventDate ? new Date(eventDate).toLocaleDateString('ko-KR', { timeZone: 'UTC' }) : '미정'}
                       {eventTime ? ` ${eventTime}${eventTimeEnd ? ` ~ ${eventTimeEnd}` : ''}` : ''}
                     </p>
                   </div>
